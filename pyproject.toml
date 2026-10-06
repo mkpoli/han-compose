@@ -17,6 +17,8 @@ dependencies = [
 # Training the layout, standalone and guide models (`scripts/compose_ids.py learn`, `learn-alone`)
 # and the guide's forward pass. Drawing does not need it.
 train = ["torch>=2.14"]
+# The guide's forward pass (`COMPOSE_GUIDE`): drawing without a guide does not need it.
+guide = ["onnxruntime>=1.20"]
 
 [dependency-groups]
 dev = ["pytest>=8"]

@@ -1,6 +1,6 @@
 # IDS composer: goals and open cases
 
-`glyph_atlas.compose` draws a character Unicode lacks from its Ideographic Description Sequence in
+`han_compose` draws a character Unicode lacks from its Ideographic Description Sequence in
 GenZui Sans. The goal is a drawing a reader takes for a character the type designer drew. Each
 target below is measured by `scripts/compose_ids.py bench` on the font's own encoded kanji, redrawn
 from their BabelStone sequences with nothing taken from the character itself; the plain way to
@@ -13,17 +13,24 @@ and the best parts any host offers 0.81: layout is the larger remaining loss, st
 
 | Measure | Set | Now | Target |
 |---|---|---|---|
-| Ink overlap with the real glyph (intersection over union, 96 px), mean | 1,981 compound jōyō kanji | 0.700 | 0.75 |
-| Ink overlap, tenth percentile | same | 0.476 | 0.55 |
-| Outline length within 15% of the real glyph's (no stroke missing or added) | same | 93.8% | 99.5% |
-| Drawn at all | same | 1,968 of 1,981 | all |
-| Stroke width against the real glyph, median, across x and across y | same | 0.998, 1.001 | within 0.97–1.03 |
+| Ink overlap with the real glyph (intersection over union, 96 px), mean | 1,981 compound jōyō kanji | 0.720 | 0.75 |
+| the same, with the guide pass | same | 0.738 | 0.75 |
+| Ink overlap, tenth percentile | same | 0.537 (0.591 with the guide) | 0.55 |
+| Outline length within 15% of the real glyph's (no stroke missing or added) | same | 95.7% | 99.5% |
+| Drawn at all | same | 1,981 of 1,981 | all |
+| Stroke width against the real glyph, median, across x and across y | same | 0.998, 1.003 | within 0.97–1.03 |
 | Facing gap between neighbouring parts within the 5–95% range of drawn characters | same | not yet measured | 99% |
 | Drawn at all | distinct HDIC headword sequences: KRM 3,029, TSJ 356, KTB 9 | 2,997, 355, 9 (all failures ⿻) | all |
 | Preferred over zi.tools by a reviewer, side by side | 96 KRM headwords | not yet judged | 80% |
 
 ## Method
 
+- A last pass moves each part toward a learned guide's ink (`compose_guide`): a U-Net trained on
+  thousands of compound characters the font draws, given the composer's draft, the operands' own
+  glyphs and the operator, and asked for the real glyph. Its image is a better map of where strokes
+  go than the draft, and is never drawn. Each part moves at most 24 units and scales at most 10%
+  about its centre, so every outline stays the font's own. Three networks averaged, run through
+  ONNX Runtime (`COMPOSE_GUIDE`); the jōyō kanji were held out of its training.
 - A layout comes from the three drawn characters of the same structure whose operands are most
   like the target's, averaged; at the top level in the em, where the designer placed them.
 - A part comes from a character that draws it in the same place, in the positional form Japanese
@@ -61,9 +68,9 @@ distance picked as well as the current order (0.835 against 0.834 per part, held
 predicted from the same knowledge scored below none (0.720 against 0.724 on 299 two-part kanji),
 as did a glyph-image network used to steer part choice and placement (+0.004) or to steer
 that warp (0.730 against 0.724). The learned
-layout's boxes lose a further 0.04–0.10 to these. Reusing drawn parts therefore tops out near
-0.72 overall; the 0.75 target needs parts reshaped to their new company, which the font does not
-show how to do.
+layout's boxes lose a further 0.04–0.10 to these. Reusing drawn parts on their own tops out near
+0.72; the guide pass moves them toward where a learned image puts strokes and reaches 0.738, which
+is still short of 0.75.
 
 ## Next mechanisms
 

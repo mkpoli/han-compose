@@ -628,6 +628,8 @@ class Composer:
     #: Whether an encoded character redrawn without its glyph that the learned layout cannot place
     #: whole from hosts is taken whole from where other characters draw it; an atomic one always is.
     reuse: bool = True
+    #: A `compose_guide.Guide` whose ink each stroke group is nudged toward at the end, when set.
+    guide: object | None = None
     _expanding: set[str] = field(default_factory=set, init=False, repr=False)
     _any_overlays: list | None = field(default=None, init=False, repr=False)
     _inks: dict[str, float] = field(default_factory=dict, init=False, repr=False)
@@ -1034,6 +1036,8 @@ class Composer:
                 placed = [alone]
         if self.weighted:
             self._balance(placed)
+        if self.guide is not None:
+            placed = self.guide.fit(self, sequence, placed)
         return placed
 
     def _balance(self, placed: list[Placed]) -> None:

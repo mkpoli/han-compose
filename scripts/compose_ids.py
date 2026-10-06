@@ -44,6 +44,11 @@ def _composer(**options) -> compose.Composer:
     if _layout_path().exists():
         composer.layout = compose_layout.LayoutModel.load(_layout_path())
     composer.kvg = kanjivg_cuts.Cutter(composer)
+    if os.environ.get("COMPOSE_GUIDE"):
+        # A folder of guide networks (`compose_guide`): the last pass nudges strokes toward their ink.
+        from han_compose import compose_guide
+
+        composer.guide = compose_guide.Guide.load(Path(os.environ["COMPOSE_GUIDE"]))
     alone = cache_root() / "compose" / compose_standalone.STANDALONE_FILE
     if alone.exists():
         composer.standalone = compose_standalone.StandaloneModel.load(alone)
