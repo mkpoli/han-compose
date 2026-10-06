@@ -31,9 +31,9 @@ EM_BOX = (0.0, C.ASCENT - C.EM, C.EM, C.ASCENT)
 #: most this many units, tried in `STEPS` steps each way.
 MOVE = 0.25
 MOVE_UNITS = 24.0
-STEPS = 2
+STEPS = 3
 #: The scales tried about a group's centre, along each axis.
-SCALE = (0.9, 1.0, 1.1)
+SCALE = (0.85, 0.925, 1.0, 1.075, 1.15)
 GUIDE_DIR = "guide-v1"
 #: What moves as one: each placed part with its strokes joined ("part"), or each stroke group ("stroke").
 LEVEL = "stroke"
