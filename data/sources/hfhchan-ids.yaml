@@ -1,0 +1,18 @@
+id: hfhchan-ids
+name: hfhchan/ids (Ideographic Description Sequences)
+publisher: Henry Chan (hfhchan)
+kind: reference-table
+url: https://github.com/hfhchan/ids
+version: "v1.0.2, ids-20240112.txt (repository at 0a25893fe8ddc56beae72eeebd988a2f20aaf7e0)"
+licence: MIT
+licence_evidence: https://github.com/hfhchan/ids/blob/0a25893fe8ddc56beae72eeebd988a2f20aaf7e0/LICENSE
+attribution: Copyright (c) 2021 Henry Chan, hfhchan/ids
+access:
+  file: https://github.com/hfhchan/ids/releases/download/v1.0.2/ids-20240112.txt
+format:
+  line: "U+XXXX<TAB>char<TAB>IDS[<TAB>IDS …]; an entry without a description operator names the character itself, or a variant it is written as"
+notes:
+  - "The README states the decomposition strategy: characters that are separate productive components are not decomposed (王 is not ⿱一土). The atlas reads that as its list of atomic characters: a character whose entry has no description operator and names itself, or a variant that is atomic in turn."
+  - The sequences follow the IRG principles and partly come from glyphs made under GlyphWiki's hkcs namespace; the atlas uses only which characters the file leaves undecomposed, never its sequences.
+  - Its forms are Hong Kong ones; a Japanese form mapped to a traditional variant that the file does decompose (説 to 說) is not atomic.
+checked: 2026-10-05

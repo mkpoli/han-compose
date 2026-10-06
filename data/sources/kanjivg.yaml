@@ -1,0 +1,18 @@
+id: kanjivg
+name: KanjiVG (stroke-order and component data for Japanese kanji)
+publisher: Ulrich Apel and contributors
+kind: reference-table
+url: https://kanjivg.tagaini.net/
+version: "release r20260714, kanjivg-20260714.xml.gz"
+licence: CC BY-SA 3.0
+licence_evidence: https://github.com/KanjiVG/kanjivg/blob/r20260714/COPYING
+attribution: "KanjiVG, Copyright (C) 2009-2013 Ulrich Apel, CC BY-SA 3.0, https://kanjivg.tagaini.net/"
+access:
+  file: https://github.com/KanjiVG/kanjivg/releases/download/r20260714/kanjivg-20260714.xml.gz
+format:
+  file: "one <kanji> element per character; strokes as SVG centreline paths in a 109 × 109 box, nested in <g> groups named by the component they form (kvg:element) and where it stands (kvg:position)"
+notes:
+  - "The composer (`han_compose.kanjivg_cuts`) reads which strokes form each component and matches them to the outlines of a font glyph, so a host character is cut into its operands along KanjiVG's groups. The file is fetched at this release and checked against its SHA-256; nothing of it is committed."
+  - "Glyphs the composer draws from such cuts are adaptations of KanjiVG's component data and are shared alike under CC BY-SA, with the 3.0 notice kept."
+  - "KanjiVG describes the forms of Japanese school kanji; its groups follow Japanese stroke order and component analysis, which can differ from the IDS the composer is given."
+checked: 2026-10-06
