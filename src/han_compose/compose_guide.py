@@ -36,7 +36,7 @@ STEPS = 2
 SCALE = (0.9, 1.0, 1.1)
 GUIDE_DIR = "guide-v1"
 #: What moves as one: each placed part with its strokes joined ("part"), or each stroke group ("stroke").
-LEVEL = "part"
+LEVEL = "stroke"
 
 
 @dataclass

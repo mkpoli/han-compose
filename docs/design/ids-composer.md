@@ -14,8 +14,8 @@ and the best parts any host offers 0.81: layout is the larger remaining loss, st
 | Measure | Set | Now | Target |
 |---|---|---|---|
 | Ink overlap with the real glyph (intersection over union, 96 px), mean | 1,981 compound jōyō kanji | 0.720 | 0.75 |
-| the same, with the guide pass | same | 0.738 | 0.75 |
-| Ink overlap, tenth percentile | same | 0.537 (0.591 with the guide) | 0.55 |
+| the same, with the guide pass | same | 0.743 | 0.75 |
+| Ink overlap, tenth percentile | same | 0.537 (0.596 with the guide) | 0.55 |
 | Outline length within 15% of the real glyph's (no stroke missing or added) | same | 95.7% | 99.5% |
 | Drawn at all | same | 1,981 of 1,981 | all |
 | Stroke width against the real glyph, median, across x and across y | same | 0.998, 1.003 | within 0.97–1.03 |
@@ -29,7 +29,8 @@ and the best parts any host offers 0.81: layout is the larger remaining loss, st
   thousands of compound characters the font draws, given the composer's draft, the operands' own
   glyphs and the operator, and asked for the real glyph. Its image is a better map of where strokes
   go than the draft, and is never drawn. Each part moves at most 24 units and scales at most 10%
-  about its centre, so every outline stays the font's own. Three networks averaged, run through
+  about its centre, so every outline stays the font's own. Each stroke group moves on its own
+  (`LEVEL`), which beats moving a part whole (0.743 against 0.738). Three networks averaged, run through
   ONNX Runtime (`COMPOSE_GUIDE`); the jōyō kanji were held out of its training.
 - A layout comes from the three drawn characters of the same structure whose operands are most
   like the target's, averaged; at the top level in the em, where the designer placed them.
@@ -69,7 +70,7 @@ predicted from the same knowledge scored below none (0.720 against 0.724 on 299 
 as did a glyph-image network used to steer part choice and placement (+0.004) or to steer
 that warp (0.730 against 0.724). The learned
 layout's boxes lose a further 0.04–0.10 to these. Reusing drawn parts on their own tops out near
-0.72; the guide pass moves them toward where a learned image puts strokes and reaches 0.738, which
+0.72; the guide pass moves them toward where a learned image puts strokes and reaches 0.743, which
 is still short of 0.75.
 
 ## Next mechanisms
