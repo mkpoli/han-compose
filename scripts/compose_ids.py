@@ -49,6 +49,7 @@ def _composer(**options) -> compose.Composer:
         from han_compose import compose_guide
 
         composer.guide = compose_guide.Guide.load(Path(os.environ["COMPOSE_GUIDE"]))
+        composer.choose = bool(os.environ.get("COMPOSE_CHOOSE"))
     alone = cache_root() / "compose" / compose_standalone.STANDALONE_FILE
     if alone.exists():
         composer.standalone = compose_standalone.StandaloneModel.load(alone)

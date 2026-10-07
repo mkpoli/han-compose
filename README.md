@@ -30,7 +30,12 @@ uv run --extra train scripts/compose_ids.py learn
 uv run --extra train scripts/compose_ids.py learn-alone
 ```
 
+Drawing with the guide needs `onnxruntime`, and training needs `torch`. `uv sync --all-extras --group dev`
+keeps both: syncing one extra alone drops the other.
+
 Fonts download to `cache/fonts/` on first use. `$HAN_COMPOSE_CACHE` points the cache elsewhere.
+`COMPOSE_GUIDE` points at a folder of `guide-*.onnx`; `COMPOSE_CHOOSE=1` also takes whichever draws
+better of a character's composition and its whole form.
 
 ## Layout
 

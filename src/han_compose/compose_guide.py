@@ -63,6 +63,12 @@ class Guide:
         op = np.array([OPS.index(sequence[0]) if sequence[0] in OPS else 0], dtype=np.int64)
         return np.mean([s.run(None, {"draft": x, "op": op})[0][0] for s in self.sessions], axis=0)
 
+    def score(self, composer: C.Composer, sequence: str, placed: list[C.Placed]) -> float:
+        """How much of `placed`'s ink sits where the guide puts ink for `sequence`: what `fit` raises,
+        so it ranks one drawing against another."""
+        gain = self.ink(composer, sequence, placed) - 0.5
+        return float((C.raster(placed, SIZE) * gain).sum())
+
     def fit(self, composer: C.Composer, sequence: str, placed: list[C.Placed]) -> list[C.Placed]:
         """`placed` with each stroke group moved toward the guide's ink."""
         gain = self.ink(composer, sequence, placed) - 0.5

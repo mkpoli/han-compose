@@ -630,6 +630,8 @@ class Composer:
     reuse: bool = True
     #: A `compose_guide.Guide` whose ink each stroke group is nudged toward at the end, when set.
     guide: object | None = None
+    #: With a guide, take whichever draws better of a character's composition and its whole form.
+    choose: bool = False
     _expanding: set[str] = field(default_factory=set, init=False, repr=False)
     _any_overlays: list | None = field(default=None, init=False, repr=False)
     _inks: dict[str, float] = field(default_factory=dict, init=False, repr=False)
@@ -1026,14 +1028,23 @@ class Composer:
         tree = parse(sequence)
         placed = self._node(tree, self.face, at_root=True)
         encoded = self.by_sequence.get(key(tree)) if isinstance(tree, tuple) else None
-        if self.reuse and encoded in self.exclude and not all(p.origin.startswith(("learned", "alone")) for p in placed):
-            # A character redrawn without its glyph whose parts could not all be placed by the
-            # learned layout from hosts: whole, from another character that draws it, if one does
-            # (戒 from 誡). Measured on the jōyō kanji, this helps where the composer fell back on
-            # teachers, bare glyphs or instances, and hurts where the learned layout placed every part.
-            alone = self._alone(encoded)
-            if alone is not None:
-                placed = [alone]
+        alone = self._alone(encoded) if self.reuse and encoded in self.exclude else None
+        if alone is not None:
+            # A character redrawn without its glyph also exists whole, where other characters draw it
+            # (戒 from 誡). `choose` asks the guide which of the two drawings is the better one;
+            # without a guide the old rule stands, taking the whole one only where the learned layout
+            # could not place every part.
+            drawn = [alone]
+            if self.guide is not None and self.choose:
+                cands = []
+                for each in (placed, drawn):
+                    work = list(each)
+                    if self.weighted:
+                        self._balance(work)
+                    cands.append(self.guide.fit(self, sequence, work))
+                return max(cands, key=lambda c: self.guide.score(self, sequence, c))
+            if not all(p.origin.startswith(("learned", "alone")) for p in placed):
+                placed = drawn
         if self.weighted:
             self._balance(placed)
         if self.guide is not None:
