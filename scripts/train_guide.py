@@ -77,7 +77,7 @@ def _draw(char: str) -> dict | None:  # pragma: no cover - runs in each worker
 
 
 def samples(take: int = 20000, workers: int = 4, out: Path | None = None) -> None:
-    """Draw `take` compound characters the font has into `cache/compose/guide-samples.npz`."""
+    """Draw `take` compound characters the font has into shards `cache/compose/guide-samples-part*.npz`."""
     c = _composer()
     jōyō = set(C.japanese_characters())
     chars = sorted(
@@ -93,10 +93,9 @@ def samples(take: int = 20000, workers: int = 4, out: Path | None = None) -> Non
     drawn = 0
 
     def flush() -> None:
-        nonlocal held
+        nonlocal held, parts
         if not held:
             return
-        nonlocal parts
         parts += 1
         np.savez_compressed(
             path.with_name(f"{path.stem}-part{parts:03d}.npz"),
@@ -160,11 +159,13 @@ def _model(width: int):
 
 def train(width: int = 48, epochs: int = 30, seeds: int = 3, batch: int = 64,
           samples_file: Path | None = None, out: Path | None = None) -> None:
-    """Fit `seeds` U-Nets on `guide-samples.npz`, each with its own seed."""
+    """Fit `seeds` U-Nets on the `guide-samples-part*.npz` shards, each with its own seed."""
     import torch
     import torch.nn.functional as F
 
-    data = np.load(samples_file or cache_root() / "compose" / "guide-samples.npz")
+    base = samples_file or cache_root() / "compose" / "guide-samples.npz"
+    shards = [np.load(f) for f in sorted(base.parent.glob(f"{base.stem}-part*.npz"))]
+    data = {k: np.concatenate([d[k] for d in shards]) for k in ("draft", "ops", "op", "truth")}
     drafts = np.unpackbits(data["draft"], axis=-1)[..., :G.SIZE].astype(np.uint8)
     ops = np.unpackbits(data["ops"], axis=-1)[..., :G.SIZE].astype(np.uint8)
     truth = np.unpackbits(data["truth"], axis=-1)[..., :G.SIZE].astype(np.uint8)
@@ -205,7 +206,7 @@ def train(width: int = 48, epochs: int = 30, seeds: int = 3, batch: int = 64,
                 sched.step()
             net.eval()
             with torch.no_grad():
-                made = torch.cat([torch.sigmoid(net(d, o)) for d, o, _ in batches(val_idx)]) > 0
+                made = torch.cat([net(d, o) for d, o, _ in batches(val_idx)]) > 0
             score = (made & held).sum((1, 2)).float().div(
                 (made | held).sum((1, 2)).clamp(min=1).float()).mean().item()
             typer.echo(f"seed {seed} epoch {epoch + 1}: val IoU {score:.3f}")
@@ -222,14 +223,25 @@ def export(width: int = 48, weights: Path | None = None, out: Path | None = None
     folder = weights or cache_root() / "compose" / "guide-weights"
     target = out or cache_root() / "compose" / "guide-v1"
     target.mkdir(parents=True, exist_ok=True)
+    class Ink(torch.nn.Module):
+        """The network's logits as the 0-to-1 ink `Guide.ink` reads."""
+
+        def __init__(self, net: torch.nn.Module) -> None:
+            super().__init__()
+            self.net = net
+
+        def forward(self, draft, op):
+            return torch.sigmoid(self.net(draft, op))
+
     for name in sorted(folder.glob("guide-*.pt")):
         net = _model(width)
         net.load_state_dict(torch.load(name, map_location="cpu"))
         net.eval()
         draft = torch.zeros(1, 3, G.SIZE, G.SIZE)
         op = torch.zeros(1, dtype=torch.int64)
-        torch.onnx.export(net, (draft, op), target / f"{name.stem}.onnx",
-                          input_names=["draft", "op"], output_names=["ink"], opset_version=17)
+        torch.onnx.export(Ink(net), (draft, op), target / f"{name.stem}.onnx", dynamo=False,
+                          input_names=["draft", "op"], output_names=["ink"], opset_version=17,
+                          dynamic_axes={"draft": {0: "n"}, "op": {0: "n"}, "ink": {0: "n"}})
         typer.echo(f"{name.name} -> {target / (name.stem + '.onnx')}")
 
 
