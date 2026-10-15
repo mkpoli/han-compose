@@ -76,14 +76,15 @@ def _draw(char: str) -> dict | None:  # pragma: no cover - runs in each worker
             "op": G.OPS.index(tree[0]), "truth": truth}
 
 
-def samples(take: int = 20000, workers: int = 4, out: Path | None = None) -> None:
-    """Draw `take` compound characters the font has into shards `cache/compose/guide-samples-part*.npz`."""
+def samples(take: int = 20000, start: int = 0, workers: int = 4, out: Path | None = None) -> None:
+    """Draw `take` compound characters the font has, from the `start`th in code point order, into
+    shards `cache/compose/guide-samples-part*.npz`."""
     c = _composer()
     jōyō = set(C.japanese_characters())
     chars = sorted(
         ch for ch, seq in c.sequences.items()
         if ch not in jōyō and c.font.has(ch) and len(seq) > 1 and seq[0] in G.OPS
-    )[:take]
+    )[start:start + take]
     typer.echo(f"{len(chars)} characters to draw")
     path = out or cache_root() / "compose" / "guide-samples.npz"
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -98,7 +99,7 @@ def samples(take: int = 20000, workers: int = 4, out: Path | None = None) -> Non
             return
         parts += 1
         np.savez_compressed(
-            path.with_name(f"{path.stem}-part{parts:03d}.npz"),
+            path.with_name(f"{path.stem}-part{start:06d}-{parts:03d}.npz"),
             draft=np.packbits(np.stack([r["draft"] for r in held]), axis=-1),
             ops=np.packbits(np.stack([r["ops"] for r in held]), axis=-1),
             op=np.array([r["op"] for r in held], dtype=np.int8),
