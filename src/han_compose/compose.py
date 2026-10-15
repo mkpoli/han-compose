@@ -1031,7 +1031,7 @@ class Composer:
             # learned layout from hosts: whole, from another character that draws it, if one does
             # (戒 from 誡). Measured on the jōyō kanji, this helps where the composer fell back on
             # teachers, bare glyphs or instances, and hurts where the learned layout placed every part.
-            alone = self._alone(encoded)
+            alone = self._alone(encoded, fallback=self._unhosted(tree))
             if alone is not None:
                 placed = [alone]
         if self.weighted:
@@ -1427,7 +1427,24 @@ class Composer:
         _, piece, char = best
         return Placed(piece, piece.box, region, native=self.ink(char), origin=f"instance {char}")
 
-    def _alone(self, char: str) -> Placed | None:
+    def _unhosted(self, tree: Node) -> bool:
+        """Whether an operand of `tree` that is not held inside another (the frame of 看, not the 井 of
+        囲) is drawn in its place by no character of the main font but the one redrawn: such a
+        character is better taken whole from the fallback font than built around a bare glyph."""
+        if not isinstance(tree, tuple):
+            return False
+        hosts, _ = self._index
+        op = tree[0]
+        for i, child in enumerate(tree[1:]):
+            if op in ENCLOSE and i == 1:
+                continue
+            place = slot(op, i)
+            if not any(char not in self.exclude and self.font.own(char)
+                       for written in self.alternatives(child, place) for char, *_ in hosts.get((place, written), [])):
+                return True
+        return False
+
+    def _alone(self, char: str, fallback: bool = False) -> Placed | None:
         """`char` taken whole from another character that holds it, on the right, below or inside
         (on the left or on top it takes a positional form, `SIDED_PLACES`). Of its instances, those with
         the stroke count most of them have, and of these the one whose shape is closest to their
@@ -1459,11 +1476,11 @@ class Composer:
                         found.append((piece, box, host_char))
             if any(self.font.own(f[2]) for f in found):
                 break
-        # Every instance says where the character stands alone; only the variable font's are drawn:
-        # a fallback font's glyph has one weight, its own, and enlarged its strokes stay heavier
-        # (囲 from Plangothic's 𡈇).
+        # Every instance says where the character stands alone; only the variable font's are drawn,
+        # unless `fallback`: a fallback glyph's strokes, enlarged, come out heavier than weighting
+        # brings back (囲 from Plangothic's 𡈇).
         boxes = [b for _, b, _ in found]
-        found = [f for f in found if self.font.own(f[2])]
+        found = [f for f in found if self.font.own(f[2])] or (found if fallback else [])
         if not found:
             return None
         counts = Counter(len(p.contours) for p, _, _ in found)
