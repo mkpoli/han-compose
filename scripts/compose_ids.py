@@ -62,6 +62,29 @@ def draw(sequence: str) -> None:
     print(f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {compose.EM} {compose.EM}"><path d="{path}"/></svg>')
 
 
+@app.command("draw-many")
+def draw_many(sequences: Path, out: Path) -> None:
+    """Draw every sequence in a file (one a line) into `out` as `<sha256 of its NFC form>.svg`, the
+    name a site stores a drawing under. A sequence that cannot be drawn is listed and skipped."""
+    import hashlib
+    import unicodedata
+
+    composer = _composer()
+    out.mkdir(parents=True, exist_ok=True)
+    for line in sequences.read_text(encoding="utf-8").splitlines():
+        sequence = unicodedata.normalize("NFC", line.strip())
+        if not sequence:
+            continue
+        try:
+            path = compose.svg_path(composer.compose(sequence))
+        except (LookupError, ValueError) as error:
+            print(f"{sequence}\tnot drawn: {error}")
+            continue
+        name = hashlib.sha256(sequence.encode()).hexdigest() + ".svg"
+        (out / name).write_text(f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {compose.EM} {compose.EM}"><path d="{path}"/></svg>', encoding="utf-8")
+        print(f"{sequence}\t{name}")
+
+
 UNIHAN_URL = "https://www.unicode.org/Public/16.0.0/ucd/Unihan.zip"
 UNIHAN_SHA256 = "b8f000df69de7828d21326a2ffea462b04bc7560022989f7cc704f10521ef3e0"
 
