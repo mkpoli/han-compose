@@ -32,7 +32,7 @@ import math
 import re
 from collections import Counter
 from dataclasses import dataclass, field
-from functools import cached_property
+from functools import cache, cached_property
 from itertools import combinations, pairwise
 from pathlib import Path
 
@@ -1778,6 +1778,12 @@ def svg_path(placed: list[Placed]) -> str:
     return "".join(out)
 
 
+@cache
+def _steps(steps: int) -> np.ndarray:
+    """The positions along a quadratic segment at which `_rings` samples it, the start left out."""
+    return np.linspace(0, 1, steps + 1)[1:, None]
+
+
 def _rings(contours: list[Contour], points: list[np.ndarray], steps: int = 6) -> list[np.ndarray]:
     rings = []
     for contour, pts in zip(contours, points):
@@ -1788,8 +1794,8 @@ def _rings(contours: list[Contour], points: list[np.ndarray], steps: int = 6) ->
                 ring.append(last)
             else:
                 off, on = seg
-                for t in np.linspace(0, 1, steps + 1)[1:]:
-                    ring.append((1 - t) ** 2 * last + 2 * (1 - t) * t * off + t ** 2 * on)
+                t = _steps(steps)
+                ring.extend((1 - t) ** 2 * last + 2 * (1 - t) * t * off + t ** 2 * on)
                 last = on
         if len(ring) >= 3:
             rings.append(np.array(ring))
@@ -1805,18 +1811,18 @@ def fill(rings: list[np.ndarray], size: int, box: Box) -> np.ndarray:
         return np.zeros((size, size), bool)
     a = np.concatenate(rings)
     b = np.concatenate([np.roll(r, -1, axis=0) for r in rings])
-    winding = np.zeros((size, size), np.int32)
-    for row, y in enumerate(ys):
-        up = (a[:, 1] <= y) & (b[:, 1] > y)
-        down = (a[:, 1] > y) & (b[:, 1] <= y)
-        crossing = up | down
-        if not crossing.any():
-            continue
-        p, q = a[crossing], b[crossing]
-        x = p[:, 0] + (y - p[:, 1]) * (q[:, 0] - p[:, 0]) / (q[:, 1] - p[:, 1])
-        sign = np.where(up[crossing], 1, -1)
-        winding[row] = (sign[:, None] * (x[:, None] < xs[None, :])).sum(axis=0)
-    return winding != 0
+    # Every row's crossings at once: an edge crossing row r at x adds its direction to the winding
+    # of every pixel centre right of x, which a running sum along the row spreads from x on.
+    y = ys[:, None]
+    up = (a[None, :, 1] <= y) & (b[None, :, 1] > y)
+    rows, edges = np.nonzero(up | ((a[None, :, 1] > y) & (b[None, :, 1] <= y)))
+    if not len(rows):
+        return np.zeros((size, size), bool)
+    p, q = a[edges], b[edges]
+    x = p[:, 0] + (ys[rows] - p[:, 1]) * (q[:, 0] - p[:, 0]) / (q[:, 1] - p[:, 1])
+    delta = np.zeros((size, size + 1), np.int32)
+    np.add.at(delta, (rows, np.searchsorted(xs, x, side="right")), np.where(up[rows, edges], 1, -1))
+    return np.cumsum(delta[:, :size], axis=1) != 0
 
 
 def raster(placed: list[Placed], size: int = 128) -> np.ndarray:
