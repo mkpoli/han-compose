@@ -508,6 +508,10 @@ KIN_HOSTS = 24
 KIN_COST = 0.5
 #: Places whose parts take positional forms, so an instance there does not stand for the part elsewhere.
 SIDED_PLACES = frozenset({"L", "T"})
+#: Places round another part whose parts take a combining form unlike the one they stand alone in:
+#: round the lower left a sweep runs out under the other part (走 under 召 in 超, 瓦 under 十 in 瓧).
+#: Above or round the upper left the form is kept (厂 in 原, 疒 in 病).
+COMBINING_PLACES = frozenset({"⿺0"})
 #: Operands drawn across each other.
 OVERLAY = "⿻"
 #: Least likeness of a piece whose operand is overlaid: its sketch, the operands' own glyphs laid
@@ -1720,6 +1724,10 @@ class Composer:
         for sided in (False, True):
             for place, written in self._places.get(char, ()):
                 if (place in SIDED_PLACES) != sided:
+                    continue
+                if place in COMBINING_PLACES:
+                    # Round another part it takes a combining form (走 sweeping under 召 in 超); a
+                    # character held nowhere else is built from its own parts (⿱土龰).
                     continue
                 for host_char, tree_, path, i in hosts[(place, written)][:INSTANCE_HOSTS]:
                     if host_char in self.exclude:
