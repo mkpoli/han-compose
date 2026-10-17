@@ -1,0 +1,7 @@
+# Sequences drawn in place of the source's, where an operand the source names is not the shape the glyph draws; editorial, kept by hand.
+# A sequence that is the character itself draws it whole. A node written out inside a sequence is composed from its operands, never drawn as the character it describes.
+# columns: char, sequence, source (the sequence it replaces), note
+char	sequence	source	note
+㞙	⿸尸⿱毛水	⿸尾水	水 sits under 毛 inside 尸, where 尾 would hold 毛 and 水 apart.
+㐧	㐧	⿽⿹⿻乛亅㇒丶	A single shape whose strokes the sequence lists one by one.
+実	⿱宀⿱一夫	⿱宀𡗗	The lower part is drawn as 一 over 夫, with spread legs; the 𡗗 glyph draws the narrower form atop 春.

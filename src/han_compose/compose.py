@@ -176,13 +176,17 @@ def japanese_characters() -> set[str]:
 
 def atomic_characters() -> set[str]:
     """The ideographs drawn whole, never composed from their sequence: those hfhchan/ids leaves
-    undecomposed as productive components (日, 二, 工, 万; `data/vocab/han-atomic.tsv`)."""
-    return {row[0] for row in read_rows("han-atomic.tsv")}
+    undecomposed as productive components (日, 二, 工, 万; `data/vocab/han-atomic.tsv`), and those
+    `data/vocab/han-ids-drawn.tsv` draws whole (㐧)."""
+    return {row[0] for row in read_rows("han-atomic.tsv")} | {
+        row[0] for row in read_rows("han-ids-drawn.tsv") if row[1] == row[0]}
 
 
 def japanese_sequences() -> dict[str, str]:
     """Each ideograph's sequence as BabelStone gives it for Japan, else its first; sequences naming
-    an unencoded component ({n}) or an unnameable one (？) are left out."""
+    an unencoded component ({n}) or an unnameable one (？) are left out. A sequence in
+    `data/vocab/han-ids-drawn.tsv` replaces the source's where its operands are not the shapes the
+    glyph draws (㞙 as ⿸尸⿱毛水)."""
     out = {}
     for row in read_rows("han-ids.tsv"):
         char, chosen = row[1], None
@@ -195,6 +199,29 @@ def japanese_sequences() -> dict[str, str]:
             chosen = chosen or text
         if chosen and chosen != char and "{" not in chosen and "？" not in chosen:
             out[char] = chosen
+    for char, sequence, _source, _note in read_rows("han-ids-drawn.tsv"):
+        if sequence == char:
+            out.pop(char, None)
+        else:
+            out[char] = sequence
+    return out
+
+
+def spelled_nodes() -> set[str]:
+    """The nodes written out inside `data/vocab/han-ids-drawn.tsv`'s sequences: each is composed
+    from its operands, never drawn as the character it describes (実's ⿻三人, not 春's 𡗗)."""
+    out = set()
+
+    def walk(node: Node, root: bool) -> None:
+        if isinstance(node, tuple):
+            if not root:
+                out.add(key(node))
+            for kid in node[1:]:
+                walk(kid, False)
+
+    for char, sequence, _source, _note in read_rows("han-ids-drawn.tsv"):
+        if sequence != char:
+            walk(parse(sequence), True)
     return out
 
 
@@ -726,6 +753,10 @@ class Composer:
         return out
 
     @cached_property
+    def spelled(self) -> set[str]:
+        return spelled_nodes()
+
+    @cached_property
     def atomic(self) -> set[str]:
         return atomic_characters()
 
@@ -1164,7 +1195,7 @@ class Composer:
 
     def _node(self, node: Node, region: Box, at_root: bool = False) -> list[Placed]:
         """`node` drawn into `region`; at the root, the whole character, laid out in the em."""
-        encoded = node if isinstance(node, str) else self.by_sequence.get(key(node))
+        encoded = node if isinstance(node, str) else None if key(node) in self.spelled else self.by_sequence.get(key(node))
         if at_root and not isinstance(node, str):
             # Characters sharing a sequence (申 由 甲 are all ⿻日丨): the one redrawn is the one
             # excluded, never another that happens to have the same sequence.
@@ -1215,7 +1246,7 @@ class Composer:
         op, children = node[0], list(node[1:])
         if op not in AXIS and op not in ENCLOSE and op != OVERLAY:
             raise LookupError(f"{op} is not laid out.")
-        instance = self._instance(node, region)
+        instance = None if key(node) in self.spelled else self._instance(node, region)
         if instance is not None:
             return [instance]
         if op == OVERLAY:
@@ -1401,7 +1432,7 @@ class Composer:
         teachers, taken from those overlaying the same first operand, else the same second one,
         else any overlay the font draws. An operand a teacher draws is taken from it; another is
         drawn into its box."""
-        if self.hosted and self.kvg is not None:
+        if self.hosted and self.kvg is not None and key((OVERLAY, *children)) not in self.spelled:
             # The overlay drawn whole in another character, where KanjiVG groups its components.
             from .kanjivg_cuts import groups_like
 
