@@ -86,6 +86,12 @@ TEMPLATE_GROW = 1
 TEMPLATE_ON = 0.6
 #: Enclosures whose enclosing part's box holds the enclosed part's (`covering`).
 COVERING = frozenset("⿴⿵⿶⿷")
+#: Least hosts in a place a kin enclosing part needs to stand for another (`_kin_outer`).
+KIN_OUTER_HOSTS = 3
+#: Hosts of a kin enclosing part tried, best first, for one KanjiVG can cut (`_kin_outer`).
+KIN_TRIED = 16
+#: Characters holding an enclosing part on their left tried for its upper part (`_upper`).
+UPPER_HOSTS = 8
 #: An enclosed part's learned box is kept when at least this share of it lies in the opening.
 ROOM_TRUST = 0.5
 #: Likeness at which an enclosing part is taken as certain, whatever its enclosed part looks like.
@@ -917,6 +923,84 @@ class Composer:
             self._templates[(op, operand)] = np.mean(masks, axis=0) if len(masks) >= 3 else None
         return self._templates[(op, operand)]
 
+    @cached_property
+    def _by_lower(self) -> dict[str, list[tuple[str, Node]]]:
+        """lower operand → the characters written as something over it (走 and 足 over 龰), with their trees."""
+        out: dict[str, list[tuple[str, Node]]] = {}
+        for char, seq in self.sequences.items():
+            try:
+                tree = parse(seq)
+            except ValueError:
+                continue
+            if isinstance(tree, tuple) and tree[0] == "⿱" and isinstance(tree[2], str):
+                out.setdefault(tree[2], []).append((char, tree))
+        return out
+
+    def _kin_outer(self, op: str, outer: Node, inner: Node, box: Box, inner_box: Box) -> list[Placed] | None:
+        """An enclosing part no character draws in that place, from one written over the same lower
+        part that many do: 足 round 羽 in 䟳 as 走's sweep, cut from a host, under 口 in 土's place.
+        None when the outer is written otherwise or has no such kin."""
+        if not isinstance(outer, str) or outer not in self.sequences:
+            return None
+        try:
+            own = parse(self.sequences[outer])
+        except ValueError:
+            return None
+        if not (isinstance(own, tuple) and own[0] == "⿱" and isinstance(own[2], str)):
+            return None
+        hosts, _ = self._index
+        place, best = slot(op, 0), None
+        for other, tree in self._by_lower.get(own[2], []):
+            count = sum(1 for e in hosts.get((place, other), []) if e[0] not in self.exclude)
+            if other != outer and count >= KIN_OUTER_HOSTS and (best is None or count > best[0]):
+                best = (count, other, tree)
+        if best is None:
+            return None
+        _, other, tree = best
+        if self.kvg is None:
+            return None
+        entries = {e[0]: e for e in hosts.get((place, other), []) if e[0] not in self.exclude}
+        # The kin cut along KanjiVG's groups of its own two parts (走 into 土 and 龰), whose outlines
+        # interlock too closely for a geometric cut: so only from characters KanjiVG draws, the
+        # best ranked first (the best ranked are often rarer than it covers).
+        ranked = [found.char for _, found, _ in self._ranked(op, 0, other, [inner], box, placed=True)]
+        chars = list(dict.fromkeys(ranked + list(entries)))
+        for char in [ch for ch in chars if ch in self.kvg.entries and self.font.own(ch)][:KIN_TRIED]:
+            char, host_tree, path, i = entries[char]
+            cut = self.kvg.host_node(char, _replaced(host_tree, path + (i,), tree), path + (i,))
+            if cut is None or len(cut.pieces) != 2:
+                continue
+            top, lower = cut.pieces
+            frame = Part(top.contours + lower.contours).box
+            native = self.ink(char)
+            placed = [Placed(lower, lower.box, mapped(lower.box, frame, box), native=native, origin=f"kin {char}")]
+            room = mapped(top.box, frame, box)
+            upper = self._upper(outer, own)
+            if upper is not None:
+                # In the kin's upper part's room, short of the enclosed part's box by the gap
+                # neighbours keep, its proportions kept within `STRETCH`.
+                part, source = upper
+                right = min(room[2], inner_box[0] - FACING[0]) if op in "⿺⿸" else room[2]
+                target = fitted(part.box, (room[0], room[1], max(right, room[0] + (room[2] - room[0]) / 3), room[3]))
+                placed.append(Placed(part, part.box, target, native=self.ink(source), origin=f"kin {source}"))
+            else:
+                placed += self._node(own[1], room)
+            return placed
+        return None
+
+    def _upper(self, outer: str, own: tuple) -> tuple[Part, str] | None:
+        """The upper part of `outer` (written `own`, ⿱ over its lower part) as characters holding
+        `outer` on their left draw it, narrow as it stands over a sweep (⻊'s 口), cut along
+        KanjiVG's groups; with the character it comes from."""
+        hosts, _ = self._index
+        entries = [e for written in self.alternatives(outer, "L") for e in hosts.get(("L", written), [])
+                   if e[0] not in self.exclude and e[0] in self.kvg.entries and self.font.own(e[0])]
+        for char, tree, path, i in entries[:UPPER_HOSTS]:
+            cut = self.kvg.host_node(char, _replaced(tree, path + (i,), own), path + (i,))
+            if cut is not None and len(cut.pieces) == 2:
+                return cut.pieces[0], char
+        return None
+
     def _guided(self, part: Part, node: tuple) -> tuple[Part, Part, float] | None:
         """An enclosure cut along where its enclosing operand's clean cuts have ink (`_enclosing_ink`):
         each outline lying mostly there goes to the enclosing part, which is answered with its overlap
@@ -1163,10 +1247,11 @@ class Composer:
         tree = parse(sequence)
         placed = self._node(tree, self.face, at_root=True)
         encoded = self.by_sequence.get(key(tree)) if isinstance(tree, tuple) else None
-        if self.reuse and encoded in self.exclude and not all(p.origin.startswith(("learned", "alone")) for p in placed):
+        if self.reuse and encoded in self.exclude and not all(p.origin.startswith(("learned", "alone", "kin")) for p in placed):
             # A character redrawn without its glyph whose parts could not all be placed by the
             # learned layout from hosts: whole, from another character that draws it, if one does
-            # (戒 from 誡). Measured on the jōyō kanji, this helps where the composer fell back on
+            # (戒 from 誡); an enclosing part drawn from kin keeps the composition. Measured on the
+            # jōyō kanji, this helps where the composer fell back on
             # teachers, bare glyphs or instances, and hurts where the learned layout placed every part.
             alone = self._alone(encoded, fallback=self._unhosted(tree))
             if alone is not None:
@@ -1344,7 +1429,8 @@ class Composer:
                     limit = box if opening is None or _area(opening) <= _area(box) else _shrunk(opening, OPENING_SHARE)
                     _fit_inside(groups[0], groups[1], region or self.face, self.font.stem[0][0], room=limit)
                 else:
-                    groups.append(self._node(child, box))
+                    kin = self._kin_outer(op, child, children[1], box, boxes[1]) if op in ENCLOSE and i == 0 else None
+                    groups.append(kin or self._node(child, box))
                 continue
             drawn, k = part
             source = drawn.pieces[k]
@@ -1797,6 +1883,15 @@ def _within(box: Box, room: Box) -> float:
     w = max(0.0, min(box[2], room[2]) - max(box[0], room[0]))
     h = max(0.0, min(box[3], room[3]) - max(box[1], room[1]))
     return w * h / max((box[2] - box[0]) * (box[3] - box[1]), 1)
+
+
+def _replaced(tree: Node, path: tuple, node: Node) -> Node:
+    """`tree` with the node at `path` (operand positions from the root) replaced by `node`."""
+    if not path:
+        return node
+    kids = list(tree[1:])
+    kids[path[0]] = _replaced(kids[path[0]], path[1:], node)
+    return (tree[0], *kids)
 
 
 def _collision(outer: list[Placed], inner: list[Placed], region: Box, size: int = 64) -> float:
