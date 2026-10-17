@@ -73,6 +73,10 @@ OPENING_SHARE = 0.85
 ENCLOSING_LEAST = 0.5
 #: How far an atomic character taken from another may change its proportions in its own box.
 ALONE_STRETCH = 1.6
+#: How many levels of components `Composer._expanded` writes out from their own sequences.
+EXPAND_DEPTH = 2
+#: Below how many characters writing a part out its hosts are sought inside components too.
+EXPAND_FEW = 3
 #: An enclosure cut by its enclosing operand's template (`Composer._guided`): how many KanjiVG cuts
 #: make the template, at what size, grown by how many pixels, and how much of an outline must lie on
 #: it to go with the enclosing part.
@@ -660,22 +664,58 @@ class Composer:
         hosts: dict[tuple[str, str], list] = {}
         templates: dict[str, list] = {}
 
-        def walk(char: str, tree: tuple, node: Node, path: tuple) -> None:
+        def walk(char: str, tree: tuple, node: Node, path: tuple, names: dict, hosts: dict, templates: dict) -> None:
             if not isinstance(node, tuple) or (node[0] not in AXIS and node[0] not in ENCLOSE and node[0] != OVERLAY):
                 return
             templates.setdefault(node[0], []).append((char, tree, path))
             for i, child in enumerate(node[1:]):
-                hosts.setdefault((slot(node[0], i), key(child)), []).append((char, tree, path, i))
-                walk(char, tree, child, path + (i,))
+                entry = (char, tree, path, i)
+                hosts.setdefault((slot(node[0], i), key(child)), []).append(entry)
+                if id(child) in names:
+                    # A component written out from its own sequence is found under its name too.
+                    hosts.setdefault((slot(node[0], i), names[id(child)]), []).append(entry)
+                walk(char, tree, child, path + (i,), names, hosts, templates)
 
+        trees = {}
         for char, seq in self.sequences.items():
             if self.font.has(char):
                 try:
-                    tree = parse(seq)
+                    trees[char] = parse(seq)
                 except ValueError:
                     continue
-                walk(char, tree, tree, ())
+                walk(char, trees[char], trees[char], (), {}, hosts, templates)
+        # A part fewer than `EXPAND_FEW` characters write out is also found inside components
+        # that hold it whole (夂 in 拠's 処). Only there: cutting every character along its
+        # components' own sequences cuts it finer than it is drawn.
+        expanded_hosts: dict = {}
+        for char, tree in trees.items():
+            names: dict = {}
+            expanded = self._expanded(tree, char, names, EXPAND_DEPTH)
+            if names:
+                walk(char, expanded, expanded, (), names, expanded_hosts, {})
+        for k, entries in expanded_hosts.items():
+            if len(hosts.get(k, ())) < EXPAND_FEW:
+                have = {e[0] for e in hosts.get(k, ())}
+                hosts.setdefault(k, []).extend(e for e in entries if e[0] not in have)
         return hosts, templates
+
+    def _expanded(self, node: Node, char: str, names: dict, depth: int) -> Node:
+        """`node` with each compound component written out from its own sequence, `depth` levels
+        down (拠 ⿰扌処 as ⿰扌⿺夂几), so a character holding a component whole is a host for its
+        parts. Single-body characters stay whole. `names` records each written-out node's name."""
+        if isinstance(node, tuple):
+            return (node[0], *(self._expanded(k, char, names, depth) for k in node[1:]))
+        if depth <= 0 or node == char or node in self.atomic or node not in self.sequences:
+            return node
+        try:
+            own = parse(self.sequences[node])
+        except ValueError:
+            return node
+        if not isinstance(own, tuple) or own[0] not in AXIS and own[0] not in ENCLOSE:
+            return node
+        out = self._expanded(own, char, names, depth - 1)
+        names[id(out)] = node
+        return out
 
     @cached_property
     def _places(self) -> dict[str, list[tuple[str, str]]]:
