@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import json
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import numpy as np
@@ -36,12 +36,29 @@ def _x(box: tuple[float, ...]) -> np.ndarray:
     return np.array([*b, 1.0, math.log(w / h), math.log(w * h)])
 
 
+#: Instances `StandaloneModel.nearest` takes, and the features it compares (the constant left out).
+NEAREST = 15
+NEAR_FEATURES = [0, 1, 2, 3, 5, 6]
+
+
+def _near_rows(rows: list[tuple[str, list[float], list[float]]]):
+    """Per instance: its character, features, how its character's own box is sized against it, and
+    where that box is centred."""
+    chars = np.array([c for c, _, _ in rows])
+    b, o = np.array([b for _, b, _ in rows], dtype=float), np.array([o for _, _, o in rows], dtype=float)
+    feats = np.array([_x(x)[NEAR_FEATURES] for x in b]).reshape(-1, len(NEAR_FEATURES))
+    scale = np.stack([(o[:, 2] - o[:, 0]) / np.maximum(b[:, 2] - b[:, 0], 1), (o[:, 3] - o[:, 1]) / np.maximum(b[:, 3] - b[:, 1], 1)], axis=1) if len(rows) else np.zeros((0, 2))
+    centre = np.stack([(o[:, 0] + o[:, 2]) / 2, (o[:, 1] + o[:, 3]) / 2], axis=1) if len(rows) else np.zeros((0, 2))
+    return chars, feats, scale, centre
+
+
 @dataclass
 class StandaloneModel:
     #: place → (XᵀX, XᵀY) over every (instance, own box) pair held in that place.
     sums: dict[str, tuple[np.ndarray, np.ndarray]]
     #: character → its own (place, instance box) rows and own box, to take it out of the sums.
     rows: dict[str, tuple[list[tuple[str, list[float]]], list[float]]]
+    _near: dict = field(default_factory=dict, repr=False)
 
     @classmethod
     def fit(cls, records: list[dict]) -> StandaloneModel:
@@ -77,6 +94,24 @@ class StandaloneModel:
         penalty[4, 4] = 0.0  # the constant is not shrunk
         w = np.linalg.solve(a + penalty, b)
         return tuple(float(v) for v in (_x(box) @ w) * C.EM)
+
+    def nearest(self, place: str, box: tuple[float, ...], leave: str | None = None) -> tuple[float, ...] | None:
+        """The standalone box for a character held in `place` at `box`, from the `NEAREST` instances
+        held there most alike in edges, proportions and size: each scales `box` by how its own
+        character grows standing alone and centres it where that character stands. A flat 二 held
+        on the right of 仁 stays flat, which one linear map for every part on the right does not keep."""
+        if place not in self._near:
+            self._near[place] = _near_rows([(c, b, own) for c, (mine, own) in self.rows.items() for p, b in mine if p == place])
+        chars, feats, scale, centre = self._near[place]
+        keep = chars != leave
+        if keep.sum() < 3:
+            return None
+        f = _x(box)[NEAR_FEATURES]
+        d = np.abs(feats[keep] - f).sum(axis=1)
+        idx = np.argsort(d)[:NEAREST]
+        w, h = (box[2] - box[0]) * scale[keep][idx, 0], (box[3] - box[1]) * scale[keep][idx, 1]
+        cx, cy = centre[keep][idx, 0], centre[keep][idx, 1]
+        return tuple(float(v) for v in np.median(np.stack([cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2], axis=1), axis=0))
 
     def save(self, path: Path) -> None:
         path.write_text(json.dumps({

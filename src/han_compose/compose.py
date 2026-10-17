@@ -1738,7 +1738,7 @@ class Composer:
                     piece = host.pieces[i]
                     if tree is not None and not isinstance(tree, str) and not self._kept(piece, tree):
                         continue
-                    box = self.standalone.predict(place, piece.box, leave=char)
+                    box = self.standalone.nearest(place, piece.box, leave=char)
                     if box is not None:
                         found.append((piece, box, host_char))
             if any(self.font.own(f[2]) for f in found):
