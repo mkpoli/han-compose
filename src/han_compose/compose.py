@@ -84,6 +84,8 @@ TEMPLATES = 5
 TEMPLATE_SIZE = 48
 TEMPLATE_GROW = 1
 TEMPLATE_ON = 0.6
+#: Enclosures whose enclosing part's box holds the enclosed part's (`covering`).
+COVERING = frozenset("⿴⿵⿶⿷")
 #: An enclosed part's learned box is kept when at least this share of it lies in the opening.
 ROOM_TRUST = 0.5
 #: Likeness at which an enclosing part is taken as certain, whatever its enclosed part looks like.
@@ -1323,6 +1325,12 @@ class Composer:
             # An enclosing part spans most of a character; a smaller box is the network guessing at
             # a shape it was never shown (⿷ around ⿱甶儿 in 鬼).
             boxes[0] = self.face
+        if op in COVERING:
+            # An enclosing part closed on three sides holds the part it encloses: a network box for
+            # 乃 that stops above 子 is 乃 squeezed atop another part (盈), not wrapped round one
+            # (孕). Under a corner (君's 口 below 尹) the enclosed part may reach past it.
+            boxes[0] = (min(boxes[0][0], boxes[1][0]), min(boxes[0][1], boxes[1][1]),
+                        max(boxes[0][2], boxes[1][2]), max(boxes[0][3], boxes[1][3]))
         groups = []
         for i, (child, box) in enumerate(zip(children, boxes)):
             part = self._host(op, i, child, children[:i] + children[i + 1:], box, placed=region is None)
