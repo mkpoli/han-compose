@@ -73,6 +73,13 @@ OPENING_SHARE = 0.85
 ENCLOSING_LEAST = 0.5
 #: How far an atomic character taken from another may change its proportions in its own box.
 ALONE_STRETCH = 1.6
+#: An enclosure cut by its enclosing operand's template (`Composer._guided`): how many KanjiVG cuts
+#: make the template, at what size, grown by how many pixels, and how much of an outline must lie on
+#: it to go with the enclosing part.
+TEMPLATES = 5
+TEMPLATE_SIZE = 48
+TEMPLATE_GROW = 1
+TEMPLATE_ON = 0.6
 #: An enclosed part's learned box is kept when at least this share of it lies in the opening.
 ROOM_TRUST = 0.5
 #: Likeness at which an enclosing part is taken as certain, whatever its enclosed part looks like.
@@ -635,6 +642,7 @@ class Composer:
     _inks: dict[str, float] = field(default_factory=dict, init=False, repr=False)
     _sketches: dict[str, Part | None] = field(default_factory=dict, init=False, repr=False)
     _strokes: dict[tuple[str, str], Counter] = field(default_factory=dict, init=False, repr=False)
+    _templates: dict[tuple[str, str], np.ndarray | None] = field(default_factory=dict, init=False, repr=False)
 
     @cached_property
     def by_sequence(self) -> dict[str, str]:
@@ -782,14 +790,18 @@ class Composer:
             return None
         if node[0] in ENCLOSE:
             best = None
-            for outer, inner in enclosures(part, node[0]):
+            guided = self._guided(part, node)
+            for outer, inner in ([guided[:2]] if guided else []) + enclosures(part, node[0]):
                 if strict and not (self._counted(outer, node[0], 0, node[1]) and self._counted(inner, node[0], 1, node[2])):
                     continue
                 # A piece with under half its operand's own strokes is a stroke or two of something
                 # else (one stroke of 鬼 taken for 厶); a positional form keeps most of them (忄, 氵).
                 if any(isinstance(n, str) and 2 * len(p.contours) < self._outlines(n) for p, n in ((outer, node[1]), (inner, node[2]))):
                     continue
-                a, b = self.likeness(outer, node[1]), self.likeness(inner, node[2])
+                # The guided cut's enclosing part is measured against the enclosing form it was cut
+                # by: an operand's own glyph (走's short sweep) is far from that form.
+                a = guided[2] if guided and outer is guided[0] else self.likeness(outer, node[1])
+                b = self.likeness(inner, node[2])
                 if a >= SURE and isinstance(node[2], tuple) and len(inner.contours) == self._outlines(node[2]):
                     # The enclosing part is unmistakable and what it holds has the inner sequence's
                     # strokes: a sketch of that sequence (⺀ stacked on 㐅) cannot show how a
@@ -808,6 +820,53 @@ class Composer:
             return None
         spans = sorted((p.box[axis], p.box[axis + 2]) for p in pieces)
         return pieces, float(np.mean([spans[k + 1][0] - spans[k][1] for k in range(len(spans) - 1)]))
+
+    def _enclosing_ink(self, op: str, operand: str) -> np.ndarray | None:
+        """Where an enclosing operand's ink lies in its node's frame, as the mean of up to
+        `TEMPLATES` masks of it cut by KanjiVG's groups (走 from 赴 起 超 …), or None without them.
+        A mean of several keeps any one character's glyph from deciding how others are cut."""
+        if (op, operand) not in self._templates:
+            hosts, _ = self._index
+            masks = []
+            for char, tree, path, i in hosts.get((slot(op, 0), operand), []) if self.kvg is not None else []:
+                if len(masks) >= TEMPLATES:
+                    break
+                found = self.kvg.host_node(char, tree, path)
+                if found is not None and len(found.pieces) == 2:
+                    piece = found.pieces[i]
+                    frame = Part([c for p in found.pieces for c in p.contours]).box
+                    masks.append(fill(_rings(piece.contours, [c.light for c in piece.contours], steps=2), TEMPLATE_SIZE, frame))
+            self._templates[(op, operand)] = np.mean(masks, axis=0) if len(masks) >= 3 else None
+        return self._templates[(op, operand)]
+
+    def _guided(self, part: Part, node: tuple) -> tuple[Part, Part, float] | None:
+        """An enclosure cut along where its enclosing operand's clean cuts have ink (`_enclosing_ink`):
+        each outline lying mostly there goes to the enclosing part, which is answered with its overlap
+        with the template's ink. The geometric cut ranks outlines
+        by their distance from the closed sides, so strokes of the enclosed part that rest on them
+        (支's lower strokes on 走's sweep) go with the enclosing part."""
+        if not isinstance(node[1], str):
+            return None
+        template = self._enclosing_ink(node[0], node[1])
+        if template is None:
+            return None
+        ink = form = template >= 0.5
+        for _ in range(TEMPLATE_GROW):
+            grown = ink.copy()
+            grown[1:] |= ink[:-1]; grown[:-1] |= ink[1:]; grown[:, 1:] |= ink[:, :-1]; grown[:, :-1] |= ink[:, 1:]
+            ink = grown
+        outer, inner, drawn = [], [], np.zeros_like(form)
+        for unit in _units(part.contours):
+            mask = fill(_rings(unit, [c.light for c in unit], steps=2), TEMPLATE_SIZE, part.box)
+            on = float((mask & ink).sum()) / max(float(mask.sum()), 1.0)
+            if on >= TEMPLATE_ON:
+                outer.extend(unit)
+                drawn |= mask
+            else:
+                inner.extend(unit)
+        if not outer or not inner:
+            return None
+        return Part(outer), Part(inner), float((drawn & form).sum()) / max(float((drawn | form).sum()), 1.0)
 
     def _matched(self, part: Part, node: tuple) -> list[Part] | None:
         """`part` cut into two operands, one of them drawn across something (⿻), by shape where no
