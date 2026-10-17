@@ -893,6 +893,10 @@ class Composer:
                 # else (one stroke of 鬼 taken for 厶); a positional form keeps most of them (忄, 氵).
                 if any(isinstance(n, str) and 2 * len(p.contours) < self._outlines(n) for p, n in ((outer, node[1]), (inner, node[2]))):
                     continue
+                if node[0] == "⿺" and outer.box[2] < (inner.box[0] + inner.box[2]) / 2:
+                    # The part round the lower left sweeps under the other, past its middle; a cut of
+                    # interlocking outlines can give that stroke away to it (尢's in 尮).
+                    continue
                 # The guided cut's enclosing part is measured against the enclosing form it was cut
                 # by: an operand's own glyph (走's short sweep) is far from that form.
                 a = guided[2] if guided and outer is guided[0] else self.likeness(outer, node[1])
