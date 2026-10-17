@@ -540,6 +540,17 @@ INSTANCE_HOSTS = 12
 ROOM_MARGIN = 0.8
 #: Share of an enclosed part's ink over the enclosing part's above which it is fitted clear of it.
 COLLIDE = 0.03
+#: A stroke of a part drawn round the lower left of another sweeps under it when it reaches this
+#: share of the part's width from its right edge and of its height from its foot (毛's last stroke).
+SWEEP_REACH = (0.15, 0.25)
+#: The least share of its width a swept part's other strokes keep, and the share of its width at the
+#: sweep's end (the hook up) moved whole rather than drawn out.
+SWEEP_PRESSED = 0.4
+SWEEP_END = 0.12
+#: The least share of its part's height a sweep rises by.
+SWEEP_RISE = 0.3
+#: How far right of a sweep's left edge it turns along its foot, past its stem.
+STEM_SPAN = 90.0
 #: Enclosures whose enclosed part is kept clear of the enclosing ink: under a corner's sweep (君's 口
 #: below 尹, ⿸) the part tucks against it by design.
 CLEARED = frozenset("⿴⿵⿶⿷⿺")
@@ -1434,6 +1445,14 @@ class Composer:
                 continue
             drawn, k = part
             source = drawn.pieces[k]
+            if op == "⿺" and i == 1 and len(groups[0]) == 1 and groups[0][0].origin.startswith("glyph"):
+                swept = _swept(groups[0][0], box[0] - FACING[0])
+                if swept is not None:
+                    # The part fills the room the sweep leaves, within its learned box's right and top.
+                    groups[0] = swept
+                    opening = self._room(op, groups[0], region or self.face)
+                    if opening is not None:
+                        box = (opening[0], opening[1], min(opening[2], box[2]), min(opening[3], box[3]))
             if op in ENCLOSE and i == 1 and all(p.origin.startswith("glyph") for p in groups[0]):
                 # The enclosing part is a bare glyph, drawn for standing alone: the opening its
                 # strokes leave is far smaller than a designer's (龵's sweep over 目 in 看). The
@@ -1892,6 +1911,57 @@ def _replaced(tree: Node, path: tuple, node: Node) -> Node:
     kids = list(tree[1:])
     kids[path[0]] = _replaced(kids[path[0]], path[1:], node)
     return (tree[0], *kids)
+
+
+def _swept(placed: Placed, edge: float) -> list[Placed] | None:
+    """A glyph drawn round the lower left of another part as a designer draws it there: its strokes
+    pressed left of `edge`, where the other part starts, and the stroke that sweeps along its foot
+    to the right (毛's, 尢's) drawn out under that part to where the glyph ended (毛 in 毺). None
+    when it has no such stroke or already ends left of `edge`."""
+    contours = placed.contours()
+    boxes = [(c[:, 0].min(), c[:, 1].min(), c[:, 0].max(), c[:, 1].max()) for c in contours]
+    x0, y0, x1, y1 = min(b[0] for b in boxes), min(b[1] for b in boxes), max(b[2] for b in boxes), max(b[3] for b in boxes)
+    reach, foot = SWEEP_REACH
+    # It rises from its foot by its stem (乚), unlike a flat stroke along the foot (土's).
+    sweeps = [k for k, b in enumerate(boxes) if b[2] >= x1 - reach * (x1 - x0) and b[1] <= y0 + foot * (y1 - y0)
+              and b[3] - b[1] >= SWEEP_RISE * (y1 - y0)]
+    if len(sweeps) != 1 or len(contours) < 2:
+        return None
+    sweep = sweeps[0]
+    head = max(b[2] for k, b in enumerate(boxes) if k != sweep)
+    if head <= edge or edge <= x0 + (x1 - x0) / 4:
+        return None
+    edge = max(edge, x0 + SWEEP_PRESSED * (head - x0))
+    pressed = (edge - x0) / (head - x0)
+    # The sweep's stem moves with the pressed strokes, keeping its width; past the turn along its
+    # foot it is drawn out to its hook, which keeps its shape.
+    left = boxes[sweep][0]
+    turn, end = left + STEM_SPAN, x1 - SWEEP_END * (x1 - x0)
+    shift = (left - x0) * pressed - (left - x0)
+    if end <= turn + shift:
+        return None
+
+    def drawn_out(points: np.ndarray) -> np.ndarray:
+        x = points[:, 0]
+        out = points.copy()
+        start = turn + shift
+        out[:, 0] = np.select([x <= turn, x <= end], [x + shift, start + (x - turn) * (end - start) / (end - turn)], x)
+        return out
+
+    scale = np.array(placed.scale)
+    centre = np.array([(placed.source[0] + placed.source[2]) / 2, (placed.source[1] + placed.source[3]) / 2])
+    goal = np.array([(placed.target[0] + placed.target[2]) / 2, (placed.target[1] + placed.target[3]) / 2])
+
+    def at(c: Contour, move) -> Contour:
+        return Contour(c.ops, move((c.light - centre) * scale + goal), move((c.heavy - centre) * scale + goal), c.width)
+
+    # The other strokes pressed by their target box, so that weighting thickens their stems back.
+    strokes = Part([at(c, lambda p: p) for k, c in enumerate(placed.part.contours) if k != sweep])
+    box = strokes.box
+    pressed_box = (x0 + (box[0] - x0) * pressed, box[1], x0 + (box[2] - x0) * pressed, box[3])
+    drawn = Part([at(placed.part.contours[sweep], drawn_out)])
+    return [Placed(strokes, strokes.box, pressed_box, placed.weight, placed.native, f"swept {placed.origin}"),
+            Placed(drawn, drawn.box, drawn.box, placed.weight, placed.native, f"swept {placed.origin}")]
 
 
 def _collision(outer: list[Placed], inner: list[Placed], region: Box, size: int = 64) -> float:
