@@ -530,6 +530,11 @@ INSTANCE_KEPT = 0.75
 INSTANCE_HOSTS = 12
 #: An enclosed part's room stays this many stroke widths clear of the enclosing part's ink.
 ROOM_MARGIN = 0.8
+#: Share of an enclosed part's ink over the enclosing part's above which it is fitted clear of it.
+COLLIDE = 0.03
+#: Enclosures whose enclosed part is kept clear of the enclosing ink: under a corner's sweep (君's 口
+#: below 尹, ⿸) the part tucks against it by design.
+CLEARED = frozenset("⿴⿵⿶⿷⿺")
 #: Least gap two neighbouring parts keep where they face each other, side by side and stacked: the
 #: median gap along their facing edges, as 95% of drawn characters keep it (measured on 800).
 FACING = (72.0, 53.0)
@@ -1360,6 +1365,13 @@ class Composer:
                     _fit_inside(groups[0], groups[1], region or self.face, self.font.stem[0][0], room=room)
                     continue
             groups.append([Placed(source, source.box, box, native=self.ink(drawn.char), origin=f"learned {drawn.char}")])
+            if op in CLEARED and i == 1 and _collision(groups[0], groups[1], region or self.face) > COLLIDE:
+                # Its box runs into the enclosing strokes (帀 over 走's 土 in 䞙): it is fitted
+                # clear of them, within that box or the opening where that is larger (子 under 乃's
+                # fold in 孕).
+                opening = self._room(op, groups[0], region or self.face)
+                limit = box if opening is None or _area(opening) <= _area(box) else _shrunk(opening, OPENING_SHARE)
+                _fit_inside(groups[0], groups[1], region or self.face, self.font.stem[0][0], room=limit)
         if op in AXIS:
             self._space(AXIS[op], groups)
         return [p for group in groups for p in group]
@@ -1777,6 +1789,13 @@ def _within(box: Box, room: Box) -> float:
     w = max(0.0, min(box[2], room[2]) - max(box[0], room[0]))
     h = max(0.0, min(box[3], room[3]) - max(box[1], room[1]))
     return w * h / max((box[2] - box[0]) * (box[3] - box[1]), 1)
+
+
+def _collision(outer: list[Placed], inner: list[Placed], region: Box, size: int = 64) -> float:
+    """The share of the inner parts' ink lying on the enclosing part's."""
+    a = fill([r for p in outer for r in _rings(p.part.contours, p.contours())], size, region)
+    b = fill([r for p in inner for r in _rings(p.part.contours, p.contours())], size, region)
+    return float((a & b).sum()) / max(float(b.sum()), 1.0)
 
 
 def _fit_inside(outer: list[Placed], inner: list[Placed], region: Box, stem: float, size: int = 64,
