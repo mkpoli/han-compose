@@ -28,9 +28,9 @@ from . import compose as C
 #: The operators the layout is learned for, each an input of its own.
 OPS = ("⿰", "⿱", "⿸", "⿺", "⿵", "⿹", "⿶", "⿴", "⿷")
 FOLDS = 5
-SEEDS = 3
+SEEDS = 6
 #: The cached model's name; a change to the features or training makes a new one.
-LAYOUT_FILE = "compose-layout-v2.npz"
+LAYOUT_FILE = "compose-layout-v3.npz"
 #: Features per operand: 4 mean, 4 spread, count, outline count; 1 flag, 4 box, ink, proportions, 8 × 8 ink.
 SHAPE = 71
 
