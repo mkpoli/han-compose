@@ -501,6 +501,10 @@ STRETCHED = 4.0
 #: The least share of its operand's own outlines a cut piece keeps (strokes merge when written
 #: together, never down to a fraction).
 KEPT = 0.5
+#: How many outlines a piece the variable font draws may have beyond those it draws its operand with
+#: (`_own_outlines`), each stroke an outline of its own: one or two more is a stroke drawn in two (豊
+#: in 鄷), more took strokes from a neighbour (𭃌 cut from 𪘂 with 止 of 歯).
+EXTRA_OUTLINES = 2
 #: For a half-enclosure's enclosed part, the place whose hosts write it the same way, how many
 #: of them are looked at, and what a host from there costs against one from the place itself.
 KIN_PLACES = {"⿺1": "R", "⿸1": "R"}
@@ -705,6 +709,7 @@ class Composer:
     _sketches: dict[str, Part | None] = field(default_factory=dict, init=False, repr=False)
     _strokes: dict[tuple[str, str], Counter] = field(default_factory=dict, init=False, repr=False)
     _templates: dict[tuple[str, str], np.ndarray | None] = field(default_factory=dict, init=False, repr=False)
+    _own_counts: dict[str, int | None] = field(default_factory=dict, init=False, repr=False)
 
     @cached_property
     def by_sequence(self) -> dict[str, str]:
@@ -1072,6 +1077,10 @@ class Composer:
         """Whether a piece has a number of strokes its operand commonly has in that place."""
         if not isinstance(node, str):
             return True
+        expected = self._own_outlines(node)
+        if (piece.contours and piece.contours[0].width is None and expected
+                and len(piece.contours) > expected + EXTRA_OUTLINES):
+            return False
         counts = self.strokes(slot(op, index), node)
         if sum(counts.values()) < STROKE_EVIDENCE:
             return True
@@ -1555,6 +1564,25 @@ class Composer:
             glyph = self.font.glyph(node)
             return 0x31C0 <= ord(node[0]) <= 0x31EF or (glyph is not None and len(glyph.contours) == 1)
         return any(self.stroked(n) for n in node[1:])
+
+    def _own_outlines(self, node: Node, depth: int = 0) -> int | None:
+        """How many outlines the variable font draws an operand with: its own glyph's, or for one a
+        fallback font draws (outlines merged), those of its sequence's operands; None when unknown."""
+        if isinstance(node, tuple):
+            counts = [self._own_outlines(n, depth + 1) for n in node[1:]]
+            return None if any(n is None for n in counts) else sum(counts)
+        if node not in self._own_counts:
+            count = None
+            if self.font.own(node):
+                count = len(self.font.glyph(node).contours)
+            elif depth <= 4 and node in self.sequences:
+                try:
+                    tree = parse(self.sequences[node])
+                except ValueError:
+                    tree = None
+                count = self._own_outlines(tree, depth) if isinstance(tree, tuple) else None
+            self._own_counts[node] = count
+        return self._own_counts[node]
 
     def _outlines(self, node: Node) -> int:
         """How many outlines a sequence's operands' own glyphs have together."""
