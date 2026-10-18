@@ -506,6 +506,9 @@ KEPT = 0.5
 KIN_PLACES = {"⿺1": "R", "⿸1": "R"}
 KIN_HOSTS = 24
 KIN_COST = 0.5
+#: How much a host a fallback font draws is ranked down: its strokes are merged into fewer outlines
+#: and drawn to another design (令 in 𧰾, whose foot is not this font's 卩).
+FOREIGN_COST = 0.5
 #: Places whose parts take positional forms, so an instance there does not stand for the part elsewhere.
 SIDED_PLACES = frozenset({"L", "T"})
 #: Places round another part whose parts take a combining form unlike the one they stand alone in:
@@ -1198,7 +1201,8 @@ class Composer:
                 if placed:
                     near = (float(np.mean(np.abs(np.array(piece) - np.array(box)))) / PLACED_UNITS if found.whole
                             else PLACED_NESTED)
-                found_all.append(((exact, ratio + shape + 0.5 * size + 0.1 * depth + near + KIN_COST * alien), found, i))
+                found_all.append(((exact, ratio + shape + 0.5 * size + 0.1 * depth + near + KIN_COST * alien
+                                  + FOREIGN_COST * (not self.font.own(found.char))), found, i))
             if found_all:
                 return sorted(found_all, key=lambda r: r[0])
         return []
