@@ -530,6 +530,10 @@ SIDED_PLACES = frozenset({"L", "T"})
 #: round the lower left a sweep runs out under the other part (走 under 召 in 超, 瓦 under 十 in 瓧).
 #: Above or round the upper left the form is kept (厂 in 原, 疒 in 病).
 COMBINING_PLACES = frozenset({"⿺0"})
+#: Places where a character wraps round another part and takes an enclosing form (戊 round 臣 in
+#: 蒧, 戸 over 羽 in 扇): like a positional form, an instance there stands for it only when no
+#: other place yields one.
+ENCLOSING_PLACES = frozenset(op + "0" for op in ENCLOSE) - COMBINING_PLACES
 #: Operands drawn across each other.
 OVERLAY = "⿻"
 #: Least likeness of a piece whose operand is overlaid: its sketch, the operands' own glyphs laid
@@ -1342,14 +1346,16 @@ class Composer:
             # (戒 from 誡); an enclosing part drawn from kin keeps the composition. Measured on the
             # jōyō kanji, this helps where the composer fell back on
             # teachers, bare glyphs or instances, and hurts where the learned layout placed every part.
-            alone = self._alone(encoded, fallback=self._unhosted(tree))
+            # A character composed of parts stands for itself better than a form it takes round
+            # or beside another part (茂 wrapped round 占 in 蒧).
+            alone = self._alone(encoded, fallback=self._unhosted(tree), found=self._instances(encoded, forms=False))
             if alone is not None:
                 placed = [alone]
         elif self.reuse and encoded in self.exclude and self.standalone is not None and self.hosted:
             # Where the learned layout placed every part, a character many others draw whole still
             # comes from them when it and they disagree: they hold a layout its sequence does not
             # tell (包's 己 hanging below 勹, as in 泡 抱 砲; 有's short 丿).
-            found = self._instances(encoded)
+            found = self._instances(encoded, forms=False)
             if sum(self.font.own(h) for *_, h in found) >= HELD_OFTEN:
                 alone = self._alone(encoded, found=found)
                 if alone is not None:
@@ -1810,18 +1816,18 @@ class Composer:
                 return True
         return False
 
-    def _instances(self, char: str) -> list[tuple[Part, Box, str]]:
+    def _instances(self, char: str, forms: bool = True) -> list[tuple[Part, Box, str]]:
         """Where other characters hold `char` whole, on the right, below or inside: each piece, the
-        box the standalone model gives it, and its host. Positional forms on the left or on top count
-        only when no other place yields one the variable font draws."""
+        box the standalone model gives it, and its host. Positional and enclosing forms count only
+        when no other place yields one the variable font draws, and never without `forms`."""
         hosts, _ = self._index
         tree = parse(self.sequences[char]) if char in self.sequences else None
         found = []
-        # A positional form on the left or on top only when no other place yields one (片 is cut
-        # only from the left of 版 and 牌): it is still the character's own design, not strokes.
-        for sided in (False, True):
+        # A positional or enclosing form only when no other place yields one (片 is cut only from
+        # the left of 版 and 牌): it is still the character's own design, not strokes.
+        for sided in (False, True) if forms else (False,):
             for place, written in self._places.get(char, ()):
-                if (place in SIDED_PLACES) != sided:
+                if (place in SIDED_PLACES or place in ENCLOSING_PLACES) != sided:
                     continue
                 if place in COMBINING_PLACES:
                     # Round another part it takes a combining form (走 sweeping under 召 in 超); a
