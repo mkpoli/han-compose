@@ -1125,7 +1125,8 @@ class Composer:
             node = tree
             for step in path:
                 node = node[1 + step]
-            if found is not None and all(self._kept(p, n) for p, n in zip(found.pieces, node[1:])):
+            if (found is not None and all(self._kept(p, n) for p, n in zip(found.pieces, node[1:]))
+                    and not self._traded(found.pieces, node[1:])):
                 return found
         part, node = self.font.glyph(char), tree
         for step in path:
@@ -1134,7 +1135,21 @@ class Composer:
                 return None
             part, node = cut[0][step], node[1 + step]
         cut = self._cut(part, node, strict)
-        return None if cut is None else Host(char, cut[0], part.box, cut[1], whole=not path)
+        if cut is None or self._traded(cut[0], node[1:]):
+            return None
+        return Host(char, cut[0], part.box, cut[1], whole=not path)
+
+    def _traded(self, pieces: list[Part], operands: list[Node]) -> bool:
+        """Whether pieces the variable font draws traded a stroke: one has fewer outlines than its
+        operand is drawn with while another has more (囗's bottom stroke cut into ⺀㐅 in 図)."""
+        if not all(p.contours and p.contours[0].width is None for p in pieces):
+            return False
+        expected = [self._own_outlines(n) for n in operands]
+        if not all(expected):
+            return False
+        short = any(len(p.contours) < e for p, e in zip(pieces, expected))
+        over = any(len(p.contours) > e for p, e in zip(pieces, expected))
+        return short and over
 
     def alternatives(self, node: Node, place: str) -> list[str]:
         """What an operand may be drawn as in `place`: itself, then its positional forms there
