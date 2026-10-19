@@ -514,6 +514,10 @@ EXTRA_OUTLINES = 2
 KIN_PLACES = {"⿺1": "R", "⿸1": "R"}
 KIN_HOSTS = 24
 KIN_COST = 0.5
+#: For a part on one side that only characters a fallback font draws hold there, the facing side
+#: whose hosts the variable font draws in its own design (半 left of 刂 in 判, held there only by
+#: Plangothic's Chinese 半, whose stem bends; this font's 伴 and 畔 hold it on the right).
+FACING_PLACES = {"L": "R", "R": "L", "T": "B", "B": "T"}
 #: How much a host a fallback font draws is ranked down: its strokes are merged into fewer outlines
 #: and drawn to another design (令 in 𧰾, whose foot is not this font's 卩).
 FOREIGN_COST = 0.5
@@ -1208,14 +1212,8 @@ class Composer:
         hosts, _ = self._index
         want = sum(self.ink(s) for s in siblings)
         aspect = (box[2] - box[0]) / max(box[3] - box[1], 1)
-        for written in self.alternatives(node, slot(op, index)):
+        def weighed(candidates: list, facing: bool = False) -> list[tuple[tuple, Host, int]]:
             scored = []
-            kin = KIN_PLACES.get(slot(op, index))
-            candidates = [(entry, False) for entry in hosts.get((slot(op, index), written), [])]
-            if kin:
-                # Few characters hold a part inside a half-enclosure; many write it whole where it
-                # stands the same way (頁 on the right for 題's lower right).
-                candidates += [(entry, True) for entry in hosts.get((kin, written), [])[:KIN_HOSTS]]
             for (char, tree, path, i), alien in candidates:
                 if char in self.exclude:
                     continue
@@ -1246,11 +1244,26 @@ class Composer:
                                     / max((box[2] - box[0]) * (box[3] - box[1]), 1)))
                 near = 0.0
                 if placed:
-                    near = (float(np.mean(np.abs(np.array(piece) - np.array(box)))) / PLACED_UNITS if found.whole
+                    # A piece from the facing side stands across the em from its box wherever it is drawn.
+                    near = (float(np.mean(np.abs(np.array(piece) - np.array(box)))) / PLACED_UNITS if found.whole and not facing
                             else PLACED_NESTED)
                 found_all.append(((exact, ratio + shape + 0.5 * size + 0.1 * depth + near + KIN_COST * alien
                                   + FOREIGN_COST * (not self.font.own(found.char))
                                   + UNJAPANESE_COST * (found.char not in self.japanese)), found, i))
+            return found_all
+
+        for written in self.alternatives(node, slot(op, index)):
+            kin = KIN_PLACES.get(slot(op, index))
+            candidates = [(entry, False) for entry in hosts.get((slot(op, index), written), [])]
+            if kin:
+                # Few characters hold a part inside a half-enclosure; many write it whole where it
+                # stands the same way (頁 on the right for 題's lower right).
+                candidates += [(entry, True) for entry in hosts.get((kin, written), [])[:KIN_HOSTS]]
+            found_all = weighed(candidates)
+            facing = FACING_PLACES.get(slot(op, index))
+            if facing and found_all and not any(self.font.own(f.char) for _, f, _ in found_all):
+                found_all += weighed([(entry, True) for entry in hosts.get((facing, written), [])
+                                      if self.font.own(entry[0])][:KIN_HOSTS], facing=True)
             if found_all:
                 return sorted(found_all, key=lambda r: r[0])
         return []
