@@ -71,6 +71,9 @@ LIKENESS = 0.45
 OPENING_SHARE = 0.85
 #: The least share of the em a learned enclosing part's box may cover at the root.
 ENCLOSING_LEAST = 0.5
+#: How far an enclosing part's host piece may change its proportions in its learned box before the
+#: part is drawn from its own glyph instead.
+ENCLOSING_STRETCH = 1.4
 #: How far an atomic character taken from another may change its proportions in its own box.
 ALONE_STRETCH = 1.6
 #: How far a learned box may change the proportions of a part a character draws at its top level
@@ -1526,6 +1529,11 @@ class Composer:
         groups = []
         for i, (child, box) in enumerate(zip(children, boxes)):
             part = self._host(op, i, child, children[:i] + children[i + 1:], box, placed=region is None)
+            if (part is not None and op in ENCLOSE and i == 0 and isinstance(child, str) and self.font.own(child)
+                    and self._stretch(part[0].pieces[part[1]].box, box) > ENCLOSING_STRETCH):
+                # An enclosing part every host draws squeezed (夂 atop 口 in 咎, for 処) is drawn
+                # from its own glyph, which keeps the sweep its full height.
+                part = None
             if part is None:
                 if op in ENCLOSE and i == 1:
                     # Drawn into its learned box, then kept clear of the enclosing strokes (面
