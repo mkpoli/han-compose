@@ -517,6 +517,9 @@ KIN_COST = 0.5
 #: How much a host a fallback font draws is ranked down: its strokes are merged into fewer outlines
 #: and drawn to another design (令 in 𧰾, whose foot is not this font's 卩).
 FOREIGN_COST = 0.5
+#: How much a host with no Japanese sequence is ranked down: it may write a part in a form Japan does
+#: not (奐 in 㬇, 免 in 睌, a stroke short of 喚's and 勉's).
+UNJAPANESE_COST = 0.5
 #: Places whose parts take positional forms, so an instance there does not stand for the part elsewhere.
 SIDED_PLACES = frozenset({"L", "T"})
 #: Places round another part whose parts take a combining form unlike the one they stand alone in:
@@ -1153,10 +1156,15 @@ class Composer:
         return out
 
     @cached_property
+    def japanese(self) -> set[str]:
+        """The characters with a Japanese sequence (`japanese_characters`)."""
+        return japanese_characters()
+
+    @cached_property
     def usage(self) -> Counter:
         """(position, operand) → how many characters with a Japanese sequence write that operand there."""
         hosts, _ = self._index
-        japanese = japanese_characters()
+        japanese = self.japanese
         return Counter({k: sum(1 for char, *_ in v if char in japanese) for k, v in hosts.items()})
 
     @cached_property
@@ -1226,7 +1234,8 @@ class Composer:
                     near = (float(np.mean(np.abs(np.array(piece) - np.array(box)))) / PLACED_UNITS if found.whole
                             else PLACED_NESTED)
                 found_all.append(((exact, ratio + shape + 0.5 * size + 0.1 * depth + near + KIN_COST * alien
-                                  + FOREIGN_COST * (not self.font.own(found.char))), found, i))
+                                  + FOREIGN_COST * (not self.font.own(found.char))
+                                  + UNJAPANESE_COST * (found.char not in self.japanese)), found, i))
             if found_all:
                 return sorted(found_all, key=lambda r: r[0])
         return []
@@ -1817,6 +1826,8 @@ class Composer:
         # brings back (囲 from Plangothic's 𡈇).
         boxes = [b for _, b, _ in found]
         found = [f for f in found if self.font.own(f[2])] or (found if fallback else [])
+        # Japanese characters write it in the form Japan does (免 in 勉, not the stroke-short 免 of 睌).
+        found = [f for f in found if f[2] in self.japanese] or found
         if not found:
             return None
         counts = Counter(len(p.contours) for p, _, _ in found)
