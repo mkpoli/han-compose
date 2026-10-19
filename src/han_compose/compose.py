@@ -1264,6 +1264,11 @@ class Composer:
             if facing and found_all and not any(self.font.own(f.char) for _, f, _ in found_all):
                 found_all += weighed([(entry, True) for entry in hosts.get((facing, written), [])
                                       if self.font.own(entry[0])][:KIN_HOSTS], facing=True)
+            if (op in ENCLOSE and isinstance(node, str) and self.font.own(node) and found_all
+                    and not any(self.font.own(f.char) for _, f, _ in found_all)):
+                # In or round an enclosure only fallback glyphs hold it: the font's own glyph keeps
+                # its design, where theirs draws another (人 in 𱎠 for 囚, 井 in 𡈇 for 囲).
+                return []
             if found_all:
                 return sorted(found_all, key=lambda r: r[0])
         return []
