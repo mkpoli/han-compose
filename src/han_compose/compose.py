@@ -73,6 +73,10 @@ OPENING_SHARE = 0.85
 ENCLOSING_LEAST = 0.5
 #: How far an atomic character taken from another may change its proportions in its own box.
 ALONE_STRETCH = 1.6
+#: How far a learned box may change the proportions of a part a character draws at its top level
+#: before the part keeps that character's extent across the axis it is split along: 弓 beside 丨 in
+#: 引 stands as tall as in 弘, where the network shortened it.
+HOST_EXTENT = 1.25
 #: How many levels of components `Composer._expanded` writes out from their own sequences.
 EXPAND_DEPTH = 2
 #: Below how many characters writing a part out its hosts are sought inside components too.
@@ -1498,6 +1502,9 @@ class Composer:
                         groups.append([self._place(source, room, self.ink(drawn.char), f"learned {drawn.char}")])
                     _fit_inside(groups[0], groups[1], region or self.face, self.font.stem[0][0], room=room)
                     continue
+            if region is None and op in AXIS and drawn.whole and self._stretch(source.box, box) > HOST_EXTENT:
+                across = 1 - AXIS[op]
+                box = tuple(source.box[k] if k % 2 == across else box[k] for k in range(4))
             groups.append([Placed(source, source.box, box, native=self.ink(drawn.char), origin=f"learned {drawn.char}")])
             if op in CLEARED and i == 1 and _collision(groups[0], groups[1], region or self.face) > COLLIDE:
                 # Its box runs into the enclosing strokes (帀 over 走's 土 in 䞙): it is fitted
