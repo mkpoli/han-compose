@@ -549,6 +549,10 @@ AXIS_STACK = "⿱"
 #: The least share of its parts' outlines an instance of a sequence keeps (strokes may merge
 #: when drawn whole, a part may not go missing).
 INSTANCE_KEPT = 0.75
+#: How many characters the variable font draws must hold a redrawn character whole, and how little
+#: its composition may overlap the instance taken from them, for the instance to replace it.
+HELD_OFTEN = 8
+HELD_AGREE = 0.5
 #: How many hosts of each place an instance of a sequence is looked for in.
 INSTANCE_HOSTS = 12
 #: An enclosed part's room stays this many stroke widths clear of the enclosing part's ink.
@@ -1292,6 +1296,17 @@ class Composer:
             alone = self._alone(encoded, fallback=self._unhosted(tree))
             if alone is not None:
                 placed = [alone]
+        elif self.reuse and encoded in self.exclude and self.standalone is not None and self.hosted:
+            # Where the learned layout placed every part, a character many others draw whole still
+            # comes from them when it and they disagree: they hold a layout its sequence does not
+            # tell (包's 己 hanging below 勹, as in 泡 抱 砲; 有's short 丿).
+            found = self._instances(encoded)
+            if sum(self.font.own(h) for *_, h in found) >= HELD_OFTEN:
+                alone = self._alone(encoded, found=found)
+                if alone is not None:
+                    composed, whole = raster(placed, 96), raster([alone], 96)
+                    if (composed & whole).sum() < HELD_AGREE * max((composed | whole).sum(), 1):
+                        placed = [alone]
         if self.weighted:
             self._balance(placed)
         if self.guide is not None:
@@ -1746,15 +1761,10 @@ class Composer:
                 return True
         return False
 
-    def _alone(self, char: str, fallback: bool = False) -> Placed | None:
-        """`char` taken whole from another character that holds it, on the right, below or inside
-        (on the left or on top it takes a positional form, `SIDED_PLACES`). Of its instances, those with
-        the stroke count most of them have, and of these the one whose shape is closest to their
-        average: a positional form (工 on the left, its last stroke rising) loses to the shape most
-        places keep. It goes in the median of the boxes the standalone model gives all its
-        instances, its proportions kept within `STRETCH`."""
-        if self.standalone is None or not self.hosted:
-            return None
+    def _instances(self, char: str) -> list[tuple[Part, Box, str]]:
+        """Where other characters hold `char` whole, on the right, below or inside: each piece, the
+        box the standalone model gives it, and its host. Positional forms on the left or on top count
+        only when no other place yields one the variable font draws."""
         hosts, _ = self._index
         tree = parse(self.sequences[char]) if char in self.sequences else None
         found = []
@@ -1782,6 +1792,19 @@ class Composer:
                         found.append((piece, box, host_char))
             if any(self.font.own(f[2]) for f in found):
                 break
+        return found
+
+    def _alone(self, char: str, fallback: bool = False, found: list | None = None) -> Placed | None:
+        """`char` taken whole from another character that holds it, on the right, below or inside
+        (on the left or on top it takes a positional form, `SIDED_PLACES`). Of its instances, those with
+        the stroke count most of them have, and of these the one whose shape is closest to their
+        average: a positional form (工 on the left, its last stroke rising) loses to the shape most
+        places keep. It goes in the median of the boxes the standalone model gives all its
+        instances, its proportions kept within `STRETCH`. `found` is `_instances(char)`, when already gathered."""
+        if self.standalone is None or not self.hosted:
+            return None
+        if found is None:
+            found = self._instances(char)
         # Every instance says where the character stands alone; only the variable font's are drawn,
         # unless `fallback`: a fallback glyph's strokes, enlarged, come out heavier than weighting
         # brings back (囲 from Plangothic's 𡈇).
