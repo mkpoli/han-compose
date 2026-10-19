@@ -1348,7 +1348,8 @@ class Composer:
             # teachers, bare glyphs or instances, and hurts where the learned layout placed every part.
             # A character composed of parts stands for itself better than a form it takes round
             # or beside another part (茂 wrapped round 占 in 蒧).
-            alone = self._alone(encoded, fallback=self._unhosted(tree), found=self._instances(encoded, forms=False))
+            held = self._instances(encoded, forms=False) if self.standalone is not None and self.hosted else []
+            alone = self._alone(encoded, fallback=self._unhosted(tree), found=held)
             if alone is not None:
                 placed = [alone]
         elif self.reuse and encoded in self.exclude and self.standalone is not None and self.hosted:
