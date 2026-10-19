@@ -1204,7 +1204,14 @@ class Composer:
                 ratio = abs(math.log(max(sum(self.ink(s) for s in others), 1) / max(want, 1)))
                 scored.append((not exact, alien, ratio, len(path), char, tree, path, i))
             found_all = []
-            for exact, alien, ratio, depth, char, tree, path, i in sorted(scored, key=lambda r: r[:4])[:32 if placed else 16]:
+            # As many hosts the variable font draws as others: where most hosts of a part are
+            # characters only a fallback font draws (辶 round heavy parts), `FOREIGN_COST` still
+            # weighs the font's own against them.
+            ordered = sorted(scored, key=lambda r: r[:4])
+            limit = 32 if placed else 16
+            own = [r for r in ordered if self.font.own(r[4])][:limit]
+            foreign = [r for r in ordered if not self.font.own(r[4])][:limit]
+            for exact, alien, ratio, depth, char, tree, path, i in sorted(own + foreign, key=lambda r: r[:4]):
                 found = self._host_node(char, tree, path)
                 if found is None:
                     continue
