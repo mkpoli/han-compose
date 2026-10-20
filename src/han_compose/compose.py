@@ -617,6 +617,9 @@ SWEEP_PRESSED = 0.4
 SWEEP_END = 0.12
 #: The least share of its part's height a sweep rises by.
 SWEEP_RISE = 0.3
+#: The least share of its part's width a sweep runs along the foot, in its lowest fifth: 毛's 乚 runs
+#: 0.62 of 毛, 九's 0.34; 瓜's last stroke falls to the right at 0.12 and does not sweep.
+SWEEP_FOOT = 0.3
 #: How far right of a sweep's left edge it turns along its foot, past its stem.
 STEM_SPAN = 90.0
 #: Enclosures whose enclosed part is kept clear of the enclosing ink: under a corner's sweep (君's 口
@@ -1599,6 +1602,10 @@ class Composer:
                     opening = self._room(op, groups[0], region or self.face)
                     if opening is not None:
                         box = (opening[0], opening[1], min(opening[2], box[2]), min(opening[3], box[3]))
+                else:
+                    # A part drawn alone that does not sweep under the other (瓜, whose last stroke
+                    # falls short of 交 in 㼎) stands beside it.
+                    return self._node(("⿰", *children), region or self.face)
             if op in ENCLOSE and i == 1 and all(p.origin.startswith("glyph") for p in groups[0]):
                 # The enclosing part is a bare glyph, drawn for standing alone: the opening its
                 # strokes leave is far smaller than a designer's (龵's sweep over 目 in 看). The
@@ -2110,6 +2117,9 @@ def _swept(placed: Placed, edge: float) -> list[Placed] | None:
     if len(sweeps) != 1 or len(contours) < 2:
         return None
     sweep = sweeps[0]
+    low = contours[sweep][contours[sweep][:, 1] <= y0 + 0.2 * (y1 - y0)]
+    if not len(low) or low[:, 0].max() - low[:, 0].min() < SWEEP_FOOT * (x1 - x0):
+        return None
     head = max(b[2] for k, b in enumerate(boxes) if k != sweep)
     if head <= edge or edge <= x0 + (x1 - x0) / 4:
         return None
