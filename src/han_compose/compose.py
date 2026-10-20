@@ -1103,6 +1103,10 @@ class Composer:
         if (piece.contours and piece.contours[0].width is None and expected
                 and len(piece.contours) > expected + EXTRA_OUTLINES):
             return False
+        if piece.contours and piece.contours[0].width is None and len(piece.contours) == expected:
+            # Drawn with its operand's own strokes, whatever most hosts there draw (巳 left of 攵 in
+            # 攺, where most hosts nest a smaller 巳 atop another part, as in 巽).
+            return True
         counts = self.strokes(slot(op, index), node)
         if sum(counts.values()) < STROKE_EVIDENCE:
             return True
