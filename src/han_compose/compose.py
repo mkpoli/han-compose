@@ -1268,6 +1268,9 @@ class Composer:
                     here = here[1 + step]
                 others = [n for k, n in enumerate(here[1:]) if k != i]
                 exact = here[0] == op and [key(n) for n in others] == [key(s) for s in siblings]
+                # A host beside the very same parts is first only if Japan writes it: the simplified
+                # 摇 holds 䍃 beside 扌 as 搖 does, drawn to the Chinese design.
+                exact = exact and char in self.japanese
                 ratio = abs(math.log(max(sum(self.ink(s) for s in others), 1) / max(want, 1)))
                 scored.append((not exact, alien, ratio, len(path), char, tree, path, i))
             found_all = []
