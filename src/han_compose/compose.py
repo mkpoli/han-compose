@@ -222,6 +222,35 @@ def japanese_sequences() -> dict[str, str]:
     return out
 
 
+#: BabelStone's tag for another analysis of the same shape, not a glyph of its own (主 as ⿱亠土).
+ANALYSIS = "X"
+
+
+def regional_sequences() -> dict[str, list[tuple[str, str]]]:
+    """The ideographs BabelStone gives more than one sequence by source region, each distinct
+    sequence with the regions that write it, Japan's first: 侮 → [('⿰亻毎', 'J'), ('⿰亻每', 'GHTKP')].
+    Another analysis of the same shape (tagged `ANALYSIS`) and a sequence naming an unencoded or
+    unnameable component are left out; Japan's is the sequence `japanese_sequences` draws."""
+    japanese = japanese_sequences()
+    out = {}
+    for row in read_rows("han-ids.tsv"):
+        char, merged = row[1], {}
+        for item in row[2].split():
+            match = REGIONS.match(item)
+            if not match:
+                continue
+            text, regions = match.group(1), "".join(r for r in match.group(2) if r.isalnum())
+            regions = regions.replace(ANALYSIS, "")
+            if not regions or text == char or "{" in text or "？" in text:
+                continue
+            if "J" in regions and char in japanese:
+                text = japanese[char]
+            merged[text] = merged.get(text, "") + "".join(r for r in regions if r not in merged.get(text, ""))
+        if len(merged) > 1:
+            out[char] = sorted(merged.items(), key=lambda form: "J" not in form[1])
+    return out
+
+
 def spelled_nodes() -> set[str]:
     """The nodes written out inside `data/vocab/han-ids-drawn.tsv`'s sequences: each is composed
     from its operands, never drawn as the character it describes (実's ⿻三人, not 春's 𡗗)."""
@@ -314,6 +343,12 @@ class Font:
         if len(char) == 2 and _selector(char[1]) and (ord(char[0]), ord(char[1])) in self.variants:
             return self.variants[(ord(char[0]), ord(char[1]))] or self.cmap.get(ord(char[0]))
         return None
+
+    def selected(self, char: str) -> list[str]:
+        """`char` with each variation selector the font maps to a glyph of its own, not its base's."""
+        base = self.cmap.get(ord(char))
+        return [char + chr(selector) for (point, selector), name in sorted(self.variants.items())
+                if point == ord(char) and name is not None and name != base]
 
     def own(self, char: str) -> bool:
         """Whether the variable font itself draws `char`: its strokes can be weighted."""

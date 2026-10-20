@@ -222,3 +222,18 @@ def test_an_enclosure_is_cut_from_a_character_drawing_its_inner_part_interlocked
     host = composer._host_node("図", tree, ())
     assert host is not None
     assert len(host.pieces[1].contours) == composer._outlines(tree[2])
+
+
+def test_a_character_written_differently_by_region_has_each_form_japans_first() -> None:
+    forms = compose.regional_sequences()
+    assert forms["侮"][0] == ("⿰亻毎", "J")
+    assert ("⿰亻每", "GHTKP") in forms["侮"]
+    # Another analysis of the same shape is not a form of its own.
+    assert "主" not in forms
+
+
+def test_a_variation_sequence_with_a_glyph_of_its_own_is_listed(composer: compose.Composer) -> None:
+    selected = composer.font.selected("侮")
+    assert "侮\U000E0101" in selected
+    assert composer.font.glyph("侮\U000E0101") is not None
+    assert all(composer.font._name(s) != composer.font._name("侮") for s in selected)
