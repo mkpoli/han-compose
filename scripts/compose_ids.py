@@ -14,6 +14,7 @@ their outline length within 15% of the real glyph's, and the ratio of their stro
 plainest way to compose, each operand's own glyph squeezed into its share, each scored on its own.
 `calibrate` fits `compose.STEM_CURVE`, stroke width against density, on the font's own ideographs.
 `learn` trains the layout `compose_layout` describes and caches it, for `draw` and `bench` to use.
+`export-web` writes the layout and the drawing data a browser port of the composer reads.
 """
 
 from __future__ import annotations
@@ -197,6 +198,22 @@ def learn_alone(records: str = "", workers: int = 3) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     model.save(path)
     print(json.dumps({"characters": len(model.rows), "places": len(model.sums), "model": str(path)}))
+
+
+@app.command("export-web")
+def export_web(out: Path, parity: int = 0, held_out: int = 0, workers: int = 1) -> None:
+    """Write what a browser port of the composer needs into `out` (`han_compose.web_export`):
+    manifest, layout, a record per key and a host list per (place, operand). `--parity N` also draws N compound jōyō
+    kanji sequences with this composer into `out/parity.json`, whose hosts join the export, and
+    `--held-out M` M more into `out/parity-held-out.json`, whose hosts do not."""
+    from han_compose import web_export
+
+    composer = _composer()
+    if composer.layout is None:
+        raise typer.BadParameter(f"{_layout_path()} is missing: `learn` builds it.")
+    manifest = web_export.export(composer, out, joyo=joyo() if parity or held_out else None, parity=parity,
+                                 held_out=held_out, workers=workers, log=lambda line: print(line, flush=True))
+    print(json.dumps({"version": manifest["version"], **manifest["files"]}, ensure_ascii=False))
 
 
 @app.command()
