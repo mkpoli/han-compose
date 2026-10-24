@@ -634,8 +634,9 @@ RERANK = 2
 RERANK_WEIGHTS = (-0.0193, 0.3709, 0.004, 0.0014)
 #: How many hosts of each place an instance of a sequence is looked for in.
 INSTANCE_HOSTS = 12
-#: An enclosed part's room stays this many stroke widths clear of the enclosing part's ink.
-ROOM_MARGIN = 0.8
+#: An enclosed part's room stays this many stroke widths clear of the enclosing part's ink: drawn
+#: parts come within half a stroke of it (枼 under the sweep of 尸 in 屟, 合 inside 匸 in 匼).
+ROOM_MARGIN = 0.4
 #: Share of an enclosed part's ink over the enclosing part's above which it is fitted clear of it.
 COLLIDE = 0.03
 #: A stroke of a part drawn round the lower left of another sweeps under it when it reaches this
@@ -1953,7 +1954,8 @@ class Composer:
                     # (目 fills the room under 龵 in 看).
                     groups.append(self._node(child, box))
                     opening = self._room(op, groups[0], region or self.face)
-                    limit = box if opening is None or _area(opening) <= _area(box) else _shrunk(opening, OPENING_SHARE)
+                    # The opening already includes stroke clearance from _room.
+                    limit = box if opening is None or _area(opening) <= _area(box) else opening
                     _fit_inside(groups[0], groups[1], region or self.face, self.font.stem[0][0], room=limit)
                 else:
                     kin = self._kin_outer(op, child, children[1], box, boxes[1]) if op in ENCLOSE and i == 0 else None
