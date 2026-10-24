@@ -81,6 +81,10 @@ ALONE_STRETCH = 1.6
 #: before the part keeps that character's extent across the axis it is split along: 弓 beside 丨 in
 #: 引 stands as tall as in 弘, where the network shortened it.
 HOST_EXTENT = 1.25
+#: Below this the learned box only nudges such a part, and the part keeps that character's extent
+#: as well: 訁 cut short from 訌 stays short in 討, where the network gives 訁's usual height.
+#: Jōyō, redrawn without their glyphs: 0.7338 → 0.7387 (331 better, 224 worse; 信 +0.41, 訂 +0.28).
+HOST_SNAP = 1.05
 #: How many levels of components `Composer._expanded` writes out from their own sequences.
 EXPAND_DEPTH = 2
 #: Below how many characters writing a part out its hosts are sought inside components too.
@@ -676,6 +680,10 @@ JAPANESE_USE = 3
 UNLIKE = 2.0
 #: Most an enclosed part's or a whole glyph's proportions may change on the way into its box.
 STRETCH = 1.6
+#: The same in a row of three, whose parts a designer flattens or narrows much further (大 in 器):
+#: on the 19 drawn ⿳ and ⿲ characters that place a whole glyph, 0.392 at `STRETCH`, 0.513 at 4.
+#: Two operands gain nothing from it (⿱ 0.640 → 0.639, ⿰ 0.652 → 0.654 on 382).
+ROW_STRETCH = 4.0
 
 
 def stem(density: float, axis: int) -> float:
@@ -1828,7 +1836,9 @@ class Composer:
             return self._overlay(children, region)
         if self.hosted and self.layout is not None and len(children) == 2 and (
                 op in self.layout.ops if at_root else op in ("⿰", "⿱")):
-            return self._learned(op, children, None if at_root else region)
+            learned = self._learned(op, children, None if at_root else region)
+            if learned is not None:
+                return learned
         if at_root and op in AXIS and self.hosted:
             transplanted = self._transplant(op, children)
             if transplanted is not None:
@@ -1851,7 +1861,15 @@ class Composer:
                 continue
             part = self._host(op, i, child, children[:i] + children[i + 1:], box)
             if part is None:
-                groups.append(self._node(child, box))
+                group = self._row(child, box, len(children))
+                if op in AXIS and len(group) == 1 and group[0].origin.startswith("glyph "):
+                    across = 1 - AXIS[op]
+                    target = group[0].target
+                    if target[across + 2] - target[across] < box[across + 2] - box[across]:
+                        # The teacher leaves too little axial room for this bare glyph to retain
+                        # its cross-axis extent within STRETCH. Allocate both operands together.
+                        return self._shares(op, children, region)
+                groups.append(group)
                 continue
             drawn, k = part
             source = drawn.pieces[k]
@@ -1877,13 +1895,14 @@ class Composer:
             _fit_inside(groups[0], groups[1], region, self.font.stem[0][0])
         return [p for group in groups for p in group]
 
-    def _learned(self, op: str, children: list[Node], region: Box | None = None) -> list[Placed]:
+    def _learned(self, op: str, children: list[Node], region: Box | None = None) -> list[Placed] | None:
         """Two operands in the boxes the learned layout gives them, each cut from the host that fits
         its box best, or drawn into it. A whole character's boxes stand in the em; a nested node's
         are those of a whole character laid out alike, carried into its region. An enclosed part cut
         from a host stays in its predicted box: fitting it into the opening afterwards scored worse
         (0.562 against 0.601 on 238 jōyō enclosures). One drawn on its own is drawn into the room
-        its enclosing part leaves and fitted there, since nothing placed it beside that part."""
+        its enclosing part leaves and fitted there, since nothing placed it beside that part.
+        None when a linear layout would deform a hosted operand beyond STRETCH."""
         tested = next(iter(self.exclude)) if len(self.exclude) == 1 else None
         boxes = self.layout.predict(self, op, [key(c) for c in children], tested)
         if region is not None:
@@ -1958,9 +1977,11 @@ class Composer:
                         groups.append([self._place(source, room, self.ink(drawn.char), f"learned {drawn.char}")])
                     _fit_inside(groups[0], groups[1], region or self.face, self.font.stem[0][0], room=room)
                     continue
-            if region is None and op in AXIS and drawn.whole and self._stretch(source.box, box) > HOST_EXTENT:
+            if region is None and op in AXIS and drawn.whole and not HOST_SNAP < self._stretch(source.box, box) <= HOST_EXTENT:
                 across = 1 - AXIS[op]
                 box = tuple(source.box[k] if k % 2 == across else box[k] for k in range(4))
+            if op in AXIS and self._stretch(source.box, box) > STRETCH:
+                return None
             groups.append([Placed(source, source.box, box, native=self.ink(drawn.char), origin=f"learned {drawn.char}")])
             if op in CLEARED and i == 1 and _collision(groups[0], groups[1], region or self.face) > COLLIDE:
                 # Its box runs into the enclosing strokes (帀 over 走's 土 in 䞙): it is fitted
@@ -2372,6 +2393,14 @@ class Composer:
         """A whole glyph drawn into `target`, its proportions changed by at most `STRETCH`."""
         return Placed(part, part.box, fitted(part.box, target), native=native, origin=origin)
 
+    def _row(self, child: Node, box: Box, count: int) -> list[Placed]:
+        """`child` drawn into `box` as one of `count` aligned operands; a whole glyph in a row of
+        three may change its proportions by up to `ROW_STRETCH`."""
+        group = self._node(child, box)
+        if count == 3 and len(group) == 1 and group[0].origin.startswith("glyph "):
+            group[0].target = fitted(group[0].source, box, ROW_STRETCH)
+        return group
+
     def _shares(self, op: str, children: list[Node], region: Box) -> list[Placed]:
         """With no drawn character to follow, operands share the region along an aligned operator by
         `SHARES` (fitted on the drawn characters of each operator), each part still cut from a host
@@ -2407,7 +2436,7 @@ class Composer:
                 source = drawn.pieces[k]
                 groups.append([Placed(source, source.box, fitted(source.box, box), native=self.ink(drawn.char), origin=f"host {drawn.char}")])
             else:
-                groups.append(self._node(child, box))
+                groups.append(self._row(child, box, len(children)))
         self._space(axis, groups)
         return [p for group in groups for p in group]
 
