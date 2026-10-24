@@ -2337,8 +2337,8 @@ class Composer:
         if not found:
             return None
         counts = Counter(len(p.contours) for p, _, _ in found)
-        usual = max(counts, key=counts.get)
-        found = [f for f in found if len(f[0].contours) == usual]
+        most = max(counts.values())
+        found = [f for f in found if counts[len(f[0].contours)] == most]
         shapes = [_shape(p, 24).astype(float) for p, _, _ in found]
         mean = np.mean(shapes, axis=0)
         box = tuple(float(v) for v in np.median(np.array(boxes), axis=0))
