@@ -101,3 +101,65 @@ def test_yan_identity_and_rendering_with_components(monkeypatch, nested, mode):
         assert "⿸厂⿱犬鬼" not in instances
     assert c.sequences == {"魇": "⿸厌鬼", "厌": "⿸厂犬"}
 
+
+def fitting_geometry():
+    outer = compose.Part([rectangle((0, 0, 10, 100)), rectangle((0, 90, 100, 100))])
+    inner = compose.Part([rectangle((0, 0, 20, 20))])
+    return [compose.Placed(outer, outer.box, outer.box)], [compose.Placed(inner, inner.box, (40, 40, 60, 60))]
+
+
+@pytest.mark.parametrize("room, expected", [
+    (None, (34.375, 33.625, 66.375, 65.625)),
+    ((20, 20, 80, 80), (34.375, 33.625, 66.375, 65.625)),
+    ((40, 40, 60, 60), (40.625, 39.375, 60.625, 59.375)),
+])
+def test_default_enclosure_fit_preserves_placement(room, expected):
+    outer, inner = fitting_geometry()
+    compose._fit_inside(outer, inner, (0, 0, 100, 100), 4, room=room)
+    assert inner[0].target == pytest.approx(expected)
+
+
+def test_blocked_anchor_preserves_scale_and_clearance():
+    outer, anchored = fitting_geometry()
+    _, default = fitting_geometry()
+    region = (0, 0, 100, 100)
+    room = (40, 40, 60, 60)
+    compose._fit_inside(outer, default, region, 4, room=room)
+    compose._fit_inside(outer, anchored, region, 4, room=room, anchor=(5, 95))
+    a, b = anchored[0].target, default[0].target
+    assert (a[2] - a[0], a[3] - a[1]) == pytest.approx((b[2] - b[0], b[3] - b[1]))
+    assert a[0] > 10 and a[3] < 90
+    assert compose._collision(outer, anchored, region) == 0
+    centre = lambda t: np.array([(t[0] + t[2]) / 2, (t[1] + t[3]) / 2])
+    assert np.linalg.norm(centre(a) - (5, 95)) < np.linalg.norm(centre(b) - (5, 95))
+
+
+@pytest.mark.parametrize("nested", [False, True])
+@pytest.mark.parametrize("mode", ["bare-refit", "hosted-refit", "missing-host"])
+def test_learned_anchor_only_applies_to_hosted_refit_bare_fallback(monkeypatch, nested, mode):
+    c = compose.Composer(SimpleNamespace(own=lambda _: False, stem=((4, 4),)), {})
+    c._faces[None] = ((0, 0, 100, 100), set())
+    boxes = [(0, 0, 100, 100), (0, 0, 25, 25)]
+    c.layout = SimpleNamespace(predict=lambda *args: list(boxes))
+    source = SimpleNamespace(box=(0, 0, 100, 10) if mode == "bare-refit" else (0, 0, 40, 40))
+    host = compose.Host("donor", [source], c.face, 0)
+    monkeypatch.setattr(c, "_host", lambda op, i, *args, **kwargs:
+                        None if i == 1 and mode == "missing-host" else (host, 0))
+    region = (100, 100, 150, 150) if nested else None
+    opening = (110, 110, 145, 145) if nested else (20, 20, 90, 90)
+    monkeypatch.setattr(c, "_room", lambda *args: opening)
+    monkeypatch.setattr(c, "ink", lambda *args: 1.0)
+    monkeypatch.setattr(c, "_node", lambda child, box:
+                        [compose.Placed(source, source.box, box, origin=f"glyph {child}")])
+    calls = []
+    monkeypatch.setattr(compose, "_fit_inside", lambda outer, inner, region, stem, **kwargs:
+                        calls.append((inner[0].target, kwargs)))
+    c._learned("⿸", ["A", "B"], region)
+    assert len(calls) == 1
+    target, kwargs = calls[0]
+    expected = (106.25, 106.25) if nested else (12.5, 12.5)
+    assert kwargs.get("anchor") == (expected if mode == "bare-refit" else None)
+    if mode == "bare-refit":
+        assert target == compose._shrunk(opening, compose.OPENING_SHARE)
+        assert kwargs["room"] == target
+

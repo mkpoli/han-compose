@@ -1992,12 +1992,14 @@ class Composer:
                     # within `STRETCH`.
                     drawn, k = self._host(op, i, child, children[:1], room) or (drawn, k)
                     source = drawn.pieces[k]
+                    anchor = None
                     if self._stretch(source.box, room) > STRETCH:
                         # No host draws it in a shape the opening takes (a flat 口 for 回's square one).
                         groups.append(self._node(child, room))
+                        anchor = ((box[0] + box[2]) / 2, (box[1] + box[3]) / 2)
                     else:
                         groups.append([self._place(source, room, self.ink(drawn.char), f"learned {drawn.char}")])
-                    _fit_inside(groups[0], groups[1], region or self.face, self.font.stem[0][0], room=room)
+                    _fit_inside(groups[0], groups[1], region or self.face, self.font.stem[0][0], room=room, anchor=anchor)
                     continue
             if region is None and op in AXIS and drawn.whole and not HOST_SNAP < self._stretch(source.box, box) <= HOST_EXTENT:
                 across = 1 - AXIS[op]
@@ -2552,11 +2554,12 @@ def _collision(outer: list[Placed], inner: list[Placed], region: Box, size: int 
 
 
 def _fit_inside(outer: list[Placed], inner: list[Placed], region: Box, stem: float, size: int = 64,
-                room: Box | None = None) -> None:
+                room: Box | None = None, anchor: tuple[float, float] | None = None) -> None:
     """The enclosed parts moved and scaled, together and in proportion, to the largest size at which
     their ink fits the enclosing part's opening, clear of its ink by `ROOM_MARGIN` stems, at the
     place nearest where they stand. Their own outline is fitted, not their box, so a part may tuck
-    under a roof or into a corner its box would overlap. Given a `room`, they grow no larger than it."""
+    under a roof or into a corner its box would overlap. Given a `room`, they grow no larger than it.
+    An `anchor` sets the preferred centre without changing the scale search."""
     w = (region[2] - region[0]) / size
     h = (region[3] - region[1]) / size
     ink = fill([r for p in outer for r in _rings(p.part.contours, p.contours())], size, region)
@@ -2600,9 +2603,10 @@ def _fit_inside(outer: list[Placed], inner: list[Placed], region: Box, stem: flo
         free = overlap < 0.5
         if not free.any():
             continue
-        # The free top-left corners (in grid rows from the top), nearest where the part stood.
-        want_row = (region[3] - (cy + hh)) / h + r0
-        want_col = (cx - hw - region[0]) / w + c0
+        # The free top-left corners nearest the preferred centre, in grid coordinates.
+        ax, ay = anchor if anchor is not None else (cx, cy)
+        want_row = (region[3] - (ay + hh)) / h + r0
+        want_col = (ax - hw - region[0]) / w + c0
         rr, cc = np.nonzero(free)
         k = int(np.argmin((rr - want_row) ** 2 + (cc - want_col) ** 2))
         top, left = region[3] - (rr[k] - r0) * h, region[0] + (cc[k] - c0) * w
