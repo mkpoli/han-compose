@@ -535,6 +535,19 @@ FORM_POSITION = {"left": "L", "right": "R", "top": "T", "bottom": "B"}
 #: `STROKE_HOSTS` hosts, once `STROKE_EVIDENCE` of them have been cut.
 STROKE_SHARE = 0.25
 STROKE_HOSTS = 60
+#: A cut piece scaled to a `TYPICAL_SIZE` square against its fellows': the hosts looked at, how many
+#: are enough to compare with, and the share of its ink it may have where a fellow has none, or of
+#: the fellow's it may lack, to agree with it (𠟻's 貝 cut as 目, 噟's 口 as two bars, agreeing with
+#: none). A piece agreeing with a third of them, and at least `TYPICAL_AGREE`, passes, so that a form
+#: several hosts share (辶 with one dot or two) stands. Fewer hosts are measured against the operand's
+#: own glyph, which stands alone: ink it lacks is as strictly kept to, what it has more loosely.
+TYPICAL_SIZE = 32
+TYPICAL_HOSTS = 24
+TYPICAL_FEW = 4
+TYPICAL_EXTRA, TYPICAL_MISSING = 0.10, 0.10
+TYPICAL_AGREE = 2
+TYPICAL_GLYPH = 0.2
+TYPICAL_SHARE = 1 / 3
 STROKE_EVIDENCE = 4
 #: How much an instance taken whole is ranked down per e-fold its area must grow.
 GROWN = 1.0
@@ -808,6 +821,7 @@ class Composer:
     _sketches: dict[str, tuple] = field(default_factory=dict, init=False, repr=False)
     _strokes: dict[tuple[str, str], tuple] = field(default_factory=dict, init=False, repr=False)
     _templates: dict[tuple[str, str], tuple] = field(default_factory=dict, init=False, repr=False)
+    _typical: dict[tuple[str, str], tuple] = field(default_factory=dict, init=False, repr=False)
     _frames: list[set] = field(default_factory=list, init=False, repr=False)
     _reference_exclude: frozenset[str] = field(default_factory=frozenset, init=False, repr=False)
 
@@ -1103,7 +1117,7 @@ class Composer:
                 excluded = grown
         changed = excluded ^ self._reference_exclude
         if changed:
-            for store in (self._templates, self._strokes, self._sketches, self._faces, self._any_overlays, self._hosts):
+            for store in (self._templates, self._typical, self._strokes, self._sketches, self._faces, self._any_overlays, self._hosts):
                 for k in [k for k, (_, asked) in store.items() if None in asked or not asked.isdisjoint(changed)]:
                     del store[k]
             self.__dict__.pop("_plain", None)
@@ -1283,6 +1297,8 @@ class Composer:
         if (piece.contours and piece.contours[0].width is None and expected
                 and len(piece.contours) > expected + EXTRA_OUTLINES):
             return False
+        if not self._like_fellows(piece, slot(op, index), node):
+            return False
         if piece.contours and piece.contours[0].width is None and len(piece.contours) == expected:
             # Drawn with its operand's own strokes, whatever most hosts there draw (巳 left of 攵 in
             # 攺, where most hosts nest a smaller 巳 atop another part, as in 巽).
@@ -1292,6 +1308,52 @@ class Composer:
             return True
         common = max(counts.values())
         return counts.get(len(piece.contours), 0) >= STROKE_SHARE * common
+
+    def _like_fellows(self, piece: Part, place: str, operand: str) -> bool:
+        """Whether a piece, scaled to a square, keeps to the shape the operand's other pieces in that
+        place take there, or to its own glyph's where few hosts hold it."""
+        reference = self._consensus(place, operand)
+        if reference is None:
+            return True
+        shapes, fellows = reference
+        mask = _square(piece)
+        if not mask.any():
+            return True
+        grown = _grown_mask(mask, 2)
+
+        def agrees(shape: np.ndarray, extra: float, missing: float) -> bool:
+            return ((mask & ~_grown_mask(shape, 2)).sum() <= extra * mask.sum()
+                    and (shape & ~grown).sum() <= missing * max(shape.sum(), 1))
+
+        if fellows:
+            need = max(TYPICAL_AGREE, math.ceil(TYPICAL_SHARE * len(shapes)))
+            return sum(agrees(shape, TYPICAL_EXTRA, TYPICAL_MISSING) for shape in shapes) >= need
+        return agrees(shapes[0], TYPICAL_EXTRA, TYPICAL_GLYPH)
+
+    def _consensus(self, place: str, operand: str) -> tuple[list[np.ndarray], bool] | None:
+        """The shapes of an operand's pieces in a place, cut without this check, and whether they come
+        from them; else its own glyph's alone; None for neither."""
+        def cut() -> list[tuple[str, np.ndarray]]:
+            hosts, _ = self._index
+            masks = []
+            seen = set()
+            for char, tree, path, i in hosts.get((place, operand), []):
+                if char in seen or char in self.exclude:
+                    continue
+                found = self._host_node(char, tree, path, strict=False)
+                if found is not None:
+                    mask = _square(found.pieces[i])
+                    if mask.any():
+                        masks.append((char, mask))
+                        seen.add(char)
+                        if len(masks) >= TYPICAL_HOSTS:
+                            break
+            return masks
+        masks = [mask for _, mask in self._memo(self._typical, (place, operand), cut)]
+        if len(masks) >= TYPICAL_FEW:
+            return masks, True
+        glyph = self.font.glyph(operand) if operand not in self.exclude and self.font.own(operand) else None
+        return ([_square(glyph)], False) if glyph is not None else None
 
     def _kept(self, piece: Part, node: Node) -> bool:
         """Whether a piece keeps enough of its operand's own outlines to be it: a cut that gives 戈
@@ -1330,7 +1392,9 @@ class Composer:
             for step in path:
                 node = node[1 + step]
             if (found is not None and all(self._kept(p, n) for p, n in zip(found.pieces, node[1:]))
-                    and not self._traded(found.pieces, node[1:])):
+                    and not self._traded(found.pieces, node[1:])
+                    and (not strict or all(self._like_fellows(p, slot(node[0], k), n) for k, (p, n) in enumerate(zip(found.pieces, node[1:]))
+                                           if isinstance(n, str)))):
                 return found
         part, node = self.font.glyph(char), tree
         for step in path:
@@ -2505,6 +2569,23 @@ def raster(placed: list[Placed], size: int = 128) -> np.ndarray:
     mask = np.zeros((size, size), bool)
     for item in placed:
         mask |= fill(_rings(item.part.contours, item.contours()), size, box)
+    return mask
+
+
+def _square(part: Part, size: int = TYPICAL_SIZE) -> np.ndarray:
+    """A part's ink stretched to fill a size × size square."""
+    return fill(_rings(part.contours, [c.light for c in part.contours], steps=2), size, part.box)
+
+
+def _grown_mask(mask: np.ndarray, by: int) -> np.ndarray:
+    """A mask grown by `by` pixels along rows and columns."""
+    for _ in range(by):
+        grown = mask.copy()
+        grown[1:] |= mask[:-1]
+        grown[:-1] |= mask[1:]
+        grown[:, 1:] |= mask[:, :-1]
+        grown[:, :-1] |= mask[:, 1:]
+        mask = grown
     return mask
 
 
