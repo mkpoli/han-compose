@@ -219,3 +219,41 @@ def test_teacher_guard_leaves_enclosures_unchanged(monkeypatch):
     assert result[1].target == C.fitted(source.box, boxes[1])
     assert calls == []
 
+
+@pytest.mark.parametrize("nested", [False, True])
+@pytest.mark.parametrize("opening", [None, (30, 30, 50, 50), (20, 20, 80, 80), (10, 10, 90, 90)])
+def test_missing_enclosed_host_uses_cleared_opening_without_another_inset(monkeypatch, nested, opening):
+    boxes = [(0, 0, 100, 100), (20, 20, 80, 80)]
+    c, _ = learned_composer(monkeypatch, boxes)
+    c.font.stem = ((4, 4),)
+    source = SimpleNamespace(box=c.face)
+    outer = C.Host("outer", [source], c.face, 0)
+    monkeypatch.setattr(c, "_host", lambda op, i, *args, **kwargs: (outer, 0) if i == 0 else None)
+    monkeypatch.setattr(c, "_room", lambda *args: opening)
+    monkeypatch.setattr(c, "_node", lambda child, box: [C.Placed(source, source.box, box, origin=f"glyph {child}")])
+    fits = []
+    monkeypatch.setattr(C, "_fit_inside", lambda outer, inner, region, stem, room: fits.append((inner[0].target, room)))
+    region = c.face if nested else None
+    result = c._learned("⿷", ["A", "B"], region)
+    expected = opening if opening is not None and C._area(opening) > C._area(boxes[1]) else boxes[1]
+    assert fits == [(boxes[1], expected)]
+    assert [p.origin for p in result] == ["learned outer", "glyph B"]
+
+
+def test_hosted_enclosure_refit_to_bare_glyph_keeps_existing_inset(monkeypatch):
+    boxes = [(0, 0, 100, 100), (20, 20, 80, 80)]
+    c, _ = learned_composer(monkeypatch, boxes)
+    c.font.stem = ((4, 4),)
+    source = SimpleNamespace(box=(0, 0, 100, 10))
+    host = C.Host("donor", [source], c.face, 0)
+    monkeypatch.setattr(c, "_host", lambda *args, **kwargs: (host, 0))
+    opening = (10, 10, 90, 90)
+    room = C._shrunk(opening, C.OPENING_SHARE)
+    monkeypatch.setattr(c, "_room", lambda *args: opening)
+    monkeypatch.setattr(c, "_node", lambda child, box: [C.Placed(source, source.box, box, origin=f"glyph {child}")])
+    fits = []
+    monkeypatch.setattr(C, "_fit_inside", lambda outer, inner, region, stem, room, anchor=None:
+                        fits.append((inner[0].target, room, anchor)))
+    result = c._learned("⿸", ["A", "B"])
+    assert fits == [(room, room, (50, 50))]
+    assert result[1].origin == "glyph B"

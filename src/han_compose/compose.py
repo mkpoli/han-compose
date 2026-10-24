@@ -634,8 +634,9 @@ RERANK = 2
 RERANK_WEIGHTS = (-0.0193, 0.3709, 0.004, 0.0014)
 #: How many hosts of each place an instance of a sequence is looked for in.
 INSTANCE_HOSTS = 12
-#: An enclosed part's room stays this many stroke widths clear of the enclosing part's ink.
-ROOM_MARGIN = 0.8
+#: An enclosed part's room stays this many stroke widths clear of the enclosing part's ink: drawn
+#: parts come within half a stroke of it (枼 under the sweep of 尸 in 屟, 合 inside 匸 in 匼).
+ROOM_MARGIN = 0.4
 #: Share of an enclosed part's ink over the enclosing part's above which it is fitted clear of it.
 COLLIDE = 0.03
 #: A stroke of a part drawn round the lower left of another sweeps under it when it reaches this
@@ -771,6 +772,10 @@ class Host:
     layout: list[Box] | None = None
     #: Whether the node is the whole character, so its pieces stand where the designer put them in the em.
     whole: bool = False
+
+
+class _FittedEnclosure(list[Placed]):
+    """Root hosted enclosure with a feasible bare-inner fit before balancing or guidance."""
 
 
 class _Exclusion(set):
@@ -1682,6 +1687,24 @@ class Composer:
         layout = [tuple(float(v) for v in row) for row in np.tensordot(weights / weights.sum(), shares, axes=1)]
         return replace(best, layout=layout), same
 
+    def _respelled(self, node: Node) -> Node:
+        """Rendering layout for a part under a character that is itself drawn under a corner (原 in
+        愿, 庚 in 賡): the character's inner part stacked above the new one, both under its corner
+        (⿸厂⿱泉心), since a whole character leaves no room inside it: on the 17 audited, 0.491 →
+        0.523 (9 better, 5 worse: 魔 摩 贋 lose the corner part their hosts drew). The source
+        sequence and encoded identity remain unchanged."""
+        if not isinstance(node, tuple) or node[0] != "⿸" or len(node) != 3 or not isinstance(node[1], str):
+            return node
+        try:
+            outer = parse(self.sequences.get(node[1], ""))
+        except ValueError:
+            return node
+        # One level only: a corner that is itself spelled as a corner (甲 ⿸乙口, 乙 ⿸甲木) is a cycle.
+        if isinstance(outer, tuple) and outer[0] == "⿸" and len(outer) == 3 and not (
+                isinstance(outer[1], str) and self.sequences.get(outer[1], "").startswith("⿸")):
+            return ("⿸", outer[1], ("⿱", outer[2], node[2]))
+        return node
+
     def compose(self, sequence: str) -> list[Placed]:
         """The parts that draw `sequence`; LookupError when an operand can be drawn no way."""
         tree = parse(sequence)
@@ -1699,10 +1722,11 @@ class Composer:
             # teachers, bare glyphs or instances, and hurts where the learned layout placed every part.
             # A character composed of parts stands for itself better than a form it takes round
             # or beside another part (茂 wrapped round 占 in 蒧).
-            held = self._instances(encoded, forms=False) if self.standalone is not None and self.hosted else []
-            alone = self._alone(encoded, fallback=self._unhosted(tree), found=held)
-            if alone is not None:
-                placed = [alone]
+            if not isinstance(placed, _FittedEnclosure):
+                held = self._instances(encoded, forms=False) if self.standalone is not None and self.hosted else []
+                alone = self._alone(encoded, fallback=self._unhosted(tree), found=held)
+                if alone is not None:
+                    placed = [alone]
         elif self.reuse and encoded in self.exclude and self.standalone is not None and self.hosted:
             # Where the learned layout placed every part, a character many others draw whole still
             # comes from them when it and they disagree: they hold a layout its sequence does not
@@ -1826,12 +1850,14 @@ class Composer:
             if glyph is None:
                 raise LookupError(f"No glyph or sequence draws {node}.")
             return [self._place(glyph, region, self.ink(node), f"glyph {node}")]
-        op, children = node[0], list(node[1:])
-        if op not in AXIS and op not in ENCLOSE and op != OVERLAY:
-            raise LookupError(f"{op} is not laid out.")
         instance = None if key(node) in self.spelled else self._instance(node, region)
         if instance is not None:
             return [instance]
+        # Resolve each node's original identity before changing its rendering layout.
+        node = self._respelled(node)
+        op, children = node[0], list(node[1:])
+        if op not in AXIS and op not in ENCLOSE and op != OVERLAY:
+            raise LookupError(f"{op} is not laid out.")
         if op == OVERLAY:
             return self._overlay(children, region)
         if self.hosted and self.layout is not None and len(children) == 2 and (
@@ -1919,6 +1945,8 @@ class Composer:
             boxes[0] = (min(boxes[0][0], boxes[1][0]), min(boxes[0][1], boxes[1][1]),
                         max(boxes[0][2], boxes[1][2]), max(boxes[0][3], boxes[1][3]))
         groups = []
+        outer_hosted = False
+        inner_fitted = False
         for i, (child, box) in enumerate(zip(children, boxes)):
             part = self._host(op, i, child, children[:i] + children[i + 1:], box, placed=region is None)
             if (part is not None and op in ENCLOSE and i == 0 and isinstance(child, str) and self.font.own(child)
@@ -1933,8 +1961,12 @@ class Composer:
                     # (目 fills the room under 龵 in 看).
                     groups.append(self._node(child, box))
                     opening = self._room(op, groups[0], region or self.face)
-                    limit = box if opening is None or _area(opening) <= _area(box) else _shrunk(opening, OPENING_SHARE)
-                    _fit_inside(groups[0], groups[1], region or self.face, self.font.stem[0][0], room=limit)
+                    # The opening already includes stroke clearance from _room.
+                    limit = box if opening is None or _area(opening) <= _area(box) else opening
+                    feasible = _fit_inside(groups[0], groups[1], region or self.face, self.font.stem[0][0], room=limit)
+                    inner_fitted = (feasible and region is None and outer_hosted and self.reuse and self.standalone is not None
+                                    and isinstance(child, str) and child not in self.exclude and len(groups[1]) == 1
+                                    and groups[1][0].part is self.font.glyph(child))
                 else:
                     kin = self._kin_outer(op, child, children[1], box, boxes[1]) if op in ENCLOSE and i == 0 else None
                     groups.append(kin or self._node(child, box))
@@ -1970,12 +2002,18 @@ class Composer:
                     # within `STRETCH`.
                     drawn, k = self._host(op, i, child, children[:1], room) or (drawn, k)
                     source = drawn.pieces[k]
+                    anchor = None
                     if self._stretch(source.box, room) > STRETCH:
                         # No host draws it in a shape the opening takes (a flat 口 for 回's square one).
                         groups.append(self._node(child, room))
+                        inner_fitted = (region is None and outer_hosted and self.reuse and self.standalone is not None
+                                        and isinstance(child, str) and child not in self.exclude and len(groups[1]) == 1
+                                        and groups[1][0].part is self.font.glyph(child))
+                        anchor = ((box[0] + box[2]) / 2, (box[1] + box[3]) / 2)
                     else:
                         groups.append([self._place(source, room, self.ink(drawn.char), f"learned {drawn.char}")])
-                    _fit_inside(groups[0], groups[1], region or self.face, self.font.stem[0][0], room=room)
+                    feasible = _fit_inside(groups[0], groups[1], region or self.face, self.font.stem[0][0], room=room, anchor=anchor)
+                    inner_fitted = inner_fitted and feasible
                     continue
             if region is None and op in AXIS and drawn.whole and not HOST_SNAP < self._stretch(source.box, box) <= HOST_EXTENT:
                 across = 1 - AXIS[op]
@@ -1983,6 +2021,12 @@ class Composer:
             if op in AXIS and self._stretch(source.box, box) > STRETCH:
                 return None
             groups.append([Placed(source, source.box, box, native=self.ink(drawn.char), origin=f"learned {drawn.char}")])
+            if i == 0:
+                outer_hosted = True
+            if (op == "⿸" and isinstance(children[0], tuple) and i == 1
+                    and _collision(groups[0], groups[1], region or self.face, size=256) > COLLIDE):
+                _fit_inside(groups[0], groups[1], region or self.face, self.font.stem[0][0],
+                            size=256, room=box)
             if op in CLEARED and i == 1 and _collision(groups[0], groups[1], region or self.face) > COLLIDE:
                 # Its box runs into the enclosing strokes (帀 over 走's 土 in 䞙): it is fitted
                 # clear of them, within that box or the opening where that is larger (子 under 乃's
@@ -1992,7 +2036,12 @@ class Composer:
                 _fit_inside(groups[0], groups[1], region or self.face, self.font.stem[0][0], room=limit)
         if op in AXIS:
             self._space(AXIS[op], groups)
-        return [p for group in groups for p in group]
+        placed = [p for group in groups for p in group]
+        if (region is None and op in ENCLOSE and outer_hosted and inner_fitted
+                and _visible_inside(groups[1], self.face)
+                and _collision(groups[0], groups[1], self.face, size=256) <= COLLIDE):
+            return _FittedEnclosure(placed)
+        return placed
 
     def _transplant(self, op: str, children: list[Node]) -> list[Placed] | None:
         """A whole character's operands each taken unscaled, where a designer put them in the em, from
@@ -2529,12 +2578,40 @@ def _collision(outer: list[Placed], inner: list[Placed], region: Box, size: int 
     return float((a & b).sum()) / max(float(b.sum()), 1.0)
 
 
+def _visible_inside(group: list[Placed], region: Box, size: int = 256) -> bool:
+    """Every part has finite, positive bounds and visible ink wholly inside the region.
+
+    Control-point bounds conservatively include curved outlines.
+    """
+    if not group or not np.isfinite(region).all() or region[2] <= region[0] or region[3] <= region[1]:
+        return False
+    for p in group:
+        for box in (p.source, p.target):
+            if not np.isfinite(box).all() or box[2] <= box[0] or box[3] <= box[1]:
+                return False
+        points = p.contours()
+        if not points or not any(len(q) for q in points):
+            return False
+        all_points = np.concatenate(points)
+        if not np.isfinite(all_points).all():
+            return False
+        low, high = all_points.min(axis=0), all_points.max(axis=0)
+        if np.any(low < np.asarray(region[:2]) - 1e-7) or np.any(high > np.asarray(region[2:]) + 1e-7):
+            return False
+        if not fill(_rings(p.part.contours, points), size, region).any():
+            return False
+    return True
+
+
 def _fit_inside(outer: list[Placed], inner: list[Placed], region: Box, stem: float, size: int = 64,
-                room: Box | None = None) -> None:
+                room: Box | None = None, anchor: tuple[float, float] | None = None) -> bool:
     """The enclosed parts moved and scaled, together and in proportion, to the largest size at which
     their ink fits the enclosing part's opening, clear of its ink by `ROOM_MARGIN` stems, at the
     place nearest where they stand. Their own outline is fitted, not their box, so a part may tuck
-    under a roof or into a corner its box would overlap. Given a `room`, they grow no larger than it."""
+    under a roof or into a corner its box would overlap. Given a `room`, they grow no larger than it.
+    An `anchor` sets the preferred centre without changing the scale search.
+    Return True when the raster search selects and applies a free placement; False
+    means no placement was found. Full-ink visibility and bounds require a separate check."""
     w = (region[2] - region[0]) / size
     h = (region[3] - region[1]) / size
     ink = fill([r for p in outer for r in _rings(p.part.contours, p.contours())], size, region)
@@ -2567,7 +2644,7 @@ def _fit_inside(outer: list[Placed], inner: list[Placed], region: Box, stem: flo
         mask = fill(rings, size, (box[0], box[3] - size * h, box[0] + size * w, box[3]))
         rows, cols = np.nonzero(mask)
         if not len(rows):
-            return
+            return False
         r0, c0 = rows.min(), cols.min()
         mask = mask[r0: rows.max() + 1, c0: cols.max() + 1]
         mh, mw = mask.shape
@@ -2578,9 +2655,10 @@ def _fit_inside(outer: list[Placed], inner: list[Placed], region: Box, stem: flo
         free = overlap < 0.5
         if not free.any():
             continue
-        # The free top-left corners (in grid rows from the top), nearest where the part stood.
-        want_row = (region[3] - (cy + hh)) / h + r0
-        want_col = (cx - hw - region[0]) / w + c0
+        # The free top-left corners nearest the preferred centre, in grid coordinates.
+        ax, ay = anchor if anchor is not None else (cx, cy)
+        want_row = (region[3] - (ay + hh)) / h + r0
+        want_col = (ax - hw - region[0]) / w + c0
         rr, cc = np.nonzero(free)
         k = int(np.argmin((rr - want_row) ** 2 + (cc - want_col) ** 2))
         top, left = region[3] - (rr[k] - r0) * h, region[0] + (cc[k] - c0) * w
@@ -2589,7 +2667,8 @@ def _fit_inside(outer: list[Placed], inner: list[Placed], region: Box, stem: flo
             t = p.target
             p.target = (cx + (t[0] - cx) * scale + dx, cy + (t[1] - cy) * scale + dy,
                         cx + (t[2] - cx) * scale + dx, cy + (t[3] - cy) * scale + dy)
-        return
+        return True
+    return False
 
 
 def _squeeze(group: list[Placed], axis: int, low: float, high: float) -> None:
