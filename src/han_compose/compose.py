@@ -2007,6 +2007,10 @@ class Composer:
             if op in AXIS and self._stretch(source.box, box) > STRETCH:
                 return None
             groups.append([Placed(source, source.box, box, native=self.ink(drawn.char), origin=f"learned {drawn.char}")])
+            if (op == "⿸" and isinstance(children[0], tuple) and i == 1
+                    and _collision(groups[0], groups[1], region or self.face, size=256) > COLLIDE):
+                _fit_inside(groups[0], groups[1], region or self.face, self.font.stem[0][0],
+                            size=256, room=box)
             if op in CLEARED and i == 1 and _collision(groups[0], groups[1], region or self.face) > COLLIDE:
                 # Its box runs into the enclosing strokes (帀 over 走's 土 in 䞙): it is fitted
                 # clear of them, within that box or the opening where that is larger (子 under 乃's

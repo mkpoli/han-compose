@@ -163,3 +163,82 @@ def test_learned_anchor_only_applies_to_hosted_refit_bare_fallback(monkeypatch, 
         assert target == compose._shrunk(opening, compose.OPENING_SHARE)
         assert kwargs["room"] == target
 
+
+CORNER_FACE = (0, 0, 100, 100)
+COMPOUND_OUTER = ("⿱", "A", "B")
+
+
+def compound_corner_fixture(monkeypatch, inner_top=50.4, spy_fit=True):
+    outer = compose.Part([rectangle((0, 0, 10, 100)), rectangle((0, 50, 100, 60))])
+    inner = compose.Part([rectangle((20, 40, 80, inner_top))])
+    c = compose.Composer(SimpleNamespace(own=lambda _: False, stem=((4, 4),)), {})
+    c._faces[None] = (CORNER_FACE, set())
+    c.layout = SimpleNamespace(predict=lambda *args: [outer.box, inner.box])
+    hosts = [compose.Host("outer", [outer], CORNER_FACE, 0), compose.Host("inner", [inner], CORNER_FACE, 0)]
+    monkeypatch.setattr(c, "_host", lambda op, i, *args, **kwargs: (hosts[i], 0))
+    monkeypatch.setattr(c, "_room", lambda op, outer, region: region)
+    monkeypatch.setattr(c, "ink", lambda *args: 1.0)
+    fits = []
+    if spy_fit:
+        monkeypatch.setattr(compose, "_fit_inside", lambda outer, inner, region, stem, **kwargs:
+                            fits.append((inner[0].target, region, stem, kwargs)))
+    return c, outer, inner, fits
+
+
+def test_thin_overlap_uses_predicted_box_and_256px_fitter(monkeypatch):
+    c, outer, inner, fits = compound_corner_fixture(monkeypatch)
+    a = [compose.Placed(outer, outer.box, outer.box)]
+    b = [compose.Placed(inner, inner.box, inner.box)]
+    assert compose._collision(a, b, CORNER_FACE, size=64) == 0
+    assert compose._collision(a, b, CORNER_FACE, size=256) > compose.COLLIDE
+    c._learned("⿸", [COMPOUND_OUTER, "C"])
+    assert fits == [(inner.box, CORNER_FACE, 4, {"size": 256, "room": inner.box})]
+
+
+def test_real_fit_clears_thin_overlap_without_enlarging_predicted_box(monkeypatch):
+    c, _, inner, _ = compound_corner_fixture(monkeypatch, spy_fit=False)
+    result = c._learned("⿸", [COMPOUND_OUTER, "C"])
+    assert compose._collision(result[:1], result[1:], CORNER_FACE, size=256) == 0
+    assert [p.origin for p in result] == ["learned outer", "learned inner"]
+    assert result[1].part is inner
+    for axis in (0, 1):
+        assert result[1].target[axis + 2] - result[1].target[axis] <= inner.box[axis + 2] - inner.box[axis] + 1e-9
+
+
+@pytest.mark.parametrize("nested", [False, True])
+def test_compound_corner_fit_uses_local_predicted_box(monkeypatch, nested):
+    c, _, inner, fits = compound_corner_fixture(monkeypatch)
+    monkeypatch.setattr(compose, "_collision", lambda *args, **kwargs: 0.1)
+    region = (100, 100, 150, 150) if nested else None
+    c._learned("⿸", [COMPOUND_OUTER, "C"], region)
+    expected = compose.mapped(inner.box, CORNER_FACE, region) if nested else inner.box
+    assert fits == [(expected, region or CORNER_FACE, 4, {"size": 256, "room": expected})]
+
+
+@pytest.mark.parametrize("op, outer_node, expected_size", [
+    ("⿸", COMPOUND_OUTER, 256), ("⿸", "A", None),
+    ("⿴", COMPOUND_OUTER, 64), ("⿵", COMPOUND_OUTER, 64), ("⿶", COMPOUND_OUTER, 64),
+    ("⿷", COMPOUND_OUTER, 64), ("⿺", COMPOUND_OUTER, 64), ("⿹", COMPOUND_OUTER, None),
+])
+@pytest.mark.parametrize("collision", [0.0, compose.COLLIDE, compose.COLLIDE + 0.001])
+def test_compound_corner_scope_resolution_threshold_and_existing_fit(monkeypatch, op, outer_node, expected_size, collision):
+    c, _, inner, fits = compound_corner_fixture(monkeypatch)
+    samples = []
+    def measure(outer, inner, region, size=64):
+        samples.append(size)
+        return collision
+    monkeypatch.setattr(compose, "_collision", measure)
+    c._learned(op, [outer_node, "C"])
+    assert samples == ([] if expected_size is None else [expected_size])
+    assert len(fits) == int(expected_size is not None and collision > compose.COLLIDE)
+    if fits:
+        assert fits[0][3] == ({"size": 256, "room": inner.box} if expected_size == 256
+                              else {"room": compose._shrunk(CORNER_FACE, compose.OPENING_SHARE)})
+
+
+def test_clear_compound_corner_keeps_direct_placement(monkeypatch):
+    c, outer, inner, fits = compound_corner_fixture(monkeypatch, inner_top=49)
+    result = c._learned("⿸", [COMPOUND_OUTER, "C"])
+    assert fits == []
+    assert [p.target for p in result] == [outer.box, inner.box]
+
