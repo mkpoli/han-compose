@@ -30,6 +30,17 @@ uv run --extra train scripts/compose_ids.py learn-alone
 Drawing with the guide needs `onnxruntime`, and training needs `torch`. `uv sync --all-extras --group dev`
 keeps both: syncing one extra alone drops the other.
 
+`export-web` writes what a browser port of the composer reads: the learned layout, a gzipped
+record per character or sequence and a host list per place and operand, each in a file named by
+its SHA-256 so a page loads only what a sequence names, a manifest with the composer's version, its
+constants and the licence notices, and the licence texts. `--parity N` adds N reference drawings
+of compound jōyō kanji whose hosts join the export, and `--held-out M` M more whose hosts do not,
+for the port's parity test.
+
+```sh
+uv run scripts/compose_ids.py export-web out/ --parity 500 --held-out 300 --workers 4
+```
+
 Fonts download to `cache/fonts/` on first use. `$HAN_COMPOSE_CACHE` points the cache elsewhere.
 `COMPOSE_GUIDE` points at a folder of `guide-*.onnx`.
 
@@ -42,8 +53,9 @@ Fonts download to `cache/fonts/` on first use. `$HAN_COMPOSE_CACHE` points the c
 | `src/han_compose/compose_standalone.py` | the size a part takes when it stands alone |
 | `src/han_compose/kanjivg_cuts.py` | cutting a host along KanjiVG's component groups |
 | `src/han_compose/vocab.py` | the vocab tables and the cache |
-| `scripts/compose_ids.py` | `draw`, `bench`, `calibrate`, `learn`, `learn-alone` |
-| `tests/` | 26 tests over cutting, layout and drawn output |
+| `src/han_compose/web_export.py` | the layout and drawing data for a browser port |
+| `scripts/compose_ids.py` | `draw`, `bench`, `calibrate`, `learn`, `learn-alone`, `export-web` |
+| `tests/` | tests over cutting, layout, drawn output and the web export |
 | `docs/design/ids-composer.md` | the method, its measurements, and what did not help |
 
 ## Sources
@@ -52,4 +64,5 @@ Fonts download to `cache/fonts/` on first use. `$HAN_COMPOSE_CACHE` points the c
 JP and Plangothic (SIL OFL 1.1) supply every outline; BabelStone IDS and cjkvi-variants supply the
 sequences and the radical forms; hfhchan/ids (MIT) supplies the list of ideographs left
 undecomposed; KanjiVG (CC BY-SA 3.0) supplies component ownership when a host is cut. Glyphs drawn
-from KanjiVG-assisted cuts are shared alike, with its notice kept.
+from KanjiVG-assisted cuts are shared alike, with its notice kept. The `export-web` manifest carries
+the same notices for the data it writes.
