@@ -81,6 +81,10 @@ ALONE_STRETCH = 1.6
 #: before the part keeps that character's extent across the axis it is split along: 弓 beside 丨 in
 #: 引 stands as tall as in 弘, where the network shortened it.
 HOST_EXTENT = 1.25
+#: Below this the learned box only nudges such a part, and the part keeps that character's extent
+#: as well: 訁 cut short from 訌 stays short in 討, where the network gives 訁's usual height.
+#: Jōyō, redrawn without their glyphs: 0.7338 → 0.7387 (331 better, 224 worse; 信 +0.41, 訂 +0.28).
+HOST_SNAP = 1.05
 #: How many levels of components `Composer._expanded` writes out from their own sequences.
 EXPAND_DEPTH = 2
 #: Below how many characters writing a part out its hosts are sought inside components too.
@@ -1958,7 +1962,7 @@ class Composer:
                         groups.append([self._place(source, room, self.ink(drawn.char), f"learned {drawn.char}")])
                     _fit_inside(groups[0], groups[1], region or self.face, self.font.stem[0][0], room=room)
                     continue
-            if region is None and op in AXIS and drawn.whole and self._stretch(source.box, box) > HOST_EXTENT:
+            if region is None and op in AXIS and drawn.whole and not HOST_SNAP < self._stretch(source.box, box) <= HOST_EXTENT:
                 across = 1 - AXIS[op]
                 box = tuple(source.box[k] if k % 2 == across else box[k] for k in range(4))
             groups.append([Placed(source, source.box, box, native=self.ink(drawn.char), origin=f"learned {drawn.char}")])

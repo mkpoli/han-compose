@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import numpy as np
 import pytest
 
+from han_compose import compose as C
 from han_compose import compose_layout as L
 
 ROWS = [
@@ -39,3 +42,30 @@ def test_gelu_is_the_tanh_form_training_uses() -> None:
     x = np.array([-3.0, -1.0, 0.0, 0.5, 2.0])
     expected = [-0.003637, -0.158808, 0.0, 0.345714, 1.954598]
     assert L._gelu(x) == pytest.approx(expected, abs=1e-5)
+
+
+def learned_composer(monkeypatch, boxes):
+    c = C.Composer(SimpleNamespace(own=lambda _: False), {})
+    c._faces[None] = ((0, 0, 100, 100), set())
+    c.__dict__["spelled"] = set()
+    calls = []
+
+    def predict(*args):
+        calls.append("predict")
+        return list(boxes)
+
+    c.layout = SimpleNamespace(ops=("⿰", "⿱", "⿸"), predict=predict)
+    source = SimpleNamespace(box=(0, 0, 20, 40))
+    monkeypatch.setattr(c, "_host", lambda op, i, *args, **kwargs:
+                        (SimpleNamespace(char=f"host{i}", whole=True, pieces=[source]), 0))
+    monkeypatch.setattr(c, "ink", lambda *args: 1.0)
+    monkeypatch.setattr(c, "_space", lambda *args: calls.append("space"))
+    return c, calls
+
+
+@pytest.mark.parametrize("height, kept", [(42, (0, 0, 20, 40)), (46, (0, 0, 20, 46))])
+def test_a_host_part_a_learned_box_barely_stretches_keeps_its_extent(monkeypatch, height, kept):
+    boxes = [(0, 0, 20, height), (30, 0, 50, 40)]
+    c, _ = learned_composer(monkeypatch, boxes)
+    assert c._learned("⿰", ["A", "B"])[0].target == kept
+
