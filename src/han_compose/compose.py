@@ -31,7 +31,7 @@ import hashlib
 import math
 import re
 from collections import Counter
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from functools import cache, cached_property
 from itertools import combinations, pairwise
 from pathlib import Path
@@ -739,6 +739,41 @@ class Host:
     whole: bool = False
 
 
+class _Exclusion(set):
+    """Excluded characters that note, for each cache entry being computed, every character asked
+    about; iterating or sizing the set notes None, a dependence on all of it."""
+
+    def __init__(self, items=(), frames: list[set] | None = None):
+        super().__init__(items)
+        self.frames = frames if frames is not None else []
+
+    def _note(self, item) -> None:
+        if self.frames:
+            self.frames[-1].add(item)
+
+    def __contains__(self, item) -> bool:
+        self._note(item)
+        return set.__contains__(self, item)
+
+    def __iter__(self):
+        self._note(None)
+        return set.__iter__(self)
+
+    def __len__(self) -> int:
+        self._note(None)
+        return set.__len__(self)
+
+    def __bool__(self) -> bool:
+        self._note(None)
+        return set.__len__(self) > 0
+
+    def __and__(self, other):
+        self._note(None)
+        return set(set.__iter__(self)) & other
+
+    __rand__ = __and__
+
+
 @dataclass
 class Composer:
     font: Font
@@ -764,12 +799,17 @@ class Composer:
     #: A `compose_guide.Guide` whose ink each stroke group is nudged toward at the end, when set.
     guide: object | None = None
     _expanding: set[str] = field(default_factory=set, init=False, repr=False)
-    _any_overlays: list | None = field(default=None, init=False, repr=False)
     _inks: dict[str, float] = field(default_factory=dict, init=False, repr=False)
-    _sketches: dict[str, Part | None] = field(default_factory=dict, init=False, repr=False)
-    _strokes: dict[tuple[str, str], Counter] = field(default_factory=dict, init=False, repr=False)
-    _templates: dict[tuple[str, str], np.ndarray | None] = field(default_factory=dict, init=False, repr=False)
     _own_counts: dict[str, int | None] = field(default_factory=dict, init=False, repr=False)
+    #: Entries that depend on the exclusion, each as (value, characters its computation asked about).
+    _any_overlays: dict[None, tuple] = field(default_factory=dict, init=False, repr=False)
+    _faces: dict[None, tuple] = field(default_factory=dict, init=False, repr=False)
+    _hosts: dict[tuple, tuple] = field(default_factory=dict, init=False, repr=False)
+    _sketches: dict[str, tuple] = field(default_factory=dict, init=False, repr=False)
+    _strokes: dict[tuple[str, str], tuple] = field(default_factory=dict, init=False, repr=False)
+    _templates: dict[tuple[str, str], tuple] = field(default_factory=dict, init=False, repr=False)
+    _frames: list[set] = field(default_factory=list, init=False, repr=False)
+    _reference_exclude: frozenset[str] = field(default_factory=frozenset, init=False, repr=False)
 
     @cached_property
     def by_sequence(self) -> dict[str, str]:
@@ -856,38 +896,45 @@ class Composer:
     def atomic(self) -> set[str]:
         return atomic_characters()
 
-    @cached_property
+    @property
     def face(self) -> Box:
-        """The box a full ideograph fills."""
-        boxes = [g.box for g in map(self.font.glyph, FULL) if g]
-        return tuple(float(v) for v in np.median(np.array(boxes), axis=0))
+        """The median box of permitted full ideographs, or the em when none are available."""
+        def median() -> Box:
+            boxes = [g.box for char in FULL if char not in self.exclude if (g := self.font.glyph(char)) is not None]
+            return tuple(float(v) for v in np.median(np.array(boxes), axis=0)) if boxes else (0.0, ASCENT - EM, EM, ASCENT)
+        return self._memo(self._faces, None, median)
 
     def ink(self, node: Node, part: Part | None = None, seen: frozenset[str] = frozenset()) -> float:
-        """How much a part holds: its outlines' length, which grows with its strokes. An operand the
-        font has no glyph for is measured by its own sequence, else (or in a loop of sequences) as 永."""
+        """Permitted outline length, or an IDS estimate for missing and excluded glyphs. Unknown
+        analyses use permitted 永, or one em of nominal outline when it is unavailable."""
         if part is not None:
             return sum(float(np.linalg.norm(np.diff(np.vstack([c.light, c.light[:1]]), axis=0), axis=1).sum())
                        for c in part.contours)
+        self._reference_context()
         if isinstance(node, tuple):
             return sum(self.ink(n, seen=seen) for n in node[1:])
-        if node not in self._inks:
-            glyph = self.font.glyph(node)
-            if glyph is not None:
-                self._inks[node] = self.ink(node, glyph)
-            elif node in self.sequences and node not in seen:
-                try:
-                    return self.ink(parse(self.sequences[node]), seen=seen | {node})
-                except ValueError:
-                    return self.ink("永")
-            else:
-                return self.ink("永")
-        return self._inks[node]
+        if node not in self.exclude:
+            if node not in self._inks:
+                glyph = self.font.glyph(node)
+                if glyph is not None:
+                    self._inks[node] = self.ink(node, glyph)
+            if node in self._inks:
+                return self._inks[node]
+        if node in self.sequences and node not in seen:
+            try:
+                return self.ink(parse(self.sequences[node]), seen=seen | {node})
+            except ValueError:
+                pass
+        # Unknown or cyclic analyses use permitted 永; without it, one em of nominal outline.
+        glyph = self.font.glyph("永") if "永" not in self.exclude else None
+        return self.ink("", glyph) if glyph is not None else float(EM)
 
     def aspect(self, node: Node, seen: frozenset[str] = frozenset()) -> float:
         """An operand's natural width over height: its glyph's, or for a sequence the operands'
         put side by side or stacked; an enclosure takes its enclosing operand's."""
+        self._reference_context()
         if isinstance(node, str):
-            glyph = self.font.glyph(node)
+            glyph = self.font.glyph(node) if node not in self.exclude else None
             if glyph is not None:
                 return max(glyph.box[2] - glyph.box[0], 1) / max(glyph.box[3] - glyph.box[1], 1)
             if node in self.sequences and node not in seen:
@@ -896,8 +943,9 @@ class Composer:
                 except ValueError:
                     pass
             return 1.0
-        if key(node) in self.by_sequence:
-            return self.aspect(self.by_sequence[key(node)], seen)
+        encoded = self.by_sequence.get(key(node))
+        if encoded is not None and encoded not in self.exclude and encoded not in seen:
+            return self.aspect(encoded, seen)
         parts = [self.aspect(n, seen) for n in node[1:]]
         if node[0] in ("⿰", "⿲"):
             return sum(parts)
@@ -907,36 +955,57 @@ class Composer:
 
     @cached_property
     def _plain(self) -> Composer:
-        return Composer(self.font, self.sequences, hosted=False, weighted=False)
+        # The plain composer asks the same exclusion, so what it reads joins the entry being computed.
+        font, excluded = self.font, _Exclusion(set.__iter__(self.exclude), self._frames)
+
+        class ReferenceFont:
+            def glyph(self, char: str) -> Part | None:
+                if char in excluded:
+                    raise LookupError(f"Excluded reference glyph: {char}")
+                return font.glyph(char)
+
+            def has(self, char: str) -> bool:
+                return char not in excluded and font.has(char)
+
+            def __getattr__(self, name):
+                return getattr(font, name)
+
+        plain = Composer(ReferenceFont(), self.sequences, hosted=False, weighted=False, exclude=excluded)
+        plain._frames = self._frames
+        return plain
 
     def _sketch(self, node: tuple) -> Part | None:
         """A sequence drawn on its own the plain way, from its operands' own glyphs, as one part to
         compare pieces with; None when it cannot be drawn."""
-        name = key(node)
-        if name not in self._sketches:
-            self._sketches[name] = None
+        def draw() -> Part | None:
             try:
-                placed = self._plain._node(node, self.face)
+                placed = self._plain._node(node, self._plain.face)
             except LookupError:
                 return None
             contours = [Contour(c.ops, points, points) for p in placed for c, points in zip(p.part.contours, p.contours())]
-            self._sketches[name] = Part(contours) if contours else None
-        return self._sketches[name]
+            return Part(contours) if contours else None
+        return self._memo(self._sketches, key(node), draw, pending=True)
 
     def likeness(self, part: Part, node: Node) -> float:
         """How much a piece looks like its operand's own glyph, each stretched to fill a square; 1
         for an operand with no glyph. An operand written as a sequence is compared with that sequence
         drawn on its own. Proportions far from the operand's (a lone stroke of 口) count
         as no likeness, since stretching would hide them."""
-        if isinstance(node, tuple) and key(node) not in self.by_sequence:
-            # A piece written as a sequence is compared with that sequence drawn on its own.
-            own = self._sketch(node)
-            if own is None:
-                return 0.0
-        else:
-            own = self.font.glyph(self.by_sequence.get(key(node), node) if isinstance(node, tuple) else node)
-            if own is None:
-                return 1.0
+        own = self._operand_shape(node)
+        if own is None:
+            return 0.0 if isinstance(node, tuple) and (key(node) not in self.by_sequence or self.by_sequence[key(node)] in self.exclude) else 1.0
+        return self._shape_likeness(part, own)
+
+    def _operand_shape(self, node: Node) -> Part | None:
+        """A comparison glyph or a sketch of an unencoded sequence."""
+        self._reference_context()
+        encoded = self.by_sequence.get(key(node)) if isinstance(node, tuple) else node
+        if isinstance(node, tuple) and (encoded is None or encoded in self.exclude):
+            return self._sketch(node)
+        return None if encoded in self.exclude else self.font.glyph(encoded)
+
+    def _shape_likeness(self, part: Part, own: Part) -> float:
+        """Overlap with a reference, guarded by aspect and outline-density differences."""
         aspect = lambda box: max(box[2] - box[0], 1) / max(box[3] - box[1], 1)
         if abs(math.log(aspect(part.box) / aspect(own.box))) > 1.2:
             return 0.0
@@ -992,23 +1061,62 @@ class Composer:
         spans = sorted((p.box[axis], p.box[axis + 2]) for p in pieces)
         return pieces, float(np.mean([spans[k + 1][0] - spans[k][1] for k in range(len(spans) - 1)]))
 
+    def _reference_context(self) -> None:
+        """Keep reference masks and the cuts derived from them in the current exclusion context: an
+        entry stays while every character its computation asked about is excluded as it was."""
+        if not isinstance(self.exclude, _Exclusion) or self.exclude.frames is not self._frames:
+            self.exclude = _Exclusion(set.__iter__(self.exclude) if isinstance(self.exclude, _Exclusion) else self.exclude, self._frames)
+        excluded = frozenset(set.__iter__(self.exclude))
+        changed = excluded ^ self._reference_exclude
+        if changed:
+            for store in (self._templates, self._strokes, self._sketches, self._faces, self._any_overlays, self._hosts):
+                for k in [k for k, (_, asked) in store.items() if None in asked or not asked.isdisjoint(changed)]:
+                    del store[k]
+            self.__dict__.pop("_plain", None)
+            self._reference_exclude = excluded
+
+    def _memo(self, store: dict, name, compute, pending: bool = False):
+        """`store[name]`, computed in the current exclusion context and kept with the characters its
+        computation asked about; those join any entry being computed around it. With `pending`, a
+        computation that reaches its own entry gets None."""
+        self._reference_context()
+        if name in store:
+            value, asked = store[name]
+        else:
+            if pending:
+                store[name] = (None, set())
+            self._frames.append(set())
+            try:
+                value = compute()
+            except BaseException:
+                store.pop(name, None)
+                raise
+            finally:
+                asked = self._frames.pop()
+            store[name] = (value, asked)
+        if self._frames:
+            self._frames[-1].update(asked)
+        return value
+
     def _enclosing_ink(self, op: str, operand: str) -> np.ndarray | None:
         """Where an enclosing operand's ink lies in its node's frame, as the mean of up to
         `TEMPLATES` masks of it cut by KanjiVG's groups (走 from 赴 起 超 …), or None without them.
         A mean of several keeps any one character's glyph from deciding how others are cut."""
-        if (op, operand) not in self._templates:
+        def mean() -> np.ndarray | None:
             hosts, _ = self._index
             masks = []
             for char, tree, path, i in hosts.get((slot(op, 0), operand), []) if self.kvg is not None else []:
                 if len(masks) >= TEMPLATES:
                     break
+                if char in self.exclude:
+                    continue
                 found = self.kvg.host_node(char, tree, path)
                 if found is not None and len(found.pieces) == 2:
                     piece = found.pieces[i]
                     frame = Part([c for p in found.pieces for c in p.contours]).box
                     masks.append(fill(_rings(piece.contours, [c.light for c in piece.contours], steps=2), TEMPLATE_SIZE, frame))
-            self._templates[(op, operand)] = np.mean(masks, axis=0) if len(masks) >= 3 else None
-        return self._templates[(op, operand)]
+            return np.mean(masks, axis=0) if len(masks) >= 3 else None
+        return self._memo(self._templates, (op, operand), mean)
 
     @cached_property
     def _by_lower(self) -> dict[str, list[tuple[str, Node]]]:
@@ -1160,19 +1268,28 @@ class Composer:
     def strokes(self, place: str, operand: str) -> Counter:
         """How many strokes (outlines) an operand's piece has, over the drawn characters holding it
         in `place`, each cut without this check."""
-        if (place, operand) not in self._strokes:
+        def count() -> Counter:
             hosts, _ = self._index
             counts: Counter = Counter()
-            for char, tree, path, i in hosts.get((place, operand), [])[:STROKE_HOSTS]:
+            usable = 0
+            for char, tree, path, i in hosts.get((place, operand), []):
+                if char in self.exclude:
+                    continue
                 found = self._host_node(char, tree, path, strict=False)
                 if found is not None:
                     counts[len(found.pieces[i].contours)] += 1
-            self._strokes[(place, operand)] = counts
-        return self._strokes[(place, operand)]
+                    usable += 1
+                    if usable >= STROKE_HOSTS:
+                        break
+            return counts
+        return self._memo(self._strokes, (place, operand), count)
 
     def _host_node(self, char: str, tree: tuple, path: tuple, strict: bool = True) -> Host | None:
         """The node `path` leads to in `char`, cut into its operands, level by level: along KanjiVG's
         component groups when a cutter is set and it can (`kanjivg_cuts`), else by geometry."""
+        return self._memo(self._hosts, (char, key(tree), path, strict), lambda: self._cut_host(char, tree, path, strict))
+
+    def _cut_host(self, char: str, tree: tuple, path: tuple, strict: bool) -> Host | None:
         if self.kvg is not None:
             found = self.kvg.host_node(char, tree, path)
             node = tree
@@ -1380,8 +1497,8 @@ class Composer:
                                for _, f, _ in chosen])
         else:
             shares = np.array([[_share(p.box, f.frame) for p in f.pieces] for _, f, _ in chosen])
-        best.layout = [tuple(float(v) for v in row) for row in np.tensordot(weights / weights.sum(), shares, axes=1)]
-        return best, same
+        layout = [tuple(float(v) for v in row) for row in np.tensordot(weights / weights.sum(), shares, axes=1)]
+        return replace(best, layout=layout), same
 
     def compose(self, sequence: str) -> list[Placed]:
         """The parts that draw `sequence`; LookupError when an operand can be drawn no way."""
@@ -1696,35 +1813,44 @@ class Composer:
         """Whether a sequence names a bare stroke among its operands: a CJK Strokes character, or an
         ideograph drawn as one outline (丿, 丶, 𠃌)."""
         if isinstance(node, str):
-            glyph = self.font.glyph(node)
-            return 0x31C0 <= ord(node[0]) <= 0x31EF or (glyph is not None and len(glyph.contours) == 1)
+            return 0x31C0 <= ord(node[0]) <= 0x31EF or self._outlines(node) == 1
         return any(self.stroked(n) for n in node[1:])
 
-    def _own_outlines(self, node: Node, depth: int = 0) -> int | None:
-        """How many outlines the variable font draws an operand with: its own glyph's, or for one a
-        fallback font draws (outlines merged), those of its sequence's operands; None when unknown."""
+    def _own_outlines(self, node: Node, depth: int = 0, seen: frozenset[str] = frozenset()) -> int | None:
+        """Native outline count, estimated from permitted operands for excluded or fallback glyphs;
+        None when any operand's count is unknown."""
+        self._reference_context()
         if isinstance(node, tuple):
-            counts = [self._own_outlines(n, depth + 1) for n in node[1:]]
+            counts = [self._own_outlines(n, depth + 1, seen) for n in node[1:]]
             return None if any(n is None for n in counts) else sum(counts)
-        if node not in self._own_counts:
-            count = None
-            if self.font.own(node):
-                count = len(self.font.glyph(node).contours)
-            elif depth <= 4 and node in self.sequences:
-                try:
-                    tree = parse(self.sequences[node])
-                except ValueError:
-                    tree = None
-                count = self._own_outlines(tree, depth) if isinstance(tree, tuple) else None
-            self._own_counts[node] = count
-        return self._own_counts[node]
+        if node not in self.exclude and self.font.own(node):
+            if node not in self._own_counts:
+                glyph = self.font.glyph(node)
+                self._own_counts[node] = len(glyph.contours) if glyph is not None else None
+            return self._own_counts[node]
+        if depth <= 4 and node in self.sequences and node not in seen:
+            try:
+                tree = parse(self.sequences[node])
+            except ValueError:
+                return None
+            return self._own_outlines(tree, depth, seen | {node})
+        return None
 
-    def _outlines(self, node: Node) -> int:
-        """How many outlines a sequence's operands' own glyphs have together."""
+    def _outlines(self, node: Node, seen: frozenset[str] = frozenset()) -> int:
+        """Total permitted outline count; zero means that at least one operand is unknown."""
+        self._reference_context()
         if isinstance(node, str):
-            glyph = self.font.glyph(node)
-            return len(glyph.contours) if glyph else 0
-        return sum(self._outlines(n) for n in node[1:])
+            if node not in self.exclude:
+                glyph = self.font.glyph(node)
+                return len(glyph.contours) if glyph else 0
+            if node in self.sequences and node not in seen:
+                try:
+                    return self._outlines(parse(self.sequences[node]), seen | {node})
+                except ValueError:
+                    pass
+            return 0
+        counts = [self._outlines(n, seen) for n in node[1:]]
+        return sum(counts) if all(counts) else 0
 
     def _overlay(self, children: list[Node], region: Box) -> list[Placed]:
         """Operands drawn across each other (⿻), where characters that overlay like operands put
@@ -1795,12 +1921,12 @@ class Composer:
     def _overlays(self, index: int | None, operand: str | None) -> list[tuple[str, Host, list[str]]]:
         """Two-operand overlays the font draws, cut into their operands: with `operand` at `index`,
         or any when `index` is None (the first `OVERLAY_ANY` found, cached)."""
+        self._reference_context()
         hosts, _ = self._index
         if index is None:
-            if self._any_overlays is None:
-                keys = [k for k in hosts if k[0] == slot(OVERLAY, 0)]
-                self._any_overlays = [r for k in keys for r in self._overlays(0, k[1])][:OVERLAY_ANY]
-            return [r for r in self._any_overlays if r[0] not in self.exclude]
+            keys = [k for k in hosts if k[0] == slot(OVERLAY, 0)]
+            found = self._memo(self._any_overlays, None, lambda: [r for k in keys for r in self._overlays(0, k[1])][:OVERLAY_ANY])
+            return [r for r in found if r[0] not in self.exclude]
         found = []
         for char, tree, path, i in hosts.get((slot(OVERLAY, index), operand), [])[:OVERLAY_HOSTS]:
             if char in self.exclude:
