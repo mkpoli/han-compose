@@ -152,7 +152,7 @@ def bench(chars: str = "joyo", sample: int = 0, seed: int = 3, size: int = 96, r
             results[name]["overlap"].append(float((mask & truth).sum()) / max(float((mask | truth).sum()), 1.0))
             if name == "composer":
                 made = sum(item.ink("", p.part) * (p.scale[0] + p.scale[1]) / 2 for p in placed)
-                outlines.append(made / item.ink(char))
+                outlines.append(made / item.ink("", glyph))
                 drawn = compose.stems(compose.raster(placed, 400), unit)
                 true = compose.stems(compose.raster(real, 400), unit)
                 widths.append((drawn[0] / true[0], drawn[1] / true[1]))
