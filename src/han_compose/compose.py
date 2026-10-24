@@ -623,6 +623,11 @@ INSTANCE_KEPT = 0.75
 #: its composition may overlap the instance taken from them, for the instance to replace it.
 HELD_OFTEN = 8
 HELD_AGREE = 0.5
+#: How many hosts after the first `Composer.rerank` tries for a ⿰ or ⿱ character's second part,
+#: and its weights on (ranking score, agreement with the other drawings, rank, 1), both against
+#: the first drawing: a linear fit of the overlap each drawing gains (`cache/fit_rerank.py`).
+RERANK = 2
+RERANK_WEIGHTS = (-0.0193, 0.3709, 0.004, 0.0014)
 #: How many hosts of each place an instance of a sequence is looked for in.
 INSTANCE_HOSTS = 12
 #: An enclosed part's room stays this many stroke widths clear of the enclosing part's ink.
@@ -819,6 +824,12 @@ class Composer:
     reuse: bool = True
     #: A `compose_guide.Guide` whose ink each stroke group is nudged toward at the end, when set.
     guide: object | None = None
+    #: Whether a two-part ⿰ or ⿱ character is also drawn with its second part from the hosts ranked
+    #: next (`RERANK`), and the drawing `RERANK_WEIGHTS` expect to match its glyph best is kept. It
+    #: draws each such character three times, so it suits builds that store their results.
+    rerank: bool = False
+    _rank_pick: int = field(default=0, init=False, repr=False)
+    _root_ranks: list[float] = field(default_factory=list, init=False, repr=False)
     _expanding: set[str] = field(default_factory=set, init=False, repr=False)
     _inks: dict[str, float] = field(default_factory=dict, init=False, repr=False)
     _own_counts: dict[str, int | None] = field(default_factory=dict, init=False, repr=False)
@@ -1502,7 +1513,13 @@ class Composer:
         the size and proportions of `box`. With `placed`, `box` is in the em, and a part a character
         draws at its top level close to that very box is preferred: it needs the least scaling."""
         ranked = self._ranked(op, index, node, siblings, box, placed)
-        return (ranked[0][1], ranked[0][2]) if ranked else None
+        if not ranked:
+            return None
+        if placed and index == 1:
+            self._root_ranks = [float(score[1]) for score, _, _ in ranked[:RERANK + 1]]
+            if 0 < self._rank_pick < len(ranked):
+                return ranked[self._rank_pick][1], ranked[self._rank_pick][2]
+        return ranked[0][1], ranked[0][2]
 
     def _ranked(self, op: str, index: int, node: Node, siblings: list[Node], box: Box,
                 placed: bool = False) -> list[tuple[tuple, Host, int]]:
@@ -1661,6 +1678,10 @@ class Composer:
         """The parts that draw `sequence`; LookupError when an operand can be drawn no way."""
         tree = parse(sequence)
         placed = self._node(tree, self.face, at_root=True)
+        if self.rerank:
+            options = self._reranked(tree, placed)
+            if options:
+                placed = max(options, key=lambda o: o[0])[1]
         encoded = self.by_sequence.get(key(tree)) if isinstance(tree, tuple) else None
         if self.reuse and encoded in self.exclude and not all(p.origin.startswith(("learned", "alone", "kin")) for p in placed):
             # A character redrawn without its glyph whose parts could not all be placed by the
@@ -1690,6 +1711,39 @@ class Composer:
         if self.guide is not None:
             placed = self.guide.fit(self, sequence, placed)
         return placed
+
+    def _reranked(self, tree: Node, placed: list[Placed]) -> list[tuple[float, list[Placed], list[float]]]:
+        """A two-part ⿰ or ⿱ character drawn by the learned layout from two hosts, and drawn again
+        with its second part from each of the next `RERANK` hosts: each drawing with its expected
+        gain in overlap (`RERANK_WEIGHTS` over its ranking score and its agreement with the others,
+        both against the first's) and those features. Empty when the character is not so drawn."""
+        learned = lambda p: len(p) == 2 and all(q.origin.startswith("learned") for q in p)
+        if not (isinstance(tree, tuple) and tree[0] in ("⿰", "⿱") and len(tree) == 3 and learned(placed)):
+            return []
+        ranks = list(self._root_ranks)
+        drawings = [(0, placed)]
+        for pick in range(1, min(RERANK + 1, len(ranks))):
+            self._rank_pick = pick
+            try:
+                other = self._node(tree, self.face, at_root=True)
+            except LookupError:
+                continue
+            finally:
+                self._rank_pick = 0
+            if learned(other):
+                drawings.append((pick, other))
+        self._root_ranks = ranks
+        if len(drawings) < 2:
+            return []
+        masks = [raster(p, 96) for _, p in drawings]
+        overlap = lambda a, b: float((a & b).sum()) / max(float((a | b).sum()), 1.0)
+        agree = [sum(overlap(m, o) for k, o in enumerate(masks) if k != n) / (len(masks) - 1) for n, m in enumerate(masks)]
+        out = []
+        for n, (pick, drawing) in enumerate(drawings):
+            features = [ranks[pick] - ranks[0], agree[n] - agree[0], float(pick)]
+            gain = 0.0 if pick == 0 else float(np.dot(RERANK_WEIGHTS, [*features, 1.0]))
+            out.append((gain, drawing, features))
+        return out
 
     def _balance(self, placed: list[Placed]) -> None:
         """Each part's strokes brought to the width the whole character's density calls for: a part
