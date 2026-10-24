@@ -194,6 +194,12 @@ def japanese_characters() -> set[str]:
     return out
 
 
+def hand_forms() -> dict[str, str]:
+    """The stroke of the hand 𠂇 a character spelled ⿸𠂇X writes first, 丿 (右) or 一 (左), as
+    KanjiVG records it (`data/vocab/han-hand-forms.tsv`): the font draws the two hands differently."""
+    return {row[0]: row[1] for row in read_rows("han-hand-forms.tsv")}
+
+
 def atomic_characters() -> set[str]:
     """The ideographs drawn whole, never composed from their sequence: those hfhchan/ids leaves
     undecomposed as productive components (日, 二, 工, 万; `data/vocab/han-atomic.tsv`), and those
@@ -968,6 +974,10 @@ class Composer:
         return spelled_nodes()
 
     @cached_property
+    def hands(self) -> dict[str, str]:
+        return hand_forms()
+
+    @cached_property
     def atomic(self) -> set[str]:
         return atomic_characters()
 
@@ -1542,6 +1552,13 @@ class Composer:
         hosts, _ = self._index
         want = sum(self.ink(s) for s in siblings)
         aspect = (box[2] - box[0]) / max(box[3] - box[1], 1)
+        # The hand 𠂇 of 右 is not that of 左: where KanjiVG tells which this one is, it comes only
+        # from hosts KanjiVG shows writing the same (布's from 右 or 有, never 友 or the unlisted 㔫).
+        # On the 47 audited characters holding 𠂇: 0.640 → 0.658 (右 +0.10, 左 +0.28, 布 +0.43, none worse).
+        hand = None
+        if node == "𠂇":
+            drawn = (op, *siblings[:index], node, *siblings[index:])
+            hand = self.hands.get(self.by_sequence.get(key(drawn), ""))
         def weighed(candidates: list, facing: bool = False) -> list[tuple[tuple, Host, int]]:
             scored = []
             for (char, tree, path, i), alien in candidates:
@@ -1550,6 +1567,8 @@ class Composer:
                 here = tree
                 for step in path:
                     here = here[1 + step]
+                if hand is not None and self.hands.get(self.by_sequence.get(key(here), char if not path else "")) != hand:
+                    continue
                 others = [n for k, n in enumerate(here[1:]) if k != i]
                 exact = here[0] == op and [key(n) for n in others] == [key(s) for s in siblings]
                 # A host beside the very same parts is first only if Japan writes it: the simplified
