@@ -37,6 +37,30 @@ CC BY-SA, with the 3.0 notice kept above. One table derived from it is committed
 each character writes first, read from KanjiVG's stroke types; it is shared alike under CC BY-SA 3.0.
 Source record: `data/sources/kanjivg.yaml`.
 
+## Web export
+
+`scripts/compose_ids.py export-web` writes the data a browser port of the composer reads
+(`han_compose.web_export`). `manifest.json` carries these notices in `licences`, and the export
+ships the licence texts beside it.
+
+- **Outlines**: every glyph (`G`), and every piece a host-list entry names by its host glyph's
+  contour indices (`c.k`), is outline data of Noto Sans CJK JP
+  (© 2014-2021 Adobe (http://www.adobe.com/), with Reserved Font Name 'Source') or of Plangothic P1
+  and P2 (Copyright (c) 2024 by Fitzgerald P. Köeingsegg; no Reserved Font Name), under the
+  **SIL OFL 1.1**. `OFL.txt` holds the licence's full text after each font's copyright line, read
+  from the font's `name` table; the text is `data/licences/OFL-1.1.txt`, as Noto CJK ships it.
+- **Sequences** (`s`, `e`): BabelStone IDS (Andrew West), public domain as its header states, with
+  the editorial sequences of `data/vocab/han-ids-drawn.tsv` (MIT, this project).
+- **Positional forms** (`a`): cjkvi-variants `radical-variants.txt` (川幡太一), public domain. The
+  Unicode rows of `han-component-forms.tsv` do not feed them.
+- **Atomic characters** (`at`): hfhchan/ids (Copyright (c) 2021 Henry Chan), MIT, whose licence
+  text ships as `MIT-hfhchan-ids.txt` (`data/licences/hfhchan-ids-MIT.txt`).
+- **Cuts and hand forms**: a host-list entry whose cut has `kv` (`c.kv`) was cut along KanjiVG's
+  component groups, and the hand forms (`hand`, and `hd` on entries) come from KanjiVG's stroke types: both adapt KanjiVG's data and are shared alike under
+  **CC BY-SA 3.0**, with the notice "KanjiVG, Copyright (C) 2009-2013 Ulrich Apel, CC BY-SA 3.0,
+  https://kanjivg.tagaini.net/". A drawing that uses a `kv` cut carries the same terms.
+- **Code**: the exporter, and a port of the composer written against its format, are **MIT**.
+
 ## Consequences
 
 Publishing a glyph drawn with KanjiVG-assisted cuts publishes a CC BY-SA derivative of KanjiVG's
