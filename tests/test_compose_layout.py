@@ -138,3 +138,84 @@ def test_linear_rejection_guard_does_not_change_enclosures(monkeypatch):
     assert [p.target for p in result] == boxes
     assert calls == ["predict"]
 
+
+def teacher_composer(monkeypatch, op, bare_index, extent):
+    axis = C.AXIS.get(op, 1)
+    # Leave a ten-unit gap and give the bare operand the requested axial extent.
+    intervals = [(100 - extent, 100), (0, 90 - extent)] if bare_index == 0 else [(extent + 10, 100), (0, extent)]
+    if axis == 0:
+        intervals = [(100 - hi, 100 - lo) for lo, hi in intervals]
+    boxes = [(lo, 0, hi, 100) if axis == 0 else (0, lo, 100, hi) for lo, hi in intervals]
+    source = SimpleNamespace(box=(0, 0, 100, 100))
+    c = C.Composer(SimpleNamespace(glyph=lambda _: source), {})
+    c._faces[None] = ((0, 0, 100, 100), set())
+    c.__dict__["spelled"] = set()
+    teacher = C.Host("donor", [SimpleNamespace(box=box) for box in boxes], c.face, 10)
+    same = [i != bare_index for i in range(2)]
+    calls = []
+    fallback = [object()]
+    monkeypatch.setattr(c, "ink", lambda *args: 1.0)
+    monkeypatch.setattr(c, "_instance", lambda *args: None)
+    monkeypatch.setattr(c, "_transplant", lambda *args: None)
+    monkeypatch.setattr(c, "_template", lambda *args, **kwargs: (teacher, same))
+    monkeypatch.setattr(c, "_host", lambda *args, **kwargs: None)
+    monkeypatch.setattr(c, "_space", lambda *args: calls.append("space"))
+
+    def shares(operator, children, region):
+        calls.append(("shares", operator, children, region))
+        return fallback
+
+    monkeypatch.setattr(c, "_shares", shares)
+    return c, boxes, source, calls, fallback
+
+
+@pytest.mark.parametrize("op", ["⿰", "⿱"])
+@pytest.mark.parametrize("bare_index", [0, 1])
+@pytest.mark.parametrize("at_root", [False, True])
+def test_teacher_reallocates_whole_pair_when_bare_glyph_loses_width(monkeypatch, op, bare_index, at_root):
+    c, boxes, source, calls, fallback = teacher_composer(monkeypatch, op, bare_index, 25)
+    across = 1 - C.AXIS[op]
+    fitted = C.fitted(source.box, boxes[bare_index])
+    assert fitted[across + 2] - fitted[across] == 40
+    assert c._node((op, "A", "B"), c.face, at_root=at_root) is fallback
+    assert calls == [("shares", op, ["A", "B"], c.face)]
+
+
+@pytest.mark.parametrize("op", ["⿰", "⿱"])
+@pytest.mark.parametrize("extent", [65, 100 / C.STRETCH])
+def test_teacher_preserves_feasible_bare_glyph_pair(monkeypatch, op, extent):
+    c, boxes, _, calls, _ = teacher_composer(monkeypatch, op, 0, extent)
+    result = c._node((op, "A", "B"), c.face, at_root=True)
+    assert [p.target for p in result] == boxes
+    assert [p.origin for p in result] == ["glyph A", "teacher donor"]
+    assert calls == ["space"]
+
+
+def test_teacher_keeps_fitting_that_only_shortens_composition_axis(monkeypatch):
+    c, boxes, source, calls, _ = teacher_composer(monkeypatch, "⿱", 0, 65)
+    source.box = (0, 0, 100, 20)
+    result = c._node(("⿱", "A", "B"), c.face, at_root=True)
+    assert result[0].target[2] - result[0].target[0] == 100
+    assert result[0].target[3] - result[0].target[1] == 32
+    assert result[1].target == boxes[1]
+    assert calls == ["space"]
+
+
+def test_teacher_keeps_hosted_replacement(monkeypatch):
+    c, boxes, _, calls, _ = teacher_composer(monkeypatch, "⿱", 0, 25)
+    source = SimpleNamespace(box=boxes[0])
+    host = C.Host("host", [source], c.face, 0)
+    monkeypatch.setattr(c, "_host", lambda *args, **kwargs: (host, 0))
+    result = c._node(("⿱", "A", "B"), c.face, at_root=True)
+    assert [p.origin for p in result] == ["host host", "teacher donor"]
+    assert [p.target for p in result] == boxes
+    assert calls == ["space"]
+
+
+def test_teacher_guard_leaves_enclosures_unchanged(monkeypatch):
+    c, boxes, source, calls, _ = teacher_composer(monkeypatch, "⿸", 1, 25)
+    result = c._node(("⿸", "A", "B"), c.face, at_root=True)
+    assert [p.origin for p in result] == ["teacher donor", "glyph B"]
+    assert result[1].target == C.fitted(source.box, boxes[1])
+    assert calls == []
+

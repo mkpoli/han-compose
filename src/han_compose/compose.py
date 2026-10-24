@@ -1861,7 +1861,15 @@ class Composer:
                 continue
             part = self._host(op, i, child, children[:i] + children[i + 1:], box)
             if part is None:
-                groups.append(self._node(child, box))
+                group = self._row(child, box, len(children))
+                if op in AXIS and len(group) == 1 and group[0].origin.startswith("glyph "):
+                    across = 1 - AXIS[op]
+                    target = group[0].target
+                    if target[across + 2] - target[across] < box[across + 2] - box[across]:
+                        # The teacher leaves too little axial room for this bare glyph to retain
+                        # its cross-axis extent within STRETCH. Allocate both operands together.
+                        return self._shares(op, children, region)
+                groups.append(group)
                 continue
             drawn, k = part
             source = drawn.pieces[k]
