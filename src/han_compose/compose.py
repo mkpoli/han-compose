@@ -680,6 +680,10 @@ JAPANESE_USE = 3
 UNLIKE = 2.0
 #: Most an enclosed part's or a whole glyph's proportions may change on the way into its box.
 STRETCH = 1.6
+#: The same in a row of three, whose parts a designer flattens or narrows much further (大 in 器):
+#: on the 19 drawn ⿳ and ⿲ characters that place a whole glyph, 0.392 at `STRETCH`, 0.513 at 4.
+#: Two operands gain nothing from it (⿱ 0.640 → 0.639, ⿰ 0.652 → 0.654 on 382).
+ROW_STRETCH = 4.0
 
 
 def stem(density: float, axis: int) -> float:
@@ -2381,6 +2385,14 @@ class Composer:
         """A whole glyph drawn into `target`, its proportions changed by at most `STRETCH`."""
         return Placed(part, part.box, fitted(part.box, target), native=native, origin=origin)
 
+    def _row(self, child: Node, box: Box, count: int) -> list[Placed]:
+        """`child` drawn into `box` as one of `count` aligned operands; a whole glyph in a row of
+        three may change its proportions by up to `ROW_STRETCH`."""
+        group = self._node(child, box)
+        if count == 3 and len(group) == 1 and group[0].origin.startswith("glyph "):
+            group[0].target = fitted(group[0].source, box, ROW_STRETCH)
+        return group
+
     def _shares(self, op: str, children: list[Node], region: Box) -> list[Placed]:
         """With no drawn character to follow, operands share the region along an aligned operator by
         `SHARES` (fitted on the drawn characters of each operator), each part still cut from a host
@@ -2416,7 +2428,7 @@ class Composer:
                 source = drawn.pieces[k]
                 groups.append([Placed(source, source.box, fitted(source.box, box), native=self.ink(drawn.char), origin=f"host {drawn.char}")])
             else:
-                groups.append(self._node(child, box))
+                groups.append(self._row(child, box, len(children)))
         self._space(axis, groups)
         return [p for group in groups for p in group]
 
