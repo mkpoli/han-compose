@@ -30,7 +30,7 @@ OPS = ("⿰", "⿱", "⿸", "⿺", "⿵", "⿹", "⿶", "⿴", "⿷")
 FOLDS = 5
 SEEDS = 6
 #: The cached model's name; a change to the features or training makes a new one.
-LAYOUT_FILE = "compose-layout-v3.npz"
+LAYOUT_FILE = "compose-layout-v4.npz"
 #: Features per operand: 4 mean, 4 spread, count, outline count; 1 flag, 4 box, ink, proportions, 8 × 8 ink.
 SHAPE = 71
 
