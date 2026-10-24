@@ -1537,8 +1537,31 @@ class Composer:
                 # its design, where theirs draws another (人 in 𱎠 for 囚, 井 in 𡈇 for 囲).
                 return []
             if found_all:
-                return sorted(found_all, key=lambda r: r[0])
+                return self._native_shapes(sorted(found_all, key=lambda r: r[0]))
         return []
+
+    def _native_shapes(self, ranked: list[tuple[tuple, Host, int]]) -> list[tuple[tuple, Host, int]]:
+        """Reject a fallback cut with an extra detached bar absent from accepted native cuts.
+        A finer mask catches the horizontal taken from 鬲 into 羔 in 𩱋."""
+        native = [_square(host.pieces[i], 64) for _, host, i in ranked if self.font.own(host.char)]
+        if not native or all(self.font.own(host.char) for _, host, _ in ranked):
+            return ranked
+        references = [(mask, _grown_mask(mask, 2)) for mask in native]
+        kept = []
+        for row in ranked:
+            _, host, i = row
+            if self.font.own(host.char):
+                kept.append(row)
+                continue
+            piece = host.pieces[i]
+            mask = _square(piece, 64)
+            grown = _grown_mask(mask, 2)
+            agrees = any((mask & ~expanded).sum() <= TYPICAL_EXTRA * mask.sum()
+                         and (reference & ~grown).sum() <= TYPICAL_GLYPH * reference.sum()
+                         for reference, expanded in references)
+            if agrees or not _extra_bar(piece, mask, [expanded for _, expanded in references]):
+                kept.append(row)
+        return kept
 
     def _template(self, op: str, children: list[Node], region: Box, absolute: bool = False) -> tuple[Host, list[bool]] | None:
         """A drawn character with a node of `op` whose operands are most like `children`, cut into
@@ -2575,6 +2598,26 @@ def raster(placed: list[Placed], size: int = 128) -> np.ndarray:
 def _square(part: Part, size: int = TYPICAL_SIZE) -> np.ndarray:
     """A part's ink stretched to fill a size × size square."""
     return fill(_rings(part.contours, [c.light for c in part.contours], steps=2), size, part.box)
+
+
+def _extra_bar(part: Part, mask: np.ndarray, references: list[np.ndarray]) -> bool:
+    """A detached four-point horizontal spanning half the part, with over a quarter of its ink
+    unsupported by every expanded reference. Counters contain no ink and are ignored."""
+    width, height = part.box[2] - part.box[0], part.box[3] - part.box[1]
+    for contour in part.contours:
+        points = contour.light
+        if len(points) != 4 or np.ptp(points[:, 0]) < .5 * width or np.ptp(points[:, 1]) > .15 * height:
+            continue
+        bar = fill(_rings([contour], [points], steps=2), mask.shape[0], part.box) & mask
+        if not bar.any() or not references:
+            continue
+        others = [c for c in part.contours if c is not contour]
+        rest = fill(_rings(others, [c.light for c in others], steps=2), mask.shape[0], part.box) & mask
+        if (_grown_mask(bar, 1) & rest).any():
+            continue
+        if all((bar & ~ref).sum() > .25 * bar.sum() for ref in references):
+            return True
+    return False
 
 
 def _grown_mask(mask: np.ndarray, by: int) -> np.ndarray:

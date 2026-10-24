@@ -160,6 +160,45 @@ def test_consensus_never_uses_excluded_operand_glyph(monkeypatch):
     assert c._consensus("L", "木") is None
 
 
+def test_native_reference_filters_extra_stroke_without_changing_native_cuts(monkeypatch):
+    c = compose.Composer(SimpleNamespace(own=lambda char: char == "native"), {})
+    clean = np.zeros((64, 64), dtype=bool)
+    clean[8:20, 8:20] = True
+    extra = clean.copy()
+    extra[40:44, :] = True
+    rows = [((rank,), SimpleNamespace(char=char, pieces=[mask]), 0)
+            for rank, (char, mask) in enumerate((("bad", extra), ("good", clean), ("native", clean)))]
+    monkeypatch.setattr(compose, "_square", lambda part, size: part)
+    monkeypatch.setattr(compose, "_extra_bar", lambda *args: True)
+    assert [host.char for _, host, _ in c._native_shapes(rows)] == ["good", "native"]
+    monkeypatch.setattr(compose, "_extra_bar", lambda *args: False)
+    assert [host.char for _, host, _ in c._native_shapes(rows)] == ["bad", "good", "native"]
+    without_native = rows[:2]
+    assert c._native_shapes(without_native) is without_native
+
+
+def test_extra_bar_requires_unsupported_ink():
+    def rectangle(x0, y0, x1, y1):
+        points = np.array([(x0, y0), (x1, y0), (x1, y1), (x0, y1)], dtype=float)
+        ops = [("moveTo", 1, False)] + [("lineTo", 1, False)] * 3
+        return compose.Contour(ops, points, points.copy())
+
+    body = rectangle(0, 0, 8, 64)
+    connected = compose.Part([body, rectangle(0, 30, 64, 34)])
+    connected_mask = compose._square(connected, 64)
+    reference = compose.fill(compose._rings([body], [body.light]), 64, connected.box)
+    assert not compose._extra_bar(connected, connected_mask, [compose._grown_mask(reference, 2)])
+
+    bar = rectangle(16, 30, 64, 34)
+    part = compose.Part([body, bar])
+    mask = compose._square(part, 64)
+    reference = compose.fill(compose._rings([body], [body.light]), 64, part.box)
+    assert compose._extra_bar(part, mask, [compose._grown_mask(reference, 2)])
+    assert not compose._extra_bar(part, mask, [mask])
+    assert not compose._extra_bar(part, mask, [])
+    assert not compose._extra_bar(part, np.zeros_like(mask), [reference])
+
+
 def test_loose_kanjivg_cut_does_not_consult_shape_references(monkeypatch):
     tree = ("⿰", "木", "木")
     found = SimpleNamespace(pieces=[object(), object()])
