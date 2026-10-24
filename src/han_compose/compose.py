@@ -817,6 +817,35 @@ class Composer:
         return {seq: char for char, seq in self.sequences.items() if self.font.has(char)}
 
     @cached_property
+    def twins(self) -> dict[str, frozenset[str]]:
+        """Characters the font draws alike, each with the others: one glyph under two code points, or
+        one sequence drawn with the same outlines twice (胶 and 㬵). A character redrawn to test takes
+        its twins out with it, or it would be drawn from its own glyph under another name."""
+        groups: dict = {}
+        by_seq: dict[str, list[str]] = {}
+        cmap = getattr(self.font, "cmap", {})
+        for char, seq in self.sequences.items():
+            if len(char) == 1 and self.font.has(char):
+                by_seq.setdefault(seq, []).append(char)
+                name = cmap.get(ord(char))
+                if name is not None:
+                    groups.setdefault(("name", name), set()).add(char)
+        for seq, chars in by_seq.items():
+            if len(chars) > 1:
+                for char in chars:
+                    glyph = self.font.glyph(char)
+                    contours = getattr(glyph, "contours", None)
+                    outline = tuple(np.round(np.concatenate([c.light for c in contours]).ravel(), 1)) if contours else None
+                    if outline is not None:
+                        groups.setdefault(("outline", seq, outline), set()).add(char)
+        out: dict[str, set[str]] = {}
+        for chars in groups.values():
+            if len(chars) > 1:
+                for char in chars:
+                    out.setdefault(char, set()).update(chars - {char})
+        return {char: frozenset(others) for char, others in out.items()}
+
+    @cached_property
     def forms(self) -> dict[str, list[tuple[str, str | None]]]:
         return positional_forms()
 
@@ -1067,6 +1096,11 @@ class Composer:
         if not isinstance(self.exclude, _Exclusion) or self.exclude.frames is not self._frames:
             self.exclude = _Exclusion(set.__iter__(self.exclude) if isinstance(self.exclude, _Exclusion) else self.exclude, self._frames)
         excluded = frozenset(set.__iter__(self.exclude))
+        if excluded:
+            grown = excluded.union(*(self.twins.get(c, ()) for c in excluded))
+            if grown != excluded:
+                set.update(self.exclude, grown)
+                excluded = grown
         changed = excluded ^ self._reference_exclude
         if changed:
             for store in (self._templates, self._strokes, self._sketches, self._faces, self._any_overlays, self._hosts):

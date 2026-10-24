@@ -186,3 +186,17 @@ def test_explicit_truth_ink_ignores_exclusion_without_reading_glyph(reference_co
     assert c.ink("", glyphs["A"]) == 88
     assert reads == []
     assert c.ink("A") == 176
+
+
+def test_excluding_a_character_excludes_its_twins():
+    # 胶 and 㬵 share a sequence and are drawn alike; 甲 and 乙 share one glyph name.
+    square = SimpleNamespace(contours=[SimpleNamespace(light=np.array([[0.0, 0.0], [1.0, 1.0]]))])
+    other = SimpleNamespace(contours=[SimpleNamespace(light=np.array([[0.0, 0.0], [2.0, 1.0]]))])
+    glyphs = {"胶": square, "㬵": square, "膠": other, "甲": other, "乙": square}
+    font = SimpleNamespace(own=lambda _: True, has=lambda ch: ch in glyphs, glyph=glyphs.get,
+                           cmap={ord("甲"): "g1", ord("乙"): "g1", ord("胶"): "g2", ord("㬵"): "g3", ord("膠"): "g4"})
+    c = compose.Composer(font, {"胶": "⿰月交", "㬵": "⿰月交", "膠": "⿰月交", "甲": "⿻日丨", "乙": "乙"})
+    assert c.twins["胶"] == {"㬵"} and c.twins["甲"] == {"乙"} and "膠" not in c.twins
+    c.exclude = {"胶"}
+    c._reference_context()
+    assert set(set.__iter__(c.exclude)) == {"胶", "㬵"}
