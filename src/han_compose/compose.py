@@ -1554,11 +1554,12 @@ class Composer:
         aspect = (box[2] - box[0]) / max(box[3] - box[1], 1)
         # The hand 𠂇 of 右 is not that of 左: where KanjiVG tells which this one is, it comes only
         # from hosts KanjiVG shows writing the same (布's from 右 or 有, never 友 or the unlisted 㔫).
-        # On the 47 audited characters holding 𠂇: 0.640 → 0.658 (右 +0.10, 左 +0.28, 布 +0.43, none worse).
         hand = None
         if node == "𠂇":
             drawn = (op, *siblings[:index], node, *siblings[index:])
-            hand = self.hands.get(self.by_sequence.get(key(drawn), ""))
+            # Never from the record of a character being redrawn to test: it would choose by itself.
+            char = self.by_sequence.get(key(drawn), "")
+            hand = self.hands.get(char) if char not in self.exclude else None
         def weighed(candidates: list, facing: bool = False) -> list[tuple[tuple, Host, int]]:
             scored = []
             for (char, tree, path, i), alien in candidates:
