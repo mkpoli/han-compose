@@ -31,6 +31,7 @@ import hashlib
 import math
 import re
 from collections import Counter
+from collections.abc import Iterator
 from dataclasses import dataclass, field, replace
 from functools import cache, cached_property
 from itertools import combinations, pairwise
@@ -467,9 +468,15 @@ def split(part: Part, axis: int, pieces: int) -> list[Part] | None:
     through goes with the side that holds at least `SIDED` of it. A cut through the middle of an
     outline gives None, as does an empty piece.
     """
+    best = min(_linear_partitions(part, axis, pieces), key=lambda candidate: candidate[:2], default=None)
+    return None if best is None else best[2]
+
+
+def _linear_partitions(part: Part, axis: int, pieces: int) -> Iterator[tuple[tuple[int, float], tuple[float, ...], list[Part]]]:
+    """Nonempty partitions respecting counter ownership and the SIDED crossing limit."""
     units = _units(part.contours)
     if len(units) < pieces:
-        return None
+        return
     spans = [_span(u, axis) for u in units]
     centres = sorted({(a + b) / 2 for a, b in spans})
     cuts = [(centres[k] + centres[k + 1]) / 2 for k in range(len(centres) - 1)]
@@ -482,18 +489,19 @@ def split(part: Part, axis: int, pieces: int) -> list[Part] | None:
         costs = [cost(c) for c in chosen]
         return sum(c[0] for c in costs), sum(c[1] for c in costs)
 
-    best = min(((total(chosen), chosen) for chosen in combinations(cuts, pieces - 1)), default=None)
-    if best is None or best[0][0]:
-        return None
-    bounds = [-math.inf, *best[1], math.inf]
-    groups: list[list[Contour]] = [[] for _ in range(pieces)]
-    for unit, (a, b) in zip(units, spans):
-        centre = (a + b) / 2
-        groups[next(i for i in range(pieces) if bounds[i] <= centre < bounds[i + 1])].extend(unit)
-    if any(not g for g in groups):
-        return None
-    parts = [Part(g) for g in groups]
-    return parts[::-1] if axis == 1 else parts
+    for chosen in combinations(cuts, pieces - 1):
+        crossing = total(chosen)
+        if crossing[0]:
+            continue
+        bounds = [-math.inf, *chosen, math.inf]
+        groups: list[list[Contour]] = [[] for _ in range(pieces)]
+        for unit, (a, b) in zip(units, spans):
+            centre = (a + b) / 2
+            groups[next(i for i in range(pieces) if bounds[i] <= centre < bounds[i + 1])].extend(unit)
+        if any(not g for g in groups):
+            continue
+        parts = [Part(g) for g in groups]
+        yield crossing, chosen, parts[::-1] if axis == 1 else parts
 
 
 def enclosures(part: Part, op: str) -> list[tuple[Part, Part]]:
@@ -1059,6 +1067,34 @@ class Composer:
         a, b = _shape(part), _shape(own)
         return float((a & b).sum()) / max(float((a | b).sum()), 1.0)
 
+    def _linear(self, part: Part, node: tuple) -> list[Part] | None:
+        """Choose boundaries by the operands' geometry, with crossing cost breaking ties."""
+        references = [self._operand_shape(n) for n in node[1:]]
+        if any(reference is None and isinstance(n, tuple)
+               and (key(n) not in self.by_sequence or self.by_sequence[key(n)] in self.exclude)
+               for n, reference in zip(node[1:], references)):
+            return None
+        least = [LIKENESS_OVERLAID if OVERLAY in key(n) else LIKENESS for n in node[1:]]
+        scores: dict[tuple[int, tuple[int, ...]], float] = {}
+        best = None
+        for crossing, cuts, pieces in _linear_partitions(part, AXIS[node[0]], len(node) - 1):
+            known = []
+            for i, (piece, reference) in enumerate(zip(pieces, references)):
+                if reference is None:
+                    continue
+                group = (i, tuple(id(c) for c in piece.contours))
+                if group not in scores:
+                    scores[group] = self._shape_likeness(piece, reference)
+                score = scores[group]
+                if score < least[i]:
+                    break
+                known.append(score)
+            else:
+                rank = (-min(known, default=0.0), -sum(known), crossing, cuts)
+                if best is None or rank < best[0]:
+                    best = rank, pieces
+        return None if best is None else best[1]
+
     def _cut(self, part: Part, node: tuple, strict: bool = True) -> tuple[list[Part], float] | None:
         """`part`, drawn as `node`, cut into its operands with the mean gap between them; None when
         no clean cut exists or a piece does not look like its operand. Strictly, each piece must
@@ -1094,8 +1130,8 @@ class Composer:
                     best = (a + b, [outer, inner])
             return None if best is None else (best[1], 0.0)
         axis = AXIS[node[0]]
-        pieces = split(part, axis, len(node) - 1)
-        if pieces is None or any(self.likeness(p, n) < (LIKENESS_OVERLAID if OVERLAY in key(n) else LIKENESS) for p, n in zip(pieces, node[1:])):
+        pieces = self._linear(part, node)
+        if pieces is None:
             pieces = self._matched(part, node) if len(node) == 3 and OVERLAY in key(node) else None
             if pieces is None:
                 return None
