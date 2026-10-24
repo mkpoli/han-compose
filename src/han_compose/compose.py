@@ -1832,7 +1832,9 @@ class Composer:
             return self._overlay(children, region)
         if self.hosted and self.layout is not None and len(children) == 2 and (
                 op in self.layout.ops if at_root else op in ("⿰", "⿱")):
-            return self._learned(op, children, None if at_root else region)
+            learned = self._learned(op, children, None if at_root else region)
+            if learned is not None:
+                return learned
         if at_root and op in AXIS and self.hosted:
             transplanted = self._transplant(op, children)
             if transplanted is not None:
@@ -1881,13 +1883,14 @@ class Composer:
             _fit_inside(groups[0], groups[1], region, self.font.stem[0][0])
         return [p for group in groups for p in group]
 
-    def _learned(self, op: str, children: list[Node], region: Box | None = None) -> list[Placed]:
+    def _learned(self, op: str, children: list[Node], region: Box | None = None) -> list[Placed] | None:
         """Two operands in the boxes the learned layout gives them, each cut from the host that fits
         its box best, or drawn into it. A whole character's boxes stand in the em; a nested node's
         are those of a whole character laid out alike, carried into its region. An enclosed part cut
         from a host stays in its predicted box: fitting it into the opening afterwards scored worse
         (0.562 against 0.601 on 238 jōyō enclosures). One drawn on its own is drawn into the room
-        its enclosing part leaves and fitted there, since nothing placed it beside that part."""
+        its enclosing part leaves and fitted there, since nothing placed it beside that part.
+        None when a linear layout would deform a hosted operand beyond STRETCH."""
         tested = next(iter(self.exclude)) if len(self.exclude) == 1 else None
         boxes = self.layout.predict(self, op, [key(c) for c in children], tested)
         if region is not None:
@@ -1965,6 +1968,8 @@ class Composer:
             if region is None and op in AXIS and drawn.whole and not HOST_SNAP < self._stretch(source.box, box) <= HOST_EXTENT:
                 across = 1 - AXIS[op]
                 box = tuple(source.box[k] if k % 2 == across else box[k] for k in range(4))
+            if op in AXIS and self._stretch(source.box, box) > STRETCH:
+                return None
             groups.append([Placed(source, source.box, box, native=self.ink(drawn.char), origin=f"learned {drawn.char}")])
             if op in CLEARED and i == 1 and _collision(groups[0], groups[1], region or self.face) > COLLIDE:
                 # Its box runs into the enclosing strokes (帀 over 走's 土 in 䞙): it is fitted

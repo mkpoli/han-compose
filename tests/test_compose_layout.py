@@ -63,9 +63,78 @@ def learned_composer(monkeypatch, boxes):
     return c, calls
 
 
+@pytest.mark.parametrize("op", ["⿰", "⿱"])
+@pytest.mark.parametrize("bad_index", [0, 1])
+def test_learned_rejects_the_pair_when_either_host_is_deformed(monkeypatch, op, bad_index):
+    boxes = [(0, 0, 20, 40), (30, 0, 50, 40)] if op == "⿰" else [(0, 60, 20, 100), (0, 0, 20, 40)]
+    bad = list(boxes[bad_index])
+    axis = C.AXIS[op]
+    bad[axis + 2] = bad[axis] + (5 if axis == 0 else 10)
+    boxes[bad_index] = tuple(bad)
+    c, calls = learned_composer(monkeypatch, boxes)
+    assert c._learned(op, ["A", "B"]) is None
+    assert calls == ["predict"]
+
+
+@pytest.mark.parametrize("at_root", [False, True])
+def test_rejected_learned_pair_uses_geometric_path_once(monkeypatch, at_root):
+    boxes = [(0, 60, 20, 100), (0, 0, 20, 10)]
+    c, calls = learned_composer(monkeypatch, boxes)
+    fallback = [object()]
+    monkeypatch.setattr(c, "_instance", lambda *args: None)
+
+    def transplant(*args):
+        calls.append("transplant")
+        return None
+
+    def template(*args, **kwargs):
+        calls.append("template")
+        return None
+
+    def shares(*args):
+        calls.append("shares")
+        return fallback
+
+    monkeypatch.setattr(c, "_transplant", transplant)
+    monkeypatch.setattr(c, "_template", template)
+    monkeypatch.setattr(c, "_shares", shares)
+    assert c._node(("⿱", "A", "B"), (0, 0, 20, 100), at_root=at_root) is fallback
+    assert calls == ["predict", *(["transplant"] if at_root else []), "template", "shares"]
+
+
+@pytest.mark.parametrize("height", [40, 40 / C.STRETCH])
+def test_accepted_learned_pair_preserves_boxes(monkeypatch, height):
+    boxes = [(0, 60, 20, 60 + height), (0, 0, 20, 40)]
+    c, calls = learned_composer(monkeypatch, boxes)
+    monkeypatch.setattr(c, "_instance", lambda *args: None)
+    result = c._node(("⿱", "A", "B"), c.face, at_root=True)
+    assert [p.target for p in result] == boxes
+    assert [p.origin for p in result] == ["learned host0", "learned host1"]
+    assert calls == ["predict", "space"]
+
+
 @pytest.mark.parametrize("height, kept", [(42, (0, 0, 20, 40)), (46, (0, 0, 20, 46))])
 def test_a_host_part_a_learned_box_barely_stretches_keeps_its_extent(monkeypatch, height, kept):
     boxes = [(0, 0, 20, height), (30, 0, 50, 40)]
     c, _ = learned_composer(monkeypatch, boxes)
     assert c._learned("⿰", ["A", "B"])[0].target == kept
+
+
+def test_learned_guard_runs_after_cross_axis_correction(monkeypatch):
+    boxes = [(0, 60, 100, 100), (0, 0, 20, 40)]
+    c, calls = learned_composer(monkeypatch, boxes)
+    assert c._stretch((0, 0, 20, 40), boxes[0]) > C.STRETCH
+    result = c._learned("⿱", ["A", "B"])
+    assert result[0].target == (0, 60, 20, 100)
+    assert calls == ["predict", "space"]
+
+
+def test_linear_rejection_guard_does_not_change_enclosures(monkeypatch):
+    boxes = [(0, 0, 100, 100), (40, 20, 60, 30)]
+    c, calls = learned_composer(monkeypatch, boxes)
+    monkeypatch.setattr(c, "_room", lambda *args: None)
+    assert all(c._stretch((0, 0, 20, 40), b) > C.STRETCH for b in boxes)
+    result = c._learned("⿸", ["A", "B"])
+    assert [p.target for p in result] == boxes
+    assert calls == ["predict"]
 
