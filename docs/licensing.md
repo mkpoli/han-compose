@@ -31,10 +31,12 @@ of them is committed.
 
 **KanjiVG**, Copyright (C) 2009-2013 Ulrich Apel, **CC BY-SA 3.0**, https://kanjivg.tagaini.net/
 
-The composer fetches its pinned release and cuts host characters along its component groups. Nothing
-of KanjiVG is committed. Glyphs the composer draws from those cuts are adaptations of that component
-data and are shared alike under CC BY-SA, with the 3.0 notice kept above. Source record:
-`data/sources/kanjivg.yaml`.
+The composer fetches its pinned release and cuts host characters along its component groups. Glyphs
+the composer draws from those cuts are adaptations of that component data and are shared alike under
+CC BY-SA, with the 3.0 notice kept above. One table derived from it is committed:
+`data/vocab/han-hand-forms.tsv` (rebuilt by `scripts/build_hand_forms.py`), which of 𠂇's two strokes
+each character writes first, read from KanjiVG's stroke types; it is shared alike under CC BY-SA 3.0.
+Source record: `data/sources/kanjivg.yaml`.
 
 ## Consequences
 

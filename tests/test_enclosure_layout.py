@@ -242,3 +242,8 @@ def test_clear_compound_corner_keeps_direct_placement(monkeypatch):
     assert fits == []
     assert [p.target for p in result] == [outer.box, inner.box]
 
+
+def test_hand_forms_follow_kanjivg_stroke_order():
+    forms = compose.hand_forms()
+    assert forms["右"] == forms["有"] == forms["布"] == "丿"
+    assert forms["左"] == forms["友"] == "一"

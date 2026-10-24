@@ -194,6 +194,12 @@ def japanese_characters() -> set[str]:
     return out
 
 
+def hand_forms() -> dict[str, str]:
+    """The stroke of the hand 𠂇 a character spelled ⿸𠂇X writes first, 丿 (右) or 一 (左), as
+    KanjiVG records it (`data/vocab/han-hand-forms.tsv`): the font draws the two hands differently."""
+    return {row[0]: row[1] for row in read_rows("han-hand-forms.tsv")}
+
+
 def atomic_characters() -> set[str]:
     """The ideographs drawn whole, never composed from their sequence: those hfhchan/ids leaves
     undecomposed as productive components (日, 二, 工, 万; `data/vocab/han-atomic.tsv`), and those
@@ -968,6 +974,10 @@ class Composer:
         return spelled_nodes()
 
     @cached_property
+    def hands(self) -> dict[str, str]:
+        return hand_forms()
+
+    @cached_property
     def atomic(self) -> set[str]:
         return atomic_characters()
 
@@ -1542,6 +1552,14 @@ class Composer:
         hosts, _ = self._index
         want = sum(self.ink(s) for s in siblings)
         aspect = (box[2] - box[0]) / max(box[3] - box[1], 1)
+        # The hand 𠂇 of 右 is not that of 左: where KanjiVG tells which this one is, it comes only
+        # from hosts KanjiVG shows writing the same (布's from 右 or 有, never 友 or the unlisted 㔫).
+        hand = None
+        if node == "𠂇":
+            drawn = (op, *siblings[:index], node, *siblings[index:])
+            # Never from the record of a character being redrawn to test: it would choose by itself.
+            char = self.by_sequence.get(key(drawn), "")
+            hand = self.hands.get(char) if char not in self.exclude else None
         def weighed(candidates: list, facing: bool = False) -> list[tuple[tuple, Host, int]]:
             scored = []
             for (char, tree, path, i), alien in candidates:
@@ -1550,6 +1568,8 @@ class Composer:
                 here = tree
                 for step in path:
                     here = here[1 + step]
+                if hand is not None and self.hands.get(self.by_sequence.get(key(here), char if not path else "")) != hand:
+                    continue
                 others = [n for k, n in enumerate(here[1:]) if k != i]
                 exact = here[0] == op and [key(n) for n in others] == [key(s) for s in siblings]
                 # A host beside the very same parts is first only if Japan writes it: the simplified
@@ -1597,6 +1617,8 @@ class Composer:
             if facing and found_all and not any(self.font.own(f.char) for _, f, _ in found_all):
                 found_all += weighed([(entry, True) for entry in hosts.get((facing, written), [])
                                       if self.font.own(entry[0])][:KIN_HOSTS], facing=True)
+                local = [row for row in found_all if self.font.own(row[1].char) and row[1].char in self.japanese]
+                found_all = local or found_all
             if (op in ENCLOSE and isinstance(node, str) and self.font.own(node) and found_all
                     and not any(self.font.own(f.char) for _, f, _ in found_all)):
                 # In or round an enclosure only fallback glyphs hold it: the font's own glyph keeps
@@ -2335,8 +2357,8 @@ class Composer:
         if not found:
             return None
         counts = Counter(len(p.contours) for p, _, _ in found)
-        usual = max(counts, key=counts.get)
-        found = [f for f in found if len(f[0].contours) == usual]
+        most = max(counts.values())
+        found = [f for f in found if counts[len(f[0].contours)] == most]
         shapes = [_shape(p, 24).astype(float) for p, _, _ in found]
         mean = np.mean(shapes, axis=0)
         box = tuple(float(v) for v in np.median(np.array(boxes), axis=0))

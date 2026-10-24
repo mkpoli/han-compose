@@ -1,0 +1,13 @@
+# The stroke of the hand 𠂇 each character spelled ⿸𠂇X writes first; see scripts/build_hand_forms.py.
+# source kanjivg: KanjiVG (stroke-order and component data for Japanese kanji); CC BY-SA 3.0 (https://github.com/KanjiVG/kanjivg/blob/r20260714/COPYING); KanjiVG, Copyright (C) 2009-2013 Ulrich Apel, CC BY-SA 3.0, https://kanjivg.tagaini.net/
+#   kanjivg: https://github.com/KanjiVG/kanjivg/releases/download/r20260714/kanjivg-20260714.xml.gz sha256:d4a8e5e11533fe6a
+# columns: char, first (丿 as in 右, 一 as in 左), groups (KanjiVG groups drawing it, all agreeing)
+# rows: 7
+char	first	groups
+厷	一	1
+友	一	10
+右	丿	9
+尢	一	11
+左	一	10
+布	丿	8
+有	丿	13

@@ -14,5 +14,6 @@ format:
 notes:
   - "The composer (`han_compose.kanjivg_cuts`) reads which strokes form each component and matches them to the outlines of a font glyph, so a host character is cut into its operands along KanjiVG's groups. The file is fetched at this release and checked against its SHA-256; nothing of it is committed."
   - "Glyphs the composer draws from such cuts are adaptations of KanjiVG's component data and are shared alike under CC BY-SA, with the 3.0 notice kept."
+  - "`scripts/build_hand_forms.py` derives `data/vocab/han-hand-forms.tsv` from the stroke types (kvg:type) KanjiVG records in writing order: a character spelled ⿸𠂇X writes 丿 first (右 有 布) or 一 first (左 友), as its first two strokes show in every KanjiVG group that draws it. The composer takes the hand 𠂇 only from hosts of the same form. The table adapts KanjiVG's data and is shared alike under CC BY-SA 3.0."
   - "KanjiVG describes the forms of Japanese school kanji; its groups follow Japanese stroke order and component analysis, which can differ from the IDS the composer is given."
 checked: 2026-10-06
