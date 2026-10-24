@@ -1950,7 +1950,8 @@ class Composer:
         from a host stays in its predicted box: fitting it into the opening afterwards scored worse
         (0.562 against 0.601 on 238 jōyō enclosures). One drawn on its own is drawn into the room
         its enclosing part leaves and fitted there, since nothing placed it beside that part.
-        None when a linear layout would deform a hosted operand beyond STRETCH."""
+        None when a linear layout would deform a hosted operand beyond STRETCH, or when the network
+        gives an operand no extent (a thin 丨 beside a tall ⿳工臣口 came out −5 units wide)."""
         tested = next(iter(self.exclude)) if len(self.exclude) == 1 else None
         boxes = self.layout.predict(self, op, [key(c) for c in children], tested)
         if region is not None:
@@ -1966,6 +1967,8 @@ class Composer:
             # (孕). Under a corner (君's 口 below 尹) the enclosed part may reach past it.
             boxes[0] = (min(boxes[0][0], boxes[1][0]), min(boxes[0][1], boxes[1][1]),
                         max(boxes[0][2], boxes[1][2]), max(boxes[0][3], boxes[1][3]))
+        if any(b[2] <= b[0] or b[3] <= b[1] for b in boxes):
+            return None
         groups = []
         outer_hosted = False
         inner_fitted = False
