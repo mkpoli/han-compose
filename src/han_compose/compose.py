@@ -1682,6 +1682,24 @@ class Composer:
         layout = [tuple(float(v) for v in row) for row in np.tensordot(weights / weights.sum(), shares, axes=1)]
         return replace(best, layout=layout), same
 
+    def _respelled(self, node: Node) -> Node:
+        """Rendering layout for a part under a character that is itself drawn under a corner (原 in
+        愿, 庚 in 賡): the character's inner part stacked above the new one, both under its corner
+        (⿸厂⿱泉心), since a whole character leaves no room inside it: on the 17 audited, 0.491 →
+        0.523 (9 better, 5 worse: 魔 摩 贋 lose the corner part their hosts drew). The source
+        sequence and encoded identity remain unchanged."""
+        if not isinstance(node, tuple) or node[0] != "⿸" or len(node) != 3 or not isinstance(node[1], str):
+            return node
+        try:
+            outer = parse(self.sequences.get(node[1], ""))
+        except ValueError:
+            return node
+        # One level only: a corner that is itself spelled as a corner (甲 ⿸乙口, 乙 ⿸甲木) is a cycle.
+        if isinstance(outer, tuple) and outer[0] == "⿸" and len(outer) == 3 and not (
+                isinstance(outer[1], str) and self.sequences.get(outer[1], "").startswith("⿸")):
+            return ("⿸", outer[1], ("⿱", outer[2], node[2]))
+        return node
+
     def compose(self, sequence: str) -> list[Placed]:
         """The parts that draw `sequence`; LookupError when an operand can be drawn no way."""
         tree = parse(sequence)
@@ -1826,12 +1844,14 @@ class Composer:
             if glyph is None:
                 raise LookupError(f"No glyph or sequence draws {node}.")
             return [self._place(glyph, region, self.ink(node), f"glyph {node}")]
-        op, children = node[0], list(node[1:])
-        if op not in AXIS and op not in ENCLOSE and op != OVERLAY:
-            raise LookupError(f"{op} is not laid out.")
         instance = None if key(node) in self.spelled else self._instance(node, region)
         if instance is not None:
             return [instance]
+        # Resolve each node's original identity before changing its rendering layout.
+        node = self._respelled(node)
+        op, children = node[0], list(node[1:])
+        if op not in AXIS and op not in ENCLOSE and op != OVERLAY:
+            raise LookupError(f"{op} is not laid out.")
         if op == OVERLAY:
             return self._overlay(children, region)
         if self.hosted and self.layout is not None and len(children) == 2 and (
