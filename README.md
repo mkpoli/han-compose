@@ -5,9 +5,6 @@ Noto Sans CJK JP already draws, laid out where its designers put parts like thes
 stroke weight. The result is a set of outlines in the font's 1000-unit em, written out as an SVG
 path.
 
-This project was extracted from glyph-atlas, where it grew inside `src/glyph_atlas/`. glyph-atlas
-calls it at build time to render composed glyphs; it runs on its own.
-
 ## Run
 
 ```sh
