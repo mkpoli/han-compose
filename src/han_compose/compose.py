@@ -199,11 +199,16 @@ def _fetched(source: Source, cache: Path | None) -> Path:
     path = (cache or cache_root()) / "fonts" / source.file
     if not path.exists():
         path.parent.mkdir(parents=True, exist_ok=True)
-        data = httpx.get(source.url, follow_redirects=True, timeout=600).content
         if source.member is not None:
+            # The archive is kept beside its members, so the others extract without fetching it again.
+            archive = path.parent / source.url.rsplit("/", 1)[-1]
+            data = archive.read_bytes() if archive.exists() else httpx.get(source.url, follow_redirects=True, timeout=600).content
             if hashlib.sha256(data).hexdigest() != source.archive_sha256:
                 raise ValueError(f"{source.url} does not match its pinned SHA-256.")
+            archive.write_bytes(data)
             data = zipfile.ZipFile(io.BytesIO(data)).read(source.member)
+        else:
+            data = httpx.get(source.url, follow_redirects=True, timeout=600).content
         if hashlib.sha256(data).hexdigest() != source.sha256:
             raise ValueError(f"{source.url} ({source.member or source.file}) does not match its pinned SHA-256.")
         path.write_bytes(data)
@@ -546,6 +551,8 @@ def _across(rings: list[np.ndarray], axis: int) -> float:
             hits.extend(a[on, axis] + t * (b[on, axis] - a[on, axis]))
         if len(hits) >= 2:
             widths.append(max(hits) - min(hits))
+    if not widths:
+        raise ValueError("No line across the stroke's middle meets its outline twice.")
     return float(np.median(widths))
 
 

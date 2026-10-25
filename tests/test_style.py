@@ -78,6 +78,13 @@ def test_a_font_inside_an_archive_is_fetched_checked_and_extracted(tmp_path: Pat
     source = compose.Source("archive-A.ttf", "https://example.org/a.zip", hashlib.sha256(font).hexdigest(), "CC0 1.0",
                             member="A.ttf", archive_sha256=hashlib.sha256(data).hexdigest())
     assert compose._fetched(source, tmp_path).read_bytes() == font
+    # A second member extracts from the kept archive without another download.
+    monkeypatch.setattr(httpx, "get", lambda *a, **k: pytest.fail("fetched the archive twice"))
+    again = compose.Source("archive-A2.ttf", source.url, source.sha256, source.licence, member="A.ttf",
+                           archive_sha256=source.archive_sha256)
+    assert compose._fetched(again, tmp_path).read_bytes() == font
+    (tmp_path / "fonts" / "a.zip").unlink()
+    monkeypatch.setattr(httpx, "get", lambda *a, **k: type("R", (), {"content": data})())
     wrong = compose.Source("archive-B.ttf", source.url, source.sha256, source.licence, member="A.ttf", archive_sha256="0" * 64)
     with pytest.raises(ValueError):
         compose._fetched(wrong, tmp_path)
