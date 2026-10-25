@@ -15,7 +15,8 @@ plainest way to compose, each operand's own glyph squeezed into its share, each 
 `calibrate` fits the style's `stem_curve`, stroke width against density, on the font's own ideographs.
 Every command takes `--style sans` (the default) or `--style serif`; models are cached per style.
 `learn` trains the layout `compose_layout` describes and caches it, for `draw` and `bench` to use.
-`export-web` writes the layout and the drawing data a browser port of the composer reads.
+`export-web` writes the layout and the drawing data a browser port of the composer reads, and
+`export-web-pack` builds a finished export's shards from its per-key files.
 """
 
 from __future__ import annotations
@@ -222,7 +223,7 @@ def learn_alone(records: str = "", workers: int = 3, style: str = STYLE) -> None
 @app.command("export-web")
 def export_web(out: Path, parity: int = 0, held_out: int = 0, workers: int = 1, style: str = STYLE) -> None:
     """Write what a browser port of the composer needs into `out` (`han_compose.web_export`):
-    manifest, layout, a record per key and a host list per (place, operand). `--parity N` also draws N compound jōyō
+    manifest, layout, and the records and host lists packed into shards by hash. `--parity N` also draws N compound jōyō
     kanji sequences with this composer into `out/parity.json`, whose hosts join the export, and
     `--held-out M` M more into `out/parity-held-out.json`, whose hosts do not."""
     from han_compose import web_export
@@ -233,6 +234,25 @@ def export_web(out: Path, parity: int = 0, held_out: int = 0, workers: int = 1, 
     manifest = web_export.export(composer, out, joyo=joyo() if parity or held_out else None, parity=parity,
                                  held_out=held_out, workers=workers, log=lambda line: print(line, flush=True))
     print(json.dumps({"version": manifest["version"], **manifest["files"]}, ensure_ascii=False))
+
+
+@app.command("export-web-pack")
+def export_web_pack(out: Path) -> None:
+    """Build the `g/` and `p/` shards of a finished export in `out` from its per-key files under
+    `out/.work/`, and rewrite its manifest (`han_compose.web_export.pack`)."""
+    from han_compose import web_export
+
+    if not (out / "manifest.json").exists() or not (out / web_export.WORK).is_dir():
+        raise typer.BadParameter(f"{out} has no manifest.json or no {web_export.WORK}/.")
+    complete = out / ".complete"
+    complete.unlink(missing_ok=True)
+    try:
+        manifest = web_export.pack(out, log=lambda line: print(line, flush=True))
+    except web_export.WorkFileError as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(1) from error
+    complete.write_text(manifest["version"], encoding="utf-8")
+    print(json.dumps({"version": manifest["version"], "pack": manifest["pack"], **manifest["files"]}, ensure_ascii=False))
 
 
 @app.command()

@@ -13,12 +13,15 @@ from han_compose import compose, compose_layout, web_export
 from han_compose.compose import Contour, Part
 
 
-def test_a_record_and_a_host_list_live_where_their_sha256_names() -> None:
+def test_a_record_and_a_host_list_live_in_the_shard_their_sha256_names() -> None:
     for key in ("亻", "葛\U000e0100", "⿰亻可"):
         h = hashlib.sha256(key.encode()).hexdigest()
-        assert web_export.record_path(key) == f"g/{h[:2]}/{h}.json"
+        assert web_export.record_shard(key) == f"g/{h[:3]}.json"
+        assert web_export.record_work(key) == f".work/g/{h[:2]}/{h}.json"
     h = hashlib.sha256("L\t亻".encode()).hexdigest()
-    assert web_export.hosts_path("L", "亻") == f"p/{h[:2]}/{h}.json"
+    assert web_export.hosts_shard("L", "亻") == f"p/{h[:3]}.json"
+    assert web_export.hosts_work("L", "亻") == f".work/p/{h[:2]}/{h}.json"
+    assert web_export.SHARDS == 4096
 
 
 def test_outlines_survive_the_round_trip_within_a_quarter_unit() -> None:
@@ -105,9 +108,13 @@ def _read(out: Path, path: str) -> dict:
 
 
 def _record(out: Path, key: str) -> dict:
-    record = _read(out, web_export.record_path(key))
+    record = _read(out, web_export.record_shard(key))[web_export.key_hash(key)]
     assert record["k"] == key
     return record
+
+
+def _hosts(out: Path, place: str, operand: str) -> dict:
+    return _read(out, web_export.hosts_shard(place, operand))[web_export.hosts_hash(place, operand)]
 
 
 def _files(root: Path) -> dict[str, bytes]:
@@ -130,8 +137,20 @@ def test_the_export_has_a_manifest_a_layout_records_and_host_lists(exported, com
     assert manifest["composer"]["layout_file"] == compose_layout.LAYOUT_FILE
     assert manifest["constants"]["STRETCH"] == compose.STRETCH and manifest["constants"]["HOST_SNAP"] == compose.HOST_SNAP
     assert manifest["constants"]["SHARES"]["⿳,3"] == list(compose.SHARES[("⿳", 3)])
-    assert manifest["files"]["records"]["files"] == len(list((out / "g").rglob("*.json")))
-    assert manifest["files"]["hosts"]["files"] == len(list((out / "p").rglob("*.json")))
+    assert manifest["files"]["records"]["files"] == len(list((out / "g").glob("*.json")))
+    assert manifest["files"]["hosts"]["files"] == len(list((out / "p").glob("*.json")))
+    assert manifest["pack"]["shards"] == web_export.SHARDS and manifest["pack"]["commit"]
+    # Each shard holds exactly the per-key files whose hash starts with its name, keys sorted.
+    for folder, kind in (("g", "records"), ("p", "hosts")):
+        work = sorted(p.stem for p in (out / ".work" / folder).glob("*/*.json"))
+        shards = {}
+        for f in sorted((out / folder).glob("*.json")):
+            raw = gzip.decompress(f.read_bytes())
+            entries = json.loads(raw)
+            assert list(entries) == sorted(entries) and all(h.startswith(f.stem) for h in entries)
+            assert len(f.stem) == 3 and raw == web_export._dump(entries)
+            shards.update(entries)
+        assert sorted(shards) == work and manifest["files"][kind]["entries"] == len(work)
     layout = json.loads((out / "layout.json").read_text())
     assert layout["dtype"] in web_export.LAYOUT_DTYPES and len(layout["seeds"]) == compose_layout.SEEDS
     assert layout["features"]["per_input"] == layout["seeds"][0][0]["shape"][0]
@@ -145,16 +164,16 @@ def test_the_export_has_a_manifest_a_layout_records_and_host_lists(exported, com
     assert np.abs(heavy - glyph.contours[0].heavy).max() <= 1 / web_export.QUANT
     # P names exactly the places with a host list for the key.
     listed_places: dict[str, set] = {}
-    for f in (out / "p").rglob("*.json"):
-        listed = json.loads(gzip.decompress(f.read_bytes()))
-        listed_places.setdefault(listed["operand"], set()).add(listed["place"])
+    for f in (out / "p").glob("*.json"):
+        for listed in json.loads(gzip.decompress(f.read_bytes())).values():
+            listed_places.setdefault(listed["operand"], set()).add(listed["place"])
     for key in ("亻", "可", "何", "王"):
         places = record(key).get("P", [])
         assert places == sorted(places) and set(places) == listed_places.get(key, set())
     assert record("可")["P"] == ["L", "⿵1"]
     # A list holds every index entry, in the index's order, each with its cut or null.
     index, _ = composer._index
-    listed = _read(out, web_export.hosts_path("L", "可"))
+    listed = _hosts(out, "L", "可")
     assert listed["place"] == "L" and listed["operand"] == "可"
     hosts = listed["hosts"]
     assert [h["r"] for h in hosts] == list(range(len(index[("L", "可")])))
@@ -273,16 +292,96 @@ def test_a_rerun_of_the_same_version_keeps_the_files_a_stopped_run_wrote(compose
     web_export.export(composer, out, **options)
     assert (out / ".complete").exists()
     before = _files(out)
-    kept, lost = out / web_export.hosts_path("L", "王"), out / web_export.record_path("王")
+    kept, lost = out / web_export.hosts_work("L", "王"), out / web_export.record_work("王")
     kept.write_bytes(gzip.compress(b'{"place":"L","operand":"\\u738b","hosts":[]}', mtime=0))
     lost.write_bytes(lost.read_bytes()[:20])  # truncated: read as missing
     web_export.export(composer, out, **options)
     after = _files(out)
     assert after[str(lost.relative_to(out))] == before[str(lost.relative_to(out))]
-    assert json.loads(gzip.decompress(kept.read_bytes()))["hosts"] == []
+    assert after[web_export.record_shard("王")] == before[web_export.record_shard("王")]
+    # The kept work file is what the rebuilt shard holds.
+    assert _hosts(out, "L", "王")["hosts"] == []
     # Another key set starts afresh, and so does an unknown commit.
     web_export.export(composer, out, **{**options, "only": {"王", "可"}})
-    assert json.loads(gzip.decompress(kept.read_bytes()))["hosts"]
+    assert _hosts(out, "L", "王")["hosts"]
     kept.write_bytes(gzip.compress(b'{"place":"L","operand":"\\u738b","hosts":[]}', mtime=0))
     web_export.export(composer, out, **{**options, "root": tmp_path / "not-a-checkout"})
-    assert json.loads(gzip.decompress(kept.read_bytes()))["hosts"]
+    assert _hosts(out, "L", "王")["hosts"]
+
+
+def _as_format_4(out: Path) -> None:
+    """Turn a fresh export into what a format-4 one left once its per-key files are under `.work/`:
+    no shards, a format-4 manifest with that format's file scheme and per-file sizes, and the
+    version below pack's in the manifest, parity files and stamp."""
+    import shutil
+
+    old = lambda version: version[: -len(f"-f{web_export.FORMAT}")] + "-f4"
+    shutil.rmtree(out / "g")
+    shutil.rmtree(out / "p")
+    (out / "p").mkdir()
+    (out / "p" / "fff.json").write_bytes(b"stale")  # pack replaces each folder whole
+    manifest = json.loads((out / "manifest.json").read_text())
+    manifest["version"], manifest["format"] = old(manifest["version"]), 4
+    manifest["paths"] = {
+        "records": "g/{hh}/{sha256 hex of the key's UTF-8}.json: a character (with any variation selector) or a whole sequence",
+        "hosts": "p/{hh}/{sha256 hex of UTF-8 place + TAB + operand}.json: the host list of an operand (a character or a whole sequence) in a place",
+        "hh": "the hash's first two hex digits",
+        "encoding": "every file under g/ and p/ is gzip-compressed JSON (mtime 0); serve it with Content-Encoding: gzip or decompress it",
+        "missing": "a key or (place, operand) with no file has no record or no host the composer cuts cleanly",
+        "rerun": ".export names the version, the layout, font and KanjiVG hashes, the key set and the parity sizes that wrote the folder; a rerun with the same, from a known clean commit, keeps g/ and p/ files and writes only the missing ones; anything else starts afresh. .complete is written last, after manifest.json",
+    }
+    manifest["record"] = {**manifest["record"], "hosts": "a p/ file: {place, operand, hosts}"}
+    del manifest["pack"]
+    for kind, folder in (("records", "g"), ("hosts", "p")):
+        pairs = [(len(gzip.decompress(path.read_bytes())), path.stat().st_size)
+                 for path in (out / ".work" / folder).glob("*/*.json")]
+        kept = {k: v for k, v in manifest["files"][kind].items() if k in ("entries_cut", "pieces_with_own_outlines")}
+        manifest["files"][kind] = {**web_export._summary(pairs), **kept}
+    (out / "manifest.json").write_text(json.dumps(manifest))
+    for name in ("parity.json", "parity-held-out.json", ".export"):
+        value = json.loads((out / name).read_text())
+        value["version"] = old(value["version"])
+        (out / name).write_text(json.dumps(value))
+
+
+def test_pack_brings_a_format_4_folder_whose_files_are_under_work_to_a_fresh_export(exported, tmp_path: Path) -> None:
+    import shutil
+
+    a, _, manifest = exported
+    out = tmp_path / "out"
+    shutil.copytree(a, out)
+    _as_format_4(out)
+    packed = web_export.pack(out, log=lambda _: None)
+    assert packed == manifest and "--exclude '.work/**'" in packed["paths"]["work"]
+    fresh, migrated = _files(a), _files(out)
+    assert migrated == fresh
+    for name in ("manifest.json", "parity.json", "parity-held-out.json", ".export"):
+        assert migrated[name] == fresh[name]
+    assert json.loads(migrated["parity.json"])["version"] == manifest["version"] == json.loads(migrated[".export"])["version"]
+
+
+@pytest.mark.parametrize("damage", [b"\x1f\x8b\x08\x00\x00\x00\x00\x00\x00\x03\xff\xff\xff\xff", None],
+                         ids=["corrupt", "truncated"])
+def test_pack_names_an_unreadable_work_file_and_keeps_the_shards(exported, tmp_path: Path, damage) -> None:
+    import shutil
+
+    a, _, _ = exported
+    out = tmp_path / "out"
+    shutil.copytree(a, out)
+    bad = sorted((out / ".work" / "p").glob("*/*.json"))[0]
+    bad.write_bytes(damage if damage is not None else bad.read_bytes()[:20])
+    with pytest.raises(web_export.WorkFileError, match=bad.name):
+        web_export.pack(out, log=lambda _: None)
+    assert {k: v for k, v in _files(out).items() if k[0] in "gp"} == {k: v for k, v in _files(a).items() if k[0] in "gp"}
+
+
+def test_pack_names_a_work_folder_that_is_not_there(exported, tmp_path: Path) -> None:
+    import shutil
+
+    a, _, _ = exported
+    out = tmp_path / "out"
+    shutil.copytree(a, out)
+    shutil.rmtree(out / ".work" / "p")
+    with pytest.raises(web_export.WorkFileError, match=r"\.work/p is missing"):
+        web_export.pack(out, log=lambda _: None)
+    assert {k: v for k, v in _files(out).items() if k[0] in "gp"} == {k: v for k, v in _files(a).items() if k[0] in "gp"}
