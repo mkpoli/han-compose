@@ -74,7 +74,7 @@ def composer() -> compose.Composer:
     from han_compose import kanjivg_cuts
     from han_compose.vocab import cache_root
 
-    font = cache_root() / "fonts" / compose.FONT_FILE
+    font = cache_root() / "fonts" / compose.STYLES["sans"].font.file
     layout = cache_root() / "compose" / compose_layout.LAYOUT_FILE
     if not font.exists() or not layout.exists():
         pytest.skip("The font or the layout model is not cached.")
@@ -130,7 +130,10 @@ def test_the_export_has_a_manifest_a_layout_records_and_host_lists(exported, com
     out, _, manifest = exported
     assert json.loads((out / "manifest.json").read_text()) == manifest
     assert manifest["format"] == web_export.FORMAT
-    assert manifest["version"].endswith(f"-{Path(compose_layout.LAYOUT_FILE).stem}-f{web_export.FORMAT}")
+    assert manifest["version"].endswith(f"-sans-{Path(compose_layout.LAYOUT_FILE).stem}-f{web_export.FORMAT}")
+    assert manifest["style"] == "sans" and manifest["constants"]["HEAVY"] == compose.STYLES["sans"].heavy
+    assert [f["licence"] for f in manifest["licences"]["outlines"]["fonts"]] == ["SIL OFL 1.1"] * 3
+    assert manifest["files"]["licences"] == ["OFL.txt", "MIT-hfhchan-ids.txt"] and not (out / "CC0.txt").exists()
     assert manifest["composer"]["layout_file"] == compose_layout.LAYOUT_FILE
     assert manifest["constants"]["STRETCH"] == compose.STRETCH and manifest["constants"]["HOST_SNAP"] == compose.HOST_SNAP
     assert manifest["constants"]["SHARES"]["⿳,3"] == list(compose.SHARES[("⿳", 3)])
@@ -229,12 +232,33 @@ def test_the_licence_texts_and_every_source_ship_with_the_export(exported) -> No
     assert "SIL OPEN FONT LICENSE Version 1.1" in ofl and "PERMISSION & CONDITIONS" in ofl
     for font in manifest["licences"]["outlines"]["fonts"]:
         assert font["copyright"] in ofl
-    assert manifest["licences"]["outlines"]["text"] == "OFL.txt"
+    assert manifest["licences"]["outlines"]["texts"] == ["OFL.txt"]
     assert "'Source'" in manifest["licences"]["outlines"]["note"] and "Plangothic declares no Reserved Font Name" in manifest["licences"]["outlines"]["note"]
     assert "Henry Chan" in (out / "MIT-hfhchan-ids.txt").read_text()
     covered = {field for source in manifest["licences"]["sources"] for field in source["fields"]}
     assert {"s", "e", "a", "at", "hand", "p/ hosts[].c.kv", "p/ hosts[].hd"} <= covered
     assert set(manifest["files"]["licences"]) == {"OFL.txt", "MIT-hfhchan-ids.txt"}
+
+
+def test_a_serif_export_names_its_style_and_ships_each_fonts_licence(tmp_path) -> None:
+    from han_compose import kanjivg_cuts
+    from han_compose.vocab import cache_root
+
+    style = compose.STYLES["serif"]
+    layout = cache_root() / "compose" / compose_layout.layout_file("serif")
+    if not layout.exists() or not all((cache_root() / "fonts" / s.file).exists() for s in (style.font, *style.fallbacks)):
+        pytest.skip("The serif fonts or the serif layout model are not cached.")
+    c = compose.Composer(compose.Font.of("serif"), compose.japanese_sequences())
+    c.layout = compose_layout.LayoutModel.load(layout)
+    c.kvg = kanjivg_cuts.Cutter(c)
+    manifest = web_export.export(c, tmp_path, only={"亻", "可", "何", "⿰亻可"}, pairs={("L", "可")}, log=lambda _: None)
+    assert manifest["style"] == "serif" and manifest["composer"]["layout_file"] == "compose-layout-v4-serif.npz"
+    assert "-serif-compose-layout-v4-serif-f" in manifest["version"]
+    assert set(manifest["composer"]["font_sha256"]) == {s.file for s in (style.font, *style.fallbacks)}
+    assert manifest["files"]["licences"] == ["OFL.txt", "CC0.txt", "MIT-hfhchan-ids.txt"]
+    assert "Noto Serif CJK JP" in (tmp_path / "OFL.txt").read_text() and "Jigmo" not in (tmp_path / "OFL.txt").read_text()
+    assert "CC0 1.0 Universal" in (tmp_path / "CC0.txt").read_text() and "Jigmo" in (tmp_path / "CC0.txt").read_text()
+    assert manifest["constants"]["GROW_Y"] > 0 and manifest["constants"]["STEM_CURVE"] == [list(v) for v in style.stem_curve]
 
 
 def test_parity_sets_are_written_apart_and_only_the_injected_one_joins_the_export(exported) -> None:
@@ -285,25 +309,34 @@ def test_a_rerun_of_the_same_version_keeps_the_files_a_stopped_run_wrote(compose
     assert _hosts(out, "L", "王")["hosts"]
 
 
-def _as_format_3(out: Path) -> None:
-    """Turn a format-4 folder into what a format-3 export left, its per-key files moved under .work/:
-    no shards, a format-3 manifest, parity files and stamp."""
+def _as_format_4(out: Path) -> None:
+    """Turn a fresh export into what a format-4 one left once its per-key files are under `.work/`:
+    no shards, a format-4 manifest with that format's file scheme and per-file sizes, and the
+    version below pack's in the manifest, parity files and stamp."""
     import shutil
 
-    old = lambda version: version[: -len(f"-f{web_export.FORMAT}")] + "-f3"
+    old = lambda version: version[: -len(f"-f{web_export.FORMAT}")] + "-f4"
     shutil.rmtree(out / "g")
     shutil.rmtree(out / "p")
     (out / "p").mkdir()
-    (out / "p" / "fff.json").write_bytes(b"stale")
+    (out / "p" / "fff.json").write_bytes(b"stale")  # pack replaces each folder whole
     manifest = json.loads((out / "manifest.json").read_text())
-    manifest["version"], manifest["format"] = old(manifest["version"]), 3
-    manifest["paths"] = {"records": "g/{hh}/{sha256 hex of the key's UTF-8}.json"}
+    manifest["version"], manifest["format"] = old(manifest["version"]), 4
+    manifest["paths"] = {
+        "records": "g/{hh}/{sha256 hex of the key's UTF-8}.json: a character (with any variation selector) or a whole sequence",
+        "hosts": "p/{hh}/{sha256 hex of UTF-8 place + TAB + operand}.json: the host list of an operand (a character or a whole sequence) in a place",
+        "hh": "the hash's first two hex digits",
+        "encoding": "every file under g/ and p/ is gzip-compressed JSON (mtime 0); serve it with Content-Encoding: gzip or decompress it",
+        "missing": "a key or (place, operand) with no file has no record or no host the composer cuts cleanly",
+        "rerun": ".export names the version, the layout, font and KanjiVG hashes, the key set and the parity sizes that wrote the folder; a rerun with the same, from a known clean commit, keeps g/ and p/ files and writes only the missing ones; anything else starts afresh. .complete is written last, after manifest.json",
+    }
     manifest["record"] = {**manifest["record"], "hosts": "a p/ file: {place, operand, hosts}"}
     del manifest["pack"]
-    for kind in ("records", "hosts"):
-        # Format 3 counted one file per key, and had no entries.
-        del manifest["files"][kind]["entries"]
-        manifest["files"][kind].update(files=1, gzip=1, median_gzip=1, p95_gzip=1, max_gzip=1)
+    for kind, folder in (("records", "g"), ("hosts", "p")):
+        pairs = [(len(gzip.decompress(path.read_bytes())), path.stat().st_size)
+                 for path in (out / ".work" / folder).glob("*/*.json")]
+        kept = {k: v for k, v in manifest["files"][kind].items() if k in ("entries_cut", "pieces_with_own_outlines")}
+        manifest["files"][kind] = {**web_export._summary(pairs), **kept}
     (out / "manifest.json").write_text(json.dumps(manifest))
     for name in ("parity.json", "parity-held-out.json", ".export"):
         value = json.loads((out / name).read_text())
@@ -311,13 +344,13 @@ def _as_format_3(out: Path) -> None:
         (out / name).write_text(json.dumps(value))
 
 
-def test_pack_brings_a_migrated_format_3_folder_to_what_a_fresh_export_writes(exported, tmp_path: Path) -> None:
+def test_pack_brings_a_format_4_folder_whose_files_are_under_work_to_a_fresh_export(exported, tmp_path: Path) -> None:
     import shutil
 
     a, _, manifest = exported
     out = tmp_path / "out"
     shutil.copytree(a, out)
-    _as_format_3(out)
+    _as_format_4(out)
     packed = web_export.pack(out, log=lambda _: None)
     assert packed == manifest and "--exclude '.work/**'" in packed["paths"]["work"]
     fresh, migrated = _files(a), _files(out)

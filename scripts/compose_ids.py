@@ -12,7 +12,8 @@ their ink (intersection over union, at 96 px; mean and tenth percentile), how ma
 their outline length within 15% of the real glyph's, and the ratio of their stroke widths (at
 400 px). Characters that cannot be drawn are counted and listed. It reports the composer beside the
 plainest way to compose, each operand's own glyph squeezed into its share, each scored on its own.
-`calibrate` fits `compose.STEM_CURVE`, stroke width against density, on the font's own ideographs.
+`calibrate` fits the style's `stem_curve`, stroke width against density, on the font's own ideographs.
+Every command takes `--style sans` (the default) or `--style serif`; models are cached per style.
 `learn` trains the layout `compose_layout` describes and caches it, for `draw` and `bench` to use.
 `export-web` writes the layout and the drawing data a browser port of the composer reads, and
 `export-web-pack` builds a finished export's shards from its per-key files.
@@ -34,44 +35,60 @@ from han_compose.vocab import cache_root
 app = typer.Typer(add_completion=False)
 
 
-def _layout_path():
+#: The design drawn in: `sans` (Noto Sans CJK JP) or `serif` (Noto Serif CJK JP), `compose.STYLES`.
+STYLE = typer.Option(compose.DEFAULT_STYLE, "--style", help="sans or serif")
+
+
+def _style(style: str) -> str:
+    if style not in compose.STYLES:
+        raise typer.BadParameter(f"{style!r} is not one of {', '.join(compose.STYLES)}.")
+    return style
+
+
+def _layout_path(style: str = compose.DEFAULT_STYLE):
     # COMPOSE_LAYOUT names another model file, to train or test one beside the cached model.
-    return Path(os.environ["COMPOSE_LAYOUT"]) if os.environ.get("COMPOSE_LAYOUT") else cache_root() / "compose" / compose_layout.LAYOUT_FILE
+    if os.environ.get("COMPOSE_LAYOUT"):
+        return Path(os.environ["COMPOSE_LAYOUT"])
+    return cache_root() / "compose" / compose_layout.layout_file(style)
 
 
-def _composer(**options) -> compose.Composer:
-    """The composer, cutting hosts along KanjiVG's groups, with the learned layout and standalone
-    model when `learn` and `learn-alone` have made them."""
-    composer = compose.Composer(compose.Font(compose.font_file(), compose.fallback_files()), compose.japanese_sequences(), **options)
-    if _layout_path().exists():
-        composer.layout = compose_layout.LayoutModel.load(_layout_path())
+def _standalone_path(style: str = compose.DEFAULT_STYLE):
+    return cache_root() / "compose" / compose.styled(compose_standalone.STANDALONE_FILE, style)
+
+
+def _composer(style: str = compose.DEFAULT_STYLE, **options) -> compose.Composer:
+    """The composer in `style`, cutting hosts along KanjiVG's groups, with the learned layout and
+    standalone model when `learn` and `learn-alone` have made them."""
+    composer = compose.Composer(compose.Font.of(_style(style)), compose.japanese_sequences(), **options)
+    if _layout_path(style).exists():
+        composer.layout = compose_layout.LayoutModel.load(_layout_path(style))
     composer.kvg = kanjivg_cuts.Cutter(composer)
     if os.environ.get("COMPOSE_GUIDE"):
         # A folder of guide networks (`compose_guide`): the last pass nudges strokes toward their ink.
         from han_compose import compose_guide
 
         composer.guide = compose_guide.Guide.load(Path(os.environ["COMPOSE_GUIDE"]))
-    alone = cache_root() / "compose" / compose_standalone.STANDALONE_FILE
+    alone = _standalone_path(style)
     if alone.exists():
         composer.standalone = compose_standalone.StandaloneModel.load(alone)
     return composer
 
 
 @app.command()
-def draw(sequence: str) -> None:
+def draw(sequence: str, style: str = STYLE) -> None:
     """Print the SVG of one sequence."""
-    path = compose.svg_path(_composer().compose(sequence))
+    path = compose.svg_path(_composer(style).compose(sequence))
     print(f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {compose.EM} {compose.EM}"><path d="{path}"/></svg>')
 
 
 @app.command("draw-many")
-def draw_many(sequences: Path, out: Path) -> None:
+def draw_many(sequences: Path, out: Path, style: str = STYLE) -> None:
     """Draw every sequence in a file (one a line) into `out` as `<sha256 of its NFC form>.svg`, the
     name a site stores a drawing under. A sequence that cannot be drawn is listed and skipped."""
     import hashlib
     import unicodedata
 
-    composer = _composer()
+    composer = _composer(style)
     out.mkdir(parents=True, exist_ok=True)
     for line in sequences.read_text(encoding="utf-8").splitlines():
         sequence = unicodedata.normalize("NFC", line.strip())
@@ -113,7 +130,8 @@ def joyo() -> list[str]:
 
 
 @app.command()
-def bench(chars: str = "joyo", sample: int = 0, seed: int = 3, size: int = 96, reuse: bool = True) -> None:
+def bench(chars: str = "joyo", sample: int = 0, seed: int = 3, size: int = 96, reuse: bool = True,
+          style: str = STYLE) -> None:
     """Redraw encoded kanji from their own sequences with nothing taken from them, against their glyphs.
 
     `chars` is "joyo" (every jōyō kanji with a compound sequence, the targets' set) or "all"
@@ -121,7 +139,7 @@ def bench(chars: str = "joyo", sample: int = 0, seed: int = 3, size: int = 96, r
     `--no-reuse` composes every character from its parts, as a sequence no character draws whole
     would be, instead of first taking it whole from where others draw it.
     """
-    composer = _composer(reuse=reuse)
+    composer = _composer(style, reuse=reuse)
     names = joyo() if chars == "joyo" else sorted(composer.sequences)
     pool = []
     for char in names:
@@ -158,7 +176,7 @@ def bench(chars: str = "joyo", sample: int = 0, seed: int = 3, size: int = 96, r
                 drawn = compose.stems(compose.raster(placed, 400), unit)
                 true = compose.stems(compose.raster(real, 400), unit)
                 widths.append((drawn[0] / true[0], drawn[1] / true[1]))
-    report = {"set": chars, "characters": len(chosen)}
+    report = {"style": style, "set": chars, "characters": len(chosen)}
     for name, result in results.items():
         overlap = np.array(result["overlap"])
         report[name] = {"drawn": len(overlap), "failed": len(result["failed"]),
@@ -171,10 +189,10 @@ def bench(chars: str = "joyo", sample: int = 0, seed: int = 3, size: int = 96, r
 
 
 @app.command()
-def learn(rows: str = "", workers: int = 3) -> None:
+def learn(rows: str = "", workers: int = 3, style: str = STYLE) -> None:
     """Learn where a whole character's two operands go, from every character that cuts cleanly
     (needs PyTorch). `rows` reuses examples saved by an earlier run, one JSON object per line."""
-    composer = _composer()
+    composer = _composer(style)
     composer.layout = None
     if rows:
         with open(rows) as lines:
@@ -183,35 +201,36 @@ def learn(rows: str = "", workers: int = 3) -> None:
     else:
         examples = compose_layout.examples(composer, workers)
     model = compose_layout.train(composer, examples)
-    _layout_path().parent.mkdir(parents=True, exist_ok=True)
-    model.save(_layout_path())
-    print(json.dumps({"examples": len(examples), "model": str(_layout_path())}))
+    path = _layout_path(style)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    model.save(path)
+    print(json.dumps({"examples": len(examples), "model": str(path)}))
 
 
 @app.command()
-def learn_alone(records: str = "", workers: int = 3) -> None:
+def learn_alone(records: str = "", workers: int = 3, style: str = STYLE) -> None:
     """Fit where a character stands alone from where others draw it (`compose_standalone`).
     `records` reuses instances saved by an earlier run, one JSON list."""
-    composer = _composer()
+    composer = _composer(style)
     rows = json.loads(Path(records).read_text()) if records else compose_standalone.records(composer, workers)
     model = compose_standalone.StandaloneModel.fit([r for r in rows if r["inst"]])
-    path = cache_root() / "compose" / compose_standalone.STANDALONE_FILE
+    path = _standalone_path(style)
     path.parent.mkdir(parents=True, exist_ok=True)
     model.save(path)
     print(json.dumps({"characters": len(model.rows), "places": len(model.sums), "model": str(path)}))
 
 
 @app.command("export-web")
-def export_web(out: Path, parity: int = 0, held_out: int = 0, workers: int = 1) -> None:
+def export_web(out: Path, parity: int = 0, held_out: int = 0, workers: int = 1, style: str = STYLE) -> None:
     """Write what a browser port of the composer needs into `out` (`han_compose.web_export`):
     manifest, layout, and the records and host lists packed into shards by hash. `--parity N` also draws N compound jōyō
     kanji sequences with this composer into `out/parity.json`, whose hosts join the export, and
     `--held-out M` M more into `out/parity-held-out.json`, whose hosts do not."""
     from han_compose import web_export
 
-    composer = _composer()
+    composer = _composer(style)
     if composer.layout is None:
-        raise typer.BadParameter(f"{_layout_path()} is missing: `learn` builds it.")
+        raise typer.BadParameter(f"{_layout_path(style)} is missing: `learn --style {style}` builds it.")
     manifest = web_export.export(composer, out, joyo=joyo() if parity or held_out else None, parity=parity,
                                  held_out=held_out, workers=workers, log=lambda line: print(line, flush=True))
     print(json.dumps({"version": manifest["version"], **manifest["files"]}, ensure_ascii=False))
@@ -237,9 +256,9 @@ def export_web_pack(out: Path) -> None:
 
 
 @app.command()
-def calibrate(sample: int = 1500, seed: int = 7) -> None:
-    """Fit stroke width against density on the font's own ideographs, for `compose.STEM_CURVE`."""
-    composer = _composer()
+def calibrate(sample: int = 1500, seed: int = 7, style: str = STYLE) -> None:
+    """Fit stroke width against density on the font's own ideographs, for the style's `stem_curve`."""
+    composer = _composer(style)
     pool = sorted(char for char in composer.sequences if composer.font.has(char))
     rows = []
     for char in random.Random(seed).sample(pool, min(sample, len(pool))):
@@ -249,7 +268,7 @@ def calibrate(sample: int = 1500, seed: int = 7) -> None:
             rows.append((composer.ink(char), *widths))
     data = np.array(rows)
     fits = [np.polyfit(data[:, 0] / 1000, data[:, axis], 1) for axis in (1, 2)]
-    print(json.dumps({"characters": len(data), "STEM_CURVE": [[round(b, 2), round(a, 3)] for a, b in fits]}))
+    print(json.dumps({"style": style, "characters": len(data), "stem_curve": [[round(b, 2), round(a, 3)] for a, b in fits]}))
 
 
 if __name__ == "__main__":

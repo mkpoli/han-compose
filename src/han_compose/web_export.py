@@ -2,13 +2,13 @@
 
 `export` writes into one folder:
 
-- `manifest.json`: the export's version (composer commit and layout file), the constants the
+- `manifest.json`: the export's version (composer commit, style and layout file), the constants the
   composer draws with, the file scheme, the files' sizes, and the licence notices;
 - `layout.json`: the learned layout's model on every character ("all", `SEEDS` networks), its
   weights quantized (`LAYOUT_DTYPES`), with the feature definition;
 - `g/<hhh>.json`: the records of the keys (characters and sequences) whose SHA-256 starts with
-  `hhh`, by that hash: a key's glyph outlines at weight 400 and the move to `HEAVY`, its ink, its
-  shape features and the layout table's statistics, its positional forms;
+  `hhh`, by that hash: a key's glyph outlines at weight 400 and the move to the style's heavy
+  weight, its ink, its shape features and the layout table's statistics, its positional forms;
 - `p/<hhh>.json`: the host lists of the (place, operand)s whose SHA-256 of place + TAB + operand
   starts with `hhh`, by that hash: the pieces host characters give that operand there, every host
   `Composer._ranked`, `_instance` and the kin and facing places may weigh, each cut by the composer
@@ -46,8 +46,9 @@ import numpy as np
 from . import compose as C
 from . import compose_layout as L
 
-#: The export's own format; a change to any file's shape makes a new one.
-FORMAT = 4
+#: The export's own format; a change to any file's shape makes a new one. 4 is the style-aware
+#: manifest without shards; 5 packs the records and host lists into shards.
+FORMAT = 5
 #: Shards are named by the hash's first `SHARD_DIGITS` hex digits.
 SHARD_DIGITS = 3
 SHARDS = 16 ** SHARD_DIGITS
@@ -123,7 +124,7 @@ def _r(values: Iterable[float], digits: int = 2) -> list[float]:
 
 def part_record(part: C.Part) -> dict:
     """A part's outlines: its box, and per contour its pen commands, its points at weight 400 and
-    their move to `HEAVY`, int16 in 1 / `QUANT` units, little-endian, x and y interleaved (an
+    their move to the heavy weight (`HEAVY` in the constants), int16 in 1 / `QUANT` units, little-endian, x and y interleaved (an
     outline outside int16's range is refused). A part a fallback font draws carries the stroke width measured on its glyph (`Contour.width`)."""
     contours = []
     for c in part.contours:
@@ -161,22 +162,28 @@ def _version(root: Path) -> tuple[str, bool]:
     return commit, dirty
 
 
-def _font_notice(path: Path) -> dict:
+LICENCE_URLS = {C.OFL: "https://openfontlicense.org/open-font-license-official-text/",
+                "CC0 1.0": "https://creativecommons.org/publicdomain/zero/1.0/"}
+#: The licence texts an export carries, by licence, from `data/licences/`.
+LICENCE_TEXTS = {C.OFL: ("OFL.txt", "OFL-1.1.txt"), "CC0 1.0": ("CC0.txt", "CC0-1.0.txt")}
+
+
+def _font_notice(path: Path, licence: str) -> dict:
     from fontTools.ttLib import TTFont
 
     names = TTFont(path, lazy=True)["name"]
     name = lambda i: str(names.getName(i, 3, 1, 0x409) or "")
     return {"name": name(1), "version": name(5).split(";")[0], "copyright": name(0), "trademark": name(7),
-            "licence": "SIL OFL 1.1", "licence_url": "https://openfontlicense.org/open-font-license-official-text/",
-            "file": path.name}
+            "licence": licence, "licence_url": LICENCE_URLS[licence], "file": path.name}
 
 
 def constants(composer: C.Composer) -> dict:
-    """Every module constant of `compose` the composer draws with, by name, and the font's stems
-    and face: (width at 400, width at `HEAVY`) of 丨 across x and 一 across y."""
+    """Every module constant of `compose` the composer draws with, by name, the style's (`STEM_CURVE`,
+    `HEAVY`, `GROW_Y`), and the font's stems and face: (width at 400, width at heavy) of 丨 across x
+    and 一 across y."""
     out = {}
     for name in dir(C):
-        if not name.isupper() or name.startswith("_") or name.endswith(("_URL", "_SHA256", "_FILE")) or name == "PLANGOTHIC":
+        if not name.isupper() or name.startswith("_") or name.endswith(("_URL", "_SHA256", "_FILE")) or name in ("STYLES", "DEFAULT_STYLE", "OFL"):
             continue
         value = getattr(C, name)
         if isinstance(value, (frozenset, set)):
@@ -189,6 +196,10 @@ def constants(composer: C.Composer) -> dict:
         elif not isinstance(value, (int, float, str)):
             continue
         out[name] = value
+    style = composer.font.style
+    out["STEM_CURVE"] = [list(v) for v in style.stem_curve]
+    out["HEAVY"] = style.heavy
+    out["GROW_Y"] = round(composer.font.grow_y, 3)
     out["stem"] = [_r(s, 3) for s in composer.font.stem]
     out["face"] = _r(composer.face)
     return out
@@ -242,7 +253,7 @@ def layout_checks(composer: C.Composer, n: int = CHECK_SAMPLE, seed: int = 1) ->
     return random.Random(seed).sample(pool, min(n, len(pool)))
 
 
-def layout_record(composer: C.Composer, checks: list[tuple[str, list[str]]]) -> dict:
+def layout_record(composer: C.Composer, checks: list[tuple[str, list[str]]], file: str = L.LAYOUT_FILE) -> dict:
     """The "all" model, quantized as int8 when its boxes on `checks` stay within `INT8_TOLERANCE`, as
     float16 otherwise and always when there are no checks."""
     model = composer.layout
@@ -262,7 +273,7 @@ def layout_record(composer: C.Composer, checks: list[tuple[str, list[str]]]) -> 
             chosen = (dtype, record)
     dtype, record = chosen
     return {
-        "file": L.LAYOUT_FILE, "model": "all", "dtype": dtype, "error_against_float32": errors, "checked": len(checks),
+        "file": file, "model": "all", "dtype": dtype, "error_against_float32": errors, "checked": len(checks),
         "ops": list(L.OPS),
         "features": {
             "shape": L.SHAPE,
@@ -649,7 +660,7 @@ RECORD = {
     "P": "the places that have a host list in p/ for this key, sorted; absent when none has one",
     "G": "the key's own glyph: v 1 when the variable font draws it (its strokes can be weighted), else a fallback's, with w its measured stroke widths; every character a sequence describes has one",
     "b": "box (x0, y0, x1, y1), font units, y up",
-    "p": "contours: [commands, light points, move to HEAVY], points int16 little-endian base64, x y interleaved, in 1/quant units",
+    "p": "contours: [commands, light points, move to constants.HEAVY], points int16 little-endian base64, x y interleaved, in 1/quant units",
     "commands": "M one point, L one point, Q<n> n points of a TrueType quadratic run (implied on-curve points between off-curve ones), Q<n>* when the contour closes on an implied point: it starts midway between the last and first",
     "s": "the character's sequence", "e": "the character a sequence describes (its own record holds G, a, s)", "at": "atomic: drawn whole",
     "hand": "which of 𠂇's strokes it writes first", "a": "positional forms by place, beyond itself",
@@ -673,6 +684,12 @@ PATHS = {
     "rerun": ".export names the version, the layout, font and KanjiVG hashes, the key set and the parity sizes that wrote the folder; a rerun with the same, from a known clean commit, keeps the .work/ files and writes only the missing ones, then packs every shard afresh; anything else starts afresh. .complete is written last, after manifest.json and the shards",
 }
 
+#: What the outline data of each style's export is under.
+OUTLINE_NOTES = {
+    "sans": "Glyph outlines (G in g/ records) and the pieces host-list entries name by their contours' indices (c.k, or c.p where a piece holds its own outlines) are the fonts' outline data under the SIL Open Font License 1.1, whose full text with each font's copyright line is OFL.txt. Noto Sans CJK JP reserves the font name 'Source'; Plangothic declares no Reserved Font Name.",
+    "serif": "Glyph outlines (G in g/ records) and the pieces host-list entries name by their contours' indices (c.k, or c.p where a piece holds its own outlines) are the fonts' outline data. Noto Serif CJK JP's are under the SIL Open Font License 1.1, whose full text with its copyright line is OFL.txt; its copyright line names no Reserved Font Name. Jigmo's (a record's G with v 0) are dedicated to the public domain under CC0 1.0 (CC0.txt), drawn from GlyphWiki by its contributors.",
+}
+
 
 def export(composer: C.Composer, out: Path, joyo: list[str] | None = None, parity: int = 0, held_out: int = 0,
            only: set[str] | None = None, pairs: set[tuple[str, str]] | None = None, workers: int = 1,
@@ -691,10 +708,13 @@ def export(composer: C.Composer, out: Path, joyo: list[str] | None = None, parit
 
     root = root or ROOT
     commit, dirty = _version(root)
-    version = f"{commit}{'+dirty' if dirty else ''}-{Path(L.LAYOUT_FILE).stem}-f{FORMAT}"
-    layout_path = getattr(composer.layout, "path", None) or (cache_root() / "compose" / L.LAYOUT_FILE)
+    style = composer.font.style
+    layout_file = L.layout_file(style.name)
+    version = f"{commit}{'+dirty' if dirty else ''}-{style.name}-{Path(layout_file).stem}-f{FORMAT}"
+    layout_path = getattr(composer.layout, "path", None) or (cache_root() / "compose" / layout_file)
+    sources = (style.font, *style.fallbacks)
     inputs = {"layout_sha256": hashlib.sha256(Path(layout_path).read_bytes()).hexdigest() if Path(layout_path).exists() else None,
-              "font_sha256": {C.FONT_FILE: C.FONT_SHA256, **C.PLANGOTHIC},
+              "font_sha256": {source.file: source.sha256 for source in sources},
               "kanjivg_sha256": {kanjivg_cuts.KANJIVG_FILE: kanjivg_cuts.KANJIVG_SHA256}}
     out.mkdir(parents=True, exist_ok=True)
     complete = out / ".complete"
@@ -709,7 +729,7 @@ def export(composer: C.Composer, out: Path, joyo: list[str] | None = None, parit
         for folder in (WORK, "g", "p"):
             if (out / folder).exists():
                 shutil.rmtree(out / folder)
-        for name in ("manifest.json", "layout.json", "parity.json", "parity-held-out.json", "OFL.txt", "MIT-hfhchan-ids.txt"):
+        for name in ("manifest.json", "layout.json", "parity.json", "parity-held-out.json", "OFL.txt", "CC0.txt", "MIT-hfhchan-ids.txt"):
             (out / name).unlink(missing_ok=True)
     for name, wanted in (("parity.json", parity), ("parity-held-out.json", held_out)):
         if not wanted:
@@ -804,14 +824,19 @@ def export(composer: C.Composer, out: Path, joyo: list[str] | None = None, parit
         if sets[kind][0]:
             (out / name).write_bytes(_parity_file(version, kind, sets[kind][0], stats[kind]))
 
-    layout = layout_record(composer, layout_checks(composer))
+    layout = layout_record(composer, layout_checks(composer), layout_file)
     layout_bytes = _dump(layout)
     (out / "layout.json").write_bytes(layout_bytes)
 
-    fonts = [_font_notice(C.font_file()), *(_font_notice(p) for p in C.fallback_files())]
+    fonts = [_font_notice(C._fetched(source, None), source.licence) for source in sources]
     licence_dir = VOCAB.parent / "licences"
-    ofl = "".join(f"{f['name']}: {f['copyright']}\n" for f in fonts) + "\n" + (licence_dir / "OFL-1.1.txt").read_text(encoding="utf-8")
-    (out / "OFL.txt").write_text(ofl, encoding="utf-8")
+    texts = []
+    for licence, (name, text) in LICENCE_TEXTS.items():
+        held = [f for f in fonts if f["licence"] == licence]
+        if held:
+            notices = "".join(f"{f['name']}: {f['copyright'] or f['version']}\n" for f in held)
+            (out / name).write_text(notices + "\n" + (licence_dir / text).read_text(encoding="utf-8"), encoding="utf-8")
+            texts.append(name)
     (out / "MIT-hfhchan-ids.txt").write_text((licence_dir / "hfhchan-ids-MIT.txt").read_text(encoding="utf-8"), encoding="utf-8")
 
     layout_gz = len(gzip.compress(layout_bytes, 9, mtime=0))
@@ -821,8 +846,9 @@ def export(composer: C.Composer, out: Path, joyo: list[str] | None = None, parit
         "format": FORMAT,
         "version": version,
         "composer": {"repository": "https://github.com/mkpoli/han-compose", "commit": commit, "dirty": dirty,
-                     "layout_file": L.LAYOUT_FILE, **inputs},
-        "em": C.EM, "ascent": C.ASCENT, "heavy": C.HEAVY, "quant": QUANT,
+                     "style": style.name, "layout_file": layout_file, **inputs},
+        "style": style.name,
+        "em": C.EM, "ascent": C.ASCENT, "heavy": style.heavy, "quant": QUANT,
         "constants": constants(composer),
         "constants_note": "tuple keys are joined with a comma: SHARES[('⿳', 3)] is SHARES['⿳,3']",
         "spelled": sorted(composer.spelled),
@@ -835,13 +861,12 @@ def export(composer: C.Composer, out: Path, joyo: list[str] | None = None, parit
             "hosts": {**_summary(sizes["hosts"]), "entries_cut": sum(len(c) for c in lists.values()),
                       "pieces_with_own_outlines": split},
             **({"parity": parity_files} if parity_files else {}),
-            "licences": ["OFL.txt", "MIT-hfhchan-ids.txt"],
+            "licences": [*texts, "MIT-hfhchan-ids.txt"],
         },
         "licences": {
             "code": {"licence": "MIT", "note": "han-compose's code, and a port of it"},
-            "outlines": {"licence": "SIL OFL 1.1", "text": "OFL.txt",
-                         "note": "Glyph outlines (G in g/ records) and the pieces host-list entries name by their contours' indices (c.k, or c.p where a piece holds its own outlines) are the fonts' outline data under the SIL Open Font License 1.1, whose full text with each font's copyright line is OFL.txt. Noto Sans CJK JP reserves the font name 'Source'; Plangothic declares no Reserved Font Name.",
-                         "fonts": fonts},
+            "outlines": {"licence": " and ".join(sorted({f["licence"] for f in fonts})), "texts": texts,
+                         "note": OUTLINE_NOTES[style.name], "fonts": fonts},
             "cuts": {"licence": "CC BY-SA 3.0", "attribution": KANJIVG_NOTICE, "url": "https://creativecommons.org/licenses/by-sa/3.0/",
                      "note": "A host-list entry whose cut has kv 1 (p/ hosts[].c.kv) is cut along KanjiVG's component groups, and a drawing that uses one adapts KanjiVG's data: it is shared alike under CC BY-SA 3.0 with this notice. The hand forms (hand) are read from KanjiVG's stroke types and carry the same licence."},
             "sources": [

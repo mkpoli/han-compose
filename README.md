@@ -1,7 +1,7 @@
 # han-compose
 
-Draws an Ideographic Description Sequence as outlines in GenZui Sans. Parts come from characters
-Noto Sans CJK JP already draws, laid out where its designers put parts like these and brought to one
+Draws an Ideographic Description Sequence as outlines in GenZui Sans, or in a serif (明朝) style
+from Noto Serif CJK JP. Parts come from characters the font already draws, laid out where its designers put parts like these and brought to one
 stroke weight. The result is a set of outlines in the font's 1000-unit em, written out as an SVG
 path.
 
@@ -11,7 +11,12 @@ path.
 uv sync
 uv run scripts/compose_ids.py draw ⿰亻哥 > 亻哥.svg
 uv run scripts/compose_ids.py bench --chars joyo
+uv run scripts/compose_ids.py draw --style serif ⿰亻哥 > 亻哥-serif.svg
 ```
+
+Every command takes `--style sans` (the default) or `--style serif`. Each style has its own fonts,
+stroke-width fit and models: a serif model is cached as `<name>-serif.<ext>` beside the sans one, and
+`learn --style serif` and `learn-alone --style serif` build it.
 
 `bench` redraws every compound jōyō kanji from its own sequence with nothing taken from the
 character, and scores each against the font's real glyph: the overlap of their ink (intersection
@@ -42,8 +47,8 @@ do not, for the port's parity test.
 Workers write one file per record and host list under `out/.work/`, which a stopped run resumes
 from, and the export builds the shards from them at the end. `export-web-pack` builds the shards
 again from a finished folder's `.work/`, and brings its manifest, parity files and `.export` stamp
-to format 4, so a format-3 folder whose `g/` and `p/` are moved under `.work/` becomes the folder
-a format-4 export writes. A rerun resumes from `.work/` only under the same version, which names
+to format 5, so a format-4 folder whose `g/` and `p/` are moved under `.work/` becomes the folder
+a format-5 export writes. A rerun resumes from `.work/` only under the same version, which names
 the commit: from another commit `export-web` starts afresh.
 
 `.work/` must never be uploaded: each of its files would be one more object written. Exclude it
@@ -75,7 +80,8 @@ Fonts download to `cache/fonts/` on first use. `$HAN_COMPOSE_CACHE` points the c
 ## Sources
 
 `docs/licensing.md` states what the code, the fonts and the tables are under. In short: Noto Sans CJK
-JP and Plangothic (SIL OFL 1.1) supply every outline; BabelStone IDS and cjkvi-variants supply the
+JP and Plangothic (SIL OFL 1.1) supply every sans outline, Noto Serif CJK JP (SIL OFL 1.1) and Jigmo
+(CC0 1.0) every serif one; BabelStone IDS and cjkvi-variants supply the
 sequences and the radical forms; hfhchan/ids (MIT) supplies the list of ideographs left
 undecomposed; KanjiVG (CC BY-SA 3.0) supplies component ownership when a host is cut. Glyphs drawn
 from KanjiVG-assisted cuts are shared alike, with its notice kept. The `export-web` manifest carries

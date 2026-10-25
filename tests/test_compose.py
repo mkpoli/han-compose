@@ -125,10 +125,14 @@ def test_stroke_width_is_the_usual_short_run() -> None:
 
 
 def test_stroke_width_falls_as_a_character_fills_up() -> None:
+    from types import SimpleNamespace
+
+    font = SimpleNamespace(style=compose.STYLES["sans"])
+    width = lambda density, axis: compose.Font.width(font, density, axis)
     for axis in (0, 1):
-        assert compose.stem(5000, axis) > compose.stem(20000, axis)
+        assert width(5000, axis) > width(20000, axis)
     # Horizontal strokes thin faster than vertical ones.
-    assert compose.stem(20000, 1) < compose.stem(20000, 0)
+    assert width(20000, 1) < width(20000, 0)
 
 
 def test_a_part_keeps_its_proportions_within_the_stretch_allowed() -> None:
@@ -140,9 +144,10 @@ def test_a_part_keeps_its_proportions_within_the_stretch_allowed() -> None:
 def composer() -> compose.Composer:
     from han_compose.vocab import cache_root
 
-    path = cache_root() / "fonts" / compose.FONT_FILE
+    name = compose.STYLES["sans"].font.file
+    path = cache_root() / "fonts" / name
     if not path.exists():
-        pytest.skip(f"{compose.FONT_FILE} is not cached; `scripts/compose_ids.py draw` fetches it.")
+        pytest.skip(f"{name} is not cached; `scripts/compose_ids.py draw` fetches it.")
     return compose.Composer(compose.Font(path), compose.japanese_sequences())
 
 

@@ -4,15 +4,31 @@ The code is MIT (`LICENSE`). What it reads and what it draws carry their own ter
 
 ## Fonts
 
+Each style (`compose.STYLES`) reads one variable font and static fonts for what it lacks. All are
+downloaded and pinned by SHA-256 (`compose.font_file`, `compose.fallback_files`); nothing of them is
+committed.
+
+`sans`:
+
 - **Noto Sans CJK JP 2.004** (Adobe and Google, SIL OFL 1.1), the variable font read at weight 400
-  and at `HEAVY`. GenZui Sans takes its ideographs unchanged from Noto Sans JP, which draws them as
+  and at 900. GenZui Sans takes its ideographs unchanged from Noto Sans JP, which draws them as
   this font does. The outlines the composer moves and rescales are this font's.
 - **Plangothic P1 and P2** (SIL OFL 1.1), static. They draw the CJK extensions in the Source Han
   Sans design Noto Sans CJK shares, so they are the source of components Noto lacks. A part taken
   from here is thinned and thickened synthetically to match the main font's weight.
 
-Both are downloaded and pinned by SHA-256 (`compose.font_file`, `compose.fallback_files`); nothing
-of them is committed.
+`serif`:
+
+- **Noto Serif CJK JP 2.003** (Adobe and Google, SIL OFL 1.1; its copyright line names no Reserved
+  Font Name), the variable Source Han Serif, read at weight 400 and at 900. Its horizontals keep
+  about 30 units at every weight, so the heavy master's horizontals are grown synthetically in the
+  proportion its verticals grow (`Style.synthetic_y`).
+- **Jigmo 2025-09-12** (Kamichi Koichi and GlyphWiki's contributors, CC0 1.0), static, 1,024 units
+  to the em, brought to 1,000. A Mincho drawn by the KAGE engine from GlyphWiki's data, covering
+  every unified ideograph through Extension J: Jigmo2 (B to F, I), Jigmo3 (G, H, J), Jigmo (BMP).
+  Fetched from https://kamichikoichi.github.io/jigmo/Jigmo-20250912.zip, whose SHA-1 the site
+  lists. Its strokes are lighter than Noto Serif's; a part taken from it is thinned and thickened
+  synthetically, as Plangothic's are.
 
 ## Tables
 
@@ -44,11 +60,15 @@ Source record: `data/sources/kanjivg.yaml`.
 ships the licence texts beside it.
 
 - **Outlines**: every glyph (`G`), and every piece a host-list entry names by its host glyph's
-  contour indices (`c.k`), is outline data of Noto Sans CJK JP
-  (© 2014-2021 Adobe (http://www.adobe.com/), with Reserved Font Name 'Source') or of Plangothic P1
-  and P2 (Copyright (c) 2024 by Fitzgerald P. Köeingsegg; no Reserved Font Name), under the
-  **SIL OFL 1.1**. `OFL.txt` holds the licence's full text after each font's copyright line, read
-  from the font's `name` table; the text is `data/licences/OFL-1.1.txt`, as Noto CJK ships it.
+  contour indices (`c.k`), is outline data of the style's fonts. A `sans` export's are Noto Sans CJK
+  JP's (© 2014-2021 Adobe (http://www.adobe.com/), with Reserved Font Name 'Source') or Plangothic P1
+  and P2's (Copyright (c) 2024 by Fitzgerald P. Köeingsegg; no Reserved Font Name), under the
+  **SIL OFL 1.1**. A `serif` export's are Noto Serif CJK JP's (© 2017-2024 Adobe (http://www.adobe.com/); no
+  Reserved Font Name), under the **SIL OFL 1.1**, or Jigmo's, under **CC0 1.0**. `OFL.txt` holds the
+  OFL's full text after each OFL font's copyright line, read from the font's `name` table (the text
+  is `data/licences/OFL-1.1.txt`, as Noto CJK ships it); a serif export also ships `CC0.txt`
+  (`data/licences/CC0-1.0.txt`, the Creative Commons legal code) for Jigmo. Each style's export
+  has its own version (`<commit>-<style>-<layout>-f<format>`).
 - **Sequences** (`s`, `e`): BabelStone IDS (Andrew West), public domain as its header states, with
   the editorial sequences of `data/vocab/han-ids-drawn.tsv` (MIT, this project).
 - **Positional forms** (`a`): cjkvi-variants `radical-variants.txt` (川幡太一), public domain. The
@@ -64,5 +84,5 @@ ships the licence texts beside it.
 ## Consequences
 
 Publishing a glyph drawn with KanjiVG-assisted cuts publishes a CC BY-SA derivative of KanjiVG's
-component data. Glyphs drawn without those cuts, from Noto Sans CJK outlines alone, carry only the
-SIL OFL 1.1 of the font they come from.
+component data. Glyphs drawn without those cuts carry only the terms of the fonts they come from:
+the SIL OFL 1.1 for Noto Sans CJK, Noto Serif CJK and Plangothic outlines; none for Jigmo's (CC0).
