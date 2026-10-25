@@ -7,7 +7,7 @@
 - `layout.json`: the learned layout's model on every character ("all", `SEEDS` networks), its
   weights quantized (`LAYOUT_DTYPES`), with the feature definition;
 - `g/<hh>/<sha256(key)>.json`: one record per key (a character or a sequence): its glyph's outlines
-  at weight 400 and the move to `HEAVY`, its ink, its shape features and the layout table's
+  at weight 400 and the move to the style's heavy weight, its ink, its shape features and the layout table's
   statistics, its positional forms;
 - `p/<hh>/<sha256(place + TAB + operand)>.json`: one list per (place, operand) of the pieces host
   characters give that operand there, every host `Composer._ranked`, `_instance` and the kin and
@@ -41,7 +41,7 @@ from . import compose as C
 from . import compose_layout as L
 
 #: The export's own format; a change to any file's shape makes a new one.
-FORMAT = 3
+FORMAT = 4
 #: Outline coordinates are stored as int16 in units of 1 / `QUANT` font unit.
 QUANT = 4
 #: Layout weights: int8 with a scale per output column when its boxes stay within `INT8_TOLERANCE`
@@ -97,7 +97,7 @@ def _r(values: Iterable[float], digits: int = 2) -> list[float]:
 
 def part_record(part: C.Part) -> dict:
     """A part's outlines: its box, and per contour its pen commands, its points at weight 400 and
-    their move to `HEAVY`, int16 in 1 / `QUANT` units, little-endian, x and y interleaved (an
+    their move to the heavy weight (`HEAVY` in the constants), int16 in 1 / `QUANT` units, little-endian, x and y interleaved (an
     outline outside int16's range is refused). A part a fallback font draws carries the stroke width measured on its glyph (`Contour.width`)."""
     contours = []
     for c in part.contours:
@@ -808,7 +808,7 @@ def export(composer: C.Composer, out: Path, joyo: list[str] | None = None, parit
             "P": "the places that have a p/ host list for this key, sorted; absent when none has one",
             "G": "the key's own glyph: v 1 when the variable font draws it (its strokes can be weighted), else a fallback's, with w its measured stroke widths; every character a sequence describes has one",
             "b": "box (x0, y0, x1, y1), font units, y up",
-            "p": "contours: [commands, light points, move to HEAVY], points int16 little-endian base64, x y interleaved, in 1/quant units",
+            "p": "contours: [commands, light points, move to constants.HEAVY], points int16 little-endian base64, x y interleaved, in 1/quant units",
             "commands": "M one point, L one point, Q<n> n points of a TrueType quadratic run (implied on-curve points between off-curve ones), Q<n>* when the contour closes on an implied point: it starts midway between the last and first",
             "s": "the character's sequence", "e": "the character a sequence describes (its own record holds G, a, s)", "at": "atomic: drawn whole",
             "hand": "which of 𠂇's strokes it writes first", "a": "positional forms by place, beyond itself",
