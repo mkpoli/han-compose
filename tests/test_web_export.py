@@ -360,14 +360,16 @@ def test_pack_brings_a_format_4_folder_whose_files_are_under_work_to_a_fresh_exp
     assert json.loads(migrated["parity.json"])["version"] == manifest["version"] == json.loads(migrated[".export"])["version"]
 
 
-def test_pack_names_an_unreadable_work_file_and_keeps_the_shards(exported, tmp_path: Path) -> None:
+@pytest.mark.parametrize("damage", [b"\x1f\x8b\x08\x00\x00\x00\x00\x00\x00\x03\xff\xff\xff\xff", None],
+                         ids=["corrupt", "truncated"])
+def test_pack_names_an_unreadable_work_file_and_keeps_the_shards(exported, tmp_path: Path, damage) -> None:
     import shutil
 
     a, _, _ = exported
     out = tmp_path / "out"
     shutil.copytree(a, out)
     bad = sorted((out / ".work" / "p").glob("*/*.json"))[0]
-    bad.write_bytes(bad.read_bytes()[:20])
+    bad.write_bytes(damage if damage is not None else bad.read_bytes()[:20])
     with pytest.raises(web_export.WorkFileError, match=bad.name):
         web_export.pack(out, log=lambda _: None)
     assert {k: v for k, v in _files(out).items() if k[0] in "gp"} == {k: v for k, v in _files(a).items() if k[0] in "gp"}

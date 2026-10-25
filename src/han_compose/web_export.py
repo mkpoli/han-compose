@@ -38,6 +38,7 @@ import json
 import math
 import random
 import subprocess
+import zlib
 from collections.abc import Iterable
 from pathlib import Path
 
@@ -458,7 +459,7 @@ def _existing(path: str) -> tuple[dict, tuple[int, int]] | None:
         packed = target.read_bytes()
         data = gzip.decompress(packed)
         return json.loads(data), (len(data), len(packed))
-    except (OSError, EOFError, ValueError):
+    except (OSError, EOFError, ValueError, zlib.error):
         target.unlink(missing_ok=True)
         return None
 
@@ -923,7 +924,7 @@ def _sync_dir(path: Path) -> None:
 def _read_work(path: Path):
     try:
         return json.loads(gzip.decompress(path.read_bytes()))
-    except (OSError, EOFError, ValueError) as error:
+    except (OSError, EOFError, ValueError, zlib.error) as error:
         raise WorkFileError(f"{path}: unreadable work file ({error}); delete it and rerun export-web to write it again") from error
 
 
