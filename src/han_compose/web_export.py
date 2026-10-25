@@ -933,8 +933,8 @@ def pack(out: Path, root: Path | None = None, log=print) -> dict:
     to this format: `manifest.json` gets `paths`, `record`, the per-shard `files` summaries,
     `format`, the version's format suffix and `pack` (the commit pack ran at, the shard count);
     the parity files and `.export` get the manifest's version. Each folder's shards are built and
-    synced beside it and replace it whole, so an unreadable work file (`WorkFileError`) leaves the
-    shards as they were. Returns the manifest."""
+    synced beside it and replace it whole, so an unreadable work file or a work folder that is not
+    there (`WorkFileError`) stops the pack before the manifest. Returns the manifest."""
     import re
     import shutil
 
@@ -943,6 +943,12 @@ def pack(out: Path, root: Path | None = None, log=print) -> dict:
     manifest = json.loads((out / "manifest.json").read_text(encoding="utf-8"))
     commit, dirty = _version(root or ROOT)
     version = re.sub(r"-f\d+$", f"-f{FORMAT}", manifest["version"])
+    # A work folder that was never moved, or was moved elsewhere, would otherwise pack as empty.
+    for folder, kind in (("g", "records"), ("p", "hosts")):
+        summary = manifest["files"].get(kind, {})
+        expected = summary.get("entries", summary.get("files"))
+        if expected and not (out / WORK / folder).is_dir():
+            raise WorkFileError(f"{out / WORK / folder} is missing, but the manifest records {expected}")
     for folder in ("g", "p"):
         files: dict[str, list[Path]] = {}
         for path in (out / WORK / folder).glob("*/*.json"):

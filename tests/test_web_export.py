@@ -373,3 +373,15 @@ def test_pack_names_an_unreadable_work_file_and_keeps_the_shards(exported, tmp_p
     with pytest.raises(web_export.WorkFileError, match=bad.name):
         web_export.pack(out, log=lambda _: None)
     assert {k: v for k, v in _files(out).items() if k[0] in "gp"} == {k: v for k, v in _files(a).items() if k[0] in "gp"}
+
+
+def test_pack_names_a_work_folder_that_is_not_there(exported, tmp_path: Path) -> None:
+    import shutil
+
+    a, _, _ = exported
+    out = tmp_path / "out"
+    shutil.copytree(a, out)
+    shutil.rmtree(out / ".work" / "p")
+    with pytest.raises(web_export.WorkFileError, match=r"\.work/p is missing"):
+        web_export.pack(out, log=lambda _: None)
+    assert {k: v for k, v in _files(out).items() if k[0] in "gp"} == {k: v for k, v in _files(a).items() if k[0] in "gp"}
