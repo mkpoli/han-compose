@@ -30,15 +30,22 @@ uv run --extra train scripts/compose_ids.py learn-alone
 Drawing with the guide needs `onnxruntime`, and training needs `torch`. `uv sync --all-extras --group dev`
 keeps both: syncing one extra alone drops the other.
 
-`export-web` writes what a browser port of the composer reads: the learned layout, a gzipped
-record per character or sequence and a host list per place and operand, each in a file named by
-its SHA-256 so a page loads only what a sequence names, a manifest with the composer's version, its
-constants and the licence notices, and the licence texts. `--parity N` adds N reference drawings
-of compound jōyō kanji whose hosts join the export, and `--held-out M` M more whose hosts do not,
-for the port's parity test.
+`export-web` writes what a browser port of the composer reads: the learned layout, the records of
+every character and sequence and the host lists of every place and operand, a manifest with the
+composer's version, its constants and the licence notices, and the licence texts. Records and host
+lists are packed into gzipped shards named by the first three hex digits of their SHA-256
+(`g/<hhh>.json`, `p/<hhh>.json`, at most 4,096 each), each a JSON object from the full hash to the
+record or list, so a page loads only the shards a sequence names. `--parity N` adds N reference
+drawings of compound jōyō kanji whose hosts join the export, and `--held-out M` M more whose hosts
+do not, for the port's parity test.
+
+Workers write one file per record and host list under `out/.work/`, which a stopped run resumes
+from, and the export builds the shards from them at the end. `.work/` is not part of the published export.
+`export-web-pack` builds the shards and manifest again from a finished folder's `.work/`.
 
 ```sh
 uv run scripts/compose_ids.py export-web out/ --parity 500 --held-out 300 --workers 4
+uv run scripts/compose_ids.py export-web-pack out/
 ```
 
 Fonts download to `cache/fonts/` on first use. `$HAN_COMPOSE_CACHE` points the cache elsewhere.
@@ -54,7 +61,7 @@ Fonts download to `cache/fonts/` on first use. `$HAN_COMPOSE_CACHE` points the c
 | `src/han_compose/kanjivg_cuts.py` | cutting a host along KanjiVG's component groups |
 | `src/han_compose/vocab.py` | the vocab tables and the cache |
 | `src/han_compose/web_export.py` | the layout and drawing data for a browser port |
-| `scripts/compose_ids.py` | `draw`, `bench`, `calibrate`, `learn`, `learn-alone`, `export-web` |
+| `scripts/compose_ids.py` | `draw`, `bench`, `calibrate`, `learn`, `learn-alone`, `export-web`, `export-web-pack` |
 | `tests/` | tests over cutting, layout, drawn output and the web export |
 | `docs/design/ids-composer.md` | the method, its measurements, and what did not help |
 
