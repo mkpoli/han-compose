@@ -64,10 +64,13 @@ class Style:
 
     `stem_curve` is the variable font's stroke width at 400 against a glyph's density (`calibrate`).
     `synthetic_y` grows the heavy master's horizontals synthetically, for a font whose horizontals
-    keep their width at every weight. `family_widths` gives a fallback glyph the stroke widths its
-    family's 丨 and 一 have against the variable font's, thinned with density as the variable font
-    thins, in place of widths measured on the glyph itself: a Mincho's thin horizontals are lost
-    among the short runs of ink between them (𡉵 measured 65 units across y, its horizontals 20)."""
+    keep their width at every weight. `kindred` fallbacks draw in the variable font's own design
+    (Plangothic extends Source Han Sans): the layout learns from their characters too, and each
+    fallback glyph's stroke widths are measured on it. Fallbacks of another design (Jigmo) are left
+    out of the layout's examples, and a glyph of theirs takes the stroke widths its family's 丨 and
+    一 have against the variable font's, thinned with density as the variable font thins: a Mincho's
+    thin horizontals are lost among the short runs of ink between them (𡉵 measured 65 units across
+    y, its horizontals 20)."""
 
     name: str
     font: Source
@@ -75,7 +78,7 @@ class Style:
     stem_curve: tuple[tuple[float, float], tuple[float, float]]
     heavy: int = 900
     synthetic_y: bool = False
-    family_widths: bool = False
+    kindred: bool = True
 
 
 OFL = "SIL OFL 1.1"
@@ -118,7 +121,7 @@ STYLES = {
         # horizontals not at all.
         ((67.77, -0.463), (22.31, 0.164)),
         synthetic_y=True,
-        family_widths=True,
+        kindred=False,
     ),
 }
 DEFAULT_STYLE = "sans"
@@ -438,7 +441,7 @@ class Font:
         self.stem = (across_x, across_y)
         #: The fallbacks' stroke widths against this font's at 400, across x and across y.
         self.family = None
-        if self.style.family_widths:
+        if not self.style.kindred:
             font, cmap, glyphs, scale = next(f for f in self.fallbacks if ord("丨") in f[1] and ord("一") in f[1])
             widths = []
             for char, axis in (("丨", 0), ("一", 1)):

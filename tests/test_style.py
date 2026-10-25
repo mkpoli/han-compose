@@ -30,6 +30,35 @@ def test_every_style_pins_each_of_its_fonts_by_sha256_and_licence() -> None:
     assert compose.STYLES["serif"].font.file != compose.STYLES["sans"].font.file
 
 
+def test_only_fallbacks_of_the_main_fonts_design_teach_the_layout() -> None:
+    from types import SimpleNamespace
+
+    seen = []
+
+    class Pool:
+        def __init__(self, *a, **k): pass
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+        def imap_unordered(self, f, chars, chunksize=1):
+            seen.extend(chars)
+            return iter(())
+
+    import multiprocessing as mp
+
+    for style, expected in (("sans", {"一", "𠀀"}), ("serif", {"一"})):
+        seen.clear()
+        font = SimpleNamespace(style=compose.STYLES[style], has=lambda ch: True, own=lambda ch: ch == "一")
+        fake = SimpleNamespace(font=font, sequences={"一": "⿱一一", "𠀀": "⿰一一"}, _index=None)
+        context = SimpleNamespace(Pool=Pool)
+        original = mp.get_context
+        mp.get_context = lambda *_: context
+        try:
+            compose_layout.examples(fake)
+        finally:
+            mp.get_context = original
+        assert set(seen) == expected
+
+
 def test_models_of_another_style_are_cached_under_their_own_names() -> None:
     assert compose_layout.layout_file("sans") == compose_layout.LAYOUT_FILE
     assert compose_layout.layout_file("serif") == "compose-layout-v4-serif.npz"
