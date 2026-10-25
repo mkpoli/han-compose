@@ -419,21 +419,27 @@ RECORD_CHUNK, RECORD_CHUNKS = 16, 100
 DRAW_CHUNK, DRAW_CHUNKS = 2, 25
 
 
-def _write_gzip(target: Path, value, sync: bool = True) -> tuple[int, int]:
-    """Write `value` as gzip-compressed JSON (mtime 0, level 9) to `target`, through a `.part` file
-    renamed into place (synced first when `sync`): (raw, gzip) bytes."""
+def _replace(target: Path, data: bytes, sync: bool = True) -> None:
+    """Write `data` to `target` through a `.part` file renamed into place (synced first when
+    `sync`), so a stop leaves the old file whole."""
     import os
 
-    data = _dump(value)
-    packed = gzip.compress(data, 9, mtime=0)
     target.parent.mkdir(parents=True, exist_ok=True)
     partial = target.with_suffix(".part")
     with open(partial, "wb") as f:
-        f.write(packed)
+        f.write(data)
         if sync:
             f.flush()
             os.fsync(f.fileno())
     partial.replace(target)
+
+
+def _write_gzip(target: Path, value, sync: bool = True) -> tuple[int, int]:
+    """Write `value` as gzip-compressed JSON (mtime 0, level 9) through `_replace`: (raw, gzip)
+    bytes."""
+    data = _dump(value)
+    packed = gzip.compress(data, 9, mtime=0)
+    _replace(target, packed, sync)
     return len(data), len(packed)
 
 
@@ -891,12 +897,7 @@ def export(composer: C.Composer, out: Path, joyo: list[str] | None = None, parit
 
 
 def _write_manifest(out: Path, manifest: dict) -> None:
-    import os
-
-    with open(out / "manifest.json", "wb") as f:
-        f.write(json.dumps(manifest, ensure_ascii=False, indent=1, sort_keys=True).encode("utf-8"))
-        f.flush()
-        os.fsync(f.fileno())
+    _replace(out / "manifest.json", json.dumps(manifest, ensure_ascii=False, indent=1, sort_keys=True).encode("utf-8"))
 
 
 def _summary(rows: list[tuple[int, int]]) -> dict:
@@ -966,12 +967,12 @@ def pack(out: Path, root: Path | None = None, log=print) -> dict:
         if (out / name).exists():
             parity = json.loads((out / name).read_text(encoding="utf-8"))
             parity["version"] = version
-            (out / name).write_bytes(_dump(parity))
+            _replace(out / name, _dump(parity))
     marker = out / ".export"
     if marker.exists():
         stamp = json.loads(marker.read_text(encoding="utf-8"))
         stamp["version"] = version
-        marker.write_text(json.dumps(stamp, ensure_ascii=False, sort_keys=True), encoding="utf-8")
+        _replace(marker, json.dumps(stamp, ensure_ascii=False, sort_keys=True).encode("utf-8"))
     manifest["format"] = FORMAT
     manifest["version"] = version
     manifest["paths"] = PATHS
