@@ -118,7 +118,7 @@ def sample_path(d: str, steps: int = 12) -> np.ndarray:
 
 def kanjivg_file(cache: Path | None = None) -> Path:
     """KanjiVG's release file under `<cache>/fonts`, fetched and checked against its SHA-256 when missing."""
-    return C._fetched(KANJIVG_FILE, KANJIVG_URL, KANJIVG_SHA256, cache)
+    return C._fetched(C.Source(KANJIVG_FILE, KANJIVG_URL, KANJIVG_SHA256, "CC BY-SA 3.0"), cache)
 
 
 @lru_cache(maxsize=1)

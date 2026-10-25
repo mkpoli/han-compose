@@ -1,10 +1,11 @@
-"""Draw a character Unicode lacks from its Ideographic Description Sequence, in GenZui Sans.
+"""Draw a character Unicode lacks from its Ideographic Description Sequence, in one of two styles.
 
-GenZui Sans takes its ideographs unchanged from Noto Sans JP at weight 400, which in turn draws them
-as Noto Sans CJK JP does. The composer reads Noto Sans CJK JP, the variable font that draws 30,289
-ideographs to Noto Sans JP's 13,742 with the same outlines, so each outline is known at weight 400
-and at `HEAVY` with the same points. Every layout and every part comes from a character a type
-designer drew; a sequence (⿰亻哥) is drawn in three steps:
+`sans` draws in GenZui Sans, which takes its ideographs unchanged from Noto Sans JP at weight 400,
+which in turn draws them as Noto Sans CJK JP does. The composer reads Noto Sans CJK JP, the variable
+font that draws 30,289 ideographs to Noto Sans JP's 13,742 with the same outlines, so each outline is
+known at weight 400 and at the style's heavy weight with the same points. `serif` reads Noto Serif
+CJK JP, the variable Source Han Serif, the same way (`STYLES`). Every layout and every part comes
+from a character a type designer drew; a sequence (⿰亻哥) is drawn in three steps:
 
 1. Teacher. For each node, the drawn character with a node of the same operator whose operands are
    most like the target's (written the same, else holding about as much ink in about the same
@@ -17,8 +18,8 @@ designer drew; a sequence (⿰亻哥) is drawn in three steps:
    the operator's axis and the extent its own host gave it across. A cut is used only when each
    piece looks like its operand. With no host, a nested sequence is drawn the same way, and a
    character from its own glyph.
-3. Weight. Noto thins its strokes as a character fills up (`STEM_CURVE`). Each part is moved
-   towards the `HEAVY` master, along x and along y apart, until its strokes have the width the
+3. Weight. Noto thins its strokes as a character fills up (`Style.stem_curve`). Each part is moved
+   towards the heavy master, along x and along y apart, until its strokes have the width the
    whole composed character's density calls for; a lone stroke keeps that width without scaling.
 
 The result is a set of closed outlines in the font's 1000-unit em, y up, drawn out by `svg_path`.
@@ -43,20 +44,87 @@ from fontTools.ttLib import TTFont
 
 from .vocab import BINARY, TERNARY, UNARY, read_rows
 
-#: Noto Sans CJK JP 2.004, variable, TrueType outlines (SIL OFL 1.1).
-FONT_URL = "https://github.com/notofonts/noto-cjk/raw/Sans2.004/Sans/Variable/TTF/NotoSansCJKjp-VF.ttf"
-FONT_SHA256 = "240c9b83bf7b386edbae39995ae7e068ed4583f484d92e4a74c34158b5f27b1a"
-FONT_FILE = "NotoSansCJKjp-VF-2.004.ttf"
-#: Plangothic P1 and P2 (SIL OFL 1.1), static, drawing the CJK extensions in the Source Han Sans
-#: design Noto Sans CJK shares: the source of components Noto lacks (𦒱, 𡉵). Pinned as
-#: `scripts/build_vi_hani.py` pins them.
+@dataclass(frozen=True)
+class Source:
+    """A font file the composer reads, fetched once into `<cache>/fonts/<file>` and pinned by SHA-256.
+    With `member`, `url` is a zip archive pinned by `archive_sha256`, and the file is that member."""
+
+    file: str
+    url: str
+    sha256: str
+    licence: str
+    member: str | None = None
+    archive_sha256: str | None = None
+
+
+@dataclass(frozen=True)
+class Style:
+    """A design the composer draws in: a variable font with a `wght` axis, read at 400 and at `heavy`,
+    and static fonts drawing what it lacks.
+
+    `stem_curve` is the variable font's stroke width at 400 against a glyph's density (`calibrate`).
+    `synthetic_y` grows the heavy master's horizontals synthetically, for a font whose horizontals
+    keep their width at every weight. `family_widths` gives a fallback glyph the stroke widths its
+    family's 丨 and 一 have against the variable font's, thinned with density as the variable font
+    thins, in place of widths measured on the glyph itself: a Mincho's thin horizontals are lost
+    among the short runs of ink between them (𡉵 measured 65 units across y, its horizontals 20)."""
+
+    name: str
+    font: Source
+    fallbacks: tuple[Source, ...]
+    stem_curve: tuple[tuple[float, float], tuple[float, float]]
+    heavy: int = 900
+    synthetic_y: bool = False
+    family_widths: bool = False
+
+
+OFL = "SIL OFL 1.1"
+#: Plangothic P1 and P2 draw the CJK extensions in the Source Han Sans design Noto Sans CJK shares:
+#: the source of components Noto lacks (𦒱, 𡉵). Pinned as `scripts/build_vi_hani.py` pins them.
 PLANGOTHIC_URL = "https://github.com/Fitzgerald-Porthmouth-Koenigsegg/Plangothic-Project/releases/download/V2.9.5795"
-PLANGOTHIC = {"PlangothicP1-Regular.ttf": "550b5d0775b15405946b18f4843df439a51e69508d7e6778d94c1f7a53dc5ad6",
-              "PlangothicP2-Regular.ttf": "681933370adfe0fc7253f77735275a82fea09fe4f8adba907bdeb46c110daf8f"}
+#: Jigmo (CC0 1.0, from GlyphWiki's KAGE outlines) draws every CJK unified ideograph through
+#: Extension J in one Mincho weight: Jigmo2 the SIP (B to F, I), Jigmo3 the TIP (G, H, J), Jigmo the
+#: BMP. Its site gives the archive's SHA-1, 2fb963ee7bba1d23ccfe81b228422f22da9dc574.
+JIGMO_URL = "https://kamichikoichi.github.io/jigmo/Jigmo-20250912.zip"
+JIGMO_SHA256 = "5744c7386d129475d87607ca66d043c8793c65448adeaedc921b6931890e5d0b"
+
+STYLES = {
+    # Noto Sans CJK JP 2.004: GenZui Sans takes its ideographs unchanged from Noto Sans JP, which
+    # draws them as this font does. Stroke widths fitted on 1,500 of its ideographs: it thins its
+    # strokes as a character fills up, the horizontals more than the verticals.
+    "sans": Style(
+        "sans",
+        Source("NotoSansCJKjp-VF-2.004.ttf",
+               "https://github.com/notofonts/noto-cjk/raw/Sans2.004/Sans/Variable/TTF/NotoSansCJKjp-VF.ttf",
+               "240c9b83bf7b386edbae39995ae7e068ed4583f484d92e4a74c34158b5f27b1a", OFL),
+        (Source("PlangothicP1-Regular.ttf", f"{PLANGOTHIC_URL}/PlangothicP1-Regular.ttf",
+                "550b5d0775b15405946b18f4843df439a51e69508d7e6778d94c1f7a53dc5ad6", OFL),
+         Source("PlangothicP2-Regular.ttf", f"{PLANGOTHIC_URL}/PlangothicP2-Regular.ttf",
+                "681933370adfe0fc7253f77735275a82fea09fe4f8adba907bdeb46c110daf8f", OFL)),
+        ((85.34, -1.324), (86.93, -1.914)),
+    ),
+    # Noto Serif CJK JP 2.003 (Source Han Serif's design), whose horizontals stay about 30 units at
+    # every weight from 200 to 900 while its verticals grow from 45 to 145.
+    "serif": Style(
+        "serif",
+        Source("NotoSerifCJKjp-VF-2.003.ttf",
+               "https://github.com/notofonts/noto-cjk/raw/Serif2.003/Serif/Variable/TTF/NotoSerifCJKjp-VF.ttf",
+               "c2ff7cffb6ef75193d4406b030eab5aa6503c48004acec6b040327e2fe1e9e51", OFL),
+        tuple(Source(f"Jigmo-20250912-{name}", JIGMO_URL, sha, "CC0 1.0", member=name, archive_sha256=JIGMO_SHA256)
+              for name, sha in (("Jigmo2.ttf", "5da3582efe77e22073b86b3b86b556d7111148a76b957cfb53318a91da2efff0"),
+                                ("Jigmo3.ttf", "815b18c1c670103723fe743090559208fdea47dc587ecb057a5a4721ee8dfeff"),
+                                ("Jigmo.ttf", "c8f295b9bd8f9f117a76b3a454aaaa1bb5b4babc18e254978c6deb88464e40cf"))),
+        # Fitted on 1,500 of its ideographs: its verticals thin a little as a character fills up, its
+        # horizontals not at all.
+        ((67.77, -0.463), (22.31, 0.164)),
+        synthetic_y=True,
+        family_widths=True,
+    ),
+}
+DEFAULT_STYLE = "sans"
 EM = 1000
 #: The em's top in the font's units: an SVG path is drawn from here down.
 ASCENT = 880
-HEAVY = 900
 #: The operators a part is cut from its host along: x for side by side, y for stacked.
 AXIS = {"⿰": 0, "⿲": 0, "⿱": 1, "⿳": 1}
 #: The sides an enclosing operand closes, y up: ⿸ 厂 closes the left and the top.
@@ -117,29 +185,45 @@ Node = str | tuple
 Box = tuple[float, float, float, float]
 
 
-def _fetched(name: str, url: str, sha256: str, cache: Path | None) -> Path:
+def _fetched(source: Source, cache: Path | None) -> Path:
+    import io
+    import zipfile
+
     import httpx
 
     from .vocab import cache_root
 
-    path = (cache or cache_root()) / "fonts" / name
+    path = (cache or cache_root()) / "fonts" / source.file
     if not path.exists():
         path.parent.mkdir(parents=True, exist_ok=True)
-        data = httpx.get(url, follow_redirects=True, timeout=600).content
-        if hashlib.sha256(data).hexdigest() != sha256:
-            raise ValueError(f"{url} does not match its pinned SHA-256.")
+        data = httpx.get(source.url, follow_redirects=True, timeout=600).content
+        if source.member is not None:
+            if hashlib.sha256(data).hexdigest() != source.archive_sha256:
+                raise ValueError(f"{source.url} does not match its pinned SHA-256.")
+            data = zipfile.ZipFile(io.BytesIO(data)).read(source.member)
+        if hashlib.sha256(data).hexdigest() != source.sha256:
+            raise ValueError(f"{source.url} ({source.member or source.file}) does not match its pinned SHA-256.")
         path.write_bytes(data)
     return path
 
 
-def font_file(cache: Path | None = None) -> Path:
-    """The composer's font under `<cache>/fonts`, fetched and checked against its SHA-256 when missing."""
-    return _fetched(FONT_FILE, FONT_URL, FONT_SHA256, cache)
+def font_file(cache: Path | None = None, style: str = DEFAULT_STYLE) -> Path:
+    """The style's variable font under `<cache>/fonts`, fetched and checked against its SHA-256 when missing."""
+    return _fetched(STYLES[style].font, cache)
 
 
-def fallback_files(cache: Path | None = None) -> list[Path]:
-    """Plangothic P1 and P2 under `<cache>/fonts`, fetched and checked the same way."""
-    return [_fetched(name, f"{PLANGOTHIC_URL}/{name}", sha, cache) for name, sha in PLANGOTHIC.items()]
+def fallback_files(cache: Path | None = None, style: str = DEFAULT_STYLE) -> list[Path]:
+    """The style's fallback fonts under `<cache>/fonts`, fetched and checked the same way."""
+    return [_fetched(source, cache) for source in STYLES[style].fallbacks]
+
+
+def styled(name: str, style: str) -> str:
+    """A cached model's file name for a style: the name itself for the default, `<stem>-<style><suffix>`
+    for another, so that models fitted on one design never load for another."""
+    if style == DEFAULT_STYLE:
+        return name
+    path = Path(name)
+    return f"{path.stem}-{style}{path.suffix}"
 
 
 # ------------------------------------------------------------------ sequences
@@ -284,9 +368,9 @@ def spelled_nodes() -> set[str]:
 @dataclass
 class Contour:
     """One closed contour: its pen commands (command, points, whether it closes on an implied
-    point), and its points at weight 400 and at `HEAVY`. A contour of a fallback font also
-    carries its glyph's stroke width as measured, across x and across y, which `STEM_CURVE`
-    (fitted on this font's outlines) does not predict for another design."""
+    point), and its points at weight 400 and at the style's heavy weight. A contour of a fallback font
+    also carries its glyph's stroke width as measured, across x and across y, which the style's
+    `stem_curve` (fitted on its variable font's outlines) does not predict for another design."""
 
     ops: list[tuple[str, int, bool]]
     light: np.ndarray
@@ -324,28 +408,65 @@ class Part:
 
 
 class Font:
-    """A variable font with a `wght` axis, read at weight 400 and at `HEAVY`, and static fonts that
-    draw what it lacks: a glyph from one of those has the same points at both weights, so it keeps
-    the weight it was drawn at."""
+    """A style's variable font with a `wght` axis, read at weight 400 and at the style's `heavy`, and
+    static fonts that draw what it lacks: a glyph from one of those has one set of points, and its
+    heavy outline is grown from it synthetically."""
 
-    def __init__(self, path: Path, fallbacks: list[Path] = ()):
+    def __init__(self, path: Path, fallbacks: list[Path] = (), style: str = DEFAULT_STYLE):
+        self.style = STYLES[style]
         self.font = TTFont(path)
         fonts = [TTFont(f) for f in fallbacks]
-        self.fallbacks = [(font, font.getBestCmap(), font.getGlyphSet()) for font in fonts]
+        # Each fallback with the scale that brings its em to this font's (Jigmo draws on 1,024 units).
+        self.fallbacks = [(font, font.getBestCmap(), font.getGlyphSet(), self.font["head"].unitsPerEm / font["head"].unitsPerEm)
+                          for font in fonts]
         self.cmap = self.font.getBestCmap()
         # Ideographic variation sequences: (base, selector) → glyph name, None for the base's own glyph.
         self.variants = {(base, selector): name for table in self.font["cmap"].tables if table.format == 14
                          for selector, pairs in table.uvsDict.items() for base, name in pairs}
         self.light = self.font.getGlyphSet(location={"wght": 400})
-        self.heavy = self.font.getGlyphSet(location={"wght": HEAVY})
+        self.heavy = self.font.getGlyphSet(location={"wght": self.style.heavy})
         self._parts: dict[str, Part | None] = {}
-        # Stem widths at 400 and at HEAVY: 丨's width across x, 一's height across y.
-        self.stem = (self._stem("丨", 0), self._stem("一", 1))
+        # Stem widths at 400 and at heavy: 丨's width across x, 一's height across y, each across the
+        # middle of the stroke, clear of the serifs at its ends.
+        across_x, across_y = self._stem("丨", 0), self._stem("一", 1)
+        #: How far the heavy master's outlines are grown along y where the font's own do not grow there.
+        self.grow_y = 0.0
+        if self.style.synthetic_y:
+            # Horizontals grown in the proportion the verticals grow in.
+            self.grow_y = across_y[0] * (across_x[1] / across_x[0] - 1) / 2
+            across_y = (across_y[0], across_y[0] + 2 * self.grow_y)
+        self.stem = (across_x, across_y)
+        #: The fallbacks' stroke widths against this font's at 400, across x and across y.
+        self.family = None
+        if self.style.family_widths:
+            font, cmap, glyphs, scale = next(f for f in self.fallbacks if ord("丨") in f[1] and ord("一") in f[1])
+            widths = []
+            for char, axis in (("丨", 0), ("一", 1)):
+                pen = RecordingPen()
+                glyphs[cmap[ord(char)]].draw(pen)
+                flat = [Contour(ops, p * scale, p * scale) for ops, p in _contours(pen)]
+                widths.append(_across(_rings(flat, [c.light for c in flat], steps=8), axis) / self.stem[axis][0])
+            self.family = (widths[0], widths[1])
+
+    @classmethod
+    def of(cls, style: str = DEFAULT_STYLE, cache: Path | None = None) -> Font:
+        """The style's fonts, fetched into `<cache>/fonts` when missing."""
+        return cls(font_file(cache, style), fallback_files(cache, style), style)
 
     def _stem(self, char: str, axis: int) -> tuple[float, float]:
-        part = self.glyph(char)
-        heavy = np.concatenate([c.heavy for c in part.contours])
-        return part.box[axis + 2] - part.box[axis], float(heavy[:, axis].max() - heavy[:, axis].min())
+        name = self.cmap[ord(char)]
+        out = []
+        for glyphs in (self.light, self.heavy):
+            pen = RecordingPen()
+            glyphs[name].draw(pen)
+            flat = [Contour(ops, p, p) for ops, p in _contours(pen)]
+            out.append(_across(_rings(flat, [c.light for c in flat], steps=8), axis))
+        return out[0], out[1]
+
+    def width(self, density: float, axis: int) -> float:
+        """The stroke width the font draws in a glyph of `density`, along `axis`'s stems."""
+        intercept, slope = self.style.stem_curve[axis]
+        return intercept + slope * density / 1000
 
     def _name(self, char: str) -> str | None:
         """The glyph a character draws with, with a variation selector only as the font maps that sequence."""
@@ -366,24 +487,29 @@ class Font:
         return self._name(char) is not None
 
     def has(self, char: str) -> bool:
-        return self._name(char) is not None or (len(char) == 1 and any(ord(char) in cmap for _, cmap, _ in self.fallbacks))
+        return self._name(char) is not None or (len(char) == 1 and any(ord(char) in cmap for _, cmap, _, _ in self.fallbacks))
 
     def glyph(self, char: str) -> Part | None:
         if char not in self._parts:
             part = None
             name = self._name(char)
             if name is None and len(char) == 1:
-                for _, cmap, glyphs in self.fallbacks:
+                for _, cmap, glyphs, scale in self.fallbacks:
                     if ord(char) in cmap:
                         pen = RecordingPen()
                         glyphs[cmap[ord(char)]].draw(pen)
                         # A static font has one weight: its heavy outline is the light one grown by as
-                        # much as this font's stems of the same width grow at `HEAVY`, so its parts are
+                        # much as this font's stems of the same width grow at heavy, so its parts are
                         # thinned and thickened like the font's own.
-                        rings = _contours(pen)
+                        rings = [(ops, p * scale if scale != 1 else p) for ops, p in _contours(pen)]
                         flat = [Contour(ops, p, p) for ops, p in rings]
-                        mask = fill(_rings(flat, [c.light for c in flat], steps=2), 200, (0.0, ASCENT - EM, EM, ASCENT))
-                        width = tuple(w if np.isfinite(w) else self.stem[axis][0] for axis, w in enumerate(stems(mask, EM / 200)))
+                        if self.family is not None:
+                            density = sum(float(np.linalg.norm(np.diff(np.vstack([c.light, c.light[:1]]), axis=0), axis=1).sum())
+                                          for c in flat)
+                            width = tuple(self.family[axis] * self.width(density, axis) for axis in (0, 1))
+                        else:
+                            mask = fill(_rings(flat, [c.light for c in flat], steps=2), 200, (0.0, ASCENT - EM, EM, ASCENT))
+                            width = tuple(w if np.isfinite(w) else self.stem[axis][0] for axis, w in enumerate(stems(mask, EM / 200)))
                         grow = tuple(width[axis] * (self.stem[axis][1] / self.stem[axis][0] - 1) / 2 for axis in (0, 1))
                         contours = [Contour(ops, p, _grown(p, grow), width) for ops, p in rings]
                         part = Part(contours) if contours else None
@@ -393,9 +519,31 @@ class Font:
                 self.light[name].draw(light)
                 self.heavy[name].draw(heavy)
                 contours = [Contour(ops, p, q) for (ops, p), (_, q) in zip(_contours(light), _contours(heavy))]
+                if self.grow_y:
+                    for c in contours:
+                        c.heavy = np.column_stack([c.heavy[:, 0], _grown(c.light, (0.0, self.grow_y))[:, 1]])
                 part = Part(contours) if contours else None
             self._parts[char] = part
         return self._parts[char]
+
+
+def _across(rings: list[np.ndarray], axis: int) -> float:
+    """A single stroke's width along `axis`: the median extent of its ink along `axis` on nine lines
+    across its middle two fifths, so that serifs and the triangles at a stroke's end do not count."""
+    points = np.concatenate(rings)
+    other = 1 - axis
+    low, high = points[:, other].min(), points[:, other].max()
+    widths = []
+    for at in low + (high - low) * np.linspace(0.3, 0.7, 9):
+        hits = []
+        for ring in rings:
+            a, b = ring, np.roll(ring, -1, axis=0)
+            on = ((a[:, other] <= at) & (b[:, other] > at)) | ((a[:, other] > at) & (b[:, other] <= at))
+            t = (at - a[on, other]) / (b[on, other] - a[on, other])
+            hits.extend(a[on, axis] + t * (b[on, axis] - a[on, axis]))
+        if len(hits) >= 2:
+            widths.append(max(hits) - min(hits))
+    return float(np.median(widths))
 
 
 def _grown(points: np.ndarray, by: tuple[float, float]) -> np.ndarray:
@@ -539,11 +687,6 @@ def mapped(box: Box, frame: Box, region: Box) -> Box:
 
 
 # ------------------------------------------------------------------ composing
-#: Stroke width at weight 400 against a glyph's density, fitted on 1,500 ideographs of the font by
-#: `scripts/compose_ids.py calibrate`: (intercept, slope per 1,000 units of outline length), for the
-#: stems that run along y (measured across x) and those that run along x. Noto thins its strokes as
-#: a character fills up, the horizontals more than the verticals.
-STEM_CURVE = ((85.34, -1.324), (86.93, -1.914))
 #: The positions an operand takes, by operator: left, centre, right; top, middle, bottom.
 SLOTS = {"⿰": "LR", "⿲": "LCR", "⿱": "TB", "⿳": "TMB"}
 #: The table's position names for a radical's positional form.
@@ -693,12 +836,6 @@ STRETCH = 1.6
 ROW_STRETCH = 4.0
 
 
-def stem(density: float, axis: int) -> float:
-    """The stroke width the font draws in a glyph of `density`, along `axis`'s stems."""
-    intercept, slope = STEM_CURVE[axis]
-    return intercept + slope * density / 1000
-
-
 def slot(op: str, index: int) -> str:
     """An operand's position: L C R T M B for the aligned operators, the operator and index for the rest."""
     return SLOTS[op][index] if op in SLOTS else f"{op}{index}"
@@ -735,7 +872,7 @@ def fitted(source: Box, target: Box, stretch: float = 0.0) -> Box:
 @dataclass
 class Placed:
     """A part drawn into `target` from `source`, thickened by `weight`: the share of the way to
-    `HEAVY` its points move, along x and along y. `native` is the density of the glyph the part
+    the heavy master its points move, along x and along y. `native` is the density of the glyph the part
     was drawn in, which set its strokes' width."""
 
     part: Part
@@ -1096,7 +1233,8 @@ class Composer:
             return 0.0
         # As much outline for its size as the operand's: one dot of 馬 is not 馬.
         density = lambda p: self.ink("", p) / max(p.box[2] - p.box[0] + p.box[3] - p.box[1], 1)
-        if abs(math.log(density(part) / density(own))) > math.log(DENSER):
+        # A piece or reference with no outline length is like nothing (a serif cut of 固 met one).
+        if min(density(part), density(own)) <= 0 or abs(math.log(density(part) / density(own))) > math.log(DENSER):
             return 0.0
         a, b = _shape(part), _shape(own)
         return float((a & b).sum()) / max(float((a | b).sum()), 1.0)
@@ -1811,14 +1949,14 @@ class Composer:
                 extent = p.source[axis + 2] - p.source[axis]
                 if extent <= 2 * self.font.stem[axis][0]:
                     # A lone stroke across this axis: drawn at the width the density calls for, not scaled.
-                    width = extent * stem(density, axis) / stem(p.native, axis)
+                    width = extent * self.font.width(density, axis) / self.font.width(p.native, axis)
                     middle = (target[axis] + target[axis + 2]) / 2
                     target[axis], target[axis + 2] = middle - width / 2, middle + width / 2
                     weight.append(0.0)
                     continue
                 measured = p.part.contours[0].width
-                own = measured[axis] if measured is not None else stem(p.native, axis)
-                weight.append(float(np.clip((stem(density, axis) / (s * own) - 1) / ratio[axis], -0.6, 1.0)))
+                own = measured[axis] if measured is not None else self.font.width(p.native, axis)
+                weight.append(float(np.clip((self.font.width(density, axis) / (s * own) - 1) / ratio[axis], -0.6, 1.0)))
             p.target = tuple(target)
             p.weight = (weight[0], weight[1])
 

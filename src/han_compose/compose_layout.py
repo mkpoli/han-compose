@@ -31,6 +31,11 @@ FOLDS = 5
 SEEDS = 6
 #: The cached model's name; a change to the features or training makes a new one.
 LAYOUT_FILE = "compose-layout-v4.npz"
+
+
+def layout_file(style: str = C.DEFAULT_STYLE) -> str:
+    """The cached model's name for a style: each style's model learns from its own font's boxes."""
+    return C.styled(LAYOUT_FILE, style)
 #: Features per operand: 4 mean, 4 spread, count, outline count; 1 flag, 4 box, ink, proportions, 8 × 8 ink.
 SHAPE = 71
 
