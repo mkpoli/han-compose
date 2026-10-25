@@ -31,6 +31,11 @@ FOLDS = 5
 SEEDS = 6
 #: The cached model's name; a change to the features or training makes a new one.
 LAYOUT_FILE = "compose-layout-v4.npz"
+
+
+def layout_file(style: str = C.DEFAULT_STYLE) -> str:
+    """The cached model's name for a style: each style's model learns from its own font's boxes."""
+    return C.styled(LAYOUT_FILE, style)
 #: Features per operand: 4 mean, 4 spread, count, outline count; 1 flag, 4 box, ink, proportions, 8 × 8 ink.
 SHAPE = 71
 
@@ -170,8 +175,11 @@ def examples(composer: C.Composer, workers: int = 3) -> list[dict]:
     global _COMPOSER
     _COMPOSER = composer
     _ = composer._index
-    chars = sorted(ch for ch, seq in composer.sequences.items() if composer.font.has(ch) and seq[0] in OPS)
-    with mp.get_context("fork").Pool(workers) as pool:
+    # Characters of fallbacks drawn in another design teach another designer's layout: left out.
+    drawn = composer.font.has if composer.font.style.kindred else composer.font.own
+    chars = sorted(ch for ch, seq in composer.sequences.items() if drawn(ch) and seq[0] in OPS)
+    # Workers are replaced as they go: their caches grow with every character cut.
+    with mp.get_context("fork").Pool(workers, maxtasksperchild=6) as pool:
         rows = [r for r in pool.imap_unordered(_example, chars, chunksize=64) if r]
     return sorted(rows, key=lambda r: r["c"])
 
