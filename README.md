@@ -40,12 +40,19 @@ drawings of compound jōyō kanji whose hosts join the export, and `--held-out M
 do not, for the port's parity test.
 
 Workers write one file per record and host list under `out/.work/`, which a stopped run resumes
-from, and the export builds the shards from them at the end. `.work/` is not part of the published export.
-`export-web-pack` builds the shards and manifest again from a finished folder's `.work/`.
+from, and the export builds the shards from them at the end. `export-web-pack` builds the shards
+again from a finished folder's `.work/`, and brings its manifest, parity files and `.export` stamp
+to format 4, so a format-3 folder whose `g/` and `p/` are moved under `.work/` becomes the folder
+a format-4 export writes. A rerun resumes from `.work/` only under the same version, which names
+the commit: from another commit `export-web` starts afresh.
+
+`.work/` must never be uploaded: each of its files would be one more object written. Exclude it
+when copying the folder out:
 
 ```sh
 uv run scripts/compose_ids.py export-web out/ --parity 500 --held-out 300 --workers 4
 uv run scripts/compose_ids.py export-web-pack out/
+rclone copy out/ <remote>:<bucket>/<version>/ --exclude '.work/**'
 ```
 
 Fonts download to `cache/fonts/` on first use. `$HAN_COMPOSE_CACHE` points the cache elsewhere.

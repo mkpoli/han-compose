@@ -285,20 +285,56 @@ def test_a_rerun_of_the_same_version_keeps_the_files_a_stopped_run_wrote(compose
     assert _hosts(out, "L", "王")["hosts"]
 
 
-def test_pack_alone_rebuilds_the_shards_and_the_manifest_of_a_finished_export(exported, tmp_path: Path) -> None:
+def _as_format_3(out: Path) -> None:
+    """Turn a format-4 folder into what a format-3 export left, its per-key files moved under .work/:
+    no shards, a format-3 manifest, parity files and stamp."""
+    import shutil
+
+    old = lambda version: version[: -len(f"-f{web_export.FORMAT}")] + "-f3"
+    shutil.rmtree(out / "g")
+    shutil.rmtree(out / "p")
+    (out / "p").mkdir()
+    (out / "p" / "fff.json").write_bytes(b"stale")
+    manifest = json.loads((out / "manifest.json").read_text())
+    manifest["version"], manifest["format"] = old(manifest["version"]), 3
+    manifest["paths"] = {"records": "g/{hh}/{sha256 hex of the key's UTF-8}.json"}
+    manifest["record"] = {**manifest["record"], "hosts": "a p/ file: {place, operand, hosts}"}
+    del manifest["pack"]
+    for kind in ("records", "hosts"):
+        # Format 3 counted one file per key, and had no entries.
+        del manifest["files"][kind]["entries"]
+        manifest["files"][kind].update(files=1, gzip=1, median_gzip=1, p95_gzip=1, max_gzip=1)
+    (out / "manifest.json").write_text(json.dumps(manifest))
+    for name in ("parity.json", "parity-held-out.json", ".export"):
+        value = json.loads((out / name).read_text())
+        value["version"] = old(value["version"])
+        (out / name).write_text(json.dumps(value))
+
+
+def test_pack_brings_a_migrated_format_3_folder_to_what_a_fresh_export_writes(exported, tmp_path: Path) -> None:
     import shutil
 
     a, _, manifest = exported
     out = tmp_path / "out"
     shutil.copytree(a, out)
-    shutil.rmtree(out / "g")
-    (out / "p" / "fff.json").write_bytes(b"stale")
-    stale = json.loads((out / "manifest.json").read_text())
-    stale["version"] = stale["version"][: -len(f"-f{web_export.FORMAT}")] + "-f3"
-    stale["format"], stale["paths"] = 3, {}
-    (out / "manifest.json").write_text(json.dumps(stale))
+    _as_format_3(out)
     packed = web_export.pack(out, log=lambda _: None)
-    assert packed["format"] == web_export.FORMAT and packed["version"] == manifest["version"]
-    assert packed["paths"] == manifest["paths"] and "never uploaded" in packed["paths"]["work"]
-    assert packed["files"] == manifest["files"]
+    assert packed == manifest and "--exclude '.work/**'" in packed["paths"]["work"]
+    fresh, migrated = _files(a), _files(out)
+    assert migrated == fresh
+    for name in ("manifest.json", "parity.json", "parity-held-out.json", ".export"):
+        assert migrated[name] == fresh[name]
+    assert json.loads(migrated["parity.json"])["version"] == manifest["version"] == json.loads(migrated[".export"])["version"]
+
+
+def test_pack_names_an_unreadable_work_file_and_keeps_the_shards(exported, tmp_path: Path) -> None:
+    import shutil
+
+    a, _, _ = exported
+    out = tmp_path / "out"
+    shutil.copytree(a, out)
+    bad = sorted((out / ".work" / "p").glob("*/*.json"))[0]
+    bad.write_bytes(bad.read_bytes()[:20])
+    with pytest.raises(web_export.WorkFileError, match=bad.name):
+        web_export.pack(out, log=lambda _: None)
     assert {k: v for k, v in _files(out).items() if k[0] in "gp"} == {k: v for k, v in _files(a).items() if k[0] in "gp"}

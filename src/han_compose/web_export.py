@@ -643,6 +643,25 @@ NOT_EXPORTED = {
 }
 
 
+#: What each field of a record and of a host list means, as the manifest states it.
+RECORD = {
+    "k": "the record's key",
+    "P": "the places that have a host list in p/ for this key, sorted; absent when none has one",
+    "G": "the key's own glyph: v 1 when the variable font draws it (its strokes can be weighted), else a fallback's, with w its measured stroke widths; every character a sequence describes has one",
+    "b": "box (x0, y0, x1, y1), font units, y up",
+    "p": "contours: [commands, light points, move to HEAVY], points int16 little-endian base64, x y interleaved, in 1/quant units",
+    "commands": "M one point, L one point, Q<n> n points of a TrueType quadratic run (implied on-curve points between off-curve ones), Q<n>* when the contour closes on an implied point: it starts midway between the last and first",
+    "s": "the character's sequence", "e": "the character a sequence describes (its own record holds G, a, s)", "at": "atomic: drawn whole",
+    "hand": "which of 𠂇's strokes it writes first", "a": "positional forms by place, beyond itself",
+    "ink": "Composer.ink: a character's outline length; for a sequence the sum over its operands",
+    "nl": "outline count (Composer._outlines)",
+    "o": "outline count the layout reads (compose_layout.outlines): a sequence's is that of the character it describes",
+    "f": "shape features the layout reads (compose_layout.shape): a sequence's are those of the character it describes",
+    "u": "layout table 'all' per place: [mean box, spread, count]",
+    "hosts": "a host list in a p/ shard: {place, operand, hosts}: every entry of Composer._index for that place and operand, in its order. Each entry: r its position there (the kin and facing places slice the list to KIN_HOSTS, _instance to INSTANCE_HOSTS), h host, i operand index, op node operator, ok other operands' keys, si their ink, d depth, v 1 when the variable font draws the host, j 1 when Japan writes it, hd the hand (丿 or 一) the hand filter compares when the host has one, and c its cut. c is null when _host_node does not cut the entry cleanly; else {k the indices of the host glyph's contours (the host's G in its record) the piece keeps, b the piece's box, fr the node's frame, wh 1 for the whole character, g the pieces' gap, kv 1 when cut along KanjiVG's groups}, with p (and w) its own outlines in place of k for a piece holding a contour its glyph does not. pc 1 marks a cut only a parity drawing made, under its own exclusion. A port ranks the whole list against the target as _ranked does (exact, alien, sibling-ink ratio, depth), takes its caps (32 of the variable font's and 32 of the fallbacks' for a part placed in the em, 16 each otherwise) before cutting, so an entry with c null still takes a place, and draws a chosen entry's piece from its host's G",
+    "parity rows": "c character, s sequence, x characters excluded while drawing it (it and its twins), face the em face under that exclusion, d SVG path (y down from ascent) or null with error, origins per part",
+}
+
 #: The file scheme, as the manifest states it.
 PATHS = {
     "records": "g/{hhh}.json: {sha256 hex of the key's UTF-8: record}, the records of every key (a character with any variation selector, or a whole sequence) whose hash starts with hhh",
@@ -650,7 +669,7 @@ PATHS = {
     "hhh": "the hash's first three hex digits: at most 4,096 shards in each of g/ and p/",
     "encoding": "every file under g/ and p/ is gzip-compressed JSON (mtime 0, keys sorted); serve it with Content-Encoding: gzip or decompress it",
     "missing": "a key or (place, operand) absent from its shard, or whose shard is absent, has no record or no host the composer cuts cleanly",
-    "work": ".work/g/{hh}/{sha256}.json and .work/p/{hh}/{sha256}.json are the per-key files the export's workers write and pack builds the shards from; .work/ is never uploaded",
+    "work": ".work/g/{hh}/{sha256}.json and .work/p/{hh}/{sha256}.json are the per-key files the export's workers write and pack builds the shards from. .work/ must never be uploaded: each of its files is one more object written (rclone copy --exclude '.work/**')",
     "rerun": ".export names the version, the layout, font and KanjiVG hashes, the key set and the parity sizes that wrote the folder; a rerun with the same, from a known clean commit, keeps the .work/ files and writes only the missing ones, then packs every shard afresh; anything else starts afresh. .complete is written last, after manifest.json and the shards",
 }
 
@@ -809,23 +828,7 @@ def export(composer: C.Composer, out: Path, joyo: list[str] | None = None, parit
         "spelled": sorted(composer.spelled),
         "not_exported": NOT_EXPORTED,
         "paths": PATHS,
-        "record": {
-            "k": "the record's key",
-            "P": "the places that have a host list in p/ for this key, sorted; absent when none has one",
-            "G": "the key's own glyph: v 1 when the variable font draws it (its strokes can be weighted), else a fallback's, with w its measured stroke widths; every character a sequence describes has one",
-            "b": "box (x0, y0, x1, y1), font units, y up",
-            "p": "contours: [commands, light points, move to HEAVY], points int16 little-endian base64, x y interleaved, in 1/quant units",
-            "commands": "M one point, L one point, Q<n> n points of a TrueType quadratic run (implied on-curve points between off-curve ones), Q<n>* when the contour closes on an implied point: it starts midway between the last and first",
-            "s": "the character's sequence", "e": "the character a sequence describes (its own record holds G, a, s)", "at": "atomic: drawn whole",
-            "hand": "which of 𠂇's strokes it writes first", "a": "positional forms by place, beyond itself",
-            "ink": "Composer.ink: a character's outline length; for a sequence the sum over its operands",
-            "nl": "outline count (Composer._outlines)",
-            "o": "outline count the layout reads (compose_layout.outlines): a sequence's is that of the character it describes",
-            "f": "shape features the layout reads (compose_layout.shape): a sequence's are those of the character it describes",
-            "u": "layout table 'all' per place: [mean box, spread, count]",
-            "hosts": "a host list in a p/ shard: {place, operand, hosts}: every entry of Composer._index for that place and operand, in its order. Each entry: r its position there (the kin and facing places slice the list to KIN_HOSTS, _instance to INSTANCE_HOSTS), h host, i operand index, op node operator, ok other operands' keys, si their ink, d depth, v 1 when the variable font draws the host, j 1 when Japan writes it, hd the hand (丿 or 一) the hand filter compares when the host has one, and c its cut. c is null when _host_node does not cut the entry cleanly; else {k the indices of the host glyph's contours (the host's G in its record) the piece keeps, b the piece's box, fr the node's frame, wh 1 for the whole character, g the pieces' gap, kv 1 when cut along KanjiVG's groups}, with p (and w) its own outlines in place of k for a piece holding a contour its glyph does not. pc 1 marks a cut only a parity drawing made, under its own exclusion. A port ranks the whole list against the target as _ranked does (exact, alien, sibling-ink ratio, depth), takes its caps (32 of the variable font's and 32 of the fallbacks' for a part placed in the em, 16 each otherwise) before cutting, so an entry with c null still takes a place, and draws a chosen entry's piece from its host's G",
-            "parity rows": "c character, s sequence, x characters excluded while drawing it (it and its twins), face the em face under that exclusion, d SVG path (y down from ascent) or null with error, origins per part",
-        },
+        "record": RECORD,
         "files": {
             "layout": {"path": "layout.json", "bytes": len(layout_bytes), "gzip": layout_gz, "dtype": layout["dtype"]},
             "records": _summary(sizes["records"]),
@@ -857,13 +860,18 @@ def export(composer: C.Composer, out: Path, joyo: list[str] | None = None, parit
         },
     }
     _write_manifest(out, manifest)
-    manifest = pack(out, root)
+    manifest = pack(out, root, log)
     complete.write_text(manifest["version"], encoding="utf-8")
     return manifest
 
 
 def _write_manifest(out: Path, manifest: dict) -> None:
-    (out / "manifest.json").write_bytes(json.dumps(manifest, ensure_ascii=False, indent=1, sort_keys=True).encode("utf-8"))
+    import os
+
+    with open(out / "manifest.json", "wb") as f:
+        f.write(json.dumps(manifest, ensure_ascii=False, indent=1, sort_keys=True).encode("utf-8"))
+        f.flush()
+        os.fsync(f.fileno())
 
 
 def _summary(rows: list[tuple[int, int]]) -> dict:
@@ -872,11 +880,34 @@ def _summary(rows: list[tuple[int, int]]) -> dict:
             "p95_gzip": int(np.percentile(gz, 95)), "max_gzip": int(gz.max())}
 
 
+class WorkFileError(ValueError):
+    """A per-key file under `.work/` that cannot be read back."""
+
+
+def _sync_dir(path: Path) -> None:
+    import os
+
+    fd = os.open(path, os.O_RDONLY)
+    try:
+        os.fsync(fd)
+    finally:
+        os.close(fd)
+
+
+def _read_work(path: Path):
+    try:
+        return json.loads(gzip.decompress(path.read_bytes()))
+    except (OSError, EOFError, ValueError) as error:
+        raise WorkFileError(f"{path}: unreadable work file ({error}); delete it and rerun export-web to write it again") from error
+
+
 def pack(out: Path, root: Path | None = None, log=print) -> dict:
-    """Build `g/` and `p/` shards in `out` from the per-key files under `.work/`, and rewrite
-    `manifest.json` to describe them: `paths`, the per-shard `files` summaries, `format` and the
-    version's format suffix, and `pack` (the commit pack ran at, the shard count). Shards are built
-    afresh: `g/` and `p/` are emptied first. Returns the manifest."""
+    """Build `g/` and `p/` shards in `out` from the per-key files under `.work/`, and bring the folder
+    to this format: `manifest.json` gets `paths`, `record`, the per-shard `files` summaries,
+    `format`, the version's format suffix and `pack` (the commit pack ran at, the shard count);
+    the parity files and `.export` get the manifest's version. Each folder's shards are built and
+    synced beside it and replace it whole, so an unreadable work file (`WorkFileError`) leaves the
+    shards as they were. Returns the manifest."""
     import re
     import shutil
 
@@ -884,24 +915,43 @@ def pack(out: Path, root: Path | None = None, log=print) -> dict:
 
     manifest = json.loads((out / "manifest.json").read_text(encoding="utf-8"))
     commit, dirty = _version(root or ROOT)
+    version = re.sub(r"-f\d+$", f"-f{FORMAT}", manifest["version"])
     for folder in ("g", "p"):
         files: dict[str, list[Path]] = {}
         for path in (out / WORK / folder).glob("*/*.json"):
             files.setdefault(path.stem[:SHARD_DIGITS], []).append(path)
-        if (out / folder).exists():
-            shutil.rmtree(out / folder)
+        building = out / f".pack-{folder}"
+        if building.exists():
+            shutil.rmtree(building)
+        building.mkdir()
         sizes = []
         for k, shard in enumerate(sorted(files)):
-            entries = {path.stem: json.loads(gzip.decompress(path.read_bytes())) for path in files[shard]}
-            sizes.append(_write_gzip(out / folder / f"{shard}.json", entries, sync=False))
+            entries = {path.stem: _read_work(path) for path in files[shard]}
+            sizes.append(_write_gzip(building / f"{shard}.json", entries))
             if (k + 1) % 1000 == 0:
                 log(f"pack {folder} {k + 1}/{len(files)}")
+        _sync_dir(building)
+        if (out / folder).exists():
+            shutil.rmtree(out / folder)
+        building.rename(out / folder)
         kind = "records" if folder == "g" else "hosts"
         manifest["files"][kind] = {**manifest["files"].get(kind, {}), **_summary(sizes),
                                    "entries": sum(len(v) for v in files.values())}
+    for name in ("parity.json", "parity-held-out.json"):
+        if (out / name).exists():
+            parity = json.loads((out / name).read_text(encoding="utf-8"))
+            parity["version"] = version
+            (out / name).write_bytes(_dump(parity))
+    marker = out / ".export"
+    if marker.exists():
+        stamp = json.loads(marker.read_text(encoding="utf-8"))
+        stamp["version"] = version
+        marker.write_text(json.dumps(stamp, ensure_ascii=False, sort_keys=True), encoding="utf-8")
     manifest["format"] = FORMAT
-    manifest["version"] = re.sub(r"-f\d+$", f"-f{FORMAT}", manifest["version"])
+    manifest["version"] = version
     manifest["paths"] = PATHS
+    manifest["record"] = RECORD
     manifest["pack"] = {"commit": f"{commit}{'+dirty' if dirty else ''}", "shards": SHARDS}
     _write_manifest(out, manifest)
+    _sync_dir(out)
     return manifest

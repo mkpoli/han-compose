@@ -227,7 +227,11 @@ def export_web_pack(out: Path) -> None:
         raise typer.BadParameter(f"{out} has no manifest.json or no {web_export.WORK}/.")
     complete = out / ".complete"
     complete.unlink(missing_ok=True)
-    manifest = web_export.pack(out, log=lambda line: print(line, flush=True))
+    try:
+        manifest = web_export.pack(out, log=lambda line: print(line, flush=True))
+    except web_export.WorkFileError as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(1) from error
     complete.write_text(manifest["version"], encoding="utf-8")
     print(json.dumps({"version": manifest["version"], "pack": manifest["pack"], **manifest["files"]}, ensure_ascii=False))
 
