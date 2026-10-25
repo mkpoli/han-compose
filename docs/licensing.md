@@ -1,7 +1,6 @@
 # Sources and licence
 
-The code is MIT, as in the glyph-atlas project this was extracted from. What it reads and what it
-draws carry their own terms.
+The code is MIT (`LICENSE`). What it reads and what it draws carry their own terms.
 
 ## Fonts
 
