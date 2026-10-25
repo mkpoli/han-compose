@@ -54,6 +54,11 @@ and the best parts any host offers 0.81: layout is the larger remaining loss, st
   Jigmo (CC0 1.0), a GlyphWiki Mincho.
 - The serif style weights its horizontals with a synthetic heavy master: Noto Serif CJK's variable
   font keeps them about 30 units wide from 200 to 900.
+- The serif style has a layout of its own, learned from the 17,277 characters Noto Serif CJK draws
+  that cut cleanly (Jigmo's are left out). On 500 compound jōyō kanji redrawn without their glyphs,
+  overlap with the serif glyph is 0.634 with it and 0.573 with the sans layout (303 better, 81
+  worse); sans on the same 500 is 0.742. Thin horizontals cost overlap at 96 px: a serif glyph
+  moved one pixel overlaps itself 0.787, a sans one 0.854.
 
 ## Ceilings
 
