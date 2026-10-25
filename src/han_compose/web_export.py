@@ -11,7 +11,8 @@
   statistics, its positional forms;
 - `p/<hh>/<sha256(place + TAB + operand)>.json`: one list per (place, operand) of the pieces host
   characters give that operand there, every host `Composer._ranked`, `_instance` and the kin and
-  facing places may weigh, each cut by the composer (along KanjiVG's groups where it can).
+  facing places may weigh, each cut by the composer (along KanjiVG's groups where it can), or a
+  stub without a piece where it cannot cut it.
 
 `hh` is the hash's first two hex digits. Every file under `g/` and `p/` is gzip-compressed JSON, so a
 page fetches only the records and lists the operands of a sequence name.
@@ -41,7 +42,7 @@ from . import compose as C
 from . import compose_layout as L
 
 #: The export's own format; a change to any file's shape makes a new one.
-FORMAT = 2
+FORMAT = 2.1
 #: Outline coordinates are stored as int16 in units of 1 / `QUANT` font unit.
 QUANT = 4
 #: Host nodes exported per (place, operand), as `Composer._ranked` weighs them: the variable font's
@@ -308,13 +309,23 @@ def candidates(composer: C.Composer, place: str, written: str) -> list[tuple[int
     return prior(chosen.items())
 
 
+def stub_record(composer: C.Composer, entry: tuple, rank: int) -> dict:
+    """A candidate the composer cannot cut: what `Composer._ranked` sorts it by, with `x` 1 and no
+    piece. `_ranked` takes its first `limit` candidates before cutting them, so an entry that fails
+    to cut still uses up a place among them."""
+    char, tree, path, i = entry
+    here = _here(tree, path)
+    return {"r": rank, "h": char, "i": i, "op": here[0], "ok": [C.key(n) for k, n in enumerate(here[1:]) if k != i],
+            "si": round(_sibling_ink(composer, entry), 1), "d": len(path), "v": int(composer.font.own(char)),
+            "j": int(char in composer.japanese), "x": 1}
+
+
 def hosts_for(composer: C.Composer, place: str, written: str) -> list[dict]:
-    """The pieces of every `candidates` entry the composer cuts cleanly, as `_host_node` cuts them."""
+    """Every `candidates` entry: its piece as `_host_node` cuts it, or a stub when it does not cut."""
     out = []
     for rank, entry in candidates(composer, place, written):
         host = composer._host_node(entry[0], entry[1], entry[2])
-        if host is not None:
-            out.append(host_record(composer, entry, host, rank))
+        out.append(host_record(composer, entry, host, rank) if host is not None else stub_record(composer, entry, rank))
     return out
 
 
@@ -401,7 +412,8 @@ def _existing(path: str) -> tuple[dict, tuple[int, int]] | None:
 
 
 def _ids(hosts: list[dict]) -> list[tuple]:
-    return [(h["h"], h["i"], h["r"]) for h in hosts]
+    """The entries a list holds a piece for: stubs left out."""
+    return [(h["h"], h["i"], h["r"]) for h in hosts if not h.get("x")]
 
 
 def _work(task: tuple[str, ...]):
@@ -416,9 +428,11 @@ def _work(task: tuple[str, ...]):
             return task, _ids(found[0]["hosts"]), found[1]
         hosts = hosts_for(_WORKER, place, written)
         for record in _INJECT.get((place, written), []):
+            # A parity drawing cut it, under its own exclusion: its piece replaces the stub.
+            hosts = [h for h in hosts if not (h.get("x") and _same_host(record, h))]
             if not any(_same_host(record, h) for h in hosts):
                 hosts.append(record)
-        if not hosts:
+        if not any(not h.get("x") for h in hosts):
             return task, [], None
         hosts.sort(key=lambda h: (not h["v"], not h["j"], h["d"], h["r"]))
         return task, _ids(hosts), _write(path, {"place": place, "operand": written, "hosts": hosts})
@@ -733,6 +747,7 @@ def export(composer: C.Composer, out: Path, joyo: list[str] | None = None, parit
             "hh": "the hash's first two hex digits",
             "encoding": "every file under g/ and p/ is gzip-compressed JSON (mtime 0); serve it with Content-Encoding: gzip or decompress it",
             "missing": "a key or (place, operand) with no file has no record or no host the composer cuts cleanly",
+            "format": "2.1 adds the stubs of uncut candidates to p/ lists (x 1); records and paths are as in 2",
             "rerun": ".export names the version, key set and parity sizes that wrote g/ and p/; a rerun with the same keeps their files and writes only the missing ones",
         },
         "record": {
@@ -749,7 +764,7 @@ def export(composer: C.Composer, out: Path, joyo: list[str] | None = None, parit
             "o": "outline count the layout reads (compose_layout.outlines): a sequence's is that of the character it describes",
             "f": "shape features the layout reads (compose_layout.shape): a sequence's are those of the character it describes",
             "u": "layout table 'all' per place: [mean box, spread, count]",
-            "hosts": "a p/ file: {place, operand, hosts}; each host: r its position in the index's list for that place and operand (Composer._index, which the kin and facing places slice to KIN_HOSTS and _instance to INSTANCE_HOSTS), h host, i operand index, op node operator, ok other operands' keys, si their ink, d depth, v variable font, j Japanese, n host ink, fr node frame, wh whole character, g gap, kv 1 when cut along KanjiVG's groups, then b, p, w as a part; ordered by v, then j, then d, then r. A list holds every entry _ranked may weigh: the first 32 of the variable font's and 32 of the fallbacks' in that order (16 each when a part is not placed in the em), and the first KIN_HOSTS in r order overall and of the variable font's; entries the composer cannot cut are left out",
+            "hosts": "a p/ file: {place, operand, hosts}; each host: r its position in the index's list for that place and operand (Composer._index, which the kin and facing places slice to KIN_HOSTS and _instance to INSTANCE_HOSTS), h host, i operand index, op node operator, ok other operands' keys, si their ink, d depth, v variable font, j Japanese, n host ink, fr node frame, wh whole character, g gap, kv 1 when cut along KanjiVG's groups, then b, p, w as a part; ordered by v, then j, then d, then r. A list holds every entry _ranked may weigh: the first 32 of the variable font's and 32 of the fallbacks' in that order (16 each when a part is not placed in the em), and the first KIN_HOSTS in r order overall and of the variable font's; an entry the composer cannot cut is a stub: x 1, with r h i op ok si d v j and no piece (no n fr wh g kv b p w); _ranked takes its candidates before cutting them, so a stub uses up a place among the 32 (or 16) and is then skipped. A list with only stubs is not written",
             "parity rows": "c character, s sequence, x characters excluded while drawing it (it and its twins), face the em face under that exclusion, d SVG path (y down from ascent) or null with error, origins per part",
         },
         "files": {

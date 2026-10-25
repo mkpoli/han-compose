@@ -154,7 +154,7 @@ def test_the_export_has_a_manifest_a_layout_records_and_host_lists(exported, com
     assert order == sorted(order) and len({h["r"] for h in hosts}) == len(hosts)
     ranks = {h["r"] for h in hosts}
     wanted = [r for r, _ in web_export.candidates(composer, "L", "亻")]
-    assert ranks <= set(wanted) and len(hosts) > 2 * web_export.CANDIDATES // 2
+    assert ranks == set(wanted) and len(hosts) > 2 * web_export.CANDIDATES // 2
     index, _ = composer._index
     for h in hosts:
         assert index[("L", "亻")][h["r"]][0] == h["h"]
@@ -244,3 +244,22 @@ def test_a_rerun_of_the_same_version_keeps_the_files_a_stopped_run_wrote(compose
     # Another version, or another key set, starts afresh.
     web_export.export(composer, out, only={"亻", "可"}, root=root, log=lambda _: None)
     assert json.loads(gzip.decompress(kept.read_bytes()))["hosts"]
+
+
+def test_a_candidate_that_does_not_cut_is_listed_as_a_stub(composer: compose.Composer) -> None:
+    index, _ = composer._index
+    hosts = web_export.hosts_for(composer, "L", "訁")
+    assert [h["r"] for h in hosts] == [r for r, _ in web_export.candidates(composer, "L", "訁")]
+    stubs = [h for h in hosts if h.get("x")]
+    assert stubs and any(not h.get("x") for h in hosts)
+    for h in hosts:
+        char, tree, path, i = index[("L", "訁")][h["r"]]
+        assert h["h"] == char and h["i"] == i
+        cut = composer._host_node(char, tree, path)
+        if h.get("x"):
+            assert h["x"] == 1 and cut is None and "p" not in h and "b" not in h
+            assert {"r", "h", "i", "op", "ok", "si", "d", "v", "j"} <= set(h)
+        else:
+            assert cut is not None and h["p"]
+    # Stubs hold no piece the parity stats would count.
+    assert len(web_export._ids(hosts)) == len(hosts) - len(stubs)
