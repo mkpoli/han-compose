@@ -76,6 +76,13 @@ def test_learned_rejects_the_pair_when_either_host_is_deformed(monkeypatch, op, 
     assert calls == ["predict"]
 
 
+@pytest.mark.parametrize("box", [(30, 0, 25, 40), (30, 10, 50, 10)])
+def test_learned_declines_a_box_with_no_extent(monkeypatch, box):
+    c, calls = learned_composer(monkeypatch, [(0, 0, 20, 40), box])
+    assert c._learned("⿰", ["A", "B"]) is None
+    assert calls == ["predict"]
+
+
 @pytest.mark.parametrize("at_root", [False, True])
 def test_rejected_learned_pair_uses_geometric_path_once(monkeypatch, at_root):
     boxes = [(0, 60, 20, 100), (0, 0, 20, 10)]
