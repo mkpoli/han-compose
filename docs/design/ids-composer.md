@@ -50,7 +50,10 @@ and the best parts any host offers 0.81: layout is the larger remaining loss, st
 - Three operands with no teacher sharing one of them share the axis as the font's own ⿳ and ⿲
   characters do: by ink, a stacked middle part compressed.
 - Components Noto Sans CJK lacks are drawn from Plangothic (SIL OFL 1.1), the Source Han Sans
-  design extended to the CJK extensions.
+  design extended to the CJK extensions; in the serif style, components Noto Serif CJK lacks from
+  Jigmo (CC0 1.0), a GlyphWiki Mincho.
+- The serif style weights its horizontals with a synthetic heavy master: Noto Serif CJK's variable
+  font keeps them about 30 units wide from 200 to 900.
 
 ## Ceilings
 
