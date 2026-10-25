@@ -71,7 +71,7 @@ def composer() -> compose.Composer:
     from han_compose import kanjivg_cuts
     from han_compose.vocab import cache_root
 
-    font = cache_root() / "fonts" / compose.FONT_FILE
+    font = cache_root() / "fonts" / compose.STYLES["sans"].font.file
     layout = cache_root() / "compose" / compose_layout.LAYOUT_FILE
     if not font.exists() or not layout.exists():
         pytest.skip("The font or the layout model is not cached.")
@@ -123,7 +123,10 @@ def test_the_export_has_a_manifest_a_layout_records_and_host_lists(exported, com
     out, _, manifest = exported
     assert json.loads((out / "manifest.json").read_text()) == manifest
     assert manifest["format"] == web_export.FORMAT
-    assert manifest["version"].endswith(f"-{Path(compose_layout.LAYOUT_FILE).stem}-f{web_export.FORMAT}")
+    assert manifest["version"].endswith(f"-sans-{Path(compose_layout.LAYOUT_FILE).stem}-f{web_export.FORMAT}")
+    assert manifest["style"] == "sans" and manifest["constants"]["HEAVY"] == compose.STYLES["sans"].heavy
+    assert [f["licence"] for f in manifest["licences"]["outlines"]["fonts"]] == ["SIL OFL 1.1"] * 3
+    assert manifest["files"]["licences"] == ["OFL.txt", "MIT-hfhchan-ids.txt"] and not (out / "CC0.txt").exists()
     assert manifest["composer"]["layout_file"] == compose_layout.LAYOUT_FILE
     assert manifest["constants"]["STRETCH"] == compose.STRETCH and manifest["constants"]["HOST_SNAP"] == compose.HOST_SNAP
     assert manifest["constants"]["SHARES"]["⿳,3"] == list(compose.SHARES[("⿳", 3)])
