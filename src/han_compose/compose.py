@@ -1911,9 +1911,14 @@ class Composer:
             return ("⿱", ("⿰", "口", "口"), ("⿰", "口", "口"))
         return (node[0], *(self._normalize_mouth_grids(child) for child in node[1:]))
 
+    def _standalone_mouth_grid(self, node: Node) -> Node:
+        """Use the designed glyph for a complete four-mouth character."""
+        return "㗊" if (key(node) in {"⿰⿱口口⿱口口", "⿱⿰口口⿰口口"}
+                       and "㗊" not in self.exclude and self.font.has("㗊")) else node
+
     def compose(self, sequence: str) -> list[Placed]:
         """The parts that draw `sequence`; LookupError when an operand can be drawn no way."""
-        tree = self._normalize_mouth_grids(parse(sequence))
+        tree = self._standalone_mouth_grid(self._normalize_mouth_grids(parse(sequence)))
         placed = self._node(tree, self.face, at_root=True)
         if self.rerank:
             options = self._reranked(tree, placed)
