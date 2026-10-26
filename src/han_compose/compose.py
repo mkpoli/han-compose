@@ -1949,6 +1949,12 @@ class Composer:
             return ("⿱", ("⿰", "口", "口"), ("⿰", "口", "口"))
         return (node[0], *(self._normalize_mouth_grids(child) for child in node[1:]))
 
+    def _standalone_pyramid(self, node: Node) -> Node:
+        """Use an attested whole glyph for an expanded pyramid-glyphs; keep missing or excluded glyphs decomposed."""
+        equivalents = {'⿱木⿰木木': '森', '⿱日⿰日日': '晶', '⿱金⿰金金': '鑫', '⿱水⿰水水': '淼', '⿱火⿰火火': '焱', '⿱土⿰土土': '垚', '⿱女⿰女女': '姦', '⿱子⿰子子': '孨', '⿱口⿰口口': '品', '⿱吉⿰吉吉': '嚞', '⿱隹⿰隹隹': '雥', '⿱魚⿰魚魚': '鱻', '⿱牛⿰牛牛': '犇', '⿱馬⿰馬馬': '驫', '⿱羊⿰羊羊': '羴', '⿱犬⿰犬犬': '猋', '⿱貝⿰貝貝': '贔', '⿱毛⿰毛毛': '毳', '⿱手⿰手手': '掱', '⿱耳⿰耳耳': '聶', '⿱虫⿰虫虫': '蟲', '⿱車⿰車車': '轟', '⿱力⿰力力': '劦'}
+        char = equivalents.get(key(node))
+        return char if char and char not in self.exclude and self.font.has(char) else node
+
     def _standalone_mouth_grid(self, node: Node) -> Node:
         """Use the designed glyph for a complete four-mouth character."""
         return "㗊" if (key(node) in {"⿰⿱口口⿱口口", "⿱⿰口口⿰口口"}
@@ -1956,7 +1962,7 @@ class Composer:
 
     def compose(self, sequence: str) -> list[Placed]:
         """The parts that draw `sequence`; LookupError when an operand can be drawn no way."""
-        tree = self._standalone_mouth_grid(self._normalize_mouth_grids(parse(sequence)))
+        tree = self._standalone_pyramid(self._standalone_mouth_grid(self._normalize_mouth_grids(parse(sequence))))
         placed = self._node(tree, self.face, at_root=True)
         if self.rerank:
             options = self._reranked(tree, placed)
