@@ -1863,6 +1863,22 @@ class Composer:
         (⿸厂⿱泉心), since a whole character leaves no room inside it: on the 17 audited, 0.491 →
         0.523 (9 better, 5 worse: 魔 摩 贋 lose the corner part their hosts drew). The source
         sequence and encoded identity remain unchanged."""
+        # Explicit insertion layouts; the original two-part IDS keeps its identity.
+        if isinstance(node, tuple) and len(node) == 3:
+            op, outer, inner = node
+            sides = {"行": ("彳", "亍"), "弜": ("弓", "弓"), "玨": ("𤣩", "王"),
+                     "辡": ("辛", "辛"), "雔": ("隹", "隹")}
+            if op == "⿴" and isinstance(outer, str) and outer in sides:
+                left, right = sides[outer]
+                return ("⿲", left, inner, right)
+            if (op, outer) == ("⿴", "衣"):
+                return ("⿳", "亠", inner, "𧘇")
+            if (op, outer) == ("⿸", "𭤨"):
+                return ("⿰", "方", ("⿱", "𠂉", inner))
+            if (op, outer) == ("⿶", "𩰲"):
+                return ("⿱", ("⿲", "弓", inner, "弓"), "鬲")
+            if (op, outer) == ("⿹", "𣪊"):
+                return ("⿰", ("⿱", ("⿳", "士", "冖", "一"), inner), "殳")
         if not isinstance(node, tuple) or node[0] != "⿸" or len(node) != 3 or not isinstance(node[1], str):
             return node
         try:

@@ -247,3 +247,68 @@ def test_hand_forms_follow_kanjivg_stroke_order():
     forms = compose.hand_forms()
     assert forms["右"] == forms["有"] == forms["布"] == "丿"
     assert forms["左"] == forms["友"] == "一"
+
+
+@pytest.mark.parametrize("inner", ["氵", "⬚", ("⿱", "木", "口")])
+def test_xing_enclosure_opens_around_inner_operand(inner):
+    c = compose.Composer(None, {})
+    source = ("⿴", "行", inner)
+    assert c._respelled(source) == ("⿲", "彳", inner, "亍")
+    assert source == ("⿴", "行", inner)
+    for other in (("⿵", "行", inner), ("⿴", "囗", inner), "行"):
+        assert c._respelled(other) == other
+
+
+@pytest.mark.parametrize("nested", [False, True])
+def test_xing_enclosure_draws_as_three_columns(nested):
+    glyphs = {ch: compose.Part([rectangle((0, 0, 100, 100))]) for ch in "彳亍氵木"}
+    font = SimpleNamespace(glyph=glyphs.get, has=lambda ch: ch in glyphs,
+                           own=lambda ch: ch in glyphs, stem=((4, 8), (4, 8)))
+    c = compose.Composer(font, {}, hosted=False, weighted=False, reuse=False)
+    c.__dict__["spelled"] = set()
+    c.__dict__["atomic"] = set()
+    prefix = "⿱木" if nested else ""
+    actual = c.compose(prefix + "⿴行氵")
+    expected = c.compose(prefix + "⿲彳氵亍")
+    assert [p.origin for p in actual] == [p.origin for p in expected]
+    if not nested:
+        assert [p.target for p in actual] == [p.target for p in expected]
+    # A parent still measures its original operand (行); its allocation can differ.
+    left, middle, right = actual[-3:]
+    assert left.target[0] < middle.target[0] < right.target[0]
+
+
+@pytest.mark.parametrize("outer,rendered", [
+    ("⿸𭤨", "⿰方⿱𠂉{inner}"),
+    ("⿴衣", "⿳亠{inner}𧘇"),
+    ("⿴弜", "⿲弓{inner}弓"),
+    ("⿴玨", "⿲𤣩{inner}王"),
+    ("⿴辡", "⿲辛{inner}辛"),
+    ("⿴雔", "⿲隹{inner}隹"),
+    ("⿶𩰲", "⿱⿲弓{inner}弓鬲"),
+    ("⿹𣪊", "⿰⿱⿳士冖一{inner}殳"),
+])
+@pytest.mark.parametrize("inner", ["米", "几", "⬚", "⿱木口"])
+def test_disconnected_enclosures_keep_source_description(outer, rendered, inner):
+    c = compose.Composer(None, {})
+    source = compose.parse(outer + inner)
+    assert c._respelled(source) == compose.parse(rendered.format(inner=inner))
+    assert compose.key(source) == outer + inner
+
+
+@pytest.mark.parametrize("source,explicit", [
+    ("⿸𭤨其", "⿰方⿱𠂉其"), ("⿴衣果", "⿳亠果𧘇"),
+    ("⿴弜米", "⿲弓米弓"), ("⿴玨文", "⿲𤣩文王"),
+    ("⿴辡言", "⿲辛言辛"), ("⿴雔言", "⿲隹言隹"),
+    ("⿶𩰲米", "⿱⿲弓米弓鬲"), ("⿹𣪊几", "⿰⿱⿳士冖一几殳"),
+])
+def test_disconnected_enclosure_rendering(source, explicit):
+    glyphs = {ch: compose.Part([rectangle((0, 0, 100, 100))]) for ch in "弓米鬲士冖一几殳方𠂉其亠𧘇果𤣩王文辛言隹"}
+    font = SimpleNamespace(glyph=glyphs.get, has=lambda ch: ch in glyphs,
+                           own=lambda ch: ch in glyphs, stem=((4, 8), (4, 8)))
+    c = compose.Composer(font, {}, hosted=False, weighted=False, reuse=False)
+    c.__dict__["spelled"] = set()
+    c.__dict__["atomic"] = set()
+    actual, expected = c.compose(source), c.compose(explicit)
+    assert [p.origin for p in actual] == [p.origin for p in expected]
+    assert [p.target for p in actual] == [p.target for p in expected]
