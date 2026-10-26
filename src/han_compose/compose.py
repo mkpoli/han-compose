@@ -820,10 +820,23 @@ CLEARED = frozenset("⿴⿵⿶⿷⿺")
 FACING = (72.0, 53.0)
 #: Most of its length a part gives up to make room for its neighbour.
 SQUEEZE = 0.15
-#: How an aligned operator with no teacher shares its axis: by operand ink to `power`, the middle
-#: operands weighted by `middle`. Fitted on the drawn characters of each operator that cut cleanly
-#: (56 ⿳, 72 ⿲): a stacked middle part is compressed, a centre column is not.
-SHARES = {("⿳", 3): (0.85, 0.75), ("⿲", 3): (0.5, 0.95)}
+#: How an aligned operator with no teacher shares its axis when a nested operand is a sequence no
+#: drawn glyph stands for, whose shape the learned layout cannot read: each operand weighs its ink
+#: to the first power times the strokes it crosses along the axis (`crossings`) to the second, the
+#: middle operands also by the third; the fourth is the share of the axis between neighbouring
+#: boxes, negative where they overlap. Fitted on the font's cut nodes (579 ⿰ and 378 ⿱ with a
+#: compound operand, 89 ⿲, 112 ⿳): mean share error ⿰ 0.050 → 0.047, ⿱ 0.072 → 0.050, ⿲ 0.045 →
+#: 0.037, ⿳ 0.054 → 0.048 against ink alone, and the gaps are their medians. Ink alone gives a part
+#: beside a much busier one too little room (穴 and 心 in 𰻞 took 0.13 and 0.12 of the height for the
+#: glyph's 0.18 and 0.16): its strokes still need their spacing.
+SHARES = {("⿰", 2): (0.5, 0.2, 1.0, -0.034), ("⿱", 2): (0.3, 0.5, 1.0, -0.015),
+          ("⿲", 3): (0.5, 0.2, 0.85, -0.009), ("⿳", 3): (0.5, 0.4, 0.75, -0.006)}
+#: The ink-only shares, used wherever the operands can be read and at the top of a drawing: fitted
+#: on the drawn characters of each operator that cut cleanly (56 ⿳, 72 ⿲), a stacked middle part
+#: compressed and a centre column not.
+SHARES_OLD = {("⿳", 3): (0.85, 0.75), ("⿲", 3): (0.5, 0.95)}
+#: The size of the raster a glyph's strokes are counted on (`crossings`).
+CROSSING_SIZE = 64
 #: Choosing a part for a box in the em: font units of mean edge distance that count as one unit of
 #: mismatch, and the mismatch a part drawn inside a nested node counts as, its em place unknown.
 PLACED_UNITS = 40.0
@@ -998,6 +1011,7 @@ class Composer:
     _root_ranks: list[float] = field(default_factory=list, init=False, repr=False)
     _expanding: set[str] = field(default_factory=set, init=False, repr=False)
     _inks: dict[str, float] = field(default_factory=dict, init=False, repr=False)
+    _crossed: dict[tuple[str, int], float] = field(default_factory=dict, init=False, repr=False)
     _own_counts: dict[str, int | None] = field(default_factory=dict, init=False, repr=False)
     #: Entries that depend on the exclusion, each as (value, characters its computation asked about).
     _any_overlays: dict[None, tuple] = field(default_factory=dict, init=False, repr=False)
@@ -1160,6 +1174,44 @@ class Composer:
         # Unknown or cyclic analyses use permitted 永; without it, one em of nominal outline.
         glyph = self.font.glyph("永") if "永" not in self.exclude else None
         return self.ink("", glyph) if glyph is not None else float(EM)
+
+    def crossings(self, node: Node, axis: int, seen: frozenset[str] = frozenset()) -> float:
+        """The most strokes a line along `axis` crosses in an operand: down a column for a stack (axis
+        1), along a row for a row (0), counted on its glyph (`CROSSING_SIZE` px). A sequence with no
+        glyph to read adds its operands' along that axis, and takes the most of operands side by
+        side across it; an enclosed or overlaid part adds to its enclosing one. Unknown analyses
+        count as 永."""
+        self._reference_context()
+        if isinstance(node, tuple):
+            encoded = self.by_sequence.get(key(node))
+            if encoded is not None and encoded not in self.exclude and self.font.glyph(encoded) is not None:
+                return self.crossings(encoded, axis, seen)
+            counts = [self.crossings(n, axis, seen) for n in node[1:]]
+            return max(counts) if AXIS.get(node[0], axis) != axis else sum(counts)
+        if node not in self.exclude:
+            if (node, axis) not in self._crossed:
+                glyph = self.font.glyph(node)
+                if glyph is not None:
+                    self._crossed[node, axis] = _crossings(glyph, axis)
+            if (node, axis) in self._crossed:
+                return self._crossed[node, axis]
+        if node in self.sequences and node not in seen:
+            try:
+                return self.crossings(parse(self.sequences[node]), axis, seen | {node})
+            except ValueError:
+                pass
+        glyph = self.font.glyph("永") if "永" not in self.exclude else None
+        return _crossings(glyph, axis) if glyph is not None else 1.0
+
+    def _unknown(self, node: Node) -> bool:
+        """Whether an operand is a sequence no drawn glyph stands for, whose shape the learned layout
+        cannot read: a nested node beside it shares its box by `SHARES` instead. On the font's 28 cut
+        nodes of this kind the network's split is off by 0.084 of the width on average, the shares
+        by 0.053."""
+        if not isinstance(node, tuple):
+            return False
+        encoded = self.by_sequence.get(key(node))
+        return encoded is None or encoded in self.exclude or self.font.glyph(encoded) is None
 
     def aspect(self, node: Node, seen: frozenset[str] = frozenset()) -> float:
         """An operand's natural width over height: its glyph's, or for a sequence the operands'
@@ -2046,8 +2098,9 @@ class Composer:
             raise LookupError(f"{op} is not laid out.")
         if op == OVERLAY:
             return self._overlay(children, region)
+        unknown = not at_root and op == "⿰" and any(map(self._unknown, children))
         if self.hosted and self.layout is not None and len(children) == 2 and (
-                op in self.layout.ops if at_root else op in ("⿰", "⿱")):
+                op in self.layout.ops if at_root else op in ("⿰", "⿱") and not unknown):
             learned = self._learned(op, children, None if at_root else region)
             if learned is not None:
                 return learned
@@ -2057,7 +2110,7 @@ class Composer:
                 return transplanted
         found = self._template(op, children, region, absolute=at_root)
         if found is None:
-            return self._shares(op, children, region)
+            return self._shares(op, children, region, at_root)
         host, same = found
         groups: list[list[Placed]] = []
         for i, (child, piece) in enumerate(zip(children, host.pieces)):
@@ -2080,7 +2133,7 @@ class Composer:
                     if target[across + 2] - target[across] < box[across + 2] - box[across]:
                         # The teacher leaves too little axial room for this bare glyph to retain
                         # its cross-axis extent within STRETCH. Allocate both operands together.
-                        return self._shares(op, children, region)
+                        return self._shares(op, children, region, at_root)
                 groups.append(group)
                 continue
             drawn, k = part
@@ -2639,10 +2692,12 @@ class Composer:
             group[0].target = fitted(group[0].source, box, ROW_STRETCH)
         return group
 
-    def _shares(self, op: str, children: list[Node], region: Box) -> list[Placed]:
-        """With no drawn character to follow, operands share the region along an aligned operator by
-        `SHARES` (fitted on the drawn characters of each operator), each part still cut from a host
-        in its place where one exists; an enclosed operand takes the room its enclosing part leaves."""
+    def _shares(self, op: str, children: list[Node], region: Box, at_root: bool = False) -> list[Placed]:
+        """With no drawn character to follow, operands share the region along an aligned operator:
+        `SHARES` where a nested operand is a sequence no glyph reads, `SHARES_OLD` elsewhere (an
+        ink-only split fitted on drawn characters, the top of a drawing included), each part still
+        cut from a host in its place where one exists; an enclosed operand takes the room its
+        enclosing part leaves."""
         if op in ENCLOSE:
             outer = self._node(children[0], region)
             room = self._room(op, outer, region)
@@ -2654,9 +2709,15 @@ class Composer:
             _fit_inside(outer, inner, region, self.font.stem[0][0])
             return outer + inner
         axis = AXIS[op]
-        power, middle = SHARES.get((op, len(children)), (0.5, 1.0))
-        weights = [self.ink(c) ** power * (middle if 0 < k < len(children) - 1 else 1.0) for k, c in enumerate(children)]
-        gap = 0.04
+        if not at_root and any(map(self._unknown, children)):
+            power, crossed, middle, gap = SHARES[(op, len(children))]
+            weights = [self.ink(c) ** power * self.crossings(c, axis) ** crossed
+                       * (middle if 0 < k < len(children) - 1 else 1.0) for k, c in enumerate(children)]
+        else:
+            power, middle = SHARES_OLD.get((op, len(children)), (0.5, 1.0))
+            weights = [self.ink(c) ** power * (middle if 0 < k < len(children) - 1 else 1.0)
+                       for k, c in enumerate(children)]
+            gap = 0.04
         fit = (1 - gap * (len(children) - 1)) / sum(weights)
         lo, span = region[axis], region[axis + 2] - region[axis]
         groups, at = [], 0.0
@@ -2980,6 +3041,14 @@ def raster(placed: list[Placed], size: int = 128) -> np.ndarray:
     for item in placed:
         mask |= fill(_rings(item.part.contours, item.contours()), size, box)
     return mask
+
+
+def _crossings(part: Part, axis: int) -> float:
+    """The most strokes of `part` a line along `axis` crosses, on its glyph drawn in the em at `CROSSING_SIZE` px."""
+    mask = raster([Placed(part, part.box, part.box)], CROSSING_SIZE)
+    lines = mask if axis == 1 else mask.T
+    starts = lines[0].astype(int) + (lines[1:] & ~lines[:-1]).sum(axis=0)
+    return float(max(starts.max(), 1))
 
 
 def _square(part: Part, size: int = TYPICAL_SIZE) -> np.ndarray:
