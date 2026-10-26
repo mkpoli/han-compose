@@ -1,10 +1,12 @@
-"""Draw a character Unicode lacks from its Ideographic Description Sequence, in one of two styles.
+"""Draw a character Unicode lacks from its Ideographic Description Sequence, in one of three styles.
 
 `sans` draws in GenZui Sans, which takes its ideographs unchanged from Noto Sans JP at weight 400,
 which in turn draws them as Noto Sans CJK JP does. The composer reads Noto Sans CJK JP, the variable
 font that draws 30,289 ideographs to Noto Sans JP's 13,742 with the same outlines, so each outline is
 known at weight 400 and at the style's heavy weight with the same points. `serif` reads Noto Serif
-CJK JP, the variable Source Han Serif, the same way (`STYLES`). Every layout and every part comes
+CJK JP, the variable Source Han Serif, the same way. `kaisho` reads Kureedo, the Klee One design
+extended with historical kana, at one static weight, with GenZui Sans drawing characters Kureedo
+lacks (`STYLES`). Every layout and every part comes
 from a character a type designer drew; a sequence (⿰亻哥) is drawn in three steps:
 
 1. Teacher. For each node, the drawn character with a node of the same operator whose operands are
@@ -79,6 +81,8 @@ class Style:
     heavy: int = 900
     synthetic_y: bool = False
     kindred: bool = True
+    #: Whether stroke weights are balanced across parts. A static brush face keeps its own weights.
+    weighted: bool = True
 
 
 OFL = "SIL OFL 1.1"
@@ -123,9 +127,27 @@ STYLES = {
         synthetic_y=True,
         kindred=False,
     ),
+    # Kureedo v0.4.3: Klee One's kaisho with the historical kana and Ainu small kana. It is a static
+    # font, so 400 is also the heavy master; GenZui Sans draws the ideographs Klee One lacks.
+    "kaisho": Style(
+        "kaisho",
+        Source("Kureedo-Regular.ttf",
+               "https://github.com/mkpoli/kureedo/releases/download/v0.4.3/Kureedo-Regular.ttf",
+               "3402dc79e14f333ceb670d3e14e246a702701d2af67e2fee6baa95fc1c5e3527", OFL),
+        (Source("GenZuiSans-Regular.ttf",
+                "https://github.com/mkpoli/GenZui/releases/download/sans-v0.105/GenZuiSans-Regular.ttf",
+                "121871ee522380b1f591fc6871850416cb74e075a534438eb5180b43094ebe0f", OFL),),
+        # Kureedo's stems measured at 400; the static font has no weight axis to thin them.
+        ((70.0, 0.0), (70.0, 0.0)),
+        heavy=400,
+        kindred=False,
+        weighted=False,
+    ),
 }
 DEFAULT_STYLE = "sans"
 EM = 1000
+#: How far a static style's outlines grow on every side to make its heavy master.
+STATIC_GROW = 20.0
 #: The em's top in the font's units: an SVG path is drawn from here down.
 ASCENT = 880
 #: The operators a part is cut from its host along: x for side by side, y for stacked.
@@ -428,11 +450,12 @@ class Font:
         self.fallbacks = [(font, font.getBestCmap(), font.getGlyphSet(), self.font["head"].unitsPerEm / font["head"].unitsPerEm)
                           for font in fonts]
         self.cmap = self.font.getBestCmap()
+        self.static = "fvar" not in self.font
         # Ideographic variation sequences: (base, selector) → glyph name, None for the base's own glyph.
         self.variants = {(base, selector): name for table in self.font["cmap"].tables if table.format == 14
                          for selector, pairs in table.uvsDict.items() for base, name in pairs}
         self.light = self.font.getGlyphSet(location={"wght": 400})
-        self.heavy = self.font.getGlyphSet(location={"wght": self.style.heavy})
+        self.heavy = self.light if self.static else self.font.getGlyphSet(location={"wght": self.style.heavy})
         self._parts: dict[str, Part | None] = {}
         # Stem widths at 400 and at heavy: 丨's width across x, 一's height across y, each across the
         # middle of the stroke, clear of the serifs at its ends.
@@ -443,6 +466,9 @@ class Font:
             # Horizontals grown in the proportion the verticals grow in.
             self.grow_y = across_y[0] * (across_x[1] / across_x[0] - 1) / 2
             across_y = (across_y[0], across_y[0] + 2 * self.grow_y)
+        if self.static:
+            across_x = (across_x[0], across_x[1] + 2 * STATIC_GROW)
+            across_y = (across_y[0], across_y[1] + 2 * STATIC_GROW)
         self.stem = (across_x, across_y)
         #: The fallbacks' stroke widths against this font's at 400, across x and across y.
         self.family = None
@@ -527,6 +553,13 @@ class Font:
                 self.light[name].draw(light)
                 self.heavy[name].draw(heavy)
                 contours = [Contour(ops, p, q) for (ops, p), (_, q) in zip(_contours(light), _contours(heavy))]
+                if self.static:
+                    flat = [Contour(ops, p, p) for ops, p in _contours(light)]
+                    mask = fill(_rings(flat, [c.light for c in flat], steps=2), 200, (0.0, ASCENT - EM, EM, ASCENT))
+                    width = tuple(w if np.isfinite(w) else self.stem[axis][0] for axis, w in enumerate(stems(mask, EM / 200)))
+                    for c in contours:
+                        c.heavy = _grown(c.light, (STATIC_GROW, STATIC_GROW))
+                        c.width = width
                 if self.grow_y:
                     for c in contours:
                         c.heavy = np.column_stack([c.heavy[:, 0], _grown(c.light, (0.0, self.grow_y))[:, 1]])

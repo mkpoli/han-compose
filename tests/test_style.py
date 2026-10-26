@@ -15,7 +15,7 @@ from han_compose import compose, compose_layout, compose_standalone, web_export
 
 
 def test_every_style_pins_each_of_its_fonts_by_sha256_and_licence() -> None:
-    assert compose.DEFAULT_STYLE == "sans" and set(compose.STYLES) == {"sans", "serif"}
+    assert compose.DEFAULT_STYLE == "sans" and set(compose.STYLES) == {"sans", "serif", "kaisho"}
     files = []
     for name, style in compose.STYLES.items():
         assert style.name == name
@@ -45,7 +45,7 @@ def test_only_fallbacks_of_the_main_fonts_design_teach_the_layout() -> None:
 
     import multiprocessing as mp
 
-    for style, expected in (("sans", {"一", "𠀀"}), ("serif", {"一"})):
+    for style, expected in (("sans", {"一", "𠀀"}), ("serif", {"一"}), ("kaisho", {"一"})):
         seen.clear()
         font = SimpleNamespace(style=compose.STYLES[style], has=lambda ch: True, own=lambda ch: ch == "一")
         fake = SimpleNamespace(font=font, sequences={"一": "⿱一一", "𠀀": "⿰一一"}, _index=None)
@@ -62,6 +62,7 @@ def test_only_fallbacks_of_the_main_fonts_design_teach_the_layout() -> None:
 def test_models_of_another_style_are_cached_under_their_own_names() -> None:
     assert compose_layout.layout_file("sans") == compose_layout.LAYOUT_FILE
     assert compose_layout.layout_file("serif") == "compose-layout-v4-serif.npz"
+    assert compose_layout.layout_file("kaisho") == "compose-layout-v4-kaisho.npz"
     assert compose.styled(compose_standalone.STANDALONE_FILE, "serif") == "compose-standalone-v2-serif.json"
     assert compose.styled(compose_standalone.STANDALONE_FILE, "sans") == compose_standalone.STANDALONE_FILE
 
@@ -142,5 +143,23 @@ def test_the_cli_refuses_a_style_it_does_not_know() -> None:
     import compose_ids
 
     assert compose_ids._style("serif") == "serif"
+    assert compose_ids._style("kaisho") == "kaisho"
     with pytest.raises(typer.BadParameter):
         compose_ids._style("mincho")
+
+
+@pytest.fixture(scope="module")
+def kaisho() -> compose.Font:
+    if not _cached("kaisho"):
+        pytest.skip("The Kaisho fonts are not cached; `scripts/compose_ids.py draw --style kaisho` fetches them.")
+    return compose.Font.of("kaisho")
+
+
+def test_kaisho_reads_a_static_face_and_keeps_its_brush_weight(kaisho: compose.Font) -> None:
+    assert kaisho.static and "fvar" not in kaisho.font
+    assert kaisho.style.weighted is False
+    assert kaisho.stem[0][0] > 0 and kaisho.stem[1][0] > 0
+    part = kaisho.glyph("口")
+    assert part is not None and part.contours
+    # GenZui Sans supplies what Klee One lacks.
+    assert kaisho.own("口") and kaisho.has("㐆")
