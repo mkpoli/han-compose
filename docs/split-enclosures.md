@@ -28,6 +28,8 @@ The bundled BabelStone IDS snapshot supplies the outer decompositions and the ex
 
 `⿶𤕰X` (鼎) remains a candidate requiring further geometry checks. Ordinary connected enclosures such as 門, 疒 and 戊 are not rewritten simply because they have decompositions.
 
+The fully expanded four-mouth grid is normalized before glyph/host lookup so both spellings choose the same rendering: `⿰⿱口口⿱口口` is laid out as `⿱⿰口口⿰口口`. Either spelling can be the outer operand of `⿴`; its middle operand is placed between the two rows. An editor retains the original leaf order, including column-first selection for the column-first input. Other grids are unchanged.
+
 ## Sources
 
 - `data/vocab/han-ids.tsv`: bundled BabelStone IDS data, records for the components and examples above. Regional labels describe the source forms; X labels alternative analyses.
