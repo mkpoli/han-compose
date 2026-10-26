@@ -1,9 +1,27 @@
 # han-compose
 
-Draws an Ideographic Description Sequence as outlines in GenZui Sans, or in a serif (明朝) style
-from Noto Serif CJK JP. Parts come from characters the font already draws, laid out where its designers put parts like these and brought to one
-stroke weight. The result is a set of outlines in the font's 1000-unit em, written out as an SVG
-path.
+han-compose draws a Han character from its ideographic description sequence (IDS), such as
+`⿰亻哥`, as font outlines. Use it to draw a character no font has, one with no code point, or a
+regional form the font does not draw. Each part comes from a character the font already draws,
+cut out of it (along KanjiVG's component groups where KanjiVG has that kanji), set where the
+font's designers put parts like it, and brought to one stroke weight. The result is an SVG path in
+a 1000-unit em, in a sans style from Noto Sans CJK JP, whose ideographs GenZui Sans takes unchanged,
+or a serif (明朝) style from Noto Serif CJK JP. Plangothic supplies the sans parts Noto lacks, and
+Jigmo the serif ones.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/composed-dark.png">
+  <img src="docs/images/composed-light.png" alt="Seven sequences composed in sans and serif, each above the font's own glyph: ⿰口馬 嗎, ⿰亻每 侮 in its Chinese form beside the font's Japanese 侮, ⿵門身 𨉖, ⿲亻丨久 𠇉, the Chữ Nôm ⿰宁字 𡨸, and ⿰亻哥 and ⿻木⿰口口, which have no code point and no font glyph">
+</picture>
+
+Each composed glyph above is drawn from its sequence with the character's own glyph left out; the
+row below it is the font's glyph. 侮 is composed in the Chinese form, ⿰亻每, while the Japanese
+font draws ⿰亻毎. Composed glyphs that use KanjiVG cuts are CC BY-SA 3.0 (see [Sources](#sources)),
+so the image is shared under CC BY-SA 3.0.
+
+han-compose lays out ⿰ ⿱ ⿲ ⿳, the enclosures ⿴ to ⿺, and the overlay ⿻. It does not draw ⿼ ⿽ ⿾
+⿿ ㇯ or 〾, and its fonts have no Tangut. Chữ Nôm characters are Han characters and are drawn like
+any other.
 
 ## Run
 
@@ -12,7 +30,11 @@ uv sync
 uv run scripts/compose_ids.py draw ⿰亻哥 > 亻哥.svg
 uv run scripts/compose_ids.py bench --chars joyo
 uv run scripts/compose_ids.py draw --style serif ⿰亻哥 > 亻哥-serif.svg
+uv run scripts/compose_ids.py draw-many sequences.txt out/
 ```
+
+`draw-many` draws every sequence in a file, one a line, into `out/` as `<sha256 of its NFC form>.svg`,
+and lists those it cannot draw.
 
 Every command takes `--style sans` (the default) or `--style serif`. Each style has its own fonts,
 stroke-width fit and models: a serif model is cached as `<name>-serif.<ext>` beside the sans one, and
@@ -73,7 +95,7 @@ Fonts download to `cache/fonts/` on first use. `$HAN_COMPOSE_CACHE` points the c
 | `src/han_compose/kanjivg_cuts.py` | cutting a host along KanjiVG's component groups |
 | `src/han_compose/vocab.py` | the vocab tables and the cache |
 | `src/han_compose/web_export.py` | the layout and drawing data for a browser port |
-| `scripts/compose_ids.py` | `draw`, `bench`, `calibrate`, `learn`, `learn-alone`, `export-web`, `export-web-pack` |
+| `scripts/compose_ids.py` | `draw`, `draw-many`, `bench`, `calibrate`, `learn`, `learn-alone`, `export-web`, `export-web-pack` |
 | `tests/` | tests over cutting, layout, drawn output and the web export |
 | `docs/design/ids-composer.md` | the method, its measurements, and what did not help |
 
