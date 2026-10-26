@@ -385,3 +385,102 @@ def test_pack_names_a_work_folder_that_is_not_there(exported, tmp_path: Path) ->
     with pytest.raises(web_export.WorkFileError, match=r"\.work/p is missing"):
         web_export.pack(out, log=lambda _: None)
     assert {k: v for k, v in _files(out).items() if k[0] in "gp"} == {k: v for k, v in _files(a).items() if k[0] in "gp"}
+
+
+def test_letters_are_the_alphabetic_letters_and_digits_the_fonts_draw(composer: compose.Composer) -> None:
+    found = web_export.letters(composer.font)
+    for char in "KOaz09ÄæΩЖあゞアーㇰ가힣ㄱᄀＫ０ｶ":
+        assert char in found, char
+    for char in "亻 ,.-ᅟᅠㅤﾠ⿰⬚？":
+        assert char not in found, char
+
+
+def _clean_root(tmp_path: Path) -> Path:
+    root = tmp_path / "checkout"
+    root.mkdir()
+    for args in (["init", "-q"], ["-c", "user.email=a@b", "-c", "user.name=a", "commit", "-q", "--allow-empty", "-m", "x"]):
+        subprocess.run(["git", "-C", str(root), *args], check=True)
+    return root
+
+
+def test_added_letters_rebuild_only_their_shards(composer: compose.Composer, tmp_path: Path) -> None:
+    out, root = tmp_path / "out", _clean_root(tmp_path)
+    # 王 has no index data of its own here (no pairs), so the folder holds a record the probe redraws.
+    web_export.export(composer, out, only={"王", "何"}, pairs=set(), root=root, log=lambda _: None)
+    before = _files(out)
+    manifest = json.loads((out / "manifest.json").read_text())
+    keys = {"K", "O", "가"}
+    dry = web_export.add(composer, out, keys, "letters", root=root, dry_run=True, log=lambda _: None)
+    assert dry["new"] == 3 and _files(out) == before
+    added = web_export.add(composer, out, keys, "letters", root=root, log=lambda _: None)
+    assert not (out / ".complete").exists() and (out / web_export.PENDING).exists()
+    changed: list[str] = []
+    packed = web_export.pack(out, root=root, log=lambda _: None, changed=changed)
+    assert sorted(changed) == sorted({web_export.record_shard(k) for k in keys}) == added["shards"]
+    assert not (out / web_export.PENDING).exists()
+    after = _files(out)
+    # Only the shards the letters fall in and the manifest differ.
+    assert {k for k in before.keys() | after.keys() if before.get(k) != after.get(k) and not k.startswith(".")} == {*changed, "manifest.json"}
+    assert _record(out, "K")["G"]["p"] and _record(out, "가")["G"]["p"]
+    version = manifest["version"] + "+letters"
+    assert packed["version"] == version
+    assert json.loads((out / ".export").read_text())["version"] == version
+    assert packed["added"] == [{"set": "letters", "commit": web_export._version(root)[0], "keys": 3, "probe": added["probe"], "shards": len(changed)}]
+    assert packed["files"]["records"]["entries"] == manifest["files"]["records"]["entries"] + 3
+    # A full pack of the same work files gives the same shards.
+    import shutil
+
+    full = tmp_path / "full"
+    shutil.copytree(out, full)
+    web_export.pack(full, root=root, log=lambda _: None)
+    assert {k: v for k, v in _files(full).items() if k.startswith("g/")} == {k: v for k, v in after.items() if k.startswith("g/")}
+    # Adding them again writes nothing and keeps the name.
+    (out / ".complete").write_text(version)
+    assert web_export.add(composer, out, keys, "letters", root=root, log=lambda _: None)["new"] == 0
+    assert json.loads((out / "manifest.json").read_text())["version"] == version
+    assert web_export.added_version(version, "letters") == version
+    assert web_export.added_version(version, "digits") == version + "+digits"
+
+
+def test_letters_are_not_added_from_another_font_or_a_dirty_tree(composer: compose.Composer, tmp_path: Path) -> None:
+    out, root = tmp_path / "out", _clean_root(tmp_path)
+    web_export.export(composer, out, only={"王"}, pairs=set(), root=root, log=lambda _: None)
+    stamp = json.loads((out / ".export").read_text())
+    (out / ".export").write_text(json.dumps({**stamp, "layout_sha256": "0" * 64}))
+    with pytest.raises(web_export.AddError, match="layout_sha256"):
+        web_export.add(composer, out, {"K"}, "letters", root=root, log=lambda _: None)
+    (out / ".export").write_text(json.dumps(stamp))
+    with pytest.raises(web_export.AddError, match="clean"):
+        web_export.add(composer, out, {"K"}, "letters", root=tmp_path / "not-a-checkout", log=lambda _: None)
+    with pytest.raises(web_export.AddError, match="index"):
+        web_export.add(composer, out, {"可"}, "letters", root=root, log=lambda _: None)
+
+
+def test_a_stopped_addition_carries_on_and_packs_every_shard_it_touched(composer: compose.Composer, tmp_path: Path, monkeypatch) -> None:
+    out, root = tmp_path / "out", _clean_root(tmp_path)
+    web_export.export(composer, out, only={"王"}, pairs=set(), root=root, log=lambda _: None)
+    keys = {"K", "O", "가"}
+    real, calls = web_export.char_record, []
+
+    def stopping(c, key, *args):
+        calls.append(key)
+        if key in keys and len([k for k in calls if k in keys]) == 2:
+            raise KeyboardInterrupt
+        return real(c, key, *args)
+
+    monkeypatch.setattr(web_export, "char_record", stopping)
+    with pytest.raises(KeyboardInterrupt):
+        web_export.add(composer, out, keys, "letters", root=root, log=lambda _: None)
+    monkeypatch.setattr(web_export, "char_record", real)
+    assert not (out / ".complete").exists() and (out / web_export.PENDING).exists()
+    with pytest.raises(web_export.AddError, match="holds letters"):
+        web_export.add(composer, out, keys, "digits", root=root, log=lambda _: None)
+    assert web_export.add(composer, out, keys, "letters", root=root, log=lambda _: None)["new"] == 2
+    changed: list[str] = []
+    packed = web_export.pack(out, root=root, log=lambda _: None, changed=changed)
+    assert sorted(changed) == sorted({web_export.record_shard(k) for k in keys})
+    assert [(a["keys"], a["shards"]) for a in packed["added"]] == [(3, len(changed))]
+    assert packed["version"].endswith("-f5+letters")
+    for key in keys:
+        assert _record(out, key)["G"]["p"]
+    assert not (out / web_export.PENDING).exists()

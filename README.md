@@ -51,6 +51,18 @@ to format 5, so a format-4 folder whose `g/` and `p/` are moved under `.work/` b
 a format-5 export writes. A rerun resumes from `.work/` only under the same version, which names
 the commit: from another commit `export-web` starts afresh.
 
+Records hold every letter and digit of an alphabet or syllabary the style's fonts draw (Latin,
+IPA, Greek, Cyrillic, kana, Hangul, the full- and half-width forms), so a sequence such as
+`⿸广⿰KO` draws in a port. `export-web OUT --add letters` writes those records into a finished
+folder made before they were part of the export, after checking that the folder's fonts, layout and
+KanjiVG are the ones in use and that this commit records 40 of the folder's characters exactly as
+the folder holds them. `export-web-pack` then rebuilds only the shards the new records fall in,
+and the folder takes a new version, the old one with `+letters` after it, in its manifest, parity
+files, `.export` and `.complete`: ports serve the files immutable by URL, so changed bytes need a
+new name, and the folder is uploaded whole under it. The manifest's `added` names the commit, the
+set, the count and the shards changed. Adding the same set again keeps the name. `--dry-run`
+reports how many keys and shards an addition would take and writes nothing.
+
 `.work/` must never be uploaded: each of its files would be one more object written. Exclude it
 when copying the folder out:
 

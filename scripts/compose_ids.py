@@ -221,16 +221,32 @@ def learn_alone(records: str = "", workers: int = 3, style: str = STYLE) -> None
 
 
 @app.command("export-web")
-def export_web(out: Path, parity: int = 0, held_out: int = 0, workers: int = 1, style: str = STYLE) -> None:
+def export_web(out: Path, parity: int = 0, held_out: int = 0, workers: int = 1, style: str = STYLE,
+               add: str = "", dry_run: bool = False) -> None:
     """Write what a browser port of the composer needs into `out` (`han_compose.web_export`):
     manifest, layout, and the records and host lists packed into shards by hash. `--parity N` also draws N compound jōyō
     kanji sequences with this composer into `out/parity.json`, whose hosts join the export, and
-    `--held-out M` M more into `out/parity-held-out.json`, whose hosts do not."""
+    `--held-out M` M more into `out/parity-held-out.json`, whose hosts do not.
+
+    `--add letters` instead writes records for every letter and digit the fonts draw
+    (`web_export.letters`) into the finished export in `out`, for `export-web-pack` to rebuild only
+    the shards they fall in; `--dry-run` reports how many keys and shards that is and writes nothing."""
     from han_compose import web_export
 
     composer = _composer(style)
     if composer.layout is None:
         raise typer.BadParameter(f"{_layout_path(style)} is missing: `learn --style {style}` builds it.")
+    if add:
+        if add != "letters":
+            raise typer.BadParameter(f"--add takes letters, not {add}.")
+        try:
+            result = web_export.add(composer, out, web_export.letters(composer.font), add, dry_run=dry_run,
+                                    log=lambda line: print(line, flush=True))
+        except web_export.AddError as error:
+            typer.echo(str(error), err=True)
+            raise typer.Exit(1) from error
+        print(json.dumps({"keys": result["keys"], "new": result["new"], "shards": len(result["shards"])}))
+        return
     manifest = web_export.export(composer, out, joyo=joyo() if parity or held_out else None, parity=parity,
                                  held_out=held_out, workers=workers, log=lambda line: print(line, flush=True))
     print(json.dumps({"version": manifest["version"], **manifest["files"]}, ensure_ascii=False))
@@ -239,7 +255,8 @@ def export_web(out: Path, parity: int = 0, held_out: int = 0, workers: int = 1, 
 @app.command("export-web-pack")
 def export_web_pack(out: Path) -> None:
     """Build the `g/` and `p/` shards of a finished export in `out` from its per-key files under
-    `out/.work/`, and rewrite its manifest (`han_compose.web_export.pack`)."""
+    `out/.work/`, and rewrite its manifest (`han_compose.web_export.pack`). After `export-web --add`,
+    only the shards the added records fall in are rebuilt, and the folder's version gains `+<set>`."""
     from han_compose import web_export
 
     if not (out / "manifest.json").exists() or not (out / web_export.WORK).is_dir():
@@ -247,12 +264,14 @@ def export_web_pack(out: Path) -> None:
     complete = out / ".complete"
     complete.unlink(missing_ok=True)
     try:
-        manifest = web_export.pack(out, log=lambda line: print(line, flush=True))
+        changed: list[str] = []
+        manifest = web_export.pack(out, log=lambda line: print(line, flush=True), changed=changed)
     except web_export.WorkFileError as error:
         typer.echo(str(error), err=True)
         raise typer.Exit(1) from error
     complete.write_text(manifest["version"], encoding="utf-8")
-    print(json.dumps({"version": manifest["version"], "pack": manifest["pack"], **manifest["files"]}, ensure_ascii=False))
+    print(json.dumps({"version": manifest["version"], "pack": manifest["pack"], "changed": len(changed), **manifest["files"]},
+                     ensure_ascii=False))
 
 
 @app.command()
