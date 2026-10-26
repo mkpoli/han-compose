@@ -981,8 +981,14 @@ def add(composer: C.Composer, out: Path, keys: Iterable[str], name: str, root: P
     shapes: dict = {}
     _OUT = out
     # The probe: characters the folder holds, recorded again by this commit.
-    held = sorted(c for c in set(composer.by_sequence.values()) if (out / record_work(c)).exists())
-    probe = random.Random(0).sample(held, min(PROBE, len(held)))
+    candidates = sorted(set(composer.by_sequence.values()))
+    random.Random(0).shuffle(candidates)
+    probe = []
+    for char in candidates:
+        if len(probe) == PROBE:
+            break
+        if (out / record_work(char)).exists():
+            probe.append(char)
     if not probe:
         raise AddError(f"{out} holds no character to check this commit's records against")
     for char in probe:
