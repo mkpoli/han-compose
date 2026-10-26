@@ -1953,6 +1953,7 @@ class Composer:
 
     def _standalone_repeated_grid(self, node: Node) -> Node:
         """Use the designed glyph for a complete attested four-part grid."""
+        self._reference_context()
         for part, char in {"口": "㗊", "火": "燚", "又": "叕", "水": "㵘", "屮": "茻"}.items():
             if (key(node) in {f"⿰⿱{part}{part}⿱{part}{part}", f"⿱⿰{part}{part}⿰{part}{part}"}
                     and char not in self.exclude and self.font.has(char)):

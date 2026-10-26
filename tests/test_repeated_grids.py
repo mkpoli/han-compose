@@ -49,3 +49,13 @@ def test_mixed_grid_unchanged():
     for text in ["⿰⿱火口⿱火火", "⿰⿱木木⿱木木"]:
         tree = compose.parse(text)
         assert c._normalize_repeated_grids(tree) == tree
+
+
+@pytest.mark.parametrize("text,char", CASES)
+def test_whole_glyph_selection_respects_excluded_twins(text, char):
+    c = fixture(exclude=["甲"])
+    c.__dict__["twins"] = {"甲": frozenset([char])}
+    tree = compose.parse(text)
+    assert c._standalone_repeated_grid(tree) == tree
+    assert char in c.exclude
+    assert all(p.origin != f"glyph {char}" for p in c.compose(text))
