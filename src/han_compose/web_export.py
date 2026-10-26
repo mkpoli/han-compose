@@ -1000,7 +1000,7 @@ def add(composer: C.Composer, out: Path, keys: Iterable[str], name: str, root: P
     shards = sorted({record_shard(key) for key in new})
     log(f"{len(wanted)} keys, {len(new)} without a record, in {len(shards)} shards (probe of {len(probe)} matched)")
     if dry_run or not new:
-        return {"keys": len(wanted), "new": len(new), "shards": shards}
+        return {"keys": len(wanted), "new": len(new), "shards": shards, "probe": len(probe)}
     # Each shard as it is before: pack counts a shard changed against these.
     before = {}
     for shard in shards:
