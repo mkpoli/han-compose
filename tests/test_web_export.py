@@ -422,7 +422,9 @@ def test_added_letters_rebuild_only_their_shards(composer: compose.Composer, tmp
     # Only the shards the letters fall in and the manifest differ.
     assert {k for k in before.keys() | after.keys() if before.get(k) != after.get(k) and not k.startswith(".")} == {*changed, "manifest.json"}
     assert _record(out, "K")["G"]["p"] and _record(out, "가")["G"]["p"]
-    assert packed["version"] == manifest["version"]
+    version = manifest["version"] + "+letters"
+    assert packed["version"] == version
+    assert json.loads((out / ".export").read_text())["version"] == version
     assert packed["added"] == [{"set": "letters", "commit": web_export._version(root)[0], "keys": 3, "probe": added["probe"], "shards": len(changed)}]
     assert packed["files"]["records"]["entries"] == manifest["files"]["records"]["entries"] + 3
     # A full pack of the same work files gives the same shards.
@@ -432,9 +434,12 @@ def test_added_letters_rebuild_only_their_shards(composer: compose.Composer, tmp
     shutil.copytree(out, full)
     web_export.pack(full, root=root, log=lambda _: None)
     assert {k: v for k, v in _files(full).items() if k.startswith("g/")} == {k: v for k, v in after.items() if k.startswith("g/")}
-    # Adding them again writes nothing.
-    (out / ".complete").write_text("x")
+    # Adding them again writes nothing and keeps the name.
+    (out / ".complete").write_text(version)
     assert web_export.add(composer, out, keys, "letters", root=root, log=lambda _: None)["new"] == 0
+    assert json.loads((out / "manifest.json").read_text())["version"] == version
+    assert web_export.added_version(version, "letters") == version
+    assert web_export.added_version(version, "digits") == version + "+digits"
 
 
 def test_letters_are_not_added_from_another_font_or_a_dirty_tree(composer: compose.Composer, tmp_path: Path) -> None:
@@ -475,6 +480,7 @@ def test_a_stopped_addition_carries_on_and_packs_every_shard_it_touched(composer
     packed = web_export.pack(out, root=root, log=lambda _: None, changed=changed)
     assert sorted(changed) == sorted({web_export.record_shard(k) for k in keys})
     assert [(a["keys"], a["shards"]) for a in packed["added"]] == [(3, len(changed))]
+    assert packed["version"].endswith("-f5+letters")
     for key in keys:
         assert _record(out, key)["G"]["p"]
     assert not (out / web_export.PENDING).exists()

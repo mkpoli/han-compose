@@ -713,7 +713,7 @@ PATHS = {
     "encoding": "every file under g/ and p/ is gzip-compressed JSON (mtime 0, keys sorted); serve it with Content-Encoding: gzip or decompress it",
     "missing": "a key or (place, operand) absent from its shard, or whose shard is absent, has no record or no host the composer cuts cleanly",
     "work": ".work/g/{hh}/{sha256}.json and .work/p/{hh}/{sha256}.json are the per-key files the export's workers write and pack builds the shards from. .work/ must never be uploaded: each of its files is one more object written (rclone copy --exclude '.work/**')",
-    "added": "manifest added lists records written into a finished folder afterwards (export-web --add): the set, the commit that wrote them, how many, how many of the folder's records it redrew and matched first (probe), and how many shards changed; the version stays, as no record the folder held changes",
+    "added": "manifest added lists records written into a finished folder afterwards (export-web --add): the set, the commit that wrote them, how many, how many of the folder's records it redrew and matched first (probe), and how many shards changed. The folder's version gains +<set>, since files are served immutable by URL and new bytes need a new name",
     "rerun": ".export names the version, the layout, font and KanjiVG hashes, the key set and the parity sizes that wrote the folder; a rerun with the same, from a known clean commit, keeps the .work/ files and writes only the missing ones, then packs every shard afresh; anything else starts afresh. .complete is written last, after manifest.json and the shards",
 }
 
@@ -1077,7 +1077,7 @@ def pack(out: Path, root: Path | None = None, log=print, changed: list[str] | No
     there (`WorkFileError`) stops the pack before the manifest. Returns the manifest.
 
     After `add`, only the shards `PENDING` lists are rebuilt (`_pack_pending`), and `changed`
-    receives those whose bytes differ: the files to upload."""
+    receives those whose bytes differ."""
     import re
     import shutil
 
@@ -1085,7 +1085,7 @@ def pack(out: Path, root: Path | None = None, log=print, changed: list[str] | No
 
     manifest = json.loads((out / "manifest.json").read_text(encoding="utf-8"))
     commit, dirty = _version(root or ROOT)
-    version = re.sub(r"-f\d+$", f"-f{FORMAT}", manifest["version"])
+    version = re.sub(r"-f\d+(?=(\+[\w-]+)*$)", f"-f{FORMAT}", manifest["version"])
     # A work folder that was never moved, or was moved elsewhere, would otherwise pack as empty.
     for folder, kind in (("g", "records"), ("p", "hosts")):
         summary = manifest["files"].get(kind, {})
@@ -1115,16 +1115,7 @@ def pack(out: Path, root: Path | None = None, log=print, changed: list[str] | No
         kind = "records" if folder == "g" else "hosts"
         manifest["files"][kind] = {**manifest["files"].get(kind, {}), **_summary(sizes),
                                    "entries": sum(len(v) for v in files.values())}
-    for name in ("parity.json", "parity-held-out.json"):
-        if (out / name).exists():
-            parity = json.loads((out / name).read_text(encoding="utf-8"))
-            parity["version"] = version
-            _replace(out / name, _dump(parity))
-    marker = out / ".export"
-    if marker.exists():
-        stamp = json.loads(marker.read_text(encoding="utf-8"))
-        stamp["version"] = version
-        _replace(marker, json.dumps(stamp, ensure_ascii=False, sort_keys=True).encode("utf-8"))
+    _stamp_version(out, version)
     manifest["format"] = FORMAT
     manifest["version"] = version
     manifest["paths"] = PATHS
@@ -1135,12 +1126,33 @@ def pack(out: Path, root: Path | None = None, log=print, changed: list[str] | No
     return manifest
 
 
+def _stamp_version(out: Path, version: str) -> None:
+    """Name `version` in the parity files and `.export`, as the manifest names it."""
+    for name in ("parity.json", "parity-held-out.json"):
+        if (out / name).exists():
+            parity = json.loads((out / name).read_text(encoding="utf-8"))
+            parity["version"] = version
+            _replace(out / name, _dump(parity))
+    marker = out / ".export"
+    if marker.exists():
+        stamp = json.loads(marker.read_text(encoding="utf-8"))
+        stamp["version"] = version
+        _replace(marker, json.dumps(stamp, ensure_ascii=False, sort_keys=True).encode("utf-8"))
+
+
+def added_version(version: str, name: str) -> str:
+    """The version of a folder `version` once the set `name` is added: `<version>+<name>`, the
+    same when it already ends so. Files are served immutable by URL, so new bytes need a new name."""
+    return version if version.endswith(f"+{name}") else f"{version}+{name}"
+
+
 def _pack_pending(out: Path, manifest: dict, log, changed: list[str]) -> dict:
     """Rebuild the record shards `PENDING` lists from their work files, each replaced on its own,
     note in `changed` those whose bytes differ from what they were before `add` (so a stopped run
     rerun counts the same), bring the records' summary up to date (gzip figures from every shard's
     size, raw bytes and entries against `PENDING`'s figures from before) and add the addition, with
-    `shards` the count changed, to the manifest's `added` (once, should a run stop after the manifest). The version stays: no record the folder held changes."""
+    `shards` the count changed, to the manifest's `added` (once, should a run stop after the manifest). The version gains `+<set>`
+    (`added_version`), in the manifest, the parity files and `.export`."""
     pending = json.loads((out / PENDING).read_text(encoding="utf-8"))
     summary = dict(manifest["files"]["records"])
     raw = entries = 0
@@ -1167,6 +1179,8 @@ def _pack_pending(out: Path, manifest: dict, log, changed: list[str]) -> dict:
     entry = {**pending["added"], "shards": len(changed)}
     if manifest.get("added", [None])[-1] != entry:
         manifest.setdefault("added", []).append(entry)
+    manifest["version"] = added_version(manifest["version"], pending["added"]["set"])
+    _stamp_version(out, manifest["version"])
     _write_manifest(out, manifest)
     (out / PENDING).unlink()
     _sync_dir(out)

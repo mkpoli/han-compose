@@ -253,17 +253,14 @@ def export_web(out: Path, parity: int = 0, held_out: int = 0, workers: int = 1, 
 
 
 @app.command("export-web-pack")
-def export_web_pack(out: Path, changed_list: Path | None = None) -> None:
+def export_web_pack(out: Path) -> None:
     """Build the `g/` and `p/` shards of a finished export in `out` from its per-key files under
     `out/.work/`, and rewrite its manifest (`han_compose.web_export.pack`). After `export-web --add`,
-    only the shards the added records fall in are rebuilt, and `--changed-list FILE` writes those
-    whose bytes changed and the manifest, one path a line, for `rclone copy --files-from`."""
+    only the shards the added records fall in are rebuilt, and the folder's version gains `+<set>`."""
     from han_compose import web_export
 
     if not (out / "manifest.json").exists() or not (out / web_export.WORK).is_dir():
         raise typer.BadParameter(f"{out} has no manifest.json or no {web_export.WORK}/.")
-    if changed_list is not None and not (out / web_export.PENDING).exists():
-        raise typer.BadParameter("--changed-list lists the shards an addition changed; a full pack rewrites every shard.")
     complete = out / ".complete"
     complete.unlink(missing_ok=True)
     try:
@@ -273,8 +270,6 @@ def export_web_pack(out: Path, changed_list: Path | None = None) -> None:
         typer.echo(str(error), err=True)
         raise typer.Exit(1) from error
     complete.write_text(manifest["version"], encoding="utf-8")
-    if changed_list is not None:
-        changed_list.write_text("".join(f"{path}\n" for path in [*changed, "manifest.json"]), encoding="utf-8")
     print(json.dumps({"version": manifest["version"], "pack": manifest["pack"], "changed": len(changed), **manifest["files"]},
                      ensure_ascii=False))
 
