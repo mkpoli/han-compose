@@ -1949,6 +1949,12 @@ class Composer:
             return ("⿱", ("⿰", "口", "口"), ("⿰", "口", "口"))
         return (node[0], *(self._normalize_mouth_grids(child) for child in node[1:]))
 
+    def _standalone_expanded_overlay(self, node: Node) -> Node:
+        """Use an attested whole glyph for an expanded overlays; keep missing or excluded glyphs decomposed."""
+        equivalents = {'⿻大⿰人人': '夾', '⿻工⿰人人': '巫', '⿻⿰人人土': '坐'}
+        char = equivalents.get(key(node))
+        return char if char and char not in self.exclude and self.font.has(char) else node
+
     def _standalone_mouth_grid(self, node: Node) -> Node:
         """Use the designed glyph for a complete four-mouth character."""
         return "㗊" if (key(node) in {"⿰⿱口口⿱口口", "⿱⿰口口⿰口口"}
@@ -1956,7 +1962,7 @@ class Composer:
 
     def compose(self, sequence: str) -> list[Placed]:
         """The parts that draw `sequence`; LookupError when an operand can be drawn no way."""
-        tree = self._standalone_mouth_grid(self._normalize_mouth_grids(parse(sequence)))
+        tree = self._standalone_expanded_overlay(self._standalone_mouth_grid(self._normalize_mouth_grids(parse(sequence))))
         placed = self._node(tree, self.face, at_root=True)
         if self.rerank:
             options = self._reranked(tree, placed)
