@@ -5,9 +5,10 @@ han-compose draws a Han character from its ideographic description sequence (IDS
 regional form the font does not draw. Each part comes from a character the font already draws,
 cut out of it (along KanjiVG's component groups where KanjiVG has that kanji), set where the
 font's designers put parts like it, and brought to one stroke weight. The result is an SVG path in
-a 1000-unit em, in a sans style from Noto Sans CJK JP, whose ideographs GenZui Sans takes unchanged,
-or a serif (明朝) style from Noto Serif CJK JP. Plangothic supplies the sans parts Noto lacks, and
-Jigmo the serif ones.
+a 1000-unit em, in a sans style from Noto Sans CJK JP, whose ideographs GenZui Sans takes unchanged;
+a serif (明朝) style from Noto Serif CJK JP; or a kaisho (楷書) style from Kureedo, the Klee One
+design extended with historical kana. Plangothic supplies the sans parts Noto lacks, Jigmo the serif
+ones, and GenZui Sans the characters Kureedo lacks.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/composed-dark.png">
@@ -30,15 +31,17 @@ uv sync
 uv run scripts/compose_ids.py draw ⿰亻哥 > 亻哥.svg
 uv run scripts/compose_ids.py bench --chars joyo
 uv run scripts/compose_ids.py draw --style serif ⿰亻哥 > 亻哥-serif.svg
+uv run scripts/compose_ids.py draw --style kaisho ⿰亻哥 > 亻哥-kaisho.svg
 uv run scripts/compose_ids.py draw-many sequences.txt out/
 ```
 
 `draw-many` draws every sequence in a file, one a line, into `out/` as `<sha256 of its NFC form>.svg`,
 and lists those it cannot draw.
 
-Every command takes `--style sans` (the default) or `--style serif`. Each style has its own fonts,
-stroke-width fit and models: a serif model is cached as `<name>-serif.<ext>` beside the sans one, and
-`learn --style serif` and `learn-alone --style serif` build it.
+Every command takes `--style sans` (the default), `--style serif` or `--style kaisho`. Each style
+has its own fonts and models: a style's model is cached as `<name>-<style><ext>` beside the sans
+one, and `learn --style kaisho` and `learn-alone --style kaisho` build it. Kureedo is static, so the
+Kaisho style keeps the source brush weights instead of balancing them.
 
 `bench` redraws every compound jōyō kanji from its own sequence with nothing taken from the
 character, and scores each against the font's real glyph: the overlap of their ink (intersection

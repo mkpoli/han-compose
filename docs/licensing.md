@@ -17,6 +17,13 @@ committed.
   Sans design Noto Sans CJK shares, so they are the source of components Noto lacks. A part taken
   from here is thinned and thickened synthetically to match the main font's weight.
 
+`kaisho`:
+
+- **Kureedo v0.4.3** (the Klee Project Authors, SIL OFL 1.1), static. Klee One's kaisho with the
+  historical kana; read at its one weight.
+- **GenZui Sans 0.105** (SIL OFL 1.1), static. It draws the ideographs Kureedo lacks; its strokes
+  keep their own weight.
+
 `serif`:
 
 - **Noto Serif CJK JP 2.003** (Adobe and Google, SIL OFL 1.1; its copyright line names no Reserved
@@ -63,7 +70,7 @@ ships the licence texts beside it.
   contour indices (`c.k`), is outline data of the style's fonts. A `sans` export's are Noto Sans CJK
   JP's (© 2014-2021 Adobe (http://www.adobe.com/), with Reserved Font Name 'Source') or Plangothic P1
   and P2's (Copyright (c) 2024 by Fitzgerald P. Köeingsegg; no Reserved Font Name), under the
-  **SIL OFL 1.1**. A `serif` export's are Noto Serif CJK JP's (© 2017-2024 Adobe (http://www.adobe.com/); no
+  **SIL OFL 1.1**. A `kaisho` export's are Kureedo's and GenZui Sans's, under the **SIL OFL 1.1**. A `serif` export's are Noto Serif CJK JP's (© 2017-2024 Adobe (http://www.adobe.com/); no
   Reserved Font Name), under the **SIL OFL 1.1**, or Jigmo's, under **CC0 1.0**. `OFL.txt` holds the
   OFL's full text after each OFL font's copyright line, read from the font's `name` table (the text
   is `data/licences/OFL-1.1.txt`, as Noto CJK ships it); a serif export also ships `CC0.txt`
