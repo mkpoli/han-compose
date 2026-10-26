@@ -449,3 +449,32 @@ def test_letters_are_not_added_from_another_font_or_a_dirty_tree(composer: compo
         web_export.add(composer, out, {"K"}, "letters", root=tmp_path / "not-a-checkout", log=lambda _: None)
     with pytest.raises(web_export.AddError, match="index"):
         web_export.add(composer, out, {"可"}, "letters", root=root, log=lambda _: None)
+
+
+def test_a_stopped_addition_carries_on_and_packs_every_shard_it_touched(composer: compose.Composer, tmp_path: Path, monkeypatch) -> None:
+    out, root = tmp_path / "out", _clean_root(tmp_path)
+    web_export.export(composer, out, only={"王"}, pairs=set(), root=root, log=lambda _: None)
+    keys = {"K", "O", "가"}
+    real, calls = web_export.char_record, []
+
+    def stopping(c, key, *args):
+        calls.append(key)
+        if key in keys and len([k for k in calls if k in keys]) == 2:
+            raise KeyboardInterrupt
+        return real(c, key, *args)
+
+    monkeypatch.setattr(web_export, "char_record", stopping)
+    with pytest.raises(KeyboardInterrupt):
+        web_export.add(composer, out, keys, "letters", root=root, log=lambda _: None)
+    monkeypatch.setattr(web_export, "char_record", real)
+    assert not (out / ".complete").exists() and (out / web_export.PENDING).exists()
+    with pytest.raises(web_export.AddError, match="holds letters"):
+        web_export.add(composer, out, keys, "digits", root=root, log=lambda _: None)
+    assert web_export.add(composer, out, keys, "letters", root=root, log=lambda _: None)["new"] == 2
+    changed: list[str] = []
+    packed = web_export.pack(out, root=root, log=lambda _: None, changed=changed)
+    assert sorted(changed) == sorted({web_export.record_shard(k) for k in keys})
+    assert [(a["keys"], a["shards"]) for a in packed["added"]] == [(3, len(changed))]
+    for key in keys:
+        assert _record(out, key)["G"]["p"]
+    assert not (out / web_export.PENDING).exists()

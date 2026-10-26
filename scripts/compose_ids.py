@@ -262,6 +262,8 @@ def export_web_pack(out: Path, changed_list: Path | None = None) -> None:
 
     if not (out / "manifest.json").exists() or not (out / web_export.WORK).is_dir():
         raise typer.BadParameter(f"{out} has no manifest.json or no {web_export.WORK}/.")
+    if changed_list is not None and not (out / web_export.PENDING).exists():
+        raise typer.BadParameter("--changed-list lists the shards an addition changed; a full pack rewrites every shard.")
     complete = out / ".complete"
     complete.unlink(missing_ok=True)
     try:
