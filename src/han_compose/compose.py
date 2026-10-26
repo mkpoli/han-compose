@@ -1947,7 +1947,7 @@ class Composer:
         if self.weighted:
             self._balance(placed)
         if self.guide is not None:
-            placed = self.guide.fit(self, sequence, placed)
+            placed = self.guide.fit(self, key(tree), placed)
         return placed
 
     def _reranked(self, tree: Node, placed: list[Placed]) -> list[tuple[float, list[Placed], list[float]]]:

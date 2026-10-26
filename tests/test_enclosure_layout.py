@@ -378,3 +378,18 @@ def test_grid_equivalence_precedes_encoded_lookup(wrapper):
     assert [p.origin for p in a] == ["glyph 口"]
     assert compose.svg_path(a) == compose.svg_path(b)
     assert sequences == {"木": wrapper.format(columns), "口": wrapper.format(rows)}
+
+
+def test_grid_guide_receives_the_same_canonical_sequence():
+    glyph = compose.Part([rectangle((0, 0, 100, 100))])
+    font = SimpleNamespace(glyph=lambda _: glyph, has=lambda _: True,
+                           own=lambda _: True, stem=((4, 8), (4, 8)))
+    seen = []
+    c = compose.Composer(font, {}, hosted=False, weighted=False, reuse=False)
+    c.__dict__["spelled"] = set()
+    c.__dict__["atomic"] = set()
+    c.guide = SimpleNamespace(fit=lambda composer, sequence, parts: (seen.append(sequence), parts)[1])
+    for wrapper in ["{}", "⿴{}木"]:
+        c.compose(wrapper.format("⿰⿱口口⿱口口"))
+        c.compose(wrapper.format("⿱⿰口口⿰口口"))
+        assert seen[-2:] == [wrapper.format("⿱⿰口口⿰口口")] * 2
