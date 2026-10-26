@@ -713,6 +713,7 @@ PATHS = {
     "encoding": "every file under g/ and p/ is gzip-compressed JSON (mtime 0, keys sorted); serve it with Content-Encoding: gzip or decompress it",
     "missing": "a key or (place, operand) absent from its shard, or whose shard is absent, has no record or no host the composer cuts cleanly",
     "work": ".work/g/{hh}/{sha256}.json and .work/p/{hh}/{sha256}.json are the per-key files the export's workers write and pack builds the shards from. .work/ must never be uploaded: each of its files is one more object written (rclone copy --exclude '.work/**')",
+    "added": "manifest added lists records written into a finished folder afterwards (export-web --add): the set, the commit that wrote them, how many, how many of the folder's records it redrew and matched first (probe), and how many shards changed; the version stays, as no record the folder held changes",
     "rerun": ".export names the version, the layout, font and KanjiVG hashes, the key set and the parity sizes that wrote the folder; a rerun with the same, from a known clean commit, keeps the .work/ files and writes only the missing ones, then packs every shard afresh; anything else starts afresh. .complete is written last, after manifest.json and the shards",
 }
 
