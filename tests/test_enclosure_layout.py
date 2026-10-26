@@ -285,6 +285,11 @@ def test_xing_enclosure_draws_as_three_columns(nested):
     ("⿴玨", "⿲𤣩{inner}王"),
     ("⿴辡", "⿲辛{inner}辛"),
     ("⿴雔", "⿲隹{inner}隹"),
+    ("⿴𨺅", "⿲𨸏{inner}⿾𨸏"),
+    ("⿴⿰𨸏⿾𨸏", "⿲𨸏{inner}⿾𨸏"),
+    ("⿹頃", "⿰⿱匕{inner}頁"),
+    ("⿴㗊", "⿳吅{inner}吅"),
+    ("⿸倝", "⿰𠦝⿱𠆢{inner}"),
     ("⿶𩰲", "⿱⿲弓{inner}弓鬲"),
     ("⿹𣪊", "⿰⿱⿳士冖一{inner}殳"),
 ])
@@ -300,10 +305,13 @@ def test_disconnected_enclosures_keep_source_description(outer, rendered, inner)
     ("⿸𭤨其", "⿰方⿱𠂉其"), ("⿴衣果", "⿳亠果𧘇"),
     ("⿴弜米", "⿲弓米弓"), ("⿴玨文", "⿲𤣩文王"),
     ("⿴辡言", "⿲辛言辛"), ("⿴雔言", "⿲隹言隹"),
+    ("⿴𨺅木", "⿲𨸏木⿾𨸏"), ("⿴⿰𨸏⿾𨸏木", "⿲𨸏木⿾𨸏"),
+    ("⿹頃禾", "⿰⿱匕禾頁"), ("⿴㗊犬", "⿳吅犬吅"),
+    ("⿸倝羽", "⿰𠦝⿱𠆢羽"),
     ("⿶𩰲米", "⿱⿲弓米弓鬲"), ("⿹𣪊几", "⿰⿱⿳士冖一几殳"),
 ])
 def test_disconnected_enclosure_rendering(source, explicit):
-    glyphs = {ch: compose.Part([rectangle((0, 0, 100, 100))]) for ch in "弓米鬲士冖一几殳方𠂉其亠𧘇果𤣩王文辛言隹"}
+    glyphs = {ch: compose.Part([rectangle((0, 0, 100, 100))]) for ch in "弓米鬲士冖一几殳方𠂉其亠𧘇果𤣩王文辛言隹木𨸏匕頁吅𠦝𠆢羽犬禾"}
     font = SimpleNamespace(glyph=glyphs.get, has=lambda ch: ch in glyphs,
                            own=lambda ch: ch in glyphs, stem=((4, 8), (4, 8)))
     c = compose.Composer(font, {}, hosted=False, weighted=False, reuse=False)
@@ -312,3 +320,92 @@ def test_disconnected_enclosure_rendering(source, explicit):
     actual, expected = c.compose(source), c.compose(explicit)
     assert [p.origin for p in actual] == [p.origin for p in expected]
     assert [p.target for p in actual] == [p.target for p in expected]
+
+
+def test_mirror_reflects_both_masters_without_mutating_cached_glyph():
+    contour = rectangle((0, 0, 100, 100))
+    contour.light[1, 0] = 70
+    contour.heavy = contour.light + np.array([3, 4])
+    original = contour.light.copy(), contour.heavy.copy()
+    glyph = compose.Part([contour])
+    font = SimpleNamespace(glyph=lambda _: glyph, has=lambda _: True, own=lambda _: True)
+    c = compose.Composer(font, {}, hosted=False, weighted=False, reuse=False)
+    c.__dict__["spelled"] = set()
+    c.__dict__["atomic"] = set()
+    region = (120, 20, 520, 620)
+    plain = c._node("𨸏", region)[0]
+    mirrored = c._node(("⿾", "𨸏"), region)[0]
+    plain.weight = mirrored.weight = (0.3, 0.6)
+    expected = plain.contours()[0].copy()
+    expected[:, 0] = region[0] + region[2] - expected[:, 0]
+    np.testing.assert_allclose(mirrored.contours()[0], expected)
+    np.testing.assert_array_equal(contour.light, original[0])
+    np.testing.assert_array_equal(contour.heavy, original[1])
+    twice = c._node(("⿾", ("⿾", "𨸏")), region)[0]
+    twice.weight = plain.weight
+    np.testing.assert_allclose(twice.contours()[0], plain.contours()[0])
+
+
+@pytest.mark.parametrize("wrapper", ["{}", "⿱木{}", "⿴{}木", "⿴{}⿱木口"])
+def test_four_mouth_grid_has_one_rendering_layout(wrapper):
+    glyphs = {ch: compose.Part([rectangle((0, 0, 100, 100))]) for ch in "木口㗊"}
+    font = SimpleNamespace(glyph=glyphs.get, has=lambda ch: ch in glyphs,
+                           own=lambda ch: ch in glyphs, stem=((4, 8), (4, 8)))
+    c = compose.Composer(font, {}, hosted=False, weighted=False, reuse=False)
+    c.__dict__["spelled"] = set()
+    c.__dict__["atomic"] = set()
+    columns, rows = "⿰⿱口口⿱口口", "⿱⿰口口⿰口口"
+    a, b = c.compose(wrapper.format(columns)), c.compose(wrapper.format(rows))
+    assert compose.svg_path(a) == compose.svg_path(b)
+    if wrapper == "{}":
+        assert compose.svg_path(a) == compose.svg_path(c.compose("㗊"))
+        assert [p.origin for p in a] == ["glyph 㗊"]
+    source = compose.parse(columns)
+    assert c._respelled(source) == compose.parse(rows)
+    assert compose.key(source) == columns
+    other = compose.parse("⿰⿱木口⿱口口")
+    assert c._respelled(other) == other
+
+
+@pytest.mark.parametrize("wrapper", ["{}", "⿱木{}"])
+def test_grid_equivalence_precedes_encoded_lookup(wrapper):
+    columns, rows = "⿰⿱口口⿱口口", "⿱⿰口口⿰口口"
+    glyphs = {ch: compose.Part([rectangle((0, 0, width, 100))]) for ch, width in [("木", 80), ("口", 100), ("㗊", 90)]}
+    font = SimpleNamespace(glyph=glyphs.get, has=lambda ch: ch in glyphs,
+                           own=lambda ch: ch in glyphs, stem=((4, 8), (4, 8)))
+    sequences = {"木": wrapper.format(columns), "口": wrapper.format(rows)}
+    c = compose.Composer(font, sequences, hosted=False, weighted=False, reuse=False)
+    c.__dict__["spelled"] = set()
+    c.__dict__["atomic"] = set()
+    a, b = c.compose(wrapper.format(columns)), c.compose(wrapper.format(rows))
+    assert [p.origin for p in a] == ["glyph 㗊" if wrapper == "{}" else "glyph 口"]
+    assert compose.svg_path(a) == compose.svg_path(b)
+    assert sequences == {"木": wrapper.format(columns), "口": wrapper.format(rows)}
+
+
+def test_grid_guide_receives_the_same_canonical_sequence():
+    glyph = compose.Part([rectangle((0, 0, 100, 100))])
+    font = SimpleNamespace(glyph=lambda _: glyph, has=lambda _: True,
+                           own=lambda _: True, stem=((4, 8), (4, 8)))
+    seen = []
+    c = compose.Composer(font, {}, hosted=False, weighted=False, reuse=False)
+    c.__dict__["spelled"] = set()
+    c.__dict__["atomic"] = set()
+    c.guide = SimpleNamespace(fit=lambda composer, sequence, parts: (seen.append(sequence), parts)[1])
+    for wrapper in ["{}", "⿴{}木"]:
+        c.compose(wrapper.format("⿰⿱口口⿱口口"))
+        c.compose(wrapper.format("⿱⿰口口⿰口口"))
+        assert seen[-2:] == ["㗊" if wrapper == "{}" else wrapper.format("⿱⿰口口⿰口口")] * 2
+
+
+def test_standalone_grid_without_encoded_glyph_falls_back_to_components():
+    glyph = compose.Part([rectangle((0, 0, 100, 100))])
+    font = SimpleNamespace(glyph=lambda ch: glyph if ch == "口" else None,
+                           has=lambda ch: ch == "口", own=lambda ch: ch == "口",
+                           stem=((4, 8), (4, 8)))
+    c = compose.Composer(font, {}, hosted=False, weighted=False, reuse=False)
+    c.__dict__["spelled"] = set()
+    c.__dict__["atomic"] = set()
+    a = c.compose("⿰⿱口口⿱口口")
+    assert len(a) == 4
+    assert compose.svg_path(a) == compose.svg_path(c.compose("⿱⿰口口⿰口口"))

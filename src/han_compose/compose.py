@@ -1863,6 +1863,8 @@ class Composer:
         (⿸厂⿱泉心), since a whole character leaves no room inside it: on the 17 audited, 0.491 →
         0.523 (9 better, 5 worse: 魔 摩 贋 lose the corner part their hosts drew). The source
         sequence and encoded identity remain unchanged."""
+        if key(node) == "⿰⿱口口⿱口口":
+            return ("⿱", ("⿰", "口", "口"), ("⿰", "口", "口"))
         # Explicit insertion layouts; the original two-part IDS keeps its identity.
         if isinstance(node, tuple) and len(node) == 3:
             op, outer, inner = node
@@ -1875,6 +1877,16 @@ class Composer:
                 return ("⿳", "亠", inner, "𧘇")
             if (op, outer) == ("⿸", "𭤨"):
                 return ("⿰", "方", ("⿱", "𠂉", inner))
+            if op == "⿴" and (outer == "𨺅" or key(outer) == "⿰𨸏⿾𨸏"):
+                return ("⿲", "𨸏", inner, ("⿾", "𨸏"))
+            if (op, outer) == ("⿹", "頃"):
+                return ("⿰", ("⿱", "匕", inner), "頁")
+            if op == "⿴" and key(outer) in ("⿰⿱口口⿱口口", "⿱⿰口口⿰口口"):
+                return ("⿳", ("⿰", "口", "口"), inner, ("⿰", "口", "口"))
+            if (op, outer) == ("⿴", "㗊"):
+                return ("⿳", "吅", inner, "吅")
+            if (op, outer) == ("⿸", "倝"):
+                return ("⿰", "𠦝", ("⿱", "𠆢", inner))
             if (op, outer) == ("⿶", "𩰲"):
                 return ("⿱", ("⿲", "弓", inner, "弓"), "鬲")
             if (op, outer) == ("⿹", "𣪊"):
@@ -1891,9 +1903,22 @@ class Composer:
             return ("⿸", outer[1], ("⿱", outer[2], node[2]))
         return node
 
+    def _normalize_mouth_grids(self, node: Node) -> Node:
+        """Use one grid spelling for glyph/host lookup without changing the source IDS."""
+        if isinstance(node, str):
+            return node
+        if key(node) == "⿰⿱口口⿱口口":
+            return ("⿱", ("⿰", "口", "口"), ("⿰", "口", "口"))
+        return (node[0], *(self._normalize_mouth_grids(child) for child in node[1:]))
+
+    def _standalone_mouth_grid(self, node: Node) -> Node:
+        """Use the designed glyph for a complete four-mouth character."""
+        return "㗊" if (key(node) in {"⿰⿱口口⿱口口", "⿱⿰口口⿰口口"}
+                       and "㗊" not in self.exclude and self.font.has("㗊")) else node
+
     def compose(self, sequence: str) -> list[Placed]:
         """The parts that draw `sequence`; LookupError when an operand can be drawn no way."""
-        tree = parse(sequence)
+        tree = self._standalone_mouth_grid(self._normalize_mouth_grids(parse(sequence)))
         placed = self._node(tree, self.face, at_root=True)
         if self.rerank:
             options = self._reranked(tree, placed)
@@ -1927,7 +1952,7 @@ class Composer:
         if self.weighted:
             self._balance(placed)
         if self.guide is not None:
-            placed = self.guide.fit(self, sequence, placed)
+            placed = self.guide.fit(self, key(tree), placed)
         return placed
 
     def _reranked(self, tree: Node, placed: list[Placed]) -> list[tuple[float, list[Placed], list[float]]]:
@@ -2042,6 +2067,20 @@ class Composer:
         # Resolve each node's original identity before changing its rendering layout.
         node = self._respelled(node)
         op, children = node[0], list(node[1:])
+        if op == "⿾":
+            # Reflect both masters, without changing the cached glyph, so subsequent
+            # fitting and stroke weighting still operate in the part's own frame.
+            out = self._node(children[0], region, at_root)
+            for item in out:
+                centre = item.source[0] + item.source[2]
+                def reflect(points):
+                    reflected = points.copy()
+                    reflected[:, 0] = centre - reflected[:, 0]
+                    return reflected
+                item.part = Part([replace(c, light=reflect(c.light), heavy=reflect(c.heavy)) for c in item.part.contours])
+                x0, y0, x1, y1 = item.target
+                item.target = (region[0] + region[2] - x1, y0, region[0] + region[2] - x0, y1)
+            return out
         if op not in AXIS and op not in ENCLOSE and op != OVERLAY:
             raise LookupError(f"{op} is not laid out.")
         if op == OVERLAY:

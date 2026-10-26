@@ -62,6 +62,8 @@ def fake_composer(placed):
     replacement=NS(origin='alone donor')
     calls=[]
     class Fake:
+        _normalize_mouth_grids = C.Composer._normalize_mouth_grids
+        _standalone_mouth_grid = C.Composer._standalone_mouth_grid
         face=(0,0,100,100);by_sequence={'⿷匚斤':'匠'};reuse=True;exclude={'匠'}
         standalone=True;hosted=True;weighted=True;guide=None;rerank=False
         font=NS(own=lambda ch:True)
