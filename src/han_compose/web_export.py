@@ -400,6 +400,31 @@ def key_record(composer: C.Composer, key: str, table: L.Table, shapes: dict) -> 
     return out
 
 
+#: The blocks of alphabetic scripts whose letters and digits stand as operands of their own (a ligature
+#: such as ⿸广⿰KO): Latin with IPA, Greek, Cyrillic, Hangul jamo, Latin and Greek additions, kana,
+#: Hangul compatibility jamo, katakana extensions, jamo extensions, Hangul syllables, the full- and
+#: half-width forms, and the kana supplements.
+LETTER_BLOCKS = ((0x0000, 0x02AF), (0x0370, 0x052F), (0x1100, 0x11FF), (0x1E00, 0x1FFF), (0x3040, 0x30FF),
+                 (0x3130, 0x318F), (0x31F0, 0x31FF), (0xA960, 0xA97F), (0xAC00, 0xD7FF), (0xFF00, 0xFFEF),
+                 (0x1B000, 0x1B16F))
+#: Hangul fillers: letters by category that draw nothing.
+FILLERS = frozenset({0x115F, 0x1160, 0x3164, 0xFFA0})
+
+
+def letters(font: C.Font) -> set[str]:
+    """Every letter (category L) and decimal digit in `LETTER_BLOCKS` the style's fonts draw, the
+    Hangul fillers left out."""
+    import unicodedata
+
+    out = set()
+    for lo, hi in LETTER_BLOCKS:
+        for point in range(lo, hi + 1):
+            char, category = chr(point), unicodedata.category(chr(point))
+            if point not in FILLERS and (category == "Nd" or category[0] == "L") and font.has(char):
+                out.add(char)
+    return out
+
+
 def _leaf(key: str) -> bool:
     return len(key) == 1 or (len(key) == 2 and C._selector(key[1]))
 
@@ -709,20 +734,15 @@ def export(composer: C.Composer, out: Path, joyo: list[str] | None = None, parit
     global _WORKER, _PLACES, _OUT, _INJECT, _EXTRA
     import shutil
 
-    from .vocab import ROOT, VOCAB, cache_root
-
-    from . import kanjivg_cuts
+    from .vocab import ROOT, VOCAB
 
     root = root or ROOT
     commit, dirty = _version(root)
     style = composer.font.style
     layout_file = L.layout_file(style.name)
     version = f"{commit}{'+dirty' if dirty else ''}-{style.name}-{Path(layout_file).stem}-f{FORMAT}"
-    layout_path = getattr(composer.layout, "path", None) or (cache_root() / "compose" / layout_file)
     sources = (style.font, *style.fallbacks)
-    inputs = {"layout_sha256": hashlib.sha256(Path(layout_path).read_bytes()).hexdigest() if Path(layout_path).exists() else None,
-              "font_sha256": {source.file: source.sha256 for source in sources},
-              "kanjivg_sha256": {kanjivg_cuts.KANJIVG_FILE: kanjivg_cuts.KANJIVG_SHA256}}
+    inputs = _inputs(composer)
     out.mkdir(parents=True, exist_ok=True)
     complete = out / ".complete"
     complete.unlink(missing_ok=True)
@@ -789,8 +809,8 @@ def export(composer: C.Composer, out: Path, joyo: list[str] | None = None, parit
 
     # Records: every operand the index holds, every character a sequence describes, every
     # positional form, the parity drawings' leaves, every sequence the font draws, every operand of
-    # the layout table and every operand with a host list.
-    chars = {w for _, w in index if _leaf(w)} | set(composer.by_sequence.values())
+    # the layout table, every operand with a host list, and every letter the fonts draw (`letters`).
+    chars = {w for _, w in index if _leaf(w)} | set(composer.by_sequence.values()) | letters(composer.font)
     chars |= {form for forms in composer.forms.values() for form, _ in forms}
     chars |= {written for _, written in _INJECT if _leaf(written)}
     for rows, _ in sets.values():
@@ -897,6 +917,108 @@ def export(composer: C.Composer, out: Path, joyo: list[str] | None = None, parit
     return manifest
 
 
+#: Where `add` lists the shards its records fall in, for `pack` to rebuild alone.
+PENDING = f"{WORK}/pending.json"
+#: Characters `add` redraws to show this commit writes the records the folder's own commit wrote.
+PROBE = 40
+
+
+class AddError(ValueError):
+    """A folder `add` cannot write into, or a commit whose records differ from the folder's."""
+
+
+def _inputs(composer: C.Composer) -> dict:
+    from . import kanjivg_cuts
+    from .vocab import cache_root
+
+    style = composer.font.style
+    layout_path = getattr(composer.layout, "path", None) or (cache_root() / "compose" / L.layout_file(style.name))
+    return {"layout_sha256": hashlib.sha256(Path(layout_path).read_bytes()).hexdigest() if Path(layout_path).exists() else None,
+            "font_sha256": {source.file: source.sha256 for source in (style.font, *style.fallbacks)},
+            "kanjivg_sha256": {kanjivg_cuts.KANJIVG_FILE: kanjivg_cuts.KANJIVG_SHA256}}
+
+
+def add(composer: C.Composer, out: Path, keys: Iterable[str], name: str, root: Path | None = None,
+        dry_run: bool = False, log=print) -> dict:
+    """Write records for `keys` (characters, each with any variation selector) into a finished
+    export, so that a folder already published need not be exported again for them. Only keys with
+    no record yet are written, under `.work/`, and the shards they fall in are listed in
+    `PENDING` for `pack` to rebuild alone; the manifest's `added` names the commit, the set (`name`)
+    and the count.
+
+    The records must be those the folder's own commit would have written: the fonts, layout and
+    KanjiVG must hash as the folder's stamp records, the checkout must be clean, and `PROBE`
+    characters the folder already holds are recorded again and must come out the same, else
+    `AddError`. A key whose record would carry what the parent export adds (host lists, layout
+    table statistics, a sequence's character) is refused too: those come from the index, which
+    adding records never changes. `dry_run` checks everything and writes nothing. Returns
+    `{"keys", "new", "shards", "probe"}`: the keys asked for, those written, the shards they
+    fall in, and how many characters the probe redrew."""
+    global _OUT
+    from .vocab import ROOT
+
+    commit, dirty = _version(root or ROOT)
+    if dirty or commit == "unknown":
+        raise AddError("records are added only from a known, clean commit")
+    marker, manifest_path = out / ".export", out / "manifest.json"
+    if not (out / ".complete").exists() or not marker.exists() or not manifest_path.exists():
+        raise AddError(f"{out} is not a finished export")
+    if (out / PENDING).exists() and not dry_run:
+        raise AddError(f"{out / PENDING} is waiting for export-web-pack")
+    stamp = json.loads(marker.read_text(encoding="utf-8"))
+    inputs = _inputs(composer)
+    for field, value in inputs.items():
+        if stamp.get(field) != value:
+            raise AddError(f"{field} differs from the folder's: {stamp.get(field)} against {value}")
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if manifest.get("style") != composer.font.style.name:
+        raise AddError(f"the folder is the {manifest.get('style')} style, the composer {composer.font.style.name}")
+
+    index, _ = composer._index
+    places = sorted({p for p, _ in index})
+    table = composer.layout.tables["all"]
+    shapes: dict = {}
+    _OUT = out
+    # The probe: characters the folder holds, recorded again by this commit.
+    held = sorted(c for c in set(composer.by_sequence.values()) if (out / record_work(c)).exists())
+    probe = random.Random(0).sample(held, min(PROBE, len(held)))
+    if not probe:
+        raise AddError(f"{out} holds no character to check this commit's records against")
+    for char in probe:
+        mine = {"k": char, **char_record(composer, char, places, table, shapes)}
+        theirs = {k: v for k, v in _read_work(out / record_work(char)).items() if k not in ("u", "e", "P")}
+        if theirs != mine:
+            raise AddError(f"{char}'s record differs from the folder's: this commit does not write the records it holds")
+    wanted = sorted(set(keys))
+    kids = {kid for _, kid in table.counts}
+    for key in wanted:
+        if not _leaf(key) or not composer.font.has(key):
+            raise AddError(f"{key!r} is not a character the fonts draw")
+        if key in kids or any((place, key) in index for place in places) or key in composer.by_sequence:
+            raise AddError(f"{key} has data from the index; only a full export records it")
+    new = [key for key in wanted if not (out / record_work(key)).exists()]
+    shards = sorted({record_shard(key) for key in new})
+    log(f"{len(wanted)} keys, {len(new)} without a record, in {len(shards)} shards (probe of {len(probe)} matched)")
+    if dry_run or not new:
+        return {"keys": len(wanted), "new": len(new), "shards": shards}
+    # Each shard as it is before: pack counts a shard changed against these.
+    before = {}
+    for shard in shards:
+        packed = (out / shard).read_bytes() if (out / shard).exists() else None
+        data = gzip.decompress(packed) if packed is not None else b"{}"
+        before[shard] = {"sha256": hashlib.sha256(packed).hexdigest() if packed is not None else None,
+                         "bytes": len(data) if packed is not None else 0, "entries": len(json.loads(data))}
+    (out / ".complete").unlink(missing_ok=True)
+    for k, key in enumerate(new):
+        _write(record_work(key), {"k": key, **char_record(composer, key, places, table, shapes)})
+        if (k + 1) % 2000 == 0:
+            log(f"added {k + 1}/{len(new)}")
+    manifest.setdefault("added", []).append({"set": name, "commit": commit, "keys": len(new), "probe": len(probe)})
+    _write_manifest(out, manifest)
+    _replace(out / PENDING, _dump({"shards": before, **{k: manifest["files"]["records"][k] for k in ("bytes", "entries")}}))
+    return {"keys": len(wanted), "new": len(new), "shards": shards, "probe": len(probe)}
+
+
 def _write_manifest(out: Path, manifest: dict) -> None:
     _replace(out / "manifest.json", json.dumps(manifest, ensure_ascii=False, indent=1, sort_keys=True).encode("utf-8"))
 
@@ -928,13 +1050,16 @@ def _read_work(path: Path):
         raise WorkFileError(f"{path}: unreadable work file ({error}); delete it and rerun export-web to write it again") from error
 
 
-def pack(out: Path, root: Path | None = None, log=print) -> dict:
+def pack(out: Path, root: Path | None = None, log=print, changed: list[str] | None = None) -> dict:
     """Build `g/` and `p/` shards in `out` from the per-key files under `.work/`, and bring the folder
     to this format: `manifest.json` gets `paths`, `record`, the per-shard `files` summaries,
     `format`, the version's format suffix and `pack` (the commit pack ran at, the shard count);
     the parity files and `.export` get the manifest's version. Each folder's shards are built and
     synced beside it and replace it whole, so an unreadable work file or a work folder that is not
-    there (`WorkFileError`) stops the pack before the manifest. Returns the manifest."""
+    there (`WorkFileError`) stops the pack before the manifest. Returns the manifest.
+
+    After `add`, only the shards `PENDING` lists are rebuilt (`_pack_pending`), and `changed`
+    receives those whose bytes differ: the files to upload."""
     import re
     import shutil
 
@@ -949,6 +1074,8 @@ def pack(out: Path, root: Path | None = None, log=print) -> dict:
         expected = summary.get("entries", summary.get("files"))
         if expected and not (out / WORK / folder).is_dir():
             raise WorkFileError(f"{out / WORK / folder} is missing, but the manifest records {expected}")
+    if (out / PENDING).exists():
+        return _pack_pending(out, manifest, log, changed if changed is not None else [])
     for folder in ("g", "p"):
         files: dict[str, list[Path]] = {}
         for path in (out / WORK / folder).glob("*/*.json"):
@@ -987,4 +1114,42 @@ def pack(out: Path, root: Path | None = None, log=print) -> dict:
     manifest["pack"] = {"commit": f"{commit}{'+dirty' if dirty else ''}", "shards": SHARDS}
     _write_manifest(out, manifest)
     _sync_dir(out)
+    return manifest
+
+
+def _pack_pending(out: Path, manifest: dict, log, changed: list[str]) -> dict:
+    """Rebuild the record shards `PENDING` lists from their work files, each replaced on its own,
+    note in `changed` those whose bytes differ from what they were before `add` (so a stopped run
+    rerun counts the same), bring the records' summary up to date (gzip figures from every shard's
+    size, raw bytes and entries against `PENDING`'s figures from before) and set the last `added`
+    entry's `shards` to the count changed. The version stays: no record the folder held changes."""
+    pending = json.loads((out / PENDING).read_text(encoding="utf-8"))
+    summary = dict(manifest["files"]["records"])
+    raw = entries = 0
+    for k, (shard, before) in enumerate(sorted(pending["shards"].items())):
+        h = Path(shard).stem
+        records = {path.stem: _read_work(path) for path in sorted((out / WORK / "g" / h[:2]).glob(f"{h}*.json"))}
+        data = _dump(records)
+        packed = gzip.compress(data, 9, mtime=0)
+        target = out / shard
+        if not target.exists() or target.read_bytes() != packed:
+            _replace(target, packed)
+        if hashlib.sha256(packed).hexdigest() != before["sha256"]:
+            changed.append(shard)
+        raw += len(data) - before["bytes"]
+        entries += len(records) - before["entries"]
+        if (k + 1) % 500 == 0:
+            log(f"pack {k + 1}/{len(pending['shards'])}")
+    _sync_dir(out / "g")
+    gz = np.array(sorted(path.stat().st_size for path in (out / "g").glob("*.json")) or [0])
+    summary.update({"files": len(list((out / "g").glob("*.json"))), "gzip": int(gz.sum()), "median_gzip": int(np.median(gz)),
+                    "p95_gzip": int(np.percentile(gz, 95)), "max_gzip": int(gz.max()),
+                    "bytes": pending["bytes"] + raw, "entries": pending["entries"] + entries})
+    manifest["files"]["records"] = summary
+    if manifest.get("added"):
+        manifest["added"][-1]["shards"] = len(changed)
+    _write_manifest(out, manifest)
+    (out / PENDING).unlink()
+    _sync_dir(out)
+    log(f"{len(changed)} of {len(pending['shards'])} shards changed")
     return manifest
