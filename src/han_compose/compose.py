@@ -1906,6 +1906,28 @@ class Composer:
         # Explicit insertion layouts; the original two-part IDS keeps its identity.
         if isinstance(node, tuple) and len(node) == 3:
             op, outer, inner = node
+            if op == "⿴" and key(outer) == "⿰彳亍":
+                return ('⿲', '彳', inner, '亍')
+            if op == "⿴" and key(outer) == "⿰弓弓":
+                return ('⿲', '弓', inner, '弓')
+            if op == "⿴" and key(outer) == "⿰𤣩王":
+                return ('⿲', '𤣩', inner, '王')
+            if op == "⿴" and key(outer) == "⿰辛辛":
+                return ('⿲', '辛', inner, '辛')
+            if op == "⿴" and key(outer) == "⿰隹隹":
+                return ('⿲', '隹', inner, '隹')
+            if op == "⿴" and key(outer) == "⿱亠𧘇":
+                return ('⿳', '亠', inner, '𧘇')
+            if op == "⿸" and key(outer) == "⿰方𠂉":
+                return ('⿰', '方', ('⿱', '𠂉', inner))
+            if op == "⿹" and key(outer) == "⿰匕頁":
+                return ('⿰', ('⿱', '匕', inner), '頁')
+            if op == "⿸" and key(outer) == "⿰𠦝𠆢":
+                return ('⿰', '𠦝', ('⿱', '𠆢', inner))
+            if op == "⿶" and key(outer) == "⿱⿰弓弓鬲":
+                return ('⿱', ('⿲', '弓', inner, '弓'), '鬲')
+            if op == "⿹" and key(outer) == "⿰⿳士冖一殳":
+                return ('⿰', ('⿱', ('⿳', '士', '冖', '一'), inner), '殳')
             sides = {"行": ("彳", "亍"), "弜": ("弓", "弓"), "玨": ("𤣩", "王"),
                      "辡": ("辛", "辛"), "雔": ("隹", "隹")}
             if op == "⿴" and isinstance(outer, str) and outer in sides:
