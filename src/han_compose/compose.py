@@ -1875,6 +1875,14 @@ class Composer:
                 return ("⿳", "亠", inner, "𧘇")
             if (op, outer) == ("⿸", "𭤨"):
                 return ("⿰", "方", ("⿱", "𠂉", inner))
+            if op == "⿴" and (outer == "𨺅" or key(outer) == "⿰𨸏⿾𨸏"):
+                return ("⿲", "𨸏", inner, ("⿾", "𨸏"))
+            if (op, outer) == ("⿹", "頃"):
+                return ("⿰", ("⿱", "匕", inner), "頁")
+            if (op, outer) == ("⿴", "㗊"):
+                return ("⿳", "吅", inner, "吅")
+            if (op, outer) == ("⿸", "倝"):
+                return ("⿰", "𠦝", ("⿱", "𠆢", inner))
             if (op, outer) == ("⿶", "𩰲"):
                 return ("⿱", ("⿲", "弓", inner, "弓"), "鬲")
             if (op, outer) == ("⿹", "𣪊"):
@@ -2042,6 +2050,20 @@ class Composer:
         # Resolve each node's original identity before changing its rendering layout.
         node = self._respelled(node)
         op, children = node[0], list(node[1:])
+        if op == "⿾":
+            # Reflect both masters, without changing the cached glyph, so subsequent
+            # fitting and stroke weighting still operate in the part's own frame.
+            out = self._node(children[0], region, at_root)
+            for item in out:
+                centre = item.source[0] + item.source[2]
+                def reflect(points):
+                    reflected = points.copy()
+                    reflected[:, 0] = centre - reflected[:, 0]
+                    return reflected
+                item.part = Part([replace(c, light=reflect(c.light), heavy=reflect(c.heavy)) for c in item.part.contours])
+                x0, y0, x1, y1 = item.target
+                item.target = (region[0] + region[2] - x1, y0, region[0] + region[2] - x0, y1)
+            return out
         if op not in AXIS and op not in ENCLOSE and op != OVERLAY:
             raise LookupError(f"{op} is not laid out.")
         if op == OVERLAY:

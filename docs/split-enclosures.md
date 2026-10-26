@@ -15,12 +15,18 @@ These rules retain the entered two-part IDS and use the expanded structure only 
 | ⿴玨X | ⿲𤣩X王 | 斑: 文 |
 | ⿴辡X | ⿲辛X辛 | 辯: 言; 辮: 糸 |
 | ⿴雔X | ⿲隹X隹 | 讎: 言 |
+| ⿴𨺅X | ⿲𨸏X⿾𨸏 | 𨼱: 夬 |
+| ⿹頃X | ⿰⿱匕X頁 | 穎: 禾; 潁: 水 |
+| ⿴㗊X | ⿳吅X吅 | 器: 犬; 囂: 頁; 嚚: 臣 |
+| ⿸倝X | ⿰𠦝⿱𠆢X | 翰: 羽; 斡: 斗; 榦: 木 |
 
 The bundled BabelStone IDS snapshot supplies the outer decompositions and the expanded example structures. The input forms are rendering conventions inferred from those structures, except where the snapshot explicitly records an alternative: for example, 旗 has both `⿰方⿱𠂉其` and `⿸𭤨其`. The snapshot contains 122 descriptions beginning with `⿸𭤨`.
 
 `𭤨` is `⿰方𠂉`; `㫃` is `⿰方人`. They are distinct, so this rule does not alias them. Regional forms can differ: the 殼 rule follows the snapshot's G decomposition, which includes 一.
 
-Candidates requiring further geometry checks include `⿴𨺅X` (mirrored 阜 components) and `⿶𤕰X` (鼎). Ordinary connected enclosures such as 門, 疒 and 戊 are not rewritten simply because they have decompositions.
+`⿴⿰𨸏⿾𨸏X` uses the same layout as `⿴𨺅X`; an editor retains the two explicit outer leaves when that form is entered. The mirrored half is drawn by reflecting the glyph's contours. `⿸倝X` uses the 人 component's upper form 𠆢, as the recorded examples do.
+
+`⿶𤕰X` (鼎) remains a candidate requiring further geometry checks. Ordinary connected enclosures such as 門, 疒 and 戊 are not rewritten simply because they have decompositions.
 
 ## Sources
 
