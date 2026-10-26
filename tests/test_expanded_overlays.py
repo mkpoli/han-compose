@@ -36,3 +36,13 @@ def test_whole_glyph_and_source(text, char):
 def test_missing_and_excluded_glyphs(text, char):
     assert len(fixture(missing=char).compose(text)) > 1
     assert all(p.origin != f"glyph {char}" for p in fixture(exclude=[char]).compose(text))
+
+
+@pytest.mark.parametrize("text,char", CASES)
+def test_whole_glyph_selection_respects_excluded_twins(text, char):
+    c = fixture(exclude=["甲"])
+    c.__dict__["twins"] = {"甲": frozenset([char])}
+    tree = compose.parse(text)
+    assert c._standalone_expanded_overlay(tree) == tree
+    assert char in c.exclude
+    assert all(p.origin != f"glyph {char}" for p in c.compose(text))

@@ -1951,6 +1951,7 @@ class Composer:
 
     def _standalone_expanded_overlay(self, node: Node) -> Node:
         """Use an attested whole glyph for an expanded overlays; keep missing or excluded glyphs decomposed."""
+        self._reference_context()
         equivalents = {'⿻大⿰人人': '夾', '⿻工⿰人人': '巫', '⿻⿰人人土': '坐'}
         char = equivalents.get(key(node))
         return char if char and char not in self.exclude and self.font.has(char) else node
