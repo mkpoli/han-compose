@@ -1009,7 +1009,8 @@ class Composer:
     #: weight the result's density calls for. With both off, each operand's own glyph is squeezed
     #: into its share, the plainest way to compose, for comparison.
     hosted: bool = True
-    weighted: bool = True
+    #: None takes the style's own setting (Kaisho's static brush keeps its weights).
+    weighted: bool | None = None
     #: How many of the closest teachers the layout is agreed among.
     teachers: int = 3
     #: A learned layout (`compose_layout.LayoutModel`) for a whole character's two operands, when loaded.
@@ -1042,6 +1043,10 @@ class Composer:
     _typical: dict[tuple[str, str], tuple] = field(default_factory=dict, init=False, repr=False)
     _frames: list[set] = field(default_factory=list, init=False, repr=False)
     _reference_exclude: frozenset[str] = field(default_factory=frozenset, init=False, repr=False)
+
+    def __post_init__(self) -> None:
+        if self.weighted is None:
+            self.weighted = self.font.style.weighted
 
     @cached_property
     def by_sequence(self) -> dict[str, str]:
