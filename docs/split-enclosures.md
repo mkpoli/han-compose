@@ -1,6 +1,6 @@
 # Split enclosure layouts
 
-These rules retain the entered two-part IDS and use the expanded structure only for rendering. Encoded glyphs and existing whole-component instances are resolved before a rule runs.
+These rules retain the entered two-part IDS and use the expanded structure for rendering. The four requested hosts 須, 攸, 𪧇 and 朕 expand before glyph and host lookup, including inside a larger description. Their shorthand and explicit forms therefore select the same native glyph when available. Other enclosure rules retain their existing identity-first lookup.
 
 `X` denotes the enclosed operand, including a nested description or an editor placeholder.
 

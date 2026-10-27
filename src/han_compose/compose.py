@@ -1908,16 +1908,8 @@ class Composer:
         layout = [tuple(float(v) for v in row) for row in np.tensordot(weights / weights.sum(), shares, axes=1)]
         return replace(best, layout=layout), same
 
-    def _respelled(self, node: Node) -> Node:
-        """Rendering layout for a part under a character that is itself drawn under a corner (原 in
-        愿, 庚 in 賡): the character's inner part stacked above the new one, both under its corner
-        (⿸厂⿱泉心), since a whole character leaves no room inside it: on the 17 audited, 0.491 →
-        0.523 (9 better, 5 worse: 魔 摩 贋 lose the corner part their hosts drew). The source
-        sequence and encoded identity remain unchanged."""
-        for part in "口火又水屮":
-            if key(node) == f"⿰⿱{part}{part}⿱{part}{part}":
-                return ("⿱", ("⿰", part, part), ("⿰", part, part))
-        # Explicit insertion layouts; the original two-part IDS keeps its identity.
+    def _requested_enclosure(self, node: Node) -> Node:
+        """The four literal insertion conventions, without changing other enclosure policies."""
         if isinstance(node, tuple) and len(node) == 3:
             op, outer, inner = node
             if op == "⿹" and key(outer) in ("須", "⿰彡頁"):
@@ -1928,6 +1920,30 @@ class Composer:
                 return ("⿱", "宀", ("⿰", "爿", inner))
             if op == "⿸" and key(outer) in ("朕", "⿰月关"):
                 return ("⿰", "月", ("⿱", "关", inner))
+        return node
+
+    def _normalize_requested_enclosures(self, node: Node) -> Node:
+        """Use the expanded form for lookup and parent geometry, including nested requests."""
+        if isinstance(node, str):
+            return node
+        rebuilt = (node[0], *(self._normalize_requested_enclosures(child) for child in node[1:]))
+        return self._requested_enclosure(rebuilt)
+
+    def _respelled(self, node: Node) -> Node:
+        """Rendering layout for a part under a character that is itself drawn under a corner (原 in
+        愿, 庚 in 賡): the character's inner part stacked above the new one, both under its corner
+        (⿸厂⿱泉心), since a whole character leaves no room inside it: on the 17 audited, 0.491 →
+        0.523 (9 better, 5 worse: 魔 摩 贋 lose the corner part their hosts drew). The source
+        sequence and encoded identity remain unchanged."""
+        requested = self._requested_enclosure(node)
+        if requested != node:
+            return requested
+        for part in "口火又水屮":
+            if key(node) == f"⿰⿱{part}{part}⿱{part}{part}":
+                return ("⿱", ("⿰", part, part), ("⿰", part, part))
+        # Explicit insertion layouts; the original two-part IDS keeps its identity.
+        if isinstance(node, tuple) and len(node) == 3:
+            op, outer, inner = node
             if op == "⿴" and (outer == "林" or key(outer) == "⿰木木"):
                 return ("⿲", "木", inner, "木")
             if op == "⿴" and key(outer) == "⿰彳亍":
@@ -2031,7 +2047,7 @@ class Composer:
         """The parts that draw `sequence`; LookupError when an operand can be drawn no way."""
         tree = self._standalone_expanded_overlay(self._standalone_pyramid(
             self._standalone_repeated_grid(self._normalize_repeated_grids(
-                self._cancel_transforms(parse(sequence))))))
+                self._normalize_requested_enclosures(self._cancel_transforms(parse(sequence)))))))
         placed = self._node(tree, self.face, at_root=True)
         if self.rerank:
             options = self._reranked(tree, placed)
