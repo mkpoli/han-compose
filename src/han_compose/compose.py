@@ -1978,6 +1978,15 @@ class Composer:
                 return ("⿱", ("⿰", part, part), ("⿰", part, part))
         return (node[0], *(self._normalize_repeated_grids(child) for child in node[1:]))
 
+    def _cancel_transforms(self, node: Node) -> Node:
+        """Cancel paired mirrors and half-turns before glyph lookup and layout."""
+        if isinstance(node, str):
+            return node
+        kids = tuple(self._cancel_transforms(child) for child in node[1:])
+        if node[0] in ("⿾", "⿿") and isinstance(kids[0], tuple) and kids[0][0] == node[0]:
+            return kids[0][1]
+        return (node[0], *kids)
+
     def _standalone_expanded_overlay(self, node: Node) -> Node:
         """Use an attested whole glyph for an expanded overlays; keep missing or excluded glyphs decomposed."""
         self._reference_context()
@@ -2004,7 +2013,8 @@ class Composer:
     def compose(self, sequence: str) -> list[Placed]:
         """The parts that draw `sequence`; LookupError when an operand can be drawn no way."""
         tree = self._standalone_expanded_overlay(self._standalone_pyramid(
-            self._standalone_repeated_grid(self._normalize_repeated_grids(parse(sequence)))))
+            self._standalone_repeated_grid(self._normalize_repeated_grids(
+                self._cancel_transforms(parse(sequence))))))
         placed = self._node(tree, self.face, at_root=True)
         if self.rerank:
             options = self._reranked(tree, placed)
