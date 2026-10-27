@@ -1,8 +1,12 @@
-CHARS = '木口永人大小工土火又水屮㗊燚叕㵘茻林矛彳亍弓𤣩王辛隹亠𧘇方𠂉匕頁𠦝𠆢鬲士冖一殳木日金水火土女子口吉隹魚牛馬羊犬貝毛手耳虫車力森晶鑫淼焱垚姦孨品嚞雥鱻犇驫羴猋贔毳掱聶蟲轟劦夾巫坐'
+import json
+from pathlib import Path
 from types import SimpleNamespace
 import numpy as np
 import pytest
 from han_compose import compose
+
+CATALOG = json.loads(Path(compose.__file__).with_name("pyramid-glyphs.json").read_text())["entries"]
+CHARS = "木口永人" + "".join(r["char"] + r["part"] + r["sequence"] + r["pair"] for r in CATALOG)
 
 
 def fixture(missing="", exclude=()):
@@ -24,7 +28,10 @@ def signature(c, sequence):
     parts = c.compose(sequence)
     return compose.svg_path(parts), [p.origin for p in parts]
 
-CASES = [('⿱木⿰木木', '森'), ('⿱日⿰日日', '晶'), ('⿱金⿰金金', '鑫'), ('⿱水⿰水水', '淼'), ('⿱火⿰火火', '焱'), ('⿱土⿰土土', '垚'), ('⿱女⿰女女', '姦'), ('⿱子⿰子子', '孨'), ('⿱口⿰口口', '品'), ('⿱吉⿰吉吉', '嚞'), ('⿱隹⿰隹隹', '雥'), ('⿱魚⿰魚魚', '鱻'), ('⿱牛⿰牛牛', '犇'), ('⿱馬⿰馬馬', '驫'), ('⿱羊⿰羊羊', '羴'), ('⿱犬⿰犬犬', '猋'), ('⿱貝⿰貝貝', '贔'), ('⿱毛⿰毛毛', '毳'), ('⿱手⿰手手', '掱'), ('⿱耳⿰耳耳', '聶'), ('⿱虫⿰虫虫', '蟲'), ('⿱車⿰車車', '轟'), ('⿱力⿰力力', '劦')]
+CASES = list({sequence: row["char"] for row in CATALOG
+              for sequence in (row["sequence"], f"⿱{row['part']}{row['pair']}",
+                               f"⿱{row['part']}⿰{row['part']}{row['part']}")}.items())
+
 
 @pytest.mark.parametrize("text,char", CASES)
 def test_whole_glyph_and_source(text, char):
@@ -46,3 +53,14 @@ def test_whole_glyph_selection_respects_excluded_twins(text, char):
     assert c._standalone_pyramid(tree) == tree
     assert char in c.exclude
     assert all(p.origin != f"glyph {char}" for p in c.compose(text))
+
+@pytest.mark.parametrize("part,char", [("鹿", "麤"), ("龍", "龘"), ("石", "磊"), ("金", "鑫"), ("牛", "犇"), ("鳥", "𪈼")])
+def test_previously_missing_pyramids(part, char):
+    c = fixture()
+    assert signature(c, f"⿱{part}⿰{part}{part}") == signature(c, char)
+
+@pytest.mark.parametrize("text", ["⿱⿰木木木", "⿲木木木", "⿱木⿰木口", "⿱口⿰木木"])
+def test_other_shapes_are_not_pyramids(text):
+    c = fixture()
+    node = compose.parse(text)
+    assert c._standalone_pyramid(node) == node
