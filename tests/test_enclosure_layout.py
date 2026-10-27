@@ -409,3 +409,98 @@ def test_standalone_grid_without_encoded_glyph_falls_back_to_components():
     a = c.compose("⿰⿱口口⿱口口")
     assert len(a) == 4
     assert compose.svg_path(a) == compose.svg_path(c.compose("⿱⿰口口⿰口口"))
+
+
+FOUR_ENCLOSURES = [
+    ("⿹須", "⿹⿰彡頁", "⿰⿱彡{inner}頁", "此"),
+    ("⿸攸", "⿸⿲亻丨攵", "⿲亻丨⿱攵{inner}", "羽"),
+    ("⿸𪧇", "⿸⿱宀爿", "⿱宀⿰爿{inner}", "丙"),
+    ("⿸朕", "⿸⿰月关", "⿰月⿱关{inner}", "氺"),
+]
+
+
+@pytest.mark.parametrize("host,literal,rendered,example", FOUR_ENCLOSURES)
+@pytest.mark.parametrize("inner", ["木", "⬚", "⿱木⬚"])
+def test_four_enclosure_hosts_preserve_source_and_insert_arbitrary_contents(host, literal, rendered, example, inner):
+    c = compose.Composer(None, {})
+    expected = compose.parse(rendered.format(inner=inner))
+    for spelling in (host, literal):
+        source = compose.parse(spelling + inner)
+        assert c._respelled(source) == expected
+        assert compose.key(source) == spelling + inner
+        wrong_operator = "⿸" if spelling[0] == "⿹" else "⿹"
+        unrelated = compose.parse(wrong_operator + spelling[1:] + inner)
+        assert c._respelled(unrelated) == unrelated
+    # The same component remains intact outside the supported enclosure.
+    ordinary = compose.parse("⿱" + host[1:] + inner)
+    assert c._respelled(ordinary) == ordinary
+
+
+@pytest.mark.parametrize("host,literal,rendered,example", FOUR_ENCLOSURES)
+@pytest.mark.parametrize("nested", [False, True])
+def test_four_enclosure_hosts_draw_their_opened_components(host, literal, rendered, example, nested):
+    glyphs = {ch: compose.Part([rectangle((0, 0, 100, 100))])
+              for ch in "彡頁亻丨攵宀爿月关此羽丙氺木"}
+    font = SimpleNamespace(glyph=glyphs.get, has=lambda ch: ch in glyphs,
+                           own=lambda ch: ch in glyphs, stem=((4, 8), (4, 8)))
+    c = compose.Composer(font, {}, hosted=False, weighted=False, reuse=False)
+    c.__dict__["spelled"] = set()
+    c.__dict__["atomic"] = set()
+    prefix = "⿱木" if nested else ""
+    expected = c.compose(prefix + rendered.format(inner=example))
+    for spelling in (host, literal):
+        actual = c.compose(prefix + spelling + example)
+        assert [part.origin for part in actual] == [part.origin for part in expected]
+        assert [part.target for part in actual] == [part.target for part in expected]
+        inner = next(part for part in actual if part.origin == "glyph " + example)
+        above = "彡" if host == "⿹須" else "攵" if host == "⿸攸" else "宀" if host == "⿸𪧇" else "关"
+        upper = next(part for part in actual if part.origin == "glyph " + above)
+        assert inner.target[3] <= upper.target[1]
+        if host == "⿸𪧇":
+            left = next(part for part in actual if part.origin == "glyph 爿")
+            assert left.target[2] <= inner.target[0]
+
+
+@pytest.mark.parametrize("wrapper", ["{}", "⿱木{}"])
+@pytest.mark.parametrize("mode", ["permitted", "excluded", "spelled"])
+def test_requested_enclosure_lookup_matches_native_expansion(wrapper, mode):
+    expanded = "⿲亻丨⿱攵羽"
+    # A whole glyph has distinctive geometry; drawing the same leaves is insufficient.
+    glyphs = {ch: compose.Part([rectangle((0, 0, 100, 100))]) for ch in "木亻丨攵羽"}
+    glyphs["翛"] = compose.Part([rectangle((10, 15, 90, 75))])
+    glyphs["甲"] = compose.Part([rectangle((5, 25, 85, 80))])
+    target = "翛" if wrapper == "{}" else "甲"
+    calls = []
+
+    def glyph(ch):
+        calls.append(ch)
+        assert mode != "excluded" or ch != target
+        return glyphs.get(ch)
+
+    font = SimpleNamespace(glyph=glyph, has=lambda ch: ch in glyphs,
+                           own=lambda ch: ch in glyphs, stem=((4, 8), (4, 8)))
+    sequences = {"翛": expanded, "甲": "⿱木" + expanded}
+    c = compose.Composer(font, sequences, hosted=False, weighted=False, reuse=False,
+                         exclude={target} if mode == "excluded" else set())
+    c.__dict__["spelled"] = {wrapper.format(expanded)} if mode == "spelled" else set()
+    c.__dict__["atomic"] = set()
+    expected = c.compose(wrapper.format(expanded))
+    if mode == "permitted":
+        assert [part.origin for part in expected] == ["glyph " + target]
+    else:
+        assert all(part.origin != "glyph " + target for part in expected)
+    for alias in ["⿸攸羽", "⿸⿲亻丨攵羽"]:
+        source = wrapper.format(alias)
+        actual = c.compose(source)
+        assert compose.svg_path(actual) == compose.svg_path(expected)
+        assert [part.origin for part in actual] == [part.origin for part in expected]
+        assert [part.target for part in actual] == [part.target for part in expected]
+        assert compose.key(compose.parse(source)) == source
+
+
+def test_requested_enclosure_normalization_keeps_nested_slots_and_unrelated_layouts():
+    c = compose.Composer(None, {})
+    assert compose.key(c._normalize_requested_enclosures(compose.parse("⿹須⿸攸⬚"))) == "⿰⿱彡⿲亻丨⿱攵⬚頁"
+    for text in ["⿸須羽", "⿴攸羽", "⿱𪧇木", "⿹朕氺", "⿴行水", "⿸厌鬼"]:
+        tree = compose.parse(text)
+        assert c._normalize_requested_enclosures(tree) == tree
