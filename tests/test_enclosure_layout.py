@@ -409,3 +409,36 @@ def test_standalone_grid_without_encoded_glyph_falls_back_to_components():
     a = c.compose("⿰⿱口口⿱口口")
     assert len(a) == 4
     assert compose.svg_path(a) == compose.svg_path(c.compose("⿱⿰口口⿰口口"))
+
+
+@pytest.mark.parametrize("inner", ["米", "⬚", "⿱木口"])
+def test_mountain_enclosure_opens_below_the_middle_bar(inner):
+    c = compose.Composer(None, {})
+    source = compose.parse("⿵⿲彳⿱山一攵" + inner)
+    assert c._respelled(source) == compose.parse("⿲彳⿱⿱山一" + inner + "攵")
+    assert compose.key(source) == "⿵⿲彳⿱山一攵" + inner
+    for other in ("⿴⿲彳⿱山一攵" + inner, "⿵⿲彳⿱山一文" + inner, "⿲彳⿱山一攵"):
+        tree = compose.parse(other)
+        assert c._respelled(tree) == tree
+
+
+@pytest.mark.parametrize("nested", [False, True])
+def test_mountain_enclosure_draws_between_sides_below_the_bar(nested):
+    glyphs = {ch: compose.Part([rectangle((0, 0, 100, 100))]) for ch in "彳山一攵米木"}
+    font = SimpleNamespace(glyph=glyphs.get, has=lambda ch: ch in glyphs,
+                           own=lambda ch: ch in glyphs, stem=((4, 8), (4, 8)))
+    c = compose.Composer(font, {}, hosted=False, weighted=False, reuse=False)
+    c.__dict__["spelled"] = set()
+    c.__dict__["atomic"] = set()
+    prefix = "⿰木" if nested else ""
+    actual = c.compose(prefix + "⿵⿲彳⿱山一攵米")
+    expected = c.compose(prefix + "⿲彳⿱⿱山一米攵")
+    assert [p.origin for p in actual] == [p.origin for p in expected]
+    # A parent measures the original enclosure before its child is respelled.
+    if not nested:
+        assert [p.target for p in actual] == [p.target for p in expected]
+    left, mountain, bar, inner, right = actual[-5:]
+    assert left.target[0] < inner.target[0] < right.target[0]
+    # Font coordinates increase upwards.
+    assert inner.target[3] <= bar.target[1]
+    assert bar.target[3] <= mountain.target[1]
