@@ -1910,6 +1910,8 @@ class Composer:
         # Explicit insertion layouts; the original two-part IDS keeps its identity.
         if isinstance(node, tuple) and len(node) == 3:
             op, outer, inner = node
+            if op == "⿴" and (outer == "林" or key(outer) == "⿰木木"):
+                return ("⿲", "木", inner, "木")
             if op == "⿴" and key(outer) == "⿰彳亍":
                 return ('⿲', '彳', inner, '亍')
             if op == "⿴" and key(outer) == "⿰弓弓":
