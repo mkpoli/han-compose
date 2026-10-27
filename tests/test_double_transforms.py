@@ -42,3 +42,9 @@ def test_mixed_transform_unchanged():
     c = fixture()
     tree = compose.parse("⿾⿿木")
     assert c._cancel_transforms(tree) == tree
+
+
+@pytest.mark.parametrize("op", ["⿾", "⿿"])
+def test_cancellation_precedes_pyramid_lookup(op):
+    c = fixture()
+    assert signature(c, op * 2 + "⿱木⿰木木") == signature(c, "森")
