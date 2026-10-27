@@ -1910,6 +1910,30 @@ class Composer:
         # Explicit insertion layouts; the original two-part IDS keeps its identity.
         if isinstance(node, tuple) and len(node) == 3:
             op, outer, inner = node
+            if op == "⿴" and (outer == "林" or key(outer) == "⿰木木"):
+                return ("⿲", "木", inner, "木")
+            if op == "⿴" and key(outer) == "⿰彳亍":
+                return ('⿲', '彳', inner, '亍')
+            if op == "⿴" and key(outer) == "⿰弓弓":
+                return ('⿲', '弓', inner, '弓')
+            if op == "⿴" and key(outer) == "⿰𤣩王":
+                return ('⿲', '𤣩', inner, '王')
+            if op == "⿴" and key(outer) == "⿰辛辛":
+                return ('⿲', '辛', inner, '辛')
+            if op == "⿴" and key(outer) == "⿰隹隹":
+                return ('⿲', '隹', inner, '隹')
+            if op == "⿴" and key(outer) == "⿱亠𧘇":
+                return ('⿳', '亠', inner, '𧘇')
+            if op == "⿸" and key(outer) == "⿰方𠂉":
+                return ('⿰', '方', ('⿱', '𠂉', inner))
+            if op == "⿹" and key(outer) == "⿰匕頁":
+                return ('⿰', ('⿱', '匕', inner), '頁')
+            if op == "⿸" and key(outer) == "⿰𠦝𠆢":
+                return ('⿰', '𠦝', ('⿱', '𠆢', inner))
+            if op == "⿶" and key(outer) == "⿱⿰弓弓鬲":
+                return ('⿱', ('⿲', '弓', inner, '弓'), '鬲')
+            if op == "⿹" and key(outer) == "⿰⿳士冖一殳":
+                return ('⿰', ('⿱', ('⿳', '士', '冖', '一'), inner), '殳')
             sides = {"行": ("彳", "亍"), "弜": ("弓", "弓"), "玨": ("𤣩", "王"),
                      "辡": ("辛", "辛"), "雔": ("隹", "隹")}
             if op == "⿴" and isinstance(outer, str) and outer in sides:
@@ -1961,6 +1985,13 @@ class Composer:
         char = equivalents.get(key(node))
         return char if char and char not in self.exclude and self.font.has(char) else node
 
+    def _standalone_pyramid(self, node: Node) -> Node:
+        """Use an attested whole glyph for an expanded pyramid-glyphs; keep missing or excluded glyphs decomposed."""
+        self._reference_context()
+        equivalents = {'⿱木⿰木木': '森', '⿱日⿰日日': '晶', '⿱金⿰金金': '鑫', '⿱水⿰水水': '淼', '⿱火⿰火火': '焱', '⿱土⿰土土': '垚', '⿱女⿰女女': '姦', '⿱子⿰子子': '孨', '⿱口⿰口口': '品', '⿱吉⿰吉吉': '嚞', '⿱隹⿰隹隹': '雥', '⿱魚⿰魚魚': '鱻', '⿱牛⿰牛牛': '犇', '⿱馬⿰馬馬': '驫', '⿱羊⿰羊羊': '羴', '⿱犬⿰犬犬': '猋', '⿱貝⿰貝貝': '贔', '⿱毛⿰毛毛': '毳', '⿱手⿰手手': '掱', '⿱耳⿰耳耳': '聶', '⿱虫⿰虫虫': '蟲', '⿱車⿰車車': '轟', '⿱力⿰力力': '劦'}
+        char = equivalents.get(key(node))
+        return char if char and char not in self.exclude and self.font.has(char) else node
+
     def _standalone_repeated_grid(self, node: Node) -> Node:
         """Use the designed glyph for a complete attested four-part grid."""
         self._reference_context()
@@ -1972,7 +2003,8 @@ class Composer:
 
     def compose(self, sequence: str) -> list[Placed]:
         """The parts that draw `sequence`; LookupError when an operand can be drawn no way."""
-        tree = self._standalone_expanded_overlay(self._standalone_repeated_grid(self._normalize_repeated_grids(parse(sequence))))
+        tree = self._standalone_expanded_overlay(self._standalone_pyramid(
+            self._standalone_repeated_grid(self._normalize_repeated_grids(parse(sequence)))))
         placed = self._node(tree, self.face, at_root=True)
         if self.rerank:
             options = self._reranked(tree, placed)
