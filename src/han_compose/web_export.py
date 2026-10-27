@@ -353,10 +353,14 @@ def entry_record(composer: C.Composer, entry: tuple, rank: int, host: C.Host | N
 
 
 def hosts_for(composer: C.Composer, place: str, written: str) -> list[dict]:
-    """Every index entry for (place, operand), in the index's order, each cut as `_host_node` cuts it."""
+    """Every index entry for (place, operand), in the index's order, each cut as `_host_node` cuts it.
+    A style with `own_hosts` keeps only hosts its main font draws."""
     index, _ = composer._index
+    entries = index.get((place, written), [])
+    if composer.font.style.own_hosts:
+        entries = [entry for entry in entries if composer.font.own(entry[0])]
     return [entry_record(composer, entry, rank, composer._host_node(entry[0], entry[1], entry[2]))
-            for rank, entry in enumerate(index.get((place, written), []))]
+            for rank, entry in enumerate(entries)]
 
 
 # ------------------------------------------------------------------ keys
