@@ -123,3 +123,9 @@ sequences and the radical forms; hfhchan/ids (MIT) supplies the list of ideograp
 undecomposed; KanjiVG (CC BY-SA 3.0) supplies component ownership when a host is cut. Glyphs drawn
 from KanjiVG-assisted cuts are shared alike, with its notice kept. The `export-web` manifest carries
 the same notices for the data it writes.
+
+[KAGE](https://github.com/kamichikoichi/kage-engine), created by Koichi Kamichi, and the
+[GlyphWiki](https://glyphwiki.org/) contributors developed a system for drawing characters from
+reusable strokes and components. Their work is a predecessor to character composition here. The
+serif style also uses [Jigmo](https://kamichikoichi.github.io/jigmo/), generated with KAGE from
+GlyphWiki glyph data and released under CC0 1.0, for parts Noto Serif CJK does not draw.
