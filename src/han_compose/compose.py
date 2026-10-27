@@ -31,6 +31,7 @@ Operands drawn across each other (⿻) are laid out as characters that overlay t
 from __future__ import annotations
 
 import hashlib
+import json
 import math
 import re
 from collections import Counter
@@ -45,6 +46,14 @@ from fontTools.pens.recordingPen import RecordingPen
 from fontTools.ttLib import TTFont
 
 from .vocab import BINARY, TERNARY, UNARY, read_rows
+
+# Generated from the pinned BabelStone IDS catalog; see docs/pyramid-glyphs.md.
+_PYRAMID_GLYPHS = {
+    sequence: row["char"]
+    for row in json.loads(Path(__file__).with_name("pyramid-glyphs.json").read_text(encoding="utf-8"))["entries"]
+    for sequence in (row["sequence"], f"⿱{row['part']}{row['pair']}",
+                     f"⿱{row['part']}⿰{row['part']}{row['part']}")
+}
 
 @dataclass(frozen=True)
 class Source:
@@ -1997,8 +2006,7 @@ class Composer:
     def _standalone_pyramid(self, node: Node) -> Node:
         """Use an attested whole glyph for an expanded pyramid-glyphs; keep missing or excluded glyphs decomposed."""
         self._reference_context()
-        equivalents = {'⿱木⿰木木': '森', '⿱日⿰日日': '晶', '⿱金⿰金金': '鑫', '⿱水⿰水水': '淼', '⿱火⿰火火': '焱', '⿱土⿰土土': '垚', '⿱女⿰女女': '姦', '⿱子⿰子子': '孨', '⿱口⿰口口': '品', '⿱吉⿰吉吉': '嚞', '⿱隹⿰隹隹': '雥', '⿱魚⿰魚魚': '鱻', '⿱牛⿰牛牛': '犇', '⿱馬⿰馬馬': '驫', '⿱羊⿰羊羊': '羴', '⿱犬⿰犬犬': '猋', '⿱貝⿰貝貝': '贔', '⿱毛⿰毛毛': '毳', '⿱手⿰手手': '掱', '⿱耳⿰耳耳': '聶', '⿱虫⿰虫虫': '蟲', '⿱車⿰車車': '轟', '⿱力⿰力力': '劦'}
-        char = equivalents.get(key(node))
+        char = _PYRAMID_GLYPHS.get(key(node))
         return char if char and char not in self.exclude and self.font.has(char) else node
 
     def _standalone_repeated_grid(self, node: Node) -> Node:
