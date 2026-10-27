@@ -2163,19 +2163,29 @@ class Composer:
         # Resolve each node's original identity before changing its rendering layout.
         node = self._respelled(node)
         op, children = node[0], list(node[1:])
-        if op == "⿾":
-            # Reflect both masters, without changing the cached glyph, so subsequent
-            # fitting and stroke weighting still operate in the part's own frame.
-            out = self._node(children[0], region, at_root)
+        if op in ("⿾", "⿿"):
+            # Reflect both masters in each part's frame, then move the part's target
+            # within the node's region. A half-turn reflects both axes.
+            child = children[0]
+            if at_root:
+                # A transformed whole character gets the same standalone drawing as
+                # its untransformed operand before its outlines are turned.
+                child = self._standalone_expanded_overlay(self._standalone_pyramid(
+                    self._standalone_repeated_grid(child)))
+            out = self._node(child, region, at_root)
             for item in out:
-                centre = item.source[0] + item.source[2]
+                axes = (0,) if op == "⿾" else (0, 1)
                 def reflect(points):
                     reflected = points.copy()
-                    reflected[:, 0] = centre - reflected[:, 0]
+                    for axis in axes:
+                        reflected[:, axis] = item.source[axis] + item.source[axis + 2] - reflected[:, axis]
                     return reflected
                 item.part = Part([replace(c, light=reflect(c.light), heavy=reflect(c.heavy)) for c in item.part.contours])
-                x0, y0, x1, y1 = item.target
-                item.target = (region[0] + region[2] - x1, y0, region[0] + region[2] - x0, y1)
+                target = list(item.target)
+                for axis in axes:
+                    target[axis], target[axis + 2] = (region[axis] + region[axis + 2] - target[axis + 2],
+                                                       region[axis] + region[axis + 2] - target[axis])
+                item.target = tuple(target)
             return out
         if op not in AXIS and op not in ENCLOSE and op != OVERLAY:
             raise LookupError(f"{op} is not laid out.")

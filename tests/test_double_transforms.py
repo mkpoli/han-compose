@@ -30,18 +30,31 @@ def signature(c, sequence):
 def test_double_transform(op, text, wrapper):
     c = fixture()
     assert signature(c, wrapper.format(op * 2 + text)) == signature(c, wrapper.format(text))
-    if op == "⿾":
-        assert signature(c, op * 3 + text) == signature(c, op + text)
-    else:
-        for count in (1, 3):
-            with pytest.raises(LookupError, match="not laid out"):
-                c.compose(op * count + text)
+    assert signature(c, op * 3 + text) == signature(c, op + text)
     assert signature(c, op * 4 + text) == signature(c, text)
 
 def test_mixed_transform_unchanged():
     c = fixture()
     tree = compose.parse("⿾⿿木")
     assert c._cancel_transforms(tree) == tree
+
+
+@pytest.mark.parametrize("text", ["木", "⿰木口", "⿱木口"])
+def test_half_turn_rotates_all_outlines_in_the_node_region_without_mutating_fonts(text):
+    c = fixture()
+    region = (120, 210, 620, 910)
+    original = c._node(compose.parse(text), region)
+    original_points = [[points.copy() for points in p.contours()] for p in original]
+    rotated = c._node(compose.parse("⿿" + text), region)
+    assert len(original) == len(rotated)
+    centre = np.array([region[0] + region[2], region[1] + region[3]])
+    for before, after in zip(original_points, rotated):
+        for points, turned in zip(before, after.contours()):
+            np.testing.assert_allclose(turned, centre - points)
+    again = c._node(compose.parse(text), region)
+    for before, part in zip(original_points, again):
+        for points, unchanged in zip(before, part.contours()):
+            np.testing.assert_allclose(unchanged, points)
 
 
 @pytest.mark.parametrize("op", ["⿾", "⿿"])
@@ -54,3 +67,12 @@ def test_cancellation_precedes_pyramid_lookup(op):
 def test_cancellation_precedes_overlay_lookup(op):
     c = fixture()
     assert signature(c, op * 2 + "⿻大⿰人人") == signature(c, "夾")
+
+
+@pytest.mark.parametrize("op", ["⿾", "⿿"])
+@pytest.mark.parametrize("expanded,whole", [
+    ("⿱木⿰木木", "森"), ("⿻大⿰人人", "夾"), ("⿱⿰口口⿰口口", "㗊"),
+])
+def test_transformed_whole_uses_the_same_standalone_glyph(op, expanded, whole):
+    c = fixture()
+    assert signature(c, op + expanded) == signature(c, op + whole)
