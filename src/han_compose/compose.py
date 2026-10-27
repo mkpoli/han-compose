@@ -1978,6 +1978,13 @@ class Composer:
                 return ("⿱", ("⿰", part, part), ("⿰", part, part))
         return (node[0], *(self._normalize_repeated_grids(child) for child in node[1:]))
 
+    def _standalone_expanded_overlay(self, node: Node) -> Node:
+        """Use an attested whole glyph for an expanded overlays; keep missing or excluded glyphs decomposed."""
+        self._reference_context()
+        equivalents = {'⿻大⿰人人': '夾', '⿻工⿰人人': '巫', '⿻⿰人人土': '坐'}
+        char = equivalents.get(key(node))
+        return char if char and char not in self.exclude and self.font.has(char) else node
+
     def _standalone_pyramid(self, node: Node) -> Node:
         """Use an attested whole glyph for an expanded pyramid-glyphs; keep missing or excluded glyphs decomposed."""
         self._reference_context()
@@ -1996,7 +2003,8 @@ class Composer:
 
     def compose(self, sequence: str) -> list[Placed]:
         """The parts that draw `sequence`; LookupError when an operand can be drawn no way."""
-        tree = self._standalone_pyramid(self._standalone_repeated_grid(self._normalize_repeated_grids(parse(sequence))))
+        tree = self._standalone_expanded_overlay(self._standalone_pyramid(
+            self._standalone_repeated_grid(self._normalize_repeated_grids(parse(sequence)))))
         placed = self._node(tree, self.face, at_root=True)
         if self.rerank:
             options = self._reranked(tree, placed)
