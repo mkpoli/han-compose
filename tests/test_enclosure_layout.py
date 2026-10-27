@@ -409,3 +409,56 @@ def test_standalone_grid_without_encoded_glyph_falls_back_to_components():
     a = c.compose("⿰⿱口口⿱口口")
     assert len(a) == 4
     assert compose.svg_path(a) == compose.svg_path(c.compose("⿱⿰口口⿰口口"))
+
+
+FOUR_ENCLOSURES = [
+    ("⿹須", "⿹⿰彡頁", "⿰⿱彡{inner}頁", "此"),
+    ("⿸攸", "⿸⿲亻丨攵", "⿲亻丨⿱攵{inner}", "羽"),
+    ("⿸𪧇", "⿸⿱宀爿", "⿱宀⿰爿{inner}", "丙"),
+    ("⿸朕", "⿸⿰月关", "⿰月⿱关{inner}", "氺"),
+]
+
+
+@pytest.mark.parametrize("host,literal,rendered,example", FOUR_ENCLOSURES)
+@pytest.mark.parametrize("inner", ["木", "⬚", "⿱木⬚"])
+def test_four_enclosure_hosts_preserve_source_and_insert_arbitrary_contents(host, literal, rendered, example, inner):
+    c = compose.Composer(None, {})
+    expected = compose.parse(rendered.format(inner=inner))
+    for spelling in (host, literal):
+        source = compose.parse(spelling + inner)
+        assert c._respelled(source) == expected
+        assert compose.key(source) == spelling + inner
+        wrong_operator = "⿸" if spelling[0] == "⿹" else "⿹"
+        unrelated = compose.parse(wrong_operator + spelling[1:] + inner)
+        assert c._respelled(unrelated) == unrelated
+    # The same component remains intact outside the supported enclosure.
+    ordinary = compose.parse("⿱" + host[1:] + inner)
+    assert c._respelled(ordinary) == ordinary
+
+
+@pytest.mark.parametrize("host,literal,rendered,example", FOUR_ENCLOSURES)
+@pytest.mark.parametrize("nested", [False, True])
+def test_four_enclosure_hosts_draw_their_opened_components(host, literal, rendered, example, nested):
+    glyphs = {ch: compose.Part([rectangle((0, 0, 100, 100))])
+              for ch in "彡頁亻丨攵宀爿月关此羽丙氺木"}
+    font = SimpleNamespace(glyph=glyphs.get, has=lambda ch: ch in glyphs,
+                           own=lambda ch: ch in glyphs, stem=((4, 8), (4, 8)))
+    c = compose.Composer(font, {}, hosted=False, weighted=False, reuse=False)
+    c.__dict__["spelled"] = set()
+    c.__dict__["atomic"] = set()
+    prefix = "⿱木" if nested else ""
+    expected = c.compose(prefix + rendered.format(inner=example))
+    for spelling in (host, literal):
+        actual = c.compose(prefix + spelling + example)
+        assert [part.origin for part in actual] == [part.origin for part in expected]
+        # A parent measures its original operand before the rendering rewrite,
+        # so nested whole-operand allocations can differ from the expanded IDS.
+        if not nested:
+            assert [part.target for part in actual] == [part.target for part in expected]
+        inner = next(part for part in actual if part.origin == "glyph " + example)
+        above = "彡" if host == "⿹須" else "攵" if host == "⿸攸" else "宀" if host == "⿸𪧇" else "关"
+        upper = next(part for part in actual if part.origin == "glyph " + above)
+        assert inner.target[3] <= upper.target[1]
+        if host == "⿸𪧇":
+            left = next(part for part in actual if part.origin == "glyph 爿")
+            assert left.target[2] <= inner.target[0]
