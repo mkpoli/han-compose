@@ -1904,8 +1904,9 @@ class Composer:
         (⿸厂⿱泉心), since a whole character leaves no room inside it: on the 17 audited, 0.491 →
         0.523 (9 better, 5 worse: 魔 摩 贋 lose the corner part their hosts drew). The source
         sequence and encoded identity remain unchanged."""
-        if key(node) == "⿰⿱口口⿱口口":
-            return ("⿱", ("⿰", "口", "口"), ("⿰", "口", "口"))
+        for part in "口火又水屮":
+            if key(node) == f"⿰⿱{part}{part}⿱{part}{part}":
+                return ("⿱", ("⿰", part, part), ("⿰", part, part))
         # Explicit insertion layouts; the original two-part IDS keeps its identity.
         if isinstance(node, tuple) and len(node) == 3:
             op, outer, inner = node
@@ -1944,22 +1945,27 @@ class Composer:
             return ("⿸", outer[1], ("⿱", outer[2], node[2]))
         return node
 
-    def _normalize_mouth_grids(self, node: Node) -> Node:
+    def _normalize_repeated_grids(self, node: Node) -> Node:
         """Use one grid spelling for glyph/host lookup without changing the source IDS."""
         if isinstance(node, str):
             return node
-        if key(node) == "⿰⿱口口⿱口口":
-            return ("⿱", ("⿰", "口", "口"), ("⿰", "口", "口"))
-        return (node[0], *(self._normalize_mouth_grids(child) for child in node[1:]))
+        for part in "口火又水屮":
+            if key(node) == f"⿰⿱{part}{part}⿱{part}{part}":
+                return ("⿱", ("⿰", part, part), ("⿰", part, part))
+        return (node[0], *(self._normalize_repeated_grids(child) for child in node[1:]))
 
-    def _standalone_mouth_grid(self, node: Node) -> Node:
-        """Use the designed glyph for a complete four-mouth character."""
-        return "㗊" if (key(node) in {"⿰⿱口口⿱口口", "⿱⿰口口⿰口口"}
-                       and "㗊" not in self.exclude and self.font.has("㗊")) else node
+    def _standalone_repeated_grid(self, node: Node) -> Node:
+        """Use the designed glyph for a complete attested four-part grid."""
+        self._reference_context()
+        for part, char in {"口": "㗊", "火": "燚", "又": "叕", "水": "㵘", "屮": "茻"}.items():
+            if (key(node) in {f"⿰⿱{part}{part}⿱{part}{part}", f"⿱⿰{part}{part}⿰{part}{part}"}
+                    and char not in self.exclude and self.font.has(char)):
+                return char
+        return node
 
     def compose(self, sequence: str) -> list[Placed]:
         """The parts that draw `sequence`; LookupError when an operand can be drawn no way."""
-        tree = self._standalone_mouth_grid(self._normalize_mouth_grids(parse(sequence)))
+        tree = self._standalone_repeated_grid(self._normalize_repeated_grids(parse(sequence)))
         placed = self._node(tree, self.face, at_root=True)
         if self.rerank:
             options = self._reranked(tree, placed)
