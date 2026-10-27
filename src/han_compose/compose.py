@@ -83,6 +83,8 @@ class Style:
     kindred: bool = True
     #: Whether stroke weights are balanced across parts. A static brush face keeps its own weights.
     weighted: bool = True
+    #: Whether hosts come only from the main font, so a fallback never supplies a piece.
+    own_hosts: bool = False
 
 
 OFL = "SIL OFL 1.1"
@@ -142,6 +144,7 @@ STYLES = {
         heavy=400,
         kindred=False,
         weighted=False,
+        own_hosts=True,
     ),
 }
 DEFAULT_STYLE = "sans"
@@ -1046,7 +1049,7 @@ class Composer:
 
     def __post_init__(self) -> None:
         if self.weighted is None:
-            self.weighted = self.font.style.weighted
+            self.weighted = getattr(getattr(self.font, "style", None), "weighted", True)
 
     @cached_property
     def by_sequence(self) -> dict[str, str]:
