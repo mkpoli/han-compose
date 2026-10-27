@@ -65,6 +65,10 @@ class Guide:
 
     def fit(self, composer: C.Composer, sequence: str, placed: list[C.Placed]) -> list[C.Placed]:
         """`placed` with each stroke group moved toward the guide's ink."""
+        # These enclosures have no guide embedding or operand boxes. Leave their
+        # composition alone until a guide trained on them is available.
+        if sequence and sequence[0] in ("⿼", "⿽"):
+            return placed
         gain = self.ink(composer, sequence, placed) - 0.5
         if LEVEL == "part":
             return [_fitted(item, item.part.contours, gain) for item in placed]
