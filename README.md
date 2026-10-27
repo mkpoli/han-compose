@@ -20,8 +20,11 @@ row below it is the font's glyph. 侮 is composed in the Chinese form, ⿰亻每
 font draws ⿰亻毎. Composed glyphs that use KanjiVG cuts are CC BY-SA 3.0 (see [Sources](#sources)),
 so the image is shared under CC BY-SA 3.0.
 
-han-compose lays out ⿰ ⿱ ⿲ ⿳, the enclosures ⿴ to ⿺, the overlay ⿻, the reflection ⿾ and the
-half-turn ⿿. It does not draw ⿼ ⿽ ㇯ or 〾, and its fonts have no Tangut. Chữ Nôm characters are Han characters and are drawn like
+han-compose lays out ⿰ ⿱ ⿲ ⿳, the enclosures ⿴ to ⿺ and ⿼ ⿽, the overlay ⿻, the reflection ⿾
+and the half-turn ⿿. The right-hand enclosures ⿼ and ⿽ use the enclosing outline's opening or a
+default box when no opening is found; their placement is approximate and can differ substantially
+from a designed glyph. It does not draw ㇯ or 〾, and its fonts have no Tangut.
+Chữ Nôm characters are Han characters and are drawn like
 any other.
 
 ## Run

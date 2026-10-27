@@ -165,11 +165,12 @@ ASCENT = 880
 #: The operators a part is cut from its host along: x for side by side, y for stacked.
 AXIS = {"⿰": 0, "⿲": 0, "⿱": 1, "⿳": 1}
 #: The sides an enclosing operand closes, y up: ⿸ 厂 closes the left and the top.
-ENCLOSE = {"⿴": "LRBT", "⿵": "LRT", "⿶": "LRB", "⿷": "LBT", "⿸": "LT", "⿹": "RT", "⿺": "LB"}
+ENCLOSE = {"⿴": "LRBT", "⿵": "LRT", "⿶": "LRB", "⿷": "LBT", "⿸": "LT", "⿹": "RT", "⿺": "LB",
+           "⿼": "RBT", "⿽": "RB"}
 #: Where an enclosed operand sits when no host shows it, as shares of the region (x0, y0, x1, y1).
 INSIDE = {"⿴": (0.2, 0.15, 0.8, 0.8), "⿵": (0.2, 0.0, 0.8, 0.8), "⿶": (0.2, 0.2, 0.8, 1.0),
           "⿷": (0.2, 0.15, 1.0, 0.85), "⿸": (0.3, 0.0, 1.0, 0.78), "⿹": (0.0, 0.0, 0.75, 0.78),
-          "⿺": (0.3, 0.25, 1.0, 1.0)}
+          "⿺": (0.3, 0.25, 1.0, 1.0), "⿼": (0.0, 0.15, 0.8, 0.85), "⿽": (0.0, 0.25, 0.7, 1.0)}
 #: Least likeness of a cut piece to its operand's own glyph.
 LIKENESS = 0.45
 #: The share of its opening an enclosed part drawn there takes: designers leave it room (the inner
