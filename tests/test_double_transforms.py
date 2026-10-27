@@ -48,3 +48,9 @@ def test_mixed_transform_unchanged():
 def test_cancellation_precedes_pyramid_lookup(op):
     c = fixture()
     assert signature(c, op * 2 + "⿱木⿰木木") == signature(c, "森")
+
+
+@pytest.mark.parametrize("op", ["⿾", "⿿"])
+def test_cancellation_precedes_overlay_lookup(op):
+    c = fixture()
+    assert signature(c, op * 2 + "⿻大⿰人人") == signature(c, "夾")
