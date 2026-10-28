@@ -45,7 +45,7 @@ def test_gelu_is_the_tanh_form_training_uses() -> None:
 
 
 def learned_composer(monkeypatch, boxes):
-    c = C.Composer(SimpleNamespace(own=lambda _: False), {})
+    c = C.Composer(SimpleNamespace(own=lambda _: False), {}, weighted=True)
     c._faces[None] = ((0, 0, 100, 100), set())
     c.__dict__["spelled"] = set()
     calls = []
@@ -154,7 +154,7 @@ def teacher_composer(monkeypatch, op, bare_index, extent):
         intervals = [(100 - hi, 100 - lo) for lo, hi in intervals]
     boxes = [(lo, 0, hi, 100) if axis == 0 else (0, lo, 100, hi) for lo, hi in intervals]
     source = SimpleNamespace(box=(0, 0, 100, 100))
-    c = C.Composer(SimpleNamespace(glyph=lambda _: source), {})
+    c = C.Composer(SimpleNamespace(glyph=lambda _: source), {}, weighted=True)
     c._faces[None] = ((0, 0, 100, 100), set())
     c.__dict__["spelled"] = set()
     teacher = C.Host("donor", [SimpleNamespace(box=box) for box in boxes], c.face, 10)
@@ -168,7 +168,7 @@ def teacher_composer(monkeypatch, op, bare_index, extent):
     monkeypatch.setattr(c, "_host", lambda *args, **kwargs: None)
     monkeypatch.setattr(c, "_space", lambda *args: calls.append("space"))
 
-    def shares(operator, children, region):
+    def shares(operator, children, region, at_root=False):
         calls.append(("shares", operator, children, region))
         return fallback
 
