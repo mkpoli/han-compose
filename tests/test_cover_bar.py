@@ -56,3 +56,14 @@ def test_a_part_under_a_non_cover_keeps_its_bar():
 
     assert lower.contours()[0][:, 0].min() == 50
     assert lower.contours()[0][:, 0].max() == 950
+
+
+def test_a_mid_height_bar_under_a_cover_is_kept():
+    cover = placed(box(100, 500, 900, 700))
+    lower = placed(box(50, 200, 950, 280), box(480, 0, 520, 480))
+    c = composer()
+
+    C._fit_under_cover("⿱", ["宀", "X"], [[cover], [lower]])
+
+    assert lower.contours()[0][:, 0].min() == 50
+    assert lower.contours()[0][:, 0].max() == 950
