@@ -129,6 +129,13 @@ its common enclosures.
 - 斉 ⿵齐二, ⿷匚⿰亻皮, ⿰⿸厂貝頁, ⿰魚⿱⿹勹久缶: room and proportions.
 - 看 ⿸龵目, 戒 ⿹戈廾: no gap, good proportions.
 
+### Right-hand enclosures
+
+⿼ and ⿽ use the enclosing outline's opening, or a default box when none is found. A check against
+Noto Sans CJK JP at 96 px, with the target glyph excluded and whole-glyph reuse and atomic shortcuts
+disabled, gives ink overlap 0.417 for 㕚 `⿼叉丶`, 0.515 for 氷 `⿽水丶`, 0.105 for 斗 `⿽十⺀`,
+and 0.139 for 以 `⿽人⿰𠄌丶`. These layouts need better component placement and sizing.
+
 ### Strokes added, lost or reshaped
 
 - 麺 ⿺麦面 (刂 added), 抹 ⿰扌末 (丿 added), 題 ⿺是頁 (part added), 駅 ⿰馬尺 and 期 ⿰其月

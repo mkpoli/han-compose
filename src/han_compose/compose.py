@@ -31,6 +31,7 @@ Operands drawn across each other (⿻) are laid out as characters that overlay t
 from __future__ import annotations
 
 import hashlib
+import json
 import math
 import re
 from collections import Counter
@@ -45,6 +46,14 @@ from fontTools.pens.recordingPen import RecordingPen
 from fontTools.ttLib import TTFont
 
 from .vocab import BINARY, TERNARY, UNARY, read_rows
+
+# Generated from the pinned BabelStone IDS catalog; see docs/pyramid-glyphs.md.
+_PYRAMID_GLYPHS = {
+    sequence: row["char"]
+    for row in json.loads(Path(__file__).with_name("pyramid-glyphs.json").read_text(encoding="utf-8"))["entries"]
+    for sequence in (row["sequence"], f"⿱{row['part']}{row['pair']}",
+                     f"⿱{row['part']}⿰{row['part']}{row['part']}")
+}
 
 @dataclass(frozen=True)
 class Source:
@@ -83,6 +92,8 @@ class Style:
     kindred: bool = True
     #: Whether stroke weights are balanced across parts. A static brush face keeps its own weights.
     weighted: bool = True
+    #: Whether hosts come only from the main font, so a fallback never supplies a piece.
+    own_hosts: bool = False
 
 
 OFL = "SIL OFL 1.1"
@@ -142,6 +153,7 @@ STYLES = {
         heavy=400,
         kindred=False,
         weighted=False,
+        own_hosts=True,
     ),
 }
 DEFAULT_STYLE = "sans"
@@ -153,11 +165,12 @@ ASCENT = 880
 #: The operators a part is cut from its host along: x for side by side, y for stacked.
 AXIS = {"⿰": 0, "⿲": 0, "⿱": 1, "⿳": 1}
 #: The sides an enclosing operand closes, y up: ⿸ 厂 closes the left and the top.
-ENCLOSE = {"⿴": "LRBT", "⿵": "LRT", "⿶": "LRB", "⿷": "LBT", "⿸": "LT", "⿹": "RT", "⿺": "LB"}
+ENCLOSE = {"⿴": "LRBT", "⿵": "LRT", "⿶": "LRB", "⿷": "LBT", "⿸": "LT", "⿹": "RT", "⿺": "LB",
+           "⿼": "RBT", "⿽": "RB"}
 #: Where an enclosed operand sits when no host shows it, as shares of the region (x0, y0, x1, y1).
 INSIDE = {"⿴": (0.2, 0.15, 0.8, 0.8), "⿵": (0.2, 0.0, 0.8, 0.8), "⿶": (0.2, 0.2, 0.8, 1.0),
           "⿷": (0.2, 0.15, 1.0, 0.85), "⿸": (0.3, 0.0, 1.0, 0.78), "⿹": (0.0, 0.0, 0.75, 0.78),
-          "⿺": (0.3, 0.25, 1.0, 1.0)}
+          "⿺": (0.3, 0.25, 1.0, 1.0), "⿼": (0.0, 0.15, 0.8, 0.85), "⿽": (0.0, 0.25, 0.7, 1.0)}
 #: Least likeness of a cut piece to its operand's own glyph.
 LIKENESS = 0.45
 #: The share of its opening an enclosed part drawn there takes: designers leave it room (the inner
@@ -1057,7 +1070,7 @@ class Composer:
 
     def __post_init__(self) -> None:
         if self.weighted is None:
-            self.weighted = self.font.style.weighted
+            self.weighted = getattr(getattr(self.font, "style", None), "weighted", True)
 
     @cached_property
     def by_sequence(self) -> dict[str, str]:
@@ -1947,17 +1960,68 @@ class Composer:
         layout = [tuple(float(v) for v in row) for row in np.tensordot(weights / weights.sum(), shares, axes=1)]
         return replace(best, layout=layout), same
 
+    def _requested_enclosure(self, node: Node) -> Node:
+        """The four literal insertion conventions, without changing other enclosure policies."""
+        if isinstance(node, tuple) and len(node) == 3:
+            op, outer, inner = node
+            if op == "⿹" and key(outer) in ("須", "⿰彡頁"):
+                return ("⿰", ("⿱", "彡", inner), "頁")
+            if op == "⿸" and key(outer) in ("攸", "⿲亻丨攵"):
+                return ("⿲", "亻", "丨", ("⿱", "攵", inner))
+            if op == "⿸" and key(outer) in ("𪧇", "⿱宀爿"):
+                return ("⿱", "宀", ("⿰", "爿", inner))
+            if op == "⿸" and key(outer) in ("朕", "⿰月关"):
+                return ("⿰", "月", ("⿱", "关", inner))
+        return node
+
+    def _normalize_requested_enclosures(self, node: Node) -> Node:
+        """Use the expanded form for lookup and parent geometry, including nested requests."""
+        if isinstance(node, str):
+            return node
+        rebuilt = (node[0], *(self._normalize_requested_enclosures(child) for child in node[1:]))
+        return self._requested_enclosure(rebuilt)
+
     def _respelled(self, node: Node) -> Node:
         """Rendering layout for a part under a character that is itself drawn under a corner (原 in
         愿, 庚 in 賡): the character's inner part stacked above the new one, both under its corner
         (⿸厂⿱泉心), since a whole character leaves no room inside it: on the 17 audited, 0.491 →
         0.523 (9 better, 5 worse: 魔 摩 贋 lose the corner part their hosts drew). The source
         sequence and encoded identity remain unchanged."""
-        if key(node) == "⿰⿱口口⿱口口":
-            return ("⿱", ("⿰", "口", "口"), ("⿰", "口", "口"))
+        requested = self._requested_enclosure(node)
+        if requested != node:
+            return requested
+        for part in "口火又水屮":
+            if key(node) == f"⿰⿱{part}{part}⿱{part}{part}":
+                return ("⿱", ("⿰", part, part), ("⿰", part, part))
         # Explicit insertion layouts; the original two-part IDS keeps its identity.
         if isinstance(node, tuple) and len(node) == 3:
             op, outer, inner = node
+            if op == "⿵" and key(outer) == "⿲彳⿱山一攵":
+                return ("⿲", "彳", ("⿱", ("⿱", "山", "一"), inner), "攵")
+            if op == "⿴" and (outer == "林" or key(outer) == "⿰木木"):
+                return ("⿲", "木", inner, "木")
+            if op == "⿴" and key(outer) == "⿰彳亍":
+                return ('⿲', '彳', inner, '亍')
+            if op == "⿴" and key(outer) == "⿰弓弓":
+                return ('⿲', '弓', inner, '弓')
+            if op == "⿴" and key(outer) == "⿰𤣩王":
+                return ('⿲', '𤣩', inner, '王')
+            if op == "⿴" and key(outer) == "⿰辛辛":
+                return ('⿲', '辛', inner, '辛')
+            if op == "⿴" and key(outer) == "⿰隹隹":
+                return ('⿲', '隹', inner, '隹')
+            if op == "⿴" and key(outer) == "⿱亠𧘇":
+                return ('⿳', '亠', inner, '𧘇')
+            if op == "⿸" and key(outer) == "⿰方𠂉":
+                return ('⿰', '方', ('⿱', '𠂉', inner))
+            if op == "⿹" and key(outer) == "⿰匕頁":
+                return ('⿰', ('⿱', '匕', inner), '頁')
+            if op == "⿸" and key(outer) == "⿰𠦝𠆢":
+                return ('⿰', '𠦝', ('⿱', '𠆢', inner))
+            if op == "⿶" and key(outer) == "⿱⿰弓弓鬲":
+                return ('⿱', ('⿲', '弓', inner, '弓'), '鬲')
+            if op == "⿹" and key(outer) == "⿰⿳士冖一殳":
+                return ('⿰', ('⿱', ('⿳', '士', '冖', '一'), inner), '殳')
             sides = {"行": ("彳", "亍"), "弜": ("弓", "弓"), "玨": ("𤣩", "王"),
                      "辡": ("辛", "辛"), "雔": ("隹", "隹")}
             if op == "⿴" and isinstance(outer, str) and outer in sides:
@@ -1993,22 +2057,51 @@ class Composer:
             return ("⿸", outer[1], ("⿱", outer[2], node[2]))
         return node
 
-    def _normalize_mouth_grids(self, node: Node) -> Node:
+    def _normalize_repeated_grids(self, node: Node) -> Node:
         """Use one grid spelling for glyph/host lookup without changing the source IDS."""
         if isinstance(node, str):
             return node
-        if key(node) == "⿰⿱口口⿱口口":
-            return ("⿱", ("⿰", "口", "口"), ("⿰", "口", "口"))
-        return (node[0], *(self._normalize_mouth_grids(child) for child in node[1:]))
+        for part in "口火又水屮":
+            if key(node) == f"⿰⿱{part}{part}⿱{part}{part}":
+                return ("⿱", ("⿰", part, part), ("⿰", part, part))
+        return (node[0], *(self._normalize_repeated_grids(child) for child in node[1:]))
 
-    def _standalone_mouth_grid(self, node: Node) -> Node:
-        """Use the designed glyph for a complete four-mouth character."""
-        return "㗊" if (key(node) in {"⿰⿱口口⿱口口", "⿱⿰口口⿰口口"}
-                       and "㗊" not in self.exclude and self.font.has("㗊")) else node
+    def _cancel_transforms(self, node: Node) -> Node:
+        """Cancel paired mirrors and half-turns before glyph lookup and layout."""
+        if isinstance(node, str):
+            return node
+        kids = tuple(self._cancel_transforms(child) for child in node[1:])
+        if node[0] in ("⿾", "⿿") and isinstance(kids[0], tuple) and kids[0][0] == node[0]:
+            return kids[0][1]
+        return (node[0], *kids)
+
+    def _standalone_expanded_overlay(self, node: Node) -> Node:
+        """Use an attested whole glyph for an expanded overlays; keep missing or excluded glyphs decomposed."""
+        self._reference_context()
+        equivalents = {'⿻大⿰人人': '夾', '⿻工⿰人人': '巫', '⿻⿰人人土': '坐'}
+        char = equivalents.get(key(node))
+        return char if char and char not in self.exclude and self.font.has(char) else node
+
+    def _standalone_pyramid(self, node: Node) -> Node:
+        """Use an attested whole glyph for an expanded pyramid-glyphs; keep missing or excluded glyphs decomposed."""
+        self._reference_context()
+        char = _PYRAMID_GLYPHS.get(key(node))
+        return char if char and char not in self.exclude and self.font.has(char) else node
+
+    def _standalone_repeated_grid(self, node: Node) -> Node:
+        """Use the designed glyph for a complete attested four-part grid."""
+        self._reference_context()
+        for part, char in {"口": "㗊", "火": "燚", "又": "叕", "水": "㵘", "屮": "茻"}.items():
+            if (key(node) in {f"⿰⿱{part}{part}⿱{part}{part}", f"⿱⿰{part}{part}⿰{part}{part}"}
+                    and char not in self.exclude and self.font.has(char)):
+                return char
+        return node
 
     def compose(self, sequence: str) -> list[Placed]:
         """The parts that draw `sequence`; LookupError when an operand can be drawn no way."""
-        tree = self._standalone_mouth_grid(self._normalize_mouth_grids(parse(sequence)))
+        tree = self._standalone_expanded_overlay(self._standalone_pyramid(
+            self._standalone_repeated_grid(self._normalize_repeated_grids(
+                self._normalize_requested_enclosures(self._cancel_transforms(parse(sequence)))))))
         placed = self._node(tree, self.face, at_root=True)
         if self.rerank:
             options = self._reranked(tree, placed)
@@ -2157,19 +2250,29 @@ class Composer:
         # Resolve each node's original identity before changing its rendering layout.
         node = self._respelled(node)
         op, children = node[0], list(node[1:])
-        if op == "⿾":
-            # Reflect both masters, without changing the cached glyph, so subsequent
-            # fitting and stroke weighting still operate in the part's own frame.
-            out = self._node(children[0], region, at_root)
+        if op in ("⿾", "⿿"):
+            # Reflect both masters in each part's frame, then move the part's target
+            # within the node's region. A half-turn reflects both axes.
+            child = children[0]
+            if at_root:
+                # A transformed whole character gets the same standalone drawing as
+                # its untransformed operand before its outlines are turned.
+                child = self._standalone_expanded_overlay(self._standalone_pyramid(
+                    self._standalone_repeated_grid(child)))
+            out = self._node(child, region, at_root)
             for item in out:
-                centre = item.source[0] + item.source[2]
+                axes = (0,) if op == "⿾" else (0, 1)
                 def reflect(points):
                     reflected = points.copy()
-                    reflected[:, 0] = centre - reflected[:, 0]
+                    for axis in axes:
+                        reflected[:, axis] = item.source[axis] + item.source[axis + 2] - reflected[:, axis]
                     return reflected
                 item.part = Part([replace(c, light=reflect(c.light), heavy=reflect(c.heavy)) for c in item.part.contours])
-                x0, y0, x1, y1 = item.target
-                item.target = (region[0] + region[2] - x1, y0, region[0] + region[2] - x0, y1)
+                target = list(item.target)
+                for axis in axes:
+                    target[axis], target[axis + 2] = (region[axis] + region[axis + 2] - target[axis + 2],
+                                                       region[axis] + region[axis + 2] - target[axis])
+                item.target = tuple(target)
             return out
         if op not in AXIS and op not in ENCLOSE and op != OVERLAY:
             raise LookupError(f"{op} is not laid out.")

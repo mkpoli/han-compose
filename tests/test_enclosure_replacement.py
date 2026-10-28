@@ -62,8 +62,10 @@ def fake_composer(placed):
     replacement=NS(origin='alone donor')
     calls=[]
     class Fake:
-        _normalize_mouth_grids = C.Composer._normalize_mouth_grids
-        _standalone_mouth_grid = C.Composer._standalone_mouth_grid
+        # These tests exercise replacement after normalisation, not its glyph lookup.
+        _normalize_requested_enclosures = staticmethod(lambda tree: tree)
+        _cancel_transforms = _normalize_repeated_grids = _standalone_repeated_grid = lambda self, tree: tree
+        _standalone_pyramid = _standalone_expanded_overlay = lambda self, tree: tree
         face=(0,0,100,100);by_sequence={'⿷匚斤':'匠'};reuse=True;exclude={'匠'}
         standalone=True;hosted=True;weighted=True;guide=None;rerank=False
         font=NS(own=lambda ch:True)
