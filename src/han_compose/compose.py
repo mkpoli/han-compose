@@ -866,6 +866,9 @@ CLEARED = frozenset("⿴⿵⿶⿷⿺")
 FACING = (72.0, 53.0)
 #: Most of its length a part gives up to make room for its neighbour.
 SQUEEZE = 0.15
+#: How far past the heavy master a part squeezed into a narrow box may grow: its stems keep the
+#: width the character's density calls for even when the box is a fraction of its own.
+WEIGHT_GROWTH = 3.0
 #: How an aligned operator with no teacher shares its axis: by operand ink to `power`, the middle
 #: operands weighted by `middle`. Fitted on the drawn characters of each operator that cut cleanly
 #: (56 ⿳, 72 ⿲): a stacked middle part is compressed, a centre column is not.
@@ -2122,7 +2125,8 @@ class Composer:
     def _balance(self, placed: list[Placed]) -> None:
         """Each part's strokes brought to the width the whole character's density calls for: a part
         drawn in a sparser glyph is thinned, one squeezed along an axis is thickened along it. A
-        part no thicker than a stroke along an axis keeps its weight there."""
+        part no thicker than a stroke along an axis keeps its weight there. A part squeezed into a
+        narrow box may grow past the heavy master, up to `WEIGHT_GROWTH`."""
         density = sum(self.ink("", p.part) * (p.scale[0] + p.scale[1]) / 2 for p in placed)
         ratio = [self.font.stem[axis][1] / self.font.stem[axis][0] - 1 for axis in (0, 1)]
         for p in placed:
@@ -2138,7 +2142,7 @@ class Composer:
                     continue
                 measured = p.part.contours[0].width
                 own = measured[axis] if measured is not None else self.font.width(p.native, axis)
-                weight.append(float(np.clip((self.font.width(density, axis) / (s * own) - 1) / ratio[axis], -0.6, 1.0)))
+                weight.append(float(np.clip((self.font.width(density, axis) / (s * own) - 1) / ratio[axis], -0.6, WEIGHT_GROWTH)))
             p.target = tuple(target)
             p.weight = (weight[0], weight[1])
 
