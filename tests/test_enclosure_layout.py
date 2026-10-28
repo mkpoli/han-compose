@@ -9,7 +9,7 @@ from han_compose import compose
 @pytest.mark.parametrize("inner", ["黑", "鬼", "面", "甲", "食"])
 def test_yan_enclosure_places_dog_above_inner_part(inner):
     sequences = {"厌": "⿸厂犬"}
-    c = compose.Composer(SimpleNamespace(own=lambda _: True), sequences, weighted=True)
+    c = compose.Composer(SimpleNamespace(own=lambda _: True), sequences)
     c.__dict__["_index"] = ({("⿸0", "厌"): [("魇", ("⿸", "厌", "鬼"), (), 0)]}, {})
     source = ("⿸", "厌", inner)
     assert c._respelled(source) == ("⿸", "厂", ("⿱", "犬", inner))
@@ -18,7 +18,7 @@ def test_yan_enclosure_places_dog_above_inner_part(inner):
 
 
 def test_a_corner_character_under_a_corner_stacks_its_inner_parts():
-    c = compose.Composer(None, {"麻": "⿸广林", "原": "⿸厂泉", "厭": "⿸厂猒"}, weighted=True)
+    c = compose.Composer(None, {"麻": "⿸广林", "原": "⿸厂泉", "厭": "⿸厂猒"})
     assert c._respelled(compose.parse("⿸麻石")) == ("⿸", "广", ("⿱", "林", "石"))
     assert c._respelled(compose.parse("⿸原心")) == ("⿸", "厂", ("⿱", "泉", "心"))
     tree = compose.parse("⿱厭黑")
@@ -26,7 +26,7 @@ def test_a_corner_character_under_a_corner_stacks_its_inner_parts():
 
 
 def test_rendering_normalisation_does_not_follow_cyclic_or_malformed_sources():
-    c = compose.Composer(None, {"甲": "⿸乙口", "乙": "⿸甲木", "厌": "⿸厂"}, weighted=True)
+    c = compose.Composer(None, {"甲": "⿸乙口", "乙": "⿸甲木", "厌": "⿸厂"})
     for source in ("⿸甲日", "⿸厌黑"):
         tree = compose.parse(source)
         assert c._respelled(tree) == tree
@@ -137,7 +137,7 @@ def test_blocked_anchor_preserves_scale_and_clearance():
 @pytest.mark.parametrize("nested", [False, True])
 @pytest.mark.parametrize("mode", ["bare-refit", "hosted-refit", "missing-host"])
 def test_learned_anchor_only_applies_to_hosted_refit_bare_fallback(monkeypatch, nested, mode):
-    c = compose.Composer(SimpleNamespace(own=lambda _: False, stem=((4, 4),)), {}, weighted=True)
+    c = compose.Composer(SimpleNamespace(own=lambda _: False, stem=((4, 4),)), {})
     c._faces[None] = ((0, 0, 100, 100), set())
     boxes = [(0, 0, 100, 100), (0, 0, 25, 25)]
     c.layout = SimpleNamespace(predict=lambda *args: list(boxes))
@@ -171,7 +171,7 @@ COMPOUND_OUTER = ("⿱", "A", "B")
 def compound_corner_fixture(monkeypatch, inner_top=50.4, spy_fit=True):
     outer = compose.Part([rectangle((0, 0, 10, 100)), rectangle((0, 50, 100, 60))])
     inner = compose.Part([rectangle((20, 40, 80, inner_top))])
-    c = compose.Composer(SimpleNamespace(own=lambda _: False, stem=((4, 4),)), {}, weighted=True)
+    c = compose.Composer(SimpleNamespace(own=lambda _: False, stem=((4, 4),)), {})
     c._faces[None] = (CORNER_FACE, set())
     c.layout = SimpleNamespace(predict=lambda *args: [outer.box, inner.box])
     hosts = [compose.Host("outer", [outer], CORNER_FACE, 0), compose.Host("inner", [inner], CORNER_FACE, 0)]
@@ -251,7 +251,7 @@ def test_hand_forms_follow_kanjivg_stroke_order():
 
 @pytest.mark.parametrize("inner", ["氵", "⬚", ("⿱", "木", "口")])
 def test_xing_enclosure_opens_around_inner_operand(inner):
-    c = compose.Composer(None, {}, weighted=True)
+    c = compose.Composer(None, {})
     source = ("⿴", "行", inner)
     assert c._respelled(source) == ("⿲", "彳", inner, "亍")
     assert source == ("⿴", "行", inner)
@@ -295,7 +295,7 @@ def test_xing_enclosure_draws_as_three_columns(nested):
 ])
 @pytest.mark.parametrize("inner", ["米", "几", "⬚", "⿱木口"])
 def test_disconnected_enclosures_keep_source_description(outer, rendered, inner):
-    c = compose.Composer(None, {}, weighted=True)
+    c = compose.Composer(None, {})
     source = compose.parse(outer + inner)
     assert c._respelled(source) == compose.parse(rendered.format(inner=inner))
     assert compose.key(source) == outer + inner

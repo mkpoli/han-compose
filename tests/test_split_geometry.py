@@ -19,7 +19,7 @@ def identities(parts):
 
 
 def composer(references):
-    return compose.Composer(SimpleNamespace(glyph=references.get), {}, weighted=True)
+    return compose.Composer(SimpleNamespace(glyph=references.get), {})
 
 
 @pytest.mark.parametrize("strict", [False, True])
