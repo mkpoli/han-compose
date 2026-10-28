@@ -504,3 +504,36 @@ def test_requested_enclosure_normalization_keeps_nested_slots_and_unrelated_layo
     for text in ["⿸須羽", "⿴攸羽", "⿱𪧇木", "⿹朕氺", "⿴行水", "⿸厌鬼"]:
         tree = compose.parse(text)
         assert c._normalize_requested_enclosures(tree) == tree
+
+
+@pytest.mark.parametrize("inner", ["米", "⬚", "⿱木口"])
+def test_mountain_enclosure_opens_below_the_middle_bar(inner):
+    c = compose.Composer(None, {})
+    source = compose.parse("⿵⿲彳⿱山一攵" + inner)
+    assert c._respelled(source) == compose.parse("⿲彳⿱⿱山一" + inner + "攵")
+    assert compose.key(source) == "⿵⿲彳⿱山一攵" + inner
+    for other in ("⿴⿲彳⿱山一攵" + inner, "⿵⿲彳⿱山一文" + inner, "⿲彳⿱山一攵"):
+        tree = compose.parse(other)
+        assert c._respelled(tree) == tree
+
+
+@pytest.mark.parametrize("nested", [False, True])
+def test_mountain_enclosure_draws_between_sides_below_the_bar(nested):
+    glyphs = {ch: compose.Part([rectangle((0, 0, 100, 100))]) for ch in "彳山一攵米木"}
+    font = SimpleNamespace(glyph=glyphs.get, has=lambda ch: ch in glyphs,
+                           own=lambda ch: ch in glyphs, stem=((4, 8), (4, 8)))
+    c = compose.Composer(font, {}, hosted=False, weighted=False, reuse=False)
+    c.__dict__["spelled"] = set()
+    c.__dict__["atomic"] = set()
+    prefix = "⿰木" if nested else ""
+    actual = c.compose(prefix + "⿵⿲彳⿱山一攵米")
+    expected = c.compose(prefix + "⿲彳⿱⿱山一米攵")
+    assert [p.origin for p in actual] == [p.origin for p in expected]
+    # A parent measures the original enclosure before its child is respelled.
+    if not nested:
+        assert [p.target for p in actual] == [p.target for p in expected]
+    left, mountain, bar, inner, right = actual[-5:]
+    assert left.target[0] < inner.target[0] < right.target[0]
+    # Font coordinates increase upwards.
+    assert inner.target[3] <= bar.target[1]
+    assert bar.target[3] <= mountain.target[1]
