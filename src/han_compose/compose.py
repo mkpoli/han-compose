@@ -853,15 +853,10 @@ CLEARED = frozenset("⿴⿵⿶⿷⿺")
 FACING = (72.0, 53.0)
 #: Most of its length a part gives up to make room for its neighbour.
 SQUEEZE = 0.15
-#: How an aligned operator with no teacher shares its axis when a nested operand is a sequence no
-#: drawn glyph stands for, whose shape the learned layout cannot read: each operand weighs its ink
-#: to the first power times the strokes it crosses along the axis (`crossings`) to the second, the
-#: middle operands also by the third; the fourth is the share of the axis between neighbouring
-#: boxes, negative where they overlap. Fitted on the font's cut nodes (579 ⿰ and 378 ⿱ with a
-#: compound operand, 89 ⿲, 112 ⿳): mean share error ⿰ 0.050 → 0.047, ⿱ 0.072 → 0.050, ⿲ 0.045 →
-#: 0.037, ⿳ 0.054 → 0.048 against ink alone, and the gaps are their medians. Ink alone gives a part
-#: beside a much busier one too little room (穴 and 心 in 𰻞 took 0.13 and 0.12 of the height for the
-#: glyph's 0.18 and 0.16): its strokes still need their spacing.
+#: Fallback allocation for unreadable nested linear compounds: ink exponent, projected-crossing
+#: exponent, middle-operand multiplier, and inter-box gap as a fraction of the available axis.
+#: Negative gaps allow bounding boxes to overlap; `_space` checks their facing outlines afterwards.
+#: Reference sketches and non-linear operands retain the ink-only allocation.
 SHARES = {("⿰", 2): (0.5, 0.2, 1.0, -0.034), ("⿱", 2): (0.3, 0.5, 1.0, -0.015),
           ("⿲", 3): (0.5, 0.2, 0.85, -0.009), ("⿳", 3): (0.5, 0.4, 0.75, -0.006)}
 #: The ink-only shares, used wherever the operands can be read and at the top of a drawing: fitted
@@ -1041,6 +1036,8 @@ class Composer:
     #: next (`RERANK`), and the drawing `RERANK_WEIGHTS` expect to match its glyph best is kept. It
     #: draws each such character three times, so it suits builds that store their results.
     rerank: bool = False
+    #: Internal comparison sketches keep the ink-only shares at every depth.
+    _reference_only: bool = field(default=False, init=False, repr=False)
     _rank_pick: int = field(default=0, init=False, repr=False)
     _root_ranks: list[float] = field(default_factory=list, init=False, repr=False)
     _expanding: set[str] = field(default_factory=set, init=False, repr=False)
@@ -1242,14 +1239,16 @@ class Composer:
         return _crossings(glyph, axis) if glyph is not None else 1.0
 
     def _unknown(self, node: Node) -> bool:
-        """Whether an operand is a sequence no drawn glyph stands for, whose shape the learned layout
-        cannot read: a nested node beside it shares its box by `SHARES` instead. On the font's 28 cut
-        nodes of this kind the network's split is off by 0.084 of the width on average, the shares
-        by 0.053."""
+        """Whether a compound operand has no permitted glyph encoding."""
         if not isinstance(node, tuple):
             return False
         encoded = self.by_sequence.get(key(node))
         return encoded is None or encoded in self.exclude or self.font.glyph(encoded) is None
+
+    def _unknown_aligned(self, node: Node, axis: int | None = None) -> bool:
+        """An unreadable linear compound, optionally expanding along a particular axis."""
+        return (isinstance(node, tuple) and node[0] in AXIS
+                and (axis is None or AXIS[node[0]] == axis) and self._unknown(node))
 
     def aspect(self, node: Node, seen: frozenset[str] = frozenset()) -> float:
         """An operand's natural width over height: its glyph's, or for a sequence the operands'
@@ -1293,6 +1292,7 @@ class Composer:
                 return getattr(font, name)
 
         plain = Composer(ReferenceFont(), self.sequences, hosted=False, weighted=False, exclude=excluded)
+        plain._reference_only = True
         plain._frames = self._frames
         return plain
 
@@ -2175,7 +2175,8 @@ class Composer:
             raise LookupError(f"{op} is not laid out.")
         if op == OVERLAY:
             return self._overlay(children, region)
-        unknown = not at_root and op == "⿰" and any(map(self._unknown, children))
+        # An unreadable row can expand far beyond a single glyph's horizontal footprint.
+        unknown = not at_root and op == "⿰" and any(self._unknown_aligned(c, 0) for c in children)
         if self.hosted and self.layout is not None and len(children) == 2 and (
                 op in self.layout.ops if at_root else op in ("⿰", "⿱") and not unknown):
             learned = self._learned(op, children, None if at_root else region)
@@ -2771,7 +2772,7 @@ class Composer:
 
     def _shares(self, op: str, children: list[Node], region: Box, at_root: bool = False) -> list[Placed]:
         """With no drawn character to follow, operands share the region along an aligned operator:
-        `SHARES` where a nested operand is a sequence no glyph reads, `SHARES_OLD` elsewhere (an
+        `SHARES` for nested unreadable linear operands, `SHARES_OLD` for references and other cases (an
         ink-only split fitted on drawn characters, the top of a drawing included), each part still
         cut from a host in its place where one exists; an enclosed operand takes the room its
         enclosing part leaves."""
@@ -2786,7 +2787,7 @@ class Composer:
             _fit_inside(outer, inner, region, self.font.stem[0][0])
             return outer + inner
         axis = AXIS[op]
-        if not at_root and any(map(self._unknown, children)):
+        if not self._reference_only and not at_root and any(map(self._unknown_aligned, children)):
             power, crossed, middle, gap = SHARES[(op, len(children))]
             weights = [self.ink(c) ** power * self.crossings(c, axis) ** crossed
                        * (middle if 0 < k < len(children) - 1 else 1.0) for k, c in enumerate(children)]
