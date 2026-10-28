@@ -24,7 +24,7 @@ def test_a_bar_under_a_cover_is_narrowed_and_centred():
     lower = placed(bar, stem, foot)
     c = composer()
 
-    c._fit_under_cover("⿱", ["宀", "X"], [[cover], [lower]])
+    C._fit_under_cover("⿱", ["宀", "X"], [[cover], [lower]])
 
     xs = [p[:, 0] for p in lower.contours()]
     width = max(x.max() for x in xs) - min(x.min() for x in xs)
@@ -40,7 +40,7 @@ def test_a_middle_cover_in_a_stack_fits_the_part_below_it():
     lower = placed(box(50, 400, 950, 480), box(480, 0, 520, 400))
     c = composer()
 
-    c._fit_under_cover("⿳", ["X", "冖", "Y"], [[top], [cover], [lower]])
+    C._fit_under_cover("⿳", ["X", "冖", "Y"], [[top], [cover], [lower]])
 
     bar_points = lower.contours()[0]
     assert bar_points[:, 0].max() - bar_points[:, 0].min() == C.COVER_BAR * 800
@@ -52,7 +52,7 @@ def test_a_part_under_a_non_cover_keeps_its_bar():
     lower = placed(box(50, 400, 950, 480), box(480, 0, 520, 400))
     c = composer()
 
-    c._fit_under_cover("⿱", ["木", "X"], [[above], [lower]])
+    C._fit_under_cover("⿱", ["木", "X"], [[above], [lower]])
 
     assert lower.contours()[0][:, 0].min() == 50
     assert lower.contours()[0][:, 0].max() == 950
