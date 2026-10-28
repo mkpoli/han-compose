@@ -2893,7 +2893,7 @@ def _fit_under_cover(op: str, children: list[Node], groups: list[list[Placed]]) 
             for contour, points in zip(placed.part.contours, placed.contours()):
                 x0, y0, x1, y1 = (*points.min(axis=0), *points.max(axis=0))
                 w, h = x1 - x0, y1 - y0
-                if w < 0.5 * width or h > 0.3 * width or y1 < lower_box[3] - 0.25 * height:
+                if w < 0.5 * width or h > 0.2 * width or y1 < lower_box[3] - 0.12 * height:
                     continue
                 if best is None or w > best[0]:
                     best = (w, contour, x0, x1, (x0 + x1) / 2)
