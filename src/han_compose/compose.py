@@ -138,13 +138,16 @@ STYLES = {
         synthetic_y=True,
         kindred=False,
     ),
-    # Kureedo v0.4.3: Klee One's kaisho with the historical kana and Ainu small kana. It is a static
-    # font, so 400 is also the heavy master; GenZui Sans draws the ideographs Klee One lacks.
+    # Kureedo 0.5.0 Full: Klee One's kaisho and historical kana, with every public code point LXGW
+    # WenKai Light 1.530 has and Klee lacks. It is a static font, so 400 is also the heavy master;
+    # GenZui Sans draws ideographs neither carries.
     "kaisho": Style(
         "kaisho",
-        Source("Kureedo-Regular.ttf",
-               "https://github.com/mkpoli/kureedo/releases/download/v0.4.3/Kureedo-Regular.ttf",
-               "3402dc79e14f333ceb670d3e14e246a702701d2af67e2fee6baa95fc1c5e3527", OFL),
+        Source("KureedoFull-Regular.ttf",
+               "https://github.com/mkpoli/kureedo/releases/download/v0.5.0/KureedoFull-Regular.zip",
+               "737f04de3b2b222664b5386628b0a15b009c7dd69086a1050dac0e507117c5d6", OFL,
+               member="KureedoFull-Regular.ttf",
+               archive_sha256="d3c100319c1263abc0b7bbcbeb51be42d1a15ea97c90a00bf15ed71043aaec75"),
         (Source("GenZuiSans-Regular.ttf",
                 "https://github.com/mkpoli/GenZui/releases/download/sans-v0.105/GenZuiSans-Regular.ttf",
                 "121871ee522380b1f591fc6871850416cb74e075a534438eb5180b43094ebe0f", OFL),),
