@@ -2070,7 +2070,7 @@ class Composer:
 
     def _construct(self, spec: dict, out: list[Placed]) -> list[Placed]:
         """The first `keep_parts` parts, and the host's kept piece where the rest went."""
-        host = self.font.glyph(spec["host"])
+        host = self.font.glyph(spec["host"]) if spec["host"] not in self.exclude else None
         if host is None:
             return out
         pieces = split(host, 1, 2)
@@ -2080,10 +2080,11 @@ class Composer:
         kept = out[:spec["keep_parts"]]
         rest = out[spec["keep_parts"]:]
         if not rest:
+            # A font drew the whole sequence: its designed glyph stands over the construct fallback.
             return out
         box = (min(p.target[0] for p in rest), min(p.target[1] for p in rest),
                max(p.target[2] for p in rest), max(p.target[3] for p in rest))
-        return kept + [Placed(body, body.box, box, native=0.0, origin=f"construct {spec['host']} {spec['keep']}")]
+        return [*kept, Placed(body, body.box, box, native=0.0, origin=f"construct {spec['host']} {spec['keep']}")]
 
     def compose(self, sequence: str) -> list[Placed]:
         """The parts that draw `sequence`; LookupError when an operand can be drawn no way."""
