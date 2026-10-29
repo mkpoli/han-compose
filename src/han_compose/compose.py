@@ -342,6 +342,16 @@ def atomic_characters() -> set[str]:
         row[0] for row in read_rows("han-ids-drawn.tsv") if row[1] == row[0]}
 
 
+@cache
+def constructs() -> dict[str, dict]:
+    """Sequences whose last operands are one known construct, by sequence: the host character, the
+    piece to keep (top or bottom of its glyph) and how many of the sequence's parts to keep."""
+    out = {}
+    for sequence, host, keep, keep_parts, note in read_rows("han-constructs.tsv"):
+        out[sequence] = {"host": host, "keep": keep, "keep_parts": int(keep_parts), "note": note}
+    return out
+
+
 def japanese_sequences() -> dict[str, str]:
     """Each ideograph's sequence as BabelStone gives it for Japan, else its first; sequences naming
     an unencoded component ({n}) or an unnameable one (？) are left out. A sequence in
@@ -2058,6 +2068,23 @@ class Composer:
                 return char
         return node
 
+    def _construct(self, spec: dict, out: list[Placed]) -> list[Placed]:
+        """The first `keep_parts` parts, and the host's kept piece where the rest went."""
+        host = self.font.glyph(spec["host"])
+        if host is None:
+            return out
+        pieces = split(host, 1, 2)
+        if not pieces:
+            return out
+        body = pieces[0] if spec["keep"] == "top" else pieces[1]
+        kept = out[:spec["keep_parts"]]
+        rest = out[spec["keep_parts"]:]
+        if not rest:
+            return out
+        box = (min(p.target[0] for p in rest), min(p.target[1] for p in rest),
+               max(p.target[2] for p in rest), max(p.target[3] for p in rest))
+        return kept + [Placed(body, body.box, box, native=0.0, origin=f"construct {spec['host']} {spec['keep']}")]
+
     def compose(self, sequence: str) -> list[Placed]:
         """The parts that draw `sequence`; LookupError when an operand can be drawn no way."""
         tree = self._standalone_expanded_overlay(self._standalone_pyramid(
@@ -2097,6 +2124,9 @@ class Composer:
             self._balance(placed)
         if self.guide is not None:
             placed = self.guide.fit(self, key(tree), placed)
+        spec = constructs().get(sequence)
+        if spec:
+            placed = self._construct(spec, placed)
         return placed
 
     def _reranked(self, tree: Node, placed: list[Placed]) -> list[tuple[float, list[Placed], list[float]]]:
