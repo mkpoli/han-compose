@@ -28,3 +28,14 @@ def test_the_bottom_of_the_host_replaces_the_last_operands(composer: C.Composer)
     assert out[0].target[1] > out[1].target[1]
     assert out[1].origin.startswith("construct 𱵺 bottom")
     assert out[1].target[2] - out[1].target[0] > 0
+
+
+def test_an_excluded_host_is_not_used(composer: C.Composer):
+    previous = composer.exclude
+    composer.exclude = set(previous) | {"𱵺"}
+    try:
+        out = composer.compose("⿳山𠚍禸")
+    finally:
+        composer.exclude = previous
+    assert len(out) != 2
+    assert not any(p.origin.startswith("construct") for p in out)
