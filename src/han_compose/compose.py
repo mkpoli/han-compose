@@ -204,6 +204,10 @@ TEMPLATE_GROW = 1
 TEMPLATE_ON = 0.6
 #: Enclosures whose enclosing part's box holds the enclosed part's (`covering`).
 COVERING = frozenset("⿴⿵⿶⿷")
+#: Covers whose bar below is drawn inside their width: 宀, 冖, 穴, 雨.
+COVERS = frozenset({"宀", "冖", "穴", "雨"})
+#: Width of the bar under a cover, as a share of the cover's width (0.70 in 定, 0.72 in 甍).
+COVER_BAR = 0.72
 #: Least hosts in a place a kin enclosing part needs to stand for another (`_kin_outer`).
 KIN_OUTER_HOSTS = 3
 #: Hosts of a kin enclosing part tried, best first, for one KanjiVG can cut (`_kin_outer`).
@@ -2289,6 +2293,7 @@ class Composer:
             self._space(AXIS[op], groups)
         elif not same[0]:
             _fit_inside(groups[0], groups[1], region, self.font.stem[0][0])
+        _fit_under_cover(op, children, groups)
         return [p for group in groups for p in group]
 
     def _learned(self, op: str, children: list[Node], region: Box | None = None) -> list[Placed] | None:
@@ -2409,6 +2414,7 @@ class Composer:
                 _fit_inside(groups[0], groups[1], region or self.face, self.font.stem[0][0], room=limit)
         if op in AXIS:
             self._space(AXIS[op], groups)
+        _fit_under_cover(op, children, groups)
         placed = [p for group in groups for p in group]
         if (region is None and op in ENCLOSE and outer_hosted and inner_fitted
                 and _visible_inside(groups[1], self.face)
@@ -2860,7 +2866,59 @@ class Composer:
             else:
                 groups.append(self._row(child, box, len(children)))
         self._space(axis, groups)
+        _fit_under_cover(op, children, groups)
         return [p for group in groups for p in group]
+
+
+def _fit_under_cover(op: str, children: list[Node], groups: list[list[Placed]]) -> None:
+    """A horizontal bar just under a cover (宀, 冖, 穴, 雨) is drawn at `COVER_BAR` of the cover's
+    width, centred on it: 定's 疋 bar and 甍's 瓦 bar are about 0.70 and 0.72 of the cover in the
+    font, where a full-width donor cut overshoots both sides."""
+    if op == "⿱":
+        pairs = [(0, 1)] if isinstance(children[0], str) and children[0] in COVERS else []
+    elif op == "⿳":
+        pairs = [(i, i + 1) for i in (0, 1) if i + 1 < len(children)
+                 and isinstance(children[i], str) and children[i] in COVERS]
+    else:
+        pairs = []
+    for above, below in pairs:
+        cover, lower = groups[above], groups[below]
+        if not cover or not lower:
+            continue
+        cover_box = (min(p.target[0] for p in cover), min(p.target[1] for p in cover),
+                     max(p.target[2] for p in cover), max(p.target[3] for p in cover))
+        lower_box = (min(p.target[0] for p in lower), min(p.target[1] for p in lower),
+                     max(p.target[2] for p in lower), max(p.target[3] for p in lower))
+        width, height = lower_box[2] - lower_box[0], lower_box[3] - lower_box[1]
+        if width <= 0 or height <= 0:
+            continue
+        for placed in lower:
+            best = None
+            for contour, points in zip(placed.part.contours, placed.contours()):
+                x0, y0, x1, y1 = (*points.min(axis=0), *points.max(axis=0))
+                w, h = x1 - x0, y1 - y0
+                if w < 0.5 * width or h > 0.2 * width or y1 < lower_box[3] - 0.12 * height:
+                    continue
+                if best is None or w > best[0]:
+                    best = (w, contour, x0, x1, (x0 + x1) / 2)
+            if best is None:
+                continue
+            bar_width, contour, _, _, bar_centre = best
+            cover_width = cover_box[2] - cover_box[0]
+            want = COVER_BAR * cover_width
+            if cover_width <= 0 or bar_width <= 0 or want >= bar_width:
+                continue
+            factor = want / bar_width
+            source = contour.light
+            source_centre = (source[:, 0].min() + source[:, 0].max()) / 2
+            scale = (placed.target[2] - placed.target[0]) / max(placed.source[2] - placed.source[0], 1)
+            shift = ((cover_box[0] + cover_box[2]) / 2 - bar_centre) / scale
+            move = lambda points: np.column_stack([
+                source_centre + shift + (points[:, 0] - source_centre) * factor, points[:, 1]])
+            replacement = Contour(contour.ops, move(contour.light), move(contour.heavy), contour.width)
+            contours = [replacement if c is contour else c for c in placed.part.contours]
+            placed.part = Part(contours)
+            break
 
 
 def _shrunk(box: Box, share: float) -> Box:
