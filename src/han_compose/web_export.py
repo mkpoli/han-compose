@@ -48,8 +48,9 @@ from . import compose as C
 from . import compose_layout as L
 
 #: The export's own format; a change to any file's shape makes a new one. 4 is the style-aware
-#: manifest without shards; 5 packs the records and host lists into shards.
-FORMAT = 5
+#: manifest without shards; 5 packs the records and host lists into shards; 6 adds the optional
+#: `G.sg` stroke groups.
+FORMAT = 6
 #: Shards are named by the hash's first `SHARD_DIGITS` hex digits.
 SHARD_DIGITS = 3
 SHARDS = 16 ** SHARD_DIGITS
@@ -411,6 +412,9 @@ def char_record(composer: C.Composer, char: str, places: list[str], table: L.Tab
     glyph = composer.font.glyph(char)
     if glyph is not None:
         out["G"] = {"v": int(composer.font.own(char)), **part_record(glyph)}
+        groups = composer.kvg.groups(char) if composer.kvg is not None else None
+        if groups:
+            out["G"]["sg"] = groups
     if char in composer.sequences:
         out["s"] = composer.sequences[char]
     if char in composer.atomic:

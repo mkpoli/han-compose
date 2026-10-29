@@ -226,6 +226,19 @@ class Cutter:
         self._owners[char] = result
         return result
 
+    def groups(self, char: str) -> list[list] | None:
+        """The glyph's contours by KanjiVG stroke: `[[stroke, [contour indices]], ...]`. A contour
+        holding several strokes (口's top and right sides) appears in each; None when the glyph and
+        KanjiVG do not agree."""
+        owners = self.owners(char)
+        if owners is None:
+            return None
+        out: dict[int, list[int]] = {}
+        for contour, strokes in enumerate(owners):
+            for stroke in strokes:
+                out.setdefault(stroke, []).append(contour)
+        return [[stroke, sorted(contours)] for stroke, contours in sorted(out.items())]
+
     def names(self, operand: str) -> set[str]:
         out = {operand}
         out.update(self.c.bases.get(operand, ()))
