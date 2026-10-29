@@ -6,9 +6,10 @@ regional form the font does not draw. Each part comes from a character the font 
 cut out of it (along KanjiVG's component groups where KanjiVG has that kanji), set where the
 font's designers put parts like it, and brought to one stroke weight. The result is an SVG path in
 a 1000-unit em, in a sans style from Noto Sans CJK JP, whose ideographs GenZui Sans takes unchanged;
-a serif (明朝) style from Noto Serif CJK JP; or a kaisho (楷書) style from Kureedo, the Klee One
-design extended with historical kana. Plangothic supplies the sans parts Noto lacks, Jigmo the serif
-ones, and GenZui Sans the characters Kureedo lacks.
+a serif (明朝) style from Noto Serif CJK JP; or a kaisho (楷書) style from Kureedo Full, the Klee
+One design with historical kana and LXGW WenKai Light for the characters Klee lacks. Plangothic
+supplies the sans parts Noto lacks, Jigmo the serif ones, and GenZui Sans the characters Kureedo Full
+lacks.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/composed-dark.png">
