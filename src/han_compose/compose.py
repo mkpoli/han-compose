@@ -169,7 +169,7 @@ ASCENT = 880
 AXIS = {"⿰": 0, "⿲": 0, "⿱": 1, "⿳": 1}
 
 #: Covers whose middle operand sits over the part below it in a ⿳ stack.
-_COVERS = frozenset({"宀", "冖", "穴", "雨"})
+_COVERS = frozenset({"冖"})
 #: The sides an enclosing operand closes, y up: ⿸ 厂 closes the left and the top.
 ENCLOSE = {"⿴": "LRBT", "⿵": "LRT", "⿶": "LRB", "⿷": "LBT", "⿸": "LT", "⿹": "RT", "⿺": "LB",
            "⿼": "RBT", "⿽": "RB"}
@@ -752,7 +752,8 @@ def cover_stack_pieces(part: Part) -> list[Part] | None:
     mid = max(eligible, key=lambda i: _span(units[i], 0)[1] - _span(units[i], 0)[0])
     bottom_y = _span(units[mid], 1)[0]
     bottom = [i for i in range(len(units))
-              if i != mid and (_span(units[i], 1)[0] + _span(units[i], 1)[1]) / 2 < bottom_y]
+              if i != mid and (_span(units[i], 1)[0] < bottom_y
+                               or (_span(units[i], 1)[0] + _span(units[i], 1)[1]) / 2 < bottom_y)]
     top = [i for i in range(len(units)) if i != mid and i not in bottom]
     if not top or not bottom:
         return None
@@ -1716,12 +1717,12 @@ class Composer:
             part, node = cut[0][step], node[1 + step]
         cut = self._cut(part, node, strict)
         if cut is None or self._traded(cut[0], node[1:]):
-            return self._cover_stack_host(char, tree, path)
+            return self._cover_stack_host(char, tree, path, strict)
         return Host(char, cut[0], part.box, cut[1], whole=not path)
 
 
 
-    def _cover_stack_host(self, char: str, tree: tuple, path: tuple) -> Host | None:
+    def _cover_stack_host(self, char: str, tree: tuple, path: tuple, strict: bool = True) -> Host | None:
         """A ⿳ whose middle is a cover, cut by region: the widest stroke is the cover, the
         units below it are the part under it, the rest the part above. Used when no axis cut
         separates the interlocking bands."""
@@ -1737,6 +1738,15 @@ class Composer:
             return None
         pieces = cover_stack_pieces(glyph)
         if pieces is None:
+            return None
+        operands = node[1:]
+        if self._traded(pieces, operands):
+            return None
+        if not all(self._kept(piece, operand) for piece, operand in zip(pieces, operands)):
+            return None
+        if strict and not all(self._like_fellows(piece, slot(node[0], k), operand)
+                              for k, (piece, operand) in enumerate(zip(pieces, operands))
+                              if isinstance(operand, str)):
             return None
         return Host(char, pieces, glyph.box, 0.0, whole=True)
 
