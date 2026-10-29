@@ -167,6 +167,9 @@ STATIC_GROW = 20.0
 ASCENT = 880
 #: The operators a part is cut from its host along: x for side by side, y for stacked.
 AXIS = {"⿰": 0, "⿲": 0, "⿱": 1, "⿳": 1}
+
+#: Covers whose middle operand sits over the part below it in a ⿳ stack.
+_COVERS = frozenset({"宀", "冖", "穴", "雨"})
 #: The sides an enclosing operand closes, y up: ⿸ 厂 closes the left and the top.
 ENCLOSE = {"⿴": "LRBT", "⿵": "LRT", "⿶": "LRB", "⿷": "LBT", "⿸": "LT", "⿹": "RT", "⿺": "LB",
            "⿼": "RBT", "⿽": "RB"}
@@ -729,6 +732,33 @@ def _linear_partitions(part: Part, axis: int, pieces: int) -> Iterator[tuple[tup
             continue
         parts = [Part(g) for g in groups]
         yield crossing, chosen, parts[::-1] if axis == 1 else parts
+
+
+def cover_stack_pieces(part: Part) -> list[Part] | None:
+    """A ``⿳`` with a cover in the middle, cut by region: the widest thin stroke near mid-height is
+    the cover, the units below it are the part under it, the rest the part above. None when no such
+    stroke separates the bands."""
+    units = _units(part.contours)
+    if len(units) < 3:
+        return None
+    x0, y0, x1, y1 = part.box
+    width, height = x1 - x0, y1 - y0
+    eligible = [i for i, unit in enumerate(units)
+                if _span(unit, 0)[1] - _span(unit, 0)[0] >= 0.55 * width
+                and _span(unit, 1)[1] - _span(unit, 1)[0] <= 0.3 * height
+                and 0.3 * height <= (_span(unit, 1)[0] + _span(unit, 1)[1]) / 2 - y0 <= 0.7 * height]
+    if not eligible:
+        return None
+    mid = max(eligible, key=lambda i: _span(units[i], 0)[1] - _span(units[i], 0)[0])
+    bottom_y = _span(units[mid], 1)[0]
+    bottom = [i for i in range(len(units))
+              if i != mid and (_span(units[i], 1)[0] + _span(units[i], 1)[1]) / 2 < bottom_y]
+    top = [i for i in range(len(units)) if i != mid and i not in bottom]
+    if not top or not bottom:
+        return None
+    return [Part([ct for i in top for ct in units[i]]),
+            Part(list(units[mid])),
+            Part([ct for i in bottom for ct in units[i]])]
 
 
 def enclosures(part: Part, op: str) -> list[tuple[Part, Part]]:
@@ -1686,8 +1716,29 @@ class Composer:
             part, node = cut[0][step], node[1 + step]
         cut = self._cut(part, node, strict)
         if cut is None or self._traded(cut[0], node[1:]):
-            return None
+            return self._cover_stack_host(char, tree, path)
         return Host(char, cut[0], part.box, cut[1], whole=not path)
+
+
+
+    def _cover_stack_host(self, char: str, tree: tuple, path: tuple) -> Host | None:
+        """A ⿳ whose middle is a cover, cut by region: the widest stroke is the cover, the
+        units below it are the part under it, the rest the part above. Used when no axis cut
+        separates the interlocking bands."""
+        if path:
+            return None
+        node = tree
+        if not isinstance(node, tuple) or len(node) != 4 or node[0] != "⿳":
+            return None
+        if not (isinstance(node[2], str) and node[2] in _COVERS):
+            return None
+        glyph = self.font.glyph(char)
+        if glyph is None:
+            return None
+        pieces = cover_stack_pieces(glyph)
+        if pieces is None:
+            return None
+        return Host(char, pieces, glyph.box, 0.0, whole=True)
 
     def _traded(self, pieces: list[Part], operands: list[Node]) -> bool:
         """Whether pieces the variable font draws traded a stroke: one has fewer outlines than its
