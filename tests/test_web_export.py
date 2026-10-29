@@ -13,6 +13,41 @@ from han_compose import compose, compose_layout, web_export
 from han_compose.compose import Contour, Part
 
 
+def test_host_cache_batches_preserve_every_rank_and_failed_cut(monkeypatch) -> None:
+    from types import SimpleNamespace
+
+    entries = [(str(i), ("⿰", "木", "口"), (), 0) for i in range(133)]
+    c = SimpleNamespace(_index=({("L", "木"): entries}, None),
+                        font=SimpleNamespace(style=SimpleNamespace(own_hosts=False)))
+    c._host_node = lambda char, tree, path: None if int(char) % 3 == 0 else char
+    monkeypatch.setattr(web_export, "entry_record",
+                        lambda composer, entry, rank, cut: {"h": entry[0], "r": rank, "c": cut})
+    cleared = []
+    monkeypatch.setattr(web_export, "_clear_host_caches", lambda composer: cleared.append(composer))
+    records = web_export.hosts_for(c, "L", "木")
+    assert [r["r"] for r in records] == list(range(133))
+    assert [r["h"] for r in records] == [str(i) for i in range(133)]
+    assert sum(r["c"] is None for r in records) == 45
+    assert len(cleared) == 3
+
+
+def test_releasing_host_geometry_clears_glyphs_and_dependent_cuts_together() -> None:
+    from types import SimpleNamespace
+
+    names = ("_hosts", "_any_overlays", "_sketches", "_templates", "_typical", "_strokes",
+             "_faces", "_inks", "_own_counts")
+    c = SimpleNamespace(**{name: {"entry": object()} for name in names}, _frames=[], _expanding=set(),
+                        _plain=object(), font=SimpleNamespace(_parts={"木": object()}),
+                        kvg=SimpleNamespace(_owners={"林": object()}))
+    web_export._clear_host_caches(c)
+    assert all(not getattr(c, name) for name in names)
+    assert not c.font._parts and not c.kvg._owners
+    assert "_plain" not in vars(c)
+    c._frames.append(set())
+    with pytest.raises(RuntimeError, match="during composition"):
+        web_export._clear_host_caches(c)
+
+
 def test_a_record_and_a_host_list_live_in_the_shard_their_sha256_names() -> None:
     for key in ("亻", "葛\U000e0100", "⿰亻可"):
         h = hashlib.sha256(key.encode()).hexdigest()

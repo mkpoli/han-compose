@@ -352,15 +352,46 @@ def entry_record(composer: C.Composer, entry: tuple, rank: int, host: C.Host | N
     return record
 
 
+HOST_CACHE_BATCH = 64
+
+
+def _clear_host_caches(composer: C.Composer) -> None:
+    """Release cut geometry only after its record holds plain values.
+
+    A cut and its source glyph share contour identities. Clearing the glyph cache without the
+    dependent cuts would turn indexed contours into standalone outlines on the next lookup.
+    """
+    import gc
+
+    if composer._frames or composer._expanding:
+        raise RuntimeError("Cannot release geometry during composition.")
+    for name in ("_hosts", "_any_overlays", "_sketches", "_templates", "_typical", "_strokes",
+                 "_faces", "_inks", "_own_counts"):
+        getattr(composer, name).clear()
+    composer.__dict__.pop("_plain", None)
+    if composer.kvg is not None:
+        composer.kvg._owners.clear()
+    composer.font._parts.clear()
+    gc.collect()
+
+
 def hosts_for(composer: C.Composer, place: str, written: str) -> list[dict]:
-    """Every index entry for (place, operand), in the index's order, each cut as `_host_node` cuts it.
-    A style with `own_hosts` keeps only hosts its main font draws."""
+    """Every index entry, including failed cuts, with its original rank.
+
+    A style with `own_hosts` keeps only hosts its main font draws. Geometry is released in batches
+    without truncating the candidates: the drawing ranks them against its target before capping.
+    """
     index, _ = composer._index
     entries = index.get((place, written), [])
     if composer.font.style.own_hosts:
         entries = [entry for entry in entries if composer.font.own(entry[0])]
-    return [entry_record(composer, entry, rank, composer._host_node(entry[0], entry[1], entry[2]))
-            for rank, entry in enumerate(entries)]
+    records = []
+    for rank, entry in enumerate(entries):
+        records.append(entry_record(composer, entry, rank, composer._host_node(entry[0], entry[1], entry[2])))
+        if (rank + 1) % HOST_CACHE_BATCH == 0:
+            _clear_host_caches(composer)
+    _clear_host_caches(composer)
+    return records
 
 
 # ------------------------------------------------------------------ keys

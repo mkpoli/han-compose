@@ -77,7 +77,9 @@ from, and the export builds the shards from them at the end. `export-web-pack` b
 again from a finished folder's `.work/`, and brings its manifest, parity files and `.export` stamp
 to format 5, so a format-4 folder whose `g/` and `p/` are moved under `.work/` becomes the folder
 a format-5 export writes. A rerun resumes from `.work/` only under the same version, which names
-the commit: from another commit `export-web` starts afresh.
+the commit: from another commit `export-web` starts afresh. Host cutting releases cached geometry
+after each batch of 64 records and at the end of each list. Every candidate, its rank and failed-cut
+entry remain in the export; candidate selection depends on the character being composed.
 
 Records hold every letter and digit of an alphabet or syllabary the style's fonts draw (Latin,
 IPA, Greek, Cyrillic, kana, Hangul, the full- and half-width forms), so a sequence such as
