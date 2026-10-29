@@ -448,6 +448,12 @@ class Part:
 
     contours: list[Contour]
 
+    def split(self, indices: list[int]) -> tuple["Part", "Part"]:
+        """This part's contours at `indices`, and the rest, both in the original order."""
+        take = set(indices)
+        return (Part([c for k, c in enumerate(self.contours) if k in take]),
+                Part([c for k, c in enumerate(self.contours) if k not in take]))
+
     @cached_property
     def box(self) -> Box:
         boxes = np.array([c.box for c in self.contours])

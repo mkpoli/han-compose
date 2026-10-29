@@ -88,6 +88,20 @@ def test_quantized_networks_predict_what_the_model_does() -> None:
         assert np.abs(web_export.predict(web_export.layout_runs(json.loads(json.dumps(record))), x) - exact).max() < tolerance
 
 
+def test_a_glyphs_stroke_groups_follow_kanjivg(composer: compose.Composer) -> None:
+    assert composer.kvg.groups("于") == [[0, [2]], [1, [0]], [2, [1]]]
+    assert composer.kvg.groups("口") == [[0, [0]], [1, [0]], [2, [1]]]
+    first, rest = composer.font.glyph("于").split([2])
+    assert first.box[3] - first.box[1] < rest.box[3] - rest.box[1]
+
+
+def test_a_glyph_record_carries_its_stroke_groups(exported) -> None:
+    out, _, _ = exported
+    with gzip.open(out / web_export.record_shard("于"), "rt", encoding="utf-8") as f:
+        record = json.load(f)[web_export.key_hash("于")]
+    assert record["G"]["sg"] == [[0, [2]], [1, [0]], [2, [1]]]
+
+
 def test_an_outline_outside_int16_is_refused() -> None:
     far = np.array([[0.0, 0.0], [9000.0, 0.0], [9000.0, 10.0]])
     with pytest.raises(ValueError):
@@ -119,7 +133,7 @@ def composer() -> compose.Composer:
     return c
 
 
-ONLY = {"亻", "可", "何", "⿰亻可", "王", "𤣩"}
+ONLY = {"亻", "可", "何", "⿰亻可", "王", "𤣩", "于"}
 #: Host lists cut in the tests: whole lists are cut, so heavy operands (亻 on the left: 1,860) are left out.
 PAIRS = {("L", "可"), ("R", "何"), ("⿵1", "可"), ("L", "王")}
 
@@ -515,7 +529,7 @@ def test_a_stopped_addition_carries_on_and_packs_every_shard_it_touched(composer
     packed = web_export.pack(out, root=root, log=lambda _: None, changed=changed)
     assert sorted(changed) == sorted({web_export.record_shard(k) for k in keys})
     assert [(a["keys"], a["shards"]) for a in packed["added"]] == [(3, len(changed))]
-    assert packed["version"].endswith("-f5+letters")
+    assert packed["version"].endswith(f"-f{web_export.FORMAT}+letters")
     for key in keys:
         assert _record(out, key)["G"]["p"]
     assert not (out / web_export.PENDING).exists()
