@@ -35,3 +35,30 @@ def test_a_stroke_crossing_the_cover_bottom_goes_with_the_lower_part() -> None:
     pieces = cover_stack_pieces(Part([top, cover, left, right, crossing]))
     assert pieces is not None
     assert [len(p.contours) for p in pieces] == [1, 1, 3]
+
+
+def test_cover_stack_host_returns_pieces_only_when_every_check_passes() -> None:
+    from types import SimpleNamespace
+
+    from han_compose.compose import Composer
+
+    part = Part([square(0, 600, 1000, 800), square(100, 450, 900, 510),
+                 square(0, 0, 450, 300), square(500, 0, 900, 300), square(950, 400, 1000, 520)])
+    tree = ("⿳", "X", "冖", "Y")
+
+    def fake(traded: bool = False, like: bool = True) -> SimpleNamespace:
+        return SimpleNamespace(
+            font=SimpleNamespace(glyph=lambda ch: part),
+            _traded=lambda pieces, operands: traded,
+            _kept=lambda piece, operand: True,
+            _counted=lambda piece, op, k, operand: True,
+            _like_fellows=lambda piece, place, operand: like,
+            slot=lambda op, k: ("T", "M", "B")[k],
+        )
+
+    host = Composer._cover_stack_host(fake(), "X", tree, (), True)
+    assert host is not None
+    assert [len(p.contours) for p in host.pieces] == [1, 1, 3]
+    assert Composer._cover_stack_host(fake(traded=True), "X", tree, (), True) is None
+    assert Composer._cover_stack_host(fake(like=False), "X", tree, (), True) is None
+    assert Composer._cover_stack_host(fake(like=False), "X", tree, (), False) is not None
