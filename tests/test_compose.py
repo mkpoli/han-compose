@@ -242,3 +242,25 @@ def test_a_variation_sequence_with_a_glyph_of_its_own_is_listed(composer: compos
     assert "侮\U000E0101" in selected
     assert composer.font.glyph("侮\U000E0101") is not None
     assert all(composer.font._name(s) != composer.font._name("侮") for s in selected)
+
+
+def test_crossings_count_the_strokes_a_line_meets() -> None:
+    left, right = square(0, 0, 100, 800), square(300, 0, 400, 800)
+    bars = Part([left, right])
+    # Along a row both bars stand in the way; down a column only one does.
+    assert compose._crossings(bars, 0) == 2
+    assert compose._crossings(bars, 1) == 1
+
+
+def test_a_sequence_no_glyph_stands_for_is_unknown(composer: compose.Composer) -> None:
+    assert composer._unknown(compose.parse("⿰\U000f0000木"))
+    assert not composer._unknown("木")
+    assert not composer._unknown(compose.parse("⿰木木"))
+
+
+def test_the_export_carries_both_share_fits(composer: compose.Composer) -> None:
+    from han_compose import web_export
+
+    constants = web_export.constants(composer)
+    assert len(constants["SHARES"]["⿰,2"]) == 4
+    assert len(constants["SHARES_OLD"]["⿳,3"]) == 2
