@@ -28,10 +28,10 @@ def test_no_thin_wide_stroke_leaves_the_stack_uncut() -> None:
 
 
 def test_a_stroke_crossing_the_cover_bottom_goes_with_the_lower_part() -> None:
-    top = square(0, 600, 900, 800)
-    cover = square(50, 450, 850, 510)
-    left, right = square(0, 0, 400, 300), square(500, 0, 900, 300)
-    crossing = square(920, 400, 1000, 520)
+    top = square(0, 600, 1000, 800)
+    cover = square(100, 450, 900, 510)
+    left, right = square(0, 0, 450, 300), square(500, 0, 900, 300)
+    crossing = square(950, 400, 1000, 520)
     pieces = cover_stack_pieces(Part([top, cover, left, right, crossing]))
     assert pieces is not None
     assert [len(p.contours) for p in pieces] == [1, 1, 3]

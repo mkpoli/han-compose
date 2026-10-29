@@ -168,8 +168,9 @@ ASCENT = 880
 #: The operators a part is cut from its host along: x for side by side, y for stacked.
 AXIS = {"⿰": 0, "⿲": 0, "⿱": 1, "⿳": 1}
 
-#: Covers whose middle operand sits over the part below it in a ⿳ stack.
-_COVERS = frozenset({"冖"})
+#: Covers the region cut can take as one stroke. `COVERS` holds every cover the bar fitter knows;
+#: a region cut can only produce 冖, whose bar is one outline.
+_STACK_COVERS = frozenset({"冖"})
 #: The sides an enclosing operand closes, y up: ⿸ 厂 closes the left and the top.
 ENCLOSE = {"⿴": "LRBT", "⿵": "LRT", "⿶": "LRB", "⿷": "LBT", "⿸": "LT", "⿹": "RT", "⿺": "LB",
            "⿼": "RBT", "⿽": "RB"}
@@ -736,8 +737,8 @@ def _linear_partitions(part: Part, axis: int, pieces: int) -> Iterator[tuple[tup
 
 def cover_stack_pieces(part: Part) -> list[Part] | None:
     """A ``⿳`` with a cover in the middle, cut by region: the widest thin stroke near mid-height is
-    the cover, the units below it are the part under it, the rest the part above. None when no such
-    stroke separates the bands."""
+    the cover; the cut is at its lowest y, and every unit reaching below that goes with the part
+    under it; the rest is the part above. None when no such stroke separates the bands."""
     units = _units(part.contours)
     if len(units) < 3:
         return None
@@ -751,9 +752,7 @@ def cover_stack_pieces(part: Part) -> list[Part] | None:
         return None
     mid = max(eligible, key=lambda i: _span(units[i], 0)[1] - _span(units[i], 0)[0])
     bottom_y = _span(units[mid], 1)[0]
-    bottom = [i for i in range(len(units))
-              if i != mid and (_span(units[i], 1)[0] < bottom_y
-                               or (_span(units[i], 1)[0] + _span(units[i], 1)[1]) / 2 < bottom_y)]
+    bottom = [i for i in range(len(units)) if i != mid and _span(units[i], 1)[0] < bottom_y]
     top = [i for i in range(len(units)) if i != mid and i not in bottom]
     if not top or not bottom:
         return None
@@ -1731,11 +1730,9 @@ class Composer:
         node = tree
         if not isinstance(node, tuple) or len(node) != 4 or node[0] != "⿳":
             return None
-        if not (isinstance(node[2], str) and node[2] in _COVERS):
+        if not (isinstance(node[2], str) and node[2] in _STACK_COVERS):
             return None
         glyph = self.font.glyph(char)
-        if glyph is None:
-            return None
         pieces = cover_stack_pieces(glyph)
         if pieces is None:
             return None
@@ -1744,11 +1741,15 @@ class Composer:
             return None
         if not all(self._kept(piece, operand) for piece, operand in zip(pieces, operands)):
             return None
+        if strict and not all(self._counted(piece, node[0], k, operand)
+                              for k, (piece, operand) in enumerate(zip(pieces, operands))):
+            return None
         if strict and not all(self._like_fellows(piece, slot(node[0], k), operand)
                               for k, (piece, operand) in enumerate(zip(pieces, operands))
                               if isinstance(operand, str)):
             return None
-        return Host(char, pieces, glyph.box, 0.0, whole=True)
+        gap = ((pieces[0].box[1] - pieces[1].box[3]) + (pieces[1].box[1] - pieces[2].box[3])) / 2
+        return Host(char, pieces, glyph.box, gap, whole=True)
 
     def _traded(self, pieces: list[Part], operands: list[Node]) -> bool:
         """Whether pieces the variable font draws traded a stroke: one has fewer outlines than its
