@@ -632,11 +632,22 @@ def _across(rings: list[np.ndarray], axis: int) -> float:
 def _grown(points: np.ndarray, by: tuple[float, float]) -> np.ndarray:
     """A contour's points moved outward from its ink by `by` (along x, along y), each along the
     bisector of its two edges, as far as keeps the edges `by` away; a point stays put where its
-    edges fold back on each other. Ink lies to the right of a contour's direction in a font."""
+    edges fold back on each other. Ink lies to the right of a contour's direction in a font.
+
+    A font writes a contour's closing return as a copy of its first point, and writes corners that
+    way too. A copy is the same vertex, so the vertices are grown once and each point takes the place
+    of the vertex it copies: grown apart, the copies would tear the contour open at the seam."""
     if len(points) < 3:
         return points.copy()
-    before = points - np.roll(points, 1, axis=0)
-    after = np.roll(points, -1, axis=0) - points
+    closing = np.array_equal(points[0], points[-1])
+    body = points[:-1] if closing else points
+    kept = np.ones(len(body), bool)
+    kept[1:] = np.any(body[1:] != body[:-1], axis=1)
+    vertices = body[kept]
+    if len(vertices) < 3:
+        return points.copy()
+    before = vertices - np.roll(vertices, 1, axis=0)
+    after = np.roll(vertices, -1, axis=0) - vertices
     def left(v: np.ndarray) -> np.ndarray:
         n = np.stack([-v[:, 1], v[:, 0]], axis=1)
         length = np.linalg.norm(n, axis=1, keepdims=True)
@@ -647,10 +658,14 @@ def _grown(points: np.ndarray, by: tuple[float, float]) -> np.ndarray:
     unit = np.divide(bisector, size, out=np.zeros_like(bisector), where=size > 1e-9)
     # Moving along the bisector by d / cos(half the turn) keeps each edge d away; capped at a sharp turn.
     cos_half = np.clip((unit * a).sum(axis=1, keepdims=True), 0.35, 1.0)
-    return points + unit / cos_half * np.array(by)
+    grown = vertices + unit / cos_half * np.array(by)
+    out = np.empty_like(points)
+    out[:len(body)] = grown[np.maximum.accumulate(np.cumsum(kept) - 1)]
+    if closing:
+        out[-1] = out[0]
+    return out
 
 
-# ------------------------------------------------------------------ cutting hosts
 def _units(contours: list[Contour]) -> list[list[Contour]]:
     """Contours grouped with those inside them: a counter goes with the smallest contour winding the
     other way whose box holds it. A stroke that only lies within another's box (the strokes inside
