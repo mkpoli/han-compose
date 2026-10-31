@@ -168,7 +168,7 @@ ASCENT = 880
 #: The operators a part is cut from its host along: x for side by side, y for stacked.
 AXIS = {"⿰": 0, "⿲": 0, "⿱": 1, "⿳": 1}
 
-#: Covers the region cut can take as one stroke. `COVERS` holds every cover the bar fitter knows;
+#: Covers the region cut can take as one stroke. `covers()` holds every cover the bar fitter knows;
 #: a region cut can only produce 冖, whose bar is one outline.
 _STACK_COVERS = frozenset({"冖"})
 #: The sides an enclosing operand closes, y up: ⿸ 厂 closes the left and the top.
@@ -212,9 +212,32 @@ TEMPLATE_ON = 0.6
 #: Enclosures whose enclosing part's box holds the enclosed part's (`covering`).
 COVERING = frozenset("⿴⿵⿶⿷")
 #: Covers whose bar below is drawn inside their width: 宀, 冖, 穴, 雨.
-COVERS = frozenset({"宀", "冖", "穴", "雨"})
+COVER_ROOTS = frozenset({"冖", "宀", "穴", "雨"})
+
+
+@cache
+def covers() -> frozenset[str]:
+    """Every component that is 冖-shaped: the roots, and a component whose sequence ends in one
+    (宀 is 丶 over 冖; 龸 is ⺌ over 冖; 𤇾, 𫇦, 𰃮 and 𦥯 likewise). The shape is what the layout
+    follows, so the table is derived from the sequence rather than listing each rare component."""
+    out = set(COVER_ROOTS)
+    seqs = japanese_sequences()
+    for _ in range(3):
+        for char, sequence in seqs.items():
+            try:
+                tree = parse(sequence)
+            except (ValueError, StopIteration):
+                continue
+            if isinstance(tree, tuple) and tree[0] == "⿱" and isinstance(tree[2], str) and tree[2] in out:
+                out.add(char)
+    return frozenset(out)
+
+
 #: Width of the bar under a cover, as a share of the cover's width (0.70 in 定, 0.72 in 甍).
 COVER_BAR = 0.72
+#: How far a cover's ink overlaps the part under it, in font units: the font tucks the lower
+#: part under 冖 (受 -28, 牽 -20), where a free gap reads as loose.
+COVER_GAP = -24.0
 #: Least hosts in a place a kin enclosing part needs to stand for another (`_kin_outer`).
 KIN_OUTER_HOSTS = 3
 #: Hosts of a kin enclosing part tried, best first, for one KanjiVG can cut (`_kin_outer`).
@@ -2988,12 +3011,24 @@ def _fit_under_cover(op: str, children: list[Node], groups: list[list[Placed]]) 
     width, centred on it: 定's 疋 bar and 甍's 瓦 bar are about 0.70 and 0.72 of the cover in the
     font, where a full-width donor cut overshoots both sides."""
     if op == "⿱":
-        pairs = [(0, 1)] if isinstance(children[0], str) and children[0] in COVERS else []
+        pairs = [(0, 1)] if isinstance(children[0], str) and children[0] in covers() else []
     elif op == "⿳":
         pairs = [(i, i + 1) for i in (0, 1) if i + 1 < len(children)
-                 and isinstance(children[i], str) and children[i] in COVERS]
+                 and isinstance(children[i], str) and children[i] in covers()]
     else:
         pairs = []
+    if op == "⿳" and len(groups) >= 3 and isinstance(children[0], str) and children[1] == "冖":
+        # A cover in the middle closes on the part above it too; the lower parts move with it.
+        above, cover = groups[0], groups[1]
+        a, b = _ink_box(above), _ink_box(cover)
+        gap = a[1] - b[3]
+        if (b[2] - b[0]) >= 0.9 * (a[2] - a[0]) and gap > COVER_GAP:
+            shift = min(gap - COVER_GAP, 0.25 * (b[3] - b[1]))
+            if shift > 0:
+                for group in groups[1:]:
+                    for placed in group:
+                        placed.target = (placed.target[0], placed.target[1] + shift,
+                                         placed.target[2], placed.target[3] + shift)
     for above, below in pairs:
         cover, lower = groups[above], groups[below]
         if not cover or not lower:
@@ -3032,6 +3067,25 @@ def _fit_under_cover(op: str, children: list[Node], groups: list[list[Placed]]) 
             contours = [replacement if c is contour else c for c in placed.part.contours]
             placed.part = Part(contours)
             break
+        cover_ink = _ink_box(cover)
+        lower_ink = _ink_box(lower)
+        gap = cover_ink[1] - lower_ink[3]
+        if (op == "⿳" and cover is groups[1] and isinstance(children[1], str)
+                and children[1] == "冖"
+                and (lower_ink[2] - lower_ink[0]) >= 0.9 * (cover_ink[2] - cover_ink[0])
+                and gap > COVER_GAP):
+            shift = min(gap - COVER_GAP, 0.25 * (lower_ink[3] - lower_ink[1]))
+            for placed in lower:
+                placed.target = (placed.target[0], placed.target[1] + shift,
+                                 placed.target[2], placed.target[3] + shift)
+
+
+def _ink_box(group: list[Placed]) -> Box:
+    """The ink's bounding box, not the box the part was fitted into."""
+    boxes = [(c[:, 0].min(), c[:, 1].min(), c[:, 0].max(), c[:, 1].max())
+             for placed in group for c in placed.contours()]
+    return (min(b[0] for b in boxes), min(b[1] for b in boxes),
+            max(b[2] for b in boxes), max(b[3] for b in boxes))
 
 
 def _shrunk(box: Box, share: float) -> Box:
