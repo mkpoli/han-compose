@@ -8,9 +8,9 @@
 // A document is a tree of components, slots, groups and operators (ids-input's `src/document/`); this
 // module reads that tree and normalizes a leaf's path into its box itself.
 
-/** A document node: a component, a slot, a group of one node, or an operator with its children.
- *  @typedef {{ id: string, kind: 'component', char: string, marks?: string } | { id: string, kind: 'slot' }
- *    | { id: string, kind: 'group', child: Node } | { id: string, kind: 'node', op: string, children: Node[], note?: string, marks?: string }} Node */
+/** A document node: a component, a slot, a group of one node, or an operator with its children. A
+ *  document's nodes are its own kind of node, kinds included, so a node is read by its `kind`.
+ *  @typedef {{ id: string, kind: string, char?: string, child?: Node, op?: string, children?: Node[], note?: string, marks?: string }} Node */
 /** A document is the editor's own: the engine reads its `root` and writes nothing back, so the
  *  editor's other fields (its format and version, its render recipe) may ride along.
  *  @typedef {{ root: Node } & Record<string, unknown>} Document */
@@ -35,8 +35,8 @@ const SLOT = '⬚'
 function toSequence(node) {
   if (node.kind === 'component') return node.char + (node.marks ?? '')
   if (node.kind === 'slot') return SLOT
-  if (node.kind === 'group') return toSequence(node.child)
-  return node.op + (node.note ? `[${node.note}]` : '') + node.children.map(toSequence).join('') + (node.marks ?? '')
+  if (node.kind === 'group') return toSequence(/** @type {Node} */ (node.child))
+  return node.op + (node.note ? `[${node.note}]` : '') + (node.children ?? []).map(toSequence).join('') + (node.marks ?? '')
 }
 
 /**
@@ -140,12 +140,12 @@ export function documentSource(document, drawing, sketch) {
       return region
     }
     if (node.kind === 'group') {
-      const region = walk(node.child)
+      const region = walk(/** @type {Node} */ (node.child))
       info.set(node.id, { node, leaf: null, region })
       return region
     }
     let region = null
-    for (const child of node.children) {
+    for (const child of node.children ?? []) {
       const box = walk(child)
       if (box) region = region ? union(region, box) : box
     }
@@ -161,7 +161,7 @@ export function documentSource(document, drawing, sketch) {
   if (document.root.kind === 'group') {
     let node = /** @type {Node} */ (document.root)
     while (node.kind === 'group') {
-      const child = node.child
+      const child = /** @type {Node} */ (node.child)
       const at = info.get(child.id)
       if (at) at.region = CANVAS
       node = child
