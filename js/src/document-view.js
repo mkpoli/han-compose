@@ -9,9 +9,11 @@ import { documentSource } from './document-source.js'
 /** @typedef {import('./document-source.js').LayerSource} LayerSource */
 /** @typedef {import('./document-source.js').Drawing} Drawing */
 /** @typedef {import('./document-source.js').SketchLeaf} SketchLeaf */
+/** @typedef {import('./document-source.js').Box} Box */
+/** @typedef {import('./document-source.js').LayerInfo} LayerInfo */
 /** @typedef {import('./document-source.js').DocumentSource} DocumentSource */
 /** @typedef {{ issues: { message: string }[], complete: boolean }} ScopeTree */
-/** @typedef {{ box: number[] } & Record<string, unknown>} LayerFrame */
+/** @typedef {LayerInfo & { box: number[] }} LayerFrame A layer's place, as the renderer frames it. */
 /** @typedef {{ renderScopes: (document: Document, source: LayerSource, options?: { tolerance?: number }) => ScopeTree,
  *   layerFrames: (document: Document, source: LayerSource, sketch: SketchLeaf[]) => Map<string, LayerFrame> }} Renderer */
 
