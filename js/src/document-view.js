@@ -12,17 +12,18 @@ import { documentSource } from './document-source.js'
 /** @typedef {import('./document-source.js').Box} Box */
 /** @typedef {import('./document-source.js').LayerInfo} LayerInfo */
 /** @typedef {import('./document-source.js').DocumentSource} DocumentSource */
-/** @typedef {{ issues: { message: string }[], complete: boolean }} ScopeTree */
+// A scoped drawing is the renderer's (`ids-input`'s `src/document/render.js`): the engine passes one
+// through, and its view is the renderer's in every field but the source it was made from.
 /** The renderer a view is made with (ids-input's `src/document/render.js` and `frames.js`), which
  *  makes a scoped drawing and a frame for each layer; a frame's own fields are the renderer's. */
-/** @typedef {(document: Document, source: LayerSource, options?: { tolerance?: number }) => ScopeTree} RenderScopes
+/** @typedef {<Scopes>(document: Document, source: LayerSource, options?: { tolerance?: number }) => Scopes} RenderScopes
  *  @typedef {(document: Document, source: LayerSource, sketch: SketchLeaf[]) => Map<string, LayerInfo & { box: number[] }>} LayerFrames
  *  @typedef {{ renderScopes: RenderScopes, layerFrames: LayerFrames }} Renderer */
 
 /**
  * @typedef {object} DocumentView
  * @property {DocumentSource} source The composer-backed source, complete or not.
- * @property {ScopeTree | null} scopes The scoped drawing, or null when the source is incomplete.
+ * @property {ReturnType<RenderScopes> | null} scopes The scoped drawing, or null when the source is incomplete.
  * @property {ReturnType<LayerFrames>} frames Layout frames for every layer the sketch covers, as the renderer frames them.
  * @property {string[]} issues Source and transform problems in one list.
  * @property {boolean} complete Whether the source and every transform produced a drawing.
@@ -44,11 +45,13 @@ export function documentView(document, drawing, sketch, { tolerance = 0.1, rende
   const frames = layerFrames(document, made.source, sketch ?? [])
   if (!made.complete) return { source: made, scopes: null, frames, issues: made.issues, complete: false, drawing, sketch: sketch ?? null }
   const scopes = renderScopes(document, made.source, { tolerance })
+  /** @type {{ message: string }[]} */
+  const reported = /** @type {{ issues?: { message: string }[] }} */ (scopes).issues ?? []
   return {
     source: made,
     scopes,
     frames,
-    issues: [...made.issues, ...scopes.issues.map(issue => issue.message)],
+    issues: [...made.issues, ...reported.map(issue => issue.message)],
     complete: scopes.complete,
     drawing,
     sketch: sketch ?? null,
