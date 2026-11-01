@@ -18,7 +18,7 @@ export { componentDrawing, componentParts } from './component-forms.js'
 export { documentSource, composeDocumentSource } from './document-source.js'
 export { documentView } from './document-view.js'
 export { placeholder, STROKE } from './slot-placeholder.js'
-export { drawingSvg } from './drawing-svg.js'
+export { drawingSvg, EMOJI_CUT_MATRIX, emojiTransform } from './drawing-svg.js'
 export { groupParts } from './group-parts.js'
 export { pyramidRows } from './pyramid-rows.js'
 export { parseDescription, splitDescription, writeDescription, isNode, isEmpty, isComponent, isLetter, isMark, isMarks } from './tree.js'
@@ -185,4 +185,18 @@ export function composerPreview({ base, separate = false, fontStyle = 'sans', lo
 /** The tree a draft reads as, for the size check; null where it is no description. @param {string} text */
 function parseLoose(text) {
   try { return parseTree(text, op => '⿰⿱⿴⿵⿶⿷⿸⿹⿺⿻⿼⿽㇯'.includes(op) ? 2 : '⿲⿳'.includes(op) ? 3 : '⿾⿿〾'.includes(op) ? 1 : 0) } catch { return null }
+}
+
+/** A path under the package's `data/`, and the URL a host imports to serve the file from there. */
+export const dataUrls = {
+  'sources/tangut/outlines.json.gz': 'data/sources/tangut/outlines.json.gz',
+  'sources/bopomofo/outlines.json.gz': 'data/sources/bopomofo/outlines.json.gz',
+  'sources/new-korean/outlines.json.gz': 'data/sources/new-korean/outlines.json.gz',
+  'sources/small-seal/outlines.json.gz': 'data/sources/small-seal/outlines.json.gz',
+  'sources/shuishu/outlines.json.gz': 'data/sources/shuishu/outlines.json.gz',
+  'sources/palette/outlines.json.gz': 'data/sources/palette/outlines.json.gz',
+  ...Object.fromEntries(Array.from({ length: 0x400 }, (_, n) => {
+    const name = `unicode/outlines/${n.toString(16).padStart(3, '0')}.json.gz`
+    return [name, `data/${name}`]
+  })),
 }

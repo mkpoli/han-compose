@@ -10,7 +10,7 @@ import { onlyBundled } from '../src/local.js'
 import { hasNewKorean, newKoreanSource } from '../src/new-korean.js'
 
 const points = ['\u{A97D}', '\u{A97E}', '\u{A97F}', '\u{D7C7}', '\u{D7FC}', '\u{D7FD}', '\u{D7FE}']
-const outlines = JSON.parse(gunzipSync(readFileSync(new URL('../data/sources/new-korean/outlines.json.gz', import.meta.url))))
+const outlines = JSON.parse(gunzipSync(readFileSync(new URL('../../data/sources/new-korean/outlines.json.gz', import.meta.url))))
 
 describe('New Korean Orthography letters', () => {
   it('accepts the proposed code points as letters and descriptions', () => {

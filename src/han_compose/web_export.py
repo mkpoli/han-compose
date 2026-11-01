@@ -27,6 +27,9 @@ character draws would be (each without itself and its twins, `reuse` off, the mo
 into `parity.json`, as reference drawings a port is checked against; every host piece those
 drawings used joins the export. With `held_out`, more are drawn into `parity-held-out.json`, whose
 hosts do not.
+
+The browser engine (`js/`) reads this format and nothing else; `js/tests/parity.test.js` draws the
+parity sets from an export and compares them with these drawings.
 """
 
 from __future__ import annotations

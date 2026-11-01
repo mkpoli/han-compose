@@ -9,9 +9,9 @@ import { hasUnicodeGlyph } from '../src/unicode.js'
 import { onlyBundled } from '../src/local.js'
 import { compose, sketch } from '../src/loader.js'
 
-const data = name => JSON.parse(gunzipSync(readFileSync(new URL(`../data/sources/${name}/outlines.json.gz`, import.meta.url))))
+const data = name => JSON.parse(gunzipSync(readFileSync(new URL(`../../data/sources/${name}/outlines.json.gz`, import.meta.url))))
 const bopomofo = data('bopomofo')
-const unicode = name => JSON.parse(gunzipSync(readFileSync(new URL(`../data/unicode/outlines/${name.slice('unicode/'.length)}.json.gz`, import.meta.url))))
+const unicode = name => JSON.parse(gunzipSync(readFileSync(new URL(`../../data/unicode/outlines/${name.slice('unicode/'.length)}.json.gz`, import.meta.url))))
 const source = () => unicodeSource({ load: unicode, fallback: bopomofoSource({ load: async () => bopomofo }) })
 
 describe('loose marks', () => {

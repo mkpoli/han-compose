@@ -4,7 +4,7 @@ import { gunzipSync } from 'node:zlib'
 import { hasBundledGlyph } from '../src/bundled-coverage.js'
 import { bundledSource } from '../src/bundled.js'
 import { onlyBundled } from '../src/local.js'
-import coverage from '../data/palette/bundled-coverage.json' with { type: 'json' }
+import coverage from '../../data/palette/bundled-coverage.json' with { type: 'json' }
 import { hasTangut } from '../src/tangut.js'
 import { hasBopomofo } from '../src/bopomofo.js'
 import { hasSmallSeal } from '../src/small-seal.js'
@@ -12,7 +12,7 @@ import { hasShuishu } from '../src/shuishu.js'
 
 it('indexes the exact scalar outlines in each dedicated bundle', () => {
   for (const name of ['tangut', 'bopomofo', 'small-seal', 'shuishu']) {
-    const { records } = JSON.parse(gunzipSync(readFileSync(new URL(`../data/sources/${name}/outlines.json.gz`, import.meta.url))))
+    const { records } = JSON.parse(gunzipSync(readFileSync(new URL(`../../data/sources/${name}/outlines.json.gz`, import.meta.url))))
     const points = Object.entries(records).filter(([key, rec]) => [...key].length === 1 && rec.G?.p?.length).map(([key]) => key.codePointAt(0)).sort((a, b) => a - b)
     const ranges = []
     for (const cp of points) {
