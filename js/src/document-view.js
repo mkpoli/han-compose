@@ -13,15 +13,17 @@ import { documentSource } from './document-source.js'
 /** @typedef {import('./document-source.js').LayerInfo} LayerInfo */
 /** @typedef {import('./document-source.js').DocumentSource} DocumentSource */
 /** @typedef {{ issues: { message: string }[], complete: boolean }} ScopeTree */
-/** @typedef {LayerInfo & { box: number[] }} LayerFrame A layer's place, as the renderer frames it. */
-/** @typedef {{ renderScopes: (document: Document, source: LayerSource, options?: { tolerance?: number }) => ScopeTree,
- *   layerFrames: (document: Document, source: LayerSource, sketch: SketchLeaf[]) => Map<string, LayerFrame> }} Renderer */
+/** The renderer a view is made with (ids-input's `src/document/render.js` and `frames.js`), which
+ *  makes a scoped drawing and a frame for each layer; a frame's own fields are the renderer's. */
+/** @typedef {(document: Document, source: LayerSource, options?: { tolerance?: number }) => ScopeTree} RenderScopes
+ *  @typedef {(document: Document, source: LayerSource, sketch: SketchLeaf[]) => Map<string, LayerInfo & { box: number[] }>} LayerFrames
+ *  @typedef {{ renderScopes: RenderScopes, layerFrames: LayerFrames }} Renderer */
 
 /**
  * @typedef {object} DocumentView
  * @property {DocumentSource} source The composer-backed source, complete or not.
  * @property {ScopeTree | null} scopes The scoped drawing, or null when the source is incomplete.
- * @property {Map<string, LayerFrame>} frames Layout frames for every layer the sketch covers.
+ * @property {ReturnType<LayerFrames>} frames Layout frames for every layer the sketch covers, as the renderer frames them.
  * @property {string[]} issues Source and transform problems in one list.
  * @property {boolean} complete Whether the source and every transform produced a drawing.
  * @property {Drawing} drawing The separated drawing the view was made from.
