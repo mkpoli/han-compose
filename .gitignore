@@ -9,3 +9,6 @@ __pycache__/
 node_modules/
 js/node_modules
 js/data
+
+# Emitted declaration files
+js/types

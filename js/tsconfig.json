@@ -1,8 +1,26 @@
 {
   "compilerOptions": {
-    "target": "es2022", "module": "esnext", "moduleResolution": "bundler",
-    "lib": ["es2023", "dom", "dom.iterable", "webworker"], "allowJs": true, "checkJs": true,
-    "strict": true, "noEmit": true, "skipLibCheck": true, "resolveJsonModule": true, "types": []
+    "target": "es2022",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "lib": [
+      "es2023",
+      "dom",
+      "dom.iterable",
+      "webworker"
+    ],
+    "allowJs": true,
+    "checkJs": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "types": [],
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "outDir": "types",
+    "rootDir": "src"
   },
-  "include": ["src/**/*.js"]
+  "include": [
+    "src/**/*.js"
+  ]
 }

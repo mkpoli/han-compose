@@ -23,34 +23,107 @@
   "type": "module",
   "sideEffects": false,
   "exports": {
-    ".": "./src/index.js",
-    "./compose": "./src/compose.js",
-    "./geometry": "./src/geometry.js",
-    "./loader": "./src/loader.js",
-    "./source": "./src/source.js",
-    "./unicode": "./src/unicode.js",
-    "./palette": "./src/palette.js",
-    "./component-forms": "./src/component-forms.js",
-    "./local": "./src/local.js",
-    "./emoji": "./src/emoji.js",
-    "./group-parts": "./src/group-parts.js",
-    "./drawing-svg": "./src/drawing-svg.js",
-    "./tokens": "./src/tokens.js",
-    "./scripts": "./src/scripts.js",
-    "./tree": "./src/tree.js",
-    "./pyramid": "./src/pyramid.js",
-    "./pyramid-rows": "./src/pyramid-rows.js",
-    "./tangut": "./src/tangut.js",
-    "./bopomofo": "./src/bopomofo.js",
-    "./small-seal": "./src/small-seal.js",
-    "./new-korean": "./src/new-korean.js",
-    "./shuishu": "./src/shuishu.js",
-    "./document-source": "./src/document-source.js",
-    "./document-view": "./src/document-view.js",
+    ".": {
+      "types": "./types/index.d.ts",
+      "default": "./src/index.js"
+    },
+    "./compose": {
+      "types": "./types/compose.d.ts",
+      "default": "./src/compose.js"
+    },
+    "./geometry": {
+      "types": "./types/geometry.d.ts",
+      "default": "./src/geometry.js"
+    },
+    "./loader": {
+      "types": "./types/loader.d.ts",
+      "default": "./src/loader.js"
+    },
+    "./source": {
+      "types": "./types/source.d.ts",
+      "default": "./src/source.js"
+    },
+    "./unicode": {
+      "types": "./types/unicode.d.ts",
+      "default": "./src/unicode.js"
+    },
+    "./palette": {
+      "types": "./types/palette.d.ts",
+      "default": "./src/palette.js"
+    },
+    "./component-forms": {
+      "types": "./types/component-forms.d.ts",
+      "default": "./src/component-forms.js"
+    },
+    "./local": {
+      "types": "./types/local.d.ts",
+      "default": "./src/local.js"
+    },
+    "./emoji": {
+      "types": "./types/emoji.d.ts",
+      "default": "./src/emoji.js"
+    },
+    "./group-parts": {
+      "types": "./types/group-parts.d.ts",
+      "default": "./src/group-parts.js"
+    },
+    "./drawing-svg": {
+      "types": "./types/drawing-svg.d.ts",
+      "default": "./src/drawing-svg.js"
+    },
+    "./tokens": {
+      "types": "./types/tokens.d.ts",
+      "default": "./src/tokens.js"
+    },
+    "./scripts": {
+      "types": "./types/scripts.d.ts",
+      "default": "./src/scripts.js"
+    },
+    "./tree": {
+      "types": "./types/tree.d.ts",
+      "default": "./src/tree.js"
+    },
+    "./pyramid": {
+      "types": "./types/pyramid.d.ts",
+      "default": "./src/pyramid.js"
+    },
+    "./pyramid-rows": {
+      "types": "./types/pyramid-rows.d.ts",
+      "default": "./src/pyramid-rows.js"
+    },
+    "./tangut": {
+      "types": "./types/tangut.d.ts",
+      "default": "./src/tangut.js"
+    },
+    "./bopomofo": {
+      "types": "./types/bopomofo.d.ts",
+      "default": "./src/bopomofo.js"
+    },
+    "./small-seal": {
+      "types": "./types/small-seal.d.ts",
+      "default": "./src/small-seal.js"
+    },
+    "./new-korean": {
+      "types": "./types/new-korean.d.ts",
+      "default": "./src/new-korean.js"
+    },
+    "./shuishu": {
+      "types": "./types/shuishu.d.ts",
+      "default": "./src/shuishu.js"
+    },
+    "./document-source": {
+      "types": "./types/document-source.d.ts",
+      "default": "./src/document-source.js"
+    },
+    "./document-view": {
+      "types": "./types/document-view.d.ts",
+      "default": "./src/document-view.js"
+    },
     "./package.json": "./package.json"
   },
   "files": [
     "src",
+    "types",
     "data",
     "README.md"
   ],
@@ -58,7 +131,9 @@
     "test": "bun test tests",
     "parity": "bun tests/parity/run.js",
     "draw": "bun scripts/draw.js",
-    "check": "tsc -p tsconfig.json"
+    "check": "tsc -p tsconfig.json --noEmit",
+    "types": "tsc -p tsconfig.json",
+    "prepack": "bun run types"
   },
   "devDependencies": {
     "@types/bun": "1.3.14",
