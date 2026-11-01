@@ -128,10 +128,9 @@ export function parseTree(sequence, arity) {
 /** A node written out again as a sequence. */
 export const keyOf = node => node === null ? EMPTY : typeof node === 'string' ? node : node[0] + node.slice(1).map(keyOf).join('')
 
-/** An empty slot, as the editor writes it (EMPTY in ids-input's core). The composer lays a tree with empty
- *  slots out as it would a whole one, each empty slot an operand it knows nothing of (the layout
- *  reads its place's defaults, its ink is the unknown operand's), and draws no ink there: the slot
- *  becomes a placeholder in the box its node gave it. han-compose itself draws no empty slots. */
+/** An empty slot, as an editor writes it: an operand the layout knows nothing of. It takes the
+ *  defaults of its place and the ink of an unknown operand, is laid out by the same shares, learned
+ *  boxes and rewrites as any other, and draws no ink; the drawing names it, in the box it was given. */
 export const EMPTY = '⬚'
 /** Whether a node is an empty slot, numbered in reading order (`⬚0`, `⬚1`, …) by `compose`. */
 export const isEmpty = node => node === null || typeof node === 'string' && node[0] === EMPTY

@@ -151,19 +151,19 @@ export const tooLarge = tree => {
 
 /** Every key the tree names, nodes and leaves, as the first files to load; none holding an empty slot.
  *  A pyramid asks for its repeated cell once, and that cell's own parts, instead of once per cell. */
-function keysOf(tree, out = [], separate = false, fontStyle = 'sans', root = true, loaders = {}) {
+function keysOf(tree, out = [], separate = false, fontStyle = 'sans', root = true) {
   if (root) {
     const pyramid = pyramidRows(tree)
     if (pyramid) {
       const cell = keyOf(pyramid.cell)
       if (!cell.includes(EMPTY)) out.push(cell)
-      if (Array.isArray(pyramid.cell)) pyramid.cell.slice(1).forEach(n => keysOf(n, out, separate, fontStyle, false, loaders))
+      if (Array.isArray(pyramid.cell)) pyramid.cell.slice(1).forEach(n => keysOf(n, out, separate, fontStyle, false))
       return out
     }
   }
   if ((separate ? isGroupedForm : isComponentForm)(keyOf(tree), fontStyle)) return out
   if (!keyOf(tree).includes(EMPTY)) out.push(keyOf(tree))
-  if (Array.isArray(tree)) tree.slice(1).forEach(n => keysOf(n, out, separate, fontStyle, false, loaders))
+  if (Array.isArray(tree)) tree.slice(1).forEach(n => keysOf(n, out, separate, fontStyle, false))
   return out
 }
 
@@ -190,25 +190,13 @@ export const svgBox = b => [b[0], ASCENT - b[3], b[2] - b[0], b[3] - b[1]]
  * Where each leaf of `sequence` goes before it is drawn (`Composer.sketch`), once the manifest and the
  * layout have loaded: `[{ index, box, empty }]`, boxes as `svgBox` gives them.
  */
-export async function sketch(source, sequence, { fontStyle = 'sans', loaders = {} } = {}) {
+export async function sketch(source, sequence, { fontStyle = 'sans' } = {}) {
   await source.ready()
   // Loose marks hang off the drawing; they are not leaves of it.
   return new Composer(source.store(), { fontStyle }).sketch(splitDescription(sequence).base).map(leaf => ({ ...leaf, box: svgBox(leaf.box) }))
 }
 
 /**
- * How a host reads the files the page would fetch: the export at `base` (`fetch`), and each bundled
- * file (`load`, the parsed JSON by its path under the package's `data/`). A runtime with no page
- * passes its own; everything else leaves them out.
- * @typedef {object} Loaders
- * @property {{ load?: (path: string) => Promise<unknown> }} [unicode]
- * @property {{ load?: (path: string) => Promise<unknown> }} [tangut]
- * @property {{ load?: (path: string) => Promise<unknown> }} [bopomofo]
- * @property {{ load?: (path: string) => Promise<unknown> }} [seal]
- * @property {{ load?: (path: string) => Promise<unknown> }} [newKorean]
- * @property {{ load?: (path: string) => Promise<unknown> }} [shuishu]
- * @property {{ load?: (path: string) => Promise<unknown> }} [palette]
- */
 
 /**
  * `sequence` drawn by the composer: `{ d, cut, slots, stroke, parts, origins, kanjivg, approximate }`,
@@ -227,7 +215,7 @@ export async function sketch(source, sequence, { fontStyle = 'sans', loaders = {
  * `cells: true` and its parts' `origin` reads `cells <char>`.
  * Throws LookupError when a part can be drawn no way or the sequence is larger than `LIMITS`.
  */
-export async function compose(source, sequence, { exclude = [], face = null, separate = false, fontStyle = 'sans', layout = 'auto', loaders = {} } = {}) {
+export async function compose(source, sequence, { exclude = [], face = null, separate = false, fontStyle = 'sans', layout = 'auto' } = {}) {
   await source.ready()
   const arity = ch => {
     const c = source.manifest.constants
@@ -239,7 +227,7 @@ export async function compose(source, sequence, { exclude = [], face = null, sep
   const tree = parseTree(base, arity)
   if (tooLarge(tree)) throw new LookupError(`${sequence} is larger than a preview draws.`)
   // A mark's outline loads like a component's.
-  await source.load(source.filesOf([...keysOf(tree, [], separate, fontStyle, true, loaders), ...marks]))
+  await source.load(source.filesOf([...keysOf(tree, [], separate, fontStyle), ...marks]))
   for (let round = 0; round < ROUNDS; round++) {
     const store = source.store()
     let drawn = null, failure = null, composer = null, cells = false

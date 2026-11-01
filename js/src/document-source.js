@@ -4,19 +4,77 @@
 // local placements, normalizes each leaf's canvas paths into its own 1000-unit frame, and leaves the
 // authored layer transforms to the document renderer. The caller must request `separate: true` and
 // pass the sketch it received with the drawing.
-import { TransformError, parsePath, toSequence, transformPath } from '../document/index.js'
+//
+// A document is a tree of components, slots, groups and operators (ids-input's `src/document/`); this
+// module reads that tree and normalizes a leaf's path into its box itself.
 
-/** @typedef {import('../document/index.js').Document} Document */
-/** @typedef {import('../document/index.js').Node} Node */
-/** @typedef {import('../document/render.js').LayerSource} LayerSource */
-/** @typedef {import('../adapter/types.js').Drawing} Drawing */
-/** @typedef {import('../adapter/types.js').DrawingPart} DrawingPart */
-/** @typedef {import('../adapter/types.js').SketchLeaf} SketchLeaf */
+/** A document node: a component, a slot, a group of one node, or an operator with its children.
+ *  @typedef {{ id: string, kind: 'component', char: string, marks?: string } | { id: string, kind: 'slot' }
+ *    | { id: string, kind: 'group', child: Node } | { id: string, kind: 'node', op: string, children: Node[], note?: string, marks?: string }} Node */
+/** @typedef {{ root: Node }} Document */
+/** @typedef {{ geometry: (node: Node) => any, placement: (parent: Node, child: Node) => number[] | null }} LayerSource */
+/** @typedef {{ d: string, cut?: boolean, leaf?: number }} DrawingPart */
+/** @typedef {{ d: string, parts?: DrawingPart[], slots?: { index: number, box: number[] }[] }} Drawing */
+/** @typedef {{ index: number, box: number[], empty: boolean }} SketchLeaf */
 /** @typedef {[number, number, number, number]} Box */
 /** @typedef {{ node: Node, leaf: number | null, region: Box | null }} LayerInfo */
 /** @typedef {{ source: LayerSource, complete: boolean, issues: string[] }} DocumentSource */
 
 const CANVAS = /** @type {Box} */ ([0, 0, 1000, 1000])
+/** The slot an empty cell is written as. */
+const SLOT = '⬚'
+
+/** A document node written out as a sequence, its slots as ⬚. @param {Node} node */
+function toSequence(node) {
+  if (node.kind === 'component') return node.char + (node.marks ?? '')
+  if (node.kind === 'slot') return SLOT
+  if (node.kind === 'group') return toSequence(node.child)
+  return node.op + (node.note ? `[${node.note}]` : '') + node.children.map(toSequence).join('') + (node.marks ?? '')
+}
+
+/**
+ * Whether `d` reads as a path of SVG commands: command letters and their numbers, and nothing else.
+ * The drawing's paths are the engine's own, so this checks one rather than parse it.
+ * @param {string} d
+ */
+function parsePath(d) {
+  if (!/[MLQCZ]/i.test(d) || /[^MLQCZmlqcz0-9.,eE+\-\s]/.test(d)) throw new TypeError('A drawing part is not a path.')
+}
+
+/** How many lines a curve is flattened into. */
+const STEPS = 8
+
+/**
+ * `d` under an affine map `[a, b, c, d, e, f]` (SVG's order), its curves flattened to lines; the map
+ * is whatever takes a leaf's box to its 1000-unit frame.
+ * @param {string} d @param {number[]} matrix
+ */
+function transformPath(d, matrix) {
+  const [a, b, c, d1, e, f] = matrix
+  /** @param {number[]} p @returns {number[]} */
+  const map = p => [a * p[0] + c * p[1] + e, b * p[0] + d1 * p[1] + f]
+  const round = (/** @type {number} */ v) => Math.round(v * 100) / 100
+  const out = []
+  let last = /** @type {number[]} */ ([0, 0])
+  for (const [, kind, args] of d.matchAll(/([MLQCZ])([^MLQCZ]*)/g)) {
+    if (kind === 'Z') { out.push('Z'); continue }
+    const v = args.trim() ? args.trim().split(/[\s,]+/).map(Number) : []
+    if (kind === 'M' || kind === 'L') {
+      last = map([v[0], v[1]])
+      out.push(`${kind}${round(last[0])} ${round(last[1])}`)
+      continue
+    }
+    const c1 = map([v[0], v[1]]), c2 = map([v[2], v[3]]), end = map([v[4], v[5]])
+    for (let k = 1; k <= STEPS; k++) {
+      const t = k / STEPS, u = 1 - t
+      const x = u * u * u * last[0] + 3 * u * u * t * c1[0] + 3 * u * t * t * c2[0] + t * t * t * end[0]
+      const y = u * u * u * last[1] + 3 * u * u * t * c1[1] + 3 * u * t * t * c2[1] + t * t * t * end[1]
+      out.push(`L${round(x)} ${round(y)}`)
+    }
+    last = end
+  }
+  return { d: out.join('') }
+}
 
 /** @param {Box} a @param {Box} b @returns {Box} */
 const union = (a, b) => {
@@ -44,7 +102,7 @@ function localOf(box) {
 }
 
 /**
- * Build the `LayerSource` a document renderer needs from a separated composer drawing. `sketch` is
+ * The source a document renderer needs from a separated composer drawing. `sketch` is
  * the leaf layout the composer sent for the same sequence. Every drawn part must carry its leaf
  * index; otherwise the source is incomplete and those components have no geometry. Identity layer
  * transforms reconstruct the composer's canvas drawing exactly; nested transforms then act in each
@@ -122,7 +180,7 @@ export function documentSource(document, drawing, sketch) {
       return
     }
     try { parsePath(part.d) } catch {
-      issues.push(`part leaf ${leaf} has path data the transform engine cannot read`)
+      issues.push(`part leaf ${leaf} has path data that is not a path`)
       return
     }
     assigned.push({ part, leaf })
@@ -139,7 +197,7 @@ export function documentSource(document, drawing, sketch) {
   }
   if (!sketch) issues.push('the drawing has no sketch')
 
-  /** @param {Node} node @returns {{ pieces: import('../document/render.js').LocalPiece[] } | null} */
+  /** @param {Node} node @returns {{ pieces: { d: string, fillRule: 'nonzero', cut: boolean }[] } | null} */
   const geometry = node => {
     const at = info.get(node.id)
     if (!at || at.leaf === null || !at.region) return null
@@ -149,13 +207,13 @@ export function documentSource(document, drawing, sketch) {
     try {
       return {
         pieces: list.map(part => ({
-          d: transformPath(part.d, [{ type: 'affine', matrix }]).d,
+          d: transformPath(part.d, matrix).d,
           fillRule: /** @type {'nonzero'} */ ('nonzero'),
           cut: Boolean(part.cut),
         })),
       }
     } catch (error) {
-      if (error instanceof TransformError) return null
+      if (error instanceof TypeError) return null
       throw error
     }
   }

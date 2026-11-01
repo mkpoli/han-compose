@@ -7,12 +7,12 @@
 // them. `loaders` says how to read files a page cannot fetch (`bundledFetch` in `index.js`). The page
 // ends a worker whose answer it no longer needs (`client.js`).
 import { EMPTY, leafTexts, parseTree } from './compose.js'
-import { compose, sketch } from './loader.js'
+import { compose, sketch, unpack } from './loader.js'
 import { onlyBundled } from './local.js'
 import { sourceFor, traitKey, traitsOf } from './source.js'
 
 const sources = new Map()
-self.onmessage = async ({ data: { id, sequence, base, separate, fontStyle, warm, loaders = {} } }) => {
+self.onmessage = async ({ data: { id, sequence, base, separate, fontStyle, warm, loaders } }) => {
   const traits = !warm ? traitsOf(sequence) : null
   // Whether the sequence draws from bundled outlines is part of the key: `onlyBundled` reads the
   // sequence, which the traits alone do not cover.

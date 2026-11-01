@@ -1,16 +1,19 @@
 // @ts-check
 // One derived view of a document for the preview, handles and export: the composer-backed source,
 // the scoped drawing, the layer frames and the issues that keep the view incomplete.
-import { layerFrames, renderScopes } from '../document/index.js'
 import { documentSource } from './document-source.js'
 
-/** @typedef {import('../document/index.js').Document} Document */
-/** @typedef {import('../document/render.js').ScopeTree} ScopeTree */
-/** @typedef {import('../document/render.js').LayerSource} LayerSource */
-/** @typedef {import('../document/frames.js').LayerFrame} LayerFrame */
-/** @typedef {import('../adapter/types.js').Drawing} Drawing */
-/** @typedef {import('../adapter/types.js').SketchLeaf} SketchLeaf */
+// The view is what a document renderer (ids-input's `src/document/render.js` and `frames.js`) makes
+// of the source above: the scoped drawing, the layer frames, and the issues that keep it incomplete.
+/** @typedef {import('./document-source.js').Document} Document */
+/** @typedef {import('./document-source.js').LayerSource} LayerSource */
+/** @typedef {import('./document-source.js').Drawing} Drawing */
+/** @typedef {import('./document-source.js').SketchLeaf} SketchLeaf */
 /** @typedef {import('./document-source.js').DocumentSource} DocumentSource */
+/** @typedef {{ issues: { message: string }[], complete: boolean }} ScopeTree */
+/** @typedef {{ box: number[] } & Record<string, unknown>} LayerFrame */
+/** @typedef {{ renderScopes: (document: Document, source: LayerSource, options?: { tolerance?: number }) => ScopeTree,
+ *   layerFrames: (document: Document, source: LayerSource, sketch: SketchLeaf[]) => Map<string, LayerFrame> }} Renderer */
 
 /**
  * @typedef {object} DocumentView
@@ -24,12 +27,15 @@ import { documentSource } from './document-source.js'
  */
 
 /**
- * Build one document view from a separated composer drawing and its matching sketch. Frames are
- * available even when the source is incomplete, so the inspector can still select a known layer.
- * @param {Document} document @param {Drawing} drawing @param {SketchLeaf[] | null | undefined} sketch @param {{ tolerance?: number }} [options]
+ * Build one document view from a separated composer drawing, its matching sketch, and the renderer
+ * that draws a document from a source. Frames are available even when the source is incomplete, so
+ * an inspector can still select a known layer.
+ * @param {Document} document @param {Drawing} drawing @param {SketchLeaf[] | null | undefined} sketch
+ * @param {{ tolerance?: number, renderer: Renderer }} options
  * @returns {DocumentView}
  */
-export function documentView(document, drawing, sketch, { tolerance = 0.1 } = {}) {
+export function documentView(document, drawing, sketch, { tolerance = 0.1, renderer }) {
+  const { layerFrames, renderScopes } = renderer
   const made = documentSource(document, drawing, sketch)
   const frames = layerFrames(document, made.source, sketch ?? [])
   if (!made.complete) return { source: made, scopes: null, frames, issues: made.issues, complete: false, drawing, sketch: sketch ?? null }

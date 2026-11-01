@@ -7,7 +7,7 @@
 /**
  * @typedef {import('./index.js').Drawing} Drawing
  * @typedef {import('./index.js').SketchLeaf} SketchLeaf
- * @typedef {import('./loader.js').Loaders} Loaders
+ * @typedef {{ [path: string]: string }} Loaders The URL each bundled file is served at, by its path in the package's `data/`.
  * @typedef {{ status: 'composed', drawn: Drawing & { leaves?: string[], slots?: { index: number, box: number[], leaf?: number }[] }, sketch: SketchLeaf[] | null }
  *   | { status: 'failed', error: string, unavailable?: boolean } | { status: 'cancelled' }} Answer
  * @typedef {{ postMessage(message: any): void, terminate(): void, onmessage: ((event: MessageEvent) => any) | null,
@@ -22,12 +22,14 @@
  * replaced or `cancel` was called first; `onSketch` hears the sketch as it comes, before the
  * drawing is done. `separate` draws every operand rather than a glyph that spells the whole
  * description. `warm()` starts the worker on the export's manifest and layout before the first
- * drawing. `loaders` tells the worker how to read files a page cannot fetch.
+ * drawing. `config.loaders` tells the worker where each bundled file is served.
  * @param {() => WorkerLike} makeWorker
  * @param {string} base
- * @param {Loaders} [config]
+ * @param {{ loaders?: Loaders, timeout?: number }} [config]
  */
 export function createDrawer(makeWorker, base, config = {}) {
+  // The export's folder, with its slash, whatever the caller wrote.
+  if (!base.endsWith('/')) base = `${base}/`
   /** @type {WorkerLike | null} */
   let worker = null
   /** @type {{ id: number, resolve: (answer: Answer) => void, onSketch: ((leaves: SketchLeaf[]) => void) | null, sketch: SketchLeaf[] | null } | null} */
@@ -36,7 +38,12 @@ export function createDrawer(makeWorker, base, config = {}) {
   const SILENCE = config.timeout ?? 120_000
   let next = 0
   /** @param {Answer} answer */
-  const settle = answer => { const p = pending; pending = null; p?.resolve(answer) }
+  const settle = answer => {
+    const p = pending
+    if (!p) return
+    pending = null
+    p.resolve(answer)
+  }
   function end() {
     worker?.terminate()
     worker = null
@@ -69,15 +76,19 @@ export function createDrawer(makeWorker, base, config = {}) {
    * @returns {Promise<Answer>}
    */
   function draw(sequence, onSketch = null, { separate = false, fontStyle = 'sans', loaders = config.loaders } = {}) {
+    // A newer drawing ends the one before.
     cancel()
     const live = connect()
     const id = ++next
-    return new Promise(resolve => {
-      // A worker that stops answering is ended, as a newer drawing ends it.
-      const timer = setTimeout(() => { cancel() }, SILENCE)
-      pending = { id, resolve: answer => { clearTimeout(timer); resolve(answer) }, onSketch, sketch: null }
-      live.postMessage({ id, sequence, base, separate, fontStyle, loaders: loaders ?? {} })
-    })
+    /** @type {(answer: Answer) => void} */
+    let finish = () => {}
+    // A worker that stops answering is ended, as a newer drawing ends it.
+    const timer = setTimeout(() => { if (pending?.id === id) cancel() }, SILENCE)
+    // The entry is pending before anything can end it: an abort from here settles this promise.
+    pending = { id, resolve: answer => { clearTimeout(timer); finish(answer) }, onSketch, sketch: null }
+    const answer = new Promise(/** @param {(answer: Answer) => void} resolve */ done => { finish = done })
+    live.postMessage({ id, sequence, base, separate, fontStyle, loaders: loaders ?? {} })
+    return answer
   }
   return { draw, cancel, warm, dispose: () => { cancel(); end() } }
 }

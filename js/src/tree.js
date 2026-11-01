@@ -116,7 +116,7 @@ function inRanges(ranges, char) {
 export const arity = char => (char === undefined ? 0 : OPERATORS.get(char) ?? 0)
 
 /** Whether `char` is a variation selector. @param {string | undefined} char */
-export const isSelector = char => char !== undefined && /^[︀-️\u{E0100}-\u{E01EF}]$/u.test(char)
+export const isSelector = char => char !== undefined && /^(?:[\uFE00-\uFE0F]|[\u{E0100}-\u{E01EF}])$/u.test(char)
 
 /** Whether `part` is a node. @param {Part | undefined} part @returns {part is Node} */
 export const isNode = part => part !== null && typeof part === 'object'
@@ -207,7 +207,8 @@ export const writeDescription = tree => isEmpty(tree) ? EMPTY : isNode(tree) ? o
 
 /**
  * Where the description starting at `chars[at]` ends: the index just past it, or -1 where none starts
- * there. Text may run on past it (⿰亻哥 in `⿰亻哥と`, the marked text of an input method).
+ * there. Text may run on past it (⿰亻哥 in `⿰亻哥と`, the marked text of an input method). A component
+ * takes its variation selector; a stroke chain takes its own and the selector after it.
  * @param {string[]} chars
  * @param {number} [at]
  * @returns {number}
@@ -216,7 +217,8 @@ export function descriptionEnd(chars, at = 0) {
   const char = chars[at]
   if (char === undefined) return -1
   const chain = strokeChain(chars, at)
-  if (chain) return chain.end
+  // A stroke chain stands for the character it names, and takes a variation selector like one.
+  if (chain) return isSelector(chars[chain.end]) ? chain.end + 1 : chain.end
   const n = arity(char)
   if (!n) {
     const emoji = EMOJI_START.test(char) ? emojiPrefix(chars.slice(at).join('')) : ''
