@@ -25,8 +25,6 @@ export { parseDescription, splitDescription, writeDescription, isNode, isEmpty, 
 export { pyramidSequence, pyramidCount } from './pyramid-sequence.js'
 export { emojiPrefix, emojiSlots } from './emoji.js'
 export { tokens } from './tokens.js'
-export { documentView } from './document-view.js'
-export { documentSource, composeDocumentSource } from './document-source.js'
 export { characterScript, treeScript } from './scripts.js'
 export { partScript } from './part-script.js'
 
