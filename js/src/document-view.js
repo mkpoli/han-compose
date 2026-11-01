@@ -12,19 +12,13 @@ import { documentSource } from './document-source.js'
 /** @typedef {import('./document-source.js').Box} Box */
 /** @typedef {import('./document-source.js').LayerInfo} LayerInfo */
 /** @typedef {import('./document-source.js').DocumentSource} DocumentSource */
-// A scoped drawing is the renderer's (`ids-input`'s `src/document/render.js`): the engine passes one
-// through, and its view is the renderer's in every field but the source it was made from.
-/** The renderer a view is made with (ids-input's `src/document/render.js` and `frames.js`), which
- *  makes a scoped drawing and a frame for each layer; a frame's own fields are the renderer's. */
-/** @typedef {<Scopes>(document: Document, source: LayerSource, options?: { tolerance?: number }) => Scopes} RenderScopes
- *  @typedef {(document: Document, source: LayerSource, sketch: SketchLeaf[]) => Map<string, LayerInfo & { box: number[] }>} LayerFrames
- *  @typedef {{ renderScopes: RenderScopes, layerFrames: LayerFrames }} Renderer */
-
+// The middleware a view is made with is ids-input's own renderer, `src/document/render.js` for the
+// scoped drawing and `src/document/frames.js` for the frames; its types belong to that package.
 /**
  * @typedef {object} DocumentView
  * @property {DocumentSource} source The composer-backed source, complete or not.
- * @property {ReturnType<RenderScopes> | null} scopes The scoped drawing, or null when the source is incomplete.
- * @property {ReturnType<LayerFrames>} frames Layout frames for every layer the sketch covers, as the renderer frames them.
+ * @property {import('./document-source.js').Scopes | null} scopes The scoped drawing, or null when the source is incomplete.
+ * @property {import('./document-source.js').Frames} frames Layout frames for every layer the sketch covers.
  * @property {string[]} issues Source and transform problems in one list.
  * @property {boolean} complete Whether the source and every transform produced a drawing.
  * @property {Drawing} drawing The separated drawing the view was made from.
@@ -36,7 +30,7 @@ import { documentSource } from './document-source.js'
  * that draws a document from a source. Frames are available even when the source is incomplete, so
  * an inspector can still select a known layer.
  * @param {Document} document @param {Drawing} drawing @param {SketchLeaf[] | null | undefined} sketch
- * @param {{ tolerance?: number, renderer: Renderer }} options
+ * @param {{ tolerance?: number, renderer: import('./document-source.js').Renderer }} options
  * @returns {DocumentView}
  */
 export function documentView(document, drawing, sketch, { tolerance = 0.1, renderer }) {

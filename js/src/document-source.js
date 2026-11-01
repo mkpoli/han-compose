@@ -21,6 +21,11 @@
 /** @typedef {[number, number, number, number]} Box */
 /** @typedef {{ node: Node, leaf: number | null, region: Box | null }} LayerInfo */
 /** @typedef {{ source: LayerSource, complete: boolean, issues: string[] }} DocumentSource */
+/** A scoped drawing and a layer's frame, as the document renderer makes them: the engine passes the
+ *  renderer's own values through, so the kinds are named here and typed by the package that writes them.
+ *  @typedef {any} Scopes
+ *  @typedef {Map<string, any>} Frames
+ *  @typedef {{ renderScopes: Function, layerFrames: Function }} Renderer */
 
 const CANVAS = /** @type {Box} */ ([0, 0, 1000, 1000])
 /** The slot an empty cell is written as. */
