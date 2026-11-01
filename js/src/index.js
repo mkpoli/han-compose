@@ -129,7 +129,9 @@ export function composerPreview({ base, separate = false, fontStyle = 'sans', lo
     return { drawn: { ...drawn, ...(groups ? { parts } : {}), emoji: items,
       slots: slots.filter(slot => !emoji.some(item => item.slot === slot.index)).map((slot, index) => ({ ...slot, index })) }, sketch: leaves }
   }
-  const preview = /** @type {ReturnType<typeof composerPreview>} */ (async (sequence, { signal, onSketch } = {}) => {
+  /** @type {ReturnType<typeof composerPreview>} */
+  const preview = async (sequence, options = {}) => {
+    const { signal, onSketch } = options;
     // What follows one description (an input method's marked text) is not drawn.
     const text = splitDescription(sequence).base || sequence
     const prepared = emojiSlots(text)
@@ -171,7 +173,7 @@ export function composerPreview({ base, separate = false, fontStyle = 'sans', lo
     }
     if (answer.status === 'cancelled') throw new DOMException('The drawing was replaced.', 'AbortError')
     throw answer.unavailable ? new UnavailableError(answer.error) : new LookupError(answer.error)
-  })
+  }
   let warmed = false
   preview.warm = () => {
     if (warmed) return
@@ -184,7 +186,7 @@ export function composerPreview({ base, separate = false, fontStyle = 'sans', lo
 
 /** The tree a draft reads as, for the size check; null where it is no description. @param {string} text */
 function parseLoose(text) {
-  try { return parseTree(text, op => '⿰⿱⿴⿵⿶⿷⿸⿹⿺⿻⿼⿽㇯'.includes(op) ? 2 : '⿲⿳'.includes(op) ? 3 : '⿾⿿〾'.includes(op) ? 1 : 0) } catch { return null }
+  try { return parseTree(text, /** @param {string} op */ op => '⿰⿱⿴⿵⿶⿷⿸⿹⿺⿻⿼⿽㇯'.includes(op) ? 2 : '⿲⿳'.includes(op) ? 3 : '⿾⿿〾'.includes(op) ? 1 : 0) } catch { return null }
 }
 
 /** A path under the package's `data/`, and the URL a host imports to serve the file from there. */

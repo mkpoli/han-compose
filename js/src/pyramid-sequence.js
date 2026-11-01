@@ -6,7 +6,7 @@ import { repeatedPart, repeatedText } from './repeat-part.js'
 import { parseDescription as parse, isNode } from './tree.js'
 import { PYRAMID_DIRECTIONS, pyramidRows } from './pyramid-rows.js'
 
-/** Whether two trees are the same part. @param {unknown} a @param {unknown} b */
+/** Whether two trees are the same part: the same operators over the same parts. @param {import('./tree.js').Part} a @param {import('./tree.js').Part} b @returns {boolean} */
 const sameTree = (a, b) => a === b || isNode(a) && isNode(b) && a.op === b.op
   && a.parts.length === b.parts.length && a.parts.every((part, i) => sameTree(part, b.parts[i]))
 
@@ -73,7 +73,7 @@ export function pyramidSequence(part, layers, { direction = 'top' } = {}) {
     let shape = null
     try { shape = pyramidRows(parse(text), { minLayers: layers }) } catch { /* text that reads no description */ }
     if (!shape || shape.layers !== layers || (layers > 1 && shape.direction !== direction)
-      || !sameTree(shape.cell, cell)) {
+      || !sameTree(/** @type {import('./tree.js').Part} */ (shape.cell), cell)) {
       throw new TypeError('A pyramid part cannot be repeated as written.')
     }
   }

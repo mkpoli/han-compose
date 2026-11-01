@@ -16,6 +16,7 @@ export function partScript(text) {
 export function treeScript(tree) {
   if (tree === null) return 'symbols'
   const scripts = new Set()
+  /** @param {import('./tree.js').Part} node */
   const walk = node => {
     if (typeof node === 'string') { const script = characterScript(node); if (script) scripts.add(script); return }
     if (isNode(node)) node.parts.forEach(walk)

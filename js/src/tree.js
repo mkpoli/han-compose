@@ -202,8 +202,8 @@ export function parseDescription(sequence) {
  */
 const operatorText = node => node.op + (node.note && MODIFIER.test(node.note) ? `[${node.note}]` : '')
 
-/** A tree written back as a description, an empty slot as ⬚. @param {Part} tree */
-export const writeDescription = tree => isEmpty(tree) ? EMPTY : isNode(tree) ? operatorText(tree) + tree.parts.map(writeDescription).join('') : tree
+/** A tree written back as a description, an empty slot as ⬚. @param {Part} tree @returns {string} */
+export const writeDescription = tree => isEmpty(tree) ? EMPTY : isNode(tree) ? operatorText(tree) + tree.parts.map(writeDescription).join('') : tree ?? EMPTY
 
 /**
  * Where the description starting at `chars[at]` ends: the index just past it, or -1 where none starts

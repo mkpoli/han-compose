@@ -46,7 +46,13 @@ export function emojiSlots(sequence) {
   let slot = 0, leaf = 0
   // Each operator toggles the mirrors above it; a subtraction's second operand alternates the cut,
   // and an overlay marks what follows it.
-  const convert = (/** @type {import('./tree.js').Part} */ part, /** @type {boolean} */ x, /** @type {boolean} */ y, /** @type {boolean} */ cut, /** @type {boolean} */ overlay, /** @type {boolean} */ restored) => {
+  /**
+   * `part` written back with its operators' flips folded into the Emoji below it, each Emoji a slot.
+   * @param {import('./tree.js').Part} part @param {boolean} x @param {boolean} y @param {boolean} cut
+   * @param {boolean} overlay @param {boolean} restored
+   * @returns {import('./tree.js').Part}
+   */
+  const convert = (part, x, y, cut, overlay, restored) => {
     if (!isNode(part)) {
       const index = leaf++
       if (part === null) { slot++; return null }
@@ -62,6 +68,7 @@ export function emojiSlots(sequence) {
     }
     const flipX = x !== (part.op === '⿾' || part.op === '⿿')
     const flipY = y !== (part.op === '⿿')
+    /** @type {import('./tree.js').Part[]} */
     const parts = part.parts.map((child, index) => convert(child, flipX, flipY,
       cut !== (part.op === '㇯' && index === 1), overlay || part.op === '⿻', restored || (part.op === '㇯' && index === 1)))
     return { ...part, parts }

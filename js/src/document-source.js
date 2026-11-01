@@ -24,7 +24,7 @@ const CANVAS = /** @type {Box} */ ([0, 0, 1000, 1000])
 /** The slot an empty cell is written as. */
 const SLOT = '⬚'
 
-/** A document node written out as a sequence, its slots as ⬚. @param {Node} node */
+/** A document node written out as a sequence, its slots as ⬚. @param {Node} node @returns {string} */
 function toSequence(node) {
   if (node.kind === 'component') return node.char + (node.marks ?? '')
   if (node.kind === 'slot') return SLOT

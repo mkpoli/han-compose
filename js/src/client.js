@@ -54,9 +54,10 @@ export function createDrawer(makeWorker, base, config = {}) {
     const live = makeWorker()
     worker = live
     live.onmessage = ({ data }) => {
-      if (data.id !== pending?.id) return
-      if (data.sketch) { pending.sketch = data.sketch; pending.onSketch?.(data.sketch); return }
-      settle(data.error === undefined ? { status: 'composed', drawn: data.drawn, sketch: pending?.sketch ?? null }
+      const asked = pending
+      if (!asked || data.id !== asked.id) return
+      if (data.sketch) { asked.sketch = data.sketch; asked.onSketch?.(data.sketch); return }
+      settle(data.error === undefined ? { status: 'composed', drawn: data.drawn, sketch: asked.sketch }
         : { status: 'failed', error: data.error, ...(data.unavailable ? { unavailable: true } : {}) })
     }
     live.onerror = event => { event?.preventDefault?.(); end(); settle({ status: 'failed', error: String(event?.message ?? 'worker failed') }) }
@@ -72,7 +73,7 @@ export function createDrawer(makeWorker, base, config = {}) {
   /**
    * @param {string} sequence
    * @param {((leaves: SketchLeaf[]) => void) | null} [onSketch]
-   * @param {{ separate?: boolean, fontStyle?: 'sans' | 'serif' | 'kaisho' }} [options]
+   * @param {{ separate?: boolean, fontStyle?: 'sans' | 'serif' | 'kaisho', loaders?: Loaders }} [options]
    * @returns {Promise<Answer>}
    */
   function draw(sequence, onSketch = null, { separate = false, fontStyle = 'sans', loaders = config.loaders } = {}) {
@@ -86,7 +87,8 @@ export function createDrawer(makeWorker, base, config = {}) {
     const timer = setTimeout(() => { if (pending?.id === id) cancel() }, SILENCE)
     // The entry is pending before anything can end it: an abort from here settles this promise.
     pending = { id, resolve: answer => { clearTimeout(timer); finish(answer) }, onSketch, sketch: null }
-    const answer = new Promise(/** @param {(answer: Answer) => void} resolve */ done => { finish = done })
+    /** @type {Promise<Answer>} */
+    const answer = new Promise(done => { finish = done })
     live.postMessage({ id, sequence, base, separate, fontStyle, loaders: loaders ?? {} })
     return answer
   }

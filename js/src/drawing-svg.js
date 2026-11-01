@@ -18,12 +18,12 @@ export function emojiTransform(item) {
   return `translate(${flipX ? 2 * x + width : 0} ${flipY ? 2 * y + height : 0}) scale(${flipX ? -1 : 1} ${flipY ? -1 : 1})`
 }
 
-/** Path data with nothing but its commands and numbers. */
+/** Path data with nothing but its commands and numbers. @param {unknown} d */
 const pathData = d => String(d ?? '').replace(/[\t\n\r]/g, ' ').replace(/[^MLHVCSQTAZmlhvcsqtaz0-9.,eE+\- ]/g, '')
-/** A transform list with nothing but SVG transform functions: its letters, numbers, spaces, commas and brackets. */
+/** A transform list with nothing but SVG transform functions: its letters, numbers, spaces, commas and brackets. @param {unknown} t */
 const transformData = t => String(t ?? '').slice(0, 500).replace(/[^a-zA-Z0-9()., \-]/g, '')
-/** A colour as an SVG attribute takes it: `#rgb`, `#rrggbb` or `#rrggbbaa`; anything else is refused. */
-const colour = (value, fallback) => /^#(?:[0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(value ?? '') ? value : fallback
+/** A colour as an SVG attribute takes it: `#rgb`, `#rrggbb` or `#rrggbbaa`; anything else is refused. @param {unknown} value @param {string | null} fallback */
+const colour = (value, fallback) => /^#(?:[0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(String(value ?? '')) ? /** @type {string} */ (value) : fallback
 
 /**
  * @typedef {object} DrawingForSvg
@@ -47,6 +47,7 @@ const colour = (value, fallback) => /^#(?:[0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/
  */
 export function drawingSvg(drawing, { background = null, ink = '#000000', padding = 0, size = 1000, placeholders = false } = {}) {
   // Every number written is a finite number, whatever it was handed.
+  /** @param {unknown} value @param {number} fallback */
   const num = (value, fallback) => Number.isFinite(Number(value)) ? Number(value) : fallback
   const pad = Math.round(Math.max(0, Math.min(num(padding, 0), 0.5)) * 1000 * 100) / 100
   size = Math.max(1, Math.round(num(size, 1000)))
@@ -61,12 +62,12 @@ export function drawingSvg(drawing, { background = null, ink = '#000000', paddin
   const pieces = Array.isArray(drawing.parts) ? drawing.parts : null
   const emoji = drawing.emoji ?? []
   const hasCut = Boolean(cut || emoji.some(item => item.cut))
-  const groupedEmoji = !hasCut && emoji.length && pieces?.every(piece => Number.isInteger(piece.leaf))
-    && emoji.every(item => Number.isInteger(item.part) && item.part >= 0)
+  const groupedEmoji = Boolean(!hasCut && emoji.length && pieces?.every(piece => Number.isInteger(piece.leaf))
+    && emoji.every(item => (item.part ?? -1) >= 0))
   const split = !hasCut && (groupedEmoji || transforms?.some(transform => typeof transform === 'string' && transform))
     && pieces?.every(piece => typeof piece.d === 'string')
   /**
-   * @param {{ text: string, box: number[], flip?: [boolean, boolean], cut?: boolean }} item
+   * @param {{ text: string, box: number[], flip?: [boolean, boolean], cut?: boolean, part?: number }} item
    * @param {string} [attribute]
    */
   const textOf = (item, attribute = '') => {
@@ -100,14 +101,15 @@ export function drawingSvg(drawing, { background = null, ink = '#000000', paddin
     if (item.cut) continue
     const content = textOf(item, hasCut && !item.restored ? ' mask="url(#cut)"' : '')
     if (!content) continue
-    const transform = Number.isInteger(item.part) && transforms ? transformData(transforms[item.part]) : ''
+    const part = item.part ?? -1
+    const transform = part >= 0 && transforms ? transformData(transforms[part]) : ''
     out.push(transform ? `<g transform="${transform}">${content}</g>` : content)
   }
   if (placeholders) for (const slot of drawing.slots ?? []) {
-    const box = (slot.box ?? []).slice(0, 4).map(v => num(v, 0))
+    const box = (slot.box ?? []).slice(0, 4).map((/** @type {unknown} */ v) => num(v, 0))
     if (box.length < 4) continue
     const p = placeholder(box, num(drawing.stroke?.[0], STROKE))
-    const r = v => Math.round(v * 100) / 100
+    /** @param {number} v */ const r = v => Math.round(v * 100) / 100
     out.push(`<rect x="${r(p.x)}" y="${r(p.y)}" width="${r(p.width)}" height="${r(p.height)}" rx="${r(p.rx)}" fill="none" stroke="${fill}" stroke-opacity="0.5" stroke-width="${r(p.dot)}" stroke-linecap="round" pathLength="${p.dots}" stroke-dasharray="0 1"/>`)
   }
   out.push('</svg>')

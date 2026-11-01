@@ -11,19 +11,21 @@ const EMPTY = '⬚'
 /** Whether `node` is an empty slot. A drawing numbers them (`⬚0`, `⬚1`, …). @param {unknown} node */
 const isSlot = node => node === null || typeof node === 'string' && node[0] === EMPTY
 
-/** An editor's node's children, or undefined for anything else. @param {unknown} node */
-const nodeParts = node => (node && typeof node === 'object' && /** @type {{ parts?: unknown[] }} */ (node).parts) || undefined
-/** The children of a parsed or editor tree node, or null for a leaf. @param {unknown} node */
+/** An editor's node's children, or undefined for anything else. @param {unknown} node @returns {unknown[] | undefined} */
+const nodeParts = node => (node && typeof node === 'object' ? /** @type {{ parts?: unknown[] }} */ (node).parts : undefined)
+
+/** The children of a parsed or editor tree node, or null for a leaf. @param {unknown} node @returns {unknown[] | null} */
 const childrenOf = node => Array.isArray(node) ? node.slice(1) : nodeParts(node) ?? null
-/** A node's operator, or undefined for a leaf. @param {unknown} node */
-const operatorOf = node => Array.isArray(node) ? node[0] : nodeParts(node) ? /** @type {{ op?: string }} */ (node).op : undefined
+/** A node's operator, or undefined for a leaf. @param {unknown} node @returns {unknown} */
+const operatorOf = node => Array.isArray(node) ? /** @type {unknown} */ (node[0]) : nodeParts(node) ? /** @type {{ op?: string }} */ (node).op : undefined
+
 const ROWS = new Set(['⿰', '⿲'])
 const STACKS = new Set(['⿱', '⿳'])
 
 /**
  * Whether two cells are the same part, marks and modifiers included. Both cells come from one tree,
  * so they are spelled the same way.
- * @param {unknown} a @param {unknown} b
+ * @param {unknown} a @param {unknown} b @returns {boolean}
  */
 function samePart(a, b) {
   if (a === b) return true
@@ -53,7 +55,7 @@ function splitCells(node, count, size, out, leaves, axis) {
     return true
   }
   const op = operatorOf(node)
-  if (op === undefined || !axis.has(op)) return false
+  if (typeof op !== 'string' || !axis.has(op)) return false
   const kids = childrenOf(node)
   if (!kids || kids.length < 2) return false
   let used = 0
@@ -77,7 +79,7 @@ function splitCells(node, count, size, out, leaves, axis) {
 function splitGroups(node, from, to, counts, size, out, leaves, outer, inner) {
   if (from === to) return splitCells(node, counts[from], size, out, leaves, inner)
   const op = operatorOf(node)
-  if (op === undefined || !outer.has(op)) return false
+  if (typeof op !== 'string' || !outer.has(op)) return false
   const kids = childrenOf(node)
   if (!kids || kids.length < 2) return false
   let at = from
@@ -109,13 +111,14 @@ function splitGroups(node, from, to, counts, size, out, leaves, outer, inner) {
 export function pyramidRows(tree, { minLayers = 3 } = {}) {
   /** @type {Map<unknown, number>} */
   const counted = new Map()
-  /** @param {unknown} node */
+  /** @param {unknown} node @returns {number} */
   const leaves = node => {
     if (typeof node === 'string' || node === null) return 1
     if (!node || typeof node !== 'object') return 0
     const known = counted.get(node)
     if (known !== undefined) return known
     const kids = childrenOf(node)
+    /** @type {number} */
     const total = kids ? kids.reduce((/** @type {number} */ sum, kid) => sum + leaves(kid), 0) : 0
     counted.set(node, total)
     return total
