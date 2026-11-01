@@ -11,7 +11,9 @@
 /** A document node: a component, a slot, a group of one node, or an operator with its children.
  *  @typedef {{ id: string, kind: 'component', char: string, marks?: string } | { id: string, kind: 'slot' }
  *    | { id: string, kind: 'group', child: Node } | { id: string, kind: 'node', op: string, children: Node[], note?: string, marks?: string }} Node */
-/** @typedef {{ root: Node }} Document */
+/** A document is the editor's own: the engine reads its `root` and writes nothing back, so the
+ *  editor's other fields (its format and version, its render recipe) may ride along.
+ *  @typedef {{ root: Node } & Record<string, unknown>} Document */
 /** @typedef {{ geometry: (node: Node) => any, placement: (parent: Node, child: Node) => number[] | null }} LayerSource */
 /** @typedef {{ d: string, cut?: boolean, leaf?: number }} DrawingPart */
 /** @typedef {{ d: string, parts?: DrawingPart[], slots?: { index: number, box: number[] }[] }} Drawing */
