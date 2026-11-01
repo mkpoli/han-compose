@@ -1,0 +1,58 @@
+{
+  "name": "@han-compose/composer",
+  "version": "0.1.0",
+  "description": "Draw an Ideographic Description Sequence in the browser: the composing engine of han-compose, its export reader, and a Web Worker that draws it.",
+  "license": "MIT",
+  "author": "mkpoli",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mkpoli/han-compose.git",
+    "directory": "js"
+  },
+  "homepage": "https://github.com/mkpoli/han-compose",
+  "keywords": [
+    "ids",
+    "ideographic description sequence",
+    "cjk",
+    "han",
+    "kanji",
+    "hanzi",
+    "compose",
+    "svelte"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.js",
+    "./compose": "./src/compose.js",
+    "./geometry": "./src/geometry.js",
+    "./loader": "./src/loader.js",
+    "./source": "./src/source.js",
+    "./unicode": "./src/unicode.js",
+    "./palette": "./src/palette.js",
+    "./component-forms": "./src/component-forms.js",
+    "./pyramid": "./src/pyramid.js",
+    "./tangut": "./src/tangut.js",
+    "./bopomofo": "./src/bopomofo.js",
+    "./small-seal": "./src/small-seal.js",
+    "./new-korean": "./src/new-korean.js",
+    "./shuishu": "./src/shuishu.js",
+    "./document-source": "./src/document-source.js",
+    "./document-view": "./src/document-view.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "src",
+    "data",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "bun test tests",
+    "parity": "bun tests/parity/run.js",
+    "draw": "bun scripts/draw.js"
+  },
+  "devDependencies": {
+    "@types/bun": "1.3.14",
+    "playwright-core": "1.64.1"
+  }
+}
