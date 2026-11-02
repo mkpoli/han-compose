@@ -143,6 +143,26 @@ export function isLetter(char) {
  *  accent or tone-letter symbol, a superscript or subscript digit. @param {string | undefined} char */
 export const isMark = char => char !== undefined && inRanges(MARK_RANGES, char)
 
+/** A Middle Korean tone mark, U+302E or U+302F. Unlike the other loose marks it names the tone of the
+ *  syllable it follows, and stays on it inside a longer description. @param {string | undefined} char */
+export const isToneMark = char => char === '\u302E' || char === '\u302F'
+
+/** Where the tone marks running from `at` end. @param {string[]} chars @param {number} at @returns {number} */
+export function toneMarksAt(chars, at) {
+  let end = at
+  while (isToneMark(chars[end])) end++
+  return end
+}
+
+/** The tone marks ending `marks`, apart from what comes before them.
+ *  @param {string} marks @returns {{ rest: string, tones: string }} */
+export function splitToneMarks(marks) {
+  const chars = [...marks]
+  let at = chars.length
+  while (at > 0 && isToneMark(chars[at - 1])) at--
+  return { rest: chars.slice(0, at).join(''), tones: chars.slice(at).join('') }
+}
+
 /** Whether `text` is one or more loose marks and nothing else. @param {string | null | undefined} text */
 export const isMarks = text => { const chars = [...(text ?? '')]; return chars.length > 0 && chars.every(isMark) }
 
@@ -183,8 +203,13 @@ export function parseDescription(sequence) {
       // An Emoji sequence may hold zero-width joiners; other invisible characters are not components.
       if (!emoji && /[\p{Cc}\p{Cf}\p{Z}]/u.test(char)) throw new SyntaxError(`${JSON.stringify(char)} is not a component.`)
       const cluster = hangulClusterAt(chars, at - 1)
-      if (cluster) { at = cluster.end; return cluster.text }
-      return !emoji && isSelector(chars[at]) ? char + chars[at++] : char
+      if (cluster) at = cluster.end
+      const base = cluster ? cluster.text : !emoji && isSelector(chars[at]) ? char + chars[at++] : char
+      // A tone mark belongs to the syllable it follows, not to the whole description.
+      const end = toneMarksAt(chars, at)
+      const tones = chars.slice(at, end).join('')
+      at = end
+      return base + tones
     }
     const note = MODIFIABLE.has(char) ? modifierAt(chars, at) : ''
     if (note) at += [...note].length + 2
