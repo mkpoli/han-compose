@@ -617,10 +617,15 @@ export class Composer {
 
   /** Whether the export lists a host for one of a node's operands where the node puts it. Each
    *  record names the places its host lists are in (`P`), so an export can carry some operands and
-   *  not others; a node with no list of its own takes the plain shares. */
+   *  not others. An operand with no record (an empty slot, a description the table does not hold) is
+   *  taken to be covered: there is nothing to cut from, and its box is the layout's to give. */
   hasHosts(op, children) {
     if (!this.hosted) return false
-    return children.some((child, i) => (this.data.places(keyOf(child)) ?? []).includes(this.slot(op, i)))
+    return children.some((child, i) => {
+      const key = keyOf(child)
+      if (!this.data.rec(key)) return true
+      return (this.data.places(key) ?? []).includes(this.slot(op, i))
+    })
   }
 
   /** What a host entry's cut is known by before its outlines are read: its box and its contour
