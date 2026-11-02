@@ -41,6 +41,13 @@ export class LookupError extends Error { name = 'LookupError' }
 /** The first `n` hosts of a list in the composer's index order, by each entry's position `r`. */
 const upTo = (list, n) => list.filter(h => h.r < n)
 
+/** A glyph's ink box: its strokes can reach past its placement box, and inside a cell that overflow
+ *  runs into the next cell, so a cell fits the ink. @param {any} part */
+const tightBox = part => {
+  const box = part.contours.reduce((b, c) => union([b, pointsBox(c.light)]), [Infinity, Infinity, -Infinity, -Infinity])
+  return Number.isFinite(box[0]) ? box : part.box
+}
+
 const isSelector = ch => ch !== undefined && /^[︀-️\u{E0100}-\u{E01EF}]$/u.test(ch)
 
 const MODIFIER = /^[0-9:,._xabcdlr|-]+$/u
