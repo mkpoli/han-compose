@@ -51,16 +51,20 @@ export const traitKey = traits => Object.entries(traits).map(([name, on]) => `${
  * for a page that serves them elsewhere; left out, the page fetches them beside the package.
  * `bundled` draws without the export, as a page does when the export could not be read; `remote`
  * keeps the export even for a sequence bundled outlines would cover, as warming does. `fetch`
- * replaces how the export is read.
+ * replaces how the export is read, and `read` how a bundled file is: a page that reads its own assets
+ * (a Worker over its deployment's files) answers by path, wherever `loaders` puts them.
  * @param {string} sequence
- * @param {{ base?: string, fontStyle?: string, separate?: boolean, bundled?: boolean, remote?: boolean, loaders?: Record<string, string>, traits?: ReturnType<typeof traitsOf>, fetch?: typeof globalThis.fetch }} [options]
+ * @param {{ base?: string, fontStyle?: string, separate?: boolean, bundled?: boolean, remote?: boolean, loaders?: Record<string, string>, traits?: ReturnType<typeof traitsOf>, fetch?: typeof globalThis.fetch, read?: (path: string, url?: string) => Promise<Response> }} [options]
  */
-export function sourceFor(sequence, { base, fontStyle = 'sans', separate = false, bundled = false, remote = false, loaders = {}, traits = null, fetch: get } = {}) {
+export function sourceFor(sequence, { base, fontStyle = 'sans', separate = false, bundled = false, remote = false, loaders = {}, traits = null, fetch: get, read } = {}) {
   traits = traits ?? traitsOf(sequence ?? '')
   const local = !remote && (bundled || traits.empty || onlyBundled(sequence, separate, false, fontStyle))
-  /** The source of one script or palette, over `fallback`, reading its file where `loaders` serves it. */
-  const overlay = (/** @type {Function} */ kind, /** @type {any} */ fallback, /** @type {string} */ path) =>
-    kind({ fallback, ...(loaders[path] ? { load: () => fetchFile(loaders[path]) } : {}) })
+  /** The source of one script or palette, over `fallback`, reading its file by path or URL. */
+  const overlay = (/** @type {Function} */ kind, /** @type {any} */ fallback, /** @type {string} */ path) => {
+    const load = read ? () => read(path, loaders[path])
+      : loaders[path] ? () => fetchFile(/** @type {string} */ (loaders[path])) : null
+    return kind({ fallback, ...(load ? { load } : {}) })
+  }
   // A bundled sequence needs no export: a failing one is not asked for at all.
   let source = local ? null : fromUrl(base, get ? { fetch: get } : {})
   if (local && traits.loose) source = overlay(unicodeSource, source, '')
