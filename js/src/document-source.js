@@ -71,11 +71,17 @@ function transformPath(d, matrix) {
       out.push(`${kind}${round(last[0])} ${round(last[1])}`)
       continue
     }
-    const c1 = map([v[0], v[1]]), c2 = map([v[2], v[3]]), end = map([v[4], v[5]])
+    // A quadratic curve has one control point, a cubic two; both are flattened to lines.
+    const cubic = kind === 'C'
+    const c1 = map([v[0], v[1]]), c2 = cubic ? map([v[2], v[3]]) : null, end = map(cubic ? [v[4], v[5]] : [v[2], v[3]])
     for (let k = 1; k <= STEPS; k++) {
       const t = k / STEPS, u = 1 - t
-      const x = u * u * u * last[0] + 3 * u * u * t * c1[0] + 3 * u * t * t * c2[0] + t * t * t * end[0]
-      const y = u * u * u * last[1] + 3 * u * u * t * c1[1] + 3 * u * t * t * c2[1] + t * t * t * end[1]
+      const x = cubic
+        ? u * u * u * last[0] + 3 * u * u * t * c1[0] + 3 * u * t * t * /** @type {number[]} */ (c2)[0] + t * t * t * end[0]
+        : u * u * last[0] + 2 * u * t * c1[0] + t * t * end[0]
+      const y = cubic
+        ? u * u * u * last[1] + 3 * u * u * t * c1[1] + 3 * u * t * t * /** @type {number[]} */ (c2)[1] + t * t * t * end[1]
+        : u * u * last[1] + 2 * u * t * c1[1] + t * t * end[1]
       out.push(`L${round(x)} ${round(y)}`)
     }
     last = end
