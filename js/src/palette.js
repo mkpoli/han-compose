@@ -1,5 +1,5 @@
 // Outlines for palette parts absent from the pinned default composer export.
-import characters from '../../data/palette/fallback-characters.json' with { type: 'json' }
+import characters from '../data/palette/fallback-characters.json' with { type: 'json' }
 import { bundledSource } from './bundled.js'
 import { pageLoader } from './unicode.js'
 const supported = new Set(characters)

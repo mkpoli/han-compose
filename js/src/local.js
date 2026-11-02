@@ -6,7 +6,9 @@ import { hasBundledGlyph } from './bundled-coverage.js'
 import { hasNewKorean } from './new-korean.js'
 import { hasUnicodeGlyph } from './unicode.js'
 
-/** Whether every filled leaf has bundled outlines. @param {string} sequence @param {boolean} [separate] @param {boolean} [unicode] @param {string} [fontStyle] */
+/** Whether every filled leaf has bundled outlines.
+ *  @param {string} sequence @param {boolean} [separate] @param {boolean} [unicode] @param {string} [fontStyle]
+ *  @returns {boolean} */
 export function onlyBundled(sequence, separate = false, unicode = false, fontStyle = 'sans') {
   // A loose mark loads from the bundled Unicode outlines; the description before it decides the rest.
   const { base, marks } = splitDescription(sequence)

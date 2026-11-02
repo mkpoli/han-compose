@@ -1,6 +1,6 @@
 // @ts-nocheck
 // Font-derived fallback glyphs. Each 256-code-point shard loads only when a missing glyph needs it.
-import coverage from '../../data/unicode/coverage.json' with { type: 'json' }
+import coverage from '../data/unicode/coverage.json' with { type: 'json' }
 import constants from './constants.json' with { type: 'json' }
 import { unpack } from './loader.js'
 
@@ -21,7 +21,7 @@ export function hasUnicodeGlyph(key) {
 const fileOf = key => `unicode/${(key.codePointAt(0) >> 8).toString(16).padStart(3, '0')}`
 /** A bundled file's parsed JSON, as the page reads it: the file under the package's `data/`. */
 export const pageLoader = async path => {
-  const response = await fetch(new URL(`../../data/${path}`, import.meta.url))
+  const response = await fetch(new URL(`../data/${path}`, import.meta.url))
   if (!response.ok) throw new Error(`${path}: ${response.status}`)
   return JSON.parse(await unpack(await response.arrayBuffer()))
 }

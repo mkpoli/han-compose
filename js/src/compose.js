@@ -225,8 +225,8 @@ export class Composer {
     // `hosted` as han-compose's: with no host list there is nothing to cut, and the learned boxes —
     // where cut parts go — would stretch whole glyphs into component shapes (a squat 木, its bar
     // merged with its neighbour's). The export's own manifest says how many bytes of host lists it
-    // carries.
-    this.hosted = m.files?.hosts?.bytes !== 0
+    // carries, and carries none when `files.hosts` is absent or empty.
+    this.hosted = Boolean(m.files?.hosts?.bytes)
     // A static brush face keeps its own stroke weights; a variable export weights its parts.
     this.weighted = m.weighted ?? !(m.style === 'kaisho' && m.heavy === 400)
     this.stem0 = c.stem
@@ -615,14 +615,12 @@ export class Composer {
     return uncut ? list : list.filter(h => this.cutOf(h))
   }
 
-  /** Whether the export lists a host for a node's operands in their places. An export that names
-   *  its host places (`files.hosts.places`) can carry some operands only; a node without a list
-   *  takes the plain shares. An export without the list is taken to cover what it carries. */
+  /** Whether the export lists a host for one of a node's operands where the node puts it. Each
+   *  record names the places its host lists are in (`P`), so an export can carry some operands and
+   *  not others; a node with no list of its own takes the plain shares. */
   hasHosts(op, children) {
     if (!this.hosted) return false
-    const places = this.data.manifest.files?.hosts?.places
-    if (!places) return true
-    return children.some((child, i) => places.includes(`${this.slot(op, i)}\t${keyOf(child)}`))
+    return children.some((child, i) => (this.data.places(keyOf(child)) ?? []).includes(this.slot(op, i)))
   }
 
   /** What a host entry's cut is known by before its outlines are read: its box and its contour

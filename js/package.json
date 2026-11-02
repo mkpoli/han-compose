@@ -39,6 +39,18 @@
       "types": "./types/loader.d.ts",
       "default": "./src/loader.js"
     },
+    "./repetition": {
+      "types": "./types/repetition.d.ts",
+      "default": "./src/repetition.js"
+    },
+    "./strokes": {
+      "types": "./types/strokes.d.ts",
+      "default": "./src/strokes.js"
+    },
+    "./worker": {
+      "types": "./types/worker.d.ts",
+      "default": "./src/worker.js"
+    },
     "./source": {
       "types": "./types/source.d.ts",
       "default": "./src/source.js"
@@ -125,7 +137,9 @@
     "src",
     "types",
     "data",
-    "README.md"
+    "README.md",
+    "scripts",
+    "LICENSE"
   ],
   "scripts": {
     "test": "bun test tests",
@@ -133,7 +147,11 @@
     "draw": "bun scripts/draw.js",
     "check": "tsc -p tsconfig.json --noEmit",
     "types": "tsc -p tsconfig.json",
-    "prepack": "bun run types"
+    "prepack": "bun run types && bun run data",
+    "data": "node scripts/data.mjs",
+    "pretest": "bun run data",
+    "prepare": "bun run data",
+    "parity:check": "bun tests/parity/run.js \"${COMPOSER_EXPORT:?set COMPOSER_EXPORT to an export-web --parity folder}\""
   },
   "devDependencies": {
     "@types/bun": "1.3.14",

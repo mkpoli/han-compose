@@ -1,7 +1,7 @@
 // @ts-check
 // The Unicode script a component belongs to, and the scripts a description holds: what groups a
 // palette, and what a script-specific source is asked for.
-import ranges from '../../data/unicode/script-ranges.json' with { type: 'json' }
+import ranges from '../data/unicode/script-ranges.json' with { type: 'json' }
 import { isNewKorean, isShuishu } from './tree.js'
 
 /** @param {string} char @returns {string | null} */

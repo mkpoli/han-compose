@@ -25,7 +25,9 @@ describe.skipIf(!sets.length)('the engine and the Python composer', () => {
       for (const row of scores.slice().sort((a, b) => a.score - b.score).slice(0, Number(process.env.COMPOSER_PARITY_WORST) || 25)) {
         console.log(`  ${row.score.toFixed(3)} ${row.c} ${row.s}  python: ${row.python.join(', ')}  engine: ${row.error ?? row.engine.join(', ')}`)
       }
-      if (!k) expect(mean).toBeGreaterThanOrEqual(FLOOR)
+      // The floor holds for every set: a held-out set whose hosts the export does not carry is the
+      // weakest, and a set drawn from hosts it does carry must not fall below it either.
+      expect(mean).toBeGreaterThanOrEqual(FLOOR)
     }, 900_000)
   }
 })

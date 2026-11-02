@@ -3,7 +3,7 @@
 // where a description stops inside longer text (an input method's marked text, ⿰亻哥と), and the loose
 // marks that may trail one. It reads the same notation the composer is given: zi.tools stroke chains,
 // Emoji and jamo runs as one part, an operator's modifier, a slot (⬚, or ＋ as older drafts write it).
-import properties from '../../data/unicode/properties.json' with { type: 'json' }
+import properties from '../data/unicode/properties.json' with { type: 'json' }
 
 /** A component: its text, with any variation selector. @typedef {string} Component */
 /** @typedef {{ op: string, parts: Part[], note?: string, marks?: string }} Node */

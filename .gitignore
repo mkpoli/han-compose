@@ -12,3 +12,6 @@ js/data
 
 # Emitted declaration files
 js/types
+
+# The package's own copies: the licence, and the data `scripts/data.mjs` gathers
+js/LICENSE

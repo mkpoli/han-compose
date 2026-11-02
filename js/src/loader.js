@@ -31,7 +31,8 @@ export async function unpack(buffer) {
 // indices `k` of the host glyph's contours it keeps (or its own outlines `p`), its box `b`, the
 // node's frame `fr`, `wh` for the whole character, the gap `g` and `kv` for a KanjiVG cut, read here
 // onto the entry. A cut marked `pc` was made only under a parity row's exclusion.
-const FORMATS = new Set([5, 6])
+// The one format `web_export.py` writes. An earlier one is a failed load, not a fallback.
+const FORMATS = new Set([6])
 const shard = (folder, h) => `${folder}/${h.slice(0, 3)}.json`
 const cutEntry = h => h.c === null ? { ...h } : { ...h, ...h.c, c: true }
 const recordHash = key => hexOf(key)
