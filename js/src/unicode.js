@@ -4,6 +4,10 @@ import coverage from '../data/unicode/coverage.json' with { type: 'json' }
 import constants from './constants.json' with { type: 'json' }
 import { unpack } from './loader.js'
 
+/** The code points the export covers, as `[first, last]` ranges in order: what a page lists when it
+ *  needs every character the fallback can draw. */
+export const UNICODE_COVERAGE = /** @type {[number, number][]} */ (coverage)
+
 /** Whether this exact component has a bundled outline. Selectors require an explicit export glyph. */
 export function hasUnicodeGlyph(key) {
   if ([...key].length !== 1) return false

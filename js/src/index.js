@@ -12,7 +12,7 @@ import { parseDescription, splitDescription } from './tree.js'
 
 export { APPROXIMATE, EMPTY }
 export { LIMITS, LookupError, PYRAMID_LAYERS, compose, createSource, createDrawer, fromUrl, size, sketch, svgBox, tooLarge }
-export { unicodeSource, hasUnicodeGlyph } from './unicode.js'
+export { unicodeSource, hasUnicodeGlyph, UNICODE_COVERAGE } from './unicode.js'
 export { unpack } from './loader.js'
 export { componentDrawing, componentParts } from './component-forms.js'
 export { documentSource, composeDocumentSource } from './document-source.js'
