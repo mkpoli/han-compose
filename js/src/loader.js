@@ -194,10 +194,19 @@ export const svgBox = b => [b[0], ASCENT - b[3], b[2] - b[0], b[3] - b[1]]
 export async function sketch(source, sequence, { fontStyle = 'sans' } = {}) {
   await source.ready()
   // Loose marks hang off the drawing; they are not leaves of it.
-  return new Composer(source.store(), { fontStyle }).sketch(splitDescription(sequence).base).map(leaf => ({ ...leaf, box: svgBox(leaf.box) }))
+  const { base } = splitDescription(sequence)
+  // Which boxes a node takes is decided by the operands' host lists, so their records are read
+  // before the layout: a sketch laid out without them would move when the drawing arrives.
+  try {
+    const arity = ch => {
+      const c = source.manifest.constants
+      return c.BINARY.includes(ch) ? 2 : c.TERNARY.includes(ch) ? 3 : c.UNARY.includes(ch) ? 1 : 0
+    }
+    await source.load(source.filesOf(keysOf(parseTree(base, arity), [], false, fontStyle)))
+  } catch { /* a draft that does not read is laid out by the composer's own parse */ }
+  return new Composer(source.store(), { fontStyle }).sketch(base).map(leaf => ({ ...leaf, box: svgBox(leaf.box) }))
 }
 
-/**
 
 /**
  * `sequence` drawn by the composer: `{ d, cut, slots, stroke, parts, origins, kanjivg, approximate }`,
