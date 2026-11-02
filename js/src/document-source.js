@@ -192,9 +192,12 @@ export function documentSource(document, drawing, sketch) {
       issues.push(`part leaf ${leaf} belongs to an empty slot`)
       return
     }
-    try { parsePath(part.d) } catch {
-      issues.push(`part leaf ${leaf} has path data that is not a path`)
-      return
+    // An Emoji part has no outlines: it is drawn as text in its box, so it carries no path.
+    if (part.d !== '') {
+      try { parsePath(part.d) } catch {
+        issues.push(`part leaf ${leaf} has path data that is not a path`)
+        return
+      }
     }
     assigned.push({ part, leaf })
   })

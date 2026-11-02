@@ -16,6 +16,11 @@ describe('a document source', () => {
     // Half way along, the curve is a quarter of the way to the control point and half way to the end.
     expect(piece.d).toContain('L1000 250')
   })
+  it('takes an Emoji part, which carries no path, as drawn', () => {
+    const made = documentSource(document, { d: '', parts: [{ d: '', leaf: 0 }, { d: 'M0 0L1000 1000Z', leaf: 1 }], slots: [] }, sketch)
+    expect(made.issues).toEqual([])
+    expect(made.source.geometry(document.root.children[0]).pieces).toEqual([{ d: '', fillRule: 'nonzero', cut: false }])
+  })
   it('flattens a cubic curve to the curve it is', () => {
     const made = documentSource(document, { d: '', parts: [{ d: 'M0 0C0 0 1000 1000 1000 1000Z', leaf: 0 }, { d: 'M0 0L1000 1000Z', leaf: 1 }], slots: [] }, sketch)
     const [piece] = made.source.geometry(document.root.children[0]).pieces
