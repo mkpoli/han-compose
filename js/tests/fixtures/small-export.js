@@ -1,5 +1,5 @@
-// A small composer export built in memory: `src/composer/constants.json` holds han-compose's drawing
-// constants (`compose.py` at bd0829b, with the stems and face the font gives), and a few characters
+// A small composer export built in memory: `src/constants.json` holds han-compose's drawing constants
+// (`compose.py` at bd0829b, with the stems and face the font gives), and a few characters
 // are boxes. The layout network is all zeros, so two-operand nodes fall back to the composer's shares.
 // The tests draw from it in place of a real export.
 import { createHash } from 'node:crypto'
