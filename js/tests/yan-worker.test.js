@@ -20,4 +20,6 @@ it('requests the Kaisho export for native Noto enclosure combinations', async ()
     globalThis.self = previousSelf
     globalThis.fetch = previousFetch
   }
-})
+  // A refused connection is retried before the export is called unavailable: the test outlives the
+  // retries.
+}, 30_000)

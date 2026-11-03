@@ -39,6 +39,18 @@
       "types": "./types/loader.d.ts",
       "default": "./src/loader.js"
     },
+    "./hangul": {
+      "types": "./types/hangul.d.ts",
+      "default": "./src/hangul.js"
+    },
+    "./hangul-ids": {
+      "types": "./types/hangul-ids.d.ts",
+      "default": "./src/hangul-ids.js"
+    },
+    "./retry": {
+      "types": "./types/retry.d.ts",
+      "default": "./src/retry.js"
+    },
     "./repetition": {
       "types": "./types/repetition.d.ts",
       "default": "./src/repetition.js"
