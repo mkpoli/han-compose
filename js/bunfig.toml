@@ -1,2 +1,4 @@
 [test]
 root = "./tests"
+# Drawing a pyramid of whole glyphs or a bundled script takes longer than the default allows.
+timeout = 20000

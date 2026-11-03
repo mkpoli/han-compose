@@ -289,6 +289,8 @@ export function stretchOf(source, target) {
   return Math.max(sx / sy, sy / sx)
 }
 
+export const centre = b => [(b[0] + b[2]) / 2, (b[1] + b[3]) / 2]
+
 /** `target` narrowed about its centre so a part from `source` changes its proportions by at most `stretch`. */
 export function fitted(source, target, stretch) {
   const sx = (target[2] - target[0]) / Math.max(source[2] - source[0], 1)
