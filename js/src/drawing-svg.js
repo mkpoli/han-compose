@@ -7,6 +7,18 @@ import { placeholder, STROKE } from './slot-placeholder.js'
 /** The filter that turns an emoji's ink into a hole in what ㇯ subtracts it from. */
 export const EMOJI_CUT_MATRIX = '0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0'
 
+/** Font size that draws an emoji's ink the shorter side of its box across: Noto Emoji's glyphs fill
+ *  the em square, 2,080 of its 2,048 units against an advance of 2,784, so a size of 1 draws 0.73 of
+ *  the box, and 1/0.73 the whole box. */
+export const EMOJI_SCALE = 1.36
+
+/** Where an emoji stands in its box: `{ x, y, size }`, its middle and its font size, all finite.
+ *  @param {{ box?: number[] } | null | undefined} item @returns {{ x: number, y: number, size: number }} */
+export function emojiPlace(item) {
+  const [x, y, width, height] = (item?.box ?? []).slice(0, 4).map(value => Number.isFinite(Number(value)) ? Number(value) : 0)
+  return { x: x + width / 2, y: y + height / 2, size: Math.max(0, Math.min(width, height) * EMOJI_SCALE) }
+}
+
 /** Reflect an emoji around the centre of its layout box; a box that is not four finite numbers has no reflection.
  * @param {{ box?: number[], flip?: [boolean, boolean] }} item */
 export function emojiTransform(item) {
@@ -71,12 +83,11 @@ export function drawingSvg(drawing, { background = null, ink = '#000000', paddin
    * @param {string} [attribute]
    */
   const textOf = (item, attribute = '') => {
-    const box = (item.box ?? []).slice(0, 4).map(v => num(v, 0))
-    if (box.length < 4 || typeof item.text !== 'string') return ''
-    const [x, y, width, height] = box
+    if (typeof item.text !== 'string') return ''
+    const { x, y, size } = emojiPlace(item)
     const text = item.text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     const reflect = emojiTransform(item)
-    return `<text${attribute}${reflect ? ` transform="${reflect}"` : ''} x="${x + width / 2}" y="${y + height / 2}" text-anchor="middle" dominant-baseline="central" font-size="${Math.max(0, Math.min(width, height) * 0.85)}" font-family="system-ui, sans-serif">${text}</text>`
+    return `<text${attribute}${reflect ? ` transform="${reflect}"` : ''} x="${x}" y="${y}" text-anchor="middle" dominant-baseline="central" font-size="${size}" font-family="system-ui, sans-serif">${text}</text>`
   }
   if (hasCut) {
     if (emoji.some(item => item.cut)) out.push(`<filter id="emoji-cut-ink" color-interpolation-filters="sRGB"><feColorMatrix type="matrix" values="${EMOJI_CUT_MATRIX}"/></filter>`)
@@ -86,8 +97,8 @@ export function drawingSvg(drawing, { background = null, ink = '#000000', paddin
     out.push('</mask>')
   }
   if (split && pieces) {
+    // Parts are drawn in the order the drawing gives them: an overlay's top piece last.
     const order = pieces.map((piece, index) => ({ piece, index }))
-    if (groupedEmoji) order.sort((a, b) => (a.piece.leaf ?? 0) - (b.piece.leaf ?? 0) || a.index - b.index)
     for (const { piece, index } of order) {
       const item = emoji.find(candidate => candidate.part === index)
       const path = pathData(piece.d)

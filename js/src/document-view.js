@@ -39,6 +39,12 @@ export function documentView(document, drawing, sketch, { tolerance = 0.1, rende
   const frames = layerFrames(document, made.source, sketch ?? [])
   if (!made.complete) return { source: made, scopes: null, frames, issues: made.issues, complete: false, drawing, sketch: sketch ?? null }
   const scopes = renderScopes(document, made.source, { tolerance })
+  // Emoji and the cut path arrive in the drawing's own coordinates, which the layer frames leave
+  // alone: `canvas` is the layer's own transform seen from the canvas, the identity until it moves.
+  for (const [id, at] of made.info) {
+    const frame = frames.get(id)
+    if (typeof at.leaf === 'number' && frame?.supported) scopes.leafFrames.set(at.leaf, frame.canvas)
+  }
   /** @type {{ message: string }[]} */
   const reported = /** @type {{ issues?: { message: string }[] }} */ (scopes).issues ?? []
   return {
