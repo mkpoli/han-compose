@@ -30,11 +30,14 @@ function normaliseJamo(part) {
   return Array.isArray(part) ? [part[0], ...part.slice(1).map(normaliseJamo)] : part
 }
 
-/** `text` with every jamo-run leaf written as the syllable it composes.
+/** `text` with every jamo-run leaf written as the syllable it composes. Text that does not read as a
+ *  description is left as it is: the caller parses it, and reports why it does not.
  *  @param {string} text @param {(ch: string) => number} arity @returns {string} */
 function normaliseHangul(text, arity) {
-  const written = normaliseJamo(parseTree(text, arity))
-  return typeof written === 'string' ? written : keyOf(written)
+  try {
+    const written = normaliseJamo(parseTree(text, arity))
+    return typeof written === 'string' ? written : keyOf(written)
+  } catch { return text }
 }
 
 export async function unpack(buffer) {
