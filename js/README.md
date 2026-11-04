@@ -45,9 +45,12 @@ const drawn = await compose(source, '⿰木口', { separate: true, fontStyle: 's
 ```
 
 Entry points: `.` (drawing files, the preview, Emoji, tokens), `/loader` (the export and the
-composer), `/source` (which source a sequence draws from), `/document-view` (a layered drawing for a
-document), `/worker` (the module a Worker runs), `/pyramid`, `/component-forms`, `/scripts`, and one
-per bundled script (`/tangut`, `/bopomofo`, `/new-korean`, `/small-seal`, `/shuishu`, `/palette`).
+composer), `/compose` (the composer and the tree it draws), `/geometry`, `/tree`, `/source` (which
+source a sequence draws from), `/drawing-svg`, `/document-source` and `/document-view` (a layered
+drawing for a document), `/worker` (the module a Worker runs), `/retry`, `/local`, `/bundled`,
+`/hangul`, `/hangul-ids`, `/pyramid`, `/pyramid-rows`, `/repetition`, `/strokes`, `/component-forms`,
+`/emoji`, `/group-parts`, `/scripts`, `/tokens`, `/unicode` (the fallback shards), and one per bundled script (`/tangut`, `/bopomofo`,
+`/new-korean`, `/small-seal`, `/shuishu`, `/palette`).
 
 ## The export
 
