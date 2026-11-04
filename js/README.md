@@ -56,6 +56,16 @@ into gzipped shards by the first three hex digits of their SHA-256 (`g/<hhh>.jso
 so a sequence loads only the shards its parts fall in. This package reads format 6 and no earlier
 one; a manifest of another format is a failed load.
 
+## Examples
+
+```
+bun examples/draw-to-svg.js https://example.org/composer/<version>/ '⿰木口' > kou.svg
+bun examples/bundled-script.js '𗀀' > tangut.svg
+```
+
+The first draws from an export over HTTP, the second from the outlines the package carries, with no
+export at all.
+
 ## Tests
 
 ```

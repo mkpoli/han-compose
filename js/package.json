@@ -157,7 +157,8 @@
     "data",
     "README.md",
     "scripts",
-    "LICENSE"
+    "LICENSE",
+    "examples"
   ],
   "scripts": {
     "test": "bun test tests",
