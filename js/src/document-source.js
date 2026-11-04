@@ -48,12 +48,9 @@ function parsePath(d) {
   if (!/[MLQCZ]/i.test(d) || /[^MLQCZmlqcz0-9.,eE+\-\s]/.test(d)) throw new TypeError('A drawing part is not a path.')
 }
 
-/** How many lines a curve is flattened into. */
-const STEPS = 8
-
 /**
- * `d` under an affine map `[a, b, c, d, e, f]` (SVG's order), its curves flattened to lines; the map
- * is whatever takes a leaf's box to its 1000-unit frame.
+ * `d` under an affine map `[a, b, c, d, e, f]` (SVG's order); the map is whatever takes a leaf's box
+ * to its 1000-unit frame. A curve's control points map like its points, so the curves are kept.
  * @param {string} d @param {number[]} matrix
  */
 function transformPath(d, matrix) {
@@ -71,20 +68,11 @@ function transformPath(d, matrix) {
       out.push(`${kind}${round(last[0])} ${round(last[1])}`)
       continue
     }
-    // A quadratic curve has one control point, a cubic two; both are flattened to lines.
-    const cubic = kind === 'C'
-    const c1 = map([v[0], v[1]]), c2 = cubic ? map([v[2], v[3]]) : null, end = map(cubic ? [v[4], v[5]] : [v[2], v[3]])
-    for (let k = 1; k <= STEPS; k++) {
-      const t = k / STEPS, u = 1 - t
-      const x = cubic
-        ? u * u * u * last[0] + 3 * u * u * t * c1[0] + 3 * u * t * t * /** @type {number[]} */ (c2)[0] + t * t * t * end[0]
-        : u * u * last[0] + 2 * u * t * c1[0] + t * t * end[0]
-      const y = cubic
-        ? u * u * u * last[1] + 3 * u * u * t * c1[1] + 3 * u * t * t * /** @type {number[]} */ (c2)[1] + t * t * t * end[1]
-        : u * u * last[1] + 2 * u * t * c1[1] + t * t * end[1]
-      out.push(`L${round(x)} ${round(y)}`)
-    }
-    last = end
+    // A quadratic curve has one control point, a cubic two: each maps as its end point does.
+    const points = []
+    for (let at = 0; at + 1 < v.length; at += 2) points.push(...map([v[at], v[at + 1]]))
+    out.push(`${kind}${points.map(round).join(' ')}`)
+    last = [points[points.length - 2], points[points.length - 1]]
   }
   return { d: out.join('') }
 }
