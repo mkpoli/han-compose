@@ -57,7 +57,12 @@ function transformPath(d, matrix) {
   const [a, b, c, d1, e, f] = matrix
   /** @param {number[]} p @returns {number[]} */
   const map = p => [a * p[0] + c * p[1] + e, b * p[0] + d1 * p[1] + f]
-  const round = (/** @type {number} */ v) => Math.round(v * 100) / 100
+  // The same text the editor's own `transformPath` writes (`src/document/transform.js`): three
+  // decimals, trailing zeros trimmed, so a path mapped here and one mapped there read alike.
+  const round = (/** @type {number} */ v) => {
+    const text = v.toFixed(3)
+    return text.replace(/\.?0+$/, '') || '0'
+  }
   const out = []
   let last = /** @type {number[]} */ ([0, 0])
   for (const [, kind, args] of d.matchAll(/([MLQCZ])([^MLQCZ]*)/g)) {
