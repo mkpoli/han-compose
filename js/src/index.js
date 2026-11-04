@@ -9,6 +9,7 @@ import { onlyBundled } from './local.js'
 import { LIMITS, LookupError, PYRAMID_LAYERS, compose, createSource, fromUrl, size, sketch, svgBox, tooLarge } from './loader.js'
 import { parseTree } from './compose.js'
 import { parseDescription, splitDescription } from './tree.js'
+import outlines from '../data/unicode/outlines.json' with { type: 'json' }
 
 export { APPROXIMATE, EMPTY }
 export { LIMITS, LookupError, PYRAMID_LAYERS, compose, createSource, createDrawer, fromUrl, size, sketch, svgBox, tooLarge }
@@ -193,6 +194,9 @@ function parseLoose(text) {
  *  package's own files, or a bundler that moves them, answers at the URL the page asks for. */
 /** @param {string} path */
 const dataUrl = path => new URL(`../data/${path}`, import.meta.url).href
+/** The Unicode shards the package carries, by their path under `data/`: the ones its own
+ *  `data/unicode/outlines.json` records, so a build is handed no URL that answers nothing. */
+const unicodeShards = Object.keys(outlines.shards).map(name => `unicode/outlines/${name}.json.gz`)
 export const dataUrls = {
   'sources/tangut/outlines.json.gz': dataUrl('sources/tangut/outlines.json.gz'),
   'sources/bopomofo/outlines.json.gz': dataUrl('sources/bopomofo/outlines.json.gz'),
@@ -200,8 +204,7 @@ export const dataUrls = {
   'sources/small-seal/outlines.json.gz': dataUrl('sources/small-seal/outlines.json.gz'),
   'sources/shuishu/outlines.json.gz': dataUrl('sources/shuishu/outlines.json.gz'),
   'sources/palette/outlines.json.gz': dataUrl('sources/palette/outlines.json.gz'),
-  ...Object.fromEntries(Array.from({ length: 0x400 }, (_, n) => {
-    const name = `unicode/outlines/${n.toString(16).padStart(3, '0')}.json.gz`
-    return [name, dataUrl(name)]
-  })),
+  // The shards the package ships, read from its own `data/`: a name it has no file for would be a
+  // URL that answers nothing. `unicode.json` holds the ones `export-web` wrote.
+  ...Object.fromEntries(unicodeShards.map(name => [name, dataUrl(name)])),
 }
