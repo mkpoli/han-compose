@@ -722,17 +722,14 @@ export class Composer {
     return uncut ? list : list.filter(h => this.cutOf(h))
   }
 
-  /** Whether the export lists a host for one of a node's operands where the node puts it. Each
-   *  record names the places its host lists are in (`P`), so an export can carry some operands and
-   *  not others. An operand with no record (an empty slot, a description the table does not hold) is
-   *  taken to be covered: there is nothing to cut from, and its box is the layout's to give. */
+  /** Whether the export lists a host for a node's operands in their places. An export that says
+   *  which places its host lists are for (`files.hosts.places`) can carry some operands only; one
+   *  that does not say is taken to cover what it carries. */
   hasHosts(op, children) {
     if (!this.hosted) return false
-    return children.some((child, i) => {
-      const key = keyOf(child)
-      if (!this.data.rec(key)) return true
-      return (this.data.places(key) ?? []).includes(this.slot(op, i))
-    })
+    const places = this.data.manifest.files?.hosts?.places
+    if (!places) return true
+    return children.some((child, i) => places.includes(`${this.slot(op, i)}\t${keyOf(child)}`))
   }
 
   /** What a host entry's cut is known by before its outlines are read: its box and its contour
