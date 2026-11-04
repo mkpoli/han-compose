@@ -14,17 +14,18 @@ copy was tested. The fork has moved back here, as `js/`, and ids-input imports i
 | Rewriting a sequence before drawing (enclosures, transforms, repeated grids, coverage, pyramids, constructs) | this repository, `Composer.compose` |
 | The drawing data and its packing | this repository, `src/han_compose/web_export.py` |
 | Reading that data, drawing in a Worker, caching | this repository, `js/` (`@han-compose/composer`) |
-| Text and tree, empty slots (⬚), ASCII operator names, editor keys, Emoji, tokens | `js/`, beside the rules they serve |
+| Text and tree, empty slots (⬚), Emoji, tokens | `js/`, beside the rules they serve |
+| ASCII operator names, editor keys | ids-input, `src/core/aliases.js` and its key handling |
 | The outline files drawn without an export | this repository, `data/` |
 | The preview component, badges, focus, document layers, export as a file | ids-input, `src/svelte/` and `src/document/` |
 
 - Only `web_export.py` shapes the export. The package reads the one format the export writes; an
   earlier format is a failed load, not a fallback.
 - A sequence is the contract between the two. The package parses it with its own `parseDescription`
-  and works in this repository's `('op', …)` trees. The editor's `{op, parts}` tree reaches the
-  package only as text, or as the document `documentView` reads for a layered preview.
-- `⬚` (U+2B1A) is in `BINARY`: a draft from the editor is a sequence this repository parses, and its
-  empty-slot layout is `Composer`'s.
+  into `{ op, parts }` trees. The editor's tree reaches the package only as text, or as the document
+  `documentView` reads for a layered preview.
+- `⬚` (U+2B1A) is an empty slot, a leaf of the tree rather than an operator: a draft from the editor
+  is a sequence this repository parses, and its empty-slot layout is `Composer`'s.
 - ids-input reads the package as it is: `src/index.js` for the preview and the drawing files, and its
   own entry points for the rest. Its declarations come from `js/tsconfig.json` (`bun run types`), so
   both packages are checked against the same types.

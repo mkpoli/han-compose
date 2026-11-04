@@ -8,7 +8,7 @@ import { compose } from '../src/loader.js'
 import { onlyBundled } from '../src/local.js'
 import { hasShuishu, shuishuSource } from '../src/shuishu.js'
 
-const outlines = JSON.parse(gunzipSync(readFileSync(new URL('../../data/sources/shuishu/outlines.json.gz', import.meta.url))))
+const outlines = JSON.parse(gunzipSync(readFileSync(new URL('../data/sources/shuishu/outlines.json.gz', import.meta.url))))
 const chars = Object.keys(outlines.records)
 
 describe('Shuishu', () => {

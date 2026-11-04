@@ -2,12 +2,20 @@
 // draws without an export, and the licence texts a package needs. `data/` holds them once, for the
 // Python composer and the browser one alike; this copies the browser's share into `js/data/`, which
 // `.gitignore` leaves out and `files` publishes. Run by `prepare`, `pretest` and `prepack`.
-import { copyFileSync, mkdirSync, readdirSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, readdirSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 
 const root = join(import.meta.dirname, '..')
 const source = join(root, '..', 'data')
 const into = join(root, 'data')
+
+// An installed package has no repository beside it: its `data/` is already the copy.
+if (!existsSync(source)) {
+  console.log('data: no repository data beside this package; js/data is used as it stands')
+  process.exit(0)
+}
+// A file dropped from `data/` must not linger in the package: the copy starts empty.
+rmSync(into, { recursive: true, force: true })
 
 /** Copy one file, its folder made first. @param {string} from @param {string} to */
 function copy(from, to) {

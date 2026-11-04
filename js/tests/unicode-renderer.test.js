@@ -5,9 +5,9 @@ import { createHash } from 'node:crypto'
 import { compose } from '../src/loader.js'
 import { unicodeSource, hasUnicodeGlyph } from '../src/unicode.js'
 import { onlyBundled } from '../src/local.js'
-import metadata from '../../data/unicode/outlines.json'
+import metadata from '../data/unicode/outlines.json'
 
-const data = name => JSON.parse(gunzipSync(readFileSync(new URL(`../../data/unicode/outlines/${name.slice(8)}.json.gz`, import.meta.url))))
+const data = name => JSON.parse(gunzipSync(readFileSync(new URL(`../data/unicode/outlines/${name.slice(8)}.json.gz`, import.meta.url))))
 const source = () => unicodeSource({ load: async name => data(name) })
 
 describe('Unicode fallback outlines', () => {
@@ -75,7 +75,7 @@ describe('Unicode fallback outlines', () => {
   it('ships every advertised outline with reproducible hashes and valid geometry', () => {
     let count = 0
     for (const [name, info] of Object.entries(metadata.shards)) {
-      const bytes = readFileSync(new URL(`../../data/unicode/outlines/${name}.json.gz`, import.meta.url))
+      const bytes = readFileSync(new URL(`../data/unicode/outlines/${name}.json.gz`, import.meta.url))
       expect(createHash('sha256').update(bytes).digest('hex')).toBe(info.sha256)
       const records = JSON.parse(gunzipSync(bytes))
       expect(Object.keys(records)).toHaveLength(info.count)

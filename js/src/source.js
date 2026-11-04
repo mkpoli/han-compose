@@ -59,12 +59,18 @@ export const traitKey = traits => Object.entries(traits).map(([name, on]) => `${
 export function sourceFor(sequence, { base, fontStyle = 'sans', separate = false, bundled = false, remote = false, loaders = {}, traits = null, fetch: get, read } = {}) {
   traits = traits ?? traitsOf(sequence ?? '')
   const local = !remote && (bundled || traits.empty || onlyBundled(sequence, separate, false, fontStyle))
-  /** The source of one script or palette, over `fallback`, reading its file by path or URL. */
-  // A kind that reads one file asks for it by no name and gets `path`; the Unicode fallback asks for
-  // the shard it needs, so the name a kind passes is the file that is read.
+  /** The source of one script or palette, over `fallback`, reading its file by path or URL. A kind
+   *  that reads one file asks for it by no name and gets `path`; the Unicode fallback asks for the
+   *  shard it needs, so the name a kind passes is the file that is read. A host that lists none of
+   *  the files leaves the package's own copy to answer. */
   const overlay = (/** @type {Function} */ kind, /** @type {any} */ fallback, /** @type {string} */ path) => {
-    const load = read ? (name) => read(name ?? path, loaders[name ?? path])
-      : loaders[path] ? (name) => fetchFile(/** @type {string} */ (loaders[name ?? path] ?? loaders[path])) : null
+    const key = (/** @type {string} */ name) => name ?? path
+    const listed = path in loaders || Object.keys(loaders).some(name => name.startsWith('unicode/outlines/'))
+    const load = read ? (/** @type {string} */ name) => read(key(name), loaders[key(name)])
+      : listed ? async (/** @type {string} */ name) => {
+        const url = loaders[key(name)]
+        return url ? fetchFile(url) : {}
+      } : null
     return kind({ fallback, ...(load ? { load } : {}) })
   }
   // A bundled sequence needs no export: a failing one is not asked for at all.

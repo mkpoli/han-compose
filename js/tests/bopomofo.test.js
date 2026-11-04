@@ -10,7 +10,7 @@ import { drawingSvg } from '../src/drawing-svg.js'
 import { isLetter, parseDescription as parse, writeDescription as write } from '../src/tree.js'
 import { files } from './fixtures/small-export.js'
 
-const data = name => JSON.parse(gunzipSync(readFileSync(new URL(`../../data/sources/${name}/outlines.json.gz`, import.meta.url))))
+const data = name => JSON.parse(gunzipSync(readFileSync(new URL(`../data/sources/${name}/outlines.json.gz`, import.meta.url))))
 const outlines = data('bopomofo')
 const source = fallback => bopomofoSource({ load: async () => outlines, fallback })
 
@@ -60,7 +60,7 @@ it('draws open slots and retries a failed Bopomofo load', async () => {
 it('draws Mandarin and extended Bopomofo tone marks', async () => {
   const local = unicodeSource({ load: async name => {
     const shard = name.slice('unicode/'.length)
-    return JSON.parse(gunzipSync(readFileSync(new URL(`../../data/unicode/outlines/${shard}.json.gz`, import.meta.url))))
+    return JSON.parse(gunzipSync(readFileSync(new URL(`../data/unicode/outlines/${shard}.json.gz`, import.meta.url))))
   } })
   for (const char of 'ˉˊˇˋ˙˪˫') {
     const drawn = await compose(local, `⿰${char}⬚`, { separate: true })

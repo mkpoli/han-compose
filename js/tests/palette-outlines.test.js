@@ -6,8 +6,8 @@ import { onlyBundled } from '../src/local.js'
 import { hasPaletteGlyph, paletteSource } from '../src/palette.js'
 
 it('draws every palette fallback as an editable component', async () => {
-  const chars = JSON.parse(readFileSync(new URL('../../data/palette/fallback-characters.json', import.meta.url)))
-  const outlines = JSON.parse(gunzipSync(readFileSync(new URL('../../data/sources/palette/outlines.json.gz', import.meta.url))))
+  const chars = JSON.parse(readFileSync(new URL('../data/palette/fallback-characters.json', import.meta.url)))
+  const outlines = JSON.parse(gunzipSync(readFileSync(new URL('../data/sources/palette/outlines.json.gz', import.meta.url))))
   expect(Object.keys(outlines.records).sort()).toEqual([...chars].sort())
   const source = paletteSource({ load: async () => outlines })
   for (const char of chars) {

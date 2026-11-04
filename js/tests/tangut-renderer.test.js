@@ -7,7 +7,7 @@ import { drawingSvg } from '../src/drawing-svg.js'
 
 import { files } from './fixtures/small-export.js'
 
-const outlines = JSON.parse(gunzipSync(readFileSync(new URL('../../data/sources/tangut/outlines.json.gz', import.meta.url))))
+const outlines = JSON.parse(gunzipSync(readFileSync(new URL('../data/sources/tangut/outlines.json.gz', import.meta.url))))
 const source = () => tangutSource({ load: async () => outlines })
 
 it('draws Tangut characters from their designed outlines without a Han export', async () => {

@@ -5,7 +5,7 @@ import { smallSealSource } from '../src/small-seal.js'
 import { onlyBundled } from '../src/local.js'
 import { compose } from '../src/loader.js'
 
-const outlines = JSON.parse(gunzipSync(readFileSync(new URL('../../data/sources/small-seal/outlines.json.gz', import.meta.url))))
+const outlines = JSON.parse(gunzipSync(readFileSync(new URL('../data/sources/small-seal/outlines.json.gz', import.meta.url))))
 const chars = Object.keys(outlines.records)
 const jade = String.fromCodePoint(0x3D06D)
 const sequence = `⿰${jade}${jade}`

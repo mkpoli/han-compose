@@ -4,9 +4,9 @@ The composing engine of [han-compose](https://github.com/mkpoli/han-compose) for
 draws an Ideographic Description Sequence (`⿰亻⿱七木`) from the data `compose_ids.py export-web`
 writes, and from the outlines it carries for the scripts no export covers.
 
-It is the same method as the Python composer — hosts, cuts, layout, weight, guide, the rewriting
-rules for enclosures, transforms, repeated grids, pyramids and constructs — in JavaScript, with its
-own tests and a parity run against the Python drawings.
+It is the same method as the Python composer — hosts, cuts, layout, weight, the rewriting rules for
+enclosures, transforms, repeated grids, pyramids and constructs — in JavaScript, with its own tests
+and a parity run against the Python drawings.
 
 ## Install
 
@@ -19,13 +19,16 @@ bun add @han-compose/composer
 A page draws in a Worker, one sequence at a time; a newer request ends the one before.
 
 ```js
-import { composerPreview, dataUrls } from '@han-compose/composer'
+import { composerPreview } from '@han-compose/composer'
 
 const preview = composerPreview({
   base: 'https://example.org/composer/<version>/',   // the folder holding manifest.json
-  loaders: dataUrls,                                 // where your build serves the package's data/
 })
 const drawing = await preview('⿰木口')                 // { d, parts, slots, emoji, … }
+
+// A build that serves the package's `data/` somewhere else names the files it moved:
+import { dataUrls } from '@han-compose/composer'
+composerPreview({ base, loaders: dataUrls })
 ```
 
 `preview.warm()` starts the Worker on the export before the first drawing. A page that serves the
@@ -58,7 +61,7 @@ one; a manifest of another format is a failed load.
 ```
 bun run check     # the types the declarations are made from
 bun test tests    # the engine, its loader, the Worker, the bundled scripts
-bun run parity:check   # against an export written with export-web --parity N --held-out M
+COMPOSER_EXPORT=~/exports/serif bun run parity:check   # against an export written with export-web --parity N --held-out M
 ```
 
 ## Licence

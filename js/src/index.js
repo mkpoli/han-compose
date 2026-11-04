@@ -189,16 +189,19 @@ function parseLoose(text) {
   try { return parseTree(text, /** @param {string} op */ op => '⿰⿱⿴⿵⿶⿷⿸⿹⿺⿻⿼⿽㇯'.includes(op) ? 2 : '⿲⿳'.includes(op) ? 3 : '⿾⿿〾'.includes(op) ? 1 : 0) } catch { return null }
 }
 
-/** A path under the package's `data/`, and the URL a host imports to serve the file from there. */
+/** A path under the package's `data/`, and the URL of the file: absolute, so a host that serves the
+ *  package's own files, or a bundler that moves them, answers at the URL the page asks for. */
+/** @param {string} path */
+const dataUrl = path => new URL(`../data/${path}`, import.meta.url).href
 export const dataUrls = {
-  'sources/tangut/outlines.json.gz': 'data/sources/tangut/outlines.json.gz',
-  'sources/bopomofo/outlines.json.gz': 'data/sources/bopomofo/outlines.json.gz',
-  'sources/new-korean/outlines.json.gz': 'data/sources/new-korean/outlines.json.gz',
-  'sources/small-seal/outlines.json.gz': 'data/sources/small-seal/outlines.json.gz',
-  'sources/shuishu/outlines.json.gz': 'data/sources/shuishu/outlines.json.gz',
-  'sources/palette/outlines.json.gz': 'data/sources/palette/outlines.json.gz',
+  'sources/tangut/outlines.json.gz': dataUrl('sources/tangut/outlines.json.gz'),
+  'sources/bopomofo/outlines.json.gz': dataUrl('sources/bopomofo/outlines.json.gz'),
+  'sources/new-korean/outlines.json.gz': dataUrl('sources/new-korean/outlines.json.gz'),
+  'sources/small-seal/outlines.json.gz': dataUrl('sources/small-seal/outlines.json.gz'),
+  'sources/shuishu/outlines.json.gz': dataUrl('sources/shuishu/outlines.json.gz'),
+  'sources/palette/outlines.json.gz': dataUrl('sources/palette/outlines.json.gz'),
   ...Object.fromEntries(Array.from({ length: 0x400 }, (_, n) => {
     const name = `unicode/outlines/${n.toString(16).padStart(3, '0')}.json.gz`
-    return [name, `data/${name}`]
+    return [name, dataUrl(name)]
   })),
 }

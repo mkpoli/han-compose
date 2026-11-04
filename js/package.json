@@ -21,7 +21,9 @@
     "svelte"
   ],
   "type": "module",
-  "sideEffects": false,
+  "sideEffects": [
+    "./src/worker.js"
+  ],
   "exports": {
     ".": {
       "types": "./types/index.d.ts",
@@ -163,10 +165,10 @@
     "draw": "bun scripts/draw.js",
     "check": "tsc -p tsconfig.json --noEmit",
     "types": "tsc -p tsconfig.json",
-    "prepack": "bun run types && bun run data",
+    "prepack": "bun run data && bun run types",
     "data": "node scripts/data.mjs",
-    "pretest": "bun run data",
-    "prepare": "bun run data",
+    "pretest": "bun run data && bun run types",
+    "prepare": "bun run data && bun run types",
     "parity:check": "bun tests/parity/run.js \"${COMPOSER_EXPORT:?set COMPOSER_EXPORT to an export-web --parity folder}\""
   },
   "devDependencies": {
