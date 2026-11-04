@@ -83,6 +83,10 @@
       "types": "./types/local.d.ts",
       "default": "./src/local.js"
     },
+    "./bundled": {
+      "types": "./types/bundled.d.ts",
+      "default": "./src/bundled.js"
+    },
     "./emoji": {
       "types": "./types/emoji.d.ts",
       "default": "./src/emoji.js"
