@@ -66,11 +66,16 @@ export function sourceFor(sequence, { base, fontStyle = 'sans', separate = false
   const overlay = (/** @type {Function} */ kind, /** @type {any} */ fallback, /** @type {string} */ path) => {
     const key = (/** @type {string} */ name) => name ?? path
     const listed = path in loaders || Object.keys(loaders).some(name => name.startsWith('unicode/outlines/'))
-    const load = read ? (/** @type {string} */ name) => read(key(name), loaders[key(name)])
+    const read0 = read ? (/** @type {string} */ name) => read(key(name), loaders[key(name)])
       : listed ? async (/** @type {string} */ name) => {
         const url = loaders[key(name)]
         return url ? fetchFile(url) : {}
       } : null
+    // A bundled file is optional: a host that serves none, or none at this path, draws what the
+    // export holds rather than reporting the whole export unreadable.
+    const load = read0 && (async (/** @type {string} */ name) => {
+      try { return await read0(name) } catch { return {} }
+    })
     return kind({ fallback, ...(load ? { load } : {}) })
   }
   // A bundled sequence needs no export: a failing one is not asked for at all.
