@@ -183,8 +183,8 @@ export function modifierAt(chars, at) {
 
 /**
  * A description as a tree. An operator missing an operand, and a slot written `⬚` or `＋`, read as
- * null, so a draft is read like a whole description. Loose marks after the last part stay in the
- * text (`splitDescription`) and are not part of the tree. Throws a `SyntaxError` naming what is
+ * null, so a draft is read like a whole description. Loose marks after the last part go on the
+ * root: a node's `marks`, or a component's text. Throws a `SyntaxError` naming what is
  * wrong: a part that is no component, or text that does not hold exactly one description.
  * @param {string} sequence
  * @returns {Part}
@@ -339,7 +339,7 @@ export const withoutMarks = part => typeof part === 'string' ? splitText(part).b
 
 /**
  * `tree` with every loose mark hoisted to its root, in reading order, and none left inside: the text
- * of a description carries marks only at its end.
+ * of a description carries marks only at its end. A tone mark stays on its syllable.
  * @param {Part} tree @returns {Part}
  */
 export function normalizeMarks(tree) {
