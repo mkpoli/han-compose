@@ -4,3 +4,14 @@ cache/
 __pycache__/
 *.egg-info/
 .pytest_cache/
+
+# Installed and generated for the JavaScript package.
+node_modules/
+js/node_modules
+js/data
+
+# Emitted declaration files
+js/types
+
+# The package's own copies: the licence, and the data `scripts/data.mjs` gathers
+js/LICENSE
