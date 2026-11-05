@@ -10,7 +10,8 @@ const source = join(root, '..', 'data')
 const into = join(root, 'data')
 
 // An installed package has no repository beside it: its `data/` is already the copy.
-if (!existsSync(source)) {
+// A folder of that name that holds no composer data is no repository, and js/data stays.
+if (!existsSync(join(source, 'palette', 'bundled-coverage.json')) || !existsSync(join(source, 'unicode', 'outlines.json'))) {
   console.log('data: no repository data beside this package; js/data is used as it stands')
   process.exit(0)
 }

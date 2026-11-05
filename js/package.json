@@ -175,7 +175,7 @@
     "prepack": "bun run data && bun run types",
     "data": "node scripts/data.mjs",
     "pretest": "bun run data && bun run types",
-    "prepare": "bun run data && bun run types",
+    "prepare": "node scripts/data.mjs && node scripts/types.mjs",
     "parity:check": "bun tests/parity/run.js \"${COMPOSER_EXPORT:?set COMPOSER_EXPORT to an export-web --parity folder}\""
   },
   "devDependencies": {
