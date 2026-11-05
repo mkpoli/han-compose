@@ -41,6 +41,19 @@ def test_every_host_glyph_and_its_ownership_are_read_before_the_workers_fork() -
     assert glyphs == owners == ["村", "林"]
 
 
+def test_only_the_workers_freeze_their_heap() -> None:
+    import gc
+
+    before = gc.get_freeze_count()
+    pool = web_export._pool(2, 1)
+    try:
+        assert pool.apply(gc.get_freeze_count) > before
+    finally:
+        pool.close()
+        pool.join()
+    assert gc.get_freeze_count() == before
+
+
 def test_releasing_host_geometry_keeps_what_depends_only_on_the_font() -> None:
     from types import SimpleNamespace
 

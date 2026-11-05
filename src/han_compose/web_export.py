@@ -360,16 +360,11 @@ def _load_font_caches(composer: C.Composer) -> None:
     """Read every host's glyph and KanjiVG ownership once, before the workers fork. They depend only
     on the font, so the workers share them; cut geometry is what grows, and `_clear_host_caches`
     releases it."""
-    import gc
-
     index, _ = composer._index
     for char in sorted({entry[0] for entries in index.values() for entry in entries}):
         composer.font.glyph(char)
         if composer.kvg is not None:
             composer.kvg.owners(char)
-    # What a worker inherits stays out of its collections, and so out of its copied pages.
-    gc.collect()
-    gc.freeze()
 
 
 def _clear_host_caches(composer: C.Composer) -> None:
@@ -703,10 +698,12 @@ def _same_host(a: dict, b: dict) -> bool:
 
 
 def _pool(workers: int, chunks: int):
-    """Workers forked from this process, each replaced after `chunks` chunks."""
+    """Workers forked from this process, each replaced after `chunks` chunks. A worker freezes what it
+    inherits, which keeps that heap out of its collections and so out of its copied pages."""
+    import gc
     import multiprocessing as mp
 
-    return mp.get_context("fork").Pool(workers, maxtasksperchild=chunks) if workers > 1 else None
+    return mp.get_context("fork").Pool(workers, initializer=gc.freeze, maxtasksperchild=chunks) if workers > 1 else None
 
 
 def _run(pool, work: list, chunksize: int, log, label: str, every: int):
