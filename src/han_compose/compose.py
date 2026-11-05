@@ -1,4 +1,4 @@
-"""Draw a character Unicode lacks from its Ideographic Description Sequence, in one of three styles.
+"""Draw a character Unicode lacks from its Ideographic Description Sequence, in one of four styles.
 
 `sans` draws in GenZui Sans, which takes its ideographs unchanged from Noto Sans JP at weight 400,
 which in turn draws them as Noto Sans CJK JP does. The composer reads Noto Sans CJK JP, the variable
@@ -6,7 +6,7 @@ font that draws 30,289 ideographs to Noto Sans JP's 13,742 with the same outline
 known at weight 400 and at the style's heavy weight with the same points. `serif` reads Noto Serif
 CJK JP, the variable Source Han Serif, the same way. `kaisho` reads Kureedo, the Klee One design
 extended with historical kana, at one static weight, with GenZui Sans drawing characters Kureedo
-lacks (`STYLES`). Every layout and every part comes
+lacks. `fangsong` reads Zhuque Fangsong the same way, with Jigmo (`STYLES`). Every layout and every part comes
 from a character a type designer drew; a sequence (⿰亻哥) is drawn in three steps:
 
 1. Teacher. For each node, the drawn character with a node of the same operator whose operands are
@@ -105,6 +105,10 @@ PLANGOTHIC_URL = "https://github.com/Fitzgerald-Porthmouth-Koenigsegg/Plangothic
 #: BMP. Its site gives the archive's SHA-1, 2fb963ee7bba1d23ccfe81b228422f22da9dc574.
 JIGMO_URL = "https://kamichikoichi.github.io/jigmo/Jigmo-20250912.zip"
 JIGMO_SHA256 = "5744c7386d129475d87607ca66d043c8793c65448adeaedc921b6931890e5d0b"
+_JIGMO = tuple(Source(f"Jigmo-20250912-{name}", JIGMO_URL, sha, "CC0 1.0", member=name, archive_sha256=JIGMO_SHA256)
+              for name, sha in (("Jigmo2.ttf", "5da3582efe77e22073b86b3b86b556d7111148a76b957cfb53318a91da2efff0"),
+                                ("Jigmo3.ttf", "815b18c1c670103723fe743090559208fdea47dc587ecb057a5a4721ee8dfeff"),
+                                ("Jigmo.ttf", "c8f295b9bd8f9f117a76b3a454aaaa1bb5b4babc18e254978c6deb88464e40cf")))
 
 STYLES = {
     # Noto Sans CJK JP 2.004: GenZui Sans takes its ideographs unchanged from Noto Sans JP, which
@@ -128,10 +132,7 @@ STYLES = {
         Source("NotoSerifCJKjp-VF-2.003.ttf",
                "https://github.com/notofonts/noto-cjk/raw/Serif2.003/Serif/Variable/TTF/NotoSerifCJKjp-VF.ttf",
                "c2ff7cffb6ef75193d4406b030eab5aa6503c48004acec6b040327e2fe1e9e51", OFL),
-        tuple(Source(f"Jigmo-20250912-{name}", JIGMO_URL, sha, "CC0 1.0", member=name, archive_sha256=JIGMO_SHA256)
-              for name, sha in (("Jigmo2.ttf", "5da3582efe77e22073b86b3b86b556d7111148a76b957cfb53318a91da2efff0"),
-                                ("Jigmo3.ttf", "815b18c1c670103723fe743090559208fdea47dc587ecb057a5a4721ee8dfeff"),
-                                ("Jigmo.ttf", "c8f295b9bd8f9f117a76b3a454aaaa1bb5b4babc18e254978c6deb88464e40cf"))),
+        _JIGMO,
         # Fitted on 1,500 of its ideographs: its verticals thin a little as a character fills up, its
         # horizontals not at all.
         ((67.77, -0.463), (22.31, 0.164)),
@@ -153,6 +154,23 @@ STYLES = {
                 "121871ee522380b1f591fc6871850416cb74e075a534438eb5180b43094ebe0f", OFL),),
         # Kureedo's stems measured at 400; the static font has no weight axis to thin them.
         ((70.0, 0.0), (70.0, 0.0)),
+        heavy=400,
+        kindred=False,
+        weighted=False,
+        own_hosts=True,
+    ),
+    # Zhuque Fangsong 0.212 (technical preview), recut from the 1932 南宋 type. It is a static font, so
+    # 400 is also the heavy master; Jigmo draws the ideographs it lacks, in the nearest pinned design.
+    "fangsong": Style(
+        "fangsong",
+        Source("ZhuqueFangsong-v0.212-Regular.ttf",
+               "https://github.com/TrionesType/zhuque/releases/download/v0.212/ZhuqueFangsong-v0.212.zip",
+               "558c62730844fe54ba220146ed62f859d4e2880188d92d985f8921c6e3743bc4", OFL,
+               member="ZhuqueFangsong-Regular.ttf",
+               archive_sha256="bb8b661a7643d2296a72d9d10530a00949419c4e527fb61783f73c2ba1a8c062"),
+        _JIGMO,
+        # Fitted on 1,500 of its ideographs (`calibrate`).
+        ((57.51, 0.271), (39.61, -1.297)),
         heavy=400,
         kindred=False,
         weighted=False,
