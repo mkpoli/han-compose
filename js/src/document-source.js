@@ -39,13 +39,19 @@ function toSequence(node) {
   return node.op + (node.note ? `[${node.note}]` : '') + (node.children ?? []).map(toSequence).join('') + (node.marks ?? '')
 }
 
+/** How many numbers each path command takes. */
+const OPERANDS = { M: 2, L: 2, Q: 4, C: 6, Z: 0 }
+
 /**
- * Whether `d` reads as a path of SVG commands: command letters and their numbers, and nothing else.
- * The drawing's paths are the engine's own, so this checks one rather than parse it.
+ * Whether `d` reads as the engine's own paths do: each command with the numbers it takes.
  * @param {string} d
  */
 function parsePath(d) {
-  if (!/[MLQCZ]/i.test(d) || /[^MLQCZmlqcz0-9.,eE+\-\s]/.test(d)) throw new TypeError('A drawing part is not a path.')
+  if (!/^\s*M/.test(d) || /[^MLQCZ0-9.,eE+\-\s]/.test(d)) throw new TypeError('A drawing part is not a path.')
+  for (const [, kind, args] of d.matchAll(/([MLQCZ])([^MLQCZ]*)/g)) {
+    const values = args.trim() ? args.trim().split(/[\s,]+/).map(Number) : []
+    if (values.length !== OPERANDS[/** @type {keyof typeof OPERANDS} */ (kind)] || !values.every(Number.isFinite)) throw new TypeError('A drawing part is not a path.')
+  }
 }
 
 /**
@@ -131,7 +137,7 @@ export function documentSource(document, drawing, sketch) {
       const leaf = leaves++
       if (node.kind === 'component') components++
       const box = sketch?.[leaf]?.box
-      const region = Array.isArray(box) && box.length === 4 && Number.isFinite(box[2]) && box[2] > 0 && Number.isFinite(box[3]) && box[3] > 0
+      const region = Array.isArray(box) && box.length === 4 && box.every(Number.isFinite) && box[2] > 0 && box[3] > 0
         ? /** @type {Box} */ ([...box])
         : null
       if (!region) issues.push(`leaf ${leaf} has no layout box`)
