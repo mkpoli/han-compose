@@ -1228,8 +1228,10 @@ class Composer:
                 walk(char, tree, child, path + (i,), names, hosts, templates)
 
         trees = {}
+        # A style that keeps its own hosts indexes no character a fallback font draws.
+        host_font = self.font.own if getattr(getattr(self.font, "style", None), "own_hosts", False) else self.font.has
         for char, seq in self.sequences.items():
-            if self.font.has(char):
+            if host_font(char):
                 try:
                     trees[char] = parse(seq)
                 except ValueError:
@@ -1907,9 +1909,6 @@ class Composer:
             scored = []
             for (char, tree, path, i), alien in candidates:
                 if char in self.exclude:
-                    continue
-                # A style that keeps its own hosts draws no piece cut from a fallback font.
-                if self.font.style.own_hosts and not self.font.own(char):
                     continue
                 here = tree
                 for step in path:

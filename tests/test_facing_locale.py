@@ -82,7 +82,13 @@ def test_local_candidates_still_rank_by_existing_scores():
     assert chosen==['丙','乙']
 
 
-def test_style_that_keeps_its_own_hosts_cuts_nothing_from_a_fallback():
-    chosen,calls,_=run(same='甲乙',native='乙',own_hosts=True)
-    assert chosen==['乙']
-    assert '甲' not in calls
+def test_style_that_keeps_its_own_hosts_indexes_nothing_from_a_fallback():
+    from han_compose import compose
+
+    own = lambda ch: ch == '乙'
+    def index(own_hosts):
+        font = NS(own=own, has=lambda ch: True, glyph=lambda ch: None, style=NS(own_hosts=own_hosts, weighted=False))
+        hosts, _ = compose.Composer(font, {'甲': '⿰木口', '乙': '⿰木日'})._index
+        return {entry[0] for entries in hosts.values() for entry in entries}
+    assert index(True) == {'乙'}
+    assert index(False) == {'甲', '乙'}

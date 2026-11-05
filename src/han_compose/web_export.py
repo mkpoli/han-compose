@@ -387,13 +387,11 @@ def _clear_host_caches(composer: C.Composer) -> None:
 def hosts_for(composer: C.Composer, place: str, written: str) -> list[dict]:
     """Every index entry, including failed cuts, with its original rank.
 
-    A style with `own_hosts` keeps only hosts its main font draws. Geometry is released in batches
-    without truncating the candidates: the drawing ranks them against its target before capping.
+    Geometry is released in batches without truncating the candidates: the drawing ranks them
+    against its target before capping.
     """
     index, _ = composer._index
     entries = index.get((place, written), [])
-    if composer.font.style.own_hosts:
-        entries = [entry for entry in entries if composer.font.own(entry[0])]
     records = []
     for rank, entry in enumerate(entries):
         records.append(entry_record(composer, entry, rank, composer._host_node(entry[0], entry[1], entry[2])))
