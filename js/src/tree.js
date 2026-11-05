@@ -317,9 +317,12 @@ export const marksOf = part => typeof part === 'string' ? splitText(part).marks 
  *  loose marks after it. A component that is itself a mark keeps it as its base. @param {string} text */
 function splitText(text) {
   const chars = [...text]
-  let at = 1
+  if (chars.length === 1) return { base: text, marks: '' }
+  // An Emoji sequence or a conjoining jamo run is one component, not its first character and marks.
+  const emoji = EMOJI_START.test(chars[0]) ? emojiPrefix(text) : ''
+  let at = emoji ? [...emoji].length : hangulClusterAt(chars, 0)?.end ?? 1
   if (isSelector(chars[at])) at++
-  return isMark(chars[0]) && chars.length === 1 ? { base: text, marks: '' } : { base: chars.slice(0, at).join(''), marks: chars.slice(at).join('') }
+  return { base: chars.slice(0, at).join(''), marks: chars.slice(at).join('') }
 }
 
 /** `part` without its loose marks. @param {Part | string} part */
@@ -335,7 +338,15 @@ export function normalizeMarks(tree) {
   const found = []
   /** @param {Part} part @returns {Part} */
   const strip = part => {
-    if (!isNode(part)) return part
+    if (part === null) return null
+    if (typeof part === 'string') {
+      const { base, marks } = splitText(part)
+      // A tone mark stays on its syllable; any other mark hoists to the whole description.
+      const chars = [...marks], tones = chars.filter(isToneMark).join(''), rest = chars.filter(ch => !isToneMark(ch)).join('')
+      if (!rest) return part
+      found.push(rest)
+      return base + tones
+    }
     const parts = part.parts.map(strip)
     if (part.marks) found.push(part.marks)
     return { op: part.op, parts, ...(part.note ? { note: part.note } : {}) }

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'bun:test'
 import { readFileSync } from 'node:fs'
 import { gunzipSync } from 'node:zlib'
-import { descriptionEnd, isMark, isMarks, marksOf, normalizeMarks, parseDescription as parse, splitDescription, tokens, writeDescription, withMarks } from '../src/tree.js'
+import { descriptionEnd, isMark, isMarks, marksOf, normalizeMarks, parseDescription as parse, splitDescription, tokens, writeDescription, withMarks, withoutMarks } from '../src/tree.js'
 import { traitsOf } from '../src/source.js'
 import { repeatedPart, repeatedText } from '../src/repeat-part.js'
 import { partScript } from '../src/part-script.js'
@@ -74,6 +74,19 @@ describe('reading loose marks', () => {
   it('keeps a tone mark on a stroke chain, and reads on after it', () => {
     expect(parse('⿰#(H)\u302E木')).toEqual({ op: '⿰', parts: ['一\u302E', '木'] })
     expect(descriptionEnd([...'#(H)\u302E木'], 0)).toBe(5)
+  })
+  it('keeps a jamo run and an Emoji sequence whole', () => {
+    const run = '\u1100\u1161\u11A8', emoji = '👩🏽‍💻'
+    expect(marksOf(run)).toBe('')
+    expect(withoutMarks(run)).toBe(run)
+    expect(splitDescription(`${run}\u0301`)).toEqual({ base: run, marks: '\u0301' })
+    expect(marksOf(`${run}\u302E\u0301`)).toBe('\u302E\u0301')
+    expect(marksOf(emoji)).toBe('')
+    expect(withoutMarks(`${emoji}ˊ`)).toBe(emoji)
+  })
+  it('hoists a leaf\'s marks, and leaves its tone', () => {
+    expect(normalizeMarks({ op: '⿰', parts: ['가\u302Eˇ', '木ˊ'] })).toEqual({ op: '⿰', parts: ['가\u302E', '木'], marks: 'ˇˊ' })
+    expect(normalizeMarks({ op: '⿴', note: '1', parts: ['囗', '水'], marks: 'ˊ' })).toEqual({ op: '⿴', note: '1', parts: ['囗', '水'], marks: 'ˊ' })
   })
   it('refuses half of a surrogate pair as a component', () => {
     expect(() => parse('⿰木\ud840')).toThrow(SyntaxError)
