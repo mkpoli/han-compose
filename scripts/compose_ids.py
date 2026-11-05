@@ -24,6 +24,8 @@ from __future__ import annotations
 import json
 import os
 import random
+import sys
+import time
 from pathlib import Path
 
 import numpy as np
@@ -158,7 +160,8 @@ def bench(chars: str = "joyo", sample: int = 0, seed: int = 3, size: int = 96, r
     unit = compose.EM / 400
     results: dict[str, dict] = {"composer": {"overlap": [], "failed": []}, "plain": {"overlap": [], "failed": []}}
     outlines, widths = [], []
-    for char, seq in chosen:
+    started = time.monotonic()
+    for done, (char, seq) in enumerate(chosen, 1):
         glyph = composer.font.glyph(char)
         real = [compose.Placed(glyph, glyph.box, glyph.box)]
         truth = compose.raster(real, size)
@@ -177,6 +180,10 @@ def bench(chars: str = "joyo", sample: int = 0, seed: int = 3, size: int = 96, r
                 drawn = compose.stems(compose.raster(placed, 400), unit)
                 true = compose.stems(compose.raster(real, 400), unit)
                 widths.append((drawn[0] / true[0], drawn[1] / true[1]))
+        if done % 25 == 0 or done == len(chosen):
+            elapsed = time.monotonic() - started
+            print(f"{done}/{len(chosen)}, {elapsed / 60:.1f} min, about {elapsed / done * (len(chosen) - done) / 60:.1f} min left",
+                  file=sys.stderr, flush=True)
     report = {"style": style, "set": chars, "characters": len(chosen)}
     for name, result in results.items():
         overlap = np.array(result["overlap"])
