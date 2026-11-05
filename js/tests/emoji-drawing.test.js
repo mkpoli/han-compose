@@ -30,6 +30,16 @@ describe('an Emoji in a drawing', () => {
     })
     for (const text of ['😀', '😁', '🙂']) expect(svg).toContain(text)
   })
+  it('keeps a valid Emoji in its part\'s turn when another names no part', () => {
+    const svg = drawingSvg({
+      d: '',
+      parts: [{ d: '', leaf: 0 }, { d: 'M0 0L1 1Z', leaf: 1 }],
+      emoji: [{ text: '😀', box: [0, 0, 9, 9], part: 0 }, { text: '🙂', box: [0, 0, 9, 9], part: 9 }],
+    })
+    expect(svg.indexOf('😀')).toBeLessThan(svg.indexOf('<path'))
+    expect(svg).toContain('🙂')
+    expect(svg.split('😀')).toHaveLength(2)
+  })
   it('has a part when nothing else was drawn', async () => {
     const preview = composerPreview({ base: 'http://example.org/', separate: true, worker: () => new FakeWorker() })
     const drawing = await preview('😀')
