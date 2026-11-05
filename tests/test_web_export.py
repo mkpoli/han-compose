@@ -31,7 +31,36 @@ def test_host_cache_batches_preserve_every_rank_and_failed_cut(monkeypatch) -> N
     assert len(cleared) == 3
 
 
-def test_releasing_host_geometry_clears_glyphs_and_dependent_cuts_together() -> None:
+def test_every_host_glyph_and_its_ownership_are_read_before_the_workers_fork() -> None:
+    from types import SimpleNamespace
+
+    glyphs, owners = [], []
+    c = SimpleNamespace(_index=({("L", "木"): [("林", (), (), 0), ("村", (), (), 0)], ("R", "木"): [("林", (), (), 1)]}, None),
+                        font=SimpleNamespace(glyph=glyphs.append), kvg=SimpleNamespace(owners=owners.append))
+    web_export._load_font_caches(c)
+    assert glyphs == owners == ["村", "林"]
+
+
+def test_an_export_freezes_the_heap_only_for_its_length(monkeypatch: pytest.MonkeyPatch) -> None:
+    import gc
+
+    before = gc.get_freeze_count()
+    during = []
+    monkeypatch.setattr(web_export, "_load_font_caches", lambda composer: None)
+    monkeypatch.setattr(web_export, "_export", lambda composer, out, **options: during.append(gc.get_freeze_count()) or {})
+    assert web_export.export(None, None) == {}
+    assert during[0] > before and gc.get_freeze_count() == before
+
+    def fail(composer, out, **options):
+        raise ValueError("stopped")
+
+    monkeypatch.setattr(web_export, "_export", fail)
+    with pytest.raises(ValueError, match="stopped"):
+        web_export.export(None, None)
+    assert gc.get_freeze_count() == before
+
+
+def test_releasing_host_geometry_keeps_what_depends_only_on_the_font() -> None:
     from types import SimpleNamespace
 
     names = ("_hosts", "_any_overlays", "_sketches", "_templates", "_typical", "_strokes",
@@ -41,7 +70,7 @@ def test_releasing_host_geometry_clears_glyphs_and_dependent_cuts_together() -> 
                         kvg=SimpleNamespace(_owners={"林": object()}))
     web_export._clear_host_caches(c)
     assert all(not getattr(c, name) for name in names)
-    assert not c.font._parts and not c.kvg._owners
+    assert c.font._parts and c.kvg._owners
     assert "_plain" not in vars(c)
     c._frames.append(set())
     with pytest.raises(RuntimeError, match="during composition"):
