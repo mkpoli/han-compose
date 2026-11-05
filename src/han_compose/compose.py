@@ -1908,6 +1908,9 @@ class Composer:
             for (char, tree, path, i), alien in candidates:
                 if char in self.exclude:
                     continue
+                # A style that keeps its own hosts draws no piece cut from a fallback font.
+                if self.font.style.own_hosts and not self.font.own(char):
+                    continue
                 here = tree
                 for step in path:
                     here = here[1 + step]
