@@ -432,17 +432,7 @@ export class Composer {
     // A mark that sits beside the drawing takes a margin: the character shrinks toward the opposite
     // corner, so the mark stands outside its strokes instead of over them.
     const frame = this.face.slice()
-    let face = frame
-    if (marks) {
-      const outbound = [...marks].filter(isOutbound).join('')
-      if (outbound) {
-        const probe = markParts(this, outbound, frame, frame)
-        if (probe.length) {
-          const fitted = markFace(frame, union(probe.map(part => part.target)))
-          if (fitted.scale < 1) face = fitted.face
-        }
-      }
-    }
+    const face = this.faceBeside(marks)
     const previous = this.face
     this.face = face
     try {
@@ -635,7 +625,24 @@ export class Composer {
    * region and its `INSIDE`. Answers `{ index, box, empty }` per leaf in reading order, boxes in
    * font units, y up.
    */
-  sketch(sequence) {
+  sketch(sequence, marks = '') {
+    const previous = this.face
+    this.face = this.faceBeside(marks)
+    try { return this.sketched(sequence) } finally { this.face = previous }
+  }
+
+  /** The face a character takes beside its outbound marks: the whole face where none needs room. */
+  faceBeside(marks) {
+    const frame = this.face.slice()
+    const outbound = [...marks].filter(isOutbound).join('')
+    if (!outbound) return frame
+    const probe = markParts(this, outbound, frame, frame)
+    if (!probe.length) return frame
+    const fitted = markFace(frame, union(probe.map(part => part.target)))
+    return fitted.scale < 1 ? fitted.face : frame
+  }
+
+  sketched(sequence) {
     const out = []
     const walk = (node, region, atRoot) => {
       const pyramid = this.pyramid(node)
