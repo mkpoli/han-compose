@@ -50,7 +50,7 @@ source a sequence draws from), `/drawing-svg`, `/document-source` and `/document
 drawing for a document), `/worker` (the module a Worker runs), `/retry`, `/local`, `/bundled`,
 `/hangul`, `/hangul-ids`, `/pyramid`, `/pyramid-rows`, `/repetition`, `/strokes`, `/component-forms`,
 `/emoji`, `/group-parts`, `/scripts`, `/tokens`, `/unicode` (the fallback shards), and one per bundled script (`/tangut`, `/bopomofo`,
-`/new-korean`, `/small-seal`, `/shuishu`, `/palette`).
+`/new-korean`, `/small-seal`, `/shuishu`, `/jurchen`, `/palette`).
 
 ## The export
 
