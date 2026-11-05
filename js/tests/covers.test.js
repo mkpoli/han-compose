@@ -61,6 +61,21 @@ describe('a cover', () => {
     expect(span(drawnLegs)).toBe(800)
   })
 
+  it('keeps the separate contours of a box head apart', () => {
+    const c = lonely()
+    c.sequenceOf = ch => ch === '昗' ? '⿱日六' : null
+    c.parse = text => text === '⿱日六' ? ['⿱', '日', '六'] : text
+    const cover = [at(part(contour(100, 600, 900, 800)), [100, 600, 900, 800])]
+    const left = contour(100, 300, 140, 580), right = contour(860, 300, 900, 580), legs = contour(100, 0, 900, 200)
+    const lower = [at(part(left, right, legs), [100, 0, 900, 580])]
+    c.fitUnderCover('⿱', ['冖', '昗'], [cover, lower])
+    const xs = contour => contour.light.filter((_, i) => i % 2 === 0)
+    const [drawnLeft, drawnRight] = lower[0].part.contours
+    expect(Math.min(...xs(drawnLeft))).toBeCloseTo(500 - 0.72 * 400, 3)
+    expect(Math.max(...xs(drawnRight))).toBeCloseTo(500 + 0.72 * 400, 3)
+    expect(Math.max(...xs(drawnLeft))).toBeLessThan(Math.min(...xs(drawnRight)))
+  })
+
   it('leaves a lower part that does not open with a box', () => {
     const c = lonely()
     c.sequenceOf = ch => ch === '杏' ? '⿱木口' : null

@@ -2070,6 +2070,10 @@ export class Composer {
         const coverBox = bounds(groups[0]), lowerInk = inkBounds(groups[1]), height = lowerInk[3] - lowerInk[1]
         const split = lowerInk[3] - 0.45 * height, factor = 0.72 * (coverBox[2] - coverBox[0]) / Math.max(lowerInk[2] - lowerInk[0], 1)
         const centre = (coverBox[0] + coverBox[2]) / 2
+        // One map for the whole head: a box may be several contours (its counters, or a brush face's
+        // separate strokes), and each must keep its place in it.
+        const headBoxes = groups[1].flatMap(p => drawnContours(p).map(pointsBox)).filter(b => (b[1] + b[3]) / 2 >= split)
+        const head = headBoxes.length ? (Math.min(...headBoxes.map(b => b[0])) + Math.max(...headBoxes.map(b => b[2]))) / 2 : centre
         for (const p of groups[1]) {
           const contours = p.part.contours.slice()
           let changed = false
@@ -2080,7 +2084,8 @@ export class Composer {
             let lo = Infinity, hi = -Infinity
             for (let k = 0; k < c.light.length; k += 2) { lo = Math.min(lo, c.light[k]); hi = Math.max(hi, c.light[k]) }
             const mid = (lo + hi) / 2, scale = (p.target[2] - p.target[0]) / Math.max(p.source[2] - p.source[0], 1)
-            const shift = (centre - (b[0] + b[2]) / 2) / scale
+            const middle = (b[0] + b[2]) / 2
+            const shift = (centre + (middle - head) * factor - middle) / scale
             const move = points => { const out = new Float64Array(points.length); for (let k = 0; k < points.length; k += 2) { out[k] = mid + shift + (points[k] - mid) * factor; out[k + 1] = points[k + 1] } return out }
             c.light = move(c.light); c.heavy = move(c.heavy); contours[index] = c; changed = true
           })
