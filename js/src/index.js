@@ -120,14 +120,12 @@ export function composerPreview({ base, separate = false, fontStyle = 'sans', lo
     const oldLeaves = sketch?.map(leaf => ({ ...leaf, empty: emoji.some(item => item.leaf === leaf.index) || leaf.empty })) ?? null
     const groups = pieces.length ? groupParts(pieces, oldLeaves ?? []) : null
     if (!groups && items.some((_, index) => emoji[index]?.overlay)) throw new Error('Cannot determine emoji stacking order for this overlay.')
-    /** @type {Drawing['parts']} */
-    let parts = pieces
-    if (groups) {
-      parts = pieces.map(piece => ({ ...piece }))
-      for (const group of groups) for (const index of group.parts) parts[index] = { ...parts[index], leaf: group.index }
-      for (const item of items) { item.part = parts.length; parts.push({ leaf: item.leaf, origin: 'emoji', box: item.box, d: '' }) }
-    }
-    return { drawn: { ...drawn, ...(groups ? { parts } : {}), emoji: items,
+    /** @type {NonNullable<Drawing['parts']>} */
+    const parts = pieces.map(piece => ({ ...piece }))
+    for (const group of groups ?? []) for (const index of group.parts) parts[index] = { ...parts[index], leaf: group.index }
+    // An Emoji has a part even in a drawing with no other: a document reads its geometry from them.
+    for (const item of items) { item.part = parts.length; parts.push({ leaf: item.leaf, origin: 'emoji', box: item.box, d: '' }) }
+    return { drawn: { ...drawn, parts, emoji: items,
       slots: slots.filter(slot => !emoji.some(item => item.slot === slot.index)).map((slot, index) => ({ ...slot, index })) }, sketch: leaves }
   }
   /** @type {ReturnType<typeof composerPreview>} */

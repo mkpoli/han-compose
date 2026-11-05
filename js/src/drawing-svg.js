@@ -15,7 +15,7 @@ export const EMOJI_SCALE = 1.36
 /** Where an emoji stands in its box: `{ x, y, size }`, its middle and its font size, all finite.
  *  @param {{ box?: number[] } | null | undefined} item @returns {{ x: number, y: number, size: number }} */
 export function emojiPlace(item) {
-  const [x, y, width, height] = (item?.box ?? []).slice(0, 4).map(value => Number.isFinite(Number(value)) ? Number(value) : 0)
+  const [x, y, width, height] = [0, 1, 2, 3].map(at => { const value = Number(item?.box?.[at]); return Number.isFinite(value) ? value : 0 })
   return { x: x + width / 2, y: y + height / 2, size: Math.max(0, Math.min(width, height) * EMOJI_SCALE) }
 }
 
@@ -75,7 +75,7 @@ export function drawingSvg(drawing, { background = null, ink = '#000000', paddin
   const emoji = drawing.emoji ?? []
   const hasCut = Boolean(cut || emoji.some(item => item.cut))
   const groupedEmoji = Boolean(!hasCut && emoji.length && pieces?.every(piece => Number.isInteger(piece.leaf))
-    && emoji.every(item => (item.part ?? -1) >= 0))
+    && emoji.every(item => (item.part ?? -1) >= 0 && (item.part ?? -1) < pieces.length))
   const split = !hasCut && (groupedEmoji || transforms?.some(transform => typeof transform === 'string' && transform))
     && pieces?.every(piece => typeof piece.d === 'string')
   /**
@@ -100,9 +100,9 @@ export function drawingSvg(drawing, { background = null, ink = '#000000', paddin
     // Parts are drawn in the order the drawing gives them: an overlay's top piece last.
     const order = pieces.map((piece, index) => ({ piece, index }))
     for (const { piece, index } of order) {
-      const item = emoji.find(candidate => candidate.part === index)
+      const items = groupedEmoji ? emoji.filter(candidate => candidate.part === index) : []
       const path = pathData(piece.d)
-      const content = item ? textOf(item) : path ? `<path d="${path}" fill="${fill}"/>` : ''
+      const content = items.length ? items.map(item => textOf(item)).join('') : path ? `<path d="${path}" fill="${fill}"/>` : ''
       if (!content) continue
       const transform = transformData(transforms?.[index])
       out.push(transform ? `<g transform="${transform}">${content}</g>` : content)
