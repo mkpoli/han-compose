@@ -356,12 +356,25 @@ def entry_record(composer: C.Composer, entry: tuple, rank: int, host: C.Host | N
 HOST_CACHE_BATCH = 64
 
 
-def _clear_host_caches(composer: C.Composer) -> None:
-    """Release cut geometry only after its record holds plain values.
+def _load_font_caches(composer: C.Composer) -> None:
+    """Read every host's glyph and KanjiVG ownership once, before the workers fork. They depend only
+    on the font, so the workers share them; cut geometry is what grows, and `_clear_host_caches`
+    releases it."""
+    import gc
 
-    A cut and its source glyph share contour identities. Clearing the glyph cache without the
-    dependent cuts would turn indexed contours into standalone outlines on the next lookup.
-    """
+    index, _ = composer._index
+    for char in sorted({entry[0] for entries in index.values() for entry in entries}):
+        composer.font.glyph(char)
+        if composer.kvg is not None:
+            composer.kvg.owners(char)
+    # What a worker inherits stays out of its collections, and so out of its copied pages.
+    gc.collect()
+    gc.freeze()
+
+
+def _clear_host_caches(composer: C.Composer) -> None:
+    """Release cut geometry only after its record holds plain values. Glyphs and KanjiVG ownership
+    stay: a cut shares contour identities with its source glyph, and they are bounded by the font."""
     import gc
 
     if composer._frames or composer._expanding:
@@ -370,9 +383,6 @@ def _clear_host_caches(composer: C.Composer) -> None:
                  "_faces", "_inks", "_own_counts"):
         getattr(composer, name).clear()
     composer.__dict__.pop("_plain", None)
-    if composer.kvg is not None:
-        composer.kvg._owners.clear()
-    composer.font._parts.clear()
     gc.collect()
 
 
@@ -810,6 +820,7 @@ def export(composer: C.Composer, out: Path, joyo: list[str] | None = None, parit
     _ = composer.japanese, composer.usage, composer.by_sequence, composer.twins
     _PLACES = sorted({p for p, _ in index})
     table = composer.layout.tables["all"]
+    _load_font_caches(composer)
 
     # Parity drawings first: the hosts the injected set uses join the export; the held-out set's do not.
     sets = {"injected": ([], []), "held_out": ([], [])}

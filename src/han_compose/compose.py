@@ -1346,6 +1346,9 @@ class Composer:
 
         plain = Composer(ReferenceFont(), self.sequences, hosted=False, weighted=False, exclude=excluded)
         plain._frames = self._frames
+        # With nothing excluded the reference font draws what this one draws.
+        if not self.exclude:
+            plain.by_sequence = self.by_sequence
         return plain
 
     def _sketch(self, node: tuple) -> Part | None:
