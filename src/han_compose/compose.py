@@ -468,6 +468,11 @@ class Contour:
     def box(self) -> Box:
         return (*self.light.min(axis=0), *self.light.max(axis=0))
 
+    @cached_property
+    def length(self) -> float:
+        """The closed polygon's perimeter through every point at weight 400."""
+        return float(np.linalg.norm(np.diff(np.vstack([self.light, self.light[:1]]), axis=0), axis=1).sum())
+
 
 def _contours(pen: RecordingPen) -> list[tuple[list, np.ndarray]]:
     out, ops, points = [], [], []
@@ -601,8 +606,7 @@ class Font:
                         rings = [(ops, p * scale if scale != 1 else p) for ops, p in _contours(pen)]
                         flat = [Contour(ops, p, p) for ops, p in rings]
                         if self.family is not None:
-                            density = sum(float(np.linalg.norm(np.diff(np.vstack([c.light, c.light[:1]]), axis=0), axis=1).sum())
-                                          for c in flat)
+                            density = sum(c.length for c in flat)
                             width = tuple(self.family[axis] * self.width(density, axis) for axis in (0, 1))
                         else:
                             mask = fill(_rings(flat, [c.light for c in flat], steps=2), 200, (0.0, ASCENT - EM, EM, ASCENT))
@@ -1282,8 +1286,7 @@ class Composer:
         """Permitted outline length, or an IDS estimate for missing and excluded glyphs. Unknown
         analyses use permitted 永, or one em of nominal outline when it is unavailable."""
         if part is not None:
-            return sum(float(np.linalg.norm(np.diff(np.vstack([c.light, c.light[:1]]), axis=0), axis=1).sum())
-                       for c in part.contours)
+            return sum(c.length for c in part.contours)
         self._reference_context()
         if isinstance(node, tuple):
             return sum(self.ink(n, seen=seen) for n in node[1:])
