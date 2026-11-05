@@ -17,7 +17,8 @@ self.onmessage = async ({ data: { id, sequence, base, separate, fontStyle, warm,
   // Whether the sequence draws from bundled outlines is part of the key: `onlyBundled` reads the
   // sequence, which the traits alone do not cover.
   const local = !warm && (traits.empty || onlyBundled(sequence, separate, false, fontStyle))
-  const key = `${base}:${warm ? 'warm' : `${local ? 'local' : 'remote'}:${traitKey(traits)}`}:${separate}:${fontStyle}`
+  // Where the bundled files are read from is part of the key: a later `loaders` must reach its source.
+  const key = `${JSON.stringify(loaders ?? {})}:${base}:${warm ? 'warm' : `${local ? 'local' : 'remote'}:${traitKey(traits)}`}:${separate}:${fontStyle}`
   if (!sources.has(key)) sources.set(key, sourceFor(sequence, { base, fontStyle, separate, traits, loaders, remote: warm }))
   let source = sources.get(key)
   try {

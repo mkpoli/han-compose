@@ -137,9 +137,9 @@ export function createSource(read, { concurrency = 10 } = {}) {
 }
 
 /** A source over HTTP: `base` is the folder holding the export, `suffix` what each name carries there (`.gz`). */
-export function fromUrl(base, { suffix = '', fetch: get = download } = {}) {
+export function fromUrl(base, { suffix = '', fetch: get = download, load } = {}) {
   const root = base.endsWith('/') ? base : `${base}/`
-  return unicodeSource({ fallback: createSource(async name => {
+  return unicodeSource({ ...(load ? { load } : {}), fallback: createSource(async name => {
     const response = await get(`${root}${name}${suffix}`)
     // Only a shard (`g/`, `p/`) may be missing, as the export writes none where no key falls; a
     // missing manifest or layout fails with its status like any other error.
