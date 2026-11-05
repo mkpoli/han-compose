@@ -61,6 +61,25 @@ describe('a cover', () => {
     expect(span(drawnLegs)).toBe(800)
   })
 
+  it('narrows the same head when the lower part is written out', () => {
+    const c = lonely()
+    const cover = [at(part(contour(100, 600, 900, 800)), [100, 600, 900, 800])]
+    const lower = [at(part(contour(100, 300, 900, 580)), [100, 300, 900, 580]), at(part(contour(100, 0, 900, 200)), [100, 0, 900, 200])]
+    c.fitUnderCover('⿱', ['冖', ['⿱', '日', '六']], [cover, lower])
+    const xs = lower[0].part.contours[0].light.filter((_, i) => i % 2 === 0)
+    expect(Math.max(...xs) - Math.min(...xs)).toBeCloseTo(0.72 * 800, 3)
+    expect(lower[1].part.contours[0].light[2] - lower[1].part.contours[0].light[0]).toBe(800)
+  })
+
+  it('leaves a written lower part drawn as one whole glyph', () => {
+    const c = lonely()
+    const cover = [at(part(contour(100, 600, 900, 800)), [100, 600, 900, 800])]
+    const whole = part(contour(100, 300, 900, 580), contour(100, 0, 900, 200))
+    const lower = [at(whole, [100, 0, 900, 580])]
+    c.fitUnderCover('⿱', ['冖', ['⿱', '日', '六']], [cover, lower])
+    expect(lower[0].part).toBe(whole)
+  })
+
   it('keeps the separate contours of a box head apart', () => {
     const c = lonely()
     c.sequenceOf = ch => ch === '昗' ? '⿱日六' : null

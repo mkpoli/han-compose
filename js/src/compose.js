@@ -2059,11 +2059,13 @@ export class Composer {
         for (const p of lower) p.target = [p.target[0], p.target[1] + shift, p.target[2], p.target[3] + shift]
       }
     }
-    if (op === '⿱' && groups.length >= 2 && typeof children[0] === 'string' && cover(children[0])
-      && typeof children[1] === 'string') {
+    if (op === '⿱' && groups.length >= 2 && typeof children[0] === 'string' && cover(children[0])) {
       let topBox = null
       try {
-        const tree = this.parse(this.sequenceOf(children[1]) ?? '')
+        // The lower part written out, or named by a character whose sequence reads the same.
+        // A written lower part drawn as one whole glyph keeps that glyph's own proportions.
+        const tree = typeof children[1] === 'string' ? this.parse(this.sequenceOf(children[1]) ?? '')
+          : groups[1].length > 1 ? children[1] : null
         if (Array.isArray(tree) && tree[0] === '⿱' && ['日', '曰', '田', '罒', '目', '四'].includes(tree[1])) topBox = tree[1]
       } catch { /* not a box-headed sequence */ }
       if (topBox) {
@@ -2076,7 +2078,9 @@ export class Composer {
         const above = b => (b[1] + b[3]) / 2 >= split
         const boxes = groups[1].flatMap(p => drawnContours(p).map(pointsBox)), below = boxes.filter(b => !above(b))
         const inHead = b => above(b) && !below.some(o => o[0] <= b[0] && o[1] <= b[1] && o[2] >= b[2] && o[3] >= b[3])
-        const headBoxes = boxes.filter(inHead)
+        // A lower part written out names its head: the first operand's part, whatever its height.
+        const named = Array.isArray(children[1]) && groups[1].length > 1 ? groups[1][0] : null
+        const headBoxes = named ? drawnContours(named).map(pointsBox) : boxes.filter(inHead)
         const headLeft = Math.min(...headBoxes.map(b => b[0])), headRight = Math.max(...headBoxes.map(b => b[2]))
         const head = (headLeft + headRight) / 2
         // A head already that narrow keeps its width.
@@ -2086,7 +2090,7 @@ export class Composer {
           let changed = false
           drawnContours(p).forEach((points, index) => {
             const b = pointsBox(points)
-            if (!inHead(b)) return
+            if (named ? p !== named : !inHead(b)) return
             const c = { ...contours[index] }
             let lo = Infinity, hi = -Infinity
             for (let k = 0; k < c.light.length; k += 2) { lo = Math.min(lo, c.light[k]); hi = Math.max(hi, c.light[k]) }
