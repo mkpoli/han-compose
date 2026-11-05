@@ -163,6 +163,12 @@ export function splitToneMarks(marks) {
   return { rest: chars.slice(0, at).join(''), tones: chars.slice(at).join('') }
 }
 
+/** The tone marks a part's components hold, in reading order. @param {Part} part @returns {string} */
+export const tonesOf = part => {
+  if (isNode(part)) return part.parts.map(tonesOf).join('')
+  return part === null ? '' : [...splitText(part).marks].filter(isToneMark).join('')
+}
+
 /** Whether `text` is one or more loose marks and nothing else. @param {string | null | undefined} text */
 export const isMarks = text => { const chars = [...(text ?? '')]; return chars.length > 0 && chars.every(isMark) }
 
@@ -265,6 +271,8 @@ export function descriptionEnd(chars, at = 0) {
     if (!isComponent(char) && !EMPTY_MARKS.includes(char)) return -1
     const cluster = hangulClusterAt(chars, at)
     if (cluster) return toneMarksAt(chars, cluster.end)
+    // A slot takes no tone: a mark after it is the next operand, as it parses.
+    if (EMPTY_MARKS.includes(char)) return isSelector(chars[at + 1]) ? at + 2 : at + 1
     return toneMarksAt(chars, isSelector(chars[at + 1]) ? at + 2 : at + 1)
   }
   let end = at + 1
@@ -287,7 +295,8 @@ export function splitDescription(text) {
   if (!isMark(chars[chars.length - 1])) return { base: text ?? '', marks: '' }
   let tree
   try { tree = parseDescription(text ?? '') } catch { return { base: text ?? '', marks: '' } }
-  if (tree === null) return { base: text ?? '', marks: '' }
+  // A slot alone holds no marks of its own, so they stay beside it.
+  if (tree === null) return { base: chars[0] ?? '', marks: chars.slice(1).join('') }
   const marks = marksOf(tree)
   return marks ? { base: writeDescription(withoutMarks(tree)), marks } : { base: text ?? '', marks: '' }
 }

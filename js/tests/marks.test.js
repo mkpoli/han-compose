@@ -91,8 +91,23 @@ describe('reading loose marks', () => {
   it('refuses half of a surrogate pair as a component', () => {
     expect(() => parse('⿰木\ud840')).toThrow(SyntaxError)
   })
+  it('leaves a mark after a slot to the next operand', () => {
+    expect(descriptionEnd([...'⿰⬚\u302E'])).toBe(3)
+    expect(descriptionEnd([...'⿰⬚\u302E木'])).toBe(3)
+  })
+  it('draws a slot with a mark beside it', async () => {
+    expect(splitDescription('⬚\u0301')).toEqual({ base: '⬚', marks: '\u0301' })
+    const local = source()
+    const drawn = await compose(local, '⬚\u0301')
+    expect(drawn.slots).toHaveLength(1)
+    expect(drawn.parts.at(-1).origin).toBe('mark \u0301')
+  })
+  it('asks the bundled outlines for a tone mark on a syllable', () => {
+    expect(traitsOf('⿰ㄅㄚ\u302E').loose).toBe(true)
+    expect(onlyBundled('⿰ㄅㄚ\u302E')).toBe(true)
+    expect(onlyBundled('⿰ㄅ木\u302E')).toBe(false)
+  })
   it('splits a mark that ends a component', () => {
-    expect(splitDescription('⬚\u0301')).toEqual({ base: '⬚\u0301', marks: '' })
     expect(splitDescription('⿰가\u302E木\u0301')).toEqual({ base: '⿰가\u302E木', marks: '\u0301' })
   })
 })
