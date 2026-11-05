@@ -4,6 +4,7 @@
 import { APPROXIMATE, EMPTY } from './compose.js'
 import { createDrawer } from './client.js'
 import { emojiSlots } from './emoji.js'
+import { sourceFor } from './source.js'
 import { groupParts } from './group-parts.js'
 import { onlyBundled } from './local.js'
 import { LIMITS, LookupError, PYRAMID_LAYERS, compose, createSource, fromUrl, size, sketch, svgBox, tooLarge } from './loader.js'
@@ -154,10 +155,10 @@ export function composerPreview({ base, separate = false, fontStyle = 'sans', lo
       shown = withEmoji({ d: '' }, prepared.emoji, leaves).sketch ?? leaves
       if (!signal?.aborted) onSketch?.(shown)
     }
-    // The drawing itself, or an empty one where no export is needed.
+    // The drawing itself: from the export, or from the bundled outlines where there is no export.
     /** @type {Promise<import('./client.js').Answer>} */
     const request = drawer ? drawer.draw(prepared.sequence, heard, { separate, fontStyle })
-      : Promise.resolve(/** @type {import('./client.js').Answer} */ ({ status: 'composed', drawn: { d: '' }, sketch: shown }))
+      : drawnBundled(prepared.sequence, { separate, fontStyle, loaders }, heard)
     // The drawing in progress, ended when its signal aborts; the drawer answers it as cancelled.
     /** @type {import('./client.js').Answer} */
     const answer = await new Promise(settle => {
@@ -183,6 +184,24 @@ export function composerPreview({ base, separate = false, fontStyle = 'sans', lo
     try { drawer?.warm() } catch { /* the first drawing reports the base */ }
   }
   return preview
+}
+
+/**
+ * A sequence drawn from the bundled outlines alone, in the page, answered as a drawer answers.
+ * @param {string} sequence
+ * @param {{ separate?: boolean, fontStyle?: 'sans' | 'serif' | 'kaisho', loaders?: Record<string, string> }} options
+ * @param {(leaves: SketchLeaf[]) => void} heard
+ * @returns {Promise<import('./client.js').Answer>}
+ */
+async function drawnBundled(sequence, { separate, fontStyle, loaders }, heard) {
+  try {
+    const source = sourceFor(sequence, { bundled: true, separate, fontStyle, loaders })
+    const leaves = await sketch(source, sequence, { fontStyle })
+    heard(leaves)
+    return { status: 'composed', drawn: await compose(source, sequence, { separate, fontStyle }), sketch: leaves }
+  } catch (error) {
+    return { status: 'failed', error: String(/** @type {Error} */ (error)?.message ?? error) }
+  }
 }
 
 /** The tree a draft reads as, for the size check; null where it is no description. @param {string} text */
