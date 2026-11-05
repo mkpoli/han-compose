@@ -1,6 +1,7 @@
 // The source a document renderer reads: each drawn part in its leaf's own 1000-unit frame.
 import { describe, expect, it } from 'bun:test'
 import { documentSource } from '../src/document-source.js'
+import { documentView } from '../src/document-view.js'
 
 const component = (id, char) => ({ id, kind: 'component', char })
 const document = { root: { id: 'root', kind: 'operator', op: '⿰', children: [component('a', '木'), component('b', '口')] } }
@@ -25,5 +26,17 @@ describe('a document source', () => {
     const [piece] = made.source.geometry(document.root.children[0]).pieces
     expect(piece.d).not.toContain('NaN')
     expect(piece.d).toContain('C')
+  })
+  it('lists the parts drawn for each leaf, complete or not', () => {
+    const renderer = { layerFrames: () => new Map(), renderScopes: () => ({ complete: true, issues: [], leafFrames: new Map() }) }
+    const a = { d: 'M0 0L500 1000Z', leaf: 0 }, b = { d: 'M500 0L1000 1000Z', leaf: 1 }, c = { d: 'M0 0L500 500Z', leaf: 0 }
+    const whole = documentView(document, { d: '', parts: [a, b, c] }, sketch, { renderer })
+    expect(whole.complete).toBe(true)
+    expect(whole.partsByLeaf.get(0)).toEqual([a, c])
+    expect(whole.partsByLeaf.get(1)).toEqual([b])
+    const partial = documentView(document, { d: '', parts: [a] }, sketch, { renderer })
+    expect(partial.complete).toBe(false)
+    expect(partial.partsByLeaf.get(0)).toEqual([a])
+    expect(partial.partsByLeaf.has(1)).toBe(false)
   })
 })
