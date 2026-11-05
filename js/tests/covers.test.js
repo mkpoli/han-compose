@@ -44,6 +44,34 @@ describe('a cover', () => {
     expect(width).toBeLessThan(0.75 * 700)
   })
 
+  it('narrows a box head under a cover, and leaves what stands below it', () => {
+    const c = lonely()
+    c.sequenceOf = ch => ch === '昗' ? '⿱日六' : null
+    c.parse = text => text === '⿱日六' ? ['⿱', '日', '六'] : text
+    const cover = [at(part(contour(100, 600, 900, 800)), [100, 600, 900, 800])]
+    const head = contour(100, 300, 900, 580), legs = contour(100, 0, 900, 200)
+    const lower = [at(part(head, legs), [100, 0, 900, 580])]
+    c.fitUnderCover('⿱', ['冖', '昗'], [cover, lower])
+    const span = contour => {
+      const xs = contour.light.filter((_, i) => i % 2 === 0)
+      return Math.max(...xs) - Math.min(...xs)
+    }
+    const [drawnHead, drawnLegs] = lower[0].part.contours
+    expect(span(drawnHead)).toBeCloseTo(0.72 * 800, 3)
+    expect(span(drawnLegs)).toBe(800)
+  })
+
+  it('leaves a lower part that does not open with a box', () => {
+    const c = lonely()
+    c.sequenceOf = ch => ch === '杏' ? '⿱木口' : null
+    c.parse = text => text === '⿱木口' ? ['⿱', '木', '口'] : text
+    const cover = [at(part(contour(100, 600, 900, 800)), [100, 600, 900, 800])]
+    const whole = part(contour(100, 300, 900, 580), contour(100, 0, 900, 200))
+    const lower = [at(whole, [100, 0, 900, 580])]
+    c.fitUnderCover('⿱', ['冖', '杏'], [cover, lower])
+    expect(lower[0].part).toBe(whole)
+  })
+
   it('closes a middle 冖 on the part above and the part below', () => {
     const c = lonely()
     const top = [at(part(contour(0, 500, 900, 800)), [0, 500, 900, 800])]
