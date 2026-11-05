@@ -37,7 +37,7 @@ import re
 from collections import Counter
 from collections.abc import Iterator
 from dataclasses import dataclass, field, replace
-from functools import cache, cached_property
+from functools import cache, cached_property, lru_cache
 from itertools import combinations, pairwise
 from pathlib import Path
 
@@ -3344,21 +3344,60 @@ def _steps(steps: int) -> np.ndarray:
     return np.linspace(0, 1, steps + 1)[1:, None]
 
 
+@lru_cache(maxsize=1 << 16)
+def _ring_plan(ops: tuple[tuple[str, int, bool], ...], steps: int) -> tuple:
+    """How `_rings` reads a contour of `ops`. Every node of the contour ends on the mean of two of its
+    points (one point twice, or the two a TrueType implied point lies between). `curved` lists the
+    nodes that are quadratic segments, each starting on the node before it, and `offs` their control
+    points. `lines` and `samples` say where straight nodes and curve samples fall in the ring."""
+    first, second, off_points, curved, at = [], [], [], [], 0
+    for op, n, implied in ops:
+        indices = list(range(at, at + n))
+        at += n
+        if op in ("moveTo", "lineTo"):
+            first.append(indices[0])
+            second.append(indices[0])
+        elif op == "qCurveTo":
+            if implied:
+                first.append(indices[-1])
+                second.append(indices[0])
+            offs = indices if implied else indices[:-1]
+            for k, off in enumerate(offs):
+                curved.append(len(first))
+                off_points.append(off)
+                if k + 1 < len(offs):
+                    first.append(off)
+                    second.append(offs[k + 1])
+                elif implied:
+                    first.append(indices[-1])
+                    second.append(indices[0])
+                else:
+                    first.append(indices[-1])
+                    second.append(indices[-1])
+        else:
+            raise ValueError(f"{op} outlines are not read.")
+    curved_nodes = np.array(curved, dtype=np.intp)
+    is_curved = np.zeros(len(first), bool)
+    is_curved[curved_nodes] = True
+    starts = np.concatenate([[0], np.cumsum(np.where(is_curved, steps, 1))])
+    samples = (starts[curved_nodes, None] + np.arange(steps)).ravel()
+    return (np.array(first, dtype=np.intp), np.array(second, dtype=np.intp), curved_nodes,
+            np.array(off_points, dtype=np.intp), starts[:-1][~is_curved], samples, int(starts[-1]))
+
+
 def _rings(contours: list[Contour], points: list[np.ndarray], steps: int = 6) -> list[np.ndarray]:
     rings = []
+    t = _steps(steps)
     for contour, pts in zip(contours, points):
-        ring, last = [], None
-        for kind, seg in _segments(contour.ops, pts):
-            if kind in "ML":
-                last = seg[0]
-                ring.append(last)
-            else:
-                off, on = seg
-                t = _steps(steps)
-                ring.extend((1 - t) ** 2 * last + 2 * (1 - t) * t * off + t ** 2 * on)
-                last = on
-        if len(ring) >= 3:
-            rings.append(np.array(ring))
+        first, second, curved, offs, lines, samples, size = _ring_plan(tuple(contour.ops), steps)
+        if size < 3:
+            continue
+        on = (pts[first] + pts[second]) / 2
+        ring = np.empty((size, 2))
+        ring[lines] = np.delete(on, curved, axis=0)
+        if len(curved):
+            ring[samples] = ((1 - t) ** 2 * on[curved - 1, None] + 2 * (1 - t) * t * pts[offs, None] + t ** 2 * on[curved, None]).reshape(-1, 2)
+        rings.append(ring)
     return rings
 
 
