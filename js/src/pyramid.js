@@ -21,7 +21,7 @@ export const PYRAMID_GAP = 0.13
 export function pyramidCells(region, layers, { direction = 'top' } = {}) {
   const [x0, y0, x1, y1] = region
   const span = Math.min(x1 - x0, y1 - y0)
-  if (!(layers > 0) || !(span > 0)) return []
+  if (!Number.isInteger(layers) || layers <= 0 || !(span > 0)) return []
   const cell = span / (layers + PYRAMID_GAP * (layers - 1))
   const gap = cell * PYRAMID_GAP
   const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2
