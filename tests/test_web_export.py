@@ -41,16 +41,22 @@ def test_every_host_glyph_and_its_ownership_are_read_before_the_workers_fork() -
     assert glyphs == owners == ["村", "林"]
 
 
-def test_only_the_workers_freeze_their_heap() -> None:
+def test_an_export_freezes_the_heap_only_for_its_length(monkeypatch: pytest.MonkeyPatch) -> None:
     import gc
 
     before = gc.get_freeze_count()
-    pool = web_export._pool(2, 1)
-    try:
-        assert pool.apply(gc.get_freeze_count) > before
-    finally:
-        pool.close()
-        pool.join()
+    during = []
+    monkeypatch.setattr(web_export, "_load_font_caches", lambda composer: None)
+    monkeypatch.setattr(web_export, "_export", lambda composer, out, **options: during.append(gc.get_freeze_count()) or {})
+    assert web_export.export(None, None) == {}
+    assert during[0] > before and gc.get_freeze_count() == before
+
+    def fail(composer, out, **options):
+        raise ValueError("stopped")
+
+    monkeypatch.setattr(web_export, "_export", fail)
+    with pytest.raises(ValueError, match="stopped"):
+        web_export.export(None, None)
     assert gc.get_freeze_count() == before
 
 

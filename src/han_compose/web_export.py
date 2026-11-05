@@ -698,12 +698,10 @@ def _same_host(a: dict, b: dict) -> bool:
 
 
 def _pool(workers: int, chunks: int):
-    """Workers forked from this process, each replaced after `chunks` chunks. A worker freezes what it
-    inherits, which keeps that heap out of its collections and so out of its copied pages."""
-    import gc
+    """Workers forked from this process, each replaced after `chunks` chunks."""
     import multiprocessing as mp
 
-    return mp.get_context("fork").Pool(workers, initializer=gc.freeze, maxtasksperchild=chunks) if workers > 1 else None
+    return mp.get_context("fork").Pool(workers, maxtasksperchild=chunks) if workers > 1 else None
 
 
 def _run(pool, work: list, chunksize: int, log, label: str, every: int):
@@ -771,9 +769,24 @@ OUTLINE_NOTES = {
 }
 
 
-def export(composer: C.Composer, out: Path, joyo: list[str] | None = None, parity: int = 0, held_out: int = 0,
-           only: set[str] | None = None, pairs: set[tuple[str, str]] | None = None, workers: int = 1,
-           root: Path | None = None, log=print) -> dict:
+def export(composer: C.Composer, out: Path, **options) -> dict:
+    """`_export` over a heap frozen for its length: the font caches stay out of every collection,
+    in this process and in the workers, and so out of their copied pages. The heap is released after,
+    so a caller's next composer does not sit beside this one."""
+    import gc
+
+    _load_font_caches(composer)
+    gc.collect()
+    gc.freeze()
+    try:
+        return _export(composer, out, **options)
+    finally:
+        gc.unfreeze()
+
+
+def _export(composer: C.Composer, out: Path, joyo: list[str] | None = None, parity: int = 0, held_out: int = 0,
+            only: set[str] | None = None, pairs: set[tuple[str, str]] | None = None, workers: int = 1,
+            root: Path | None = None, log=print) -> dict:
     """Write the export into `out` and return its manifest. `only` limits it to those keys, and
     `pairs` its host lists to those (place, operand)s (tests).
     Workers write each record and host list under `.work/` as they finish; a rerun of the same
@@ -817,7 +830,6 @@ def export(composer: C.Composer, out: Path, joyo: list[str] | None = None, parit
     _ = composer.japanese, composer.usage, composer.by_sequence, composer.twins
     _PLACES = sorted({p for p, _ in index})
     table = composer.layout.tables["all"]
-    _load_font_caches(composer)
 
     # Parity drawings first: the hosts the injected set uses join the export; the held-out set's do not.
     sets = {"injected": ([], []), "held_out": ([], [])}
