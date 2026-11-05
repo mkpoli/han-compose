@@ -118,10 +118,13 @@ Fonts download to `cache/fonts/` on first use. `$HAN_COMPOSE_CACHE` points the c
 | `src/han_compose/compose_standalone.py` | the size a part takes when it stands alone |
 | `src/han_compose/kanjivg_cuts.py` | cutting a host along KanjiVG's component groups |
 | `src/han_compose/vocab.py` | the vocab tables and the cache |
-| `src/han_compose/web_export.py` | the layout and drawing data for a browser port |
+| `src/han_compose/web_export.py` | the layout and drawing data for the browser engine |
 | `scripts/compose_ids.py` | `draw`, `draw-many`, `bench`, `calibrate`, `learn`, `learn-alone`, `export-web`, `export-web-pack` |
 | `tests/` | tests over cutting, layout, drawn output and the web export |
+| `js/` | `@han-compose/composer`, the same composer in the browser, with its own tests |
+| `data/` | the vocab tables, and the outlines the engine draws a part from when no export has it |
 | `docs/design/ids-composer.md` | the method, its measurements, and what did not help |
+| `docs/design/browser-composer.md` | the browser engine, and where the editor it serves meets it |
 
 ## Sources
 

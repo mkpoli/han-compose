@@ -1,0 +1,186 @@
+{
+  "name": "@han-compose/composer",
+  "version": "0.1.0",
+  "description": "Draw an Ideographic Description Sequence in the browser: the composing engine of han-compose, its export reader, and a Web Worker that draws it.",
+  "license": "MIT",
+  "author": "mkpoli",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mkpoli/han-compose.git",
+    "directory": "js"
+  },
+  "homepage": "https://github.com/mkpoli/han-compose",
+  "keywords": [
+    "ids",
+    "ideographic description sequence",
+    "cjk",
+    "han",
+    "kanji",
+    "hanzi",
+    "compose",
+    "svelte"
+  ],
+  "type": "module",
+  "sideEffects": [
+    "./src/worker.js"
+  ],
+  "exports": {
+    ".": {
+      "types": "./types/index.d.ts",
+      "default": "./src/index.js"
+    },
+    "./compose": {
+      "types": "./types/compose.d.ts",
+      "default": "./src/compose.js"
+    },
+    "./geometry": {
+      "types": "./types/geometry.d.ts",
+      "default": "./src/geometry.js"
+    },
+    "./loader": {
+      "types": "./types/loader.d.ts",
+      "default": "./src/loader.js"
+    },
+    "./hangul": {
+      "types": "./types/hangul.d.ts",
+      "default": "./src/hangul.js"
+    },
+    "./hangul-ids": {
+      "types": "./types/hangul-ids.d.ts",
+      "default": "./src/hangul-ids.js"
+    },
+    "./retry": {
+      "types": "./types/retry.d.ts",
+      "default": "./src/retry.js"
+    },
+    "./repetition": {
+      "types": "./types/repetition.d.ts",
+      "default": "./src/repetition.js"
+    },
+    "./strokes": {
+      "types": "./types/strokes.d.ts",
+      "default": "./src/strokes.js"
+    },
+    "./worker": {
+      "types": "./types/worker.d.ts",
+      "default": "./src/worker.js"
+    },
+    "./source": {
+      "types": "./types/source.d.ts",
+      "default": "./src/source.js"
+    },
+    "./unicode": {
+      "types": "./types/unicode.d.ts",
+      "default": "./src/unicode.js"
+    },
+    "./palette": {
+      "types": "./types/palette.d.ts",
+      "default": "./src/palette.js"
+    },
+    "./component-forms": {
+      "types": "./types/component-forms.d.ts",
+      "default": "./src/component-forms.js"
+    },
+    "./local": {
+      "types": "./types/local.d.ts",
+      "default": "./src/local.js"
+    },
+    "./bundled": {
+      "types": "./types/bundled.d.ts",
+      "default": "./src/bundled.js"
+    },
+    "./emoji": {
+      "types": "./types/emoji.d.ts",
+      "default": "./src/emoji.js"
+    },
+    "./group-parts": {
+      "types": "./types/group-parts.d.ts",
+      "default": "./src/group-parts.js"
+    },
+    "./drawing-svg": {
+      "types": "./types/drawing-svg.d.ts",
+      "default": "./src/drawing-svg.js"
+    },
+    "./tokens": {
+      "types": "./types/tokens.d.ts",
+      "default": "./src/tokens.js"
+    },
+    "./scripts": {
+      "types": "./types/scripts.d.ts",
+      "default": "./src/scripts.js"
+    },
+    "./sha256": {
+      "types": "./types/sha256.d.ts",
+      "default": "./src/sha256.js"
+    },
+    "./data/*": "./data/*",
+    "./src/*": "./src/*",
+    "./tree": {
+      "types": "./types/tree.d.ts",
+      "default": "./src/tree.js"
+    },
+    "./pyramid": {
+      "types": "./types/pyramid.d.ts",
+      "default": "./src/pyramid.js"
+    },
+    "./pyramid-rows": {
+      "types": "./types/pyramid-rows.d.ts",
+      "default": "./src/pyramid-rows.js"
+    },
+    "./tangut": {
+      "types": "./types/tangut.d.ts",
+      "default": "./src/tangut.js"
+    },
+    "./bopomofo": {
+      "types": "./types/bopomofo.d.ts",
+      "default": "./src/bopomofo.js"
+    },
+    "./small-seal": {
+      "types": "./types/small-seal.d.ts",
+      "default": "./src/small-seal.js"
+    },
+    "./new-korean": {
+      "types": "./types/new-korean.d.ts",
+      "default": "./src/new-korean.js"
+    },
+    "./shuishu": {
+      "types": "./types/shuishu.d.ts",
+      "default": "./src/shuishu.js"
+    },
+    "./document-source": {
+      "types": "./types/document-source.d.ts",
+      "default": "./src/document-source.js"
+    },
+    "./document-view": {
+      "types": "./types/document-view.d.ts",
+      "default": "./src/document-view.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "src",
+    "types",
+    "data",
+    "README.md",
+    "scripts",
+    "LICENSE",
+    "examples"
+  ],
+  "scripts": {
+    "test": "bun test tests",
+    "parity": "bun tests/parity/run.js",
+    "draw": "bun scripts/draw.js",
+    "check": "tsc -p tsconfig.json --noEmit",
+    "types": "tsc -p tsconfig.json",
+    "prepack": "bun run data && bun run types",
+    "data": "node scripts/data.mjs",
+    "pretest": "bun run data && bun run types",
+    "prepare": "bun run data && bun run types",
+    "parity:check": "bun tests/parity/run.js \"${COMPOSER_EXPORT:?set COMPOSER_EXPORT to an export-web --parity folder}\""
+  },
+  "devDependencies": {
+    "@types/bun": "1.3.14",
+    "playwright-core": "1.64.1",
+    "typescript": "5.9.3"
+  }
+}
