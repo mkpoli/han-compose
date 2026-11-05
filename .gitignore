@@ -15,3 +15,7 @@ js/types
 
 # The package's own copies: the licence, and the data `scripts/data.mjs` gathers
 js/LICENSE
+
+# The Rust kernel's build output.
+rust/target/
+src/han_compose/_raster*.so
