@@ -133,10 +133,10 @@ export function composerPreview({ base, separate = false, fontStyle = 'sans', lo
   /** @type {ReturnType<typeof composerPreview>} */
   const preview = async (sequence, options = {}) => {
     const { signal, onSketch } = options;
-    // What follows one description (an input method's marked text) is not drawn.
-    const text = splitDescription(sequence).base || sequence
+    // The loose marks travel with the sequence: the composer draws them, and the size check skips them.
+    const text = sequence
     const prepared = emojiSlots(text)
-    if (tooLarge(parseLoose(text))) throw new TooLargeError(`${text} is larger than ${LIMITS.nodes} operators or ${LIMITS.depth} levels.`)
+    if (tooLarge(parseLoose(splitDescription(text).base || text))) throw new TooLargeError(`${text} is larger than ${LIMITS.nodes} operators or ${LIMITS.depth} levels.`)
     signal?.throwIfAborted()
     const cached = drawings.get(text)
     if (cached) {
