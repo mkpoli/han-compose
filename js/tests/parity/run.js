@@ -8,7 +8,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { iou, pathMask } from '../../src/geometry.js'
-import { FLOOR, exportSource, measure, paritySets, summary } from './parity.js'
+import { FLOOR, GATED, exportSource, measure, paritySets, summary } from './parity.js'
 
 const arg = name => { const at = process.argv.indexOf(name); return at >= 0 ? process.argv[at + 1] : undefined }
 const folder = process.argv[2]
@@ -23,7 +23,7 @@ if (!sets.length) {
   process.exit(2)
 }
 const source = exportSource(folder)
-for (const [k, name] of sets.entries()) {
+for (const name of sets) {
   const parity = JSON.parse(readFileSync(join(folder, name), 'utf8'))
   const scores = await measure(source, parity, { iou: (a, b, size) => iou(pathMask(a, size), pathMask(b, size)) })
   const mean = scores.reduce((sum, row) => sum + row.score, 0) / scores.length
@@ -31,5 +31,5 @@ for (const [k, name] of sets.entries()) {
   for (const row of scores.slice().sort((a, b) => a.score - b.score).slice(0, worst)) {
     console.log(`  ${row.score.toFixed(3)} ${row.c} ${row.s}  python: ${row.python.join(', ')}  engine: ${row.error ?? row.engine.join(', ')}`)
   }
-  if (!k && mean < FLOOR) process.exitCode = 1
+  if (name === GATED && mean < FLOOR) process.exitCode = 1
 }
