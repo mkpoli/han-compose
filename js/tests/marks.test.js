@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'bun:test'
 import { readFileSync } from 'node:fs'
 import { gunzipSync } from 'node:zlib'
-import { isMark, isMarks, marksOf, normalizeMarks, parseDescription as parse, splitDescription, tokens, withMarks } from '../src/tree.js'
+import { descriptionEnd, isMark, isMarks, marksOf, normalizeMarks, parseDescription as parse, splitDescription, tokens, writeDescription, withMarks } from '../src/tree.js'
+import { traitsOf } from '../src/source.js'
+import { repeatedPart, repeatedText } from '../src/repeat-part.js'
+import { partScript } from '../src/part-script.js'
 import { drawingSvg } from '../src/drawing-svg.js'
 import { bopomofoSource } from '../src/bopomofo.js'
 import { unicodeSource } from '../src/unicode.js'
@@ -50,6 +53,34 @@ describe('loose marks', () => {
     expect(spans.map(token => token.text)).toEqual(['⿰', '亻', '木', 'ˊ'])
     expect(spans.at(-1)).toMatchObject({ path: [], start: 3, end: 4, text: 'ˊ' })
     expect(tokens('木ˊ').map(token => token.text)).toEqual(['木', 'ˊ'])
+  })
+})
+
+describe('reading loose marks', () => {
+  it('holds them on the description they trail, and writes them back', () => {
+    expect(parse('⿰木口\u0301')).toEqual({ op: '⿰', parts: ['木', '口'], marks: '\u0301' })
+    expect(parse('木\u0301')).toBe('木\u0301')
+    expect(writeDescription(parse('⿰木口\u0301\u0302'))).toBe('⿰木口\u0301\u0302')
+  })
+  it('leaves an empty draft with marks reading as its slots', () => {
+    expect(traitsOf('⿰⬚⬚\u0301').empty).toBe(true)
+    expect(traitsOf('⿰⬚⬚\u0301').loose).toBe(true)
+  })
+  it('repeats and classifies a marked part', () => {
+    expect(repeatedPart('⿰木口\u0301', 'part')).toEqual({ op: '⿰', parts: ['木', '口'], marks: '\u0301' })
+    expect(repeatedText(parse('⿰木口\u0301'), 'part')).toBe('⿰木口\u0301')
+    expect(partScript('⿰木口\u0301')).toBe('han')
+  })
+  it('keeps a tone mark on a stroke chain, and reads on after it', () => {
+    expect(parse('⿰#(H)\u302E木')).toEqual({ op: '⿰', parts: ['一\u302E', '木'] })
+    expect(descriptionEnd([...'#(H)\u302E木'], 0)).toBe(5)
+  })
+  it('refuses half of a surrogate pair as a component', () => {
+    expect(() => parse('⿰木\ud840')).toThrow(SyntaxError)
+  })
+  it('splits a mark that ends a component', () => {
+    expect(splitDescription('⬚\u0301')).toEqual({ base: '⬚\u0301', marks: '' })
+    expect(splitDescription('⿰가\u302E木\u0301')).toEqual({ base: '⿰가\u302E木', marks: '\u0301' })
   })
 })
 
@@ -104,11 +135,15 @@ describe('drawing loose marks', () => {
     // A combining mark over the drawing keeps the character its size.
     const attached = await compose(local, '⿰ㄅㄚ\u0301')
     expect(box(base(attached))[3]).toBeCloseTo(plainBox[3], 0)
-    // A Hangul tone mark takes the left, so the character shrinks toward the right.
+    // A Hangul tone mark takes the left of its own syllable, so that syllable shrinks to the right.
     const hangul = await compose(local, '⿰ㄅㄚ〮')
-    const hangulBase = box(base(hangul)), left = box(hangul.parts.filter(part => part.origin === 'mark 〮'))
-    expect(hangulBase[0]).toBeGreaterThan(plainBox[0] + 80)
-    expect(left[2]).toBeLessThanOrEqual(hangulBase[0])
+    const syllable = box(hangul.parts.filter(part => part.origin === 'glyph ㄚ'))
+    const plainSyllable = box(plain.parts.filter(part => part.origin === 'glyph ㄚ'))
+    const left = box(hangul.parts.filter(part => part.origin === 'mark 〮'))
+    expect(syllable[0]).toBeGreaterThan(plainSyllable[0] + 40)
+    expect(left[2]).toBeLessThanOrEqual(syllable[0])
+    // The mark stays on the syllable it follows, not on the whole description.
+    expect(left[0]).toBeGreaterThan(500)
   })
 
   it('attaches a combining mark over the drawing and a Hangul tone mark at the left', async () => {
@@ -123,7 +158,9 @@ describe('drawing loose marks', () => {
     const tone = await compose(local, '⿰ㄅㄚ〮')
     const left = tone.parts.at(-1)
     expect(left.origin).toBe('mark 〮')
-    expect(left.box[0]).toBeLessThan(200)
+    // At the left of ㄚ itself.
+    const syllable = tone.parts.find(part => part.origin === 'glyph ㄚ')
+    expect(left.box[0] + left.box[2]).toBeLessThanOrEqual(syllable.box[0])
   })
 
   it('fits long mark runs inside the drawing box', async () => {

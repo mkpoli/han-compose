@@ -195,13 +195,21 @@ export function parseDescription(sequence) {
     // A stroke chain that names a character stands for that character.
     if (char === '#' && !emoji) {
       const chain = strokeChain(chars, at - 1)
-      if (chain) { at = chain.end; return isSelector(chars[at]) ? chain.char + chars[at++] : chain.char }
+      if (chain) {
+        at = chain.end
+        const written = isSelector(chars[at]) ? chain.char + chars[at++] : chain.char
+        const end = toneMarksAt(chars, at)
+        const tones = chars.slice(at, end).join('')
+        at = end
+        return written + tones
+      }
     }
     const n = arity(char)
     if (!n) {
       if (EMPTY_MARKS.includes(char)) return null
       // An Emoji sequence may hold zero-width joiners; other invisible characters are not components.
       if (!emoji && /[\p{Cc}\p{Cf}\p{Z}]/u.test(char)) throw new SyntaxError(`${JSON.stringify(char)} is not a component.`)
+      if (!isComponent(char)) throw new SyntaxError(`${JSON.stringify(char)} is not a component.`)
       const cluster = hangulClusterAt(chars, at - 1)
       if (cluster) at = cluster.end
       const base = cluster ? cluster.text : !emoji && isSelector(chars[at]) ? char + chars[at++] : char
@@ -216,7 +224,13 @@ export function parseDescription(sequence) {
     const parts = Array.from({ length: n }, read)
     return note ? { op: char, parts, note } : { op: char, parts }
   }
-  const tree = read()
+  let tree = read()
+  // Loose marks trail the whole description; where a mark fills an operand, it is that operand.
+  if (at < chars.length && isMark(chars[at])) {
+    let marks = ''
+    while (at < chars.length && isMark(chars[at])) marks += chars[at++]
+    tree = withMarks(tree, marks)
+  }
   if (at < chars.length) throw new SyntaxError(`More follows one description in ${sequence}.`)
   return tree
 }
@@ -228,7 +242,7 @@ export function parseDescription(sequence) {
 const operatorText = node => node.op + (node.note && MODIFIER.test(node.note) ? `[${node.note}]` : '')
 
 /** A tree written back as a description, an empty slot as ⬚. @param {Part} tree @returns {string} */
-export const writeDescription = tree => isEmpty(tree) ? EMPTY : isNode(tree) ? operatorText(tree) + tree.parts.map(writeDescription).join('') : tree ?? EMPTY
+export const writeDescription = tree => isEmpty(tree) ? EMPTY : isNode(tree) ? operatorText(tree) + tree.parts.map(writeDescription).join('') + (tree.marks ?? '') : tree ?? EMPTY
 
 /**
  * Where the description starting at `chars[at]` ends: the index just past it, or -1 where none starts
@@ -243,15 +257,15 @@ export function descriptionEnd(chars, at = 0) {
   if (char === undefined) return -1
   const chain = strokeChain(chars, at)
   // A stroke chain stands for the character it names, and takes a variation selector like one.
-  if (chain) return isSelector(chars[chain.end]) ? chain.end + 1 : chain.end
+  if (chain) return toneMarksAt(chars, isSelector(chars[chain.end]) ? chain.end + 1 : chain.end)
   const n = arity(char)
   if (!n) {
     const emoji = EMOJI_START.test(char) ? emojiPrefix(chars.slice(at).join('')) : ''
-    if (emoji) return at + [...emoji].length
+    if (emoji) return toneMarksAt(chars, at + [...emoji].length)
     if (!isComponent(char) && !EMPTY_MARKS.includes(char)) return -1
     const cluster = hangulClusterAt(chars, at)
-    if (cluster) return cluster.end
-    return isSelector(chars[at + 1]) ? at + 2 : at + 1
+    if (cluster) return toneMarksAt(chars, cluster.end)
+    return toneMarksAt(chars, isSelector(chars[at + 1]) ? at + 2 : at + 1)
   }
   let end = at + 1
   const note = MODIFIABLE.has(char) ? modifierAt(chars, end) : ''
@@ -268,13 +282,14 @@ export function descriptionEnd(chars, at = 0) {
  * @returns {{ base: string, marks: string }}
  */
 export function splitDescription(text) {
+  // Most descriptions end on a component: without a mark at the end there is nothing to read.
   const chars = [...text ?? '']
   if (!isMark(chars[chars.length - 1])) return { base: text ?? '', marks: '' }
-  const end = descriptionEnd(chars, 0)
-  if (end <= 0) return { base: text ?? '', marks: '' }
-  let at = end
-  while (at < chars.length && isMark(chars[at])) at++
-  return at === chars.length ? { base: chars.slice(0, end).join(''), marks: chars.slice(end).join('') } : { base: text ?? '', marks: '' }
+  let tree
+  try { tree = parseDescription(text ?? '') } catch { return { base: text ?? '', marks: '' } }
+  if (tree === null) return { base: text ?? '', marks: '' }
+  const marks = marksOf(tree)
+  return marks ? { base: writeDescription(withoutMarks(tree)), marks } : { base: text ?? '', marks: '' }
 }
 
 /**
