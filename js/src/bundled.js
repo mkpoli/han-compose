@@ -9,7 +9,8 @@ export function bundledSource({ load, matches, fallback = null, under = false })
   // `ready()` fills `records`; callers ask for files and records after it resolves.
   let ready = null, records = null
   const owns = key => matches(key) && records?.[key] != null
-  const answers = (key, remote) => owns(key) && !(under && remote?.rec(key))
+  // A record with no outline cannot draw, whatever else it says of the key.
+  const answers = (key, remote) => owns(key) && !(under && remote?.rec(key)?.G)
   const source = {
     manifest: null, layout: null,
     ready() {
