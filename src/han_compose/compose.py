@@ -42,7 +42,7 @@ from itertools import combinations, pairwise
 from pathlib import Path
 
 import numpy as np
-from fontTools.pens.recordingPen import RecordingPen
+from fontTools.pens.recordingPen import DecomposingRecordingPen
 from fontTools.ttLib import TTFont
 
 from .vocab import BINARY, TERNARY, UNARY, read_rows
@@ -490,7 +490,7 @@ class Contour:
         return (*self.light.min(axis=0), *self.light.max(axis=0))
 
 
-def _contours(pen: RecordingPen) -> list[tuple[list, np.ndarray]]:
+def _contours(pen: DecomposingRecordingPen) -> list[tuple[list, np.ndarray]]:
     out, ops, points = [], [], []
     for op, args in pen.value:
         if op in ("closePath", "endPath"):
@@ -560,7 +560,7 @@ class Font:
             font, cmap, glyphs, scale = next(f for f in self.fallbacks if ord("丨") in f[1] and ord("一") in f[1])
             widths = []
             for char, axis in (("丨", 0), ("一", 1)):
-                pen = RecordingPen()
+                pen = DecomposingRecordingPen(glyphs)
                 glyphs[cmap[ord(char)]].draw(pen)
                 flat = [Contour(ops, p * scale, p * scale) for ops, p in _contours(pen)]
                 widths.append(_across(_rings(flat, [c.light for c in flat], steps=8), axis) / self.stem[axis][0])
@@ -575,7 +575,7 @@ class Font:
         name = self.cmap[ord(char)]
         out = []
         for glyphs in (self.light, self.heavy):
-            pen = RecordingPen()
+            pen = DecomposingRecordingPen(glyphs)
             glyphs[name].draw(pen)
             flat = [Contour(ops, p, p) for ops, p in _contours(pen)]
             out.append(_across(_rings(flat, [c.light for c in flat], steps=8), axis))
@@ -614,7 +614,7 @@ class Font:
             if name is None and len(char) == 1:
                 for _, cmap, glyphs, scale in self.fallbacks:
                     if ord(char) in cmap:
-                        pen = RecordingPen()
+                        pen = DecomposingRecordingPen(glyphs)
                         glyphs[cmap[ord(char)]].draw(pen)
                         # A static font has one weight: its heavy outline is the light one grown by as
                         # much as this font's stems of the same width grow at heavy, so its parts are
@@ -633,7 +633,7 @@ class Font:
                         part = Part(contours) if contours else None
                         break
             if name is not None:
-                light, heavy = RecordingPen(), RecordingPen()
+                light, heavy = DecomposingRecordingPen(self.light), DecomposingRecordingPen(self.heavy)
                 self.light[name].draw(light)
                 self.heavy[name].draw(heavy)
                 contours = [Contour(ops, p, q) for (ops, p), (_, q) in zip(_contours(light), _contours(heavy))]

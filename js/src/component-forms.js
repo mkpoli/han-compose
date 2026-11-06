@@ -17,8 +17,9 @@ const positions = Object.fromEntries(Object.entries(data.positions ?? {}).map(([
   new Map(Object.entries(entries).map(([name, group]) => [name,
     wound(makePart(group.map(([ops, points]) => ({ ops: commands(ops), light: points, heavy: points }))))]))]))
 const editorialForms = new Map(Object.entries(data.editorial ?? {}).flatMap(([id, entry]) => entry.forms.map(text => [text, id])))
-// Brush forms require an explicit Kureedo entry; bundled Sans forms must not replace them.
-const forms = style => styles[style] ?? (style === 'kaisho' ? null : styles.sans)
+/** Faces whose bundled forms come only from their own font: Noto's must not stand in for them. @param {string} style */
+export const ownFormsOnly = style => style === 'kaisho' || style === 'fangsong'
+const forms = style => styles[style] ?? (ownFormsOnly(style) ? null : styles.sans)
 export const containsComponentForm = (text, style = 'sans') => [...(forms(style)?.keys() ?? [])].some(key => text.includes(key))
 export const isGroupedForm = (text, style = 'sans') => (forms(style)?.get(text)?.parts.length ?? 0) > 1
 export const isComponentForm = (text, style = 'sans') => forms(style)?.has(text) ?? false

@@ -224,6 +224,14 @@ def kaisho() -> compose.Font:
     return compose.Font.of("kaisho")
 
 
+def test_a_composite_glyph_is_read_through_its_components() -> None:
+    if not _cached("fangsong"):
+        pytest.skip("The Fangsong fonts are not cached.")
+    font = compose.Font.of("fangsong")
+    accented, plain = font.glyph("é"), font.glyph("e")
+    assert accented is not None and len(accented.contours) > len(plain.contours)
+
+
 def test_fangsong_keeps_its_hosts_in_zhuque_and_takes_the_rest_from_jigmo() -> None:
     style = compose.STYLES["fangsong"]
     assert style.heavy == 400 and style.weighted is False and style.own_hosts and not style.kindred

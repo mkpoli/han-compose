@@ -17,7 +17,7 @@
 // before drawing again).
 import { EM_BOX, area, centre, count, derived, drawnBox, drawnContours, fill, fitted, grown, groupRings, makePart, mapped, partInk, partOf,
   placed, pointsBox, pyRound, raster, rings, scaleOf, shrunk, square, stretchOf, targetFor, union, within } from './geometry.js'
-import { componentParts, componentPosition, componentPositionBox, componentRecord, containsComponentForm, isComponentForm, isGroupedForm } from './component-forms.js'
+import { ownFormsOnly, componentParts, componentPosition, componentPositionBox, componentRecord, containsComponentForm, isComponentForm, isGroupedForm } from './component-forms.js'
 import { features, forward } from './layout.js'
 import { CONSTRUCTS, constructParts } from './constructs.js'
 import { pyramidCells } from './pyramid.js'
@@ -861,7 +861,7 @@ export class Composer {
     const yan = !this.separate && op === '⿸' && this.yanEnclosure(children, region)
     if (yan) return yan
     // Native compound forms have no trained layout features; fit their actual outlines.
-    if (this.hosted && this.layout && (!hasRepetition || this.fontStyle === 'kaisho') && children.length === 2 && this.hasHosts(op, children) && (atRoot ? this.layout.ops.includes(op) : op === '⿰' || op === '⿱')) {
+    if (this.hosted && this.layout && (!hasRepetition || ownFormsOnly(this.fontStyle)) && children.length === 2 && this.hasHosts(op, children) && (atRoot ? this.layout.ops.includes(op) : op === '⿰' || op === '⿱')) {
       const learned = this.learned(op, children, atRoot ? null : region)
       if (learned) return learned
     }
@@ -1070,7 +1070,7 @@ export class Composer {
   /** Place an arbitrary inner operand in the room designed for these native enclosures. */
   yanStackedDays(outer, contents) {
     const source = yanSources.get(keyOf(outer))
-    return !this.separate && this.fontStyle !== 'kaisho' && source && !this.excluded(source)
+    return !this.separate && !ownFormsOnly(this.fontStyle) && source && !this.excluded(source)
       && !this.excluded('昌') && !this.excluded('菖') && !this.excluded('儿') && !this.excluded('元')
       && Array.isArray(contents) && contents[0] === '⿱' && contents[1] === '儿'
       && ['昌', '⿱日日'].includes(keyOf(contents[2]))
@@ -1078,7 +1078,7 @@ export class Composer {
 
   /** Any ⿸ whose contents begin ⿱儿: the native legs join the enclosing bar. */
   legEnclosure(children, region) {
-    if (this.separate || this.fontStyle === 'kaisho') return null
+    if (this.separate || ownFormsOnly(this.fontStyle)) return null
     const key = keyOf(children[0]), contents = children[1]
     if (yanSources.has(key) || this.excluded('儿') || this.excluded('元') || this.excluded('詹')
       || !Array.isArray(contents) || contents[0] !== '⿱' || contents[1] !== '儿') return null
@@ -1116,7 +1116,7 @@ export class Composer {
   }
 
   yanEnclosure(children, region) {
-    if (this.fontStyle === 'kaisho') return null
+    if (ownFormsOnly(this.fontStyle)) return null
     const key = keyOf(children[0])
     if (!yanSources.has(key) || this.excluded(yanSources.get(key))) return null
     const outer = componentParts(key, region, this.fontStyle, true)
@@ -1656,7 +1656,7 @@ export class Composer {
     const [power, middle] = C.SHARES[`${op},${children.length}`] ?? [0.5, 1.0]
     const other = children[1]
     const compactYan = op === '⿰' && children[0] === '朱' && Array.isArray(other) && other[0] === '⿸'
-      && yanSources.has(keyOf(other[1])) && !this.separate && this.fontStyle !== 'kaisho'
+      && yanSources.has(keyOf(other[1])) && !this.separate && !ownFormsOnly(this.fontStyle)
       && !this.excluded('朱') && !this.excluded('鴸') && !this.excluded(yanSources.get(keyOf(other[1])))
     // A font compresses a stacked middle band, but a full part reads better with the share its own
     // ink asks for than with 0.75 of it: at 0.75 the 六 of ⿳山六廾 was 217 units high. Bars and
