@@ -4,8 +4,11 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
+import pytest
+import typer
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
@@ -51,3 +54,15 @@ def test_aligned_overlap_fills_each_part_apart() -> None:
 
 def test_a_set_with_nothing_drawn_still_reports() -> None:
     assert compose_ids._bench_summary([{"char": "甲"}]) == {"characters": 1, "drawn": 0, "failed_characters": "甲"}
+
+
+def test_the_benchmark_stops_where_a_layout_did_not_load(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(compose_ids, "_composer", lambda style, **options: SimpleNamespace(layout=None))
+    with pytest.raises(typer.BadParameter, match="is missing"):
+        compose_ids.bench(style="serif")
+
+
+def test_a_layout_linked_to_itself_counts_as_missing(tmp_path: Path) -> None:
+    link = tmp_path / "layout.npz"
+    link.symlink_to(link)
+    assert not link.exists()

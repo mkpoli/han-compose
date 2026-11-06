@@ -60,6 +60,13 @@ def _standalone_path(style: str = compose.DEFAULT_STYLE):
     return cache_root() / "compose" / compose.styled(compose_standalone.STANDALONE_FILE, style)
 
 
+def _require_layout(composer: compose.Composer, style: str) -> None:
+    """Stop where a style's learned layout did not load: without it every drawing falls back to whole
+    glyphs and geometry, which scores and exports nothing like the style."""
+    if composer.layout is None:
+        raise typer.BadParameter(f"{_layout_path(style)} is missing: `learn --style {style}` builds it.")
+
+
 def _composer(style: str = compose.DEFAULT_STYLE, **options) -> compose.Composer:
     """The composer in `style`, cutting hosts along KanjiVG's groups, with the learned layout and
     standalone model when `learn` and `learn-alone` have made them."""
@@ -215,6 +222,7 @@ def bench(chars: str = "benchmark", sample: int = 0, seed: int = 3, size: int = 
     would be, instead of first taking it whole from where others draw it.
     """
     composer = _composer(style, reuse=reuse)
+    _require_layout(composer, style)
     sets = _bench_sets() if chars == "benchmark" else {}
     names = "".join(sets.values()) if sets else joyo() if chars == "joyo" else sorted(composer.sequences)
     pool = []
@@ -301,8 +309,7 @@ def export_web(out: Path, parity: int = 0, held_out: int = 0, workers: int = 1, 
     from han_compose import web_export
 
     composer = _composer(style)
-    if composer.layout is None:
-        raise typer.BadParameter(f"{_layout_path(style)} is missing: `learn --style {style}` builds it.")
+    _require_layout(composer, style)
     if add:
         if add != "letters":
             raise typer.BadParameter(f"--add takes letters, not {add}.")
