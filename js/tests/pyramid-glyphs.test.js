@@ -24,7 +24,6 @@ const fixture = (missing = '') => {
   built.set(missing, source)
   return source
 }
-const inkOnly = drawing => ({ ...drawing, parts: drawing.parts.map(({ leaf, ...part }) => part) })
 
 const cases = [...new Map(catalog.entries.flatMap(({ char, part, sequence, pair }) =>
   [sequence, `⿱${part}${pair}`, `⿱${part}⿰${part}${part}`].map(ids => [ids, char])))]

@@ -2,7 +2,6 @@ const CHARS = "木口永人大小工土火又水屮㗊燚叕㵘茻林矛彳亍�
 import { expect, it } from 'bun:test'
 import { Composer } from '../src/compose.js'
 import { compose, createSource, sketch } from '../src/loader.js'
-import { groupParts } from '../src/group-parts.js'
 import { files, shards } from './fixtures/small-export.js'
 
 const fixture = (missing = '') => {
@@ -16,7 +15,6 @@ const fixture = (missing = '') => {
     return body === undefined ? null : new Uint8Array(Buffer.from(body)).buffer
   })
 }
-const inkOnly = drawing => ({ ...drawing, parts: drawing.parts.map(({ leaf, ...part }) => part) })
 
 it('cancels paired transforms before lookup, layout and approximation reporting', async () => {
   const source = fixture()

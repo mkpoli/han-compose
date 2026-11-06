@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 import { readFileSync } from 'node:fs'
 import { gunzipSync } from 'node:zlib'
-import { createHash } from 'node:crypto'
 import { isComponent, isLetter, isNewKorean, parseDescription as parse, writeDescription as write } from '../src/tree.js'
 import { characterScript } from '../src/scripts.js'
 import { partScript } from '../src/part-script.js'

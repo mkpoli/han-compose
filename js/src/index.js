@@ -9,7 +9,7 @@ import { groupParts } from './group-parts.js'
 import { onlyBundled } from './local.js'
 import { LIMITS, LookupError, PYRAMID_LAYERS, compose, createSource, fromUrl, size, sketch, svgBox, tooLarge } from './loader.js'
 import { parseTree } from './compose.js'
-import { parseDescription, splitDescription } from './tree.js'
+import { splitDescription } from './tree.js'
 import outlines from '../data/unicode/outlines.json' with { type: 'json' }
 
 export { APPROXIMATE, EMPTY }

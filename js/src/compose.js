@@ -896,7 +896,7 @@ export class Composer {
       const glyph = this.glyph(encoded)
       let tree = typeof node !== 'string' ? node : null
       if (!tree && this.sequenceOf(encoded) && !this.excluded(encoded)) {
-        try { tree = this.parse(this.sequenceOf(encoded)) } catch (error) {
+        try { tree = this.parse(this.sequenceOf(encoded)) } catch {
           if (!glyph) throw new LookupError(`${encoded} has no glyph, and its sequence is malformed.`)
         }
         if (typeof tree === 'string') tree = null
@@ -1732,7 +1732,7 @@ export class Composer {
       const boxes = this.predict(op, children), frame = union(boxes)
       if (frame[2] > frame[0] && frame[3] > frame[1] && boxes.every(b => b[2] > b[0] && b[3] > b[1])) {
         const [first, second] = boxes.map(b => mapped(b, frame, region))
-        const across = 1 - axis, lo = region[axis], hi = region[axis + 2]
+        const lo = region[axis], hi = region[axis + 2]
         const gap = (hi - lo) * 0.01, edge = (first[axis + 2] + second[axis]) / 2
         const ranges = [[Math.max(first[axis], lo), Math.min(first[axis + 2], edge - gap)],
           [Math.max(second[axis], edge + gap), Math.min(second[axis + 2], hi)]]

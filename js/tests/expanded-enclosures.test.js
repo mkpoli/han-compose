@@ -16,7 +16,7 @@ const fixture = (missing = '', records = []) => {
     return body === undefined ? null : new Uint8Array(Buffer.from(body)).buffer
   })
 }
-const inkOnly = drawing => ({ ...drawing, parts: drawing.parts.map(({ leaf, ...part }) => part) })
+const inkOnly = drawing => ({ ...drawing, parts: drawing.parts.map(({ leaf: _leaf, ...part }) => part) })
 
 const cases = [["⿵⿲彳⿱山一攵", "⿲彳⿱⿱山一{inner}攵"], ["⿴⿰彳亍", "⿲彳{inner}亍"], ["⿴⿰弓弓", "⿲弓{inner}弓"], ["⿴⿰𤣩王", "⿲𤣩{inner}王"], ["⿴⿰辛辛", "⿲辛{inner}辛"], ["⿴⿰隹隹", "⿲隹{inner}隹"], ["⿴⿱亠𧘇", "⿳亠{inner}𧘇"], ["⿸⿰方𠂉", "⿰方⿱𠂉{inner}"], ["⿹⿰匕頁", "⿰⿱匕{inner}頁"], ["⿸⿰𠦝𠆢", "⿰𠦝⿱𠆢{inner}"], ["⿶⿱⿰弓弓鬲", "⿱⿲弓{inner}弓鬲"], ["⿹⿰⿳士冖一殳", "⿰⿱⿳士冖一{inner}殳"]]
 

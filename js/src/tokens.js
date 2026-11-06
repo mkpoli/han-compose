@@ -22,7 +22,7 @@ export function tokens(text) {
   const out = []
   let at = 0
   /** What follows the offset, by code point. */
-  const rest = () => [...text.slice(at)]
+  const rest = () => [...text.slice(at)] // oxlint-disable-line unicorn/no-useless-spread -- `text` is a string, and the spread splits it by code point
   /** A variation selector at the offset, stepped over. */
   const selector = () => { const next = rest()[0]; if (isSelector(next)) at += next.length }
   /** Tone marks at the offset, stepped over: they stay with the component before them. */

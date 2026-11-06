@@ -71,7 +71,7 @@ export function markParts(composer, marks, frame = composer.face, attachedFrame 
   const width = x1 - x0, height = y1 - y0
   const base = height / 900, inset = height * 0.02
   const [ax0, ay0, ax1, ay1] = attachedFrame
-  const aWidth = ax1 - ax0, aHeight = ay1 - ay0
+  const aHeight = ay1 - ay0
   const aBase = aHeight / 900, aInset = aHeight * 0.02
   /** @type {{ char: string, part: any, kind: string }[]} */
   const glyphs = []
