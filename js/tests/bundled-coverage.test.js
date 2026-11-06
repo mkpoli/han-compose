@@ -9,9 +9,10 @@ import { hasTangut } from '../src/tangut.js'
 import { hasBopomofo } from '../src/bopomofo.js'
 import { hasSmallSeal } from '../src/small-seal.js'
 import { hasShuishu } from '../src/shuishu.js'
+import { hasJurchen } from '../src/jurchen.js'
 
 it('indexes the exact scalar outlines in each dedicated bundle', () => {
-  for (const name of ['tangut', 'bopomofo', 'small-seal', 'shuishu']) {
+  for (const name of ['tangut', 'bopomofo', 'small-seal', 'shuishu', 'jurchen']) {
     const { records } = JSON.parse(gunzipSync(readFileSync(new URL(`../data/sources/${name}/outlines.json.gz`, import.meta.url))))
     const points = Object.entries(records).filter(([key, rec]) => [...key].length === 1 && rec.G?.p?.length).map(([key]) => key.codePointAt(0)).sort((a, b) => a - b)
     const ranges = []
@@ -54,7 +55,7 @@ it('lets absent bundled keys reach the fallback with their host metadata', async
 })
 
 it('keeps every indexed bundle glyph inside its bundle matcher', () => {
-  const matchers = { tangut: hasTangut, bopomofo: hasBopomofo, 'small-seal': hasSmallSeal, shuishu: hasShuishu }
+  const matchers = { tangut: hasTangut, bopomofo: hasBopomofo, 'small-seal': hasSmallSeal, shuishu: hasShuishu, jurchen: hasJurchen }
   for (const [name, ranges] of Object.entries(coverage)) {
     for (const [first, last] of ranges) for (let cp = first; cp <= last; cp++) {
       expect(matchers[name](String.fromCodePoint(cp))).toBe(true)

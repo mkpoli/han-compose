@@ -20,7 +20,7 @@
 /** @typedef {{ index: number, box: number[], empty: boolean }} SketchLeaf */
 /** @typedef {[number, number, number, number]} Box */
 /** @typedef {{ node: Node, leaf: number | null, region: Box | null }} LayerInfo */
-/** @typedef {{ source: LayerSource, complete: boolean, issues: string[], info: Map<string, LayerInfo> }} DocumentSource */
+/** @typedef {{ source: LayerSource, complete: boolean, issues: string[], info: Map<string, LayerInfo>, partsByLeaf: Map<number, DrawingPart[]> }} DocumentSource */
 /** A scoped drawing and a layer's frame, as the document renderer makes them: the engine passes the
  *  renderer's own values through, so the kinds are named here and typed by the package that writes them.
  *  @typedef {any} Scopes
@@ -244,6 +244,7 @@ export function documentSource(document, drawing, sketch) {
     issues,
     // Each node's leaf and region, for a view that draws something beside the ink in a leaf's frame.
     info,
+    partsByLeaf: parts,
   }
 }
 

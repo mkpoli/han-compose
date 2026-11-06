@@ -151,6 +151,10 @@
       "types": "./types/shuishu.d.ts",
       "default": "./src/shuishu.js"
     },
+    "./jurchen": {
+      "types": "./types/jurchen.d.ts",
+      "default": "./src/jurchen.js"
+    },
     "./document-source": {
       "types": "./types/document-source.d.ts",
       "default": "./src/document-source.js"
@@ -175,6 +179,7 @@
     "parity": "bun tests/parity/run.js",
     "draw": "bun scripts/draw.js",
     "check": "tsrs -p tsconfig.json --noEmit",
+    "lint": "oxlint src scripts tests examples",
     "types": "tsrs -p tsconfig.json",
     "prepack": "bun run data && bun run types",
     "data": "node scripts/data.mjs",
@@ -184,6 +189,7 @@
   },
   "devDependencies": {
     "@types/bun": "1.4.4",
+    "oxlint": "1.91.0",
     "playwright-core": "1.65.0",
     "tsrs": "0.22.0-ts7.1.0-beta"
   }
