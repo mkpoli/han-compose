@@ -61,6 +61,9 @@ uv run --extra train scripts/compose_ids.py learn
 uv run --extra train scripts/compose_ids.py learn-alone
 ```
 
+The composer's mask and ring kernels are in Rust (`rust/`), so installing needs a Rust toolchain; `uv sync`
+builds them.
+
 Drawing with the guide needs `onnxruntime`, and training needs `torch`. `uv sync --all-extras --group dev`
 keeps both: syncing one extra alone drops the other.
 

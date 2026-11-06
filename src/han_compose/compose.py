@@ -45,6 +45,8 @@ import numpy as np
 from fontTools.pens.recordingPen import RecordingPen
 from fontTools.ttLib import TTFont
 
+from ._raster import fill
+from ._raster import ring as _ring
 from .vocab import BINARY, TERNARY, UNARY, read_rows
 
 # Generated from the pinned BabelStone IDS catalog; see docs/pyramid-glyphs.md.
@@ -3387,41 +3389,12 @@ def _ring_plan(ops: tuple[tuple[str, int, bool], ...], steps: int) -> tuple:
 
 def _rings(contours: list[Contour], points: list[np.ndarray], steps: int = 6) -> list[np.ndarray]:
     rings = []
-    t = _steps(steps)
+    t = _steps(steps).ravel()
     for contour, pts in zip(contours, points):
         first, second, curved, offs, lines, samples, size = _ring_plan(tuple(contour.ops), steps)
-        if size < 3:
-            continue
-        on = (pts[first] + pts[second]) / 2
-        ring = np.empty((size, 2))
-        ring[lines] = np.delete(on, curved, axis=0)
-        if len(curved):
-            ring[samples] = ((1 - t) ** 2 * on[curved - 1, None] + 2 * (1 - t) * t * pts[offs, None] + t ** 2 * on[curved, None]).reshape(-1, 2)
-        rings.append(ring)
+        if size >= 3:
+            rings.append(_ring(pts, first, second, curved, offs, lines, samples, size, t))
     return rings
-
-
-def fill(rings: list[np.ndarray], size: int, box: Box) -> np.ndarray:
-    """A size × size mask of `box` (x0, y0, x1, y1, y up), filled by the nonzero rule at pixel centres."""
-    x0, y0, x1, y1 = box
-    xs = x0 + (np.arange(size) + 0.5) * (x1 - x0) / size
-    ys = y1 - (np.arange(size) + 0.5) * (y1 - y0) / size
-    if not rings:
-        return np.zeros((size, size), bool)
-    a = np.concatenate(rings)
-    b = np.concatenate([np.roll(r, -1, axis=0) for r in rings])
-    # Every row's crossings at once: an edge crossing row r at x adds its direction to the winding
-    # of every pixel centre right of x, which a running sum along the row spreads from x on.
-    y = ys[:, None]
-    up = (a[None, :, 1] <= y) & (b[None, :, 1] > y)
-    rows, edges = np.nonzero(up | ((a[None, :, 1] > y) & (b[None, :, 1] <= y)))
-    if not len(rows):
-        return np.zeros((size, size), bool)
-    p, q = a[edges], b[edges]
-    x = p[:, 0] + (ys[rows] - p[:, 1]) * (q[:, 0] - p[:, 0]) / (q[:, 1] - p[:, 1])
-    delta = np.zeros((size, size + 1), np.int32)
-    np.add.at(delta, (rows, np.searchsorted(xs, x, side="right")), np.where(up[rows, edges], 1, -1))
-    return np.cumsum(delta[:, :size], axis=1) != 0
 
 
 def raster(placed: list[Placed], size: int = 128) -> np.ndarray:
