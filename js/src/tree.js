@@ -1,5 +1,5 @@
 // @ts-check
-// The engine's own text layer: a description read, written and measured, the tokens a field edits,
+// The engine's own text layer: a description read, written and measured,
 // where a description stops inside longer text (an input method's marked text, ⿰亻哥と), and the loose
 // marks that may trail one. It reads the same notation the composer is given: zi.tools stroke chains,
 // Emoji and jamo runs as one part, an operator's modifier, a slot (⬚, or ＋ as older drafts write it).
@@ -19,6 +19,8 @@ export const EMPTY = '⬚'
 export const EMPTY_MARKS = [EMPTY, '＋']
 /** The operators that take a zi.tools modifier after them: an overlay's matrix, an enclosure's index. */
 const MODIFIABLE = new Set(['⿻', '⿴', '⿵', '⿶', '⿷', '⿼', '㇯'])
+/** Whether an operator takes a modifier written after it. @param {string} op */
+export const takesModifier = op => MODIFIABLE.has(op)
 const MODIFIER = /^[0-9:,._xabcdlr|-]+$/u
 
 /** The letters the New Korean Orthography added, at the proposed allocations. */
@@ -383,57 +385,4 @@ export function replaceAt(tree, path, part) {
  */
 export function leaves(tree, path = []) {
   return isNode(tree) ? tree.parts.flatMap((part, i) => leaves(part, [...path, i])) : [{ path, leaf: tree }]
-}
-
-/**
- * `text` split into tokens, with UTF-16 offsets that match a native input's, supplementary characters
- * and selectors included: each operator or component a token, an operator's modifier inside its own,
- * and loose marks a token at the end. A draft that does not read has no tokens.
- * @typedef {{ path: number[], start: number, end: number, tokenEnd: number, text: string, noteStart?: number, noteEnd?: number }} Token
- * @param {string} text
- * @returns {Token[]}
- */
-export function tokens(text) {
-  const chars = [...text ?? '']
-  if (!text || descriptionEnd(chars, 0) < 0) return []
-  /** @type {Token[]} */
-  const out = []
-  let at = 0
-  /** @param {number[]} path */
-  function read(path) {
-    const start = at
-    const chain = strokeChain(chars, start)
-    if (chain) {
-      at = chain.end
-      if (isSelector(chars[at])) at++
-      out.push({ path, start, end: at, tokenEnd: at, text: chars.slice(start, at).join('') })
-      return
-    }
-    const emoji = EMOJI_START.test(chars[at] ?? '') ? emojiPrefix(chars.slice(at).join('')) : ''
-    const char = emoji || chars[at]
-    const n = arity(char)
-    const cluster = hangulClusterAt(chars, at)
-    let noteStart = 0, noteEnd = 0
-    if (emoji) at += [...emoji].length
-    else if (cluster) at = cluster.end
-    else {
-      if (at < chars.length) at++
-      if (n) {
-        const note = MODIFIABLE.has(char) ? modifierAt(chars, at) : ''
-        if (note) { noteStart = at; at += [...note].length + 2; noteEnd = at }
-      } else if (isSelector(chars[at])) at++
-    }
-    const token = { path, start, end: at, tokenEnd: at, text: chars.slice(start, at).join(''), ...(noteStart ? { noteStart, noteEnd } : {}) }
-    out.push(token)
-    for (let i = 0; i < n; i++) read([...path, i])
-    token.end = at
-  }
-  read([])
-  // Loose marks trail the whole description: they get a token of their own at the end, belonging to
-  // the root, while the root's span reaches over them so a selection of the whole still finds it.
-  if (out.length && at < chars.length && isMark(chars[at])) {
-    out[0].end = chars.length
-    out.push({ path: [], start: at, end: chars.length, tokenEnd: chars.length, text: chars.slice(at).join('') })
-  }
-  return out
 }
