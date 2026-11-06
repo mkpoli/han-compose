@@ -39,7 +39,7 @@ class Group:
     element: str | None
     position: str | None
     strokes: list[int] = field(default_factory=list)
-    groups: list["Group"] = field(default_factory=list)
+    groups: list[Group] = field(default_factory=list)
 
     def all_strokes(self) -> list[int]:
         out = list(self.strokes)
@@ -133,11 +133,11 @@ def load(path: str) -> dict[str, Entry]:
             continue
         paths: list[np.ndarray] = []
 
-        def build(node) -> Group:
+        def build(node, paths=paths) -> Group:
             g = Group(node.get(KVG + "element"), node.get(KVG + "position"))
             for child in node:
                 if child.tag == "g":
-                    g.groups.append(build(child))
+                    g.groups.append(build(child, paths))
                 elif child.tag == "path":
                     g.strokes.append(len(paths))
                     paths.append(sample_path(child.get("d", "")))
@@ -218,7 +218,7 @@ class Cutter:
                     # An outline no centreline runs inside: the stroke nearest to it.
                     dists = [gap(inks[k][::3], em[::2]) for em in strokes_em]
                     best = int(np.argmin(dists))
-                    owners[k].add(best)
+                    own.add(best)
                     far = max(far, dists[best])
             # A centreline further than a stroke and a half from any outline: the drawings disagree.
             if far <= 1.5 * self.c.font.stem[0][0] * 1.5:

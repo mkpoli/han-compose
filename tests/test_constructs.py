@@ -1,6 +1,7 @@
 import pytest
 
-from han_compose import compose as C, compose_layout
+from han_compose import compose as C
+from han_compose import compose_layout
 from han_compose.vocab import cache_root
 
 

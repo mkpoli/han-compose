@@ -1,8 +1,10 @@
 import json
 from pathlib import Path
 from types import SimpleNamespace
+
 import numpy as np
 import pytest
+
 from han_compose import compose
 
 CATALOG = json.loads(Path(compose.__file__).with_name("pyramid-glyphs.json").read_text())["entries"]

@@ -1,3 +1,4 @@
+import itertools
 from types import SimpleNamespace
 
 import numpy as np
@@ -301,7 +302,7 @@ def test_reference_shares_keep_baseline_weights_and_gaps(reference_composer, mon
     lengths = [box[axis + 2] - box[axis] for box in boxes]
     assert lengths == pytest.approx([100 * (1 - gap * (count - 1)) * w / sum(weights) for w in weights])
     spans = sorted((box[axis], box[axis + 2]) for box in boxes)
-    assert [b[0] - a[1] for a, b in zip(spans, spans[1:])] == pytest.approx([100 * gap] * (count - 1))
+    assert [b[0] - a[1] for a, b in itertools.pairwise(spans)] == pytest.approx([100 * gap] * (count - 1))
 
 
 def test_recursive_reference_sketch_matches_baseline_shares(reference_composer, monkeypatch):
@@ -542,7 +543,7 @@ def test_face_cache_matches_fresh_exclusions(reference_composer, monkeypatch, in
     if c.exclude:
         assert c.face == glyphs["B"].box and "A" not in reads
     reads.clear()
-    c.face
+    _ = c.face
     assert reads == []
     c.exclude.update({"A", "B"})
     assert c.face == (0.0, compose.ASCENT - compose.EM, compose.EM, compose.ASCENT)

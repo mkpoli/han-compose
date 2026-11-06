@@ -9,8 +9,9 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
-import compose_ids  # noqa: E402
-from han_compose import compose  # noqa: E402
+import compose_ids
+
+from han_compose import compose
 
 
 def _square(x: float, y: float, side: float) -> compose.Placed:

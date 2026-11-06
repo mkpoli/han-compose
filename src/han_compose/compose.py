@@ -516,7 +516,7 @@ class Part:
 
     contours: list[Contour]
 
-    def split(self, indices: list[int]) -> tuple["Part", "Part"]:
+    def split(self, indices: list[int]) -> tuple[Part, Part]:
         """This part's contours at `indices`, and the rest, both in the original order."""
         take = set(indices)
         return (Part([c for k, c in enumerate(self.contours) if k in take]),
@@ -564,7 +564,7 @@ class Font:
         #: The fallbacks' stroke widths against this font's at 400, across x and across y.
         self.family = None
         if not self.style.kindred:
-            font, cmap, glyphs, scale = next(f for f in self.fallbacks if ord("丨") in f[1] and ord("一") in f[1])
+            _font, cmap, glyphs, scale = next(f for f in self.fallbacks if ord("丨") in f[1] and ord("一") in f[1])
             widths = []
             for char, axis in (("丨", 0), ("一", 1)):
                 pen = DecomposingRecordingPen(glyphs)
@@ -2450,7 +2450,7 @@ class Composer:
             out = self._node(child, region, at_root)
             for item in out:
                 axes = (0,) if op == "⿾" else (0, 1)
-                def reflect(points):
+                def reflect(points, item=item, axes=axes):
                     reflected = points.copy()
                     for axis in axes:
                         reflected[:, axis] = item.source[axis] + item.source[axis + 2] - reflected[:, axis]
@@ -3167,7 +3167,7 @@ def _fit_under_cover(op: str, children: list[Node], groups: list[list[Placed]]) 
             source_centre = (source[:, 0].min() + source[:, 0].max()) / 2
             scale = (placed.target[2] - placed.target[0]) / max(placed.source[2] - placed.source[0], 1)
             shift = ((cover_box[0] + cover_box[2]) / 2 - bar_centre) / scale
-            move = lambda points: np.column_stack([
+            move = lambda points, source_centre=source_centre, shift=shift, factor=factor: np.column_stack([
                 source_centre + shift + (points[:, 0] - source_centre) * factor, points[:, 1]])
             replacement = Contour(contour.ops, move(contour.light), move(contour.heavy), contour.width)
             contours = [replacement if c is contour else c for c in placed.part.contours]
