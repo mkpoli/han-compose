@@ -1839,14 +1839,16 @@ export class Composer {
     const C = this.C, k = keyOf(node)
     if (k.includes(EMPTY)) return null
     const names = [k, ...(this.bySequence(k) ? [this.bySequence(k)] : [])]
-    if (names.some(n => this.excluded(n)) && !this.stroked(node)) return null
+    const redrawn = names.some(n => this.excluded(n))
+    if (redrawn && !this.stroked(node)) return null
     let best = null
     const need = this.outlines(node), stroked = this.stroked(node)
     for (const name of names) {
       for (const place of this.data.places(name)) {
         if (C.SIDED_PLACES.includes(place)) continue
         for (const h of upTo(this.hostsOf(name, place), C.INSTANCE_HOSTS)) {
-          if (this.excluded(h.h)) continue
+          // A character redrawn to test takes nothing from a host built of itself (吉 from 嚞).
+          if (this.excluded(h.h) || (redrawn && h.ok.some(other => names.includes(other)))) continue
           const cut = this.cutOf(h)
           if (stroked && cut.count !== need) continue
           if (cut.count < C.INSTANCE_KEPT * need) continue
