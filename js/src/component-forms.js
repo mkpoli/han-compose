@@ -1,18 +1,26 @@
 // @ts-nocheck
 // Shape-specific font-derived forms. Keep the caller's IDS; encoded counterparts can vary by region.
 import data from './component-forms.json' with { type: 'json' }
+import numbered from '../../data/numbered-forms.json' with { type: 'json' }
 import constants from './constants.json' with { type: 'json' }
 import { WINDING, commands, derived, makePart, mapped, partInk, placed, svgPath, union, windingOf, wound } from './geometry.js'
 
+const formOf = groups => {
+  const parts = groups.map(group => makePart(group.map(([ops, points]) => ({ ops: commands(ops), light: points, heavy: points }))))
+  // A form's groups were cut from one glyph: its outermost contour winds them all alike, and a
+  // group that is a counter stays opposite the groups it sits in.
+  const back = windingOf(parts.flatMap(part => part.contours.map(c => c.light)))
+  if (back && back !== WINDING) for (const part of parts) part.reverse = true
+  return { parts, frame: union(parts.map(p => p.box)), ink: parts.reduce((n, p) => n + partInk(p), 0) }
+}
 const styles = Object.fromEntries(Object.entries(data.forms).map(([style, forms]) => [style,
-  new Map(Object.entries(forms).map(([text, groups]) => {
-    const parts = groups.map(group => makePart(group.map(([ops, points]) => ({ ops: commands(ops), light: points, heavy: points }))))
-    // A form's groups were cut from one glyph: its outermost contour winds them all alike, and a
-    // group that is a counter stays opposite the groups it sits in.
-    const back = windingOf(parts.flatMap(part => part.contours.map(c => c.light)))
-    if (back && back !== WINDING) for (const part of parts) part.reverse = true
-    return [text, { parts, frame: union(parts.map(p => p.box)), ink: parts.reduce((n, p) => n + partInk(p), 0) }]
-  }))]))
+  new Map(Object.entries(forms).map(([text, groups]) => [text, formOf(groups)]))]))
+// Numbered components draw in the palette tile only. Keeping their forms out of `styles` leaves the
+// composer's glyph records reachable for separated and cell layouts; the sequence itself draws from
+// `numbered-sans-outlines.json.gz` in the surface source.
+const numberedStyles = Object.fromEntries(Object.entries(numbered.forms).map(([style, entries]) => [style,
+  new Map(Object.entries(entries).map(([text, groups]) => [text, formOf(groups)]))]))
+const numberedDrawing = (text, style) => numberedStyles[style]?.get(text) ?? null
 const positions = Object.fromEntries(Object.entries(data.positions ?? {}).map(([style, entries]) => [style,
   new Map(Object.entries(entries).map(([name, group]) => [name,
     wound(makePart(group.map(([ops, points]) => ({ ops: commands(ops), light: points, heavy: points }))))]))]))
@@ -43,6 +51,11 @@ export function componentParts(text, region = constants.face, style = 'sans', at
   return parts.map(part => ({ ...placed(part, part.box, mapped(part.box, frame, target), ink, origin), fixed: true }))
 }
 export function componentDrawing(text, style = 'sans') {
+  const form = numberedDrawing(text, style)
+  if (form) {
+    const parts = form.parts.map(part => placed(part, part.box, mapped(part.box, form.frame, constants.face), form.ink, `${style}: ${text}`))
+    return { d: svgPath(parts), approximate: [] }
+  }
   const parts = componentParts(text, constants.face, style)
   return parts ? { d: svgPath(parts), approximate: [] } : null
 }

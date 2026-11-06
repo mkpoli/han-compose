@@ -410,7 +410,7 @@ export class Composer {
     return this.node(base, region)
   }
 
-  glyphRecord(ch) { return this.rec(ch)?.G ?? null }
+  glyphRecord(ch) { const record = this.rec(ch); const glyph = record?.G; if (glyph && record.sg && !glyph.sg) glyph.sg = record.sg; return glyph ?? null }
   glyph(ch) { const g = this.glyphRecord(ch); return g ? partOf(g) : null }
   /** Whether the variable font draws `ch`: its strokes can be weighted. */
   own(ch) { return this.glyphRecord(ch)?.v === 1 }
@@ -2000,7 +2000,7 @@ export class Composer {
       for (let c = 0; c < size; c++) heights[c] = blocked[row * size + c] ? 0 : heights[c] + 1
       const stack = []
       for (let col = cols[0]; col <= cols[1]; col++) {
-        const h = col < size ? heights[col] : 0
+        const h = col < cols[1] ? heights[col] : 0
         while (stack.length && heights[stack.at(-1)] >= h) {
           const top = stack.pop()
           const height = heights[top], left = stack.length ? stack.at(-1) + 1 : cols[0], width = col - left
