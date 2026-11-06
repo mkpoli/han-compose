@@ -19,6 +19,19 @@ it('draws every palette fallback as an editable component', async () => {
   }
 })
 
+it('draws the numbered components with no description at their private-use code points', async () => {
+  const chars = JSON.parse(readFileSync(new URL('../data/palette/fallback-characters.json', import.meta.url)))
+  const outlines = JSON.parse(gunzipSync(readFileSync(new URL('../data/sources/palette/outlines.json.gz', import.meta.url))))
+  const numbered = chars.filter(char => /\p{Co}/u.test(char))
+  expect(numbered).toHaveLength(69)
+  const source = paletteSource({ load: async () => outlines })
+  const [first] = numbered
+  expect(onlyBundled(`⿰${first}${first}`)).toBe(true)
+  const drawn = await compose(source, `⿰${first}${first}`, { separate: true })
+  expect(drawn.parts).toHaveLength(2)
+  expect(drawn.origins).toContain(`glyph ${first}`)
+})
+
 describe('the palette under an export', () => {
   const record = { o: 1, ink: 1 }
   const exported = rec => ({
