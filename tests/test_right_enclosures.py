@@ -56,7 +56,7 @@ def test_lower_right_fallback_places_the_inner_part_above_and_left(monkeypatch):
     c, _, _ = composer("⿽")
     monkeypatch.setattr(c, "_room", lambda *args: None)
     monkeypatch.setattr(C, "_fit_inside", lambda *args: None)
-    outer, inner = c.compose("⿽AB")
+    _outer, inner = c.compose("⿽AB")
     assert (inner.target[0] + inner.target[2]) / 2 < 50
     assert (inner.target[1] + inner.target[3]) / 2 > 50
 

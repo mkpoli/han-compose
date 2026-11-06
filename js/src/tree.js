@@ -34,7 +34,7 @@ export const isShuishu = text => SHUISHU.test(text ?? '')
 export const JURCHEN = /[\u{18E00}-\u{19191}\u{191A0}-\u{191D2}]/u
 /** Whether `text` holds a Jurchen character or radical. @param {string | null | undefined} text */
 export const isJurchen = text => JURCHEN.test(text ?? '')
-/** A Jurchen character followed by a variation selector, the key a variant description names. */
+/** A Jurchen character with one of the selectors its variant sequences use. */
 export const JURCHEN_VARIANT = /^[\u{18E00}-\u{19191}][\uFE00-\uFE04]$/u
 /** Whether `text` holds one of the New Korean letters. @param {string | null | undefined} text */
 export const isNewKorean = text => NEW_KOREAN.test(text ?? '')

@@ -66,7 +66,7 @@ def _draw(char: str) -> dict | None:  # pragma: no cover - runs in each worker
     c.exclude = {char}
     try:
         placed = c.compose(seq)
-    except Exception:
+    except Exception:  # noqa: BLE001 - any failure to compose skips the character
         return None
     glyph = c.font.glyph(char)
     if glyph is None:
@@ -123,8 +123,8 @@ def samples(take: int = 20000, start: int = 0, workers: int = 4, out: Path | Non
 def _model(width: int):
     """The U-Net the guide runs: three channels in (draft, and each operand), ink out."""
     import torch
-    import torch.nn as nn
     import torch.nn.functional as F
+    from torch import nn
 
     def block(i: int, o: int) -> nn.Sequential:
         return nn.Sequential(nn.Conv2d(i, o, 3, padding=1), nn.GroupNorm(8, o), nn.GELU(),

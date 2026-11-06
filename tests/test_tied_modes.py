@@ -1,7 +1,9 @@
 """Font-free standalone selection regressions for tied contour-count modes."""
 from types import SimpleNamespace as NS
+
 import numpy as np
 import pytest
+
 from han_compose import compose as C
 
 

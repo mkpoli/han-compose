@@ -92,11 +92,9 @@ def test_rejected_learned_pair_uses_geometric_path_once(monkeypatch, at_root):
 
     def transplant(*args):
         calls.append("transplant")
-        return None
 
     def template(*args, **kwargs):
         calls.append("template")
-        return None
 
     def shares(*args):
         calls.append("shares")

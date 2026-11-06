@@ -38,7 +38,6 @@ import base64
 import gzip
 import hashlib
 import json
-import math
 import random
 import subprocess
 import zlib
@@ -157,7 +156,7 @@ def decode_part(record: dict) -> list[tuple[str, np.ndarray, np.ndarray]]:
 def _version(root: Path) -> tuple[str, bool]:
     def git(*args: str) -> str:
         try:
-            return subprocess.run(["git", "-C", str(root), *args], capture_output=True, text=True).stdout.strip()
+            return subprocess.run(["git", "-C", str(root), *args], capture_output=True, text=True, check=False).stdout.strip()
         except OSError:
             # No git on PATH: the commit is unknown, which no rerun resumes.
             return ""
@@ -281,7 +280,6 @@ def layout_record(composer: C.Composer, checks: list[tuple[str, list[str]]], fil
         "file": file, "model": "all", "dtype": dtype, "error_against_float32": errors, "checked": len(checks),
         "ops": list(L.OPS),
         "features": {
-            "shape": L.SHAPE,
             "per_input": len(L.OPS) + 2 * (4 + 4 + 1 + 1 + L.SHAPE),
             "order": ["one-hot operator over ops"] + [
                 f"operand {i}: usual box mean / 1000 (4), spread / 100 (4), log1p(count) / 5, log1p(outline count o) / 3, shape f ({L.SHAPE})"
@@ -312,7 +310,7 @@ def _prior(composer: C.Composer, entry: tuple) -> tuple:
 
 
 def _sibling_ink(composer: C.Composer, entry: tuple) -> float:
-    char, tree, path, i = entry
+    _char, tree, path, i = entry
     here = _here(tree, path)
     return sum(composer.ink(n) for k, n in enumerate(here[1:]) if k != i)
 
@@ -643,6 +641,38 @@ def _recording(composer: C.Composer, used: list) -> None:
         return found
 
     composer._host = recorded
+
+
+def redraw_parity(composer: C.Composer, folder: Path, log=print) -> dict[str, int]:
+    """Draw a finished export's parity rows again with `composer`, in place: the rows a port is
+    checked against, after a change to the composer that changes no record. Answers how many rows
+    of each set changed. Each set's statistics are taken again, in its file and in the manifest; the
+    export's other files, and the hosts its injected set joined, stay, so the statistics say nothing
+    of how many of those hosts the export holds."""
+    global _WORKER
+
+    manifest_path = folder / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf8"))
+    if manifest.get("style") != composer.font.style.name:
+        raise ValueError(f"{folder} is a {manifest.get('style')} export; the composer draws {composer.font.style.name}.")
+    _WORKER = composer
+    changed = {}
+    for name in ("parity.json", "parity-held-out.json"):
+        path = folder / name
+        if not path.exists():
+            continue
+        data = json.loads(path.read_text(encoding="utf8"))
+        drawn = [_draw((row["c"], row["s"])) for row in data["rows"]]
+        rows = [row for row, _ in drawn]
+        stats = parity_stats(rows, [entry for _, used in drawn for entry in used])
+        changed[name] = sum(new.get("d") != old.get("d") for new, old in zip(rows, data["rows"]))
+        path.write_bytes(_parity_file(data["version"], data["set"], rows, stats))
+        recorded = manifest.get("files", {}).get("parity", {}).get(data["set"])
+        if recorded is not None:
+            recorded["stats"] = stats
+        log(f"{name}: {changed[name]} of {len(rows)} rows changed")
+    manifest_path.write_bytes(_dump(manifest))
+    return changed
 
 
 #: Origins of parts drawn by composer paths the export does not carry.

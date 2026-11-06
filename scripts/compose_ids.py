@@ -33,7 +33,13 @@ from pathlib import Path
 import numpy as np
 import typer
 
-from han_compose import compose, compose_layout, compose_standalone, kanjivg_cuts, web_export
+from han_compose import (
+    compose,
+    compose_layout,
+    compose_standalone,
+    kanjivg_cuts,
+    web_export,
+)
 from han_compose.vocab import ROOT, cache_root
 
 app = typer.Typer(add_completion=False)
@@ -58,6 +64,13 @@ def _layout_path(style: str = compose.DEFAULT_STYLE):
 
 def _standalone_path(style: str = compose.DEFAULT_STYLE):
     return cache_root() / "compose" / compose.styled(compose_standalone.STANDALONE_FILE, style)
+
+
+def _require_layout(composer: compose.Composer, style: str) -> None:
+    """Stop where a style's learned layout did not load: without it every drawing falls back to whole
+    glyphs and geometry, which scores and exports nothing like the style."""
+    if composer.layout is None:
+        raise typer.BadParameter(f"{_layout_path(style)} is missing: `learn --style {style}` builds it.")
 
 
 def _composer(style: str = compose.DEFAULT_STYLE, **options) -> compose.Composer:
@@ -215,6 +228,7 @@ def bench(chars: str = "benchmark", sample: int = 0, seed: int = 3, size: int = 
     would be, instead of first taking it whole from where others draw it.
     """
     composer = _composer(style, reuse=reuse)
+    _require_layout(composer, style)
     sets = _bench_sets() if chars == "benchmark" else {}
     names = "".join(sets.values()) if sets else joyo() if chars == "joyo" else sorted(composer.sequences)
     pool = []
@@ -301,8 +315,7 @@ def export_web(out: Path, parity: int = 0, held_out: int = 0, workers: int = 1, 
     from han_compose import web_export
 
     composer = _composer(style)
-    if composer.layout is None:
-        raise typer.BadParameter(f"{_layout_path(style)} is missing: `learn --style {style}` builds it.")
+    _require_layout(composer, style)
     if add:
         if add != "letters":
             raise typer.BadParameter(f"--add takes letters, not {add}.")
@@ -317,6 +330,18 @@ def export_web(out: Path, parity: int = 0, held_out: int = 0, workers: int = 1, 
     manifest = web_export.export(composer, out, joyo=joyo() if parity or held_out else None, parity=parity,
                                  held_out=held_out, workers=workers, log=lambda line: print(line, flush=True))
     print(json.dumps({"version": manifest["version"], **manifest["files"]}, ensure_ascii=False))
+
+
+@app.command("redraw-parity")
+def redraw_parity(out: Path, style: str = STYLE) -> None:
+    """Draw the parity rows of the finished export in `out` again with this composer, in place, after
+    a change to the composer that changes no record. `js/tests/parity` then measures against them."""
+    from han_compose import web_export
+
+    composer = _composer(style)
+    if composer.layout is None:
+        raise typer.BadParameter(f"{_layout_path(style)} is missing: `learn --style {style}` builds it.")
+    print(json.dumps(web_export.redraw_parity(composer, out, log=lambda line: print(line, flush=True))))
 
 
 @app.command("export-web-pack")

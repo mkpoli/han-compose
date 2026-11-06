@@ -30,7 +30,8 @@ FORMS = {"㇒㇐": "丿", "㇐㇒": "一"}
 def votes(path: Path, chars: set[str]) -> dict[str, collections.Counter]:
     """For each of `chars` KanjiVG draws, how often it begins with each pair of stroke types."""
     out: dict[str, collections.Counter] = collections.defaultdict(collections.Counter)
-    root = ET.parse(gzip.open(path)).getroot()
+    with gzip.open(path) as handle:
+        root = ET.parse(handle).getroot()
     for kanji in root:
         top = next(iter(kanji), None)
         if top is None:

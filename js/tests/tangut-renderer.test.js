@@ -3,7 +3,6 @@ import { readFileSync } from 'node:fs'
 import { gunzipSync } from 'node:zlib'
 import { tangutSource, onlyTangut } from '../src/tangut.js'
 import { compose, createSource, sketch } from '../src/loader.js'
-import { drawingSvg } from '../src/drawing-svg.js'
 
 import { files } from './fixtures/small-export.js'
 

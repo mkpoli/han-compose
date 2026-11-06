@@ -109,11 +109,21 @@ when copying the folder out:
 ```sh
 uv run scripts/compose_ids.py export-web out/ --parity 500 --held-out 300 --workers 4
 uv run scripts/compose_ids.py export-web-pack out/
+uv run scripts/compose_ids.py redraw-parity out/ --style kaisho   # the parity rows again, after a composer change
 rclone copy out/ <remote>:<bucket>/<version>/ --exclude '.work/**'
 ```
 
 Fonts download to `cache/fonts/` on first use. `$HAN_COMPOSE_CACHE` points the cache elsewhere.
 `COMPOSE_GUIDE` points at a folder of `guide-*.onnx`.
+
+## Checks
+
+```sh
+uv run pytest tests -q
+uv run ruff check
+```
+
+`ruff check` lints the Python; the repository is not formatted with `ruff format`.
 
 ## Layout
 

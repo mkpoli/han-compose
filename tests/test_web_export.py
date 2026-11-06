@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import gzip
 import hashlib
-import subprocess
 import json
+import subprocess
 from pathlib import Path
 
 import numpy as np
@@ -182,7 +182,7 @@ def _wang(composer: compose.Composer) -> str:
 def exported(composer: compose.Composer, tmp_path_factory) -> tuple[Path, Path, dict]:
     a, b = tmp_path_factory.mktemp("a"), tmp_path_factory.mktemp("b")
     only = ONLY | {_wang(composer)}
-    options = dict(joyo=["何", "語", "休", "明"], parity=1, held_out=1, only=only, pairs=PAIRS, log=lambda _: None)
+    options = {"joyo": ["何", "語", "休", "明"], "parity": 1, "held_out": 1, "only": only, "pairs": PAIRS, "log": lambda _: None}
     manifest = web_export.export(composer, a, **options)
     web_export.export(composer, b, **options)
     return a, b, manifest
@@ -374,7 +374,7 @@ def test_a_rerun_of_the_same_version_keeps_the_files_a_stopped_run_wrote(compose
     # A commit to resume from: an unknown one never resumes.
     for args in (["init", "-q"], ["-c", "user.email=a@b", "-c", "user.name=a", "commit", "-q", "--allow-empty", "-m", "x"]):
         subprocess.run(["git", "-C", str(root), *args], check=True)
-    options = dict(only={"王"}, pairs={("L", "王")}, root=root, log=lambda _: None)
+    options = {"only": {"王"}, "pairs": {("L", "王")}, "root": root, "log": lambda _: None}
     web_export.export(composer, out, **options)
     assert (out / ".complete").exists()
     before = _files(out)
@@ -454,7 +454,7 @@ def test_pack_names_an_unreadable_work_file_and_keeps_the_shards(exported, tmp_p
     a, _, _ = exported
     out = tmp_path / "out"
     shutil.copytree(a, out)
-    bad = sorted((out / ".work" / "p").glob("*/*.json"))[0]
+    bad = min((out / ".work" / "p").glob("*/*.json"))
     bad.write_bytes(damage if damage is not None else bad.read_bytes()[:20])
     with pytest.raises(web_export.WorkFileError, match=bad.name):
         web_export.pack(out, log=lambda _: None)

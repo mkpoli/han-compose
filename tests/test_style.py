@@ -52,7 +52,7 @@ def test_only_fallbacks_of_the_main_fonts_design_teach_the_layout() -> None:
         fake = SimpleNamespace(font=font, sequences={"一": "⿱一一", "𠀀": "⿰一一"}, _index=None)
         context = SimpleNamespace(Pool=Pool)
         original = mp.get_context
-        mp.get_context = lambda *_: context
+        mp.get_context = lambda *_, context=context: context
         try:
             compose_layout.examples(fake)
         finally:

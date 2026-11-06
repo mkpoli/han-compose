@@ -516,7 +516,7 @@ class Part:
 
     contours: list[Contour]
 
-    def split(self, indices: list[int]) -> tuple["Part", "Part"]:
+    def split(self, indices: list[int]) -> tuple[Part, Part]:
         """This part's contours at `indices`, and the rest, both in the original order."""
         take = set(indices)
         return (Part([c for k, c in enumerate(self.contours) if k in take]),
@@ -564,7 +564,7 @@ class Font:
         #: The fallbacks' stroke widths against this font's at 400, across x and across y.
         self.family = None
         if not self.style.kindred:
-            font, cmap, glyphs, scale = next(f for f in self.fallbacks if ord("丨") in f[1] and ord("一") in f[1])
+            _font, cmap, glyphs, scale = next(f for f in self.fallbacks if ord("丨") in f[1] and ord("一") in f[1])
             widths = []
             for char, axis in (("丨", 0), ("一", 1)):
                 pen = DecomposingRecordingPen(glyphs)
@@ -2432,7 +2432,13 @@ class Composer:
             if glyph is None:
                 raise LookupError(f"No glyph or sequence draws {node}.")
             return [self._place(glyph, region, self.ink(node), f"glyph {node}")]
-        instance = None if key(node) in self.spelled else self._instance(node, region)
+        # A description headed by a cover draws its cover and what stands under it: a whole
+        # instance scaled into the box skips the roof's own rules (冗 from a cut of 殻).
+        cover_head = isinstance(node[1], str) and node[1] in covers()
+        # A row of the same part keeps each part's own shape (双 as 又 twice, over a cut of 㧐).
+        repeated_row = node[0] in ("⿰", "⿲") and all(key(c) == key(node[1]) for c in node[2:])
+        instance = (None if key(node) in self.spelled or cover_head or repeated_row
+                    else self._instance(node, region))
         if instance is not None:
             return [instance]
         # Resolve each node's original identity before changing its rendering layout.
@@ -2450,7 +2456,7 @@ class Composer:
             out = self._node(child, region, at_root)
             for item in out:
                 axes = (0,) if op == "⿾" else (0, 1)
-                def reflect(points):
+                def reflect(points, item=item, axes=axes):
                     reflected = points.copy()
                     for axis in axes:
                         reflected[:, axis] = item.source[axis] + item.source[axis + 2] - reflected[:, axis]
@@ -2560,6 +2566,14 @@ class Composer:
         outer_hosted = False
         inner_fitted = False
         for i, (child, box) in enumerate(zip(children, boxes)):
+            # Under a cover, a child whose own glyph fits the box is drawn from it: a host cut can
+            # meet the cover's bar through a turning stroke and leave a wedge (定's 𤴓 cut from 是).
+            if (i == 1 and op == "⿱" and isinstance(children[0], str) and children[0] in COVER_ROOTS
+                    and isinstance(child, str) and child not in self.exclude and child in self.sequences):
+                own = self.font.glyph(child)
+                if own is not None and self._stretch(own.box, box) <= STRETCH:
+                    groups.append([self._place(own, box, self.ink(child), f"glyph {child}")])
+                    continue
             part = self._host(op, i, child, children[:i] + children[i + 1:], box, placed=region is None)
             if (part is not None and op in ENCLOSE and i == 0 and isinstance(child, str) and self.font.own(child)
                     and self._stretch(part[0].pieces[part[1]].box, box) > ENCLOSING_STRETCH):
@@ -3167,7 +3181,7 @@ def _fit_under_cover(op: str, children: list[Node], groups: list[list[Placed]]) 
             source_centre = (source[:, 0].min() + source[:, 0].max()) / 2
             scale = (placed.target[2] - placed.target[0]) / max(placed.source[2] - placed.source[0], 1)
             shift = ((cover_box[0] + cover_box[2]) / 2 - bar_centre) / scale
-            move = lambda points: np.column_stack([
+            move = lambda points, source_centre=source_centre, shift=shift, factor=factor: np.column_stack([
                 source_centre + shift + (points[:, 0] - source_centre) * factor, points[:, 1]])
             replacement = Contour(contour.ops, move(contour.light), move(contour.heavy), contour.width)
             contours = [replacement if c is contour else c for c in placed.part.contours]
