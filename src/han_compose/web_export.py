@@ -470,6 +470,14 @@ def letters(font: C.Font) -> set[str]:
     return out
 
 
+def own_letters(font: C.Font) -> set[str]:
+    """Every letter the style's main font maps, ideographs included: a character with no usable
+    sequence (帰) is still written, on its own and as an operand."""
+    import unicodedata
+
+    return {chr(point) for point in font.cmap if unicodedata.category(chr(point)) == "Lo"}
+
+
 def _leaf(key: str) -> bool:
     return len(key) == 1 or (len(key) == 2 and C._selector(key[1]))
 
@@ -874,8 +882,9 @@ def _export(composer: C.Composer, out: Path, joyo: list[str] | None = None, pari
 
     # Records: every operand the index holds, every character a sequence describes, every
     # positional form, the parity drawings' leaves, every sequence the font draws, every operand of
-    # the layout table, every operand with a host list, and every letter the fonts draw (`letters`).
-    chars = {w for _, w in composer.operands if _leaf(w)} | set(composer.by_sequence.values()) | letters(composer.font)
+    # the layout table, every operand with a host list, every letter the fonts draw (`letters`), and
+    # every letter the main font maps (`own_letters`).
+    chars = {w for _, w in composer.operands if _leaf(w)} | set(composer.by_sequence.values()) | letters(composer.font) | own_letters(composer.font)
     chars |= {form for forms in composer.forms.values() for form, _ in forms}
     chars |= {written for _, written in _INJECT if _leaf(written)}
     for rows, _ in sets.values():

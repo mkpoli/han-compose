@@ -2206,7 +2206,7 @@ class Composer:
     def _construct(self, spec: dict, out: list[Placed]) -> list[Placed]:
         """The first `keep_parts` parts, and the host's kept piece where the rest went."""
         host = self.font.glyph(spec["host"]) if spec["host"] not in self.exclude else None
-        if host is None:
+        if host is None or (getattr(getattr(self.font, "style", None), "own_hosts", False) and not self.font.own(spec["host"])):
             return out
         pieces = split(host, 1, 2)
         if not pieces:

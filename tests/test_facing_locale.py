@@ -94,6 +94,14 @@ def test_style_that_keeps_its_own_hosts_indexes_nothing_from_a_fallback():
     assert index(False) == {'甲', '乙'}
 
 
+def test_a_construct_takes_no_piece_from_a_fallback_when_a_style_keeps_its_own_hosts():
+    from han_compose import compose
+
+    font = NS(own=lambda ch: False, has=lambda ch: True, glyph=lambda ch: object(), style=NS(own_hosts=True, weighted=False))
+    out = [object(), object()]
+    assert compose.Composer(font, {})._construct({"host": "𱵺", "keep": "bottom", "keep_parts": 1}, out) is out
+
+
 def test_every_operand_stays_known_when_its_character_may_not_host():
     from han_compose import compose
 
