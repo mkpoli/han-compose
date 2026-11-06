@@ -29,6 +29,11 @@ const NEW_KOREAN = /[\u{A97D}-\u{A97F}\u{D7C7}\u{D7FC}-\u{D7FE}]/u
 export const SHUISHU = /[\u{1B300}-\u{1B4E5}\u{1B500}-\u{1B52E}]/u
 /** Whether `text` holds a Shuishu character. @param {string | null | undefined} text */
 export const isShuishu = text => SHUISHU.test(text ?? '')
+
+/** The Jurchen characters of Unicode 18.0, U+18E00..U+19191, and its 51 radicals, U+191A0..U+191D2. */
+export const JURCHEN = /[\u{18E00}-\u{19191}\u{191A0}-\u{191D2}]/u
+/** Whether `text` holds a Jurchen character or radical. @param {string | null | undefined} text */
+export const isJurchen = text => JURCHEN.test(text ?? '')
 /** Whether `text` holds one of the New Korean letters. @param {string | null | undefined} text */
 export const isNewKorean = text => NEW_KOREAN.test(text ?? '')
 

@@ -20,7 +20,7 @@ export function characterScript(char) {
     else if (cp > /** @type {number} */ (last)) lo = mid + 1
     else {
       if (script === 'Zyyy' || script === 'Zinh') return null
-      return /** @type {Record<string, string>} */ ({ Hani: 'han', Latn: 'latin', Cyrl: 'cyrillic', Hang: 'hangul', Bopo: 'bopomofo', Tang: 'tangut', Kana: 'kana', Hira: 'kana', Hans: 'han', Hant: 'han' })[/** @type {string} */ (script)] ?? /** @type {string} */ (script)
+      return /** @type {Record<string, string>} */ ({ Hani: 'han', Latn: 'latin', Cyrl: 'cyrillic', Hang: 'hangul', Bopo: 'bopomofo', Tang: 'tangut', Jurc: 'jurchen', Kana: 'kana', Hira: 'kana', Hans: 'han', Hant: 'han' })[/** @type {string} */ (script)] ?? /** @type {string} */ (script)
     }
   }
   return null

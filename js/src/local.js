@@ -26,7 +26,7 @@ export function onlyBundled(sequence, separate = false, unicode = false, fontSty
     if ((separate ? isGroupedForm : isComponentForm)(write(node), fontStyle)) { filled = true; return true }
     if (isNode(node)) return node.parts.every(local)
     filled = true
-    return (unicode && hasUnicodeGlyph(node)) || hasPaletteGlyph(node) || hasBundledGlyph('tangut', node) || hasBundledGlyph('bopomofo', node) || hasBundledGlyph('small-seal', node) || hasNewKorean(node) || hasBundledGlyph('shuishu', node)
+    return (unicode && hasUnicodeGlyph(node)) || hasPaletteGlyph(node) || hasBundledGlyph('tangut', node) || hasBundledGlyph('jurchen', node) || hasBundledGlyph('bopomofo', node) || hasBundledGlyph('small-seal', node) || hasNewKorean(node) || hasBundledGlyph('shuishu', node)
   }
   return local(tree) && filled
 }

@@ -151,6 +151,10 @@
       "types": "./types/shuishu.d.ts",
       "default": "./src/shuishu.js"
     },
+    "./jurchen": {
+      "types": "./types/jurchen.d.ts",
+      "default": "./src/jurchen.js"
+    },
     "./document-source": {
       "types": "./types/document-source.d.ts",
       "default": "./src/document-source.js"

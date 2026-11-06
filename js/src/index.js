@@ -220,6 +220,7 @@ export const dataUrls = {
   'sources/new-korean/outlines.json.gz': dataUrl('sources/new-korean/outlines.json.gz'),
   'sources/small-seal/outlines.json.gz': dataUrl('sources/small-seal/outlines.json.gz'),
   'sources/shuishu/outlines.json.gz': dataUrl('sources/shuishu/outlines.json.gz'),
+  'sources/jurchen/outlines.json.gz': dataUrl('sources/jurchen/outlines.json.gz'),
   'sources/palette/outlines.json.gz': dataUrl('sources/palette/outlines.json.gz'),
   // The shards the package ships, read from its own `data/`: a name it has no file for would be a
   // URL that answers nothing. `unicode.json` holds the ones `export-web` wrote.
