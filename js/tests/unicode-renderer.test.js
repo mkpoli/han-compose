@@ -5,6 +5,7 @@ import { createHash } from 'node:crypto'
 import { compose } from '../src/loader.js'
 import { unicodeSource, hasUnicodeGlyph } from '../src/unicode.js'
 import { onlyBundled } from '../src/local.js'
+import { hasJurchen } from '../src/jurchen.js'
 import metadata from '../data/unicode/outlines.json'
 
 const data = name => JSON.parse(gunzipSync(readFileSync(new URL(`../data/unicode/outlines/${name.slice(8)}.json.gz`, import.meta.url))))
@@ -93,7 +94,7 @@ describe('Unicode fallback outlines', () => {
 it('renders the audited Unicode gaps as real outlines', async () => {
   const local = source()
   for (const cp of [0x16FE2, 0x16FE3, 0x16FF0, 0x18B00, 0x1AFF0, 0x1B123,
-    0x1C89, 0x1E030, 0x1F600, 0x1FAE0, 0x332C, 0x323B0, 0x18E00, 0x1DF00]) {
+    0x1C89, 0x1E030, 0x1F600, 0x1FAE0, 0x332C, 0x323B0, 0x1DF00]) {
     const char = String.fromCodePoint(cp)
     expect(hasUnicodeGlyph(char)).toBe(true)
     const drawn = await compose(local, `⿰${char}〇`, { separate: true })
@@ -132,3 +133,12 @@ it('draws the formerly excluded CJK fallback glyphs as IDS operands', async () =
     expect(drawn.d).not.toMatch(/NaN|Infinity/)
   }
 }, 30000)
+
+it('leaves Jurchen to its own bundle', () => {
+  for (const cp of [0x18E00, 0x18E01, 0x18E02, 0x18E03]) {
+    const char = String.fromCodePoint(cp)
+    expect(hasUnicodeGlyph(char)).toBe(false)
+    expect(hasJurchen(char)).toBe(true)
+    expect(onlyBundled(char)).toBe(true)
+  }
+})
