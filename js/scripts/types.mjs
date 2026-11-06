@@ -5,9 +5,9 @@ import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 
 const root = join(import.meta.dirname, '..')
-const compiler = join(root, 'node_modules', 'typescript', 'bin', 'tsc')
+const compiler = join(root, 'node_modules', 'tsrs', 'bin', 'tsrs')
 if (!existsSync(compiler)) {
-  console.log('types: no TypeScript installed; types/ is used as it stands')
+  console.log('types: no TypeScript compiler installed; types/ is used as it stands')
   process.exit(0)
 }
 const { status } = spawnSync(process.execPath, [compiler, '-p', 'tsconfig.json'], { cwd: root, stdio: 'inherit' })

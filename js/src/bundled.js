@@ -2,10 +2,14 @@
 // Overlay bundled outline records on an optional host export.
 import constants from './constants.json' with { type: 'json' }
 
-export function bundledSource({ load, matches, fallback = null }) {
+/**
+ * `under` lets the export answer first, with these records filling only what it lacks.
+ */
+export function bundledSource({ load, matches, fallback = null, under = false }) {
   // `ready()` fills `records`; callers ask for files and records after it resolves.
   let ready = null, records = null
   const owns = key => matches(key) && records?.[key] != null
+  const answers = (key, remote) => owns(key) && !(under && remote?.rec(key))
   const source = {
     manifest: null, layout: null,
     ready() {
@@ -16,14 +20,14 @@ export function bundledSource({ load, matches, fallback = null }) {
       }).catch(error => { ready = null; throw error })
     },
     load: names => fallback ? fallback.load(names) : Promise.resolve(),
-    filesOf: keys => fallback ? fallback.filesOf(keys.filter(key => !owns(key))) : new Set(),
+    filesOf: keys => fallback ? fallback.filesOf(under ? keys : keys.filter(key => !owns(key))) : new Set(),
     store() {
       const remote = fallback?.store()
       return {
         manifest: source.manifest, layout: source.layout, missing: remote?.missing ?? new Set(),
-        rec: key => owns(key) ? records[key] ?? null : remote?.rec(key) ?? null,
-        hosts: (key, place) => owns(key) ? [] : remote?.hosts(key, place) ?? [],
-        places: key => owns(key) ? [] : remote?.places(key) ?? [],
+        rec: key => answers(key, remote) ? records[key] ?? null : remote?.rec(key) ?? null,
+        hosts: (key, place) => answers(key, remote) ? [] : remote?.hosts(key, place) ?? [],
+        places: key => answers(key, remote) ? [] : remote?.places(key) ?? [],
       }
     },
   }

@@ -11,6 +11,7 @@ the shapes it draws parts from when no host character has them.
 | `sources/new-korean/outlines.json.gz` | the four letters of the New Korean Orthography (1948) |
 | `sources/shuishu/outlines.json.gz` | 533 Shuishu outlines at the proposed block's tentative allocations |
 | `sources/small-seal/outlines.json.gz` | the Small Seal glyphs at the proposed allocation, and their exact descriptions |
+| `sources/jurchen/outlines.json.gz` | the 965 outlines of Unicode 18.0's 914 Jurchen characters and 51 radicals |
 | `sources/palette/outlines.json.gz` | 79 palette components no export's font draws |
 | `palette/fallback-characters.json`, `palette/bundled-coverage.json` | the same, listed and indexed |
 | `unicode/outlines/*.json.gz`, `unicode/coverage.json`, `unicode/outlines.json` | 56,651 outlines of loose marks and parts no other source draws |
@@ -20,6 +21,14 @@ Noto Sans CJK JP and Plangothic are SIL OFL 1.1; Noto Serif Tangut too. Unicode 
 Unicode License v3 (`licences/Unicode-3.0.txt`). The Small Seal allocation, the New Korean letters and
 the Shuishu block are proposals, not assigned code points; nothing here is drawn from a font these
 notices do not name.
+
+The Jurchen outlines are from Alari Xuwasun Jurchen, public beta of 2026-10-12, by Sulfa, Dooran and
+Raxon7, SIL OFL 1.1 (`licences/OFL-1.1.txt`), published at [朝花·夕拾 電子藏書閣](https://dorontu.com/#/cloud),
+folder 女真文资料/女真文字体. Sulfa and Ayasala's article
+[「没人给女真文做字体和输入法？那我们自己来」](https://mp.weixin.qq.com/s/YaUP6bq4xt_18ywlRxCQpA) (WeChat, date
+not seen) says the font is a Fangsong restyling of the encoding proposal's forms, so it does not
+reproduce an inscription or manuscript. The site was found through 柳突破's
+[Bilibili video](https://www.bilibili.com/video/BV1odec6pEqp/) of 2026-09-16.
 
 The shape files were written for a browser port of the composer and moved here, unchanged, with the
 port. The scripts that rebuilt them stay in the project that sources and audits the data; each file
