@@ -2432,7 +2432,10 @@ class Composer:
             if glyph is None:
                 raise LookupError(f"No glyph or sequence draws {node}.")
             return [self._place(glyph, region, self.ink(node), f"glyph {node}")]
-        instance = None if key(node) in self.spelled else self._instance(node, region)
+        # A description headed by a cover draws its cover and what stands under it: a whole
+        # instance scaled into the box skips the roof's own rules (冗 from a cut of 殻).
+        cover_head = isinstance(node[1], str) and node[1] in covers()
+        instance = None if key(node) in self.spelled or cover_head else self._instance(node, region)
         if instance is not None:
             return [instance]
         # Resolve each node's original identity before changing its rendering layout.
@@ -2560,6 +2563,14 @@ class Composer:
         outer_hosted = False
         inner_fitted = False
         for i, (child, box) in enumerate(zip(children, boxes)):
+            # Under a cover, a child whose own glyph fits the box is drawn from it: a host cut can
+            # meet the cover's bar through a turning stroke and leave a wedge (定's 𤴓 cut from 是).
+            if (i == 1 and op == "⿱" and isinstance(children[0], str) and children[0] in COVER_ROOTS
+                    and isinstance(child, str) and child not in self.exclude and child in self.sequences):
+                own = self.font.glyph(child)
+                if own is not None and self._stretch(own.box, box) <= STRETCH:
+                    groups.append([self._place(own, box, self.ink(child), f"glyph {child}")])
+                    continue
             part = self._host(op, i, child, children[:i] + children[i + 1:], box, placed=region is None)
             if (part is not None and op in ENCLOSE and i == 0 and isinstance(child, str) and self.font.own(child)
                     and self._stretch(part[0].pieces[part[1]].box, box) > ENCLOSING_STRETCH):
