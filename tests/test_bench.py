@@ -38,3 +38,16 @@ def test_aligned_overlap_still_sees_a_different_shape() -> None:
     real = [_square(100, 100, 300)]
     two = [_square(100, 100, 100), _square(300, 300, 100)]
     assert compose_ids._aligned_overlap(two, real, 96) < 0.5
+
+
+def test_aligned_overlap_fills_each_part_apart() -> None:
+    square = _square(100, 100, 300)
+    points = square.part.contours[0].light[::-1].copy()
+    ops = square.part.contours[0].ops
+    reversed_part = compose.Part([compose.Contour(ops, points, points)])
+    reversed_square = compose.Placed(reversed_part, reversed_part.box, reversed_part.box)
+    assert compose_ids._aligned_overlap([square, reversed_square], [square], 96) == 1.0
+
+
+def test_a_set_with_nothing_drawn_still_reports() -> None:
+    assert compose_ids._bench_summary([{"char": "甲"}]) == {"characters": 1, "drawn": 0, "failed_characters": "甲"}

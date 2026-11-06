@@ -147,9 +147,11 @@ def _bench_sets() -> dict[str, str]:
 def _aligned_overlap(placed: list[compose.Placed], real: list[compose.Placed], size: int) -> float:
     """Overlap with each drawing's ink stretched to fill the raster: the shape, wherever it stands."""
     def mask(items: list[compose.Placed]) -> np.ndarray:
-        rings = [ring for item in items for ring in compose._rings(item.part.contours, item.contours())]
-        points = np.concatenate(rings)
-        return compose.fill(rings, size, (*map(float, points.min(axis=0)), *map(float, points.max(axis=0))))
+        parts = [compose._rings(item.part.contours, item.contours()) for item in items]
+        points = np.concatenate([ring for rings in parts for ring in rings])
+        box = (*map(float, points.min(axis=0)), *map(float, points.max(axis=0)))
+        # Each part filled apart and joined, as `compose.raster` does: parts overlap.
+        return np.logical_or.reduce([compose.fill(rings, size, box) for rings in parts])
     a, b = mask(placed), mask(real)
     return float((a & b).sum()) / max(float((a | b).sum()), 1.0)
 
@@ -185,11 +187,14 @@ def _bench_one(item: tuple[str, str]) -> dict:
 def _bench_summary(rows: list[dict]) -> dict:
     """What a set of `_bench_one` rows scored."""
     composed = [r for r in rows if "composer" in r]
+    failed = "".join(r["char"] for r in rows if "composer" not in r)
+    if not composed:
+        return {"characters": len(rows), "drawn": 0, "failed_characters": failed}
     overlap, aligned = (np.array([r[k] for r in composed]) for k in ("composer", "aligned"))
     ratio = np.array([r["outline"] for r in composed])
     widths = np.array([r["widths"] for r in composed])
     plain = np.array([r["plain"] for r in rows if "plain" in r])
-    return {"characters": len(rows), "drawn": len(composed), "failed_characters": "".join(r["char"] for r in rows if "composer" not in r),
+    return {"characters": len(rows), "drawn": len(composed), "failed_characters": failed,
             "overlap_mean": round(float(overlap.mean()), 3), "overlap_p10": round(float(np.quantile(overlap, 0.1)), 3),
             "aligned_mean": round(float(aligned.mean()), 3), "aligned_p10": round(float(np.quantile(aligned, 0.1)), 3),
             "outline_within_15pct": round(float(((ratio > 0.85) & (ratio < 1.15)).mean()), 3),
