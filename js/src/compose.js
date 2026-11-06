@@ -2000,7 +2000,7 @@ export class Composer {
       for (let c = 0; c < size; c++) heights[c] = blocked[row * size + c] ? 0 : heights[c] + 1
       const stack = []
       for (let col = cols[0]; col <= cols[1]; col++) {
-        const h = col < size ? heights[col] : 0
+        const h = col < cols[1] ? heights[col] : 0
         while (stack.length && heights[stack.at(-1)] >= h) {
           const top = stack.pop()
           const height = heights[top], left = stack.length ? stack.at(-1) + 1 : cols[0], width = col - left
