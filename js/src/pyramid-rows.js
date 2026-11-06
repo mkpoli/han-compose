@@ -98,6 +98,48 @@ function splitGroups(node, from, to, counts, size, out, leaves, outer, inner) {
   return at === to + 1
 }
 
+/** Whether a node's operator lays out a row. @param {unknown} node */
+const isRow = node => { const op = operatorOf(node); return typeof op === 'string' && ROWS.has(op) }
+/** Whether a node's operator lays out a stack. @param {unknown} node */
+const isStack = node => { const op = operatorOf(node); return typeof op === 'string' && STACKS.has(op) }
+
+/** The leaves a subtree draws, a leaf and an empty slot counting one. @param {unknown} node @returns {number} */
+const leafCount = node => {
+  if (typeof node === 'string' || node === null) return 1
+  if (typeof node !== 'object') return 0
+  const kids = childrenOf(node)
+  /** @type {number} */
+  const total = kids ? kids.reduce((/** @type {number} */ sum, kid) => sum + leafCount(kid), 0) : 0
+  return total
+}
+
+/** The rows a stack draws, top first: a stacked operand brings its own rows, so every grouping of
+ *  one stack answers the same rows. Null when `node` is no stack.
+ *  @param {unknown} node @returns {unknown[] | null} */
+function stackRows(node) {
+  const op = operatorOf(node)
+  if (typeof op !== 'string' || !STACKS.has(op)) return null
+  const kids = childrenOf(node)
+  if (!kids || kids.length < 2) return null
+  return kids.flatMap(kid => stackRows(kid) ?? [kid])
+}
+
+/**
+ * The ways a stack's rows may be read: every operand expanded into rows, and the last operand kept
+ * whole as a base, which may itself be a description. The second reading is offered when the last
+ * operand is a stack, the only case the two readings differ.
+ * @param {unknown} node @returns {unknown[][]}
+ */
+function stackReadings(node) {
+  const rows = stackRows(node)
+  const kids = childrenOf(node)
+  if (!rows || !kids) return []
+  const last = kids.at(-1)
+  if (last === undefined || last === rows.at(-1)) return [rows]
+  const prefix = kids.slice(0, -1).flatMap(kid => stackRows(kid) ?? [kid])
+  return [rows, [...prefix, last]]
+}
+
 /**
  * A triangular arrangement of one repeated part, read from a tree: groups of 1, 2, 3, … of the same
  * cell, pointing top, bottom, left or right. Null unless it has at least `minLayers` layers. A cell
@@ -143,6 +185,54 @@ export function pyramidRows(tree, { minLayers = 3 } = {}) {
       if (!cells.every(cell => samePart(cell, cells[0]))) continue
       return { cell: cells[0], layers, count, direction }
     }
+  }
+  return null
+}
+
+/**
+ * Rows of 1, 2, … cells of one part with one more part under them, read as a pyramid on a base.
+ * @param {unknown[]} rows @param {number} minLayers
+ * @returns {{ cell: unknown, layers: number, base: unknown } | null} */
+function rowsOnBase(rows, minLayers) {
+  if (rows.length < minLayers + 1) return null
+  const layers = rows.length - 1
+  const cell = rows[0], base = rows[layers]
+  // A row of cells is no base; the pyramid's top is one part, a cell of the row below it.
+  if (isRow(base)) return null
+  const size = leafCount(cell)
+  if (!size) return null
+  for (let i = 0; i < layers; i++) {
+    /** @type {unknown[]} */
+    const cells = []
+    if (!splitCells(rows[i], i + 1, size, cells, leafCount, ROWS)) return null
+    if (!cells.every(one => samePart(one, cell))) return null
+  }
+  return { cell: cell, layers, base: base }
+}
+
+/**
+ * A pyramid standing on a base: rows of 1, 2, … `layers` cells of one part, and one more part under
+ * them, read from a stack however its grouping spells it (⿳口⿰口口木 reads like ⿱⿱口⿰口口木). A base
+ * is one part; it may repeat the cell, as `⿳口⿰口口口` is a pyramid of three 口 on a fourth, and it
+ * may be a description, as `⿳口⿰口口⿱水火` puts a stacked 水火 under the pyramid. Null unless the
+ * stack has at least `minLayers` pyramid rows and every row holds that many cells of the part. A
+ * complete pyramid, such as ⿳口⿰口口⿲口口口, has no base row and reads by `pyramidRows`.
+ * @param {unknown} tree
+ * @param {{ minLayers?: number }} [options] At least two, the rows a pyramid needs.
+ * @returns {{ cell: unknown, layers: number, base: unknown } | null}
+ */
+export function pyramidOnBase(tree, { minLayers = 2 } = {}) {
+  // A pyramid has at least two rows; one row is a plain stack.
+  if (!(minLayers >= 2)) return null
+  for (const rows of stackReadings(tree)) {
+    const found = rowsOnBase(rows, minLayers)
+    if (found) return found
+  }
+  // A complete pyramid under one base, its top a description rather than a row to read.
+  const kids = childrenOf(tree)
+  if (kids && kids.length === 2 && isStack(tree) && !isRow(kids[1])) {
+    const pyramid = pyramidRows(kids[0], { minLayers })
+    if (pyramid?.direction === 'top') return { cell: pyramid.cell, layers: pyramid.layers, base: kids[1] }
   }
   return null
 }
