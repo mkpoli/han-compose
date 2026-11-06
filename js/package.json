@@ -114,6 +114,10 @@
       "default": "./src/sha256.js"
     },
     "./data/*": "./data/*",
+    "./src/*.js": {
+      "types": "./types/*.d.ts",
+      "default": "./src/*.js"
+    },
     "./src/*": "./src/*",
     "./tree": {
       "types": "./types/tree.d.ts",
