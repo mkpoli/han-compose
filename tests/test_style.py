@@ -10,13 +10,14 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+from fontTools.pens.recordingPen import RecordingPen
 
 from han_compose import compose, compose_layout, compose_standalone, web_export
 
 
 def test_every_style_pins_each_of_its_fonts_by_sha256_and_licence() -> None:
-    assert compose.DEFAULT_STYLE == "sans" and set(compose.STYLES) == {"sans", "serif", "kaisho"}
-    files = []
+    assert compose.DEFAULT_STYLE == "sans" and set(compose.STYLES) == {"sans", "serif", "kaisho", "fangsong"}
+    files = {}
     for name, style in compose.STYLES.items():
         assert style.name == name
         for source in (style.font, *style.fallbacks):
@@ -24,9 +25,9 @@ def test_every_style_pins_each_of_its_fonts_by_sha256_and_licence() -> None:
             assert source.licence in web_export.LICENCE_URLS and source.licence in web_export.LICENCE_TEXTS
             if source.member is not None:
                 assert re.fullmatch(r"[0-9a-f]{64}", source.archive_sha256)
-            files.append(source.file)
-    # No two styles share a cached font file.
-    assert len(files) == len(set(files))
+            files.setdefault(source.file, set()).add(source)
+    # A cached file name means one pinned font, whichever styles read it.
+    assert all(len(sources) == 1 for sources in files.values())
     assert compose.STYLES["serif"].font.file != compose.STYLES["sans"].font.file
 
 
@@ -45,7 +46,7 @@ def test_only_fallbacks_of_the_main_fonts_design_teach_the_layout() -> None:
 
     import multiprocessing as mp
 
-    for style, expected in (("sans", {"一", "𠀀"}), ("serif", {"一"}), ("kaisho", {"一"})):
+    for style, expected in (("sans", {"一", "𠀀"}), ("serif", {"一"}), ("kaisho", {"一"}), ("fangsong", {"一"})):
         seen.clear()
         font = SimpleNamespace(style=compose.STYLES[style], has=lambda ch: True, own=lambda ch: ch == "一")
         fake = SimpleNamespace(font=font, sequences={"一": "⿱一一", "𠀀": "⿰一一"}, _index=None)
@@ -134,6 +135,74 @@ def test_a_serif_fallback_glyph_is_brought_to_the_main_fonts_em(serif: compose.F
     assert part.contours[0].width is not None
 
 
+def test_a_contour_that_closes_on_its_first_point_closes_at_heavy_too(serif: compose.Font) -> None:
+    # Noto Serif writes the round glyphs' closing return as a copy of their first point.
+    for char in ("o", "6"):
+        contours = serif.glyph(char).contours
+        closing = [c for c in contours if np.array_equal(c.light[0], c.light[-1])]
+        assert len(closing) == len(contours)
+        for c in closing:
+            assert np.array_equal(c.heavy[0], c.heavy[-1])
+
+
+def test_a_fallback_ring_that_closes_on_its_first_point_closes_at_heavy_too(serif: compose.Font) -> None:
+    char = "\U0003136E"  # Extension H: Jigmo3, drawn on 1,024 units to the em
+    assert not serif.own(char)
+    rings = [c for c in serif.glyph(char).contours if np.array_equal(c.light[0], c.light[-1])]
+    assert rings
+    for c in rings:
+        assert np.array_equal(c.heavy[0], c.heavy[-1])
+
+
+def test_a_duplicated_corner_grows_once_for_both_its_copies(serif: compose.Font) -> None:
+    # Fonts write a corner as two points in the same place; grown one by one, the first copy stayed
+    # put and the second shot out 2.6 times too far, so the corner split.
+    for char in ("日", "何"):
+        for c in serif.glyph(char).contours:
+            copies = np.all(np.diff(c.light, axis=0) == 0, axis=1)
+            for k in np.flatnonzero(copies):
+                assert np.array_equal(c.heavy[k], c.heavy[k + 1])
+                # Both copies carry the vertex's growth; a zero here is the old spike's other half.
+                assert c.heavy[k][1] - c.light[k][1] > 0
+                assert c.heavy[k][1] - c.light[k][1] <= serif.grow_y / 0.35 * 1.02
+
+
+def test_heavy_points_away_from_a_duplicate_stay_as_drawn(serif: compose.Font) -> None:
+    kept = 0
+    for char in ("日", "一", "何"):
+        drawn = RecordingPen()
+        serif.heavy[serif._name(char)].draw(drawn)
+        for c, (_, q) in zip(serif.glyph(char).contours, compose._contours(drawn)):
+            # x is the font's own at heavy; y is grown from the light, which serif also does.
+            grown = compose._grown(c.light, (0.0, serif.grow_y))[:, 1]
+            paired = np.zeros(len(c.light), bool)
+            paired[:-1] |= np.all(np.diff(c.light, axis=0) == 0, axis=1)
+            paired[1:] |= np.all(np.diff(c.light, axis=0) == 0, axis=1)
+            single = ~paired
+            assert np.array_equal(c.heavy[single, 0], q[single, 0])
+            assert np.allclose(c.heavy[single, 1], grown[single])
+            kept += int(single.sum())
+    assert kept
+
+
+def test_the_serif_o_counter_stays_a_hole_at_heavy(serif: compose.Font) -> None:
+    o = serif.glyph("o")
+    size, box = 96, (0.0, compose.ASCENT - compose.EM, compose.EM, compose.ASCENT)
+    mask = compose.raster([compose.Placed(o, o.box, o.box, weight=(1.0, 1.0))], size)
+    # Flood the white outside; a counter torn open to it fills with the flood.
+    seen, edge = {(x, 0) for x in range(size)} | {(0, y) for y in range(size)} | {(size - 1, y) for y in range(size)}, None
+    edge = [(x, 0) for x in range(size)] + [(x, size - 1) for x in range(size)]
+    edge += [(0, y) for y in range(size)] + [(size - 1, y) for y in range(size)]
+    while edge:
+        x, y = edge.pop()
+        for nx, ny in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)):
+            if 0 <= nx < size and 0 <= ny < size and not mask[ny, nx] and (nx, ny) not in seen:
+                seen.add((nx, ny))
+                edge.append((nx, ny))
+    (x0, y0, x1, y1), (bx, by, bw, bh) = o.box, box
+    counter = (int(((x0 + x1) / 2 - bx) / bw * size), int((by + bh - (y0 + y1) / 2) / bh * size))
+    assert not mask[counter[1], counter[0]] and counter not in seen
+
 def test_the_cli_refuses_a_style_it_does_not_know() -> None:
     import sys
 
@@ -153,6 +222,23 @@ def kaisho() -> compose.Font:
     if not _cached("kaisho"):
         pytest.skip("The Kaisho fonts are not cached; `scripts/compose_ids.py draw --style kaisho` fetches them.")
     return compose.Font.of("kaisho")
+
+
+def test_a_composite_glyph_is_read_through_its_components() -> None:
+    if not _cached("fangsong"):
+        pytest.skip("The Fangsong fonts are not cached.")
+    font = compose.Font.of("fangsong")
+    accented, plain = font.glyph("é"), font.glyph("e")
+    assert accented is not None and len(accented.contours) > len(plain.contours)
+
+
+def test_fangsong_keeps_its_hosts_in_zhuque_and_takes_the_rest_from_jigmo() -> None:
+    style = compose.STYLES["fangsong"]
+    assert style.heavy == 400 and style.weighted is False and style.own_hosts and not style.kindred
+    assert style.fallbacks == compose.STYLES["serif"].fallbacks
+    assert compose_layout.layout_file("fangsong") == "compose-layout-v4-fangsong.npz"
+    assert "fangsong" in web_export.OUTLINE_NOTES
+    assert "Alegreya Project Authors" in style.font.also
 
 
 def test_kaisho_reads_a_static_face_and_keeps_its_brush_weight(kaisho: compose.Font) -> None:

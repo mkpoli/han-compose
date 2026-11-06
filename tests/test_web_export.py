@@ -13,6 +13,77 @@ from han_compose import compose, compose_layout, web_export
 from han_compose.compose import Contour, Part
 
 
+def test_host_cache_batches_preserve_every_rank_and_failed_cut(monkeypatch) -> None:
+    from types import SimpleNamespace
+
+    entries = [(str(i), ("⿰", "木", "口"), (), 0) for i in range(133)]
+    c = SimpleNamespace(_index=({("L", "木"): entries}, None),
+                        font=SimpleNamespace(style=SimpleNamespace(own_hosts=False)))
+    c._host_node = lambda char, tree, path: None if int(char) % 3 == 0 else char
+    monkeypatch.setattr(web_export, "entry_record",
+                        lambda composer, entry, rank, cut: {"h": entry[0], "r": rank, "c": cut})
+    cleared = []
+    monkeypatch.setattr(web_export, "_clear_host_caches", lambda composer: cleared.append(composer))
+    records = web_export.hosts_for(c, "L", "木")
+    assert [r["r"] for r in records] == list(range(133))
+    assert [r["h"] for r in records] == [str(i) for i in range(133)]
+    assert sum(r["c"] is None for r in records) == 45
+    assert len(cleared) == 3
+
+
+def test_a_letter_the_main_font_maps_has_a_record_with_no_sequence() -> None:
+    from types import SimpleNamespace
+
+    font = SimpleNamespace(cmap={ord("帰"): "g", ord("A"): "a", ord("!"): "b", ord("あ"): "k", ord("ʰ"): "h"})
+    assert web_export.own_letters(font) == {"帰", "A", "あ", "ʰ"}
+
+
+def test_every_host_glyph_and_its_ownership_are_read_before_the_workers_fork() -> None:
+    from types import SimpleNamespace
+
+    glyphs, owners = [], []
+    c = SimpleNamespace(_index=({("L", "木"): [("林", (), (), 0), ("村", (), (), 0)], ("R", "木"): [("林", (), (), 1)]}, None),
+                        font=SimpleNamespace(glyph=glyphs.append), kvg=SimpleNamespace(owners=owners.append))
+    web_export._load_font_caches(c)
+    assert glyphs == owners == ["村", "林"]
+
+
+def test_an_export_freezes_the_heap_only_for_its_length(monkeypatch: pytest.MonkeyPatch) -> None:
+    import gc
+
+    before = gc.get_freeze_count()
+    during = []
+    monkeypatch.setattr(web_export, "_load_font_caches", lambda composer: None)
+    monkeypatch.setattr(web_export, "_export", lambda composer, out, **options: during.append(gc.get_freeze_count()) or {})
+    assert web_export.export(None, None) == {}
+    assert during[0] > before and gc.get_freeze_count() == before
+
+    def fail(composer, out, **options):
+        raise ValueError("stopped")
+
+    monkeypatch.setattr(web_export, "_export", fail)
+    with pytest.raises(ValueError, match="stopped"):
+        web_export.export(None, None)
+    assert gc.get_freeze_count() == before
+
+
+def test_releasing_host_geometry_keeps_what_depends_only_on_the_font() -> None:
+    from types import SimpleNamespace
+
+    names = ("_hosts", "_any_overlays", "_sketches", "_templates", "_typical", "_strokes",
+             "_faces", "_inks", "_own_counts")
+    c = SimpleNamespace(**{name: {"entry": object()} for name in names}, _frames=[], _expanding=set(),
+                        _plain=object(), font=SimpleNamespace(_parts={"木": object()}),
+                        kvg=SimpleNamespace(_owners={"林": object()}))
+    web_export._clear_host_caches(c)
+    assert all(not getattr(c, name) for name in names)
+    assert c.font._parts and c.kvg._owners
+    assert "_plain" not in vars(c)
+    c._frames.append(set())
+    with pytest.raises(RuntimeError, match="during composition"):
+        web_export._clear_host_caches(c)
+
+
 def test_a_record_and_a_host_list_live_in_the_shard_their_sha256_names() -> None:
     for key in ("亻", "葛\U000e0100", "⿰亻可"):
         h = hashlib.sha256(key.encode()).hexdigest()
@@ -53,6 +124,20 @@ def test_quantized_networks_predict_what_the_model_does() -> None:
         assert np.abs(web_export.predict(web_export.layout_runs(json.loads(json.dumps(record))), x) - exact).max() < tolerance
 
 
+def test_a_glyphs_stroke_groups_follow_kanjivg(composer: compose.Composer) -> None:
+    assert composer.kvg.groups("于") == [[0, [2]], [1, [0]], [2, [1]]]
+    assert composer.kvg.groups("口") == [[0, [0]], [1, [0]], [2, [1]]]
+    first, rest = composer.font.glyph("于").split([2])
+    assert first.box[3] - first.box[1] < rest.box[3] - rest.box[1]
+
+
+def test_a_glyph_record_carries_its_stroke_groups(exported) -> None:
+    out, _, _ = exported
+    with gzip.open(out / web_export.record_shard("于"), "rt", encoding="utf-8") as f:
+        record = json.load(f)[web_export.key_hash("于")]
+    assert record["G"]["sg"] == [[0, [2]], [1, [0]], [2, [1]]]
+
+
 def test_an_outline_outside_int16_is_refused() -> None:
     far = np.array([[0.0, 0.0], [9000.0, 0.0], [9000.0, 10.0]])
     with pytest.raises(ValueError):
@@ -84,7 +169,7 @@ def composer() -> compose.Composer:
     return c
 
 
-ONLY = {"亻", "可", "何", "⿰亻可", "王", "𤣩"}
+ONLY = {"亻", "可", "何", "⿰亻可", "王", "𤣩", "于"}
 #: Host lists cut in the tests: whole lists are cut, so heavy operands (亻 on the left: 1,860) are left out.
 PAIRS = {("L", "可"), ("R", "何"), ("⿵1", "可"), ("L", "王")}
 
@@ -253,6 +338,7 @@ def test_a_serif_export_names_its_style_and_ships_each_fonts_licence(tmp_path) -
     c.kvg = kanjivg_cuts.Cutter(c)
     manifest = web_export.export(c, tmp_path, only={"亻", "可", "何", "⿰亻可"}, pairs={("L", "可")}, log=lambda _: None)
     assert manifest["style"] == "serif" and manifest["composer"]["layout_file"] == "compose-layout-v4-serif.npz"
+    assert manifest["weighted"] is True and manifest["heavy"] == style.heavy
     assert "-serif-compose-layout-v4-serif-f" in manifest["version"]
     assert set(manifest["composer"]["font_sha256"]) == {s.file for s in (style.font, *style.fallbacks)}
     assert manifest["files"]["licences"] == ["OFL.txt", "CC0.txt", "MIT-hfhchan-ids.txt"]
@@ -480,7 +566,7 @@ def test_a_stopped_addition_carries_on_and_packs_every_shard_it_touched(composer
     packed = web_export.pack(out, root=root, log=lambda _: None, changed=changed)
     assert sorted(changed) == sorted({web_export.record_shard(k) for k in keys})
     assert [(a["keys"], a["shards"]) for a in packed["added"]] == [(3, len(changed))]
-    assert packed["version"].endswith("-f5+letters")
+    assert packed["version"].endswith(f"-f{web_export.FORMAT}+letters")
     for key in keys:
         assert _record(out, key)["G"]["p"]
     assert not (out / web_export.PENDING).exists()

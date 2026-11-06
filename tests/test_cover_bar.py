@@ -67,3 +67,16 @@ def test_a_mid_height_bar_under_a_cover_is_kept():
 
     assert lower.contours()[0][:, 0].min() == 50
     assert lower.contours()[0][:, 0].max() == 950
+
+
+def test_the_first_lower_bar_of_宇_is_narrowed():
+    cover = placed(box(80, 700, 842, 900))
+    lower = placed(box(135, 564, 873, 636), box(57, 336, 944, 408), box(475, 408, 525, 636))
+    c = composer()
+
+    C._fit_under_cover("⿱", ["宀", "于"], [[cover], [lower]])
+
+    bar = lower.contours()[0]
+    width = bar[:, 0].max() - bar[:, 0].min()
+    assert round(width, 2) == round(0.72 * 762, 2)
+    assert round((bar[:, 0].max() + bar[:, 0].min()) / 2, 2) == 461

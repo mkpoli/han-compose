@@ -23,6 +23,13 @@ and the best parts any host offers 0.81: layout is the larger remaining loss, st
 | Drawn at all | distinct HDIC headword sequences: KRM 3,029, TSJ 356, KTB 9 | 2,997, 355, 9 (all failures ⿻) | all |
 | Preferred over zi.tools by a reviewer, side by side | 96 KRM headwords | not yet judged | 80% |
 
+## Empty slots
+
+`⬚` is an operand of one character, the dotted square: an operand the layout knows nothing of. It
+takes the defaults of its place and the ink of an unknown operand, is laid out by the same shares,
+learned boxes and rewrites as any other, and draws no ink. What a drawing returns names it, so an
+editor can put its placeholder in the box the layout gave it.
+
 ## Method
 
 - A last pass moves each part toward a learned guide's ink (`compose_guide`): a U-Net trained on

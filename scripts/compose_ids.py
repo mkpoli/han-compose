@@ -13,7 +13,7 @@ their outline length within 15% of the real glyph's, and the ratio of their stro
 400 px). Characters that cannot be drawn are counted and listed. It reports the composer beside the
 plainest way to compose, each operand's own glyph squeezed into its share, each scored on its own.
 `calibrate` fits the style's `stem_curve`, stroke width against density, on the font's own ideographs.
-Every command takes `--style sans` (the default), `--style serif` or `--style kaisho`; models are cached per style.
+Every command takes `--style sans` (the default), `--style serif`, `--style kaisho` or `--style fangsong`; models are cached per style.
 `learn` trains the layout `compose_layout` describes and caches it, for `draw` and `bench` to use.
 `export-web` writes the layout and the drawing data a browser port of the composer reads, and
 `export-web-pack` builds a finished export's shards from its per-key files.
@@ -24,6 +24,8 @@ from __future__ import annotations
 import json
 import os
 import random
+import sys
+import time
 from pathlib import Path
 
 import numpy as np
@@ -35,8 +37,8 @@ from han_compose.vocab import cache_root
 app = typer.Typer(add_completion=False)
 
 
-#: The design drawn in: `sans` (Noto Sans CJK JP), `serif` (Noto Serif CJK JP) or `kaisho` (Kureedo), `compose.STYLES`.
-STYLE = typer.Option(compose.DEFAULT_STYLE, "--style", help="sans, serif or kaisho")
+#: The design drawn in: `sans` (Noto Sans CJK JP), `serif` (Noto Serif CJK JP), `kaisho` (Kureedo) or `fangsong` (Zhuque Fangsong), `compose.STYLES`.
+STYLE = typer.Option(compose.DEFAULT_STYLE, "--style", help="sans, serif, kaisho or fangsong")
 
 
 def _style(style: str) -> str:
@@ -158,7 +160,8 @@ def bench(chars: str = "joyo", sample: int = 0, seed: int = 3, size: int = 96, r
     unit = compose.EM / 400
     results: dict[str, dict] = {"composer": {"overlap": [], "failed": []}, "plain": {"overlap": [], "failed": []}}
     outlines, widths = [], []
-    for char, seq in chosen:
+    started = time.monotonic()
+    for done, (char, seq) in enumerate(chosen, 1):
         glyph = composer.font.glyph(char)
         real = [compose.Placed(glyph, glyph.box, glyph.box)]
         truth = compose.raster(real, size)
@@ -177,6 +180,10 @@ def bench(chars: str = "joyo", sample: int = 0, seed: int = 3, size: int = 96, r
                 drawn = compose.stems(compose.raster(placed, 400), unit)
                 true = compose.stems(compose.raster(real, 400), unit)
                 widths.append((drawn[0] / true[0], drawn[1] / true[1]))
+        if done % 25 == 0 or done == len(chosen):
+            elapsed = time.monotonic() - started
+            print(f"{done}/{len(chosen)}, {elapsed / 60:.1f} min, about {elapsed / done * (len(chosen) - done) / 60:.1f} min left",
+                  file=sys.stderr, flush=True)
     report = {"style": style, "set": chars, "characters": len(chosen)}
     for name, result in results.items():
         overlap = np.array(result["overlap"])

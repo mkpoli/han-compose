@@ -1,4 +1,4 @@
-"""Draw a character Unicode lacks from its Ideographic Description Sequence, in one of three styles.
+"""Draw a character Unicode lacks from its Ideographic Description Sequence, in one of four styles.
 
 `sans` draws in GenZui Sans, which takes its ideographs unchanged from Noto Sans JP at weight 400,
 which in turn draws them as Noto Sans CJK JP does. The composer reads Noto Sans CJK JP, the variable
@@ -6,7 +6,7 @@ font that draws 30,289 ideographs to Noto Sans JP's 13,742 with the same outline
 known at weight 400 and at the style's heavy weight with the same points. `serif` reads Noto Serif
 CJK JP, the variable Source Han Serif, the same way. `kaisho` reads Kureedo, the Klee One design
 extended with historical kana, at one static weight, with GenZui Sans drawing characters Kureedo
-lacks (`STYLES`). Every layout and every part comes
+lacks. `fangsong` reads Zhuque Fangsong the same way, with Jigmo (`STYLES`). Every layout and every part comes
 from a character a type designer drew; a sequence (⿰亻哥) is drawn in three steps:
 
 1. Teacher. For each node, the drawn character with a node of the same operator whose operands are
@@ -35,16 +35,18 @@ import json
 import math
 import re
 from collections import Counter
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field, replace
-from functools import cache, cached_property
+from functools import cache, cached_property, lru_cache
 from itertools import combinations, pairwise
 from pathlib import Path
 
 import numpy as np
-from fontTools.pens.recordingPen import RecordingPen
+from fontTools.pens.recordingPen import DecomposingRecordingPen
 from fontTools.ttLib import TTFont
 
+from ._raster import fill
+from ._raster import ring as _ring
 from .vocab import BINARY, TERNARY, UNARY, read_rows
 
 # Generated from the pinned BabelStone IDS catalog; see docs/pyramid-glyphs.md.
@@ -66,6 +68,8 @@ class Source:
     licence: str
     member: str | None = None
     archive_sha256: str | None = None
+    #: A copyright the font's outlines carry that its `name` table does not state.
+    also: str = ""
 
 
 @dataclass(frozen=True)
@@ -105,6 +109,10 @@ PLANGOTHIC_URL = "https://github.com/Fitzgerald-Porthmouth-Koenigsegg/Plangothic
 #: BMP. Its site gives the archive's SHA-1, 2fb963ee7bba1d23ccfe81b228422f22da9dc574.
 JIGMO_URL = "https://kamichikoichi.github.io/jigmo/Jigmo-20250912.zip"
 JIGMO_SHA256 = "5744c7386d129475d87607ca66d043c8793c65448adeaedc921b6931890e5d0b"
+_JIGMO = tuple(Source(f"Jigmo-20250912-{name}", JIGMO_URL, sha, "CC0 1.0", member=name, archive_sha256=JIGMO_SHA256)
+              for name, sha in (("Jigmo2.ttf", "5da3582efe77e22073b86b3b86b556d7111148a76b957cfb53318a91da2efff0"),
+                                ("Jigmo3.ttf", "815b18c1c670103723fe743090559208fdea47dc587ecb057a5a4721ee8dfeff"),
+                                ("Jigmo.ttf", "c8f295b9bd8f9f117a76b3a454aaaa1bb5b4babc18e254978c6deb88464e40cf")))
 
 STYLES = {
     # Noto Sans CJK JP 2.004: GenZui Sans takes its ideographs unchanged from Noto Sans JP, which
@@ -128,28 +136,46 @@ STYLES = {
         Source("NotoSerifCJKjp-VF-2.003.ttf",
                "https://github.com/notofonts/noto-cjk/raw/Serif2.003/Serif/Variable/TTF/NotoSerifCJKjp-VF.ttf",
                "c2ff7cffb6ef75193d4406b030eab5aa6503c48004acec6b040327e2fe1e9e51", OFL),
-        tuple(Source(f"Jigmo-20250912-{name}", JIGMO_URL, sha, "CC0 1.0", member=name, archive_sha256=JIGMO_SHA256)
-              for name, sha in (("Jigmo2.ttf", "5da3582efe77e22073b86b3b86b556d7111148a76b957cfb53318a91da2efff0"),
-                                ("Jigmo3.ttf", "815b18c1c670103723fe743090559208fdea47dc587ecb057a5a4721ee8dfeff"),
-                                ("Jigmo.ttf", "c8f295b9bd8f9f117a76b3a454aaaa1bb5b4babc18e254978c6deb88464e40cf"))),
+        _JIGMO,
         # Fitted on 1,500 of its ideographs: its verticals thin a little as a character fills up, its
         # horizontals not at all.
         ((67.77, -0.463), (22.31, 0.164)),
         synthetic_y=True,
         kindred=False,
     ),
-    # Kureedo v0.4.3: Klee One's kaisho with the historical kana and Ainu small kana. It is a static
-    # font, so 400 is also the heavy master; GenZui Sans draws the ideographs Klee One lacks.
+    # Kureedo 0.5.0 Full: Klee One's kaisho and historical kana, with every public code point LXGW
+    # WenKai Light 1.530 has and Klee lacks. It is a static font, so 400 is also the heavy master;
+    # GenZui Sans draws ideographs neither carries.
     "kaisho": Style(
         "kaisho",
-        Source("Kureedo-Regular.ttf",
-               "https://github.com/mkpoli/kureedo/releases/download/v0.4.3/Kureedo-Regular.ttf",
-               "3402dc79e14f333ceb670d3e14e246a702701d2af67e2fee6baa95fc1c5e3527", OFL),
+        Source("KureedoFull-Regular.ttf",
+               "https://github.com/mkpoli/kureedo/releases/download/v0.5.0/KureedoFull-Regular.zip",
+               "737f04de3b2b222664b5386628b0a15b009c7dd69086a1050dac0e507117c5d6", OFL,
+               member="KureedoFull-Regular.ttf",
+               archive_sha256="d3c100319c1263abc0b7bbcbeb51be42d1a15ea97c90a00bf15ed71043aaec75"),
         (Source("GenZuiSans-Regular.ttf",
                 "https://github.com/mkpoli/GenZui/releases/download/sans-v0.105/GenZuiSans-Regular.ttf",
                 "121871ee522380b1f591fc6871850416cb74e075a534438eb5180b43094ebe0f", OFL),),
         # Kureedo's stems measured at 400; the static font has no weight axis to thin them.
         ((70.0, 0.0), (70.0, 0.0)),
+        heavy=400,
+        kindred=False,
+        weighted=False,
+        own_hosts=True,
+    ),
+    # Zhuque Fangsong 0.212 (technical preview), recut from the 1932 南宋 type. It is a static font, so
+    # 400 is also the heavy master; Jigmo draws the ideographs it lacks, in the nearest pinned design.
+    "fangsong": Style(
+        "fangsong",
+        Source("ZhuqueFangsong-v0.212-Regular.ttf",
+               "https://github.com/TrionesType/zhuque/releases/download/v0.212/ZhuqueFangsong-v0.212.zip",
+               "558c62730844fe54ba220146ed62f859d4e2880188d92d985f8921c6e3743bc4", OFL,
+               member="ZhuqueFangsong-Regular.ttf",
+               archive_sha256="bb8b661a7643d2296a72d9d10530a00949419c4e527fb61783f73c2ba1a8c062",
+               also="Its Latin, Cyrillic and Greek glyphs: Copyright 2011 The Alegreya Project Authors (https://github.com/huertatipografica/Alegreya)"),
+        _JIGMO,
+        # Fitted on 1,500 of its ideographs (`calibrate`).
+        ((57.51, 0.271), (39.61, -1.297)),
         heavy=400,
         kindred=False,
         weighted=False,
@@ -164,6 +190,10 @@ STATIC_GROW = 20.0
 ASCENT = 880
 #: The operators a part is cut from its host along: x for side by side, y for stacked.
 AXIS = {"⿰": 0, "⿲": 0, "⿱": 1, "⿳": 1}
+
+#: Covers the region cut can take as one stroke. `covers()` holds every cover the bar fitter knows;
+#: a region cut can only produce 冖, whose bar is one outline.
+_STACK_COVERS = frozenset({"冖"})
 #: The sides an enclosing operand closes, y up: ⿸ 厂 closes the left and the top.
 ENCLOSE = {"⿴": "LRBT", "⿵": "LRT", "⿶": "LRB", "⿷": "LBT", "⿸": "LT", "⿹": "RT", "⿺": "LB",
            "⿼": "RBT", "⿽": "RB"}
@@ -205,9 +235,32 @@ TEMPLATE_ON = 0.6
 #: Enclosures whose enclosing part's box holds the enclosed part's (`covering`).
 COVERING = frozenset("⿴⿵⿶⿷")
 #: Covers whose bar below is drawn inside their width: 宀, 冖, 穴, 雨.
-COVERS = frozenset({"宀", "冖", "穴", "雨"})
+COVER_ROOTS = frozenset({"冖", "宀", "穴", "雨"})
+
+
+@cache
+def covers() -> frozenset[str]:
+    """Every component that is 冖-shaped: the roots, and a component whose sequence ends in one
+    (宀 is 丶 over 冖; 龸 is ⺌ over 冖; 𤇾, 𫇦, 𰃮 and 𦥯 likewise). The shape is what the layout
+    follows, so the table is derived from the sequence rather than listing each rare component."""
+    out = set(COVER_ROOTS)
+    seqs = japanese_sequences()
+    for _ in range(3):
+        for char, sequence in seqs.items():
+            try:
+                tree = parse(sequence)
+            except (ValueError, StopIteration):
+                continue
+            if isinstance(tree, tuple) and tree[0] == "⿱" and isinstance(tree[2], str) and tree[2] in out:
+                out.add(char)
+    return frozenset(out)
+
+
 #: Width of the bar under a cover, as a share of the cover's width (0.70 in 定, 0.72 in 甍).
 COVER_BAR = 0.72
+#: How far a cover's ink overlaps the part under it, in font units: the font tucks the lower
+#: part under 冖 (受 -28, 牽 -20), where a free gap reads as loose.
+COVER_GAP = -24.0
 #: Least hosts in a place a kin enclosing part needs to stand for another (`_kin_outer`).
 KIN_OUTER_HOSTS = 3
 #: Hosts of a kin enclosing part tried, best first, for one KanjiVG can cut (`_kin_outer`).
@@ -339,6 +392,16 @@ def atomic_characters() -> set[str]:
         row[0] for row in read_rows("han-ids-drawn.tsv") if row[1] == row[0]}
 
 
+@cache
+def constructs() -> dict[str, dict]:
+    """Sequences whose last operands are one known construct, by sequence: the host character, the
+    piece to keep (top or bottom of its glyph) and how many of the sequence's parts to keep."""
+    out = {}
+    for sequence, host, keep, keep_parts, note in read_rows("han-constructs.tsv"):
+        out[sequence] = {"host": host, "keep": keep, "keep_parts": int(keep_parts), "note": note}
+    return out
+
+
 def japanese_sequences() -> dict[str, str]:
     """Each ideograph's sequence as BabelStone gives it for Japan, else its first; sequences naming
     an unencoded component ({n}) or an unnameable one (？) are left out. A sequence in
@@ -428,8 +491,13 @@ class Contour:
     def box(self) -> Box:
         return (*self.light.min(axis=0), *self.light.max(axis=0))
 
+    @cached_property
+    def length(self) -> float:
+        """The closed polygon's perimeter through every point at weight 400."""
+        return float(np.linalg.norm(np.diff(np.vstack([self.light, self.light[:1]]), axis=0), axis=1).sum())
 
-def _contours(pen: RecordingPen) -> list[tuple[list, np.ndarray]]:
+
+def _contours(pen: DecomposingRecordingPen) -> list[tuple[list, np.ndarray]]:
     out, ops, points = [], [], []
     for op, args in pen.value:
         if op in ("closePath", "endPath"):
@@ -447,6 +515,12 @@ class Part:
     """The contours of a glyph, or of an operand cut from one."""
 
     contours: list[Contour]
+
+    def split(self, indices: list[int]) -> tuple["Part", "Part"]:
+        """This part's contours at `indices`, and the rest, both in the original order."""
+        take = set(indices)
+        return (Part([c for k, c in enumerate(self.contours) if k in take]),
+                Part([c for k, c in enumerate(self.contours) if k not in take]))
 
     @cached_property
     def box(self) -> Box:
@@ -493,7 +567,7 @@ class Font:
             font, cmap, glyphs, scale = next(f for f in self.fallbacks if ord("丨") in f[1] and ord("一") in f[1])
             widths = []
             for char, axis in (("丨", 0), ("一", 1)):
-                pen = RecordingPen()
+                pen = DecomposingRecordingPen(glyphs)
                 glyphs[cmap[ord(char)]].draw(pen)
                 flat = [Contour(ops, p * scale, p * scale) for ops, p in _contours(pen)]
                 widths.append(_across(_rings(flat, [c.light for c in flat], steps=8), axis) / self.stem[axis][0])
@@ -508,7 +582,7 @@ class Font:
         name = self.cmap[ord(char)]
         out = []
         for glyphs in (self.light, self.heavy):
-            pen = RecordingPen()
+            pen = DecomposingRecordingPen(glyphs)
             glyphs[name].draw(pen)
             flat = [Contour(ops, p, p) for ops, p in _contours(pen)]
             out.append(_across(_rings(flat, [c.light for c in flat], steps=8), axis))
@@ -547,7 +621,7 @@ class Font:
             if name is None and len(char) == 1:
                 for _, cmap, glyphs, scale in self.fallbacks:
                     if ord(char) in cmap:
-                        pen = RecordingPen()
+                        pen = DecomposingRecordingPen(glyphs)
                         glyphs[cmap[ord(char)]].draw(pen)
                         # A static font has one weight: its heavy outline is the light one grown by as
                         # much as this font's stems of the same width grow at heavy, so its parts are
@@ -555,8 +629,7 @@ class Font:
                         rings = [(ops, p * scale if scale != 1 else p) for ops, p in _contours(pen)]
                         flat = [Contour(ops, p, p) for ops, p in rings]
                         if self.family is not None:
-                            density = sum(float(np.linalg.norm(np.diff(np.vstack([c.light, c.light[:1]]), axis=0), axis=1).sum())
-                                          for c in flat)
+                            density = sum(c.length for c in flat)
                             width = tuple(self.family[axis] * self.width(density, axis) for axis in (0, 1))
                         else:
                             mask = fill(_rings(flat, [c.light for c in flat], steps=2), 200, (0.0, ASCENT - EM, EM, ASCENT))
@@ -566,7 +639,7 @@ class Font:
                         part = Part(contours) if contours else None
                         break
             if name is not None:
-                light, heavy = RecordingPen(), RecordingPen()
+                light, heavy = DecomposingRecordingPen(self.light), DecomposingRecordingPen(self.heavy)
                 self.light[name].draw(light)
                 self.heavy[name].draw(heavy)
                 contours = [Contour(ops, p, q) for (ops, p), (_, q) in zip(_contours(light), _contours(heavy))]
@@ -609,11 +682,22 @@ def _across(rings: list[np.ndarray], axis: int) -> float:
 def _grown(points: np.ndarray, by: tuple[float, float]) -> np.ndarray:
     """A contour's points moved outward from its ink by `by` (along x, along y), each along the
     bisector of its two edges, as far as keeps the edges `by` away; a point stays put where its
-    edges fold back on each other. Ink lies to the right of a contour's direction in a font."""
+    edges fold back on each other. Ink lies to the right of a contour's direction in a font.
+
+    A font writes a contour's closing return as a copy of its first point, and writes corners that
+    way too. A copy is the same vertex, so the vertices are grown once and each point takes the place
+    of the vertex it copies: grown apart, the copies would tear the contour open at the seam."""
     if len(points) < 3:
         return points.copy()
-    before = points - np.roll(points, 1, axis=0)
-    after = np.roll(points, -1, axis=0) - points
+    closing = np.array_equal(points[0], points[-1])
+    body = points[:-1] if closing else points
+    kept = np.ones(len(body), bool)
+    kept[1:] = np.any(body[1:] != body[:-1], axis=1)
+    vertices = body[kept]
+    if len(vertices) < 3:
+        return points.copy()
+    before = vertices - np.roll(vertices, 1, axis=0)
+    after = np.roll(vertices, -1, axis=0) - vertices
     def left(v: np.ndarray) -> np.ndarray:
         n = np.stack([-v[:, 1], v[:, 0]], axis=1)
         length = np.linalg.norm(n, axis=1, keepdims=True)
@@ -624,10 +708,14 @@ def _grown(points: np.ndarray, by: tuple[float, float]) -> np.ndarray:
     unit = np.divide(bisector, size, out=np.zeros_like(bisector), where=size > 1e-9)
     # Moving along the bisector by d / cos(half the turn) keeps each edge d away; capped at a sharp turn.
     cos_half = np.clip((unit * a).sum(axis=1, keepdims=True), 0.35, 1.0)
-    return points + unit / cos_half * np.array(by)
+    grown = vertices + unit / cos_half * np.array(by)
+    out = np.empty_like(points)
+    out[:len(body)] = grown[np.maximum.accumulate(np.cumsum(kept) - 1)]
+    if closing:
+        out[-1] = out[0]
+    return out
 
 
-# ------------------------------------------------------------------ cutting hosts
 def _units(contours: list[Contour]) -> list[list[Contour]]:
     """Contours grouped with those inside them: a counter goes with the smallest contour winding the
     other way whose box holds it. A stroke that only lies within another's box (the strokes inside
@@ -720,6 +808,32 @@ def _linear_partitions(part: Part, axis: int, pieces: int) -> Iterator[tuple[tup
             continue
         parts = [Part(g) for g in groups]
         yield crossing, chosen, parts[::-1] if axis == 1 else parts
+
+
+def cover_stack_pieces(part: Part) -> list[Part] | None:
+    """A ``⿳`` with a cover in the middle, cut by region: the widest thin stroke near mid-height is
+    the cover; the cut is at its lowest y, and every unit reaching below that goes with the part
+    under it; the rest is the part above. None when no such stroke separates the bands."""
+    units = _units(part.contours)
+    if len(units) < 3:
+        return None
+    x0, y0, x1, y1 = part.box
+    width, height = x1 - x0, y1 - y0
+    eligible = [i for i, unit in enumerate(units)
+                if _span(unit, 0)[1] - _span(unit, 0)[0] >= 0.55 * width
+                and _span(unit, 1)[1] - _span(unit, 1)[0] <= 0.3 * height
+                and 0.3 * height <= (_span(unit, 1)[0] + _span(unit, 1)[1]) / 2 - y0 <= 0.7 * height]
+    if not eligible:
+        return None
+    mid = max(eligible, key=lambda i: _span(units[i], 0)[1] - _span(units[i], 0)[0])
+    bottom_y = _span(units[mid], 1)[0]
+    bottom = [i for i in range(len(units)) if i != mid and _span(units[i], 1)[0] < bottom_y]
+    top = [i for i in range(len(units)) if i != mid and i not in bottom]
+    if not top or not bottom:
+        return None
+    return [Part([ct for i in top for ct in units[i]]),
+            Part(list(units[mid])),
+            Part([ct for i in bottom for ct in units[i]])]
 
 
 def enclosures(part: Part, op: str) -> list[tuple[Part, Part]]:
@@ -1109,7 +1223,18 @@ class Composer:
     @cached_property
     def _index(self) -> tuple[dict, dict]:
         """(slot, operand) → drawn characters holding that operand there, and operator → drawn
-        characters with a node of it; each with its tree and the path of positions to the node."""
+        characters with a node of it; each with its tree and the path of positions to the node.
+        A style that keeps its own hosts indexes no character a fallback font draws."""
+        own = getattr(getattr(self.font, "style", None), "own_hosts", False)
+        return self._indexed(self.font.own if own else self.font.has)
+
+    @cached_property
+    def operands(self) -> set[tuple[str, str]]:
+        """Every (slot, operand) of every character the fonts draw, whichever may serve as a host: a
+        character is written as an operand whether or not a piece can be cut for it."""
+        return set(self._indexed(self.font.has)[0])
+
+    def _indexed(self, drawn: Callable[[str], bool]) -> tuple[dict, dict]:
         hosts: dict[tuple[str, str], list] = {}
         templates: dict[str, list] = {}
 
@@ -1127,7 +1252,7 @@ class Composer:
 
         trees = {}
         for char, seq in self.sequences.items():
-            if self.font.has(char):
+            if drawn(char):
                 try:
                     trees[char] = parse(seq)
                 except ValueError:
@@ -1198,8 +1323,7 @@ class Composer:
         """Permitted outline length, or an IDS estimate for missing and excluded glyphs. Unknown
         analyses use permitted 永, or one em of nominal outline when it is unavailable."""
         if part is not None:
-            return sum(float(np.linalg.norm(np.diff(np.vstack([c.light, c.light[:1]]), axis=0), axis=1).sum())
-                       for c in part.contours)
+            return sum(c.length for c in part.contours)
         self._reference_context()
         if isinstance(node, tuple):
             return sum(self.ink(n, seen=seen) for n in node[1:])
@@ -1262,6 +1386,9 @@ class Composer:
 
         plain = Composer(ReferenceFont(), self.sequences, hosted=False, weighted=False, exclude=excluded)
         plain._frames = self._frames
+        # With nothing excluded the reference font draws what this one draws.
+        if not self.exclude:
+            plain.by_sequence = self.by_sequence
         return plain
 
     def _sketch(self, node: tuple) -> Part | None:
@@ -1680,8 +1807,40 @@ class Composer:
             part, node = cut[0][step], node[1 + step]
         cut = self._cut(part, node, strict)
         if cut is None or self._traded(cut[0], node[1:]):
-            return None
+            return self._cover_stack_host(char, tree, path, strict)
         return Host(char, cut[0], part.box, cut[1], whole=not path)
+
+
+
+    def _cover_stack_host(self, char: str, tree: tuple, path: tuple, strict: bool = True) -> Host | None:
+        """A ⿳ whose middle is a cover, cut by region: the widest stroke is the cover, the
+        units below it are the part under it, the rest the part above. Used when no axis cut
+        separates the interlocking bands."""
+        if path:
+            return None
+        node = tree
+        if not isinstance(node, tuple) or len(node) != 4 or node[0] != "⿳":
+            return None
+        if not (isinstance(node[2], str) and node[2] in _STACK_COVERS):
+            return None
+        glyph = self.font.glyph(char)
+        pieces = cover_stack_pieces(glyph)
+        if pieces is None:
+            return None
+        operands = node[1:]
+        if self._traded(pieces, operands):
+            return None
+        if not all(self._kept(piece, operand) for piece, operand in zip(pieces, operands)):
+            return None
+        if strict and not all(self._counted(piece, node[0], k, operand)
+                              for k, (piece, operand) in enumerate(zip(pieces, operands))):
+            return None
+        if strict and not all(self._like_fellows(piece, slot(node[0], k), operand)
+                              for k, (piece, operand) in enumerate(zip(pieces, operands))
+                              if isinstance(operand, str)):
+            return None
+        gap = ((pieces[0].box[1] - pieces[1].box[3]) + (pieces[1].box[1] - pieces[2].box[3])) / 2
+        return Host(char, pieces, glyph.box, gap, whole=True)
 
     def _traded(self, pieces: list[Part], operands: list[Node]) -> bool:
         """Whether pieces the variable font draws traded a stroke: one has fewer outlines than its
@@ -2052,6 +2211,24 @@ class Composer:
                 return char
         return node
 
+    def _construct(self, spec: dict, out: list[Placed]) -> list[Placed]:
+        """The first `keep_parts` parts, and the host's kept piece where the rest went."""
+        host = self.font.glyph(spec["host"]) if spec["host"] not in self.exclude else None
+        if host is None or (getattr(getattr(self.font, "style", None), "own_hosts", False) and not self.font.own(spec["host"])):
+            return out
+        pieces = split(host, 1, 2)
+        if not pieces:
+            return out
+        body = pieces[0] if spec["keep"] == "top" else pieces[1]
+        kept = out[:spec["keep_parts"]]
+        rest = out[spec["keep_parts"]:]
+        if not rest:
+            # A font drew the whole sequence: its designed glyph stands over the construct fallback.
+            return out
+        box = (min(p.target[0] for p in rest), min(p.target[1] for p in rest),
+               max(p.target[2] for p in rest), max(p.target[3] for p in rest))
+        return [*kept, Placed(body, body.box, box, native=0.0, origin=f"construct {spec['host']} {spec['keep']}")]
+
     def compose(self, sequence: str) -> list[Placed]:
         """The parts that draw `sequence`; LookupError when an operand can be drawn no way."""
         tree = self._standalone_expanded_overlay(self._standalone_pyramid(
@@ -2091,6 +2268,9 @@ class Composer:
             self._balance(placed)
         if self.guide is not None:
             placed = self.guide.fit(self, key(tree), placed)
+        spec = constructs().get(sequence)
+        if spec:
+            placed = self._construct(spec, placed)
         return placed
 
     def _reranked(self, tree: Node, placed: list[Placed]) -> list[tuple[float, list[Placed], list[float]]]:
@@ -2875,12 +3055,24 @@ def _fit_under_cover(op: str, children: list[Node], groups: list[list[Placed]]) 
     width, centred on it: 定's 疋 bar and 甍's 瓦 bar are about 0.70 and 0.72 of the cover in the
     font, where a full-width donor cut overshoots both sides."""
     if op == "⿱":
-        pairs = [(0, 1)] if isinstance(children[0], str) and children[0] in COVERS else []
+        pairs = [(0, 1)] if isinstance(children[0], str) and children[0] in covers() else []
     elif op == "⿳":
         pairs = [(i, i + 1) for i in (0, 1) if i + 1 < len(children)
-                 and isinstance(children[i], str) and children[i] in COVERS]
+                 and isinstance(children[i], str) and children[i] in covers()]
     else:
         pairs = []
+    if op == "⿳" and len(groups) >= 3 and isinstance(children[0], str) and children[1] == "冖":
+        # A cover in the middle closes on the part above it too; the lower parts move with it.
+        above, cover = groups[0], groups[1]
+        a, b = _ink_box(above), _ink_box(cover)
+        gap = a[1] - b[3]
+        if (b[2] - b[0]) >= 0.9 * (a[2] - a[0]) and gap > COVER_GAP:
+            shift = min(gap - COVER_GAP, 0.25 * (b[3] - b[1]))
+            if shift > 0:
+                for group in groups[1:]:
+                    for placed in group:
+                        placed.target = (placed.target[0], placed.target[1] + shift,
+                                         placed.target[2], placed.target[3] + shift)
     for above, below in pairs:
         cover, lower = groups[above], groups[below]
         if not cover or not lower:
@@ -2919,6 +3111,25 @@ def _fit_under_cover(op: str, children: list[Node], groups: list[list[Placed]]) 
             contours = [replacement if c is contour else c for c in placed.part.contours]
             placed.part = Part(contours)
             break
+        cover_ink = _ink_box(cover)
+        lower_ink = _ink_box(lower)
+        gap = cover_ink[1] - lower_ink[3]
+        if (op == "⿳" and cover is groups[1] and isinstance(children[1], str)
+                and children[1] == "冖"
+                and (lower_ink[2] - lower_ink[0]) >= 0.9 * (cover_ink[2] - cover_ink[0])
+                and gap > COVER_GAP):
+            shift = min(gap - COVER_GAP, 0.25 * (lower_ink[3] - lower_ink[1]))
+            for placed in lower:
+                placed.target = (placed.target[0], placed.target[1] + shift,
+                                 placed.target[2], placed.target[3] + shift)
+
+
+def _ink_box(group: list[Placed]) -> Box:
+    """The ink's bounding box, not the box the part was fitted into."""
+    boxes = [(c[:, 0].min(), c[:, 1].min(), c[:, 0].max(), c[:, 1].max())
+             for placed in group for c in placed.contours()]
+    return (min(b[0] for b in boxes), min(b[1] for b in boxes),
+            max(b[2] for b in boxes), max(b[3] for b in boxes))
 
 
 def _shrunk(box: Box, share: float) -> Box:
@@ -3174,45 +3385,55 @@ def _steps(steps: int) -> np.ndarray:
     return np.linspace(0, 1, steps + 1)[1:, None]
 
 
+@lru_cache(maxsize=1 << 16)
+def _ring_plan(ops: tuple[tuple[str, int, bool], ...], steps: int) -> tuple:
+    """How `_rings` reads a contour of `ops`. Every node of the contour ends on the mean of two of its
+    points (one point twice, or the two a TrueType implied point lies between). `curved` lists the
+    nodes that are quadratic segments, each starting on the node before it, and `offs` their control
+    points. `lines` and `samples` say where straight nodes and curve samples fall in the ring."""
+    first, second, off_points, curved, at = [], [], [], [], 0
+    for op, n, implied in ops:
+        indices = list(range(at, at + n))
+        at += n
+        if op in ("moveTo", "lineTo"):
+            first.append(indices[0])
+            second.append(indices[0])
+        elif op == "qCurveTo":
+            if implied:
+                first.append(indices[-1])
+                second.append(indices[0])
+            offs = indices if implied else indices[:-1]
+            for k, off in enumerate(offs):
+                curved.append(len(first))
+                off_points.append(off)
+                if k + 1 < len(offs):
+                    first.append(off)
+                    second.append(offs[k + 1])
+                elif implied:
+                    first.append(indices[-1])
+                    second.append(indices[0])
+                else:
+                    first.append(indices[-1])
+                    second.append(indices[-1])
+        else:
+            raise ValueError(f"{op} outlines are not read.")
+    curved_nodes = np.array(curved, dtype=np.intp)
+    is_curved = np.zeros(len(first), bool)
+    is_curved[curved_nodes] = True
+    starts = np.concatenate([[0], np.cumsum(np.where(is_curved, steps, 1))])
+    samples = (starts[curved_nodes, None] + np.arange(steps)).ravel()
+    return (np.array(first, dtype=np.intp), np.array(second, dtype=np.intp), curved_nodes,
+            np.array(off_points, dtype=np.intp), starts[:-1][~is_curved], samples, int(starts[-1]))
+
+
 def _rings(contours: list[Contour], points: list[np.ndarray], steps: int = 6) -> list[np.ndarray]:
     rings = []
+    t = _steps(steps).ravel()
     for contour, pts in zip(contours, points):
-        ring, last = [], None
-        for kind, seg in _segments(contour.ops, pts):
-            if kind in "ML":
-                last = seg[0]
-                ring.append(last)
-            else:
-                off, on = seg
-                t = _steps(steps)
-                ring.extend((1 - t) ** 2 * last + 2 * (1 - t) * t * off + t ** 2 * on)
-                last = on
-        if len(ring) >= 3:
-            rings.append(np.array(ring))
+        first, second, curved, offs, lines, samples, size = _ring_plan(tuple(contour.ops), steps)
+        if size >= 3:
+            rings.append(_ring(pts, first, second, curved, offs, lines, samples, size, t))
     return rings
-
-
-def fill(rings: list[np.ndarray], size: int, box: Box) -> np.ndarray:
-    """A size × size mask of `box` (x0, y0, x1, y1, y up), filled by the nonzero rule at pixel centres."""
-    x0, y0, x1, y1 = box
-    xs = x0 + (np.arange(size) + 0.5) * (x1 - x0) / size
-    ys = y1 - (np.arange(size) + 0.5) * (y1 - y0) / size
-    if not rings:
-        return np.zeros((size, size), bool)
-    a = np.concatenate(rings)
-    b = np.concatenate([np.roll(r, -1, axis=0) for r in rings])
-    # Every row's crossings at once: an edge crossing row r at x adds its direction to the winding
-    # of every pixel centre right of x, which a running sum along the row spreads from x on.
-    y = ys[:, None]
-    up = (a[None, :, 1] <= y) & (b[None, :, 1] > y)
-    rows, edges = np.nonzero(up | ((a[None, :, 1] > y) & (b[None, :, 1] <= y)))
-    if not len(rows):
-        return np.zeros((size, size), bool)
-    p, q = a[edges], b[edges]
-    x = p[:, 0] + (ys[rows] - p[:, 1]) * (q[:, 0] - p[:, 0]) / (q[:, 1] - p[:, 1])
-    delta = np.zeros((size, size + 1), np.int32)
-    np.add.at(delta, (rows, np.searchsorted(xs, x, side="right")), np.where(up[rows, edges], 1, -1))
-    return np.cumsum(delta[:, :size], axis=1) != 0
 
 
 def raster(placed: list[Placed], size: int = 128) -> np.ndarray:

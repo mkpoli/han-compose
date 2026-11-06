@@ -6,9 +6,10 @@ regional form the font does not draw. Each part comes from a character the font 
 cut out of it (along KanjiVG's component groups where KanjiVG has that kanji), set where the
 font's designers put parts like it, and brought to one stroke weight. The result is an SVG path in
 a 1000-unit em, in a sans style from Noto Sans CJK JP, whose ideographs GenZui Sans takes unchanged;
-a serif (明朝) style from Noto Serif CJK JP; or a kaisho (楷書) style from Kureedo, the Klee One
-design extended with historical kana. Plangothic supplies the sans parts Noto lacks, Jigmo the serif
-ones, and GenZui Sans the characters Kureedo lacks.
+a serif (明朝) style from Noto Serif CJK JP; a kaisho (楷書) style from Kureedo Full, the Klee One
+design with historical kana and LXGW WenKai Light for the characters Klee lacks; or a fangsong (仿宋)
+style from Zhuque Fangsong. Plangothic supplies the sans parts Noto lacks, Jigmo the serif ones and the
+ideographs Zhuque lacks, and GenZui Sans the characters Kureedo Full lacks.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/composed-dark.png">
@@ -41,10 +42,12 @@ uv run scripts/compose_ids.py draw-many sequences.txt out/
 `draw-many` draws every sequence in a file, one a line, into `out/` as `<sha256 of its NFC form>.svg`,
 and lists those it cannot draw.
 
-Every command takes `--style sans` (the default), `--style serif` or `--style kaisho`. Each style
+Every command takes `--style sans` (the default), `--style serif`, `--style kaisho` or
+`--style fangsong`. Each style
 has its own fonts and models: a style's model is cached as `<name>-<style><ext>` beside the sans
 one, and `learn --style kaisho` and `learn-alone --style kaisho` build it. Kureedo is static, so the
-Kaisho style keeps the source brush weights instead of balancing them.
+Kaisho style keeps the source brush weights instead of balancing them; Zhuque Fangsong is static too,
+and the Fangsong style does the same.
 
 `bench` redraws every compound jōyō kanji from its own sequence with nothing taken from the
 character, and scores each against the font's real glyph: the overlap of their ink (intersection
@@ -59,6 +62,9 @@ and need `uv sync --extra train`:
 uv run --extra train scripts/compose_ids.py learn
 uv run --extra train scripts/compose_ids.py learn-alone
 ```
+
+The composer's mask and ring kernels are in Rust (`rust/`), so installing needs a Rust toolchain; `uv sync`
+builds them.
 
 Drawing with the guide needs `onnxruntime`, and training needs `torch`. `uv sync --all-extras --group dev`
 keeps both: syncing one extra alone drops the other.
@@ -75,9 +81,12 @@ do not, for the port's parity test.
 Workers write one file per record and host list under `out/.work/`, which a stopped run resumes
 from, and the export builds the shards from them at the end. `export-web-pack` builds the shards
 again from a finished folder's `.work/`, and brings its manifest, parity files and `.export` stamp
-to format 5, so a format-4 folder whose `g/` and `p/` are moved under `.work/` becomes the folder
-a format-5 export writes. A rerun resumes from `.work/` only under the same version, which names
-the commit: from another commit `export-web` starts afresh.
+to format 6, so a format-4 or format-5 folder whose `g/` and `p/` are moved under `.work/` becomes
+the folder a format-6 export writes. A rerun resumes from `.work/` only under the same version, which names
+the commit: from another commit `export-web` starts afresh. Every host's glyph and KanjiVG
+ownership are read once before the workers fork, and the workers share them. Host cutting releases
+cut geometry after each batch of 64 records and at the end of each list. Every candidate, its rank and failed-cut
+entry remain in the export; candidate selection depends on the character being composed.
 
 Records hold every letter and digit of an alphabet or syllabary the style's fonts draw (Latin,
 IPA, Greek, Cyrillic, kana, Hangul, the full- and half-width forms), so a sequence such as
@@ -112,10 +121,13 @@ Fonts download to `cache/fonts/` on first use. `$HAN_COMPOSE_CACHE` points the c
 | `src/han_compose/compose_standalone.py` | the size a part takes when it stands alone |
 | `src/han_compose/kanjivg_cuts.py` | cutting a host along KanjiVG's component groups |
 | `src/han_compose/vocab.py` | the vocab tables and the cache |
-| `src/han_compose/web_export.py` | the layout and drawing data for a browser port |
+| `src/han_compose/web_export.py` | the layout and drawing data for the browser engine |
 | `scripts/compose_ids.py` | `draw`, `draw-many`, `bench`, `calibrate`, `learn`, `learn-alone`, `export-web`, `export-web-pack` |
 | `tests/` | tests over cutting, layout, drawn output and the web export |
+| `js/` | `@han-compose/composer`, the same composer in the browser, with its own tests |
+| `data/` | the vocab tables, and the outlines the engine draws a part from when no export has it |
 | `docs/design/ids-composer.md` | the method, its measurements, and what did not help |
+| `docs/design/browser-composer.md` | the browser engine, and where the editor it serves meets it |
 
 ## Sources
 
@@ -131,4 +143,6 @@ the same notices for the data it writes.
 [GlyphWiki](https://glyphwiki.org/) contributors developed a system for drawing characters from
 reusable strokes and components. Their work is a predecessor to character composition here. The
 serif style also uses [Jigmo](https://kamichikoichi.github.io/jigmo/), generated with KAGE from
-GlyphWiki glyph data and released under CC0 1.0, for parts Noto Serif CJK does not draw.
+GlyphWiki glyph data and released under CC0 1.0, for parts Noto Serif CJK does not draw; the fangsong
+style uses it the same way for ideographs [Zhuque Fangsong](https://github.com/TrionesType/zhuque)
+does not draw.

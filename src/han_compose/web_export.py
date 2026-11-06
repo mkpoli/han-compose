@@ -27,6 +27,9 @@ character draws would be (each without itself and its twins, `reuse` off, the mo
 into `parity.json`, as reference drawings a port is checked against; every host piece those
 drawings used joins the export. With `held_out`, more are drawn into `parity-held-out.json`, whose
 hosts do not.
+
+The browser engine (`js/`) reads this format and nothing else; `js/tests/parity.test.js` draws the
+parity sets from an export and compares them with these drawings.
 """
 
 from __future__ import annotations
@@ -48,8 +51,9 @@ from . import compose as C
 from . import compose_layout as L
 
 #: The export's own format; a change to any file's shape makes a new one. 4 is the style-aware
-#: manifest without shards; 5 packs the records and host lists into shards.
-FORMAT = 5
+#: manifest without shards; 5 packs the records and host lists into shards; 6 adds the optional
+#: `G.sg` stroke groups.
+FORMAT = 6
 #: Shards are named by the hash's first `SHARD_DIGITS` hex digits.
 SHARD_DIGITS = 3
 SHARDS = 16 ** SHARD_DIGITS
@@ -352,15 +356,49 @@ def entry_record(composer: C.Composer, entry: tuple, rank: int, host: C.Host | N
     return record
 
 
+HOST_CACHE_BATCH = 64
+
+
+def _load_font_caches(composer: C.Composer) -> None:
+    """Read every host's glyph and KanjiVG ownership once, before the workers fork. They depend only
+    on the font, so the workers share them; cut geometry is what grows, and `_clear_host_caches`
+    releases it."""
+    index, _ = composer._index
+    for char in sorted({entry[0] for entries in index.values() for entry in entries}):
+        composer.font.glyph(char)
+        if composer.kvg is not None:
+            composer.kvg.owners(char)
+
+
+def _clear_host_caches(composer: C.Composer) -> None:
+    """Release cut geometry only after its record holds plain values. Glyphs and KanjiVG ownership
+    stay: a cut shares contour identities with its source glyph, and they are bounded by the font."""
+    import gc
+
+    if composer._frames or composer._expanding:
+        raise RuntimeError("Cannot release geometry during composition.")
+    for name in ("_hosts", "_any_overlays", "_sketches", "_templates", "_typical", "_strokes",
+                 "_faces", "_inks", "_own_counts"):
+        getattr(composer, name).clear()
+    composer.__dict__.pop("_plain", None)
+    gc.collect()
+
+
 def hosts_for(composer: C.Composer, place: str, written: str) -> list[dict]:
-    """Every index entry for (place, operand), in the index's order, each cut as `_host_node` cuts it.
-    A style with `own_hosts` keeps only hosts its main font draws."""
+    """Every index entry, including failed cuts, with its original rank.
+
+    Geometry is released in batches without truncating the candidates: the drawing ranks them
+    against its target before capping.
+    """
     index, _ = composer._index
     entries = index.get((place, written), [])
-    if composer.font.style.own_hosts:
-        entries = [entry for entry in entries if composer.font.own(entry[0])]
-    return [entry_record(composer, entry, rank, composer._host_node(entry[0], entry[1], entry[2]))
-            for rank, entry in enumerate(entries)]
+    records = []
+    for rank, entry in enumerate(entries):
+        records.append(entry_record(composer, entry, rank, composer._host_node(entry[0], entry[1], entry[2])))
+        if (rank + 1) % HOST_CACHE_BATCH == 0:
+            _clear_host_caches(composer)
+    _clear_host_caches(composer)
+    return records
 
 
 # ------------------------------------------------------------------ keys
@@ -380,6 +418,9 @@ def char_record(composer: C.Composer, char: str, places: list[str], table: L.Tab
     glyph = composer.font.glyph(char)
     if glyph is not None:
         out["G"] = {"v": int(composer.font.own(char)), **part_record(glyph)}
+        groups = composer.kvg.groups(char) if composer.kvg is not None else None
+        if groups:
+            out["G"]["sg"] = groups
     if char in composer.sequences:
         out["s"] = composer.sequences[char]
     if char in composer.atomic:
@@ -427,6 +468,14 @@ def letters(font: C.Font) -> set[str]:
             if point not in FILLERS and (category == "Nd" or category[0] == "L") and font.has(char):
                 out.add(char)
     return out
+
+
+def own_letters(font: C.Font) -> set[str]:
+    """Every letter the style's main font maps, ideographs included: a character with no usable
+    sequence (帰) is still written, on its own and as an operand."""
+    import unicodedata
+
+    return {chr(point) for point in font.cmap if unicodedata.category(chr(point))[0] == "L"}
 
 
 def _leaf(key: str) -> bool:
@@ -725,13 +774,29 @@ PATHS = {
 OUTLINE_NOTES = {
     "sans": "Glyph outlines (G in g/ records) and the pieces host-list entries name by their contours' indices (c.k, or c.p where a piece holds its own outlines) are the fonts' outline data under the SIL Open Font License 1.1, whose full text with each font's copyright line is OFL.txt. Noto Sans CJK JP reserves the font name 'Source'; Plangothic declares no Reserved Font Name.",
     "serif": "Glyph outlines (G in g/ records) and the pieces host-list entries name by their contours' indices (c.k, or c.p where a piece holds its own outlines) are the fonts' outline data. Noto Serif CJK JP's are under the SIL Open Font License 1.1, whose full text with its copyright line is OFL.txt; its copyright line names no Reserved Font Name. Jigmo's (a record's G with v 0) are dedicated to the public domain under CC0 1.0 (CC0.txt), drawn from GlyphWiki by its contributors.",
-    "kaisho": "Glyph outlines (G in g/ records) and the pieces host-list entries name by their contours' indices (c.k, or c.p where a piece holds its own outlines) are the fonts' outline data. Kureedo's and GenZui Sans's are under the SIL Open Font License 1.1, whose full text with each font's copyright line is OFL.txt. The Klee Project Authors reserve no font name in Kureedo; GenZui Sans declares no Reserved Font Name.",
+    "fangsong": "Glyph outlines (G in g/ records) and the pieces host-list entries name by their contours' indices (c.k, or c.p where a piece holds its own outlines) are the fonts' outline data. Zhuque Fangsong's, whose Latin, Cyrillic and Greek glyphs are Alegreya's, are under the SIL Open Font License 1.1, whose full text with both copyright lines is OFL.txt; neither names a Reserved Font Name. Jigmo's (a record's G with v 0) are dedicated to the public domain under CC0 1.0 (CC0.txt), drawn from GlyphWiki by its contributors.",
+    "kaisho": "Glyph outlines (G in g/ records) and the pieces host-list entries name by their contours' indices (c.k, or c.p where a piece holds its own outlines) are the fonts' outline data. Kureedo Full's, including the LXGW WenKai Light outlines it carries for code points Klee One lacks, and GenZui Sans's are under the SIL Open Font License 1.1, whose full text with each font's copyright line and reserved names is OFL.txt. GenZui Sans declares no Reserved Font Name.",
 }
 
 
-def export(composer: C.Composer, out: Path, joyo: list[str] | None = None, parity: int = 0, held_out: int = 0,
-           only: set[str] | None = None, pairs: set[tuple[str, str]] | None = None, workers: int = 1,
-           root: Path | None = None, log=print) -> dict:
+def export(composer: C.Composer, out: Path, **options) -> dict:
+    """`_export` over a heap frozen for its length: the font caches stay out of every collection,
+    in this process and in the workers, and so out of their copied pages. The heap is released after,
+    so a caller's next composer does not sit beside this one."""
+    import gc
+
+    _load_font_caches(composer)
+    gc.collect()
+    gc.freeze()
+    try:
+        return _export(composer, out, **options)
+    finally:
+        gc.unfreeze()
+
+
+def _export(composer: C.Composer, out: Path, joyo: list[str] | None = None, parity: int = 0, held_out: int = 0,
+            only: set[str] | None = None, pairs: set[tuple[str, str]] | None = None, workers: int = 1,
+            root: Path | None = None, log=print) -> dict:
     """Write the export into `out` and return its manifest. `only` limits it to those keys, and
     `pairs` its host lists to those (place, operand)s (tests).
     Workers write each record and host list under `.work/` as they finish; a rerun of the same
@@ -817,8 +882,9 @@ def export(composer: C.Composer, out: Path, joyo: list[str] | None = None, parit
 
     # Records: every operand the index holds, every character a sequence describes, every
     # positional form, the parity drawings' leaves, every sequence the font draws, every operand of
-    # the layout table, every operand with a host list, and every letter the fonts draw (`letters`).
-    chars = {w for _, w in index if _leaf(w)} | set(composer.by_sequence.values()) | letters(composer.font)
+    # the layout table, every operand with a host list, every letter the fonts draw (`letters`), and
+    # every letter the main font maps (`own_letters`).
+    chars = {w for _, w in composer.operands if _leaf(w)} | set(composer.by_sequence.values()) | letters(composer.font) | own_letters(composer.font)
     chars |= {form for forms in composer.forms.values() for form, _ in forms}
     chars |= {written for _, written in _INJECT if _leaf(written)}
     for rows, _ in sets.values():
@@ -863,13 +929,13 @@ def export(composer: C.Composer, out: Path, joyo: list[str] | None = None, parit
     layout_bytes = _dump(layout)
     (out / "layout.json").write_bytes(layout_bytes)
 
-    fonts = [_font_notice(C._fetched(source, None), source.licence) for source in sources]
+    fonts = [{**_font_notice(C._fetched(source, None), source.licence), "also": source.also} for source in sources]
     licence_dir = VOCAB.parent / "licences"
     texts = []
     for licence, (name, text) in LICENCE_TEXTS.items():
         held = [f for f in fonts if f["licence"] == licence]
         if held:
-            notices = "".join(f"{f['name']}: {f['copyright'] or f['version']}\n" for f in held)
+            notices = "".join(f"{f['name']}: {f['copyright'] or f['version']}\n" + (f"{f['also']}\n" if f["also"] else "") for f in held)
             (out / name).write_text(notices + "\n" + (licence_dir / text).read_text(encoding="utf-8"), encoding="utf-8")
             texts.append(name)
     (out / "MIT-hfhchan-ids.txt").write_text((licence_dir / "hfhchan-ids-MIT.txt").read_text(encoding="utf-8"), encoding="utf-8")
@@ -883,7 +949,7 @@ def export(composer: C.Composer, out: Path, joyo: list[str] | None = None, parit
         "composer": {"repository": "https://github.com/mkpoli/han-compose", "commit": commit, "dirty": dirty,
                      "style": style.name, "layout_file": layout_file, **inputs},
         "style": style.name,
-        "em": C.EM, "ascent": C.ASCENT, "heavy": style.heavy, "quant": QUANT,
+        "em": C.EM, "ascent": C.ASCENT, "heavy": style.heavy, "weighted": style.weighted, "quant": QUANT,
         "constants": constants(composer),
         "constants_note": "tuple keys are joined with a comma: SHARES[('⿳', 3)] is SHARES['⿳,3']",
         "spelled": sorted(composer.spelled),
