@@ -310,3 +310,13 @@ def test_a_description_under_a_cover_draws_the_cover_and_its_child(composer: com
         composer.exclude = saved
     assert not any(origin.startswith("instance") for origin in origins)
     assert origins[-1] == "glyph 肖"
+
+
+def test_a_row_of_the_same_part_is_no_instance(composer: compose.Composer) -> None:
+    saved = composer.exclude
+    composer.exclude = {"双"}
+    try:
+        origins = [p.origin for p in composer.compose("⿰又又")]
+    finally:
+        composer.exclude = saved
+    assert not any(origin.startswith("instance") for origin in origins)

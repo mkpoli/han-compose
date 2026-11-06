@@ -2435,7 +2435,10 @@ class Composer:
         # A description headed by a cover draws its cover and what stands under it: a whole
         # instance scaled into the box skips the roof's own rules (冗 from a cut of 殻).
         cover_head = isinstance(node[1], str) and node[1] in covers()
-        instance = None if key(node) in self.spelled or cover_head else self._instance(node, region)
+        # A row of the same part keeps each part's own shape (双 as 又 twice, over a cut of 㧐).
+        repeated_row = node[0] in ("⿰", "⿲") and all(key(c) == key(node[1]) for c in node[2:])
+        instance = (None if key(node) in self.spelled or cover_head or repeated_row
+                    else self._instance(node, region))
         if instance is not None:
             return [instance]
         # Resolve each node's original identity before changing its rendering layout.
