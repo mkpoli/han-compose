@@ -12,14 +12,18 @@ the shapes it draws parts from when no host character has them.
 | `sources/shuishu/outlines.json.gz` | 533 Shuishu outlines at the proposed block's tentative allocations |
 | `sources/small-seal/outlines.json.gz` | the Small Seal glyphs at the proposed allocation, and their exact descriptions |
 | `sources/jurchen/outlines.json.gz` | the 965 outlines of Unicode 18.0's 914 Jurchen characters and 51 radicals |
-| `sources/palette/outlines.json.gz` | 79 palette components no export's font draws |
+| `sources/palette/outlines.json.gz` | 148 palette components no export's font draws |
 | `palette/fallback-characters.json`, `palette/bundled-coverage.json` | the same, listed and indexed |
 | `unicode/outlines/*.json.gz`, `unicode/coverage.json`, `unicode/outlines.json` | 56,651 outlines of loose marks and parts no other source draws |
-| `licences/` | the OFL, CC0, MIT and Unicode texts the export carries |
+| `licences/` | the OFL, CC0, MIT, Arphic and Unicode texts the export carries |
 
-Noto Sans CJK JP and Plangothic are SIL OFL 1.1; Noto Serif Tangut too. Unicode data is under the
-Unicode License v3 (`licences/Unicode-3.0.txt`). The Small Seal allocation, the New Korean letters and
-the Shuishu block are proposals, not assigned code points; nothing here is drawn from a font these
+Noto Sans CJK JP and Plangothic are SIL OFL 1.1; Noto Serif Tangut too. 69 of the palette's outlines
+are the numbered components that BabelStone's [IDS.TXT](https://www.babelstone.co.uk/CJK/IDS.TXT) note 6
+gives no description, cut from [BabelStone Han PUA](https://www.babelstone.co.uk/Fonts/Download/BabelStoneHanPUA.ttf) 1.472
+(SHA-256 `92e7155bd28f5570449f4dc71e9bb6fa919f67ef0120d4f83b58c61bed3ed4dc`) by Andrew West, under the
+Arphic Public License (`licences/Arphic-Public-License.txt`). Their private-use code points hold only for
+that version of the font. Unicode data is under the Unicode License v3 (`licences/Unicode-3.0.txt`).
+The Small Seal allocation, the New Korean letters and the Shuishu block are proposals, not assigned code points; nothing here is drawn from a font these
 notices do not name.
 
 The Jurchen outlines are from Alari Xuwasun Jurchen, public beta of 2026-10-12, by Sulfa, Dooran and
