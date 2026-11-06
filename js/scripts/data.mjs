@@ -25,7 +25,7 @@ function copy(from, to) {
 }
 
 // The outlines of each bundled script, and of the palette's fallback glyphs.
-for (const name of ['tangut', 'bopomofo', 'new-korean', 'small-seal', 'shuishu', 'palette']) {
+for (const name of ['tangut', 'bopomofo', 'new-korean', 'small-seal', 'shuishu', 'jurchen', 'palette']) {
   const from = join(source, 'sources', name, 'outlines.json.gz')
   copy(from, join(into, 'sources', name, 'outlines.json.gz'))
 }

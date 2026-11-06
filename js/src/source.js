@@ -12,8 +12,9 @@ import { hasBopomofo, bopomofoSource } from './bopomofo.js'
 import { hasSmallSeal, smallSealSource } from './small-seal.js'
 import { hasNewKorean, newKoreanSource } from './new-korean.js'
 import { hasShuishu, shuishuSource } from './shuishu.js'
+import { hasJurchen, jurchenSource } from './jurchen.js'
 import { hasPaletteGlyph, paletteSource } from './palette.js'
-import { isEmpty, isNode, parseDescription as parse, splitDescription } from './tree.js'
+import { isEmpty, isNode, parseDescription as parse, splitDescription, tonesOf } from './tree.js'
 
 /**
  * What in a sequence calls for bundled outlines instead of the export: a tree of empty slots draws
@@ -32,12 +33,13 @@ export function traitsOf(sequence) {
   const empty = onlySlots(tree)
   return {
     empty,
-    loose: splitDescription(sequence).marks !== '',
+    loose: splitDescription(sequence).marks !== '' || (tree !== null && tonesOf(tree) !== ''),
     tangut: hasTangut(sequence),
     bopomofo: hasBopomofo(sequence),
     seal: hasSmallSeal(sequence),
     newKorean: hasNewKorean(sequence),
     shuishu: hasShuishu(sequence),
+    jurchen: hasJurchen(sequence),
     palette: [...sequence].some(hasPaletteGlyph),
   }
 }
@@ -78,6 +80,7 @@ export function sourceFor(sequence, { base, fontStyle = 'sans', separate = false
   if (traits.seal) source = overlay(smallSealSource, source, 'sources/small-seal/outlines.json.gz')
   if (traits.newKorean) source = overlay(newKoreanSource, source, 'sources/new-korean/outlines.json.gz')
   if (traits.shuishu) source = overlay(shuishuSource, source, 'sources/shuishu/outlines.json.gz')
+  if (traits.jurchen) source = overlay(jurchenSource, source, 'sources/jurchen/outlines.json.gz')
   if (traits.palette) source = overlay(paletteSource, source, 'sources/palette/outlines.json.gz')
   return source ?? bundledSource({ load: async () => ({ records: {} }), matches: () => false })
 }
