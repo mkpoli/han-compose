@@ -3,7 +3,7 @@ import { retrying } from '../src/retry.js'
 
 const answering = (...responses) => {
   const asked = []
-  return { asked, get: async (input, init) => { asked.push(input); return responses.shift() } }
+  return { asked, get: async input => { asked.push(input); return responses.shift() } }
 }
 
 describe('a retried download', () => {

@@ -19,7 +19,6 @@ const fixture = (missing = '') => {
     return body === undefined ? null : new Uint8Array(Buffer.from(body)).buffer
   })
 }
-const inkOnly = drawing => ({ ...drawing, parts: drawing.parts.map(({ leaf, ...part }) => part) })
 
 // Mappings from han-compose's Noto Sans CJK export:
 // https://glyphatlas.org/atlas/composer/bd0829bc6fbf-sans-compose-layout-v4-f5+letters/

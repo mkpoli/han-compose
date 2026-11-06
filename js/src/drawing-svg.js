@@ -33,7 +33,7 @@ export function emojiTransform(item) {
 /** Path data with nothing but its commands and numbers. @param {unknown} d */
 const pathData = d => String(d ?? '').replace(/[\t\n\r]/g, ' ').replace(/[^MLHVCSQTAZmlhvcsqtaz0-9.,eE+\- ]/g, '')
 /** A transform list with nothing but SVG transform functions: its letters, numbers, spaces, commas and brackets. @param {unknown} t */
-const transformData = t => String(t ?? '').slice(0, 500).replace(/[^a-zA-Z0-9()., \-]/g, '')
+const transformData = t => String(t ?? '').slice(0, 500).replace(/[^a-zA-Z0-9()., -]/g, '')
 /** A colour as an SVG attribute takes it: `#rgb`, `#rrggbb` or `#rrggbbaa`; anything else is refused. @param {unknown} value @param {string | null} fallback */
 const colour = (value, fallback) => /^#(?:[0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(String(value ?? '')) ? /** @type {string} */ (value) : fallback
 

@@ -1,5 +1,4 @@
 import { expect, it } from 'bun:test'
-import { readFileSync } from 'node:fs'
 import { bundledSource } from '../src/bundled.js'
 import { componentDrawing, componentParts } from '../src/component-forms.js'
 import { compose, createSource, sketch } from '../src/loader.js'

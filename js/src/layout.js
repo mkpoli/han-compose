@@ -72,7 +72,7 @@ export function features(layout, op, records, places) {
     const usual = record?.u?.[places[i]]
     const mean = usual ? usual[0] : layout.defaults[places[i]], spread = usual ? usual[1] : [0, 0, 0, 0], n = usual ? usual[2] : 0
     out.push(...mean.map(v => v / 1000), ...spread.map(v => v / 100), Math.log1p(n) / 5, Math.log1p(record?.o ?? 0) / 3,
-      ...(record?.f ?? new Array(layout.shape).fill(0)))
+      ...(record?.f ?? Array.from({ length: layout.shape }, () => 0)))
   })
   return out
 }
