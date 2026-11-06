@@ -15,7 +15,7 @@ export const EMOJI_SCALE = 1.36
 /** Where an emoji stands in its box: `{ x, y, size }`, its middle and its font size, all finite.
  *  @param {{ box?: number[] } | null | undefined} item @returns {{ x: number, y: number, size: number }} */
 export function emojiPlace(item) {
-  const [x, y, width, height] = (item?.box ?? []).slice(0, 4).map(value => Number.isFinite(Number(value)) ? Number(value) : 0)
+  const [x, y, width, height] = [0, 1, 2, 3].map(at => { const value = Number(item?.box?.[at]); return Number.isFinite(value) ? value : 0 })
   return { x: x + width / 2, y: y + height / 2, size: Math.max(0, Math.min(width, height) * EMOJI_SCALE) }
 }
 
@@ -74,8 +74,10 @@ export function drawingSvg(drawing, { background = null, ink = '#000000', paddin
   const pieces = Array.isArray(drawing.parts) ? drawing.parts : null
   const emoji = drawing.emoji ?? []
   const hasCut = Boolean(cut || emoji.some(item => item.cut))
+  /** Whether an emoji names a drawn part, so it paints in that part's turn. @param {{ part?: number }} item */
+  const inPart = item => Number.isInteger(item.part) && /** @type {number} */ (item.part) >= 0 && /** @type {number} */ (item.part) < (pieces?.length ?? 0)
   const groupedEmoji = Boolean(!hasCut && emoji.length && pieces?.every(piece => Number.isInteger(piece.leaf))
-    && emoji.every(item => (item.part ?? -1) >= 0))
+    && emoji.some(item => inPart(item)))
   const split = !hasCut && (groupedEmoji || transforms?.some(transform => typeof transform === 'string' && transform))
     && pieces?.every(piece => typeof piece.d === 'string')
   /**
@@ -100,16 +102,16 @@ export function drawingSvg(drawing, { background = null, ink = '#000000', paddin
     // Parts are drawn in the order the drawing gives them: an overlay's top piece last.
     const order = pieces.map((piece, index) => ({ piece, index }))
     for (const { piece, index } of order) {
-      const item = emoji.find(candidate => candidate.part === index)
+      const items = groupedEmoji ? emoji.filter(candidate => candidate.part === index) : []
       const path = pathData(piece.d)
-      const content = item ? textOf(item) : path ? `<path d="${path}" fill="${fill}"/>` : ''
+      const content = items.length ? items.map(item => textOf(item)).join('') : path ? `<path d="${path}" fill="${fill}"/>` : ''
       if (!content) continue
       const transform = transformData(transforms?.[index])
       out.push(transform ? `<g transform="${transform}">${content}</g>` : content)
     }
   } else if (d) out.push(`<path d="${d}" fill="${fill}"${hasCut ? ' mask="url(#cut)"' : ''}/>`)
-  if (!groupedEmoji) for (const item of emoji) {
-    if (item.cut) continue
+  for (const item of emoji) {
+    if (item.cut || (split && groupedEmoji && inPart(item))) continue
     const content = textOf(item, hasCut && !item.restored ? ' mask="url(#cut)"' : '')
     if (!content) continue
     const part = item.part ?? -1
