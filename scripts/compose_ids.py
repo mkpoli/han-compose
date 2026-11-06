@@ -319,6 +319,18 @@ def export_web(out: Path, parity: int = 0, held_out: int = 0, workers: int = 1, 
     print(json.dumps({"version": manifest["version"], **manifest["files"]}, ensure_ascii=False))
 
 
+@app.command("redraw-parity")
+def redraw_parity(out: Path, style: str = STYLE) -> None:
+    """Draw the parity rows of the finished export in `out` again with this composer, in place, after
+    a change to the composer that changes no record. `js/tests/parity` then measures against them."""
+    from han_compose import web_export
+
+    composer = _composer(style)
+    if composer.layout is None:
+        raise typer.BadParameter(f"{_layout_path(style)} is missing: `learn --style {style}` builds it.")
+    print(json.dumps(web_export.redraw_parity(composer, out, log=lambda line: print(line, flush=True))))
+
+
 @app.command("export-web-pack")
 def export_web_pack(out: Path) -> None:
     """Build the `g/` and `p/` shards of a finished export in `out` from its per-key files under

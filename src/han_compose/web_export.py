@@ -645,6 +645,30 @@ def _recording(composer: C.Composer, used: list) -> None:
     composer._host = recorded
 
 
+def redraw_parity(composer: C.Composer, folder: Path, log=print) -> dict[str, int]:
+    """Draw a finished export's parity rows again with `composer`, in place: the rows a port is
+    checked against, after a change to the composer that changes no record. Answers how many rows
+    of each set changed. The export's other files, and the hosts its injected set joined, stay."""
+    global _WORKER
+
+    style = json.loads((folder / "manifest.json").read_text(encoding="utf8")).get("style")
+    if style != composer.font.style.name:
+        raise ValueError(f"{folder} is a {style} export; the composer draws {composer.font.style.name}.")
+    _WORKER = composer
+    changed = {}
+    for name in ("parity.json", "parity-held-out.json"):
+        path = folder / name
+        if not path.exists():
+            continue
+        data = json.loads(path.read_text(encoding="utf8"))
+        rows = [_draw((row["c"], row["s"]))[0] for row in data["rows"]]
+        changed[name] = sum(new.get("d") != old.get("d") for new, old in zip(rows, data["rows"]))
+        data["rows"] = rows
+        path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf8")
+        log(f"{name}: {changed[name]} of {len(rows)} rows changed")
+    return changed
+
+
 #: Origins of parts drawn by composer paths the export does not carry.
 UNEXPORTED_ORIGINS = ("teacher", "overlay", "transplant", "kin", "alone")
 
