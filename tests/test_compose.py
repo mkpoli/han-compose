@@ -299,3 +299,14 @@ def test_a_ring_refuses_outlines_it_cannot_read() -> None:
     points = np.zeros((3, 2))
     with pytest.raises(ValueError, match="curveTo outlines are not read"):
         compose._rings([compose.Contour([("curveTo", 3, False)], points, points)], [points])
+
+
+def test_a_description_under_a_cover_draws_the_cover_and_its_child(composer: compose.Composer) -> None:
+    saved = composer.exclude
+    composer.exclude = {"宵"}
+    try:
+        origins = [p.origin for p in composer.compose("⿱宀肖")]
+    finally:
+        composer.exclude = saved
+    assert not any(origin.startswith("instance") for origin in origins)
+    assert origins[-1] == "glyph 肖"
