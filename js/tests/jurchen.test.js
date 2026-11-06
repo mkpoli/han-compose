@@ -5,12 +5,16 @@ import { isComponent, isJurchen, parseDescription as parse, writeDescription as 
 import { characterScript } from '../src/scripts.js'
 import { compose } from '../src/loader.js'
 import { onlyBundled } from '../src/local.js'
+import { hasBundledGlyph } from '../src/bundled-coverage.js'
 import { hasJurchen, jurchenSource } from '../src/jurchen.js'
 import { traitsOf } from '../src/source.js'
 import { dataUrls } from '../src/index.js'
 
 const outlines = JSON.parse(gunzipSync(readFileSync(new URL('../data/sources/jurchen/outlines.json.gz', import.meta.url))).toString())
-const chars = Object.keys(outlines.records)
+const keys = Object.keys(outlines.records)
+const chars = keys.filter(key => [...key].length === 1)
+const variants = keys.filter(key => [...key].length === 2)
+const VARIANT = '\u{18E01}\uFE00', TUMEN = '\u{18E01}', FIRST = '\u{18E00}'
 
 describe('Jurchen', () => {
   it('holds an outline for each character and radical of the block', () => {
@@ -37,5 +41,30 @@ describe('Jurchen', () => {
   })
   it('lists its file among the package\'s data URLs', () => {
     expect(dataUrls['sources/jurchen/outlines.json.gz']).toContain('sources/jurchen/outlines.json.gz')
+  })
+})
+
+describe('Jurchen variant sequences', () => {
+  it('holds an outline for each of the 537 through U+FE00..U+FE04', () => {
+    expect(variants).toHaveLength(537)
+    for (const variant of variants) {
+      const [base, selector] = [...variant]
+      expect(chars).toContain(base)
+      expect(selector.codePointAt(0)).toBeGreaterThanOrEqual(0xFE00)
+      expect(selector.codePointAt(0)).toBeLessThanOrEqual(0xFE04)
+      expect(hasBundledGlyph('jurchen', variant)).toBe(true)
+    }
+  })
+  it('draws a variant with its own outline, from the bundled outlines alone', async () => {
+    expect(outlines.records[VARIANT].G.p).not.toEqual(outlines.records[TUMEN].G.p)
+    expect(onlyBundled(`⿰${VARIANT}${FIRST}`, false, false)).toBe(true)
+    const drawn = await compose(jurchenSource({ load: async () => outlines }), `⿰${VARIANT}${FIRST}`, { separate: true })
+    expect(drawn.parts).toHaveLength(2)
+    expect(drawn.origins).toContain(`glyph ${VARIANT}`)
+  })
+  it('leaves a selector the outlines do not hold to the export', () => {
+    expect(hasBundledGlyph('jurchen', `${FIRST}\uFE05`)).toBe(false)
+    expect(hasBundledGlyph('jurchen', `${VARIANT}\uFE00`)).toBe(false)
+    expect(hasBundledGlyph('tangut', `\u{17000}\uFE00`)).toBe(false)
   })
 })
