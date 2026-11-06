@@ -273,6 +273,13 @@ const FOOT_RATIO = 1.5
 // (⿺电言) in Noto Sans CJK JP and Noto Serif CJK JP, whose swept foot han-compose will not take for
 // a host cut. The digest names the glyph's outlines; a font without that glyph presses its own
 // outline instead (`pressedEnclosure`).
+// The tail of a pressed enclosure, where the face draws one: Kureedo's 巴 as drawn round 三 in 𠀧
+// (its outline and two windows). 巴's sweep — the leg below its box, the floor and the rising tip —
+// becomes 电's 乚. The digest names the glyph; an export without it keeps the pressed foot.
+const ENCLOSURE_TAILS = {
+  电: ['𠀧', { '97647776e6a744399c766db1da6c1eb408c37901e4607ff6f613de6a71a99646': [0, 1, 2] }],
+}
+
 const ENCLOSURE_FORMS = {
   '⿺': {
     电: ['𫌷', {
@@ -1035,6 +1042,18 @@ export class Composer {
     return { record: { h: char }, piece: derived(glyph, indices.map(i => glyph.contours[i])) }
   }
 
+  /** The designed tail of `node`'s pressed enclosure, or null where the face draws none. */
+  tailForm(node) {
+    const entry = typeof node === 'string' ? ENCLOSURE_TAILS[node] : null
+    if (!entry) return null
+    const [char, cuts] = entry, record = this.glyphRecord(char)
+    if (!record || this.excluded(char)) return null
+    const indices = cuts[hexOf(JSON.stringify(record.p))]
+    if (!indices) return null
+    const glyph = partOf(record)
+    return derived(glyph, indices.map(i => glyph.contours[i]))
+  }
+
   /** Preserve the font's designed shape while retaining one adjustable piece per leaf. */
   enclosureParts(node, region) {
     const entry = ENCLOSURE_CUTS[keyOf(node)]
@@ -1531,7 +1550,8 @@ export class Composer {
       }
       let { record: drawn, piece: source } = part
       if (op === '⿺' && i === 1 && groups[0].length === 1 && groups[0][0].origin.startsWith('glyph')) {
-        const swept = sweptPart(groups[0][0], box[0] - C.FACING[0], C)
+        const tail = this.tailForm(keyOf(children[0]))
+        const swept = sweptPart(groups[0][0], box[0] - C.FACING[0], C, tail)
         if (swept) {
           groups[0] = swept
           const opening = this.room(op, groups[0], frameOf)
@@ -2516,7 +2536,7 @@ export function fitInside(outer, inner, region, stem, C, { size = 64, room = nul
  * A glyph drawn round the lower left of another part as a designer draws it there (`_swept`): its
  * strokes pressed left of `edge`, the stroke sweeping along its foot drawn out under the other part.
  */
-export function sweptPart(p, edge, C) {
+export function sweptPart(p, edge, C, tail = null) {
   const contours = drawnContours(p)
   const boxes = contours.map(pointsBox)
   const x0 = Math.min(...boxes.map(b => b[0])), y0 = Math.min(...boxes.map(b => b[1]))
@@ -2531,7 +2551,7 @@ export function sweptPart(p, edge, C) {
   // 日. Press the whole glyph, counters and all.
   const sweepRing = rings([p.part.contours[sweep]], [pts])[0]
   if (contours.every((c, k) => k === sweep || insideRing(rings([p.part.contours[k]], [c])[0], sweepRing)))
-    return [pressedEnclosure(p, sweep) ?? { ...p, origin: `enclosure ${p.origin}` }]
+    return [pressedEnclosure(p, sweep, ENCLOSURE_SHARE, tail) ?? { ...p, origin: `enclosure ${p.origin}` }]
   let lowMin = Infinity, lowMax = -Infinity
   for (let i = 0; i < pts.length; i += 2) if (pts[i + 1] <= y0 + 0.2 * (y1 - y0)) { lowMin = Math.min(lowMin, pts[i]); lowMax = Math.max(lowMax, pts[i]) }
   if (lowMax < lowMin || lowMax - lowMin < C.SWEEP_FOOT * (x1 - x0)) return null
@@ -2572,7 +2592,7 @@ export function sweptPart(p, edge, C) {
  * edge, as Kureedo draws 巴 round 三 in 𠀧 (⿺巴三). Every contour takes the same x map, so the
  * counters stay inside the outline and the box keeps its windows.
  */
-export function pressedEnclosure(p, sweep, share = ENCLOSURE_SHARE) {
+export function pressedEnclosure(p, sweep, share = ENCLOSURE_SHARE, tail = null) {
   // The map belongs to the glyph's own coordinates: the placement scales the pressed part whole.
   const boxes = p.part.contours.map(c => pointsBox(c.light))
   const x0 = Math.min(...boxes.map(b => b[0])), x1 = Math.max(...boxes.map(b => b[2]))
@@ -2593,7 +2613,292 @@ export function pressedEnclosure(p, sweep, share = ENCLOSURE_SHARE) {
     return out
   }
   const mapped = p.part.contours.map(c => ({ ops: c.ops, light: mapX(c.light), heavy: mapX(c.heavy), width: c.width }))
+  if (tail) {
+    const grafted = graftTail(mapped, sweep, x0, width, tail)
+    if (grafted) return placed(makePart(grafted, p.part.box.slice()), p.source, p.target, p.native, `enclosure ${p.origin}`, p.weight)
+  }
   return placed(makePart(mapped, p.part.box.slice()), p.source, p.target, p.native, `enclosure ${p.origin}`, p.weight)
+}
+
+// How far the grafted tail's leg runs up inside the host's own leg, so the seam leaves no hairline;
+// how far down the host's leg a cut is looked for, and how much wider than the leg the floor reads.
+const GRAFT_OVERLAP = 8
+const GRAFT_STEPS = 48
+const GRAFT_FLARE = 1.3
+// How far past a bottom stroke's measured edge a cut clears it, where that edge is not flat, and
+// how far above a rising tip the donor's cut stays, so the cut crosses its leg alone.
+const GRAFT_CLEAR = 1.15
+const GRAFT_RISE = 4
+
+/**
+ * The tail of a pressed enclosure taken from a face's own ⿺ glyph: 电's 乚 — the leg hanging from
+ * the stroke drawn between its counters, the floor and the rising tip — replaced by 巴's, as
+ * Kureedo draws it round 三 in 𠀧. The host keeps everything above the cut, the donor's leg lands
+ * on the host's, and the donor's tip reaches the glyph's right edge. Font units, y up.
+ */
+function graftTail(contours, sweep, x0, width, tail) {
+  const others = contours.filter((_, k) => k !== sweep)
+  if (tail.contours.length < 2 || others.length < 2) return null
+  const masters = ['light', 'heavy']
+  const plan = graftPlan(masters.map(m => flattenRing(contours[sweep], m)), masters.map(m => flattenRing(tail.contours[0], m)),
+    masters.map(m => others.map(c => pointsBox(c[m]))), masters.map(m => tail.contours.slice(1).map(c => pointsBox(c[m]))))
+  if (!plan) return null
+  // Both masters are cut at the same places along their outlines, so their points stay paired.
+  const light = graftPieces(contours[sweep], tail.contours[0], 'light', plan, x0, width)
+  if (!light) return null
+  const heavy = graftPieces(contours[sweep], tail.contours[0], 'heavy', plan, x0, width) ?? light
+  const out = [ringContour(light.body, heavy.body)]
+  for (const c of others) out.push(ringContour(flattenRing(c, 'light'), flattenRing(c, 'heavy'), false))
+  out.push(ringContour(light.tail, heavy.tail))
+  return out
+}
+
+/** Where the host and the donor are cut: the levels, and the places along each outline the cut
+ *  falls, as [edge, position] pairs. The levels clear every master, since one cut serves them all. */
+function graftPlan(hosts, donors, windows, donorWindows) {
+  // The column between the host's counters, where 电's 乚 hangs from the stroke drawn through it.
+  // A heavier master's counters stand closer together, so the column is the one they share.
+  const gaps = windows.map(columnGap)
+  if (gaps.some(g => !g)) return null
+  const gap = [Math.max(...gaps.map(g => g[0])), Math.min(...gaps.map(g => g[1]))]
+  if (!(gap[1] > gap[0])) return null
+  const legAt = (ring, y) => spansAt(ring, y).find(([a, b]) => b > gap[0] && a < gap[1])
+  // Under the thickest master's bottom stroke, so that level crosses the leg in all of them.
+  const bar = Math.min(...hosts.map((ring, k) => {
+    const barTop = Math.min(...windows[k].map(b => b[1]))
+    return barTop - bottomStroke(ring, windows[k], barTop) * GRAFT_CLEAR
+  }))
+  const stems = hosts.map(ring => legAt(ring, bar))
+  if (stems.some(s => !s || !(s[1] - s[0] > 0))) return null
+  // The cut runs as far down the leg as the leg stays a leg in every master — it widens where the
+  // floor leaves it — so the host keeps its left frame's own foot and hands over no more than the sweep.
+  const lows = hosts.map(ring => Math.min(...ring.map(([, y]) => y)))
+  const low = Math.min(...lows)
+  let cut = bar
+  for (let k = 1; k <= GRAFT_STEPS; k++) {
+    const y = bar - (bar - low) * k / GRAFT_STEPS
+    const spans = hosts.map(ring => legAt(ring, y))
+    if (spans.some((s, i) => !s || s[1] - s[0] > GRAFT_FLARE * (stems[i][1] - stems[i][0]))) break
+    cut = y
+  }
+  const inside = [(windows[0][0][0] + windows[0][0][2]) / 2, (windows[0][0][1] + windows[0][0][3]) / 2]
+  const body = cutAt(hosts[0], cut, true).find(ring => inPoly(materialise(hosts[0], ring), inside))
+  if (!body) return null
+  // The donor's own bottom stroke, and below it the leg its sweep hangs from.
+  const under = Math.min(...donors.map((ring, k) => {
+    const donorBar = Math.min(...donorWindows[k].map(b => b[1]))
+    return donorBar - bottomStroke(ring, donorWindows[k], donorBar) * GRAFT_CLEAR
+  }))
+  const legs = donors.map(ring => spansAt(ring, under))
+  if (legs.some(spans => !spans.length)) return null
+  // The donor is cut as low as its rising tip allows, so its leg lands on the host's own leg
+  // without reaching up past the host's bottom stroke.
+  const donorCut = Math.max(...donors.map((ring, k) => {
+    const dy = lows[k] - Math.min(...ring.map(([, y]) => y))
+    const hook = ring.filter(([x, y]) => x > legs[k][0][1] && y < under).map(([, y]) => y)
+    return Math.max(cut + GRAFT_OVERLAP - dy, hook.length ? Math.max(...hook) + GRAFT_RISE : -Infinity)
+  }))
+  if (!(donorCut <= under) || donors.some(ring => spansAt(ring, donorCut).length !== 1)) return null
+  const pieces = cutAt(donors[0], donorCut, false)
+  if (pieces.length !== 1) return null
+  return { gap, bar, cut, donorCut, body, tail: pieces[0] }
+}
+
+/** One master's two pieces: the host's body above the cut, and the donor's tail mapped under it. */
+function graftPieces(outline, donorOutline, master, plan, x0, width) {
+  const host = flattenRing(outline, master), donor = flattenRing(donorOutline, master)
+  const { gap, bar, cut, donorCut } = plan
+  const legAt = y => spansAt(host, y).find(([a, b]) => b > gap[0] && a < gap[1])
+  const stem = legAt(bar), seam = legAt(cut)
+  const donorLegs = spansAt(donor, donorCut)
+  if (!stem || !seam || !donorLegs.length) return null
+  const [legLeft, legRight] = donorLegs[0]
+  const tail = materialise(donor, plan.tail)
+  const tip = Math.max(...tail.map(([x]) => x))
+  const x1 = x0 + width, run = (x1 - seam[1]) / (tip - legRight)
+  if (!(seam[1] - seam[0] > 0) || !(legRight - legLeft > 0) || !(tip > legRight) || !(run > 0)) return null
+  // Where the donor's leg runs up beside the host's it takes the host's own two edges at that level,
+  // so the seam leaves no step and the leg reads one width from the counters down to the turn. Under
+  // the cut it keeps the width the host ends on, and with it the donor's own brush shape.
+  const column = y => {
+    if (y <= cut) return seam
+    const span = legAt(y)
+    return span && span[1] - span[0] <= GRAFT_FLARE * (stem[1] - stem[0]) ? span : y > bar ? stem : seam
+  }
+  // The floor beyond the leg runs out to the glyph's right edge through the Möbius map, whose
+  // stretch reaches 1 at the tip, so the hook keeps its width.
+  const dy = Math.min(...host.map(([, y]) => y)) - Math.min(...donor.map(([, y]) => y))
+  return {
+    body: materialise(host, plan.body),
+    tail: tail.map(([x, y]) => {
+      const at = y + dy
+      if (x > legRight) return [seam[1] + (x1 - seam[1]) * footMap((x - legRight) / (tip - legRight), run), at]
+      const [left, right] = column(at)
+      return [right - (legRight - x) * (right - left) / (legRight - legLeft), at]
+    }),
+  }
+}
+
+/** The first gap between the columns a glyph's counters stand in, where one stroke runs down. */
+function columnGap(windows) {
+  const cols = windows.map(b => [b[0], b[2]]).sort((a, b) => a[0] - b[0])
+  let reach = cols[0][1]
+  for (const [a, b] of cols.slice(1)) {
+    if (a > reach) return [reach, a]
+    reach = Math.max(reach, b)
+  }
+  return null
+}
+
+/** The x spans a polygon's ink covers along the line y = `cut`, left to right. */
+function spansAt(poly, cut) {
+  const xs = []
+  for (let i = 0; i < poly.length; i++) {
+    const a = poly[i], b = poly[(i + 1) % poly.length]
+    if ((a[1] <= cut) === (b[1] <= cut)) continue
+    xs.push(a[0] + (b[0] - a[0]) * (cut - a[1]) / (b[1] - a[1]))
+  }
+  xs.sort((p, q) => p - q)
+  const out = []
+  for (let i = 0; i + 1 < xs.length; i += 2) out.push([xs[i], xs[i + 1]])
+  return out
+}
+
+/** Whether a point lies inside a polygon (even-odd). */
+function inPoly(poly, [x, y]) {
+  let odd = false
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const [ax, ay] = poly[i], [bx, by] = poly[j]
+    if ((ay > y) !== (by > y) && x < ax + (bx - ax) * (y - ay) / (by - ay)) odd = !odd
+  }
+  return odd
+}
+
+/** The points a cut names, read off a polygon: a vertex, or a place along the edge leaving it. */
+function materialise(poly, places) {
+  return places.map(([i, t]) => {
+    if (t === null) return poly[i]
+    const a = poly[i], b = poly[(i + 1) % poly.length]
+    return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]
+  })
+}
+
+/**
+ * A simple polygon cut by the horizontal line y = `cut`, keeping the side above or below it, as the
+ * pieces it falls into, each named as [edge, position] pairs. Sutherland–Hodgman would join those
+ * pieces along the line; a glyph's outline is concave — the 乚 of a pressed 电 leaves its hook
+ * standing beside the leg — so the pieces are closed one by one instead, pairing the crossings
+ * along the line as a scanline fills them.
+ */
+function cutAt(poly, cut, above) {
+  const keep = y => above ? y > cut : y < cut
+  const walk = [], crossings = []
+  for (let i = 0; i < poly.length; i++) {
+    const a = poly[i], b = poly[(i + 1) % poly.length]
+    if (keep(a[1])) walk.push({ at: [i, null] })
+    if (keep(a[1]) === keep(b[1])) continue
+    const t = (cut - a[1]) / (b[1] - a[1])
+    const crossing = { at: [i, t], x: a[0] + (b[0] - a[0]) * t, id: crossings.length }
+    crossings.push(crossing)
+    walk.push(crossing)
+  }
+  if (!walk.length) return []
+  if (!crossings.length) return [poly.map((_, i) => [i, null])]
+  if (crossings.length % 2) return []
+  // Chains of kept points, each running from the crossing that enters to the one that leaves.
+  const start = walk.findIndex((v, i) => v.id !== undefined && walk[(i + 1) % walk.length].id === undefined)
+  if (start < 0) return []
+  const chains = []
+  let chain = null
+  for (let k = 0; k < walk.length; k++) {
+    const v = walk[(start + k) % walk.length]
+    if (v.id === undefined) chain?.push(v)
+    else if (chain) { chain.push(v); chain = null }
+    else { chain = [v]; chains.push(chain) }
+  }
+  // Along the line the ink lies between the crossings taken in pairs, left to right.
+  const order = crossings.slice().sort((a, b) => a.x - b.x)
+  const mate = new Map()
+  for (let i = 0; i + 1 < order.length; i += 2) {
+    mate.set(order[i].id, order[i + 1].id)
+    mate.set(order[i + 1].id, order[i].id)
+  }
+  const byStart = new Map(chains.map(c => [c[0].id, c]))
+  const out = [], used = new Set()
+  for (const first of chains) {
+    if (used.has(first[0].id)) continue
+    const ring = []
+    let at = first
+    while (at && !used.has(at[0].id)) {
+      used.add(at[0].id)
+      for (const v of at) ring.push(v.at)
+      at = byStart.get(mate.get(at.at(-1).id))
+    }
+    if (ring.length >= 3) out.push(ring)
+  }
+  return out
+}
+
+/** A contour flattened into a polygon of [x, y] points, its curve chains sampled in `steps`. */
+function flattenRing(contour, master = 'light', steps = 24) {
+  const [ring] = rings([contour], [contour[master]], steps)
+  const out = []
+  for (let i = 0; i + 1 < ring.length; i += 2) out.push([ring[i], ring[i + 1]])
+  return out
+}
+
+const ringArea = poly => poly.reduce((sum, [x, y], i) => sum + (x * poly[(i + 1) % poly.length][1] - poly[(i + 1) % poly.length][0] * y), 0) / 2
+/** How thick the bottom stroke under a glyph's counters is: the ink standing in the column under
+ *  the left-hand counter, measured from that counter's bottom edge down to where the stroke ends.
+ *  A floor sweeping past below is a separate span in that column and does not count. */
+function bottomStroke(ring, windows, bottom) {
+  const win = windows.reduce((a, b) => (b[0] < a[0] ? b : a))
+  const cx = (win[0] + win[2]) / 2
+  const ys = []
+  for (let i = 0; i < ring.length; i++) {
+    const [ax, ay] = ring[i], [bx, by] = ring[(i + 1) % ring.length]
+    if ((ax <= cx) === (bx <= cx)) continue
+    ys.push(ay + (by - ay) * (cx - ax) / (bx - ax))
+  }
+  ys.sort((p, q) => p - q)
+  for (let i = 0; i + 1 < ys.length; i += 2) if (ys[i] < bottom && ys[i + 1] > bottom) return Math.max(1, bottom - ys[i])
+  return Math.max(1, bottom - Math.min(bottom, ...ys))
+}
+
+/** A closed polygon resampled to `n` points by arc length, so the light and heavy rings pair up. */
+function resampleRing(poly, n) {
+  const m = poly.length, sides = []
+  let total = 0
+  for (let i = 0; i < m; i++) {
+    const [x0, y0] = poly[i], [x1, y1] = poly[(i + 1) % m]
+    const len = Math.hypot(x1 - x0, y1 - y0)
+    sides.push(len)
+    total += len
+  }
+  const out = []
+  for (let k = 0; k < n; k++) {
+    let at = (k / n) * total, i = 0
+    while (i < m - 1 && at > sides[i]) { at -= sides[i]; i++ }
+    const [x0, y0] = poly[i], [x1, y1] = poly[(i + 1) % m]
+    const t = sides[i] ? Math.min(at / sides[i], 1) : 0
+    out.push([x0 + (x1 - x0) * t, y0 + (y1 - y0) * t])
+  }
+  return out
+}
+/** A polygon as a part contour, wound as ink (clockwise) in both masters. */
+function ringContour(light, heavy = null, clockwise = true) {
+  const flip = (poly) => (ringArea(poly) > 0) === clockwise ? poly.slice().reverse() : poly
+  let ring = flip(light)
+  let twin = heavy ? flip(heavy) : ring
+  const n = Math.max(ring.length, twin.length)
+  if (ring.length !== n) ring = resampleRing(ring, n)
+  if (twin.length !== n) twin = resampleRing(twin, n)
+  return {
+    ops: Array.from({ length: ring.length }, (_, i) => [i ? 'L' : 'M', 1, false]),
+    light: Float64Array.from(ring.flat()),
+    heavy: Float64Array.from(twin.flat()),
+    width: null,
+  }
 }
 
 /** The Möbius map along a pressed enclosure's foot: `s` runs from 0 at the box's right edge to 1 at
