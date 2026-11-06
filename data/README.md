@@ -14,7 +14,7 @@ the shapes it draws parts from when no host character has them.
 | `sources/jurchen/outlines.json.gz` | the 965 outlines of Unicode 18.0's 914 Jurchen characters and 51 radicals |
 | `sources/palette/outlines.json.gz` | 79 palette components no export's font draws |
 | `palette/fallback-characters.json`, `palette/bundled-coverage.json` | the same, listed and indexed |
-| `unicode/outlines/*.json.gz`, `unicode/coverage.json`, `unicode/outlines.json` | 56,651 outlines of loose marks and parts no other source draws |
+| `unicode/outlines/*.json.gz`, `unicode/coverage.json`, `unicode/outlines.json` | 56,657 outlines of loose marks and parts no other source draws |
 | `licences/` | the OFL, CC0, MIT and Unicode texts the export carries |
 
 Noto Sans CJK JP and Plangothic are SIL OFL 1.1; Noto Serif Tangut too. Unicode data is under the
