@@ -103,6 +103,15 @@ const SIDE_COVERS = new Set(['宀', '冖'])
 const COVER_BAR = 0.72
 /** How far a middle 冖's ink overlaps the parts above and below it, in font units. */
 const COVER_GAP = -24
+// How much of a middle 冖's width the part above it must span before the cover closes on it: a
+// narrow part would have the bar close on a post (⿳卜冖人).
+const COVER_CLOSE_SHARE = 0.5
+// The KRM ⿱⺊冖 top. `bar` is where the underside of the roof's bar falls, as a share of the roof's ink
+// height from its top; a brush roof's left tip stands well above its bar. `height` is the share of the
+// whole the top takes, where the face's own band leaves ⺊ too short. `KRM_GAP` is how far 人's apex
+// stands below the bar, as a share of the whole: the manuscript tucks it close under the roof.
+const KRM_TOP = { sans: { bar: 0.24, height: 0.7 }, serif: { bar: 0.34, height: null } }
+const KRM_GAP = 0.035
 // Share of its own height a component's top band covers, and the share of the component's width
 // the ink in that band must span for the component to count as flat-topped.
 const COVER_HEAD = 0.15, COVER_SPAN = 0.9
@@ -1373,6 +1382,10 @@ export class Composer {
     if (key.includes(EMPTY) || this.spelled.has(key) || containsComponentForm(key, this.fontStyle)) return null
     const pair = op === '⿳' ? '⿱' : '⿰'
     const children = node.slice(1)
+    // ⺊ over 冖 is one designed top (the KRM vulgar 處, K07097330), not two stack operands:
+    // draw the prepared ⿱⺊冖 and give it the top band, with the bottom operand below.
+    if (op === '⿳' && (children[0] === '⺊' || children[0] === '卜') && children[1] === '冖'
+      && isComponentForm('⿱⺊冖', this.fontStyle)) return ['⿱', ['⿱', '⺊', '冖'], children[2]]
     // An even run stays even, whatever cuts the export holds of a pair of it: three of the same
     // operand (品, 森, 焱), a pair of the same operand beside a third (⿲大糸糸), and a run that
     // reads the same from either end (呂, 粥), whose middle belongs to both sides at once.
@@ -2014,6 +2027,22 @@ export class Composer {
    *  centred on it; bars lower in the part and non-cover stacks are left alone. */
   fitUnderCover(op, children, groups) {
     if (this?.partial) return
+    if (op === '⿱' && Array.isArray(children[0]) && keyOf(children[0]) === '⿱⺊冖' && groups[0].length === 2 && KRM_TOP[this.fontStyle]) {
+      const { bar, height } = KRM_TOP[this.fontStyle]
+      const ink = inkBounds(groups[0]), lower = inkBounds(groups[1]), whole = ink[3] - lower[1]
+      if (height) {
+        const bottom = ink[3] - height * whole
+        const lengthen = y => ink[3] + (y - ink[3]) * (ink[3] - bottom) / (ink[3] - ink[1])
+        for (const p of groups[0]) p.target = [p.target[0], lengthen(p.target[1]), p.target[2], lengthen(p.target[3])]
+      }
+      const roof = inkBounds([groups[0][1]])
+      const top = roof[3] - bar * (roof[3] - roof[1]) - KRM_GAP * whole
+      if (top > lower[3] || height) {
+        const raise = y => lower[1] + (y - lower[1]) * (top - lower[1]) / (lower[3] - lower[1])
+        for (const p of groups[1]) p.target = [p.target[0], raise(p.target[1]), p.target[2], raise(p.target[3])]
+      }
+      return
+    }
     const cover = ch => COVER_ROOTS.has(ch) || Boolean(this?.isCover?.(ch))
     const pairs = op === '⿱' ? (cover(children[0]) ? [[0, 1]] : [])
       : op === '⿳' ? [0, 1].filter(i => i + 1 < children.length && cover(children[i])).map(i => [i, i + 1]) : []
@@ -2076,7 +2105,7 @@ export class Composer {
     }
     if (op === '⿳' && groups.length >= 3 && typeof children[0] === 'string' && children[1] === '冖') {
       const a = inkBounds(groups[0]), b = inkBounds(groups[1]), gap = a[1] - b[3]
-      if (b[2] - b[0] >= 0.9 * (a[2] - a[0]) && gap > COVER_GAP) {
+      if (b[2] - b[0] >= 0.9 * (a[2] - a[0]) && a[2] - a[0] >= COVER_CLOSE_SHARE * (b[2] - b[0]) && gap > COVER_GAP) {
         const shift = Math.min(gap - COVER_GAP, 0.25 * (b[3] - b[1]))
         if (shift > 0) for (const group of groups.slice(1)) for (const p of group)
           p.target = [p.target[0], p.target[1] + shift, p.target[2], p.target[3] + shift]
