@@ -52,7 +52,7 @@ export function jamoClass(char) {
 /** `char` as a conjoining jamo for `role`, mapping compatibility jamo; null when it cannot take that role.
  * @param {string | undefined} char @param {JamoClass} role @returns {string | null} */
 export function toConjoiningJamo(char, role) {
-  if (!char) return null
+  if (!char || [...char].length !== 1) return null
   if (jamoClass(char) === role) return char
   const cp = char.codePointAt(0)
   const mapped = cp === undefined ? undefined : COMPATIBILITY[role].get(cp)
