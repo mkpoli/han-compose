@@ -163,6 +163,12 @@ export function splitToneMarks(marks) {
   return { rest: chars.slice(0, at).join(''), tones: chars.slice(at).join('') }
 }
 
+/** The tone marks a part's components hold, in reading order. @param {Part} part @returns {string} */
+export const tonesOf = part => {
+  if (isNode(part)) return part.parts.map(tonesOf).join('')
+  return part === null ? '' : [...splitText(part).marks].filter(isToneMark).join('')
+}
+
 /** Whether `text` is one or more loose marks and nothing else. @param {string | null | undefined} text */
 export const isMarks = text => { const chars = [...(text ?? '')]; return chars.length > 0 && chars.every(isMark) }
 
@@ -177,8 +183,8 @@ export function modifierAt(chars, at) {
 
 /**
  * A description as a tree. An operator missing an operand, and a slot written `⬚` or `＋`, read as
- * null, so a draft is read like a whole description. Loose marks after the last part stay in the
- * text (`splitDescription`) and are not part of the tree. Throws a `SyntaxError` naming what is
+ * null, so a draft is read like a whole description. Loose marks after the last part go on the
+ * root: a node's `marks`, or a component's text. Throws a `SyntaxError` naming what is
  * wrong: a part that is no component, or text that does not hold exactly one description.
  * @param {string} sequence
  * @returns {Part}
@@ -195,13 +201,21 @@ export function parseDescription(sequence) {
     // A stroke chain that names a character stands for that character.
     if (char === '#' && !emoji) {
       const chain = strokeChain(chars, at - 1)
-      if (chain) { at = chain.end; return isSelector(chars[at]) ? chain.char + chars[at++] : chain.char }
+      if (chain) {
+        at = chain.end
+        const written = isSelector(chars[at]) ? chain.char + chars[at++] : chain.char
+        const end = toneMarksAt(chars, at)
+        const tones = chars.slice(at, end).join('')
+        at = end
+        return written + tones
+      }
     }
     const n = arity(char)
     if (!n) {
       if (EMPTY_MARKS.includes(char)) return null
       // An Emoji sequence may hold zero-width joiners; other invisible characters are not components.
       if (!emoji && /[\p{Cc}\p{Cf}\p{Z}]/u.test(char)) throw new SyntaxError(`${JSON.stringify(char)} is not a component.`)
+      if (!isComponent(char)) throw new SyntaxError(`${JSON.stringify(char)} is not a component.`)
       const cluster = hangulClusterAt(chars, at - 1)
       if (cluster) at = cluster.end
       const base = cluster ? cluster.text : !emoji && isSelector(chars[at]) ? char + chars[at++] : char
@@ -216,7 +230,13 @@ export function parseDescription(sequence) {
     const parts = Array.from({ length: n }, read)
     return note ? { op: char, parts, note } : { op: char, parts }
   }
-  const tree = read()
+  let tree = read()
+  // Loose marks trail the whole description; where a mark fills an operand, it is that operand.
+  if (at < chars.length && isMark(chars[at])) {
+    let marks = ''
+    while (at < chars.length && isMark(chars[at])) marks += chars[at++]
+    tree = withMarks(tree, marks)
+  }
   if (at < chars.length) throw new SyntaxError(`More follows one description in ${sequence}.`)
   return tree
 }
@@ -228,7 +248,7 @@ export function parseDescription(sequence) {
 const operatorText = node => node.op + (node.note && MODIFIER.test(node.note) ? `[${node.note}]` : '')
 
 /** A tree written back as a description, an empty slot as ⬚. @param {Part} tree @returns {string} */
-export const writeDescription = tree => isEmpty(tree) ? EMPTY : isNode(tree) ? operatorText(tree) + tree.parts.map(writeDescription).join('') : tree ?? EMPTY
+export const writeDescription = tree => isEmpty(tree) ? EMPTY : isNode(tree) ? operatorText(tree) + tree.parts.map(writeDescription).join('') + (tree.marks ?? '') : tree ?? EMPTY
 
 /**
  * Where the description starting at `chars[at]` ends: the index just past it, or -1 where none starts
@@ -243,15 +263,17 @@ export function descriptionEnd(chars, at = 0) {
   if (char === undefined) return -1
   const chain = strokeChain(chars, at)
   // A stroke chain stands for the character it names, and takes a variation selector like one.
-  if (chain) return isSelector(chars[chain.end]) ? chain.end + 1 : chain.end
+  if (chain) return toneMarksAt(chars, isSelector(chars[chain.end]) ? chain.end + 1 : chain.end)
   const n = arity(char)
   if (!n) {
     const emoji = EMOJI_START.test(char) ? emojiPrefix(chars.slice(at).join('')) : ''
-    if (emoji) return at + [...emoji].length
+    if (emoji) return toneMarksAt(chars, at + [...emoji].length)
     if (!isComponent(char) && !EMPTY_MARKS.includes(char)) return -1
     const cluster = hangulClusterAt(chars, at)
-    if (cluster) return cluster.end
-    return isSelector(chars[at + 1]) ? at + 2 : at + 1
+    if (cluster) return toneMarksAt(chars, cluster.end)
+    // A slot takes no tone: a mark after it is the next operand, as it parses.
+    if (EMPTY_MARKS.includes(char)) return isSelector(chars[at + 1]) ? at + 2 : at + 1
+    return toneMarksAt(chars, isSelector(chars[at + 1]) ? at + 2 : at + 1)
   }
   let end = at + 1
   const note = MODIFIABLE.has(char) ? modifierAt(chars, end) : ''
@@ -268,13 +290,15 @@ export function descriptionEnd(chars, at = 0) {
  * @returns {{ base: string, marks: string }}
  */
 export function splitDescription(text) {
+  // Most descriptions end on a component: without a mark at the end there is nothing to read.
   const chars = [...text ?? '']
   if (!isMark(chars[chars.length - 1])) return { base: text ?? '', marks: '' }
-  const end = descriptionEnd(chars, 0)
-  if (end <= 0) return { base: text ?? '', marks: '' }
-  let at = end
-  while (at < chars.length && isMark(chars[at])) at++
-  return at === chars.length ? { base: chars.slice(0, end).join(''), marks: chars.slice(end).join('') } : { base: text ?? '', marks: '' }
+  let tree
+  try { tree = parseDescription(text ?? '') } catch { return { base: text ?? '', marks: '' } }
+  // A slot alone holds no marks of its own, so they stay beside it.
+  if (tree === null) return { base: chars[0] ?? '', marks: chars.slice(1).join('') }
+  const marks = marksOf(tree)
+  return marks ? { base: writeDescription(withoutMarks(tree)), marks } : { base: text ?? '', marks: '' }
 }
 
 /**
@@ -302,9 +326,12 @@ export const marksOf = part => typeof part === 'string' ? splitText(part).marks 
  *  loose marks after it. A component that is itself a mark keeps it as its base. @param {string} text */
 function splitText(text) {
   const chars = [...text]
-  let at = 1
+  if (chars.length === 1) return { base: text, marks: '' }
+  // An Emoji sequence or a conjoining jamo run is one component, not its first character and marks.
+  const emoji = EMOJI_START.test(chars[0]) ? emojiPrefix(text) : ''
+  let at = emoji ? [...emoji].length : hangulClusterAt(chars, 0)?.end ?? 1
   if (isSelector(chars[at])) at++
-  return isMark(chars[0]) && chars.length === 1 ? { base: text, marks: '' } : { base: chars.slice(0, at).join(''), marks: chars.slice(at).join('') }
+  return { base: chars.slice(0, at).join(''), marks: chars.slice(at).join('') }
 }
 
 /** `part` without its loose marks. @param {Part | string} part */
@@ -312,7 +339,7 @@ export const withoutMarks = part => typeof part === 'string' ? splitText(part).b
 
 /**
  * `tree` with every loose mark hoisted to its root, in reading order, and none left inside: the text
- * of a description carries marks only at its end.
+ * of a description carries marks only at its end. A tone mark stays on its syllable.
  * @param {Part} tree @returns {Part}
  */
 export function normalizeMarks(tree) {
@@ -320,7 +347,15 @@ export function normalizeMarks(tree) {
   const found = []
   /** @param {Part} part @returns {Part} */
   const strip = part => {
-    if (!isNode(part)) return part
+    if (part === null) return null
+    if (typeof part === 'string') {
+      const { base, marks } = splitText(part)
+      // A tone mark stays on its syllable; any other mark hoists to the whole description.
+      const chars = [...marks], tones = chars.filter(isToneMark).join(''), rest = chars.filter(ch => !isToneMark(ch)).join('')
+      if (!rest) return part
+      found.push(rest)
+      return base + tones
+    }
     const parts = part.parts.map(strip)
     if (part.marks) found.push(part.marks)
     return { op: part.op, parts, ...(part.note ? { note: part.note } : {}) }
