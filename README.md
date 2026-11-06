@@ -33,7 +33,7 @@ any other.
 ```sh
 uv sync
 uv run scripts/compose_ids.py draw ⿰亻哥 > 亻哥.svg
-uv run scripts/compose_ids.py bench --chars joyo
+uv run scripts/compose_ids.py bench
 uv run scripts/compose_ids.py draw --style serif ⿰亻哥 > 亻哥-serif.svg
 uv run scripts/compose_ids.py draw --style kaisho ⿰亻哥 > 亻哥-kaisho.svg
 uv run scripts/compose_ids.py draw-many sequences.txt out/
@@ -49,10 +49,13 @@ one, and `learn --style kaisho` and `learn-alone --style kaisho` build it. Kuree
 Kaisho style keeps the source brush weights instead of balancing them; Zhuque Fangsong is static too,
 and the Fangsong style does the same.
 
-`bench` redraws every compound jōyō kanji from its own sequence with nothing taken from the
-character, and scores each against the font's real glyph: the overlap of their ink (intersection
-over union, at 96 px), how many come out with their outline length within 15% of the real glyph's,
-and the ratio of their stroke widths. `draw` accepts any sequence, including one no character is
+`bench` redraws characters from their own sequences with nothing taken from them, and scores each
+against the font's real glyph: the overlap of their ink (intersection over union, at 96 px), the same
+with each drawing stretched to fill the raster, which scores the shape wherever it stands, how many
+come out with their outline length within 15% of the real glyph's, and the ratio of their stroke
+widths. By default it runs the benchmark sets in `data/bench/sets.json`, scored apart: `tracking`
+estimates a style's average, and `hard` holds the characters that came out worst in every style, for
+catching regressions. `--chars joyo` and `--chars all` run wider sets. `draw` accepts any sequence, including one no character is
 encoded for.
 
 Drawing needs two models under `cache/`, which `learn` and `learn-alone` build from the font itself

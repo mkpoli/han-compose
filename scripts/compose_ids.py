@@ -21,7 +21,9 @@ Every command takes `--style sans` (the default), `--style serif`, `--style kais
 
 from __future__ import annotations
 
+import gc
 import json
+import multiprocessing as mp
 import os
 import random
 import sys
@@ -31,8 +33,8 @@ from pathlib import Path
 import numpy as np
 import typer
 
-from han_compose import compose, compose_layout, compose_standalone, kanjivg_cuts
-from han_compose.vocab import cache_root
+from han_compose import compose, compose_layout, compose_standalone, kanjivg_cuts, web_export
+from han_compose.vocab import ROOT, cache_root
 
 app = typer.Typer(add_completion=False)
 
@@ -132,22 +134,88 @@ def joyo() -> list[str]:
     return [chr(int(line.split("\t")[0].removeprefix("U+"), 16)) for line in text.splitlines() if "\tkJoyoKanji\t" in line]
 
 
+#: Set before the bench's workers fork: the composers and the raster sizes they measure at.
+_BENCH: dict = {}
+
+
+def _bench_sets() -> dict[str, str]:
+    """The benchmark's characters by set (`data/bench/sets.json`; `data/README.md` says how they were chosen)."""
+    data = json.loads((ROOT / "data" / "bench" / "sets.json").read_text(encoding="utf-8"))
+    return {name: data[name] for name in ("tracking", "hard")}
+
+
+def _aligned_overlap(placed: list[compose.Placed], real: list[compose.Placed], size: int) -> float:
+    """Overlap with each drawing's ink stretched to fill the raster: the shape, wherever it stands."""
+    def mask(items: list[compose.Placed]) -> np.ndarray:
+        rings = [ring for item in items for ring in compose._rings(item.part.contours, item.contours())]
+        points = np.concatenate(rings)
+        return compose.fill(rings, size, (*map(float, points.min(axis=0)), *map(float, points.max(axis=0))))
+    a, b = mask(placed), mask(real)
+    return float((a & b).sum()) / max(float((a | b).sum()), 1.0)
+
+
+def _bench_one(item: tuple[str, str]) -> dict:
+    """One character redrawn by the composer and the plain way, with its scores."""
+    char, seq = item
+    composer, plain, size = _BENCH["composer"], _BENCH["plain"], _BENCH["size"]
+    unit = compose.EM / 400
+    glyph = composer.font.glyph(char)
+    real = [compose.Placed(glyph, glyph.box, glyph.box)]
+    truth = compose.raster(real, size)
+    row: dict = {"char": char}
+    for name, drawer in (("composer", composer), ("plain", plain)):
+        drawer.exclude = {char}
+        try:
+            placed = drawer.compose(seq)
+        except LookupError:
+            continue
+        mask = compose.raster(placed, size)
+        row[name] = float((mask & truth).sum()) / max(float((mask | truth).sum()), 1.0)
+        if name == "composer":
+            row["aligned"] = _aligned_overlap(placed, real, size)
+            made = sum(drawer.ink("", p.part) * (p.scale[0] + p.scale[1]) / 2 for p in placed)
+            row["outline"] = made / drawer.ink("", glyph)
+            drawn = compose.stems(compose.raster(placed, 400), unit)
+            true = compose.stems(compose.raster(real, 400), unit)
+            row["widths"] = (drawn[0] / true[0], drawn[1] / true[1])
+    composer.exclude = plain.exclude = set()
+    return row
+
+
+def _bench_summary(rows: list[dict]) -> dict:
+    """What a set of `_bench_one` rows scored."""
+    composed = [r for r in rows if "composer" in r]
+    overlap, aligned = (np.array([r[k] for r in composed]) for k in ("composer", "aligned"))
+    ratio = np.array([r["outline"] for r in composed])
+    widths = np.array([r["widths"] for r in composed])
+    plain = np.array([r["plain"] for r in rows if "plain" in r])
+    return {"characters": len(rows), "drawn": len(composed), "failed_characters": "".join(r["char"] for r in rows if "composer" not in r),
+            "overlap_mean": round(float(overlap.mean()), 3), "overlap_p10": round(float(np.quantile(overlap, 0.1)), 3),
+            "aligned_mean": round(float(aligned.mean()), 3), "aligned_p10": round(float(np.quantile(aligned, 0.1)), 3),
+            "outline_within_15pct": round(float(((ratio > 0.85) & (ratio < 1.15)).mean()), 3),
+            "stroke_width_ratio": [round(float(np.nanmedian(widths[:, axis])), 3) for axis in (0, 1)],
+            "plain_overlap_mean": round(float(plain.mean()), 3)}
+
+
 @app.command()
-def bench(chars: str = "joyo", sample: int = 0, seed: int = 3, size: int = 96, reuse: bool = True,
-          style: str = STYLE) -> None:
+def bench(chars: str = "benchmark", sample: int = 0, seed: int = 3, size: int = 96, reuse: bool = True,
+          workers: int = 4, style: str = STYLE) -> None:
     """Redraw encoded kanji from their own sequences with nothing taken from them, against their glyphs.
 
-    `chars` is "joyo" (every jōyō kanji with a compound sequence, the targets' set) or "all"
-    (every drawn kanji with one); `sample` draws that many at random from it, 0 takes them all.
+    `chars` is "benchmark" (the tracking and hard sets, each scored apart), "joyo" (every jōyō kanji
+    with a compound sequence) or "all" (every kanji the main font draws with one); `sample` draws that
+    many at random from it, 0 takes them all. Overlap compares the drawings where they stand; aligned
+    overlap stretches each to fill the raster first, so it scores the shape alone.
     `--no-reuse` composes every character from its parts, as a sequence no character draws whole
     would be, instead of first taking it whole from where others draw it.
     """
     composer = _composer(style, reuse=reuse)
-    names = joyo() if chars == "joyo" else sorted(composer.sequences)
+    sets = _bench_sets() if chars == "benchmark" else {}
+    names = "".join(sets.values()) if sets else joyo() if chars == "joyo" else sorted(composer.sequences)
     pool = []
     for char in names:
         seq = composer.sequences.get(char)
-        if seq is None or not composer.font.has(char):
+        if seq is None or not composer.font.own(char):
             continue
         try:
             tree = compose.parse(seq)
@@ -157,42 +225,28 @@ def bench(chars: str = "joyo", sample: int = 0, seed: int = 3, size: int = 96, r
             pool.append((char, seq))
     chosen = random.Random(seed).sample(pool, sample) if sample else pool
     plain = compose.Composer(composer.font, composer.sequences, hosted=False, weighted=False)
-    unit = compose.EM / 400
-    results: dict[str, dict] = {"composer": {"overlap": [], "failed": []}, "plain": {"overlap": [], "failed": []}}
-    outlines, widths = [], []
+    _BENCH.update(composer=composer, plain=plain, size=size)
+    web_export._load_font_caches(composer)
+    gc.collect()
+    gc.freeze()
+    pool_ = mp.get_context("fork").Pool(workers, maxtasksperchild=64) if workers > 1 else None
+    rows = []
     started = time.monotonic()
-    for done, (char, seq) in enumerate(chosen, 1):
-        glyph = composer.font.glyph(char)
-        real = [compose.Placed(glyph, glyph.box, glyph.box)]
-        truth = compose.raster(real, size)
-        for name, item in (("composer", composer), ("plain", plain)):
-            item.exclude = {char}
-            try:
-                placed = item.compose(seq)
-            except LookupError:
-                results[name]["failed"].append(char)
-                continue
-            mask = compose.raster(placed, size)
-            results[name]["overlap"].append(float((mask & truth).sum()) / max(float((mask | truth).sum()), 1.0))
-            if name == "composer":
-                made = sum(item.ink("", p.part) * (p.scale[0] + p.scale[1]) / 2 for p in placed)
-                outlines.append(made / item.ink("", glyph))
-                drawn = compose.stems(compose.raster(placed, 400), unit)
-                true = compose.stems(compose.raster(real, 400), unit)
-                widths.append((drawn[0] / true[0], drawn[1] / true[1]))
+    for done, row in enumerate(pool_.imap_unordered(_bench_one, chosen) if pool_ else map(_bench_one, chosen), 1):
+        rows.append(row)
         if done % 25 == 0 or done == len(chosen):
             elapsed = time.monotonic() - started
             print(f"{done}/{len(chosen)}, {elapsed / 60:.1f} min, about {elapsed / done * (len(chosen) - done) / 60:.1f} min left",
                   file=sys.stderr, flush=True)
-    report = {"style": style, "set": chars, "characters": len(chosen)}
-    for name, result in results.items():
-        overlap = np.array(result["overlap"])
-        report[name] = {"drawn": len(overlap), "failed": len(result["failed"]),
-                        "overlap_mean": round(float(overlap.mean()), 3), "overlap_p10": round(float(np.quantile(overlap, 0.1)), 3)}
-    ratio = np.array(outlines)
-    report["composer"]["outline_within_15pct"] = round(float(((ratio > 0.85) & (ratio < 1.15)).mean()), 3)
-    report["composer"]["stroke_width_ratio"] = [round(float(np.nanmedian(np.array(widths)[:, axis])), 3) for axis in (0, 1)]
-    report["composer"]["failed_characters"] = "".join(results["composer"]["failed"])
+    if pool_:
+        pool_.close()
+        pool_.join()
+    gc.unfreeze()
+    report: dict = {"style": style, "set": chars, "composer": _bench_summary(rows)}
+    for name, members in sets.items():
+        held = [r for r in rows if r["char"] in members]
+        if held:
+            report[name] = _bench_summary(held)
     print(json.dumps(report, ensure_ascii=False))
 
 
