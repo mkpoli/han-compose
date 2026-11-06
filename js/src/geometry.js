@@ -171,6 +171,16 @@ export function rings(contours, points, steps = 6) {
     const ring = []
     let last = null
     for (const [kind, seg] of segments(contour.ops, points[k])) {
+      if (kind === 'C') {
+        const [one, two, on] = seg
+        for (let s = 1; s <= steps; s++) {
+          const t = s / steps, u = 1 - t
+          ring.push(u * u * u * last[0] + 3 * u * u * t * one[0] + 3 * u * t * t * two[0] + t * t * t * on[0],
+            u * u * u * last[1] + 3 * u * u * t * one[1] + 3 * u * t * t * two[1] + t * t * t * on[1])
+        }
+        last = on
+        continue
+      }
       if (kind !== 'Q') { last = seg[0]; ring.push(last[0], last[1]); continue }
       const [off, on] = seg
       for (let s = 1; s <= steps; s++) {
