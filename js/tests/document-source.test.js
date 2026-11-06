@@ -12,8 +12,19 @@ describe('a document source', () => {
     const made = documentSource(document, { d: '', parts: [{ d: 'M0 0Q500 0 1000 1000Z', leaf: 0 }, { d: 'M0 0L1000 1000Z', leaf: 1 }], slots: [] }, sketch)
     expect(made.issues).toEqual([])
     const [piece] = made.source.geometry(document.root.children[0]).pieces
-    expect(piece.d).not.toContain('NaN')
-    expect(piece.d).toContain('Q')
+    // The leaf is 500 wide, so its frame doubles every x, control point included.
+    expect(piece.d).toBe('M0 0Q1000 0 2000 1000Z')
+  })
+  it('reports a path with too few numbers for a command', () => {
+    const made = documentSource(document, { d: '', parts: [{ d: 'M0 0Q0', leaf: 0 }, { d: 'M0 0L1000 1000Z', leaf: 1 }], slots: [] }, sketch)
+    expect(made.complete).toBe(false)
+    expect(made.issues.join()).toContain('not a path')
+  })
+  it('reports a layout box with a number that is not finite', () => {
+    const broken = [{ index: 0, box: [Number.NaN, 0, 500, 1000], empty: false }, sketch[1]]
+    const made = documentSource(document, { d: '', parts: [{ d: 'M0 0L1 1Z', leaf: 0 }, { d: 'M0 0L1 1Z', leaf: 1 }], slots: [] }, broken)
+    expect(made.complete).toBe(false)
+    expect(made.issues.join()).toContain('no layout box')
   })
   it('takes an Emoji part, which carries no path, as drawn', () => {
     const made = documentSource(document, { d: '', parts: [{ d: '', leaf: 0 }, { d: 'M0 0L1000 1000Z', leaf: 1 }], slots: [] }, sketch)
@@ -23,7 +34,6 @@ describe('a document source', () => {
   it('maps a cubic curve without flattening it', () => {
     const made = documentSource(document, { d: '', parts: [{ d: 'M0 0C0 0 1000 1000 1000 1000Z', leaf: 0 }, { d: 'M0 0L1000 1000Z', leaf: 1 }], slots: [] }, sketch)
     const [piece] = made.source.geometry(document.root.children[0]).pieces
-    expect(piece.d).not.toContain('NaN')
-    expect(piece.d).toContain('C')
+    expect(piece.d).toBe('M0 0C0 0 2000 1000 2000 1000Z')
   })
 })
