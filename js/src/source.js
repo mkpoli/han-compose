@@ -65,9 +65,9 @@ export function sourceFor(sequence, { base, fontStyle = 'sans', separate = false
    *  that reads one file asks for it by no name and gets `path`; the Unicode fallback asks for the
    *  shard it needs, so the name a kind passes is the file that is read. A host that lists none of
    *  the files leaves the package's own copy to answer. */
-  const overlay = (/** @type {Function} */ kind, /** @type {any} */ fallback, /** @type {string} */ path) => {
+  const overlay = (/** @type {Function} */ kind, /** @type {any} */ fallback, /** @type {string} */ path, /** @type {object} */ options = {}) => {
     const load = bundledLoader(path, !local, loaders, read)
-    return kind({ fallback, ...(load ? { load } : {}) })
+    return kind({ fallback, ...options, ...(load ? { load } : {}) })
   }
   // A bundled sequence needs no export: a failing one is not asked for at all. The export's own
   // Unicode fallback reads its shards where the host says they are.
@@ -81,7 +81,7 @@ export function sourceFor(sequence, { base, fontStyle = 'sans', separate = false
   if (traits.newKorean) source = overlay(newKoreanSource, source, 'sources/new-korean/outlines.json.gz')
   if (traits.shuishu) source = overlay(shuishuSource, source, 'sources/shuishu/outlines.json.gz')
   if (traits.jurchen) source = overlay(jurchenSource, source, 'sources/jurchen/outlines.json.gz')
-  if (traits.palette) source = overlay(paletteSource, source, 'sources/palette/outlines.json.gz')
+  if (traits.palette) source = overlay(paletteSource, source, 'sources/palette/outlines.json.gz', { under: fontStyle !== 'sans' })
   return source ?? bundledSource({ load: async () => ({ records: {} }), matches: () => false })
 }
 

@@ -7,6 +7,6 @@ const supported = new Set(characters)
 /** @param {string} text */
 export const hasPaletteGlyph = text => supported.has(text)
 const loadOutlines = () => pageLoader('sources/palette/outlines.json.gz')
-/** @param {{ load?: () => Promise<any>, fallback?: any }} options */
+/** @param {{ load?: () => Promise<any>, fallback?: any, under?: boolean }} options */
 export const paletteSource = ({ load = loadOutlines, fallback = null, under = false } = {}) =>
   bundledSource({ load, matches: hasPaletteGlyph, fallback, under })
