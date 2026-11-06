@@ -46,3 +46,12 @@ records its own font checksums.
 
 A part cut along KanjiVG's component groups (`kanjivg` in a drawing) adapts KanjiVG, CC BY-SA 3.0;
 a drawing with one is shared alike. The export carries the notice.
+
+## `bench/sets.json`
+
+The characters `bench` runs by default, chosen by this project from its own survey: 3,716 characters
+(every jōyō compound and a stratified draw from outside it), each redrawn with nothing taken from it
+in the sans, serif and kaisho styles. `hard` holds those in the worst 10% of all three by aligned
+overlap. `tracking` is square-root stratified over operator and jōyō membership, seed 2026, less the
+hard set. Held out of the choice, the Fangsong style found 21 of the 31 hard characters it draws among
+its worst 10%, against 6% of the characters no other style found hard.
