@@ -1,7 +1,7 @@
 // @ts-nocheck
 // Shape-specific font-derived forms. Keep the caller's IDS; encoded counterparts can vary by region.
 import data from './component-forms.json' with { type: 'json' }
-import numbered from '../../data/numbered-forms.json' with { type: 'json' }
+import numbered from '../data/numbered-forms.json' with { type: 'json' }
 import constants from './constants.json' with { type: 'json' }
 import { WINDING, commands, derived, makePart, mapped, partInk, placed, svgPath, union, windingOf, wound } from './geometry.js'
 

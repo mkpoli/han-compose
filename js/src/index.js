@@ -40,7 +40,7 @@ export { partScript } from './part-script.js'
  * @property {number[] | null} [stroke] The stroke widths the drawing is weighted to, across x and y.
  * @property {string[]} [approximate] Operators drawn by rooms and turns of this port's own choosing.
  * @property {boolean} [kanjivg] Whether a part was cut along KanjiVG's groups, so the drawing is shared alike (CC BY-SA 3.0).
- * @property {{ leaf: number, origin: string, box: number[], d: string, cut?: boolean }[]} [parts] Each drawn part: the leaf it stands under, where it came from, its box and its path.
+ * @property {{ leaf: number, origin: string, box: number[], d: string, cut?: boolean, strokes?: [number, number[]][] }[]} [parts] Each drawn part: the leaf it stands under, where it came from, its box and its path, and the source stroke groups it was cut along.
  * @property {string[]} [origins] Where each drawn part came from, in reading order.
  * @property {string[]} [missing] Characters the drawing needed but the export could not draw.
  * @property {{ text: string, box: number[], leaf: number, part: number, flip?: [boolean, boolean], cut?: boolean, restored?: boolean }[]} [emoji] Each Emoji part, drawn as text in its box; `part` is its piece in `parts` when the parts could be told apart.
