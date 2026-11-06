@@ -1,7 +1,9 @@
 """Font-free regressions for fitted-enclosure replacement evidence."""
 from types import SimpleNamespace as NS
+
 import numpy as np
 import pytest
+
 from han_compose import compose as C
 
 
@@ -66,7 +68,7 @@ def fake_composer(placed):
         _normalize_requested_enclosures = staticmethod(lambda tree: tree)
         _cancel_transforms = _normalize_repeated_grids = _standalone_repeated_grid = lambda self, tree: tree
         _standalone_pyramid = _standalone_expanded_overlay = lambda self, tree: tree
-        face=(0,0,100,100);by_sequence={'⿷匚斤':'匠'};reuse=True;exclude={'匠'}
+        face=(0,0,100,100);by_sequence={'⿷匚斤':'匠'};reuse=True;exclude={'匠'}  # noqa: RUF012 - read-only fixtures on a stand-in class
         standalone=True;hosted=True;weighted=True;guide=None;rerank=False
         font=NS(own=lambda ch:True)
         def _respelled(self,t):return t
@@ -126,7 +128,7 @@ def test_real_failed_fit_outside_face_has_no_signal():
 
 
 def test_real_feasible_fit_is_visible_and_marked():
-    c,outer,inner=real_geometry(opening=(10,10,90,90),predicted=(30,30,70,70))
+    c,_outer,_inner=real_geometry(opening=(10,10,90,90),predicted=(30,30,70,70))
     result=C.Composer._learned(c,'⿷',['匚','斤'])
     assert isinstance(result,C._FittedEnclosure)
     assert C._visible_inside(result[1:],c.face)
@@ -187,7 +189,7 @@ def test_eligible_root_certifies_visibility_once(monkeypatch):
 
 def test_signal_does_not_persist_across_calls():
     initial=C._FittedEnclosure([NS(origin='learned outer'),NS(origin='glyph inner')])
-    c,replacement,calls=fake_composer(initial)
+    c,replacement,_calls=fake_composer(initial)
     assert C.Composer.compose(c,'⿷匚斤') is initial
     c._node=lambda *a,**kw:list(initial)
     assert C.Composer.compose(c,'⿷匚斤')==[replacement]

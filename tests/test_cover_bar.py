@@ -14,15 +14,10 @@ def placed(*contours):
     return C.Placed(part, part.box, part.box)
 
 
-def composer():
-    return C.Composer(None, {}, weighted=False)
-
-
 def test_a_bar_under_a_cover_is_narrowed_and_centred():
     cover = placed(box(100, 500, 900, 700))
     bar, stem, foot = box(50, 400, 950, 480), box(480, 80, 520, 400), box(50, 0, 950, 80)
     lower = placed(bar, stem, foot)
-    c = composer()
 
     C._fit_under_cover("⿱", ["宀", "X"], [[cover], [lower]])
 
@@ -38,7 +33,6 @@ def test_a_middle_cover_in_a_stack_fits_the_part_below_it():
     top = placed(box(100, 800, 900, 950))
     cover = placed(box(100, 500, 900, 700))
     lower = placed(box(50, 400, 950, 480), box(480, 0, 520, 400))
-    c = composer()
 
     C._fit_under_cover("⿳", ["X", "冖", "Y"], [[top], [cover], [lower]])
 
@@ -50,7 +44,6 @@ def test_a_middle_cover_in_a_stack_fits_the_part_below_it():
 def test_a_part_under_a_non_cover_keeps_its_bar():
     above = placed(box(100, 500, 900, 700))
     lower = placed(box(50, 400, 950, 480), box(480, 0, 520, 400))
-    c = composer()
 
     C._fit_under_cover("⿱", ["木", "X"], [[above], [lower]])
 
@@ -61,7 +54,6 @@ def test_a_part_under_a_non_cover_keeps_its_bar():
 def test_a_mid_height_bar_under_a_cover_is_kept():
     cover = placed(box(100, 500, 900, 700))
     lower = placed(box(50, 200, 950, 280), box(480, 0, 520, 480))
-    c = composer()
 
     C._fit_under_cover("⿱", ["宀", "X"], [[cover], [lower]])
 
@@ -72,7 +64,6 @@ def test_a_mid_height_bar_under_a_cover_is_kept():
 def test_the_first_lower_bar_of_宇_is_narrowed():
     cover = placed(box(80, 700, 842, 900))
     lower = placed(box(135, 564, 873, 636), box(57, 336, 944, 408), box(475, 408, 525, 636))
-    c = composer()
 
     C._fit_under_cover("⿱", ["宀", "于"], [[cover], [lower]])
 

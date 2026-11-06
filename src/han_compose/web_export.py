@@ -38,7 +38,6 @@ import base64
 import gzip
 import hashlib
 import json
-import math
 import random
 import subprocess
 import zlib
@@ -157,7 +156,7 @@ def decode_part(record: dict) -> list[tuple[str, np.ndarray, np.ndarray]]:
 def _version(root: Path) -> tuple[str, bool]:
     def git(*args: str) -> str:
         try:
-            return subprocess.run(["git", "-C", str(root), *args], capture_output=True, text=True).stdout.strip()
+            return subprocess.run(["git", "-C", str(root), *args], capture_output=True, text=True, check=False).stdout.strip()
         except OSError:
             # No git on PATH: the commit is unknown, which no rerun resumes.
             return ""
@@ -281,7 +280,6 @@ def layout_record(composer: C.Composer, checks: list[tuple[str, list[str]]], fil
         "file": file, "model": "all", "dtype": dtype, "error_against_float32": errors, "checked": len(checks),
         "ops": list(L.OPS),
         "features": {
-            "shape": L.SHAPE,
             "per_input": len(L.OPS) + 2 * (4 + 4 + 1 + 1 + L.SHAPE),
             "order": ["one-hot operator over ops"] + [
                 f"operand {i}: usual box mean / 1000 (4), spread / 100 (4), log1p(count) / 5, log1p(outline count o) / 3, shape f ({L.SHAPE})"
@@ -312,7 +310,7 @@ def _prior(composer: C.Composer, entry: tuple) -> tuple:
 
 
 def _sibling_ink(composer: C.Composer, entry: tuple) -> float:
-    char, tree, path, i = entry
+    _char, tree, path, i = entry
     here = _here(tree, path)
     return sum(composer.ink(n) for k, n in enumerate(here[1:]) if k != i)
 

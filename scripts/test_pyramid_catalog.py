@@ -1,5 +1,6 @@
 """Run with python3 -m unittest discover -s scripts -p test_pyramid_catalog.py."""
 import unittest
+
 from build_pyramid_glyphs import catalog
 
 

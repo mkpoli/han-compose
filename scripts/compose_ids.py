@@ -33,7 +33,13 @@ from pathlib import Path
 import numpy as np
 import typer
 
-from han_compose import compose, compose_layout, compose_standalone, kanjivg_cuts, web_export
+from han_compose import (
+    compose,
+    compose_layout,
+    compose_standalone,
+    kanjivg_cuts,
+    web_export,
+)
 from han_compose.vocab import ROOT, cache_root
 
 app = typer.Typer(add_completion=False)

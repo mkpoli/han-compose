@@ -115,6 +115,15 @@ rclone copy out/ <remote>:<bucket>/<version>/ --exclude '.work/**'
 Fonts download to `cache/fonts/` on first use. `$HAN_COMPOSE_CACHE` points the cache elsewhere.
 `COMPOSE_GUIDE` points at a folder of `guide-*.onnx`.
 
+## Checks
+
+```sh
+uv run pytest tests -q
+uv run ruff check
+```
+
+`ruff check` lints the Python; the repository is not formatted with `ruff format`.
+
 ## Layout
 
 | Path | |

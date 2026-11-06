@@ -1,8 +1,9 @@
 """Font-free facing-rescue donor eligibility and ordering regressions."""
 from types import SimpleNamespace as NS
-import pytest
-from han_compose import compose as C
 
+import pytest
+
+from han_compose import compose as C
 
 BOX=(0,0,100,100)
 
