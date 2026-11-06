@@ -7,7 +7,7 @@ from han_compose import compose
 
 
 def test_consensus_recuts_when_exclusions_change(monkeypatch):
-    c = compose.Composer(SimpleNamespace(own=lambda _: False), {})
+    c = compose.Composer(SimpleNamespace(own=lambda _: False), {}, weighted=True)
     tree = ("⿰", "木", "木")
     names = list("林森材村枝")
     c.__dict__["_index"] = ({("L", "木"): [(name, tree, (), 0) for name in names]}, {})
@@ -51,7 +51,7 @@ def test_reference_context_matches_fresh_cuts(monkeypatch, first, initially_excl
 
     def make(excluded):
         calls = []
-        c = compose.Composer(SimpleNamespace(own=lambda _: False), {}, exclude=set(excluded))
+        c = compose.Composer(SimpleNamespace(own=lambda _: False), {}, exclude=set(excluded), weighted=True)
         c.__dict__["_index"] = ({
             (compose.slot("⿺", 0), "走"): [(ch, enclosure, (), 0) for ch in ["target", "a", "b", "c"]],
             ("L", "木"): [(ch, cut_tree, (), 0) for ch in ["target", "d", "e", "f", "g"]],
@@ -113,7 +113,7 @@ def test_reference_context_matches_fresh_cuts(monkeypatch, first, initially_excl
 
 
 def test_reference_quota_counts_usable_cuts(monkeypatch):
-    c = compose.Composer(SimpleNamespace(own=lambda _: False), {})
+    c = compose.Composer(SimpleNamespace(own=lambda _: False), {}, weighted=True)
     tree = ("⿱", "穴", "木")
     count = compose.TYPICAL_HOSTS
     c.__dict__["_index"] = ({("T", "穴"): [(str(i), tree, (), 0) for i in range(3 * count)]}, {})
@@ -131,7 +131,7 @@ def test_reference_quota_counts_usable_cuts(monkeypatch):
 
 
 def test_consensus_counts_each_source_character_once(monkeypatch):
-    c = compose.Composer(SimpleNamespace(own=lambda _: False), {})
+    c = compose.Composer(SimpleNamespace(own=lambda _: False), {}, weighted=True)
     tree = ("⿰", "木", "木")
     names = ["森"] * compose.TYPICAL_HOSTS + list("林材村")
     c.__dict__["_index"] = ({("L", "木"): [(name, tree, (), 0) for name in names]}, {})
@@ -152,7 +152,7 @@ def test_consensus_counts_each_source_character_once(monkeypatch):
 
 def test_consensus_never_uses_excluded_operand_glyph(monkeypatch):
     glyph = np.ones((4, 4), dtype=bool)
-    c = compose.Composer(SimpleNamespace(own=lambda _: True, glyph=lambda _: glyph), {})
+    c = compose.Composer(SimpleNamespace(own=lambda _: True, glyph=lambda _: glyph), {}, weighted=True)
     c.__dict__["_index"] = ({}, {})
     monkeypatch.setattr(compose, "_square", lambda part: part)
     assert c._consensus("L", "木")[1] is False
@@ -161,7 +161,7 @@ def test_consensus_never_uses_excluded_operand_glyph(monkeypatch):
 
 
 def test_native_reference_filters_extra_stroke_without_changing_native_cuts(monkeypatch):
-    c = compose.Composer(SimpleNamespace(own=lambda char: char == "native"), {})
+    c = compose.Composer(SimpleNamespace(own=lambda char: char == "native"), {}, weighted=True)
     clean = np.zeros((64, 64), dtype=bool)
     clean[8:20, 8:20] = True
     extra = clean.copy()
@@ -202,7 +202,7 @@ def test_extra_bar_requires_unsupported_ink():
 def test_loose_kanjivg_cut_does_not_consult_shape_references(monkeypatch):
     tree = ("⿰", "木", "木")
     found = SimpleNamespace(pieces=[object(), object()])
-    c = compose.Composer(SimpleNamespace(), {}, kvg=SimpleNamespace(host_node=lambda *args: found))
+    c = compose.Composer(SimpleNamespace(), {}, kvg=SimpleNamespace(host_node=lambda *args: found), weighted=True)
     monkeypatch.setattr(c, "_kept", lambda *args: True)
     monkeypatch.setattr(c, "_traded", lambda *args: False)
 
@@ -229,7 +229,7 @@ def reference_composer(monkeypatch):
                            stem=((2.0, 3.0), (2.0, 3.0)))
     monkeypatch.setattr(compose.Composer, "atomic", set())
     monkeypatch.setattr(compose.Composer, "spelled", set())
-    return compose.Composer(font, {}), glyphs, reads
+    return compose.Composer(font, {}, weighted=True), glyphs, reads
 
 
 def test_operand_references_skip_excluded_scalar(reference_composer):
@@ -256,16 +256,117 @@ def test_excluded_encoded_tuple_uses_permitted_decomposition(reference_composer)
     assert c._operand_shape(node) is glyphs["C"]
 
 
+def test_reference_only_is_private_and_recursive(reference_composer):
+    from dataclasses import fields
+
+    c, _, _ = reference_composer
+    flag = next(f for f in fields(c) if f.name == "_reference_only")
+    assert not flag.init and not flag.repr
+    assert not c._reference_only
+    assert c._plain._reference_only
+    assert c._plain._plain._reference_only
+    assert not c._plain.hosted and not c._plain.weighted
+    assert c._plain._frames is c._frames
+    assert c._plain._plain._frames is c._frames
+
+
+@pytest.mark.parametrize("op,count", [("⿰", 2), ("⿱", 2), ("⿲", 3), ("⿳", 3)])
+@pytest.mark.parametrize("purpose", ["reference", "plain", "hosted", "root"])
+def test_reference_shares_keep_baseline_weights_and_gaps(reference_composer, monkeypatch, op, count, purpose):
+    c, _, _ = reference_composer
+    if purpose == "reference":
+        c = c._plain
+    else:
+        c.hosted = purpose == "hosted"
+    children = [("⿰", "A", "B"), "B", "C"][:count]
+    inks, crossings = [9.0, 64.0, 25.0][:count], [2.0, 5.0, 3.0][:count]
+    boxes = []
+    monkeypatch.setattr(c, "ink", lambda n: inks[children.index(n)])
+    def crossed(n, axis):
+        assert purpose in ("plain", "hosted")
+        return crossings[children.index(n)]
+    monkeypatch.setattr(c, "crossings", crossed)
+    monkeypatch.setattr(c, "_host", lambda *args: None)
+    monkeypatch.setattr(c, "_row", lambda n, box, count: boxes.append(box) or [])
+    monkeypatch.setattr(c, "_space", lambda *args: None)
+    c._shares(op, children, (0, 0, 100, 100), at_root=purpose == "root")
+    if purpose in ("reference", "root"):
+        power, middle = compose.SHARES_OLD.get((op, count), (0.5, 1.0))
+        exponent, gap = 0.0, 0.04
+    else:
+        power, exponent, middle, gap = compose.SHARES[op, count]
+    weights = [ink ** power * cross ** exponent * (middle if 0 < i < count - 1 else 1.0)
+               for i, (ink, cross) in enumerate(zip(inks, crossings))]
+    axis = compose.AXIS[op]
+    lengths = [box[axis + 2] - box[axis] for box in boxes]
+    assert lengths == pytest.approx([100 * (1 - gap * (count - 1)) * w / sum(weights) for w in weights])
+    spans = sorted((box[axis], box[axis + 2]) for box in boxes)
+    assert [b[0] - a[1] for a, b in zip(spans, spans[1:])] == pytest.approx([100 * gap] * (count - 1))
+
+
+def test_recursive_reference_sketch_matches_baseline_shares(reference_composer, monkeypatch):
+    c, _, _ = reference_composer
+    c.sequences["X"] = "⿱A⿲B⿰ABC"
+    node = ("⿰", "X", ("⿳", "A", ("⿱", "B", "C"), "B"))
+    sketch = c._sketch(node)
+    assert sketch is not None
+    baseline = compose.Composer(c.font, c.sequences, hosted=False, weighted=False)
+    plain = baseline._node(node, baseline.face)
+    plain_points = [points for p in plain for points in p.contours()]
+    assert len(plain_points) == len(sketch.contours)
+    assert any(not np.allclose(contour.light, points) for contour, points in zip(sketch.contours, plain_points))
+    monkeypatch.setattr(baseline, "_unknown", lambda _: False)
+    placed = baseline._node(node, baseline.face)
+    expected = compose.Part([compose.Contour(contour.ops, points, points)
+                             for p in placed for contour, points in zip(p.part.contours, p.contours())])
+    assert len(sketch.contours) == len(expected.contours)
+    for actual, wanted in zip(sketch.contours, expected.contours):
+        np.testing.assert_allclose(actual.light, wanted.light)
+
+
+@pytest.mark.parametrize("excluded", [False, True])
+def test_guide_operand_sketch_keeps_baseline_mask(reference_composer, monkeypatch, excluded):
+    from han_compose import compose_guide
+
+    c, glyphs, reads = reference_composer
+    sequence = "⿰⿱A⿰ABC"
+    tree = compose.parse(sequence)
+    boxes = [(0, 0, 450, 800), (500, 0, 950, 800)]
+    def predict(composer, op, operands, tested):
+        assert composer is c and op == "⿰"
+        assert operands == ["⿱A⿰AB", "C"]
+        assert tested == ("A" if excluded else None)
+        return boxes
+    c.layout = SimpleNamespace(ops={"⿰"}, predict=predict)
+    if excluded:
+        c.exclude.add("A")
+    masks = compose_guide.operands(c, sequence)
+    assert c._plain._reference_only
+    if excluded:
+        assert not masks[0].any()
+        assert "A" not in reads
+    else:
+        baseline = compose.Composer(c.font, {}, hosted=False, weighted=False)
+        monkeypatch.setattr(baseline, "_unknown", lambda _: False)
+        expected = compose.raster(baseline._node(tree[1], boxes[0]), compose_guide.SIZE)
+        assert expected.any()
+        np.testing.assert_array_equal(masks[0], expected)
+    glyph = glyphs["C"]
+    np.testing.assert_array_equal(masks[1], compose.raster(
+        [compose.Placed(glyph, glyph.box, boxes[1])], compose_guide.SIZE))
+
+
 @pytest.mark.parametrize("recursive", [False, True])
 def test_sketch_cache_rebuilds_on_exclusion_add_and_remove(reference_composer, recursive):
     c, _, reads = reference_composer
     if recursive:
         # X has no glyph; its sequence is expanded by the plain composer's _node.
-        c.sequences["X"] = "⿱AB"
+        c.sequences["X"] = "⿱A⿰AB"
     node = ("⿰", "X" if recursive else "A", "B")
     first = c._sketch(node)
     assert first is not None
     original_plain = c._plain
+    assert original_plain._reference_only
     reads.clear()
     assert c._sketch(node) is first and reads == []
     c.exclude.add("A")
@@ -273,12 +374,14 @@ def test_sketch_cache_rebuilds_on_exclusion_add_and_remove(reference_composer, r
     assert "A" not in reads
     assert c._plain is not original_plain
     excluded_plain = c._plain
+    assert excluded_plain._reference_only
     reads.clear()
     assert c._sketch(node) is None and reads == []
     c.exclude.remove("A")
     rebuilt = c._sketch(node)
     assert rebuilt is not None and rebuilt is not first
     assert c._plain is not excluded_plain and "A" in reads
+    assert c._plain._reference_only
     assert compose._square(first).tolist() == compose._square(rebuilt).tolist()
 
 
@@ -300,7 +403,7 @@ def test_cached_overlay_cuts_match_fresh_exclusion_context(reference_composer, m
     tree = (compose.OVERLAY, "A", "B")
 
     def make(excluded):
-        c = compose.Composer(original.font, {}, exclude=set(excluded))
+        c = compose.Composer(original.font, {}, exclude=set(excluded), weighted=True)
         c.__dict__["_index"] = ({(compose.slot(compose.OVERLAY, 0), "A"): [("C", tree, (), 0)]}, {})
         calls = []
 
@@ -349,7 +452,7 @@ def test_measurements_rebuild_with_exclusions(reference_composer, first, initial
     else:
         c.exclude.add("A")
     reads.clear()
-    fresh = compose.Composer(c.font, c.sequences, exclude=set(c.exclude))
+    fresh = compose.Composer(c.font, c.sequences, exclude=set(c.exclude), weighted=True)
     after = measure(c)
     assert after == measure(fresh)
     assert after != before
@@ -434,7 +537,7 @@ def test_face_cache_matches_fresh_exclusions(reference_composer, monkeypatch, in
     reads.clear()
     if not face_first:
         c.ink("B")
-    fresh = compose.Composer(c.font, {}, exclude=set(c.exclude))
+    fresh = compose.Composer(c.font, {}, exclude=set(c.exclude), weighted=True)
     assert c.face == fresh.face and c.face != before
     if c.exclude:
         assert c.face == glyphs["B"].box and "A" not in reads
@@ -462,7 +565,7 @@ def test_excluding_a_character_excludes_its_twins():
     glyphs = {"胶": square, "㬵": square, "膠": other, "甲": other, "乙": square}
     font = SimpleNamespace(own=lambda _: True, has=lambda ch: ch in glyphs, glyph=glyphs.get,
                            cmap={ord("甲"): "g1", ord("乙"): "g1", ord("胶"): "g2", ord("㬵"): "g3", ord("膠"): "g4"})
-    c = compose.Composer(font, {"胶": "⿰月交", "㬵": "⿰月交", "膠": "⿰月交", "甲": "⿻日丨", "乙": "乙"})
+    c = compose.Composer(font, {"胶": "⿰月交", "㬵": "⿰月交", "膠": "⿰月交", "甲": "⿻日丨", "乙": "乙"}, weighted=True)
     assert c.twins["胶"] == {"㬵"} and c.twins["甲"] == {"乙"} and "膠" not in c.twins
     c.exclude = {"胶"}
     c._reference_context()

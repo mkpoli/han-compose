@@ -168,7 +168,7 @@ def teacher_composer(monkeypatch, op, bare_index, extent):
     monkeypatch.setattr(c, "_host", lambda *args, **kwargs: None)
     monkeypatch.setattr(c, "_space", lambda *args: calls.append("space"))
 
-    def shares(operator, children, region):
+    def shares(operator, children, region, at_root=False):
         calls.append(("shares", operator, children, region))
         return fallback
 
