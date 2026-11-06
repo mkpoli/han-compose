@@ -12,7 +12,7 @@ import { drawnBox, svgPath } from './geometry.js'
 import { readLayout } from './layout.js'
 import { isComponentForm, isGroupedForm } from './component-forms.js'
 import { hexOf } from './sha256.js'
-import { pyramidRows } from './pyramid-rows.js'
+import { pyramidOnBase, pyramidRows } from './pyramid-rows.js'
 import { unicodeSource } from './unicode.js'
 
 export { LookupError } from './compose.js'
@@ -166,12 +166,19 @@ export function size(tree) {
   const sizes = kids.map(size)
   return { nodes: 1 + sizes.reduce((s, k) => s + k.nodes, 0), depth: 1 + Math.max(0, ...sizes.map(k => k.depth)) }
 }
-/** Whether a tree is larger than a preview draws (`LIMITS`), unless it is a pyramid within
- *  `PYRAMID_LAYERS`. A pyramid of two layers counts too: its cells are laid out apart, never merged
- *  into the overlapping parts the limits guard against. */
+/** Whether a subtree is within the structural limits a preview draws. */
+const within = node => {
+  const { nodes, depth } = size(node)
+  return nodes <= LIMITS.nodes && depth <= LIMITS.depth
+}
+/** Whether a tree is larger than a preview draws (`LIMITS`), unless it is a pyramid or a pyramid on a
+ *  base within `PYRAMID_LAYERS`, its cell and its base within `LIMITS`. A pyramid of two layers counts
+ *  too: its cells are laid out apart, never merged into the overlapping parts the limits guard against. */
 export const tooLarge = tree => {
   const pyramid = pyramidRows(tree, { minLayers: 2 })
-  if (pyramid) return pyramid.layers > PYRAMID_LAYERS
+  if (pyramid) return pyramid.layers > PYRAMID_LAYERS || !within(pyramid.cell)
+  const onBase = pyramidOnBase(tree)
+  if (onBase) return onBase.layers > PYRAMID_LAYERS || !within(onBase.cell) || !within(onBase.base)
   const { nodes, depth } = size(tree)
   return nodes > LIMITS.nodes || depth > LIMITS.depth
 }
