@@ -44,7 +44,7 @@ describe('a cover', () => {
     expect(width).toBeLessThan(0.75 * 700)
   })
 
-  it('narrows a box head under a cover, and leaves what stands below it', () => {
+  it('narrows a box head under a cover, and what stands below it less', () => {
     const c = lonely()
     c.sequenceOf = ch => ch === '昗' ? '⿱日六' : null
     c.parse = text => text === '⿱日六' ? ['⿱', '日', '六'] : text
@@ -58,7 +58,7 @@ describe('a cover', () => {
     }
     const [drawnHead, drawnLegs] = lower[0].part.contours
     expect(span(drawnHead)).toBeCloseTo(0.72 * 800, 3)
-    expect(span(drawnLegs)).toBe(800)
+    expect(span(drawnLegs)).toBeCloseTo(0.85 * 800, 3)
   })
 
   it('narrows the same head when the lower part is written out', () => {
@@ -68,7 +68,7 @@ describe('a cover', () => {
     c.fitUnderCover('⿱', ['冖', ['⿱', '日', '六']], [cover, lower])
     const xs = lower[0].part.contours[0].light.filter((_, i) => i % 2 === 0)
     expect(Math.max(...xs) - Math.min(...xs)).toBeCloseTo(0.72 * 800, 3)
-    expect(lower[1].part.contours[0].light[2] - lower[1].part.contours[0].light[0]).toBe(800)
+    expect(lower[1].part.contours[0].light[2] - lower[1].part.contours[0].light[0]).toBeCloseTo(0.85 * 800, 3)
   })
 
   it('leaves a written lower part drawn as one whole glyph', () => {
@@ -107,8 +107,8 @@ describe('a cover', () => {
     const xs = contour => contour.light.filter((_, i) => i % 2 === 0)
     const [drawnBox, drawnBody, drawnCounter] = lower[0].part.contours
     expect(Math.max(...xs(drawnBox)) - Math.min(...xs(drawnBox))).toBeCloseTo(0.72 * 800, 3)
-    expect(Math.max(...xs(drawnBody)) - Math.min(...xs(drawnBody))).toBe(800)
-    expect(Math.max(...xs(drawnCounter)) - Math.min(...xs(drawnCounter))).toBe(600)
+    expect(Math.max(...xs(drawnBody)) - Math.min(...xs(drawnBody))).toBeCloseTo(0.85 * 800, 3)
+    expect(Math.max(...xs(drawnCounter)) - Math.min(...xs(drawnCounter))).toBeCloseTo(0.85 * 600, 3)
   })
 
   it('measures a head by its own width, and never widens it', () => {

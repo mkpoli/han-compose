@@ -93,6 +93,9 @@ const BAR_ASPECT = 5
 // the flattest full component (工, 1.23 in the export) and the flattest one drawn as a band
 // (丷, 2.04) fall either side of it.
 const MIDDLE_FLAT = 1.5
+// How much of a cover's width a box head takes, and the part below it, so the two stay in balance.
+const BOX_HEAD = 0.72
+const BOX_BODY = 0.85
 // Covers whose only ink below the bar is their side strokes. 穴 and 雨 hang a middle stroke too,
 // where a child touching it is drawn as it is.
 const SIDE_COVERS = new Set(['宀', '冖'])
@@ -2084,13 +2087,19 @@ export class Composer {
         const headLeft = Math.min(...headBoxes.map(b => b[0])), headRight = Math.max(...headBoxes.map(b => b[2]))
         const head = (headLeft + headRight) / 2
         // A head already that narrow keeps its width.
-        const factor = Math.min(0.72 * (coverBox[2] - coverBox[0]) / Math.max(headRight - headLeft, 1), 1)
+        const factor = Math.min(BOX_HEAD * (coverBox[2] - coverBox[0]) / Math.max(headRight - headLeft, 1), 1)
+        // What stands below takes one map of its own: left at its width, it outweighs the narrowed head.
+        const isHead = (p, b) => named ? p === named : inHead(b)
+        const bodyBoxes = groups[1].flatMap(p => drawnContours(p).map(pointsBox).filter(b => !isHead(p, b)))
+        const bodyLeft = Math.min(...bodyBoxes.map(b => b[0])), bodyRight = Math.max(...bodyBoxes.map(b => b[2]))
+        const body = (bodyLeft + bodyRight) / 2
+        const bodyFactor = Math.min(BOX_BODY * (coverBox[2] - coverBox[0]) / Math.max(bodyRight - bodyLeft, 1), 1)
         for (const p of groups[1]) {
           const contours = p.part.contours.slice()
           let changed = false
           drawnContours(p).forEach((points, index) => {
             const b = pointsBox(points)
-            if (named ? p !== named : !inHead(b)) return
+            const [from, by] = isHead(p, b) ? [head, factor] : [body, bodyFactor]
             const c = { ...contours[index] }
             let lo = Infinity, hi = -Infinity
             for (let k = 0; k < c.light.length; k += 2) { lo = Math.min(lo, c.light[k]); hi = Math.max(hi, c.light[k]) }
@@ -2098,8 +2107,8 @@ export class Composer {
             const middle = (b[0] + b[2]) / 2
             // A part mirrored across x moves the other way on the page than in its own coordinates.
             const side = (p.flips ?? []).reduce((sign, f) => f.x ? -sign : sign, 1)
-            const shift = side * (centre + (middle - head) * factor - middle) / scale
-            const move = points => { const out = new Float64Array(points.length); for (let k = 0; k < points.length; k += 2) { out[k] = mid + shift + (points[k] - mid) * factor; out[k + 1] = points[k + 1] } return out }
+            const shift = side * (centre + (middle - from) * by - middle) / scale
+            const move = points => { const out = new Float64Array(points.length); for (let k = 0; k < points.length; k += 2) { out[k] = mid + shift + (points[k] - mid) * by; out[k + 1] = points[k + 1] } return out }
             c.light = move(c.light); c.heavy = move(c.heavy); contours[index] = c; changed = true
           })
           if (changed) p.part = derived(p.part, contours)
