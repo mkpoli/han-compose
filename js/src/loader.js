@@ -220,7 +220,7 @@ export const svgBox = b => [b[0], ASCENT - b[3], b[2] - b[0], b[3] - b[1]]
 export async function sketch(source, sequence, { fontStyle = 'sans' } = {}) {
   await source.ready()
   // Loose marks hang off the drawing; they are not leaves of it.
-  const { base } = splitDescription(sequence)
+  const { base, marks } = splitDescription(sequence)
   // Which boxes a node takes is decided by the operands' host lists, so their records are read
   // before the layout: a sketch laid out without them would move when the drawing arrives.
   const arity = ch => {
@@ -229,9 +229,15 @@ export async function sketch(source, sequence, { fontStyle = 'sans' } = {}) {
   }
   const description = normaliseHangul(hangulOfIds(base) ?? base, arity)
   try {
-    await source.load(source.filesOf(keysOf(parseTree(description, arity), [], false, fontStyle)))
+    await source.load(source.filesOf([...keysOf(parseTree(description, arity), [], false, fontStyle), ...marks]))
   } catch { /* a draft that does not read is laid out by the composer's own parse */ }
-  return new Composer(source.store(), { fontStyle }).sketch(description).map(leaf => ({ ...leaf, box: svgBox(leaf.box) }))
+  // A mark beside the drawing takes room from the face, so its outline is read before the layout.
+  if (marks) {
+    const store = source.store()
+    new Composer(store, { fontStyle }).faceBeside(marks)
+    if (store.missing.size) await source.load(store.missing)
+  }
+  return new Composer(source.store(), { fontStyle }).sketch(description, marks).map(leaf => ({ ...leaf, box: svgBox(leaf.box) }))
 }
 
 
