@@ -37,11 +37,14 @@ export const exportSource = folder => createSource(async name => {
  */
 export async function measure(source, parity, { limit, iou }) {
   const rows = parity.rows.filter(row => row.d).slice(0, limit || undefined)
+  // An export's own face decides what the engine may draw: the rows are drawn in it.
+  await source.ready()
+  const fontStyle = source.manifest.style
   const scores = []
   for (const row of rows) {
     let score = 0, engine = [], error = null
     try {
-      const drawn = await compose(source, row.s, { exclude: row.x, face: row.face ?? null })
+      const drawn = await compose(source, row.s, { exclude: row.x, face: row.face ?? null, fontStyle })
       engine = drawn.origins
       score = iou(drawn.d, row.d, parity.size)
     } catch (failure) { error = String(failure.message ?? failure) }
