@@ -1,4 +1,4 @@
-import { expect, it } from 'bun:test'
+import { describe, expect, it } from 'bun:test'
 import { readFileSync } from 'node:fs'
 import { gunzipSync } from 'node:zlib'
 import { compose } from '../src/loader.js'
@@ -30,4 +30,34 @@ it('draws the numbered components with no description at their private-use code 
   const drawn = await compose(source, `⿰${first}${first}`, { separate: true })
   expect(drawn.parts).toHaveLength(2)
   expect(drawn.origins).toContain(`glyph ${first}`)
+})
+
+describe('the palette under an export', () => {
+  const record = { o: 1, ink: 1 }
+  const exported = rec => ({
+    manifest: { constants: {} }, layout: null,
+    ready: async () => {}, load: async () => {}, filesOf: keys => new Set(keys),
+    store: () => ({ manifest: {}, layout: null, missing: new Set(), rec, hosts: () => [{ h: '江' }], places: () => ['L'] }),
+  })
+  const over = async fallback => {
+    const source = paletteSource({ load: async () => ({ records: { 江: record } }), fallback })
+    await source.ready()
+    return source
+  }
+  it('lets the export draw a character it holds', async () => {
+    const own = { o: 2, ink: 2 }
+    const source = await over(exported(key => key === '江' ? own : null))
+    expect(source.store().rec('江')).toBe(own)
+    expect(source.store().hosts('江', 'L')).toEqual([{ h: '江' }])
+    expect(source.filesOf(['江'])).toEqual(new Set(['江']))
+  })
+  it('fills in what the export lacks', async () => {
+    const source = await over(exported(() => null))
+    expect(source.store().rec('江')).toBe(record)
+    expect(source.store().hosts('江', 'L')).toEqual([])
+  })
+  it('needs an export only where the face has its own glyphs', () => {
+    expect(onlyBundled('江', false, false, 'sans')).toBe(true)
+    for (const face of ['serif', 'fangsong', 'kaisho']) expect(onlyBundled('江', false, false, face)).toBe(false)
+  })
 })
