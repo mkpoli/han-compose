@@ -15,7 +15,7 @@ the shapes it draws parts from when no host character has them.
 | `sources/palette/outlines.json.gz` | 148 palette components no export's font draws |
 | `palette/fallback-characters.json`, `palette/bundled-coverage.json` | the same, listed and indexed |
 | `unicode/outlines/*.json.gz`, `unicode/coverage.json`, `unicode/outlines.json` | 56,651 outlines of loose marks and parts no other source draws |
-| `licences/` | the OFL, CC0, MIT, Arphic and Unicode texts the export carries |
+| `licences/` | the OFL, CC0, MIT and Unicode texts the export carries |
 
 Noto Sans CJK JP and Plangothic are SIL OFL 1.1; Noto Serif Tangut too. 69 of the palette's outlines
 are the numbered components that BabelStone's [IDS.TXT](https://www.babelstone.co.uk/CJK/IDS.TXT) note 6
