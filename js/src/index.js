@@ -187,7 +187,7 @@ export function composerPreview({ base, separate = false, fontStyle = 'sans', lo
 /**
  * A sequence drawn from the bundled outlines alone, in the page, answered as a drawer answers.
  * @param {string} sequence
- * @param {{ separate?: boolean, fontStyle?: 'sans' | 'serif' | 'kaisho', loaders?: Record<string, string> }} options
+ * @param {{ separate?: boolean, fontStyle?: 'sans' | 'serif' | 'fangsong' | 'kaisho', loaders?: Record<string, string> }} options
  * @param {(leaves: SketchLeaf[]) => void} heard
  * @returns {Promise<import('./client.js').Answer>}
  */
