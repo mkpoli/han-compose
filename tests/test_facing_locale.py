@@ -92,3 +92,12 @@ def test_style_that_keeps_its_own_hosts_indexes_nothing_from_a_fallback():
         return {entry[0] for entries in hosts.values() for entry in entries}
     assert index(True) == {'乙'}
     assert index(False) == {'甲', '乙'}
+
+
+def test_every_operand_stays_known_when_its_character_may_not_host():
+    from han_compose import compose
+
+    font = NS(own=lambda ch: ch == '乙', has=lambda ch: True, glyph=lambda ch: None, style=NS(own_hosts=True, weighted=False))
+    composer = compose.Composer(font, {'甲': '⿰事口', '乙': '⿰木日'})
+    assert not {w for _, w in composer._index[0]} & {'事', '口'}
+    assert {w for _, w in composer.operands} == {'事', '口', '木', '日'}

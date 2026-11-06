@@ -312,8 +312,9 @@ export class Composer {
     // into component shapes; the export says how many bytes of host lists it carries, and carries
     // none when `files.hosts` is absent or empty.
     this.hosted = Boolean(m.files?.hosts?.bytes)
-    // A static brush face keeps its own stroke weights; a variable export weights its parts.
-    this.weighted = m.weighted ?? !(m.style === 'kaisho' && m.heavy === 400)
+    // A static face keeps its own stroke weights; a variable export weights its parts. An export
+    // made before the manifest said so is static when its heavy master is its regular one.
+    this.weighted = m.weighted ?? m.heavy !== 400
     this.stem0 = c.stem
     this.arities = new Map([...c.BINARY.map(op => [op, 2]), ...c.TERNARY.map(op => [op, 3]), ...c.UNARY.map(op => [op, 1])])
     this.expanding = new Set()

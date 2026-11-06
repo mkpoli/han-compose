@@ -331,6 +331,7 @@ def test_a_serif_export_names_its_style_and_ships_each_fonts_licence(tmp_path) -
     c.kvg = kanjivg_cuts.Cutter(c)
     manifest = web_export.export(c, tmp_path, only={"亻", "可", "何", "⿰亻可"}, pairs={("L", "可")}, log=lambda _: None)
     assert manifest["style"] == "serif" and manifest["composer"]["layout_file"] == "compose-layout-v4-serif.npz"
+    assert manifest["weighted"] is True and manifest["heavy"] == style.heavy
     assert "-serif-compose-layout-v4-serif-f" in manifest["version"]
     assert set(manifest["composer"]["font_sha256"]) == {s.file for s in (style.font, *style.fallbacks)}
     assert manifest["files"]["licences"] == ["OFL.txt", "CC0.txt", "MIT-hfhchan-ids.txt"]

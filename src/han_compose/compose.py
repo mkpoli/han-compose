@@ -35,7 +35,7 @@ import json
 import math
 import re
 from collections import Counter
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field, replace
 from functools import cache, cached_property, lru_cache
 from itertools import combinations, pairwise
@@ -1211,7 +1211,18 @@ class Composer:
     @cached_property
     def _index(self) -> tuple[dict, dict]:
         """(slot, operand) → drawn characters holding that operand there, and operator → drawn
-        characters with a node of it; each with its tree and the path of positions to the node."""
+        characters with a node of it; each with its tree and the path of positions to the node.
+        A style that keeps its own hosts indexes no character a fallback font draws."""
+        own = getattr(getattr(self.font, "style", None), "own_hosts", False)
+        return self._indexed(self.font.own if own else self.font.has)
+
+    @cached_property
+    def operands(self) -> set[tuple[str, str]]:
+        """Every (slot, operand) of every character the fonts draw, whichever may serve as a host: a
+        character is written as an operand whether or not a piece can be cut for it."""
+        return set(self._indexed(self.font.has)[0])
+
+    def _indexed(self, drawn: Callable[[str], bool]) -> tuple[dict, dict]:
         hosts: dict[tuple[str, str], list] = {}
         templates: dict[str, list] = {}
 
@@ -1228,10 +1239,8 @@ class Composer:
                 walk(char, tree, child, path + (i,), names, hosts, templates)
 
         trees = {}
-        # A style that keeps its own hosts indexes no character a fallback font draws.
-        host_font = self.font.own if getattr(getattr(self.font, "style", None), "own_hosts", False) else self.font.has
         for char, seq in self.sequences.items():
-            if host_font(char):
+            if drawn(char):
                 try:
                     trees[char] = parse(seq)
                 except ValueError:

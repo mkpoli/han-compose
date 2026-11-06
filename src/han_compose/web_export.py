@@ -875,7 +875,7 @@ def _export(composer: C.Composer, out: Path, joyo: list[str] | None = None, pari
     # Records: every operand the index holds, every character a sequence describes, every
     # positional form, the parity drawings' leaves, every sequence the font draws, every operand of
     # the layout table, every operand with a host list, and every letter the fonts draw (`letters`).
-    chars = {w for _, w in index if _leaf(w)} | set(composer.by_sequence.values()) | letters(composer.font)
+    chars = {w for _, w in composer.operands if _leaf(w)} | set(composer.by_sequence.values()) | letters(composer.font)
     chars |= {form for forms in composer.forms.values() for form, _ in forms}
     chars |= {written for _, written in _INJECT if _leaf(written)}
     for rows, _ in sets.values():
@@ -940,7 +940,7 @@ def _export(composer: C.Composer, out: Path, joyo: list[str] | None = None, pari
         "composer": {"repository": "https://github.com/mkpoli/han-compose", "commit": commit, "dirty": dirty,
                      "style": style.name, "layout_file": layout_file, **inputs},
         "style": style.name,
-        "em": C.EM, "ascent": C.ASCENT, "heavy": style.heavy, "quant": QUANT,
+        "em": C.EM, "ascent": C.ASCENT, "heavy": style.heavy, "weighted": style.weighted, "quant": QUANT,
         "constants": constants(composer),
         "constants_note": "tuple keys are joined with a comma: SHARES[('⿳', 3)] is SHARES['⿳,3']",
         "spelled": sorted(composer.spelled),
