@@ -17,6 +17,7 @@ import { documentSource } from './document-source.js'
 /**
  * @typedef {object} DocumentView
  * @property {DocumentSource} source The composer-backed source, complete or not.
+ * @property {Map<number, import('./document-source.js').DrawingPart[]>} partsByLeaf The drawn parts of each component leaf.
  * @property {import('./document-source.js').Scopes | null} scopes The scoped drawing, or null when the source is incomplete.
  * @property {import('./document-source.js').Frames} frames Layout frames for every layer the sketch covers.
  * @property {string[]} issues Source and transform problems in one list.
@@ -37,7 +38,7 @@ export function documentView(document, drawing, sketch, { tolerance = 0.1, rende
   const { layerFrames, renderScopes } = renderer
   const made = documentSource(document, drawing, sketch)
   const frames = layerFrames(document, made.source, sketch ?? [])
-  if (!made.complete) return { source: made, scopes: null, frames, issues: made.issues, complete: false, drawing, sketch: sketch ?? null }
+  if (!made.complete) return { source: made, scopes: null, frames, issues: made.issues, complete: false, drawing, sketch: sketch ?? null, partsByLeaf: made.partsByLeaf }
   const scopes = renderScopes(document, made.source, { tolerance })
   // Emoji and the cut path arrive in the drawing's own coordinates, which the layer frames leave
   // alone: `canvas` is the layer's own transform seen from the canvas, the identity until it moves.
@@ -55,5 +56,6 @@ export function documentView(document, drawing, sketch, { tolerance = 0.1, rende
     complete: scopes.complete,
     drawing,
     sketch: sketch ?? null,
+    partsByLeaf: made.partsByLeaf,
   }
 }
