@@ -5,6 +5,14 @@ import { onlyBundled } from '../src/local.js'
 import { compose } from '../src/loader.js'
 import { constants } from './fixtures/small-export.js'
 
+it('does not use Noto-only forms for Fangsong', () => {
+  for (const text of ['⿱丿乚', '⿰氵氵', '㇯馬灬']) {
+    expect(isComponentForm(text, 'sans')).toBe(true)
+    expect(isComponentForm(text, 'fangsong')).toBe(false)
+    expect(onlyBundled(text, false, true, 'fangsong')).toBe(false)
+  }
+})
+
 it('does not use Noto-only forms for Kaisho capabilities or outlines', () => {
   for (const text of ['⿱丿乚', '⿸⿳亠㐅厂生', '㇯馬灬']) {
     expect(isComponentForm(text, 'sans')).toBe(true)

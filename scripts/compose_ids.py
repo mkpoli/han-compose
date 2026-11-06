@@ -13,7 +13,7 @@ their outline length within 15% of the real glyph's, and the ratio of their stro
 400 px). Characters that cannot be drawn are counted and listed. It reports the composer beside the
 plainest way to compose, each operand's own glyph squeezed into its share, each scored on its own.
 `calibrate` fits the style's `stem_curve`, stroke width against density, on the font's own ideographs.
-Every command takes `--style sans` (the default), `--style serif` or `--style kaisho`; models are cached per style.
+Every command takes `--style sans` (the default), `--style serif`, `--style kaisho` or `--style fangsong`; models are cached per style.
 `learn` trains the layout `compose_layout` describes and caches it, for `draw` and `bench` to use.
 `export-web` writes the layout and the drawing data a browser port of the composer reads, and
 `export-web-pack` builds a finished export's shards from its per-key files.
@@ -37,8 +37,8 @@ from han_compose.vocab import cache_root
 app = typer.Typer(add_completion=False)
 
 
-#: The design drawn in: `sans` (Noto Sans CJK JP), `serif` (Noto Serif CJK JP) or `kaisho` (Kureedo), `compose.STYLES`.
-STYLE = typer.Option(compose.DEFAULT_STYLE, "--style", help="sans, serif or kaisho")
+#: The design drawn in: `sans` (Noto Sans CJK JP), `serif` (Noto Serif CJK JP), `kaisho` (Kureedo) or `fangsong` (Zhuque Fangsong), `compose.STYLES`.
+STYLE = typer.Option(compose.DEFAULT_STYLE, "--style", help="sans, serif, kaisho or fangsong")
 
 
 def _style(style: str) -> str:

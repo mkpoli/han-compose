@@ -73,7 +73,7 @@ export function createDrawer(makeWorker, base, config = {}) {
   /**
    * @param {string} sequence
    * @param {((leaves: SketchLeaf[]) => void) | null} [onSketch]
-   * @param {{ separate?: boolean, fontStyle?: 'sans' | 'serif' | 'kaisho', loaders?: Loaders }} [options]
+   * @param {{ separate?: boolean, fontStyle?: 'sans' | 'serif' | 'fangsong' | 'kaisho', loaders?: Loaders }} [options]
    * @returns {Promise<Answer>}
    */
   function draw(sequence, onSketch = null, { separate = false, fontStyle = 'sans', loaders = config.loaders } = {}) {

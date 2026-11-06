@@ -1,4 +1,4 @@
-"""Draw a character Unicode lacks from its Ideographic Description Sequence, in one of three styles.
+"""Draw a character Unicode lacks from its Ideographic Description Sequence, in one of four styles.
 
 `sans` draws in GenZui Sans, which takes its ideographs unchanged from Noto Sans JP at weight 400,
 which in turn draws them as Noto Sans CJK JP does. The composer reads Noto Sans CJK JP, the variable
@@ -6,7 +6,7 @@ font that draws 30,289 ideographs to Noto Sans JP's 13,742 with the same outline
 known at weight 400 and at the style's heavy weight with the same points. `serif` reads Noto Serif
 CJK JP, the variable Source Han Serif, the same way. `kaisho` reads Kureedo, the Klee One design
 extended with historical kana, at one static weight, with GenZui Sans drawing characters Kureedo
-lacks (`STYLES`). Every layout and every part comes
+lacks. `fangsong` reads Zhuque Fangsong the same way, with Jigmo (`STYLES`). Every layout and every part comes
 from a character a type designer drew; a sequence (⿰亻哥) is drawn in three steps:
 
 1. Teacher. For each node, the drawn character with a node of the same operator whose operands are
@@ -35,14 +35,14 @@ import json
 import math
 import re
 from collections import Counter
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field, replace
 from functools import cache, cached_property, lru_cache
 from itertools import combinations, pairwise
 from pathlib import Path
 
 import numpy as np
-from fontTools.pens.recordingPen import RecordingPen
+from fontTools.pens.recordingPen import DecomposingRecordingPen
 from fontTools.ttLib import TTFont
 
 from ._raster import fill
@@ -68,6 +68,8 @@ class Source:
     licence: str
     member: str | None = None
     archive_sha256: str | None = None
+    #: A copyright the font's outlines carry that its `name` table does not state.
+    also: str = ""
 
 
 @dataclass(frozen=True)
@@ -107,6 +109,10 @@ PLANGOTHIC_URL = "https://github.com/Fitzgerald-Porthmouth-Koenigsegg/Plangothic
 #: BMP. Its site gives the archive's SHA-1, 2fb963ee7bba1d23ccfe81b228422f22da9dc574.
 JIGMO_URL = "https://kamichikoichi.github.io/jigmo/Jigmo-20250912.zip"
 JIGMO_SHA256 = "5744c7386d129475d87607ca66d043c8793c65448adeaedc921b6931890e5d0b"
+_JIGMO = tuple(Source(f"Jigmo-20250912-{name}", JIGMO_URL, sha, "CC0 1.0", member=name, archive_sha256=JIGMO_SHA256)
+              for name, sha in (("Jigmo2.ttf", "5da3582efe77e22073b86b3b86b556d7111148a76b957cfb53318a91da2efff0"),
+                                ("Jigmo3.ttf", "815b18c1c670103723fe743090559208fdea47dc587ecb057a5a4721ee8dfeff"),
+                                ("Jigmo.ttf", "c8f295b9bd8f9f117a76b3a454aaaa1bb5b4babc18e254978c6deb88464e40cf")))
 
 STYLES = {
     # Noto Sans CJK JP 2.004: GenZui Sans takes its ideographs unchanged from Noto Sans JP, which
@@ -130,10 +136,7 @@ STYLES = {
         Source("NotoSerifCJKjp-VF-2.003.ttf",
                "https://github.com/notofonts/noto-cjk/raw/Serif2.003/Serif/Variable/TTF/NotoSerifCJKjp-VF.ttf",
                "c2ff7cffb6ef75193d4406b030eab5aa6503c48004acec6b040327e2fe1e9e51", OFL),
-        tuple(Source(f"Jigmo-20250912-{name}", JIGMO_URL, sha, "CC0 1.0", member=name, archive_sha256=JIGMO_SHA256)
-              for name, sha in (("Jigmo2.ttf", "5da3582efe77e22073b86b3b86b556d7111148a76b957cfb53318a91da2efff0"),
-                                ("Jigmo3.ttf", "815b18c1c670103723fe743090559208fdea47dc587ecb057a5a4721ee8dfeff"),
-                                ("Jigmo.ttf", "c8f295b9bd8f9f117a76b3a454aaaa1bb5b4babc18e254978c6deb88464e40cf"))),
+        _JIGMO,
         # Fitted on 1,500 of its ideographs: its verticals thin a little as a character fills up, its
         # horizontals not at all.
         ((67.77, -0.463), (22.31, 0.164)),
@@ -155,6 +158,24 @@ STYLES = {
                 "121871ee522380b1f591fc6871850416cb74e075a534438eb5180b43094ebe0f", OFL),),
         # Kureedo's stems measured at 400; the static font has no weight axis to thin them.
         ((70.0, 0.0), (70.0, 0.0)),
+        heavy=400,
+        kindred=False,
+        weighted=False,
+        own_hosts=True,
+    ),
+    # Zhuque Fangsong 0.212 (technical preview), recut from the 1932 南宋 type. It is a static font, so
+    # 400 is also the heavy master; Jigmo draws the ideographs it lacks, in the nearest pinned design.
+    "fangsong": Style(
+        "fangsong",
+        Source("ZhuqueFangsong-v0.212-Regular.ttf",
+               "https://github.com/TrionesType/zhuque/releases/download/v0.212/ZhuqueFangsong-v0.212.zip",
+               "558c62730844fe54ba220146ed62f859d4e2880188d92d985f8921c6e3743bc4", OFL,
+               member="ZhuqueFangsong-Regular.ttf",
+               archive_sha256="bb8b661a7643d2296a72d9d10530a00949419c4e527fb61783f73c2ba1a8c062",
+               also="Its Latin, Cyrillic and Greek glyphs: Copyright 2011 The Alegreya Project Authors (https://github.com/huertatipografica/Alegreya)"),
+        _JIGMO,
+        # Fitted on 1,500 of its ideographs (`calibrate`).
+        ((57.51, 0.271), (39.61, -1.297)),
         heavy=400,
         kindred=False,
         weighted=False,
@@ -476,7 +497,7 @@ class Contour:
         return float(np.linalg.norm(np.diff(np.vstack([self.light, self.light[:1]]), axis=0), axis=1).sum())
 
 
-def _contours(pen: RecordingPen) -> list[tuple[list, np.ndarray]]:
+def _contours(pen: DecomposingRecordingPen) -> list[tuple[list, np.ndarray]]:
     out, ops, points = [], [], []
     for op, args in pen.value:
         if op in ("closePath", "endPath"):
@@ -546,7 +567,7 @@ class Font:
             font, cmap, glyphs, scale = next(f for f in self.fallbacks if ord("丨") in f[1] and ord("一") in f[1])
             widths = []
             for char, axis in (("丨", 0), ("一", 1)):
-                pen = RecordingPen()
+                pen = DecomposingRecordingPen(glyphs)
                 glyphs[cmap[ord(char)]].draw(pen)
                 flat = [Contour(ops, p * scale, p * scale) for ops, p in _contours(pen)]
                 widths.append(_across(_rings(flat, [c.light for c in flat], steps=8), axis) / self.stem[axis][0])
@@ -561,7 +582,7 @@ class Font:
         name = self.cmap[ord(char)]
         out = []
         for glyphs in (self.light, self.heavy):
-            pen = RecordingPen()
+            pen = DecomposingRecordingPen(glyphs)
             glyphs[name].draw(pen)
             flat = [Contour(ops, p, p) for ops, p in _contours(pen)]
             out.append(_across(_rings(flat, [c.light for c in flat], steps=8), axis))
@@ -600,7 +621,7 @@ class Font:
             if name is None and len(char) == 1:
                 for _, cmap, glyphs, scale in self.fallbacks:
                     if ord(char) in cmap:
-                        pen = RecordingPen()
+                        pen = DecomposingRecordingPen(glyphs)
                         glyphs[cmap[ord(char)]].draw(pen)
                         # A static font has one weight: its heavy outline is the light one grown by as
                         # much as this font's stems of the same width grow at heavy, so its parts are
@@ -618,7 +639,7 @@ class Font:
                         part = Part(contours) if contours else None
                         break
             if name is not None:
-                light, heavy = RecordingPen(), RecordingPen()
+                light, heavy = DecomposingRecordingPen(self.light), DecomposingRecordingPen(self.heavy)
                 self.light[name].draw(light)
                 self.heavy[name].draw(heavy)
                 contours = [Contour(ops, p, q) for (ops, p), (_, q) in zip(_contours(light), _contours(heavy))]
@@ -1199,7 +1220,18 @@ class Composer:
     @cached_property
     def _index(self) -> tuple[dict, dict]:
         """(slot, operand) → drawn characters holding that operand there, and operator → drawn
-        characters with a node of it; each with its tree and the path of positions to the node."""
+        characters with a node of it; each with its tree and the path of positions to the node.
+        A style that keeps its own hosts indexes no character a fallback font draws."""
+        own = getattr(getattr(self.font, "style", None), "own_hosts", False)
+        return self._indexed(self.font.own if own else self.font.has)
+
+    @cached_property
+    def operands(self) -> set[tuple[str, str]]:
+        """Every (slot, operand) of every character the fonts draw, whichever may serve as a host: a
+        character is written as an operand whether or not a piece can be cut for it."""
+        return set(self._indexed(self.font.has)[0])
+
+    def _indexed(self, drawn: Callable[[str], bool]) -> tuple[dict, dict]:
         hosts: dict[tuple[str, str], list] = {}
         templates: dict[str, list] = {}
 
@@ -1217,7 +1249,7 @@ class Composer:
 
         trees = {}
         for char, seq in self.sequences.items():
-            if self.font.has(char):
+            if drawn(char):
                 try:
                     trees[char] = parse(seq)
                 except ValueError:
@@ -2179,7 +2211,7 @@ class Composer:
     def _construct(self, spec: dict, out: list[Placed]) -> list[Placed]:
         """The first `keep_parts` parts, and the host's kept piece where the rest went."""
         host = self.font.glyph(spec["host"]) if spec["host"] not in self.exclude else None
-        if host is None:
+        if host is None or (getattr(getattr(self.font, "style", None), "own_hosts", False) and not self.font.own(spec["host"])):
             return out
         pieces = split(host, 1, 2)
         if not pieces:

@@ -78,7 +78,7 @@ export class UnavailableError extends Error { name = 'UnavailableError' }
  * it takes a slot of the draft, draws as text in the box the layout gave it, and comes back in the
  * drawing's `emoji`, with `restored` and `cut` saying what ㇯ does to it.
  *
- * @param {{ base: string, separate?: boolean, fontStyle?: 'sans' | 'serif' | 'kaisho',
+ * @param {{ base: string, separate?: boolean, fontStyle?: 'sans' | 'serif' | 'fangsong' | 'kaisho',
  *   worker?: () => WorkerLike, loaders?: Record<string, string>, timeout?: number }} options
  * @returns {((sequence: string, options?: PreviewOptions) => Promise<Drawing>) & { warm: () => void }}
  */

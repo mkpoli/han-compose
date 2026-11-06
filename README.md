@@ -6,10 +6,10 @@ regional form the font does not draw. Each part comes from a character the font 
 cut out of it (along KanjiVG's component groups where KanjiVG has that kanji), set where the
 font's designers put parts like it, and brought to one stroke weight. The result is an SVG path in
 a 1000-unit em, in a sans style from Noto Sans CJK JP, whose ideographs GenZui Sans takes unchanged;
-a serif (明朝) style from Noto Serif CJK JP; or a kaisho (楷書) style from Kureedo Full, the Klee
-One design with historical kana and LXGW WenKai Light for the characters Klee lacks. Plangothic
-supplies the sans parts Noto lacks, Jigmo the serif ones, and GenZui Sans the characters Kureedo Full
-lacks.
+a serif (明朝) style from Noto Serif CJK JP; a kaisho (楷書) style from Kureedo Full, the Klee One
+design with historical kana and LXGW WenKai Light for the characters Klee lacks; or a fangsong (仿宋)
+style from Zhuque Fangsong. Plangothic supplies the sans parts Noto lacks, Jigmo the serif ones and the
+ideographs Zhuque lacks, and GenZui Sans the characters Kureedo Full lacks.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/composed-dark.png">
@@ -42,10 +42,12 @@ uv run scripts/compose_ids.py draw-many sequences.txt out/
 `draw-many` draws every sequence in a file, one a line, into `out/` as `<sha256 of its NFC form>.svg`,
 and lists those it cannot draw.
 
-Every command takes `--style sans` (the default), `--style serif` or `--style kaisho`. Each style
+Every command takes `--style sans` (the default), `--style serif`, `--style kaisho` or
+`--style fangsong`. Each style
 has its own fonts and models: a style's model is cached as `<name>-<style><ext>` beside the sans
 one, and `learn --style kaisho` and `learn-alone --style kaisho` build it. Kureedo is static, so the
-Kaisho style keeps the source brush weights instead of balancing them.
+Kaisho style keeps the source brush weights instead of balancing them; Zhuque Fangsong is static too,
+and the Fangsong style does the same.
 
 `bench` redraws every compound jōyō kanji from its own sequence with nothing taken from the
 character, and scores each against the font's real glyph: the overlap of their ink (intersection
@@ -141,4 +143,6 @@ the same notices for the data it writes.
 [GlyphWiki](https://glyphwiki.org/) contributors developed a system for drawing characters from
 reusable strokes and components. Their work is a predecessor to character composition here. The
 serif style also uses [Jigmo](https://kamichikoichi.github.io/jigmo/), generated with KAGE from
-GlyphWiki glyph data and released under CC0 1.0, for parts Noto Serif CJK does not draw.
+GlyphWiki glyph data and released under CC0 1.0, for parts Noto Serif CJK does not draw; the fangsong
+style uses it the same way for ideographs [Zhuque Fangsong](https://github.com/TrionesType/zhuque)
+does not draw.

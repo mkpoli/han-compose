@@ -387,13 +387,11 @@ def _clear_host_caches(composer: C.Composer) -> None:
 def hosts_for(composer: C.Composer, place: str, written: str) -> list[dict]:
     """Every index entry, including failed cuts, with its original rank.
 
-    A style with `own_hosts` keeps only hosts its main font draws. Geometry is released in batches
-    without truncating the candidates: the drawing ranks them against its target before capping.
+    Geometry is released in batches without truncating the candidates: the drawing ranks them
+    against its target before capping.
     """
     index, _ = composer._index
     entries = index.get((place, written), [])
-    if composer.font.style.own_hosts:
-        entries = [entry for entry in entries if composer.font.own(entry[0])]
     records = []
     for rank, entry in enumerate(entries):
         records.append(entry_record(composer, entry, rank, composer._host_node(entry[0], entry[1], entry[2])))
@@ -470,6 +468,14 @@ def letters(font: C.Font) -> set[str]:
             if point not in FILLERS and (category == "Nd" or category[0] == "L") and font.has(char):
                 out.add(char)
     return out
+
+
+def own_letters(font: C.Font) -> set[str]:
+    """Every letter the style's main font maps, ideographs included: a character with no usable
+    sequence (帰) is still written, on its own and as an operand."""
+    import unicodedata
+
+    return {chr(point) for point in font.cmap if unicodedata.category(chr(point))[0] == "L"}
 
 
 def _leaf(key: str) -> bool:
@@ -768,6 +774,7 @@ PATHS = {
 OUTLINE_NOTES = {
     "sans": "Glyph outlines (G in g/ records) and the pieces host-list entries name by their contours' indices (c.k, or c.p where a piece holds its own outlines) are the fonts' outline data under the SIL Open Font License 1.1, whose full text with each font's copyright line is OFL.txt. Noto Sans CJK JP reserves the font name 'Source'; Plangothic declares no Reserved Font Name.",
     "serif": "Glyph outlines (G in g/ records) and the pieces host-list entries name by their contours' indices (c.k, or c.p where a piece holds its own outlines) are the fonts' outline data. Noto Serif CJK JP's are under the SIL Open Font License 1.1, whose full text with its copyright line is OFL.txt; its copyright line names no Reserved Font Name. Jigmo's (a record's G with v 0) are dedicated to the public domain under CC0 1.0 (CC0.txt), drawn from GlyphWiki by its contributors.",
+    "fangsong": "Glyph outlines (G in g/ records) and the pieces host-list entries name by their contours' indices (c.k, or c.p where a piece holds its own outlines) are the fonts' outline data. Zhuque Fangsong's, whose Latin, Cyrillic and Greek glyphs are Alegreya's, are under the SIL Open Font License 1.1, whose full text with both copyright lines is OFL.txt; neither names a Reserved Font Name. Jigmo's (a record's G with v 0) are dedicated to the public domain under CC0 1.0 (CC0.txt), drawn from GlyphWiki by its contributors.",
     "kaisho": "Glyph outlines (G in g/ records) and the pieces host-list entries name by their contours' indices (c.k, or c.p where a piece holds its own outlines) are the fonts' outline data. Kureedo Full's, including the LXGW WenKai Light outlines it carries for code points Klee One lacks, and GenZui Sans's are under the SIL Open Font License 1.1, whose full text with each font's copyright line and reserved names is OFL.txt. GenZui Sans declares no Reserved Font Name.",
 }
 
@@ -875,8 +882,9 @@ def _export(composer: C.Composer, out: Path, joyo: list[str] | None = None, pari
 
     # Records: every operand the index holds, every character a sequence describes, every
     # positional form, the parity drawings' leaves, every sequence the font draws, every operand of
-    # the layout table, every operand with a host list, and every letter the fonts draw (`letters`).
-    chars = {w for _, w in index if _leaf(w)} | set(composer.by_sequence.values()) | letters(composer.font)
+    # the layout table, every operand with a host list, every letter the fonts draw (`letters`), and
+    # every letter the main font maps (`own_letters`).
+    chars = {w for _, w in composer.operands if _leaf(w)} | set(composer.by_sequence.values()) | letters(composer.font) | own_letters(composer.font)
     chars |= {form for forms in composer.forms.values() for form, _ in forms}
     chars |= {written for _, written in _INJECT if _leaf(written)}
     for rows, _ in sets.values():
@@ -921,13 +929,13 @@ def _export(composer: C.Composer, out: Path, joyo: list[str] | None = None, pari
     layout_bytes = _dump(layout)
     (out / "layout.json").write_bytes(layout_bytes)
 
-    fonts = [_font_notice(C._fetched(source, None), source.licence) for source in sources]
+    fonts = [{**_font_notice(C._fetched(source, None), source.licence), "also": source.also} for source in sources]
     licence_dir = VOCAB.parent / "licences"
     texts = []
     for licence, (name, text) in LICENCE_TEXTS.items():
         held = [f for f in fonts if f["licence"] == licence]
         if held:
-            notices = "".join(f"{f['name']}: {f['copyright'] or f['version']}\n" for f in held)
+            notices = "".join(f"{f['name']}: {f['copyright'] or f['version']}\n" + (f"{f['also']}\n" if f["also"] else "") for f in held)
             (out / name).write_text(notices + "\n" + (licence_dir / text).read_text(encoding="utf-8"), encoding="utf-8")
             texts.append(name)
     (out / "MIT-hfhchan-ids.txt").write_text((licence_dir / "hfhchan-ids-MIT.txt").read_text(encoding="utf-8"), encoding="utf-8")
@@ -941,7 +949,7 @@ def _export(composer: C.Composer, out: Path, joyo: list[str] | None = None, pari
         "composer": {"repository": "https://github.com/mkpoli/han-compose", "commit": commit, "dirty": dirty,
                      "style": style.name, "layout_file": layout_file, **inputs},
         "style": style.name,
-        "em": C.EM, "ascent": C.ASCENT, "heavy": style.heavy, "quant": QUANT,
+        "em": C.EM, "ascent": C.ASCENT, "heavy": style.heavy, "weighted": style.weighted, "quant": QUANT,
         "constants": constants(composer),
         "constants_note": "tuple keys are joined with a comma: SHARES[('⿳', 3)] is SHARES['⿳,3']",
         "spelled": sorted(composer.spelled),

@@ -17,7 +17,7 @@
 // before drawing again).
 import { EM_BOX, area, centre, count, derived, drawnBox, drawnContours, fill, fitted, grown, groupRings, makePart, mapped, partInk, partOf,
   placed, pointsBox, pyRound, raster, rings, scaleOf, shrunk, square, stretchOf, targetFor, union, within } from './geometry.js'
-import { componentParts, componentPosition, componentPositionBox, componentRecord, containsComponentForm, isComponentForm, isGroupedForm } from './component-forms.js'
+import { ownFormsOnly, componentParts, componentPosition, componentPositionBox, componentRecord, containsComponentForm, isComponentForm, isGroupedForm } from './component-forms.js'
 import { features, forward } from './layout.js'
 import { CONSTRUCTS, constructParts } from './constructs.js'
 import { pyramidCells } from './pyramid.js'
@@ -312,8 +312,9 @@ export class Composer {
     // into component shapes; the export says how many bytes of host lists it carries, and carries
     // none when `files.hosts` is absent or empty.
     this.hosted = Boolean(m.files?.hosts?.bytes)
-    // A static brush face keeps its own stroke weights; a variable export weights its parts.
-    this.weighted = m.weighted ?? !(m.style === 'kaisho' && m.heavy === 400)
+    // A static face keeps its own stroke weights; a variable export weights its parts. An export
+    // made before the manifest said so is static when its heavy master is its regular one.
+    this.weighted = m.weighted ?? m.heavy !== 400
     this.stem0 = c.stem
     this.arities = new Map([...c.BINARY.map(op => [op, 2]), ...c.TERNARY.map(op => [op, 3]), ...c.UNARY.map(op => [op, 1])])
     this.expanding = new Set()
@@ -469,7 +470,8 @@ export class Composer {
       }
       if (!this.partial && this.weighted) this.balance(out)
       const construct = CONSTRUCTS[sequence]
-      if (construct && !this.excluded(construct.host)) out = constructParts(construct, out)
+      // The bundled body is Noto's: a face with its own forms keeps the drawing it made.
+      if (construct && !ownFormsOnly(this.fontStyle) && !this.excluded(construct.host)) out = constructParts(construct, out)
       // Loose marks annotate the whole drawing; they take no part in its layout or weight.
       if (marks) out.push(...markParts(this, marks, frame, face))
       return out
@@ -860,7 +862,7 @@ export class Composer {
     const yan = !this.separate && op === '⿸' && this.yanEnclosure(children, region)
     if (yan) return yan
     // Native compound forms have no trained layout features; fit their actual outlines.
-    if (this.hosted && this.layout && (!hasRepetition || this.fontStyle === 'kaisho') && children.length === 2 && this.hasHosts(op, children) && (atRoot ? this.layout.ops.includes(op) : op === '⿰' || op === '⿱')) {
+    if (this.hosted && this.layout && (!hasRepetition || ownFormsOnly(this.fontStyle)) && children.length === 2 && this.hasHosts(op, children) && (atRoot ? this.layout.ops.includes(op) : op === '⿰' || op === '⿱')) {
       const learned = this.learned(op, children, atRoot ? null : region)
       if (learned) return learned
     }
@@ -1069,7 +1071,7 @@ export class Composer {
   /** Place an arbitrary inner operand in the room designed for these native enclosures. */
   yanStackedDays(outer, contents) {
     const source = yanSources.get(keyOf(outer))
-    return !this.separate && this.fontStyle !== 'kaisho' && source && !this.excluded(source)
+    return !this.separate && !ownFormsOnly(this.fontStyle) && source && !this.excluded(source)
       && !this.excluded('昌') && !this.excluded('菖') && !this.excluded('儿') && !this.excluded('元')
       && Array.isArray(contents) && contents[0] === '⿱' && contents[1] === '儿'
       && ['昌', '⿱日日'].includes(keyOf(contents[2]))
@@ -1077,7 +1079,7 @@ export class Composer {
 
   /** Any ⿸ whose contents begin ⿱儿: the native legs join the enclosing bar. */
   legEnclosure(children, region) {
-    if (this.separate || this.fontStyle === 'kaisho') return null
+    if (this.separate || ownFormsOnly(this.fontStyle)) return null
     const key = keyOf(children[0]), contents = children[1]
     if (yanSources.has(key) || this.excluded('儿') || this.excluded('元') || this.excluded('詹')
       || !Array.isArray(contents) || contents[0] !== '⿱' || contents[1] !== '儿') return null
@@ -1115,7 +1117,7 @@ export class Composer {
   }
 
   yanEnclosure(children, region) {
-    if (this.fontStyle === 'kaisho') return null
+    if (ownFormsOnly(this.fontStyle)) return null
     const key = keyOf(children[0])
     if (!yanSources.has(key) || this.excluded(yanSources.get(key))) return null
     const outer = componentParts(key, region, this.fontStyle, true)
@@ -1655,7 +1657,7 @@ export class Composer {
     const [power, middle] = C.SHARES[`${op},${children.length}`] ?? [0.5, 1.0]
     const other = children[1]
     const compactYan = op === '⿰' && children[0] === '朱' && Array.isArray(other) && other[0] === '⿸'
-      && yanSources.has(keyOf(other[1])) && !this.separate && this.fontStyle !== 'kaisho'
+      && yanSources.has(keyOf(other[1])) && !this.separate && !ownFormsOnly(this.fontStyle)
       && !this.excluded('朱') && !this.excluded('鴸') && !this.excluded(yanSources.get(keyOf(other[1])))
     // A font compresses a stacked middle band, but a full part reads better with the share its own
     // ink asks for than with 0.75 of it: at 0.75 the 六 of ⿳山六廾 was 217 units high. Bars and

@@ -16,8 +16,8 @@ from han_compose import compose, compose_layout, compose_standalone, web_export
 
 
 def test_every_style_pins_each_of_its_fonts_by_sha256_and_licence() -> None:
-    assert compose.DEFAULT_STYLE == "sans" and set(compose.STYLES) == {"sans", "serif", "kaisho"}
-    files = []
+    assert compose.DEFAULT_STYLE == "sans" and set(compose.STYLES) == {"sans", "serif", "kaisho", "fangsong"}
+    files = {}
     for name, style in compose.STYLES.items():
         assert style.name == name
         for source in (style.font, *style.fallbacks):
@@ -25,9 +25,9 @@ def test_every_style_pins_each_of_its_fonts_by_sha256_and_licence() -> None:
             assert source.licence in web_export.LICENCE_URLS and source.licence in web_export.LICENCE_TEXTS
             if source.member is not None:
                 assert re.fullmatch(r"[0-9a-f]{64}", source.archive_sha256)
-            files.append(source.file)
-    # No two styles share a cached font file.
-    assert len(files) == len(set(files))
+            files.setdefault(source.file, set()).add(source)
+    # A cached file name means one pinned font, whichever styles read it.
+    assert all(len(sources) == 1 for sources in files.values())
     assert compose.STYLES["serif"].font.file != compose.STYLES["sans"].font.file
 
 
@@ -46,7 +46,7 @@ def test_only_fallbacks_of_the_main_fonts_design_teach_the_layout() -> None:
 
     import multiprocessing as mp
 
-    for style, expected in (("sans", {"一", "𠀀"}), ("serif", {"一"}), ("kaisho", {"一"})):
+    for style, expected in (("sans", {"一", "𠀀"}), ("serif", {"一"}), ("kaisho", {"一"}), ("fangsong", {"一"})):
         seen.clear()
         font = SimpleNamespace(style=compose.STYLES[style], has=lambda ch: True, own=lambda ch: ch == "一")
         fake = SimpleNamespace(font=font, sequences={"一": "⿱一一", "𠀀": "⿰一一"}, _index=None)
@@ -222,6 +222,23 @@ def kaisho() -> compose.Font:
     if not _cached("kaisho"):
         pytest.skip("The Kaisho fonts are not cached; `scripts/compose_ids.py draw --style kaisho` fetches them.")
     return compose.Font.of("kaisho")
+
+
+def test_a_composite_glyph_is_read_through_its_components() -> None:
+    if not _cached("fangsong"):
+        pytest.skip("The Fangsong fonts are not cached.")
+    font = compose.Font.of("fangsong")
+    accented, plain = font.glyph("é"), font.glyph("e")
+    assert accented is not None and len(accented.contours) > len(plain.contours)
+
+
+def test_fangsong_keeps_its_hosts_in_zhuque_and_takes_the_rest_from_jigmo() -> None:
+    style = compose.STYLES["fangsong"]
+    assert style.heavy == 400 and style.weighted is False and style.own_hosts and not style.kindred
+    assert style.fallbacks == compose.STYLES["serif"].fallbacks
+    assert compose_layout.layout_file("fangsong") == "compose-layout-v4-fangsong.npz"
+    assert "fangsong" in web_export.OUTLINE_NOTES
+    assert "Alegreya Project Authors" in style.font.also
 
 
 def test_kaisho_reads_a_static_face_and_keeps_its_brush_weight(kaisho: compose.Font) -> None:

@@ -31,6 +31,13 @@ def test_host_cache_batches_preserve_every_rank_and_failed_cut(monkeypatch) -> N
     assert len(cleared) == 3
 
 
+def test_a_letter_the_main_font_maps_has_a_record_with_no_sequence() -> None:
+    from types import SimpleNamespace
+
+    font = SimpleNamespace(cmap={ord("帰"): "g", ord("A"): "a", ord("!"): "b", ord("あ"): "k", ord("ʰ"): "h"})
+    assert web_export.own_letters(font) == {"帰", "A", "あ", "ʰ"}
+
+
 def test_every_host_glyph_and_its_ownership_are_read_before_the_workers_fork() -> None:
     from types import SimpleNamespace
 
@@ -331,6 +338,7 @@ def test_a_serif_export_names_its_style_and_ships_each_fonts_licence(tmp_path) -
     c.kvg = kanjivg_cuts.Cutter(c)
     manifest = web_export.export(c, tmp_path, only={"亻", "可", "何", "⿰亻可"}, pairs={("L", "可")}, log=lambda _: None)
     assert manifest["style"] == "serif" and manifest["composer"]["layout_file"] == "compose-layout-v4-serif.npz"
+    assert manifest["weighted"] is True and manifest["heavy"] == style.heavy
     assert "-serif-compose-layout-v4-serif-f" in manifest["version"]
     assert set(manifest["composer"]["font_sha256"]) == {s.file for s in (style.font, *style.fallbacks)}
     assert manifest["files"]["licences"] == ["OFL.txt", "CC0.txt", "MIT-hfhchan-ids.txt"]
