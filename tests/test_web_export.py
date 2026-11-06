@@ -34,8 +34,8 @@ def test_host_cache_batches_preserve_every_rank_and_failed_cut(monkeypatch) -> N
 def test_a_letter_the_main_font_maps_has_a_record_with_no_sequence() -> None:
     from types import SimpleNamespace
 
-    font = SimpleNamespace(cmap={ord("帰"): "g", ord("A"): "a", ord("!"): "b", ord("あ"): "k"})
-    assert web_export.own_letters(font) == {"帰", "あ"}
+    font = SimpleNamespace(cmap={ord("帰"): "g", ord("A"): "a", ord("!"): "b", ord("あ"): "k", ord("ʰ"): "h"})
+    assert web_export.own_letters(font) == {"帰", "A", "あ", "ʰ"}
 
 
 def test_every_host_glyph_and_its_ownership_are_read_before_the_workers_fork() -> None:
