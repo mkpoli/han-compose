@@ -264,3 +264,38 @@ def test_the_export_carries_both_share_fits(composer: compose.Composer) -> None:
     constants = web_export.constants(composer)
     assert len(constants["SHARES"]["⿰,2"]) == 4
     assert len(constants["SHARES_OLD"]["⿳,3"]) == 2
+
+
+def _rings_by_segment(contour: compose.Contour, steps: int) -> np.ndarray:
+    """What `_rings` must give: each of `_segments`' segments sampled in turn."""
+    ring, last = [], None
+    for kind, seg in compose._segments(contour.ops, contour.light):
+        if kind in "ML":
+            last = seg[0]
+            ring.append(last)
+        else:
+            off, on = seg
+            t = compose._steps(steps)
+            ring.extend((1 - t) ** 2 * last + 2 * (1 - t) * t * off + t ** 2 * on)
+            last = on
+    return np.array(ring)
+
+
+def test_a_ring_holds_exactly_the_samples_of_its_segments() -> None:
+    points = np.array([[0.1, 0.2], [100.3, 7.7], [33.3, 90.1], [-5.5, 41.9], [12.7, 3.1], [80.9, 60.3]])
+    shapes = {
+        "lines": ([("moveTo", 1, False), ("lineTo", 1, False), ("lineTo", 1, False)], points[:3]),
+        "a curve with implied points": ([("moveTo", 1, False), ("qCurveTo", 4, False), ("lineTo", 1, False)], points),
+        "only implied points": ([("qCurveTo", 5, True)], points[:5]),
+    }
+    for steps in (2, 6, 8):
+        for ops, pts in shapes.values():
+            contour = compose.Contour(ops, pts, pts)
+            ring = compose._rings([contour], [pts], steps=steps)[0]
+            assert ring.tobytes() == _rings_by_segment(contour, steps).tobytes()
+
+
+def test_a_ring_refuses_outlines_it_cannot_read() -> None:
+    points = np.zeros((3, 2))
+    with pytest.raises(ValueError, match="curveTo outlines are not read"):
+        compose._rings([compose.Contour([("curveTo", 3, False)], points, points)], [points])

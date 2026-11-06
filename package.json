@@ -1,0 +1,5 @@
+{
+  "name": "han-compose-monorepo",
+  "private": true,
+  "workspaces": ["js"]
+}
