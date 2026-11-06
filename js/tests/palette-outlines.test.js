@@ -40,12 +40,12 @@ describe('the palette under an export', () => {
     store: () => ({ manifest: {}, layout: null, missing: new Set(), rec, hosts: () => [{ h: '江' }], places: () => ['L'] }),
   })
   const over = async fallback => {
-    const source = paletteSource({ load: async () => ({ records: { 江: record } }), fallback })
+    const source = paletteSource({ load: async () => ({ records: { 江: record } }), fallback, under: true })
     await source.ready()
     return source
   }
   it('lets the export draw a character it holds', async () => {
-    const own = { o: 2, ink: 2 }
+    const own = { o: 2, ink: 2, G: {} }
     const source = await over(exported(key => key === '江' ? own : null))
     expect(source.store().rec('江')).toBe(own)
     expect(source.store().hosts('江', 'L')).toEqual([{ h: '江' }])
@@ -55,6 +55,18 @@ describe('the palette under an export', () => {
     const source = await over(exported(() => null))
     expect(source.store().rec('江')).toBe(record)
     expect(source.store().hosts('江', 'L')).toEqual([])
+  })
+  it('keeps its outline over a record that cannot draw', async () => {
+    const source = await over(exported(key => key === '江' ? { o: 1, ink: 1 } : null))
+    expect(source.store().rec('江')).toBe(record)
+  })
+  it('owns its characters in Sans, as ever', async () => {
+    const source = paletteSource({ load: async () => ({ records: { 江: record } }), fallback: exported(() => ({ o: 2, ink: 2, G: {} })) })
+    await source.ready()
+    expect(source.store().rec('江')).toBe(record)
+  })
+  it('stays local for every face when the export cannot be read', () => {
+    for (const face of ['sans', 'serif', 'fangsong', 'kaisho']) expect(onlyBundled('江', false, true, face)).toBe(true)
   })
   it('needs an export only where the face has its own glyphs', () => {
     expect(onlyBundled('江', false, false, 'sans')).toBe(true)
