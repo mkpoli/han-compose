@@ -766,7 +766,7 @@ PATHS = {
 OUTLINE_NOTES = {
     "sans": "Glyph outlines (G in g/ records) and the pieces host-list entries name by their contours' indices (c.k, or c.p where a piece holds its own outlines) are the fonts' outline data under the SIL Open Font License 1.1, whose full text with each font's copyright line is OFL.txt. Noto Sans CJK JP reserves the font name 'Source'; Plangothic declares no Reserved Font Name.",
     "serif": "Glyph outlines (G in g/ records) and the pieces host-list entries name by their contours' indices (c.k, or c.p where a piece holds its own outlines) are the fonts' outline data. Noto Serif CJK JP's are under the SIL Open Font License 1.1, whose full text with its copyright line is OFL.txt; its copyright line names no Reserved Font Name. Jigmo's (a record's G with v 0) are dedicated to the public domain under CC0 1.0 (CC0.txt), drawn from GlyphWiki by its contributors.",
-    "fangsong": "Glyph outlines (G in g/ records) and the pieces host-list entries name by their contours' indices (c.k, or c.p where a piece holds its own outlines) are the fonts' outline data. Zhuque Fangsong's, whose Latin letters and symbols are Alegreya's, are under the SIL Open Font License 1.1, whose full text with its copyright line is OFL.txt; its copyright line names no Reserved Font Name. Jigmo's (a record's G with v 0) are dedicated to the public domain under CC0 1.0 (CC0.txt), drawn from GlyphWiki by its contributors.",
+    "fangsong": "Glyph outlines (G in g/ records) and the pieces host-list entries name by their contours' indices (c.k, or c.p where a piece holds its own outlines) are the fonts' outline data. Zhuque Fangsong's, whose Latin, Cyrillic and Greek glyphs are Alegreya's, are under the SIL Open Font License 1.1, whose full text with both copyright lines is OFL.txt; neither names a Reserved Font Name. Jigmo's (a record's G with v 0) are dedicated to the public domain under CC0 1.0 (CC0.txt), drawn from GlyphWiki by its contributors.",
     "kaisho": "Glyph outlines (G in g/ records) and the pieces host-list entries name by their contours' indices (c.k, or c.p where a piece holds its own outlines) are the fonts' outline data. Kureedo Full's, including the LXGW WenKai Light outlines it carries for code points Klee One lacks, and GenZui Sans's are under the SIL Open Font License 1.1, whose full text with each font's copyright line and reserved names is OFL.txt. GenZui Sans declares no Reserved Font Name.",
 }
 
@@ -920,13 +920,13 @@ def _export(composer: C.Composer, out: Path, joyo: list[str] | None = None, pari
     layout_bytes = _dump(layout)
     (out / "layout.json").write_bytes(layout_bytes)
 
-    fonts = [_font_notice(C._fetched(source, None), source.licence) for source in sources]
+    fonts = [{**_font_notice(C._fetched(source, None), source.licence), "also": source.also} for source in sources]
     licence_dir = VOCAB.parent / "licences"
     texts = []
     for licence, (name, text) in LICENCE_TEXTS.items():
         held = [f for f in fonts if f["licence"] == licence]
         if held:
-            notices = "".join(f"{f['name']}: {f['copyright'] or f['version']}\n" for f in held)
+            notices = "".join(f"{f['name']}: {f['copyright'] or f['version']}\n" + (f"{f['also']}\n" if f["also"] else "") for f in held)
             (out / name).write_text(notices + "\n" + (licence_dir / text).read_text(encoding="utf-8"), encoding="utf-8")
             texts.append(name)
     (out / "MIT-hfhchan-ids.txt").write_text((licence_dir / "hfhchan-ids-MIT.txt").read_text(encoding="utf-8"), encoding="utf-8")

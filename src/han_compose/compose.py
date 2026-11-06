@@ -66,6 +66,8 @@ class Source:
     licence: str
     member: str | None = None
     archive_sha256: str | None = None
+    #: A copyright the font's outlines carry that its `name` table does not state.
+    also: str = ""
 
 
 @dataclass(frozen=True)
@@ -167,7 +169,8 @@ STYLES = {
                "https://github.com/TrionesType/zhuque/releases/download/v0.212/ZhuqueFangsong-v0.212.zip",
                "558c62730844fe54ba220146ed62f859d4e2880188d92d985f8921c6e3743bc4", OFL,
                member="ZhuqueFangsong-Regular.ttf",
-               archive_sha256="bb8b661a7643d2296a72d9d10530a00949419c4e527fb61783f73c2ba1a8c062"),
+               archive_sha256="bb8b661a7643d2296a72d9d10530a00949419c4e527fb61783f73c2ba1a8c062",
+               also="Its Latin, Cyrillic and Greek glyphs: Copyright 2011 The Alegreya Project Authors (https://github.com/huertatipografica/Alegreya)"),
         _JIGMO,
         # Fitted on 1,500 of its ideographs (`calibrate`).
         ((57.51, 0.271), (39.61, -1.297)),

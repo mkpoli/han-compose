@@ -28,8 +28,8 @@ committed.
 `fangsong`:
 
 - **Zhuque Fangsong 0.212** (TrionesType; copyright line "Copyright 2023 JadeFoci", SIL OFL 1.1, no
-  Reserved Font Name), static, a technical preview read at its one weight. Its Latin letters and
-  symbols are Alegreya's (Juan Pablo del Peral, Huerta Tipográfica, SIL OFL 1.1). Its README asks
+  Reserved Font Name), static, a technical preview read at its one weight. Its Latin, Cyrillic and
+  Greek glyphs are Alegreya's (Copyright 2011 The Alegreya Project Authors, SIL OFL 1.1). Its README asks
   that versions modified by others not be widely distributed before the official release; that
   request is not a licence term.
 - **Jigmo** (CC0 1.0), static. It draws the ideographs Zhuque lacks; its strokes keep their own weight.
