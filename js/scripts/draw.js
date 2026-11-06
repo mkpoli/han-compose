@@ -52,7 +52,7 @@ if (json) {
   const out = [`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${size * drawings.length} ${size}" width="${size * drawings.length}" height="${size}">`]
   drawings.forEach(({ drawn }, i) => {
     const shift = `translate(${i * size} 0)`
-    if (drawn.cut) out.push(`<mask id="cut${i}"><rect width="${size}" height="${size}" fill="#fff"/><path d="${drawn.cut}" transform="${shift}" fill="#000"/></mask>`)
+    if (drawn.cut) out.push(`<mask id="cut${i}"><rect width="${size}" height="${size}" fill="#fff"/><path d="${drawn.cut}" fill="#000"/></mask>`)
     out.push(`<path d="${drawn.d}" transform="${shift}" fill="#000"${drawn.cut ? ` mask="url(#cut${i})"` : ''}/>`)
   })
   out.push('</svg>')
