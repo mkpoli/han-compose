@@ -13,6 +13,9 @@ import { compose, createSource } from '../../src/loader.js'
 /** Mean agreement below which the engine has drifted from the composer. */
 export const FLOOR = 0.95
 
+/** The one set the floor gates: the sequences the composer never saw while it was tuned. */
+export const GATED = 'parity-held-out.json'
+
 /** The parity sets an export holds, in the order to run them. */
 export const paritySets = folder => ['parity-held-out.json', 'parity.json'].filter(name => existsSync(join(folder, name)))
 

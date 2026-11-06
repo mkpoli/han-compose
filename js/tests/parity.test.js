@@ -5,7 +5,7 @@ import { describe, expect, it } from 'bun:test'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { iou, pathMask } from '../src/geometry.js'
-import { FLOOR, exportSource, measure, paritySets, summary } from './parity/parity.js'
+import { FLOOR, GATED, exportSource, measure, paritySets, summary } from './parity/parity.js'
 
 const folder = process.env.COMPOSER_EXPORT
 const sets = folder ? paritySets(folder) : []
@@ -13,8 +13,8 @@ if (!folder) console.log('parity skipped: set COMPOSER_EXPORT to a han-compose e
 
 describe.skipIf(!sets.length)('the engine and the Python composer', () => {
   const source = exportSource(folder ?? '')
-  for (const [k, name] of sets.entries()) {
-    it(`draws ${name} as the Python composer does${k ? '' : ` (mean IoU ≥ ${FLOOR})`}`, async () => {
+  for (const name of sets) {
+    it(`draws ${name} as the Python composer does${name === GATED ? ` (mean IoU ≥ ${FLOOR})` : ''}`, async () => {
       const parity = JSON.parse(readFileSync(join(folder ?? '', name), 'utf8'))
       const scores = await measure(source, parity, {
         limit: Number(process.env.COMPOSER_PARITY_LIMIT) || undefined,
