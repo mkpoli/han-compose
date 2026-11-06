@@ -39,6 +39,16 @@ describe('Jurchen', () => {
     expect(drawn.d.length).toBeGreaterThan(0)
     expect(drawn.parts).toHaveLength(2)
   })
+  it('draws a selector no record names as the character', async () => {
+    const source = () => jurchenSource({ load: async () => outlines })
+    const first = String.fromCodePoint(0x18E00)
+    expect(outlines.records[`${first}\uFE00`]).toBeUndefined()
+    const bare = await compose(source(), first, { separate: true })
+    const selected = await compose(source(), `${first}\uFE00`, { separate: true })
+    expect(selected.d).toBe(bare.d)
+    const variant = Object.keys(outlines.records).find(key => [...key].length === 2)
+    expect((await compose(source(), variant, { separate: true })).origins).toEqual([`glyph ${variant}`])
+  })
   it('lists its file among the package\'s data URLs', () => {
     expect(dataUrls['sources/jurchen/outlines.json.gz']).toContain('sources/jurchen/outlines.json.gz')
   })

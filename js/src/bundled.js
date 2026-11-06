@@ -5,10 +5,12 @@ import constants from './constants.json' with { type: 'json' }
 /**
  * `under` lets the export answer first, with these records filling only what it lacks.
  */
-export function bundledSource({ load, matches, fallback = null, under = false }) {
+export function bundledSource({ load, matches, fallback = null, under = false, alias = key => key }) {
   // `ready()` fills `records`; callers ask for files and records after it resolves.
   let ready = null, records = null
-  const owns = key => matches(key) && records?.[key] != null
+  // `alias` names the record a key falls back to when it has none of its own.
+  const keyOf = key => records?.[key] != null ? key : alias(key)
+  const owns = key => matches(key) && records?.[keyOf(key)] != null
   // A record with no outline cannot draw, whatever else it says of the key.
   const answers = (key, remote) => owns(key) && !(under && remote?.rec(key)?.G)
   const source = {
@@ -26,7 +28,7 @@ export function bundledSource({ load, matches, fallback = null, under = false })
       const remote = fallback?.store()
       return {
         manifest: source.manifest, layout: source.layout, missing: remote?.missing ?? new Set(),
-        rec: key => answers(key, remote) ? records[key] ?? null : remote?.rec(key) ?? null,
+        rec: key => answers(key, remote) ? records[keyOf(key)] ?? null : remote?.rec(key) ?? null,
         hosts: (key, place) => answers(key, remote) ? [] : remote?.hosts(key, place) ?? [],
         places: key => answers(key, remote) ? [] : remote?.places(key) ?? [],
       }
