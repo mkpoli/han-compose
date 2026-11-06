@@ -29,6 +29,10 @@ folder 女真文资料/女真文字体. Sulfa and Ayasala's article
 not seen) says the font is a Fangsong restyling of the encoding proposal's forms, so it does not
 reproduce an inscription or manuscript. The site was found through 柳突破's
 [Bilibili video](https://www.bilibili.com/video/BV1odec6pEqp/) of 2026-09-16.
+The same file holds 537 variant sequences through U+FE00–U+FE04. They are that font's convention, also listed in the Alari
+Jurchen Rime table `Alari_jurc.dict.yaml` (version 2026.05.29, by Yehenara Ayasala, Sulfa and Tunggiya
+Uju, same site): `StandardizedVariants.txt` of Unicode 18.0 records none for Jurchen, so another font may draw the
+base form.
 
 The shape files were written for a browser port of the composer and moved here, unchanged, with the
 port. The scripts that rebuilt them stay in the project that sources and audits the data; each file

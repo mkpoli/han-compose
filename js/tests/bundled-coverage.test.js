@@ -58,7 +58,7 @@ it('keeps every indexed bundle glyph inside its bundle matcher', () => {
   const matchers = { tangut: hasTangut, bopomofo: hasBopomofo, 'small-seal': hasSmallSeal, shuishu: hasShuishu, jurchen: hasJurchen }
   for (const [name, ranges] of Object.entries(coverage)) {
     for (const [first, last] of ranges) for (let cp = first; cp <= last; cp++) {
-      expect(matchers[name](String.fromCodePoint(cp))).toBe(true)
+      expect(matchers[name.split(':')[0]](String.fromCodePoint(cp))).toBe(true)
     }
   }
 })
