@@ -34,8 +34,8 @@ export function emojiTransform(item) {
 const pathData = d => String(d ?? '').replace(/[\t\n\r]/g, ' ').replace(/[^MLHVCSQTAZmlhvcsqtaz0-9.,eE+\- ]/g, '')
 /** A transform list with nothing but SVG transform functions: its letters, numbers, spaces, commas and brackets. @param {unknown} t */
 const transformData = t => String(t ?? '').slice(0, 500).replace(/[^a-zA-Z0-9()., -]/g, '')
-/** A colour as an SVG attribute takes it: `#rgb`, `#rrggbb` or `#rrggbbaa`; anything else is refused. @param {unknown} value @param {string | null} fallback */
-const colour = (value, fallback) => /^#(?:[0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(String(value ?? '')) ? /** @type {string} */ (value) : fallback
+/** A colour as an SVG attribute takes it: `#rgb`, `#rrggbb`, `#rrggbbaa` or `currentColor`; anything else is refused. @param {unknown} value @param {string | null} fallback */
+const colour = (value, fallback) => /^(?:#(?:[0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})|currentcolor)$/i.test(String(value ?? '')) ? /** @type {string} */ (value) : fallback
 
 /**
  * @typedef {object} DrawingForSvg
@@ -54,10 +54,13 @@ const colour = (value, fallback) => /^#(?:[0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/
  * pixels. Empty slots are left out unless `placeholders`, which draws each as the editor does, in the
  * ink at half strength.
  * @param {DrawingForSvg} drawing
- * @param {{ background?: string | null, ink?: string, padding?: number, size?: number, placeholders?: boolean }} [options]
+ * @param {{ background?: string | null, ink?: string, padding?: number, size?: number, placeholders?: boolean, idPrefix?: string }} [options]
  * @returns {string}
  */
-export function drawingSvg(drawing, { background = null, ink = '#000000', padding = 0, size = 1000, placeholders = false } = {}) {
+export function drawingSvg(drawing, { background = null, ink = '#000000', padding = 0, size = 1000, placeholders = false, idPrefix = '' } = {}) {
+  // The ids of its mask and filter start here, for a page that holds several drawings.
+  const prefix = idPrefix.replace(/[^a-zA-Z0-9_:.-]/g, '')
+  const cutId = `${prefix}cut`, filterId = `${prefix}emoji-cut-ink`
   // Every number written is a finite number, whatever it was handed.
   /** @param {unknown} value @param {number} fallback */
   const num = (value, fallback) => Number.isFinite(Number(value)) ? Number(value) : fallback
@@ -92,10 +95,10 @@ export function drawingSvg(drawing, { background = null, ink = '#000000', paddin
     return `<text${attribute}${reflect ? ` transform="${reflect}"` : ''} x="${x}" y="${y}" text-anchor="middle" dominant-baseline="central" font-size="${size}" font-family="system-ui, sans-serif">${text}</text>`
   }
   if (hasCut) {
-    if (emoji.some(item => item.cut)) out.push(`<filter id="emoji-cut-ink" color-interpolation-filters="sRGB"><feColorMatrix type="matrix" values="${EMOJI_CUT_MATRIX}"/></filter>`)
-    out.push(`<mask id="cut"><rect x="${-pad}" y="${-pad}" width="${span}" height="${span}" fill="#fff"/>`)
+    if (emoji.some(item => item.cut)) out.push(`<filter id="${filterId}" color-interpolation-filters="sRGB"><feColorMatrix type="matrix" values="${EMOJI_CUT_MATRIX}"/></filter>`)
+    out.push(`<mask id="${cutId}"><rect x="${-pad}" y="${-pad}" width="${span}" height="${span}" fill="#fff"/>`)
     if (cut) out.push(`<path d="${cut}" fill="#000"/>`)
-    for (const item of emoji.filter(item => item.cut)) out.push(textOf(item, ' filter="url(#emoji-cut-ink)"'))
+    for (const item of emoji.filter(item => item.cut)) out.push(textOf(item, ` filter="url(#${filterId})"`))
     out.push('</mask>')
   }
   if (split && pieces) {
@@ -109,10 +112,10 @@ export function drawingSvg(drawing, { background = null, ink = '#000000', paddin
       const transform = transformData(transforms?.[index])
       out.push(transform ? `<g transform="${transform}">${content}</g>` : content)
     }
-  } else if (d) out.push(`<path d="${d}" fill="${fill}"${hasCut ? ' mask="url(#cut)"' : ''}/>`)
+  } else if (d) out.push(`<path d="${d}" fill="${fill}"${hasCut ? ` mask="url(#${cutId})"` : ''}/>`)
   for (const item of emoji) {
     if (item.cut || (split && groupedEmoji && inPart(item))) continue
-    const content = textOf(item, hasCut && !item.restored ? ' mask="url(#cut)"' : '')
+    const content = textOf(item, hasCut && !item.restored ? ` mask="url(#${cutId})"` : '')
     if (!content) continue
     const part = item.part ?? -1
     const transform = part >= 0 && transforms ? transformData(transforms[part]) : ''
