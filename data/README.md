@@ -11,7 +11,7 @@ the shapes it draws parts from when no host character has them.
 | `sources/new-korean/outlines.json.gz` | the four letters of the New Korean Orthography (1948) |
 | `sources/shuishu/outlines.json.gz` | 533 Shuishu outlines at the proposed block's tentative allocations |
 | `sources/small-seal/outlines.json.gz` | the Small Seal glyphs at the proposed allocation, and their exact descriptions |
-| `sources/jurchen/outlines.json.gz` | the 965 outlines of Unicode 18.0's 914 Jurchen characters and 51 radicals, and the font's 537 variant sequences |
+| `sources/jurchen/outlines.json.gz` | the 965 outlines of Unicode 18.0's 914 Jurchen characters and 51 radicals |
 | `sources/palette/outlines.json.gz` | 79 palette components no export's font draws |
 | `palette/fallback-characters.json`, `palette/bundled-coverage.json` | the same, listed and indexed |
 | `unicode/outlines/*.json.gz`, `unicode/coverage.json`, `unicode/outlines.json` | 56,651 outlines of loose marks and parts no other source draws |
@@ -29,7 +29,7 @@ folder 女真文资料/女真文字体. Sulfa and Ayasala's article
 not seen) says the font is a Fangsong restyling of the encoding proposal's forms, so it does not
 reproduce an inscription or manuscript. The site was found through 柳突破's
 [Bilibili video](https://www.bilibili.com/video/BV1odec6pEqp/) of 2026-09-16.
-The 537 variant sequences through U+FE00–U+FE04 are that font's convention, also listed in the Alari
+The same file holds 537 variant sequences through U+FE00–U+FE04. They are that font's convention, also listed in the Alari
 Jurchen Rime table `Alari_jurc.dict.yaml` (version 2026.05.29, by Yehenara Ayasala, Sulfa and Tunggiya
 Uju, same site): `StandardizedVariants.txt` of Unicode 18.0 records none for Jurchen, so another font may draw the
 base form.
