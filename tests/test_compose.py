@@ -301,7 +301,7 @@ def test_a_ring_refuses_outlines_it_cannot_read() -> None:
         compose._rings([compose.Contour([("curveTo", 3, False)], points, points)], [points])
 
 
-def test_a_description_under_a_cover_draws_the_cover_and_its_child(composer: compose.Composer) -> None:
+def test_a_description_under_a_cover_is_no_instance(composer: compose.Composer) -> None:
     saved = composer.exclude
     composer.exclude = {"宵"}
     try:
@@ -309,4 +309,19 @@ def test_a_description_under_a_cover_draws_the_cover_and_its_child(composer: com
     finally:
         composer.exclude = saved
     assert not any(origin.startswith("instance") for origin in origins)
+
+
+def test_a_child_under_a_cover_is_drawn_from_its_own_glyph(composer: compose.Composer) -> None:
+    from han_compose import compose_layout
+    from han_compose.vocab import cache_root
+
+    path = cache_root() / "compose" / "compose-layout-v4.npz"
+    if not path.exists():
+        pytest.skip("The layout model is not cached; `learn` builds it.")
+    saved = composer.exclude, composer.layout
+    composer.exclude, composer.layout = {"宵"}, compose_layout.LayoutModel.load(path)
+    try:
+        origins = [p.origin for p in composer.compose("⿱宀肖")]
+    finally:
+        composer.exclude, composer.layout = saved
     assert origins[-1] == "glyph 肖"
