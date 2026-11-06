@@ -26,9 +26,12 @@ const preview = composerPreview({
 })
 const drawing = await preview('⿰木口')                 // { d, parts, slots, emoji, … }
 
-// A build that serves the package's `data/` somewhere else names the files it moved:
-import { dataUrls } from '@han-compose/composer'
-composerPreview({ base, loaders: dataUrls })
+// A build that serves the package's `data/` somewhere else names each file it moved, by its path
+// under `data/`. A file left out is read from beside the package.
+composerPreview({
+  base: 'https://example.org/composer/<version>/',
+  loaders: { 'sources/tangut/outlines.json.gz': 'https://cdn.example.org/tangut.json.gz' },
+})
 ```
 
 `preview.warm()` starts the Worker on the export before the first drawing. A page that serves the
