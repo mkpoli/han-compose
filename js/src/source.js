@@ -71,7 +71,8 @@ export function sourceFor(sequence, { base, fontStyle = 'sans', separate = false
   // Unicode fallback reads its shards where the host says they are.
   const shards = bundledLoader(UNICODE, true, loaders, read)
   let source = local ? null : fromUrl(base, { ...(get ? { fetch: get } : {}), ...(shards ? { load: shards } : {}) })
-  if (local && traits.loose) source = overlay(unicodeSource, source, UNICODE)
+  // Bundled alone, a leaf may be one only the Unicode outlines hold; they load only what is asked for.
+  if (local && (traits.loose || bundled)) source = overlay(unicodeSource, source, UNICODE)
   if (traits.tangut) source = overlay(tangutSource, source, 'sources/tangut/outlines.json.gz')
   if (traits.bopomofo) source = overlay(bopomofoSource, source, 'sources/bopomofo/outlines.json.gz')
   if (traits.seal) source = overlay(smallSealSource, source, 'sources/small-seal/outlines.json.gz')
