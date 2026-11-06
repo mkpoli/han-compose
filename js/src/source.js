@@ -64,23 +64,14 @@ export function sourceFor(sequence, { base, fontStyle = 'sans', separate = false
    *  shard it needs, so the name a kind passes is the file that is read. A host that lists none of
    *  the files leaves the package's own copy to answer. */
   const overlay = (/** @type {Function} */ kind, /** @type {any} */ fallback, /** @type {string} */ path) => {
-    const key = (/** @type {string} */ name) => name ?? path
-    const listed = path in loaders || Object.keys(loaders).some(name => name.startsWith('unicode/outlines/'))
-    const read0 = read ? (/** @type {string} */ name) => read(key(name), loaders[key(name)])
-      : listed ? async (/** @type {string} */ name) => {
-        const url = loaders[key(name)]
-        return url ? fetchFile(url) : {}
-      } : null
-    // A bundled file is optional: a host that serves none, or none at this path, draws what the
-    // export holds rather than reporting the whole export unreadable.
-    const load = read0 && (async (/** @type {string} */ name) => {
-      try { return await read0(name) } catch { return {} }
-    })
+    const load = bundledLoader(path, !local, loaders, read)
     return kind({ fallback, ...(load ? { load } : {}) })
   }
-  // A bundled sequence needs no export: a failing one is not asked for at all.
-  let source = local ? null : fromUrl(base, get ? { fetch: get } : {})
-  if (local && traits.loose) source = overlay(unicodeSource, source, '')
+  // A bundled sequence needs no export: a failing one is not asked for at all. The export's own
+  // Unicode fallback reads its shards where the host says they are.
+  const shards = bundledLoader(UNICODE, true, loaders, read)
+  let source = local ? null : fromUrl(base, { ...(get ? { fetch: get } : {}), ...(shards ? { load: shards } : {}) })
+  if (local && traits.loose) source = overlay(unicodeSource, source, UNICODE)
   if (traits.tangut) source = overlay(tangutSource, source, 'sources/tangut/outlines.json.gz')
   if (traits.bopomofo) source = overlay(bopomofoSource, source, 'sources/bopomofo/outlines.json.gz')
   if (traits.seal) source = overlay(smallSealSource, source, 'sources/small-seal/outlines.json.gz')
@@ -90,9 +81,39 @@ export function sourceFor(sequence, { base, fontStyle = 'sans', separate = false
   return source ?? bundledSource({ load: async () => ({ records: {} }), matches: () => false })
 }
 
-/** A bundled file by URL, parsed. @param {string} url */
-async function fetchFile(url) {
-  const response = await fetch(url)
-  if (!response.ok) throw new Error(`${url}: ${response.status}`)
+/** The path a Unicode overlay reads stands for each of its shards. */
+const UNICODE = 'unicode/outlines/'
+
+/** A bundled file's parsed JSON, from the bytes a response holds. @param {Response} response @param {string} name */
+async function parsed(response, name) {
+  if (!response.ok) throw new Error(`${name}: ${response.status}`)
   return JSON.parse(await unpack(await response.arrayBuffer()))
+}
+
+/**
+ * How one kind reads its file, or null where the host lists none of its files and the package's own
+ * copy answers. A kind reading one file asks by no name; the Unicode fallback asks for a shard by
+ * name (`unicode/000`), which is `unicode/outlines/000.json.gz` under `data/`. A file is optional
+ * over an export, which draws what it holds; alone, a failure rejects so the next drawing asks again.
+ * @param {string} path @param {boolean} optional @param {Record<string, string>} loaders
+ * @param {((path: string, url?: string) => any) | undefined} read
+ */
+function bundledLoader(path, optional, loaders, read) {
+  const unicode = path === UNICODE
+  const listed = unicode ? Object.keys(loaders).some(name => name.startsWith(UNICODE)) : path in loaders
+  if (!read && !listed) return null
+  /** @param {string} [name] */
+  const fileOf = name => unicode && name ? `${UNICODE}${name.slice('unicode/'.length)}.json.gz` : path
+  return async (/** @type {string} [name] */ name) => {
+    const file = fileOf(name)
+    try {
+      const answer = read ? await read(file, loaders[file])
+        : loaders[file] ? await fetch(loaders[file]) : null
+      if (answer === null) return {}
+      return answer instanceof Response ? await parsed(answer, file) : answer
+    } catch (error) {
+      if (optional) return {}
+      throw error
+    }
+  }
 }
