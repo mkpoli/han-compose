@@ -29,6 +29,7 @@ import { isOutbound, markFace, markParts } from './marks.js'
 import { splitToneMarks, toneMarksAt } from './tree.js'
 import { hexOf } from './sha256.js'
 import componentConstants from './constants.json' with { type: 'json' }
+import numberedFiveContext from '../data/numbered-five-context.json' with { type: 'json' }
 import pyramidCatalog from './pyramid-glyphs.json' with { type: 'json' }
 
 const pyramidGlyphs = new Map(pyramidCatalog.entries.flatMap(({ char, part, sequence, pair }) =>
@@ -110,7 +111,8 @@ const COVER_CLOSE_SHARE = 0.5
 // height from its top; a brush roof's left tip stands well above its bar. `height` is the share of the
 // whole the top takes, where the face's own band leaves ⺊ too short. `KRM_GAP` is how far 人's apex
 // stands below the bar, as a share of the whole: the manuscript tucks it close under the roof.
-const KRM_TOP = { sans: { bar: 0.24, height: 0.7 }, serif: { bar: 0.34, height: null } }
+// Kureedo's roof underside at the centred stem is about 448 in its 274–546 ink band.
+const KRM_TOP = { sans: { bar: 0.24, height: 0.7 }, serif: { bar: 0.34, height: null }, kaisho: { bar: 0.36, height: null } }
 const KRM_GAP = 0.035
 // Share of its own height a component's top band covers, and the share of the component's width
 // the ink in that band must span for the component to count as flat-topped.
@@ -525,6 +527,16 @@ export class Composer {
       const construct = CONSTRUCTS[sequence]
       // The bundled body is Noto's: a face with its own forms keeps the drawing it made.
       if (construct && !ownFormsOnly(this.fontStyle) && !this.excluded(construct.host)) out = constructParts(construct, out)
+      // Layout can squeeze an operand after it was placed. Restore native proportions within its
+      // final allocation so a contextual cut keeps the donor font's stroke widths.
+      for (const part of out) if (part.nativeAspect) {
+        const [x0, y0, x1, y1] = part.target
+        const [sx0, sy0, sx1, sy1] = part.source
+        const scale = Math.min((x1 - x0) / (sx1 - sx0), (y1 - y0) / (sy1 - sy0))
+        const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2
+        const w = (sx1 - sx0) * scale, h = (sy1 - sy0) * scale
+        part.target = [cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2]
+      }
       // Loose marks annotate the whole drawing; they take no part in its layout or weight.
       if (marks) out.push(...markParts(this, marks, frame, face))
       return out
@@ -854,7 +866,7 @@ export class Composer {
     return { record: h, get piece() { return self.pieceOf(h) } }
   }
 
-  node(node, region, atRoot = false) {
+  node(node, region, atRoot = false, sideBySide = false) {
     if (isEmpty(node)) return [this.placeholder(node, region)]
     const pyramid = this.pyramid(node)
     if (pyramid) {
@@ -903,7 +915,18 @@ export class Composer {
       }
       let squeezed = glyph !== null && stretchOf(glyph.box, region) > C.STRETCH
       if (tree && (this.stroked(tree) || this.atomic(encoded))) squeezed = false
-      if (glyph && !(squeezed && tree)) return [this.place(glyph, region, this.ink(encoded), `glyph ${encoded}`)]
+      if (glyph && !(squeezed && tree)) {
+        if (sideBySide && encoded === '\u{F2A9}' && this.fontStyle === 'sans') {
+          // The native cut from 葭 already has its contextual proportions.
+          const context = partOf(numberedFiveContext.G)
+          const [x0, y0, x1, y1] = context.box
+          const scale = Math.min((region[2] - region[0]) / (x1 - x0), (region[3] - region[1]) / (y1 - y0))
+          const cx = (region[0] + region[2]) / 2, cy = (region[1] + region[3]) / 2
+          const w = (x1 - x0) * scale, h = (y1 - y0) * scale
+          return [{ ...placed(context, context.box, [cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2], numberedFiveContext.ink, `glyph ${encoded}`), fixed: true, nativeAspect: true }]
+        }
+        return [this.place(glyph, region, this.ink(encoded), `glyph ${encoded}`)]
+      }
       if (!tree) throw new LookupError(`No glyph or sequence draws ${encoded}.`)
       if (!glyph) this.missingGlyphs.add(encoded)
       this.expanding.add(encoded)
@@ -1743,8 +1766,8 @@ export class Composer {
             box[axis] = ranges[i][0]
             box[axis + 2] = ranges[i][1]
             const glyph = typeof child === 'string' ? this.glyph(child) : null
-            if (glyph) groups.push(placed(glyph, glyph.box, box, this.ink(child), `glyph ${child}`))
-            else groups.push(this.row(child, box, children.length))
+            if (glyph && !(axis === 0 && child === '\u{F2A9}' && this.fontStyle === 'sans')) groups.push(placed(glyph, glyph.box, box, this.ink(child), `glyph ${child}`))
+            else groups.push(this.row(child, box, children.length, axis === 0))
           }
           return this.flatten(groups)
         }
@@ -1788,9 +1811,10 @@ export class Composer {
           return
         }
       }
-      const part = this.host(op, i, child, [...children.slice(0, i), ...children.slice(i + 1)], box)
+      const contextualFive = axis === 0 && child === '\u{F2A9}' && this.fontStyle === 'sans'
+      const part = contextualFive ? null : this.host(op, i, child, [...children.slice(0, i), ...children.slice(i + 1)], box)
       if (part) groups.push([{ ...placed(part.piece, part.piece.box, fitted(part.piece.box, box, C.STRETCH), this.ink(part.record.h), `host ${part.record.h}`), ...(axis === 1 ? { gap: part.record.g } : {}) }])
-      else groups.push(this.row(child, box, children.length))
+      else groups.push(this.row(child, box, children.length, axis === 0))
     })
     if (compactYan && !this.partial) {
       // Restore just enough room when a whole-glyph outline protrudes toward 朱.
@@ -1814,9 +1838,9 @@ export class Composer {
 
   /** `child` drawn into `box` as one of `count` aligned operands; a whole glyph in a row of three may
    *  change its proportions up to `ROW_STRETCH`. */
-  row(child, box, n) {
-    const group = this.node(child, box)
-    if (n === 3 && group.length === 1 && group[0].origin.startsWith('glyph ')) group[0].target = fitted(group[0].source, box, this.C.ROW_STRETCH)
+  row(child, box, n, sideBySide) {
+    const group = this.node(child, box, false, sideBySide)
+    if (n === 3 && group.length === 1 && !group[0].nativeAspect && group[0].origin.startsWith('glyph ')) group[0].target = fitted(group[0].source, box, this.C.ROW_STRETCH)
     else if (n === 3 && group.length > 1 && group[0].balanceBox && group.every(p => p.balanceBox === group[0].balanceBox)) {
       const frame = group[0].balanceBox, target = fitted(frame, box, this.C.ROW_STRETCH)
       for (const part of group) part.target = mapped(part.source, frame, target)
