@@ -1626,7 +1626,9 @@ export class Composer {
           continue
         }
       }
-      let part = this.host(op, i, child, [...children.slice(0, i), ...children.slice(i + 1)], box, region === null)
+      // The contextual five keeps the cut its own font drew, in a learned row as in a plain one.
+      const contextualFive = this.AXIS[op] === 0 && child === '\u{F2A9}' && this.fontStyle === 'sans'
+      let part = contextualFive ? null : this.host(op, i, child, [...children.slice(0, i), ...children.slice(i + 1)], box, region === null)
       if (part && op in this.ENCLOSE && i === 0 && typeof child === 'string' && this.own(child)
         && stretchOf(part.piece.box, box) > C.ENCLOSING_STRETCH) part = null
       if (!part && op in this.ENCLOSE && i === 0) part = this.enclosureForm(op, child)
@@ -1637,7 +1639,7 @@ export class Composer {
           const limit = !opening || area(opening) <= area(box) ? box : opening
           const anchor = opening && limit === opening ? this.held(opening, op, frameOf) : limit
           this.fit(groups[0], groups[1], frameOf, stem, C, { room: limit, anchor: centre(anchor) })
-        } else groups.push(this.node(child, box))
+        } else groups.push(this.node(child, box, false, contextualFive))
         continue
       }
       let { record: drawn, piece: source } = part
