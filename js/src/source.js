@@ -81,7 +81,7 @@ export function sourceFor(sequence, { base, fontStyle = 'sans', separate = false
   if (traits.newKorean) source = overlay(newKoreanSource, source, 'sources/new-korean/outlines.json.gz')
   if (traits.shuishu) source = overlay(shuishuSource, source, 'sources/shuishu/outlines.json.gz')
   if (traits.jurchen) source = overlay(jurchenSource, source, 'sources/jurchen/outlines.json.gz')
-  if (traits.palette) source = overlay(paletteSource, source, 'sources/palette/outlines.json.gz', { under: fontStyle !== 'sans' })
+  if (traits.palette) source = overlay(paletteSource, source, 'sources/palette/outlines.json.gz', { under: fontStyle !== 'sans', style: fontStyle })
   return source ?? bundledSource({ load: async () => ({ records: {} }), matches: () => false })
 }
 

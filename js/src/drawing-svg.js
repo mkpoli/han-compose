@@ -58,9 +58,10 @@ const colour = (value, fallback) => /^(?:#(?:[0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8}
  * @returns {string}
  */
 export function drawingSvg(drawing, { background = null, ink = '#000000', padding = 0, size = 1000, placeholders = false, idPrefix = '' } = {}) {
-  // The ids of its mask and filter start here, for a page that holds several drawings.
-  const prefix = idPrefix.replace(/[^a-zA-Z0-9_:.-]/g, '')
-  const cutId = `${prefix}cut`, filterId = `${prefix}emoji-cut-ink`
+  // A page may hold several drawings: their mask and filter ids are prefixed to keep them apart.
+  /** @param {string} name */
+  const id = name => `${String(idPrefix).replace(/[^a-zA-Z0-9_:.-]/g, '')}${name}`
+  const cutId = id('cut'), filterId = id('emoji-cut-ink')
   // Every number written is a finite number, whatever it was handed.
   /** @param {unknown} value @param {number} fallback */
   const num = (value, fallback) => Number.isFinite(Number(value)) ? Number(value) : fallback

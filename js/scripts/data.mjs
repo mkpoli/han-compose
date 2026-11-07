@@ -37,6 +37,11 @@ for (const name of ['coverage.json', 'properties.json', 'script-ranges.json', 'o
 for (const name of readdirSync(join(source, 'unicode', 'outlines'))) {
   copy(join(source, 'unicode', 'outlines', name), join(into, 'unicode', 'outlines', name))
 }
+// The Second Round draft's own drawings, the 山 band of 萬, the numbered forms' cuts, and the Sans
+// cuts for numbered components.
+for (const name of ['erjian-glyphs.json', 'wan-shan.json', 'numbered-forms.json', 'numbered-sans-outlines.json.gz']) {
+  copy(join(source, name), join(into, name))
+}
 // The palette's curated fallback list, and which of it the bundled outlines draw.
 for (const name of ['fallback-characters.json', 'bundled-coverage.json']) {
   copy(join(source, 'palette', name), join(into, 'palette', name))
