@@ -1,6 +1,7 @@
 import { expect, it } from 'bun:test'
 import { compose, createSource, sketch } from '../src/loader.js'
 import { componentParts } from '../src/component-forms.js'
+import data from '../src/component-forms.json' with { type: 'json' }
 import { groupParts } from '../src/group-parts.js'
 import { files } from './fixtures/small-export.js'
 
@@ -19,7 +20,7 @@ const source = async () => {
   return source
 }
 
-for (const fontStyle of ['sans', 'serif']) {
+for (const fontStyle of ['sans', 'serif', 'kaisho']) {
   it(`${fontStyle} reuses the KRM top with the same outline in separate view`, async () => {
     const src = await source()
     for (const text of ['⿱⺊冖', '⿳⺊冖人', '⿱⿱⺊冖人', '⿰木⿳⺊冖人']) {
@@ -36,7 +37,7 @@ for (const fontStyle of ['sans', 'serif']) {
   })
 }
 
-for (const fontStyle of ['sans', 'serif']) {
+for (const fontStyle of ['sans', 'serif', 'kaisho']) {
   it(`${fontStyle} tucks the part below close under the KRM top's bar`, async () => {
     const { parts } = await compose(await source(), '⿳⺊冖人', { fontStyle, separate: true })
     const [stem, roof, body] = parts
@@ -50,8 +51,15 @@ for (const fontStyle of ['sans', 'serif']) {
   })
 }
 
-it('keeps the Kaisho drawing free of the editorial Sans/Serif top', async () => {
-  expect(componentParts('⿱⺊冖', undefined, 'kaisho')).toBeNull()
-  const drawn = await compose(await source(), '⿳⺊冖人', { fontStyle: 'kaisho', separate: true })
-  expect(drawn.parts.some(p => p.origin.includes('KRM-07097330'))).toBe(false)
+it('records Kureedo donors for the Kaisho editorial top', () => {
+  const witness = data.editorial['KRM-07097330']
+  expect(witness.donors.kaisho).toEqual(['上', '冖'])
+  expect(witness.reference).toContain('KRM K07097330')
+  expect(witness.gloss).toContain('K07097330: 俗')
+  expect(witness.kaisho).toContain('Kureedo')
+  expect(data.forms.kaisho['⿱⺊冖']).not.toEqual(data.forms.sans['⿱⺊冖'])
+  expect(data.forms.kaisho['⿱⺊冖']).not.toEqual(data.forms.serif['⿱⺊冖'])
+  const parts = componentParts('⿱⺊冖', undefined, 'kaisho')
+  expect(parts).toHaveLength(2)
+  for (const part of parts) expect(part.origin).toContain('KRM-07097330 editorial (Kureedo)')
 })

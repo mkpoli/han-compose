@@ -42,6 +42,10 @@ for (const name of readdirSync(join(source, 'unicode', 'outlines'))) {
 for (const name of ['erjian-glyphs.json', 'wan-shan.json', 'numbered-forms.json', 'numbered-sans-outlines.json.gz']) {
   copy(join(source, name), join(into, name))
 }
+// The contextual five's native cut, drawn from 葭.
+for (const name of ['numbered-five-context.json']) {
+  copy(join(source, name), join(into, name))
+}
 // The palette's curated fallback list, and which of it the bundled outlines draw.
 for (const name of ['fallback-characters.json', 'bundled-coverage.json']) {
   copy(join(source, 'palette', name), join(into, 'palette', name))
