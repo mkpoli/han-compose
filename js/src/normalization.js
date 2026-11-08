@@ -37,6 +37,23 @@ function replaced(node, path, replacement) {
   return withChildren(node, children)
 }
 
+/** A key for a tree that is not a valid rendering tree: bounded in depth and length, so a cycle or
+ *  an oversized tree still names something. @param {RenderNode} node @returns {string} */
+function describeKey(node) {
+  const out = []
+  /** @type {{ node: RenderNode, depth: number }[]} */
+  const stack = [{ node, depth: 0 }]
+  while (stack.length && out.length < 256) {
+    const item = /** @type {typeof stack[number]} */ (stack.pop())
+    if (typeof item.node === 'string') { out.push(item.node); continue }
+    if (!Array.isArray(item.node) || item.depth >= 32) { out.push('…'); continue }
+    out.push(item.node[0])
+    for (let i = item.node.length - 1; i > 0; i--) stack.push({ node: item.node[i], depth: item.depth + 1 })
+  }
+  if (stack.length) out.push('…')
+  return out.join('')
+}
+
 /**
  * Build a synchronous normalizer over one composer's export records. Positive records are shared
  * across calls; nulls are cached only within a call because their shards may still be loading.
@@ -225,8 +242,12 @@ export function createRenderNormalizer({ record, parse, keyOf, excluded = () => 
       return plan
     }
 
-    if (inspect(input) !== 'valid') return Object.freeze({ source: keyOf(input), key: keyOf(input), node: input,
-      encoded: null, children: Object.freeze([]), capped })
+    if (inspect(input) !== 'valid') {
+      // A cyclic or oversized tree has no finite key; describe as much of it as a reader can use.
+      const described = describeKey(input)
+      return Object.freeze({ source: described, key: described, node: input,
+        encoded: null, children: Object.freeze([]), capped: true })
+    }
     const plan = walk(input, 0)
     return capped === plan.capped ? plan : Object.freeze({ ...plan, capped })
   } }

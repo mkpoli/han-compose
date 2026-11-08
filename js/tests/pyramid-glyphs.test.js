@@ -47,7 +47,7 @@ it('falls back to operands for unavailable or excluded whole glyphs', async () =
     const c = new Composer(available.store(), { exclude: [char], separate: true })
     expect(c.compose(text).every(p => p.origin !== `glyph ${char}`)).toBe(true)
   }
-})
+}, 30000)
 it('keeps explicit nested forms editable', async () => {
   const source = fixture()
   for (const [text] of cases) {

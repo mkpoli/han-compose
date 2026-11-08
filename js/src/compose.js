@@ -338,7 +338,7 @@ export class Composer {
     // where cut parts go — would stretch whole glyphs into component shapes (a squat 木, its bar
     // merged with its neighbour's). The export's own manifest says how many bytes of host lists it
     // carries.
-    this.hosted = m.files?.hosts?.bytes !== 0
+    this.hosted = m.files === undefined ? false : m.files.hosts ? m.files.hosts.bytes !== 0 : true
     // A static face keeps its own stroke weights; a variable export weights its parts.
     this.weighted = m.weighted ?? m.heavy !== 400
     this.stem0 = c.stem
@@ -426,8 +426,12 @@ export class Composer {
   /** A source occurrence's rendering identity. A composer is recreated after each loading pass. */
   resolution(node) {
     const key = keyOf(node)
-    if (!this.resolutions.has(key)) this.resolutions.set(key, this.normalizer.resolve(node))
-    return this.resolutions.get(key)
+    const known = this.resolutions.get(key)
+    if (known) return known
+    const plan = this.normalizer.resolve(node)
+    // A plan the budget cut short may miss evidence the next call finds, so it is not kept.
+    if (!plan.capped) this.resolutions.set(key, plan)
+    return plan
   }
   /** Shared lookup key and metrics for descriptions that name the same form. */
   renderKey(node) { return this.resolution(node).key }
@@ -1864,7 +1868,10 @@ export class Composer {
     const C = this.C, k = keyOf(node)
     if (k.includes(EMPTY)) return null
     const names = [k, ...(this.bySequence(k) ? [this.bySequence(k)] : [])]
-    const redrawn = names.some(n => this.excluded(n))
+    // A description that maps to an excluded character keeps that identity here: the plan leaves
+    // it out, and its host must still not be used.
+    const mapped = typeof this.rec(k)?.e === 'string' ? this.rec(k).e : null
+    const redrawn = names.some(n => this.excluded(n)) || (mapped !== null && this.excluded(mapped))
     if (redrawn && !this.stroked(node)) return null
     let best = null
     const need = this.outlines(node), stroked = this.stroked(node)
@@ -1873,7 +1880,7 @@ export class Composer {
         if (C.SIDED_PLACES.includes(place)) continue
         for (const h of upTo(this.hostsOf(name, place), C.INSTANCE_HOSTS)) {
           // A character redrawn to test takes nothing from a host built of itself (吉 from 嚞).
-          if (this.excluded(h.h) || (redrawn && h.ok.some(other => names.includes(other)))) continue
+          if (this.excluded(h.h) || (redrawn && h.ok.some(other => names.includes(other) || other === mapped))) continue
           const cut = this.cutOf(h)
           if (stroked && cut.count !== need) continue
           if (cut.count < C.INSTANCE_KEPT * need) continue

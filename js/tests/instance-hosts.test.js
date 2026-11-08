@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'bun:test'
-import { Composer } from '../src/compose.js'
+import { Composer, keyOf, parseTree } from '../src/compose.js'
+import { createRenderNormalizer } from '../src/normalization.js'
 import { makePart } from '../src/geometry.js'
 
 const square = (x0, y0, x1, y1) => {
@@ -17,8 +18,11 @@ const composer = (hosts, exclude = []) => {
   c.excluded = ch => c.exclude.has(ch)
   c.data = { places: name => name === '⿰甲乙' ? ['R'] : [], hosts: () => hosts, manifest: {} }
   c.rec = key => key === '⿰甲乙' ? { e: '丙' } : null
-  // The resolution the engine makes from the export's record, without loading one.
-  c.bySequence = key => key === '⿰甲乙' ? '丙' : null
+  // The real resolver over these records, so exclusion reaches it as it does in a drawing.
+  c.normalizer = createRenderNormalizer({
+    record: key => c.rec(key), parse: text => parseTree(text, op => c.arities?.get(op) ?? 2),
+    keyOf, excluded: ch => c.excluded(ch),
+  })
   c.outlines = () => 1
   c.stroked = () => exclude.length > 0
   c.ink = () => 1
