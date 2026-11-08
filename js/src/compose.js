@@ -1802,8 +1802,12 @@ export class Composer {
         room = [region[0] + x0 * w, region[1] + y0 * h, region[0] + x1 * w, region[1] + y1 * h]
       }
       const inner = this.node(children[1], room)
-      this.fit(outer, inner, region, this.stem0[0][0], C,
-        fallback && op === '⿽' ? { room, bounds: room } : undefined)
+      if (op === '⿸' && typeof children[0] === 'string' && children[0] === '虍') {
+        this.fit(outer, inner, region, this.stem0[0][0], { ...C, ROOM_MARGIN: 1.2 })
+      } else {
+        this.fit(outer, inner, region, this.stem0[0][0], C,
+          fallback && op === '⿽' ? { room, bounds: room } : undefined)
+      }
       return [...outer, ...inner]
     }
     const axis = this.AXIS[op]
