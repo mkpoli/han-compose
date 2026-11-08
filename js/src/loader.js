@@ -2,7 +2,7 @@
 // The composer in the browser: han-compose's export (manifest, layout and the drawing data of each
 // key) loaded as a sequence needs it, and the sequence drawn from it as an SVG path. A file is
 // fetched once a page; a gzipped one (the export writes them so) is unpacked with DecompressionStream.
-import { APPROXIMATE, Composer, EMPTY, LookupError, keyOf, parseTree } from './compose.js'
+import { APPROXIMATE, Composer, EMPTY, LookupError, keyOf, mapOperands, parseTree } from './compose.js'
 import { splitDescription, withoutMarks } from './tree.js'
 import { composeJamo } from './hangul.js'
 import { hangulOfIds } from './hangul-ids.js'
@@ -27,7 +27,8 @@ function normaliseJamo(part) {
     const written = composeJamo(base)
     return written && [...written].length === 1 ? written + marks : part
   }
-  return Array.isArray(part) ? [part[0], ...part.slice(1).map(normaliseJamo)] : part
+  // Rebuilt operands keep their operator's crossing note.
+  return Array.isArray(part) ? mapOperands(part, normaliseJamo) : part
 }
 
 /** `text` with every jamo-run leaf written as the syllable it composes. Text that does not read as a
