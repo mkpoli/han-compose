@@ -286,6 +286,11 @@ const VARIANT_CUTS = {
   }],
 }
 
+// 身 shortens its first stroke and lifts its foot for the left column. The cuts from 射, 躬 and
+// 躭 have that form; a cut from a dense neighbour (𨊂, 軀, 軆) keeps the standalone width, which
+// reads as a whole character beside the right operand.
+const LEFT_BODY_HOSTS = new Set(['射', '躬', '躭'])
+
 // Kureedo draws no ⿺电; its ⿺巴 form (巴 round 三 in 𠀧, Kureedo's SIL OFL 1.1 face) presses the
 // box of such a glyph to this share of the width and draws its foot out to the right edge.
 const ENCLOSURE_SHARE = 0.485
@@ -1514,6 +1519,12 @@ export class Composer {
     return ranked.length ? ranked[0][1] : null
   }
 
+  /** Whether the export carries the left column's 身, cut from 射, 躬 or 躭. */
+  hasLeftBody(node, place = 'L') {
+    return this.alternatives(node, place).some(written =>
+      this.hostsOf(written, place).some(h => LEFT_BODY_HOSTS.has(h.h) && !this.excluded(h.h)))
+  }
+
   ranked(op, index, node, siblings, box, isPlaced = false) {
     const C = this.C, place = this.slot(op, index)
     const want = siblings.reduce((s, n) => s + this.ink(n), 0)
@@ -1521,6 +1532,16 @@ export class Composer {
     const siblingKeys = siblings.map(child => this.renderKey(child))
     const siblingKey = written => {
       try { return this.renderKey(this.parse(written)) } catch { return written }
+    }
+    // ⿰身X draws its 身 as 射, 躬 and 躭 do: the first stroke shortens and the foot lifts for the
+    // narrow column. A cut from a dense neighbour (𨊂, 軀, 軆) keeps the standalone width.
+    if (op === '⿰' && place === 'L' && keyOf(node) === '身') {
+      const native = []
+      for (const written of this.alternatives(node, place))
+        for (const h of this.hostsOf(written, place))
+          if (LEFT_BODY_HOSTS.has(h.h) && !this.excluded(h.h))
+            native.push([Math.abs(Math.log(stretchOf(this.cutOf(h).box, box))), h])
+      if (native.length) return [[0, this.chosen(native.sort((a, b) => a[0] - b[0])[0][1])]]
     }
     let hand = null
     if (node === '𠂇') {
@@ -1615,10 +1636,21 @@ export class Composer {
     if (op in this.ENCLOSE && !region && area(boxes[0]) < C.ENCLOSING_LEAST * area(this.face)) boxes[0] = this.face.slice()
     if (C.COVERING.includes(op)) boxes[0] = union(boxes)
     if (boxes.some(b => b[2] <= b[0] || b[3] <= b[1])) return null
+    // 王 as the left part of a compound body takes its combining form and a narrow column.
+    const wangLeft = !region && op === '⿰' && children[0] === '王' && Array.isArray(children[1])
+    if (wangLeft) {
+      const frame = union(boxes), split = frame[0] + 0.28 * (frame[2] - frame[0])
+      boxes[0] = [frame[0], frame[1], split, frame[3]]
+      boxes[1] = [split, frame[1], frame[2], frame[3]]
+    }
     const groups = []
     for (let i = 0; i < children.length; i++) {
       const child = children[i]
       let box = boxes[i]
+      if (wangLeft && i === 0) {
+        const glyph = this.glyph('𤣩')
+        if (glyph) { groups.push([this.place(glyph, box, this.ink('𤣩'), 'glyph 𤣩')]); continue }
+      }
       if (this.AXIS[op] === 0 && child === '\u{F2A9}' && this.fontStyle === 'sans') {
         groups.push(this.node(child, box, false, true))
         continue
@@ -1634,10 +1666,12 @@ export class Composer {
         }
       }
       // An operand drawn from its own glyph keeps the part inside its box, where a host cut can carry
-      // the rest of that character in with it.
-      if (ownParts && typeof child === 'string' && !this.excluded(child)) {
+      // the rest of that character in with it. 身 is the exception: its own glyph is the standalone
+      // width, and the left column needs the narrower form 射, 躬 and 躭 draw.
+      if (ownParts && typeof child === 'string' && !this.excluded(child)
+        && !(op === '⿰' && i === 0 && keyOf(child) === '身' && this.hasLeftBody(child))) {
         const own = this.glyph(child)
-        if (own && stretchOf(own.box, box) <= C.STRETCH) {
+        if (own) {
           groups.push([this.place(own, box, this.ink(child), `glyph ${child}`)])
           continue
         }
@@ -1755,7 +1789,7 @@ export class Composer {
       // (from 慮, 虜, 虞 …) open wider, so take one when the outer is 虍.
       if (op === '⿸' && typeof children[0] === 'string' && children[0] === '虍') {
         const cut = this.host(op, 0, children[0], children.slice(1), region)
-        if (cut) outer = [placed(cut.piece, cut.piece.box, fitted(cut.piece.box, region, C.STRETCH), this.ink(cut.record.h), `host ${cut.record.h}`)]
+        if (cut) outer = [placed(cut.piece, cut.piece.box, mapped(cut.piece.box, cut.piece.box, region), this.ink(cut.record.h), `host ${cut.record.h}`)]
       }
       let room = this.room(op, outer, region)
       if (op === '⿸' && typeof children[0] === 'string' && children[0] === '虍') {
@@ -1768,8 +1802,12 @@ export class Composer {
         room = [region[0] + x0 * w, region[1] + y0 * h, region[0] + x1 * w, region[1] + y1 * h]
       }
       const inner = this.node(children[1], room)
-      this.fit(outer, inner, region, this.stem0[0][0], C,
-        fallback && op === '⿽' ? { room, bounds: room } : undefined)
+      if (op === '⿸' && typeof children[0] === 'string' && children[0] === '虍') {
+        this.fit(outer, inner, region, this.stem0[0][0], { ...C, ROOM_MARGIN: 1.2 })
+      } else {
+        this.fit(outer, inner, region, this.stem0[0][0], C,
+          fallback && op === '⿽' ? { room, bounds: room } : undefined)
+      }
       return [...outer, ...inner]
     }
     const axis = this.AXIS[op]
