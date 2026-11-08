@@ -167,7 +167,11 @@
       "types": "./types/document-view.d.ts",
       "default": "./src/document-view.js"
     },
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./normalization": {
+      "types": "./types/normalization.d.ts",
+      "default": "./src/normalization.js"
+    }
   },
   "files": [
     "src",
