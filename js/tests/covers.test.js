@@ -181,7 +181,9 @@ describe('the KRM ⿱⺊冖 top', () => {
     expect(c.groupedStack(['⿳', '⺊', '冖', '人'])).toEqual(['⿱', ['⿱', '⺊', '冖'], '人'])
     expect(c.groupedStack(['⿳', '卜', '冖', '人'])).toEqual(['⿱', ['⿱', '⺊', '冖'], '人'])
     expect(isComponentForm('⿱⺊冖', 'sans')).toBe(true)
-    expect(isComponentForm('⿱⺊冖', 'kaisho')).toBe(false)
+    // Each face has its own prepared top: Noto's sans and serif, and Kureedo's for Kaisho.
+    expect(isComponentForm('⿱⺊冖', 'serif')).toBe(true)
+    expect(isComponentForm('⿱⺊冖', 'kaisho')).toBe(true)
   })
 })
 
