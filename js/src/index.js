@@ -224,7 +224,6 @@ export const dataUrls = {
   'sources/shuishu/outlines.json.gz': dataUrl('sources/shuishu/outlines.json.gz'),
   'sources/jurchen/outlines.json.gz': dataUrl('sources/jurchen/outlines.json.gz'),
   'sources/palette/outlines.json.gz': dataUrl('sources/palette/outlines.json.gz'),
-  'erjian-glyphs.json': dataUrl('erjian-glyphs.json'),
   'numbered-sans-outlines.json.gz': dataUrl('numbered-sans-outlines.json.gz'),
   'numbered-five-context.json': dataUrl('numbered-five-context.json'),
   // The shards the package ships, read from its own `data/`: a name it has no file for would be a

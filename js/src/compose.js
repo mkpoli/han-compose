@@ -963,7 +963,9 @@ export class Composer {
     if (yan) return yan
     // Native compound forms have no trained layout features; fit their actual outlines.
     if (this.hosted && this.layout && (!hasRepetition || ownFormsOnly(this.fontStyle)) && children.length === 2 && this.hasHosts(op, children) && (atRoot ? this.layout.ops.includes(op) : op === '⿰' || op === '⿱')) {
-      const learned = this.learned(op, children, atRoot ? null : region)
+      // A description nothing in the export spells as one character has nothing to integrate a host
+      // cut with, so each operand is drawn from its own glyph.
+      const learned = this.learned(op, children, atRoot ? null : region, !this.bySequence(keyOf(node)))
       if (learned) return learned
     }
     if (!this.separate && !hasRepetition && atRoot && op in this.AXIS) {
@@ -1606,7 +1608,7 @@ export class Composer {
     return forward(this.layout, features(this.layout, op, keys.map(k => this.rec(k)), [this.slot(op, 0), this.slot(op, 1)]))
   }
 
-  learned(op, children, region) {
+  learned(op, children, region, ownParts = false) {
     const C = this.C, stem = this.stem0[0][0], frameOf = region ?? this.face
     let boxes = this.predict(op, children)
     if (region) { const frame = union(boxes); boxes = boxes.map(b => mapped(b, frame, region)) }
@@ -1625,6 +1627,15 @@ export class Composer {
       // the cover's bar through a turning stroke and leave a wedge (定's 𤴓 cut from 是).
       if (i === 1 && op === '⿱' && typeof children[0] === 'string' && COVERS.has(children[0])
         && typeof child === 'string' && !this.excluded(child) && this.sequenceOf(child)) {
+        const own = this.glyph(child)
+        if (own && stretchOf(own.box, box) <= C.STRETCH) {
+          groups.push([this.place(own, box, this.ink(child), `glyph ${child}`)])
+          continue
+        }
+      }
+      // An operand drawn from its own glyph keeps the part inside its box, where a host cut can carry
+      // the rest of that character in with it.
+      if (ownParts && typeof child === 'string' && !this.excluded(child)) {
         const own = this.glyph(child)
         if (own && stretchOf(own.box, box) <= C.STRETCH) {
           groups.push([this.place(own, box, this.ink(child), `glyph ${child}`)])

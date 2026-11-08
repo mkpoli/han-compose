@@ -37,9 +37,8 @@ for (const name of ['coverage.json', 'properties.json', 'script-ranges.json', 'o
 for (const name of readdirSync(join(source, 'unicode', 'outlines'))) {
   copy(join(source, 'unicode', 'outlines', name), join(into, 'unicode', 'outlines', name))
 }
-// The Second Round draft's own drawings, the 山 band of 萬, the numbered forms' cuts, and the Sans
-// cuts for numbered components.
-for (const name of ['erjian-glyphs.json', 'wan-shan.json', 'numbered-forms.json', 'numbered-sans-outlines.json.gz']) {
+// The 山 band of 萬, the numbered forms' cuts, and the Sans cuts for numbered components.
+for (const name of ['wan-shan.json', 'numbered-forms.json', 'numbered-sans-outlines.json.gz']) {
   copy(join(source, name), join(into, name))
 }
 // The contextual five's native cut, drawn from 葭.
