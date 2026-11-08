@@ -1671,7 +1671,7 @@ export class Composer {
       if (ownParts && typeof child === 'string' && !this.excluded(child)
         && !(op === '⿰' && i === 0 && keyOf(child) === '身' && this.hasLeftBody(child))) {
         const own = this.glyph(child)
-        if (own && stretchOf(own.box, box) <= C.STRETCH) {
+        if (own) {
           groups.push([this.place(own, box, this.ink(child), `glyph ${child}`)])
           continue
         }
