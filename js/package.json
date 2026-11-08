@@ -93,10 +93,6 @@
       "types": "./types/emoji.d.ts",
       "default": "./src/emoji.js"
     },
-    "./erjian": {
-      "types": "./types/erjian.d.ts",
-      "default": "./src/erjian.js"
-    },
     "./group-parts": {
       "types": "./types/group-parts.d.ts",
       "default": "./src/group-parts.js"
