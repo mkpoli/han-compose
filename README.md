@@ -147,7 +147,9 @@ uv run ruff check
 `docs/licensing.md` states what the code, the fonts and the tables are under. In short: Noto Sans CJK
 JP and Plangothic (SIL OFL 1.1) supply every sans outline, Noto Serif CJK JP (SIL OFL 1.1) and Jigmo
 (CC0 1.0) every serif one; BabelStone IDS and cjkvi-variants supply the
-sequences and the radical forms; hfhchan/ids (MIT) supplies the list of ideographs left
+sequences and the radical forms; editorial sequences replace a BabelStone sequence that draws the
+character wrongly ([`data/vocab/han-ids-drawn.tsv`](data/vocab/han-ids-drawn.tsv));
+hfhchan/ids (MIT) supplies the list of ideographs left
 undecomposed; KanjiVG (CC BY-SA 3.0) supplies component ownership when a host is cut. Glyphs drawn
 from KanjiVG-assisted cuts are shared alike, with its notice kept. The `export-web` manifest carries
 the same notices for the data it writes.
