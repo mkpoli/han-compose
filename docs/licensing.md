@@ -55,6 +55,10 @@ committed.
   License v3); cjkvi-variants `radical-variants.txt`, used as public domain like the rest of that
   database. BabelStone's data descends in part from Kawabata Taichi's IDS, which derives from CHISE;
   only BabelStone's file is read.
+- `data/vocab/han-ids-drawn.tsv`: this project's own sequences (MIT, with the code), written by hand
+  where a BabelStone sequence draws the character wrongly, because an operand is not the shape drawn
+  or a single shape is listed stroke by stroke. Each row keeps the sequence it replaces and the
+  reason. `src/han_compose/compose.py` reads it after BabelStone's.
 - `data/vocab/han-atomic.tsv`: hfhchan/ids (MIT, Copyright (c) 2021 Henry Chan), of which only the
   list of characters it leaves undecomposed is used. Source record: `data/sources/hfhchan-ids.yaml`.
   Rebuilt by `scripts/build_han_atomic.py`.
