@@ -17,6 +17,8 @@ const composer = (hosts, exclude = []) => {
   c.excluded = ch => c.exclude.has(ch)
   c.data = { places: name => name === '⿰甲乙' ? ['R'] : [], hosts: () => hosts, manifest: {} }
   c.rec = key => key === '⿰甲乙' ? { e: '丙' } : null
+  // The resolution the engine makes from the export's record, without loading one.
+  c.bySequence = key => key === '⿰甲乙' ? '丙' : null
   c.outlines = () => 1
   c.stroked = () => exclude.length > 0
   c.ink = () => 1
