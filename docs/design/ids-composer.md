@@ -45,6 +45,10 @@ editor can put its placeholder in the box the layout gave it.
 - A part comes from a character that draws it in the same place, in the positional form Japanese
   characters write there (𤣩 for 王 on the left), with the stroke count that operand usually has
   there; a nested sequence a character draws whole is taken whole.
+- A sequence is BabelStone's, unless a hand-written row in `data/vocab/han-ids-drawn.tsv` replaces
+  it because BabelStone's sequence draws the character wrongly: 㞙's 水 sits inside 尸 above 毛, and
+  㐧 is one shape whose strokes the sequence lists one by one. The row keeps the replaced sequence
+  and the reason.
 - A host is cut along its outlines: a counter goes with the outline around it, while a stroke
   that only lies inside another's box (the strokes inside 図's 冂) is a shape of its own. An
   unmistakable enclosing part is cut away even when what it holds looks unlike a sketch of its
