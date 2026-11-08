@@ -1789,7 +1789,7 @@ export class Composer {
       // (from 慮, 虜, 虞 …) open wider, so take one when the outer is 虍.
       if (op === '⿸' && typeof children[0] === 'string' && children[0] === '虍') {
         const cut = this.host(op, 0, children[0], children.slice(1), region)
-        if (cut) outer = [placed(cut.piece, cut.piece.box, fitted(cut.piece.box, region, C.STRETCH), this.ink(cut.record.h), `host ${cut.record.h}`)]
+        if (cut) outer = [placed(cut.piece, cut.piece.box, mapped(cut.piece.box, cut.piece.box, region), this.ink(cut.record.h), `host ${cut.record.h}`)]
       }
       let room = this.room(op, outer, region)
       if (op === '⿸' && typeof children[0] === 'string' && children[0] === '虍') {
