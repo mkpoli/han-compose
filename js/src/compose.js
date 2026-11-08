@@ -829,10 +829,7 @@ export class Composer {
     if (!this.hosted) return false
     const places = this.data.manifest.files?.hosts?.places
     if (!places) return true
-    return children.some((child, i) => {
-      const slot = this.slot(op, i)
-      return places.includes(`${slot}\t${this.renderKey(child)}`) || places.includes(`${slot}\t${keyOf(child)}`)
-    })
+    return children.some((child, i) => places.includes(`${this.slot(op, i)}\t${this.renderKey(child)}`))
   }
 
   /** What a host entry's cut is known by before its outlines are read: its box and its contour
