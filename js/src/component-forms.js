@@ -2,6 +2,7 @@
 // Shape-specific font-derived forms. Keep the caller's IDS; encoded counterparts can vary by region.
 import data from './component-forms.json' with { type: 'json' }
 import numbered from '../data/numbered-forms.json' with { type: 'json' }
+import { joinedComponentForm } from './constructs.js'
 import constants from './constants.json' with { type: 'json' }
 import { WINDING, commands, derived, makePart, mapped, partInk, placed, svgPath, union, windingOf, wound } from './geometry.js'
 
@@ -38,13 +39,14 @@ export function componentRecord(text, style = 'sans') {
 export function componentParts(text, region = constants.face, style = 'sans', atRoot = true) {
   const form = forms(style)?.get(text)
   if (!form) return null
-  const { parts, frame, ink } = form
+  const { frame, ink } = form
+  const parts = joinedComponentForm(text, style, form.parts)
   // Preserve the source font's em and placement for standalone forms. A crop
   // stays floating in that character space;
   // complete native glyphs retain their designed proportions and side bearings.
   // Nested forms use the description's contextual row/column allocation.
   const target = atRoot ? mapped(frame, constants.face, region) : region
-  const font = style === 'kaisho' ? 'Kureedo' : `Noto ${style === 'serif' ? 'Serif' : 'Sans'} CJK`
+  const font = style === 'kaisho' ? 'Kureedo' : style === 'fangsong' ? 'Zhuque Fangsong' : `Noto ${style === 'serif' ? 'Serif' : 'Sans'} CJK`
   const editorial = editorialForms.get(text)
   const origin = editorial ? `${editorial} editorial (${font}): ${text}`
     : text === '⿰冫⿱丿丶' || text === '⿰冫⿾冫' ? 'four-dot repetition' : `${font}: ${text}`

@@ -167,7 +167,16 @@
     "./normalization": {
       "types": "./types/normalization.d.ts",
       "default": "./src/normalization.js"
-    }
+    },
+    "./component-fixes": {
+      "types": "./types/component-fixes.d.ts",
+      "default": "./src/component-fixes.js"
+    },
+    "./constructs": {
+      "types": "./types/constructs.d.ts",
+      "default": "./src/constructs.js"
+    },
+    "./constants.json": "./src/constants.json"
   },
   "files": [
     "src",

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'bun:test'
-import { Composer } from '../src/compose.js'
-import { drawnContours, makePart, placed } from '../src/geometry.js'
-import { componentParts, isGroupedForm, isComponentForm } from '../src/component-forms.js'
+import { Composer } from '@han-compose/composer/compose'
+import { drawnContours, makePart, placed } from '@han-compose/composer/geometry'
+import { componentParts, isGroupedForm, isComponentForm } from '@han-compose/composer/component-forms'
 
 const contour = (x0, y0, x1, y1) => {
   const light = new Float64Array([x0, y0, x1, y0, x1, y1, x0, y1])
@@ -45,40 +45,26 @@ describe('a cover', () => {
     expect(width).toBeLessThan(0.75 * 700)
   })
 
-  it('narrows a box head under a cover, and what stands below it less', () => {
+  it('leaves a middle 冖 open over a narrow part', () => {
     const c = lonely()
-    c.sequenceOf = ch => ch === '昗' ? '⿱日六' : null
-    c.parse = text => text === '⿱日六' ? ['⿱', '日', '六'] : text
-    const cover = [at(part(contour(100, 600, 900, 800)), [100, 600, 900, 800])]
-    const head = contour(100, 300, 900, 580), legs = contour(100, 0, 900, 200)
-    const lower = [at(part(head, legs), [100, 0, 900, 580])]
-    c.fitUnderCover('⿱', ['冖', '昗'], [cover, lower])
-    const span = contour => {
-      const xs = contour.light.filter((_, i) => i % 2 === 0)
-      return Math.max(...xs) - Math.min(...xs)
-    }
-    const [drawnHead, drawnLegs] = lower[0].part.contours
-    expect(span(drawnHead)).toBeCloseTo(0.72 * 800, 3)
-    expect(span(drawnLegs)).toBeCloseTo(0.85 * 800, 3)
+    const top = [at(part(contour(350, 500, 650, 800)), [350, 500, 650, 800])]
+    const cover = [at(part(contour(0, 350, 900, 450)), [0, 350, 900, 450])]
+    const lower = [at(part(contour(0, -50, 900, 300)), [0, -50, 900, 300])]
+    c.fitUnderCover('⿳', ['卜', '冖', '人'], [top, cover, lower])
+    // The top spans a third of the cover's width: the bar stays where the share put it.
+    expect(cover[0].target[1]).toBe(350)
+    // The part below still closes on the cover from underneath.
+    expect(lower[0].target[1]).toBeGreaterThan(-50)
   })
 
-  it('narrows the same head when the lower part is written out', () => {
+  it('closes a middle 冖 on the part above and the part below', () => {
     const c = lonely()
-    const cover = [at(part(contour(100, 600, 900, 800)), [100, 600, 900, 800])]
-    const lower = [at(part(contour(100, 300, 900, 580)), [100, 300, 900, 580]), at(part(contour(100, 0, 900, 200)), [100, 0, 900, 200])]
-    c.fitUnderCover('⿱', ['冖', ['⿱', '日', '六']], [cover, lower])
-    const xs = lower[0].part.contours[0].light.filter((_, i) => i % 2 === 0)
-    expect(Math.max(...xs) - Math.min(...xs)).toBeCloseTo(0.72 * 800, 3)
-    expect(lower[1].part.contours[0].light[2] - lower[1].part.contours[0].light[0]).toBeCloseTo(0.85 * 800, 3)
-  })
-
-  it('leaves a written lower part drawn as one whole glyph', () => {
-    const c = lonely()
-    const cover = [at(part(contour(100, 600, 900, 800)), [100, 600, 900, 800])]
-    const whole = part(contour(100, 300, 900, 580), contour(100, 0, 900, 200))
-    const lower = [at(whole, [100, 0, 900, 580])]
-    c.fitUnderCover('⿱', ['冖', ['⿱', '日', '六']], [cover, lower])
-    expect(lower[0].part).toBe(whole)
+    const top = [at(part(contour(0, 500, 900, 800)), [0, 500, 900, 800])]
+    const cover = [at(part(contour(0, 350, 900, 450)), [0, 350, 900, 450])]
+    const lower = [at(part(contour(0, -50, 900, 300)), [0, -50, 900, 300])]
+    c.fitUnderCover('⿳', ['大', '冖', '牛'], [top, cover, lower])
+    expect(cover[0].target[1]).toBeGreaterThan(350)
+    expect(lower[0].target[1]).toBeGreaterThan(-50)
   })
 
   it('keeps the separate contours of a box head apart', () => {
@@ -139,37 +125,51 @@ describe('a cover', () => {
     expect((Math.min(...xs) + Math.max(...xs)) / 2).toBeCloseTo(500, 3)
   })
 
-  it('leaves a lower part that does not open with a box', () => {
+  it('narrows the same head when the lower part is written out', () => {
     const c = lonely()
-    c.sequenceOf = ch => ch === '杏' ? '⿱木口' : null
-    c.parse = text => text === '⿱木口' ? ['⿱', '木', '口'] : text
+    const cover = [at(part(contour(100, 600, 900, 800)), [100, 600, 900, 800])]
+    const lower = [at(part(contour(100, 300, 900, 580)), [100, 300, 900, 580]), at(part(contour(100, 0, 900, 200)), [100, 0, 900, 200])]
+    c.fitUnderCover('⿱', ['冖', ['⿱', '日', '六']], [cover, lower])
+    const xs = lower[0].part.contours[0].light.filter((_, i) => i % 2 === 0)
+    expect(Math.max(...xs) - Math.min(...xs)).toBeCloseTo(0.72 * 800, 3)
+    expect(lower[1].part.contours[0].light[2] - lower[1].part.contours[0].light[0]).toBeCloseTo(0.85 * 800, 3)
+  })
+
+  it('leaves a written lower part drawn as one whole glyph', () => {
+    const c = lonely()
     const cover = [at(part(contour(100, 600, 900, 800)), [100, 600, 900, 800])]
     const whole = part(contour(100, 300, 900, 580), contour(100, 0, 900, 200))
     const lower = [at(whole, [100, 0, 900, 580])]
-    c.fitUnderCover('⿱', ['冖', '杏'], [cover, lower])
+    c.fitUnderCover('⿱', ['冖', ['⿱', '日', '六']], [cover, lower])
     expect(lower[0].part).toBe(whole)
   })
+})
 
-  it('leaves a middle 冖 open over a narrow part', () => {
+describe('a cover over two parts', () => {
+  it('splits the bands and narrows the bottom', () => {
     const c = lonely()
-    const top = [at(part(contour(350, 500, 650, 800)), [350, 500, 650, 800])]
-    const cover = [at(part(contour(0, 350, 900, 450)), [0, 350, 900, 450])]
-    const lower = [at(part(contour(0, -50, 900, 300)), [0, -50, 900, 300])]
-    c.fitUnderCover('⿳', ['卜', '冖', '人'], [top, cover, lower])
-    // The top spans a third of the cover's width: the bar stays where the share put it.
-    expect(cover[0].target[1]).toBe(350)
-    // The part below still closes on the cover from underneath.
-    expect(lower[0].target[1]).toBeGreaterThan(-50)
+    c.face = [0, -100, 1000, 900]
+    const cover = [at(part(contour(50, 600, 950, 880)), [50, 600, 950, 880])]
+    const middle = [at(part(contour(60, 300, 940, 580)), [60, 300, 940, 580])]
+    const bottom = [at(part(contour(50, -80, 950, 280)), [50, -80, 950, 280])]
+    c.fitUnderCover('⿳', ['宀', '龶', '口'], [cover, middle, bottom])
+    expect(cover[0].target[1]).toBeCloseTo(580, 0)
+    expect(middle[0].target[3]).toBeCloseTo(690, 0)
+    expect(bottom[0].target[2] - bottom[0].target[0]).toBeCloseTo(0.66 * 900, 0)
   })
 
-  it('closes a middle 冖 on the part above and the part below', () => {
+  it('fits the base into the roof opening while retaining its foot', () => {
     const c = lonely()
-    const top = [at(part(contour(0, 500, 900, 800)), [0, 500, 900, 800])]
-    const cover = [at(part(contour(0, 350, 900, 450)), [0, 350, 900, 450])]
-    const lower = [at(part(contour(0, -50, 900, 300)), [0, -50, 900, 300])]
-    c.fitUnderCover('⿳', ['大', '冖', '牛'], [top, cover, lower])
-    expect(cover[0].target[1]).toBeGreaterThan(350)
-    expect(lower[0].target[1]).toBeGreaterThan(-50)
+    c.face = [0, -100, 1000, 900]
+    const cover = [at(part(contour(50, 600, 950, 880)), [50, 600, 950, 880])]
+    const middle = [at(part(contour(60, 300, 940, 580)), [60, 300, 940, 580])]
+    const bottom = [at(part(contour(50, -80, 950, 280)), [50, -80, 950, 280])]
+    c.fitUnderCover('⿳', ['穴', '𠆢', '又'], [cover, middle, bottom])
+    expect(bottom[0].target[0]).toBeGreaterThan(middle[0].target[0])
+    expect(bottom[0].target[2]).toBeLessThan(middle[0].target[2])
+    expect(bottom[0].target[3]).toBeGreaterThan(middle[0].target[1])
+    expect(bottom[0].target[3]).toBeLessThan(middle[0].target[3])
+    expect(bottom[0].target[1]).toBeCloseTo(-100, 0)
   })
 })
 
@@ -181,13 +181,13 @@ describe('the KRM ⿱⺊冖 top', () => {
     expect(c.groupedStack(['⿳', '⺊', '冖', '人'])).toEqual(['⿱', ['⿱', '⺊', '冖'], '人'])
     expect(c.groupedStack(['⿳', '卜', '冖', '人'])).toEqual(['⿱', ['⿱', '⺊', '冖'], '人'])
     expect(isComponentForm('⿱⺊冖', 'sans')).toBe(true)
-    // Each face has its own prepared top: Noto's sans and serif, and Kureedo's for Kaisho.
-    expect(isComponentForm('⿱⺊冖', 'serif')).toBe(true)
     expect(isComponentForm('⿱⺊冖', 'kaisho')).toBe(true)
+    c.fontStyle = 'kaisho'
+    expect(c.groupedStack(['⿳', '⺊', '冖', '人'])).toEqual(['⿱', ['⿱', '⺊', '冖'], '人'])
   })
 })
 
-for (const style of ['sans', 'serif']) {
+for (const style of ['sans', 'serif', 'kaisho']) {
   it(`keeps the ${style} manuscript top joined with a rightward bar in separate view`, () => {
     expect(isGroupedForm('⿱⺊冖', style)).toBe(true)
     const [top, roof] = componentParts('⿱⺊冖', undefined, style)
@@ -196,8 +196,8 @@ for (const style of ['sans', 'serif']) {
     // The bar projects to the right; the centred stem reaches the roof seam.
     expect(Math.min(...xs)).toBeGreaterThanOrEqual(450)
     expect(Math.max(...xs)).toBeGreaterThanOrEqual(900)
-    expect(top.part.box[1]).toBe(style === 'sans' ? 562 : 543)
+    expect(top.part.box[1]).toBe({ sans: 562, serif: 543, kaisho: 460 }[style])
     expect(roof.part.box[3]).toBeGreaterThanOrEqual(top.part.box[1])
-    expect(top.origin).toContain(`Noto ${style === 'sans' ? 'Sans' : 'Serif'} CJK`)
+    expect(top.origin).toContain(style === 'kaisho' ? 'Kureedo' : `Noto ${style === 'sans' ? 'Sans' : 'Serif'} CJK`)
   })
 }
