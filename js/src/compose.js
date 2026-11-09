@@ -508,8 +508,12 @@ export class Composer {
   /** A source occurrence's rendering identity. A composer is recreated after each loading pass. */
   resolution(node) {
     const key = keyOf(node)
-    if (!this.resolutions.has(key)) this.resolutions.set(key, this.normalizer.resolve(node))
-    return this.resolutions.get(key)
+    const known = this.resolutions.get(key)
+    if (known) return known
+    const plan = this.normalizer.resolve(node)
+    // A plan the budget cut short may miss evidence the next call finds, so it is not kept.
+    if (!plan.capped) this.resolutions.set(key, plan)
+    return plan
   }
   /** Shared lookup key and metrics for descriptions that name the same form. */
   renderKey(node) { return this.resolution(node).key }
@@ -2540,52 +2544,6 @@ export class Composer {
     if (!(width > 0 && aspect > 0)) return 0
     return (box[3] - box[1]) / width > this.C.HOST_EXTENT * aspect ? aspect * width : 0
   }
-
-  /** Whether `ch` is a roof in a ⿵ rather than a frame: the opening its ink closes is narrower
-   *  than half its width, as the slot between 入's legs is, so the part below hangs under it rather
-   *  than sitting inside. */
-  roof(ch, region) {
-    if (typeof ch !== 'string') return false
-    const glyph = this.drawnGlyph(ch)
-    if (!glyph) return false
-    const part = placed(glyph, glyph.box, fitted(glyph.box, region, this.C.STRETCH), this.ink(ch), `glyph ${ch}`)
-    const room = this.room('⿵', [part], region)
-    return !room || room[2] - room[0] < 0.5 * (region[2] - region[0])
-  }
-
-  /** A stack's neighbouring operands, remembered so their ink can be settled after weighting. */
-  recordJoints(op, groups) {
-    if (this.AXIS[op] !== 1 || groups.length < 2) return
-    for (let k = 1; k < groups.length; k++) this.joints.push([groups[k - 1], groups[k]])
-  }
-
-  /** Two stacked operands whose bands share an edge but whose ink, lightened by `balance`, leaves a
-   *  seam: raise the lower one until its ink meets the upper's. A gap wider than `FACING` down the
-   *  stack is the layout's own, and stays. */
-  settleJoints() {
-    if (this.partial) return
-    const C = this.C
-    for (const [above, below] of this.joints) {
-      if (!above.length || !below.length) continue
-      const box = bounds(below), aboveBox = bounds(above)
-      if (Math.abs(aboveBox[1] - box[3]) > 1) continue
-      const gap = inkBounds(above)[1] - inkBounds(below)[3]
-      if (!(gap > 0) || gap >= C.FACING[1]) continue
-      const to = [box[0], box[1], box[2], box[3] + gap]
-      if (stretchOf(box, to) > C.STRETCH) continue
-      for (const part of below) part.target = targetFor(part, mapped(drawnBox(part), box, to))
-    }
-  }
-
-  /** The height a cut keeps in a stack band the layout has no usual box for: the height its own
-   *  proportion gives at the band's width, where the band is taller than `HOST_EXTENT` times that;
-   *  zero where the band already fits it. */
-  cutBand(box, source) {
-    const width = box[2] - box[0], aspect = (source[3] - source[1]) / Math.max(source[2] - source[0], 1)
-    if (!(width > 0 && aspect > 0)) return 0
-    return (box[3] - box[1]) / width > this.C.HOST_EXTENT * aspect ? aspect * width : 0
-  }
-
   /** Neighbouring parts moved apart where they face each other closer than `FACING` (`_space`), or,
    *  down a stack, closed on each other where the donor drew them into each other: two cuts from
    *  different glyphs meet where the layout put their boxes, which leaves the seam 芙 has no 夫 for
