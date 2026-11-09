@@ -12,14 +12,14 @@ import { onlyBundled } from './local.js'
 import { sourceFor, traitKey, traitsOf } from './source.js'
 
 const sources = new Map()
-self.onmessage = async ({ data: { id, sequence, base, separate, fontStyle, warm, loaders } }) => {
+self.onmessage = async ({ data: { id, sequence, base, separate, fontStyle, warm, preferExport, loaders } }) => {
   const traits = !warm ? traitsOf(sequence) : null
   // Whether the sequence draws from bundled outlines is part of the key: `onlyBundled` reads the
   // sequence, which the traits alone do not cover.
-  const local = !warm && (traits.empty || onlyBundled(sequence, separate, false, fontStyle))
+  const local = !warm && !preferExport && (traits.empty || onlyBundled(sequence, separate, false, fontStyle))
   // Where the bundled files are read from is part of the key: a later `loaders` must reach its source.
-  const key = `${JSON.stringify(loaders ?? {})}:${base}:${warm ? 'warm' : `${local ? 'local' : 'remote'}:${traitKey(traits)}`}:${separate}:${fontStyle}`
-  if (!sources.has(key)) sources.set(key, sourceFor(sequence, { base, fontStyle, separate, traits, loaders, remote: warm }))
+  const key = `${JSON.stringify(loaders ?? {})}:${base}:${warm ? 'warm' : `${local ? 'local' : 'remote'}:${traitKey(traits)}`}:${separate}:${fontStyle}:${preferExport ? 'export' : 'any'}`
+  if (!sources.has(key)) sources.set(key, sourceFor(sequence, { base, fontStyle, separate, traits, loaders, remote: warm || preferExport }))
   let source = sources.get(key)
   try {
     await source.ready()
