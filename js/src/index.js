@@ -81,11 +81,12 @@ export class UnavailableError extends Error { name = 'UnavailableError' }
  * it takes a slot of the draft, draws as text in the box the layout gave it, and comes back in the
  * drawing's `emoji`, with `restored` and `cut` saying what ㇯ does to it.
  *
+ * `preferExport` draws from the export even where the bundled outlines would cover the sequence.
  * @param {{ base: string, separate?: boolean, fontStyle?: 'sans' | 'serif' | 'fangsong' | 'kaisho',
- *   worker?: () => WorkerLike, loaders?: Record<string, string>, timeout?: number }} options
+ *   preferExport?: boolean, worker?: () => WorkerLike, loaders?: Record<string, string>, timeout?: number }} options
  * @returns {((sequence: string, options?: PreviewOptions) => Promise<Drawing>) & { warm: () => void }}
  */
-export function composerPreview({ base, separate = false, fontStyle = 'sans', loaders = {}, timeout, worker = () => new Worker(new URL('./worker.js', import.meta.url), { type: 'module' }) }) {
+export function composerPreview({ base, separate = false, fontStyle = 'sans', preferExport = false, loaders = {}, timeout, worker = () => new Worker(new URL('./worker.js', import.meta.url), { type: 'module' }) }) {
   // A base that is no URL is reported when a drawing needs the export; nothing makes a worker for it.
   const known = (() => { try { new URL(base, globalThis.location?.href); return true } catch { return false } })()
   const drawer = known ? createDrawer(worker, base, { loaders, timeout }) : null
@@ -157,8 +158,8 @@ export function composerPreview({ base, separate = false, fontStyle = 'sans', lo
     }
     // The drawing itself: from the export, or from the bundled outlines where there is no export.
     /** @type {Promise<import('./client.js').Answer>} */
-    const request = drawer ? drawer.draw(prepared.sequence, heard, { separate, fontStyle })
-      : drawnBundled(prepared.sequence, { separate, fontStyle, loaders }, heard)
+    const request = drawer ? drawer.draw(prepared.sequence, heard, { separate, fontStyle, preferExport })
+      : drawnBundled(prepared.sequence, { separate, fontStyle, preferExport, loaders }, heard)
     // The drawing in progress, ended when its signal aborts; the drawer answers it as cancelled.
     /** @type {import('./client.js').Answer} */
     const answer = await new Promise(settle => {
@@ -189,13 +190,13 @@ export function composerPreview({ base, separate = false, fontStyle = 'sans', lo
 /**
  * A sequence drawn from the bundled outlines alone, in the page, answered as a drawer answers.
  * @param {string} sequence
- * @param {{ separate?: boolean, fontStyle?: 'sans' | 'serif' | 'fangsong' | 'kaisho', loaders?: Record<string, string> }} options
+ * @param {{ separate?: boolean, fontStyle?: 'sans' | 'serif' | 'fangsong' | 'kaisho', preferExport?: boolean, loaders?: Record<string, string> }} options
  * @param {(leaves: SketchLeaf[]) => void} heard
  * @returns {Promise<import('./client.js').Answer>}
  */
-async function drawnBundled(sequence, { separate, fontStyle, loaders }, heard) {
+async function drawnBundled(sequence, { separate, fontStyle, loaders, preferExport = false }, heard) {
   try {
-    const source = sourceFor(sequence, { bundled: true, separate, fontStyle, loaders })
+    const source = sourceFor(sequence, { bundled: true, separate, fontStyle, loaders, remote: preferExport })
     const leaves = await sketch(source, sequence, { fontStyle })
     heard(leaves)
     return { status: 'composed', drawn: await compose(source, sequence, { separate, fontStyle }), sketch: leaves }

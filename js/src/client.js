@@ -74,10 +74,10 @@ export function createDrawer(makeWorker, base, config = {}) {
   /**
    * @param {string} sequence
    * @param {((leaves: SketchLeaf[]) => void) | null} [onSketch]
-   * @param {{ separate?: boolean, fontStyle?: 'sans' | 'serif' | 'fangsong' | 'kaisho', loaders?: Loaders }} [options]
+   * @param {{ separate?: boolean, fontStyle?: 'sans' | 'serif' | 'fangsong' | 'kaisho', preferExport?: boolean, loaders?: Loaders }} [options]
    * @returns {Promise<Answer>}
    */
-  function draw(sequence, onSketch = null, { separate = false, fontStyle = 'sans', loaders = config.loaders } = {}) {
+  function draw(sequence, onSketch = null, { separate = false, fontStyle = 'sans', preferExport = false, loaders = config.loaders } = {}) {
     // A newer drawing ends the one before.
     cancel()
     const live = connect()
@@ -90,7 +90,7 @@ export function createDrawer(makeWorker, base, config = {}) {
     pending = { id, resolve: answer => { clearTimeout(timer); finish(answer) }, onSketch, sketch: null }
     /** @type {Promise<Answer>} */
     const answer = new Promise(done => { finish = done })
-    live.postMessage({ id, sequence, base, separate, fontStyle, loaders: loaders ?? {} })
+    live.postMessage({ id, sequence, base, separate, fontStyle, preferExport, loaders: loaders ?? {} })
     return answer
   }
   return { draw, cancel, warm, dispose: () => { cancel(); end() } }
