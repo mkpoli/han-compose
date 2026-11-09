@@ -372,6 +372,10 @@ const ENCLOSURE_FORMS = {
       '656184795d653a390844e1bfd99e8efddfb5c36be68d683d9d8986984f150a85': [0, 1, 2, 3, 4],
       '2fa6f7b8e09a68c6173dafe84d5b96d5b4c36dc9a7e6b77703d9ed9f13ff525a': [0, 3, 4, 6, 7],
     }],
+    // 爬 (⿺爪巴) draws the designed ⿺爪; a described ⿺爪… has no host cut with that posture.
+    爪: ['爬', {
+      '631556d7281ca84d39388d047c9dfbada101ae2cda66713c29263f7b9d9b5df6': [0, 1, 2, 3],
+    }],
   },
   // 𭰲 (⿰氵⿵冂并) is the only encoded character with this shape; its frame serves the ⿵冂 enclosure.
   '⿵': {
@@ -379,6 +383,20 @@ const ENCLOSURE_FORMS = {
       '345749510c894ac303898cacbbd71bc35880cb6179990632d00b1ffe463f2d71': [3],
     }],
   },
+}
+
+/** Characters whose glyphs the tree's designed cuts are read from; the loader preloads them. */
+export const designedSources = tree => {
+  const out = new Set()
+  const visit = node => {
+    if (!Array.isArray(node)) return
+    const [op, ...children] = node
+    for (const [key, [char]] of Object.entries(ENCLOSURE_FORMS[op] ?? {})) if (children[0] === key) out.add(char)
+    for (const [key, [char]] of Object.entries(DESIGNED_CUTS)) if (children.includes(key)) out.add(char)
+    children.forEach(visit)
+  }
+  visit(tree)
+  return [...out]
 }
 
 // Left components the export carries no host cuts for, taken from a designed character's glyph.
@@ -1704,6 +1722,11 @@ export class Composer {
 
   /** The drawn part closest to what `node` needs at `index` of `op` inside `box`, as [record, piece]. */
   host(op, index, node, siblings, box, isPlaced = false) {
+    // The designed ⿺爪 (爬) is the only cut with the enclosure's posture.
+    if (op === '⿺' && index === 0 && node === '爪') {
+      const designed = this.enclosureForm(op, node)
+      if (designed) return designed
+    }
     if (containsComponentForm(keyOf(node), this.fontStyle)) return null
     if (this.keepsRowLayout(op, node)) return null
     // A cut of an entire repeated row can include strokes belonging to its host.
@@ -2098,6 +2121,12 @@ export class Composer {
         }
       }
     }
+    // A described ⿺爪… draws the inner a little low and small next to 爬's designed frame.
+    if (op === '⿺' && children[0] === '爪' && groups[1]?.length) {
+      const box = union(groups[1].map(p => p.target)), cx = (box[0] + box[2]) / 2, cy = (box[1] + box[3]) / 2
+      const down = 0.12 * (this.face[3] - this.face[1]), right = 0.04 * (this.face[2] - this.face[0])
+      for (const p of groups[1]) p.target = [cx + (p.target[0] - cx) * 1.15 + right, cy + (p.target[1] - cy) * 1.15 - down, cx + (p.target[2] - cx) * 1.15 + right, cy + (p.target[3] - cy) * 1.15 - down]
+    }
     this.recordJoints(op, groups)
     return this.flatten(groups)
   }
@@ -2361,6 +2390,12 @@ export class Composer {
           p.target = [cx + (p.target[0] - cx) * 0.90, cy + (p.target[1] - cy) * 0.90 + lift + (upper ? split : -split), cx + (p.target[2] - cx) * 0.90, cy + (p.target[3] - cy) * 0.90 + lift + (upper ? split : -split)]
         }
       }
+    }
+    // A described ⿺爪… draws the inner a little low and small next to 爬's designed frame.
+    if (op === '⿺' && children[0] === '爪' && groups[1]?.length) {
+      const box = union(groups[1].map(p => p.target)), cx = (box[0] + box[2]) / 2, cy = (box[1] + box[3]) / 2
+      const down = 0.12 * (this.face[3] - this.face[1]), right = 0.04 * (this.face[2] - this.face[0])
+      for (const p of groups[1]) p.target = [cx + (p.target[0] - cx) * 1.15 + right, cy + (p.target[1] - cy) * 1.15 - down, cx + (p.target[2] - cx) * 1.15 + right, cy + (p.target[3] - cy) * 1.15 - down]
     }
     this.recordJoints(op, groups)
     return this.flatten(groups)
