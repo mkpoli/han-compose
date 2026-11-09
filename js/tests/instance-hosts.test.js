@@ -14,6 +14,7 @@ const composer = (hosts, exclude = []) => {
   const c = Object.create(Composer.prototype)
   Object.defineProperty(c, 'partial', { value: false, configurable: true })
   c.C = { INSTANCE_HOSTS: 2, INSTANCE_KEPT: 0.75, STRETCH: 1.6, SIDED_PLACES: [] }
+  c.AXIS = { '⿰': 0, '⿱': 1, '⿲': 0, '⿳': 1 }
   c.exclude = new Set(exclude)
   c.excluded = ch => c.exclude.has(ch)
   c.data = { places: name => name === '⿰甲乙' ? ['R'] : [], hosts: () => hosts, manifest: {} }

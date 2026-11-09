@@ -3,10 +3,10 @@
 // key) loaded as a sequence needs it, and the sequence drawn from it as an SVG path. A file is
 // fetched once a page; a gzipped one (the export writes them so) is unpacked with DecompressionStream.
 import { APPROXIMATE, Composer, EMPTY, LookupError, keyOf, mapOperands, parseTree } from './compose.js'
-import { splitDescription, withoutMarks } from './tree.js'
-import { composeJamo } from './hangul.js'
+import { splitDescription } from './tree.js'
 import { hangulOfIds } from './hangul-ids.js'
-import { download } from './retry.js'
+import { composeJamo } from './hangul.js'
+import { withoutMarks } from './tree.js'
 import { ASCENT } from './geometry.js'
 import { drawnBox, svgPath } from './geometry.js'
 import { readLayout } from './layout.js'
@@ -14,11 +14,12 @@ import { isComponentForm, isGroupedForm } from './component-forms.js'
 import { hexOf } from './sha256.js'
 import { pyramidOnBase, pyramidRows } from './pyramid-rows.js'
 import { unicodeSource } from './unicode.js'
+import { download } from './retry.js'
 
 export { LookupError } from './compose.js'
 
-/** A syllable written as jamo draws its precomposed glyph: 라 typed as 라 is still 라.
- *  @param {any} part @returns {any} */
+// A syllable written as jamo draws its precomposed glyph: 라 typed as 라 is still 라.
+/** @param {any} part @returns {any} */
 function normaliseJamo(part) {
   if (typeof part === 'string') {
     // A tone mark belongs to the syllable before it, so the run under it is what gets rewritten.
@@ -27,18 +28,14 @@ function normaliseJamo(part) {
     const written = composeJamo(base)
     return written && [...written].length === 1 ? written + marks : part
   }
-  // Rebuilt operands keep their operator's crossing note.
+  // The composer's own tree holds each node as its operator followed by its operands.
   return Array.isArray(part) ? mapOperands(part, normaliseJamo) : part
 }
 
-/** `text` with every jamo-run leaf written as the syllable it composes. Text that does not read as a
- *  description is left as it is: the caller parses it, and reports why it does not.
- *  @param {string} text @param {(ch: string) => number} arity @returns {string} */
+/** `text` with every jamo-run leaf written as the syllable it composes. @param {string} text @param {(ch: string) => number} arity @returns {string} */
 function normaliseHangul(text, arity) {
-  try {
-    const written = normaliseJamo(parseTree(text, arity))
-    return typeof written === 'string' ? written : keyOf(written)
-  } catch { return text }
+  const written = normaliseJamo(parseTree(text, arity))
+  return typeof written === 'string' ? written : keyOf(written)
 }
 
 export async function unpack(buffer) {
@@ -58,8 +55,7 @@ export async function unpack(buffer) {
 // indices `k` of the host glyph's contours it keeps (or its own outlines `p`), its box `b`, the
 // node's frame `fr`, `wh` for the whole character, the gap `g` and `kv` for a KanjiVG cut, read here
 // onto the entry. A cut marked `pc` was made only under a parity row's exclusion.
-// The one format `web_export.py` writes. An earlier one is a failed load, not a fallback.
-const FORMATS = new Set([6])
+const FORMATS = new Set([5, 6])
 const shard = (folder, h) => `${folder}/${h.slice(0, 3)}.json`
 const cutEntry = h => h.c === null ? { ...h } : { ...h, ...h.c, c: true }
 const recordHash = key => hexOf(key)
@@ -138,9 +134,9 @@ export function createSource(read, { concurrency = 10 } = {}) {
 }
 
 /** A source over HTTP: `base` is the folder holding the export, `suffix` what each name carries there (`.gz`). */
-export function fromUrl(base, { suffix = '', fetch: get = download, load } = {}) {
+export function fromUrl(base, { suffix = '', fetch: get = download } = {}) {
   const root = base.endsWith('/') ? base : `${base}/`
-  return unicodeSource({ ...(load ? { load } : {}), fallback: createSource(async name => {
+  return unicodeSource({ fallback: createSource(async name => {
     const response = await get(`${root}${name}${suffix}`)
     // Only a shard (`g/`, `p/`) may be missing, as the export writes none where no key falls; a
     // missing manifest or layout fails with its status like any other error.
@@ -160,21 +156,22 @@ export const LIMITS = { nodes: 24, depth: 8 }
 /** The most layers a pyramid preview draws. Each layer adds a cell, so 64 layers is 2,080 cells. */
 export const PYRAMID_LAYERS = 64
 
-/** How many operators a tree has, and how deep they nest. */
+/** How many operators a tree has, and how deep they nest: a parsed tree (['⿰', …]) or the editor's
+ *  (`{ op, parts }`). */
 export function size(tree) {
   const kids = Array.isArray(tree) ? tree.slice(1) : tree && typeof tree === 'object' ? tree.parts : null
   if (!kids) return { nodes: 0, depth: 0 }
   const sizes = kids.map(size)
   return { nodes: 1 + sizes.reduce((s, k) => s + k.nodes, 0), depth: 1 + Math.max(0, ...sizes.map(k => k.depth)) }
 }
+/** Whether a tree is larger than a preview draws (`LIMITS`), unless it is a pyramid within
+ *  `PYRAMID_LAYERS`. A pyramid of two layers counts too: its cells are laid out apart, never merged
+ *  into the overlapping parts the limits guard against. */
 /** Whether a subtree is within the structural limits a preview draws. */
 const within = node => {
   const { nodes, depth } = size(node)
   return nodes <= LIMITS.nodes && depth <= LIMITS.depth
 }
-/** Whether a tree is larger than a preview draws (`LIMITS`), unless it is a pyramid or a pyramid on a
- *  base within `PYRAMID_LAYERS`, its cell and its base within `LIMITS`. A pyramid of two layers counts
- *  too: its cells are laid out apart, never merged into the overlapping parts the limits guard against. */
 export const tooLarge = tree => {
   const pyramid = pyramidRows(tree, { minLayers: 2 })
   if (pyramid) return pyramid.layers > PYRAMID_LAYERS || !within(pyramid.cell)
@@ -211,7 +208,7 @@ function modifiedOperators(sequence) {
 
 // A dedicated form consumes its internal operators, including the mirrored spelling.
 function extraOperators(tree, { fontStyle, separate, nativeEnclosures }) {
-  if (typeof tree === 'string' || tree === null) return []
+  if (typeof tree === 'string') return []
   const key = keyOf(tree)
   if ((separate ? isGroupedForm : isComponentForm)(key, fontStyle)) return []
   const op = nativeEnclosures.has(key) ? [] : [tree[0]]
@@ -229,25 +226,17 @@ export async function sketch(source, sequence, { fontStyle = 'sans' } = {}) {
   await source.ready()
   // Loose marks hang off the drawing; they are not leaves of it.
   const { base, marks } = splitDescription(sequence)
-  // Which boxes a node takes is decided by the operands' host lists, so their records are read
-  // before the layout: a sketch laid out without them would move when the drawing arrives.
-  const arity = ch => {
-    const c = source.manifest.constants
-    return c.BINARY.includes(ch) ? 2 : c.TERNARY.includes(ch) ? 3 : c.UNARY.includes(ch) ? 1 : 0
-  }
+  const arity = ch => { const c = source.manifest.constants; return c.BINARY.includes(ch) ? 2 : c.TERNARY.includes(ch) ? 3 : c.UNARY.includes(ch) ? 1 : 0 }
   const description = normaliseHangul(hangulOfIds(base) ?? base, arity)
-  try {
-    await source.load(source.filesOf([...keysOf(parseTree(description, arity), [], false, fontStyle), ...marks]))
-  } catch { /* a draft that does not read is laid out by the composer's own parse */ }
   // A mark beside the drawing takes room from the face, so its outline is read before the layout.
   if (marks) {
+    await source.load(source.filesOf([...marks]))
     const store = source.store()
     new Composer(store, { fontStyle }).faceBeside(marks)
     if (store.missing.size) await source.load(store.missing)
   }
   return new Composer(source.store(), { fontStyle }).sketch(description, marks).map(leaf => ({ ...leaf, box: svgBox(leaf.box) }))
 }
-
 
 /**
  * `sequence` drawn by the composer: `{ d, cut, slots, stroke, parts, origins, kanjivg, approximate }`,
@@ -266,7 +255,7 @@ export async function sketch(source, sequence, { fontStyle = 'sans' } = {}) {
  * `cells: true` and its parts' `origin` reads `cells <char>`.
  * Throws LookupError when a part can be drawn no way or the sequence is larger than `LIMITS`.
  */
-export async function compose(source, sequence, { exclude = [], face = null, separate = false, fontStyle = 'sans', layout = 'auto' } = {}) {
+export async function compose(source, sequence, { exclude = [], face = null, separate = false, fontStyle = 'sans', layout = 'auto', keepBars = false } = {}) {
   await source.ready()
   const arity = ch => {
     const c = source.manifest.constants
@@ -276,7 +265,8 @@ export async function compose(source, sequence, { exclude = [], face = null, sep
   if (layout === 'cells' && marks) throw new LookupError('Cells layout does not draw loose marks.')
   if (layout === 'cells' && modifiedOperators(sequence).length) throw new LookupError('Cells layout does not draw modified operators.')
   // A Hangul syllable described letter by letter draws as the syllable: ⿰ㄱㅏ is 가.
-  const description = normaliseHangul(hangulOfIds(base) ?? base, arity)
+  const syllable = hangulOfIds(base)
+  const description = normaliseHangul(syllable ?? base, arity)
   const tree = parseTree(description, arity)
   if (tooLarge(tree)) throw new LookupError(`${sequence} is larger than a preview draws.`)
   // A mark's outline loads like a component's.
@@ -285,7 +275,7 @@ export async function compose(source, sequence, { exclude = [], face = null, sep
     const store = source.store()
     let drawn = null, failure = null, composer = null, cells = false
     try {
-      composer = new Composer(store, { exclude, face, separate, fontStyle })
+      composer = new Composer(store, { exclude, face, separate, fontStyle, keepBars })
       cells = !marks && !modifiedOperators(sequence).length
         && (layout === 'cells' || (layout === 'auto' && composer.cellsFor(tree, marks)))
       drawn = cells ? composer.cellLayout(tree) : composer.compose(description, marks)
@@ -293,7 +283,7 @@ export async function compose(source, sequence, { exclude = [], face = null, sep
       // A separated drawing can fail where the whole glyph exists. Keep the glyph rather than fail
       // the preview: a view then finds one piece and leaves it alone.
       if (separate && !cells && !store.missing.size && error instanceof LookupError) {
-        try { composer = new Composer(store, { exclude, face, fontStyle }); drawn = composer.compose(description, marks) } catch (again) { failure = again }
+        try { composer = new Composer(store, { exclude, face, fontStyle, keepBars }); drawn = composer.compose(description, marks) } catch (again) { failure = again }
       } else failure = error
     }
     // A pass that met data not loaded yet only gathers what to load (`Composer.partial`); the drawing
@@ -304,6 +294,7 @@ export async function compose(source, sequence, { exclude = [], face = null, sep
     return { d: svgPath(ink.filter(p => !p.cut)), cut: svgPath(ink.filter(p => p.cut)),
       slots: drawn.filter(p => p.empty !== undefined).map(p => ({ index: p.empty, box: svgBox(drawnBox(p)) })),
       missing: [...(composer.missingGlyphs ?? [])],
+      normalization: { capped: [...composer.resolutions.values()].some(plan => plan.capped) },
       stroke: composer.stroke ?? null,
       parts: ink.map(p => ({ ...(p.leaf === undefined ? {} : { leaf: p.leaf }), origin: p.origin, box: svgBox(drawnBox(p)), d: svgPath([p]), cut: Boolean(p.cut), ...(p.part.strokes ? { strokes: p.part.strokes.map(([id, contours]) => [id, [...contours]]) } : {}) })), origins: ink.map(p => p.origin),
       kanjivg: Boolean(composer.handForms) || drawn.some(p => p.part.kv),
