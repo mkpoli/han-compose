@@ -2,7 +2,7 @@
 // The composer in the browser: han-compose's export (manifest, layout and the drawing data of each
 // key) loaded as a sequence needs it, and the sequence drawn from it as an SVG path. A file is
 // fetched once a page; a gzipped one (the export writes them so) is unpacked with DecompressionStream.
-import { APPROXIMATE, Composer, EMPTY, LookupError, keyOf, mapOperands, parseTree } from './compose.js'
+import { APPROXIMATE, Composer, EMPTY, LookupError, keyOf, leafCutChar, mapOperands, parseTree } from './compose.js'
 import { splitDescription } from './tree.js'
 import { hangulOfIds } from './hangul-ids.js'
 import { composeJamo } from './hangul.js'
@@ -195,6 +195,8 @@ function keysOf(tree, out = [], separate = false, fontStyle = 'sans', root = tru
   }
   if ((separate ? isGroupedForm : isComponentForm)(keyOf(tree), fontStyle)) return out
   if (!keyOf(tree).includes(EMPTY)) out.push(keyOf(tree))
+  const designed = leafCutChar(keyOf(tree))
+  if (designed) out.push(designed)
   if (Array.isArray(tree)) tree.slice(1).forEach(n => keysOf(n, out, separate, fontStyle, false))
   return out
 }
@@ -228,6 +230,14 @@ export async function sketch(source, sequence, { fontStyle = 'sans' } = {}) {
   const { base, marks } = splitDescription(sequence)
   const arity = ch => { const c = source.manifest.constants; return c.BINARY.includes(ch) ? 2 : c.TERNARY.includes(ch) ? 3 : c.UNARY.includes(ch) ? 1 : 0 }
   const description = normaliseHangul(hangulOfIds(base) ?? base, arity)
+  // A partitioned glyph lays its leaves out from its own outlines, so its record loads before the layout.
+  const designed = leafCutChar(description)
+  if (designed) {
+    await source.load(source.filesOf([designed]))
+    const store = source.store()
+    new Composer(store, { fontStyle }).glyphRecord(designed)
+    if (store.missing.size) await source.load(store.missing)
+  }
   // A mark beside the drawing takes room from the face, so its outline is read before the layout.
   if (marks) {
     await source.load(source.filesOf([...marks]))
