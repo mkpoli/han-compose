@@ -58,6 +58,8 @@ SHARD_DIGITS = 3
 SHARDS = 16 ** SHARD_DIGITS
 #: The per-key files workers write, under the output folder.
 WORK = ".work"
+#: The variation sequences the folder holds records for, by base character.
+VARIANTS = "variants.json"
 #: Outline coordinates are stored as int16 in units of 1 / `QUANT` font unit.
 QUANT = 4
 #: Layout weights: int8 with a scale per output column when its boxes stay within `INT8_TOLERANCE`
@@ -468,6 +470,50 @@ def letters(font: C.Font) -> set[str]:
     return out
 
 
+def variants(font: C.Font) -> set[str]:
+    """Every variation sequence the style's main font draws with a glyph of its own, not its
+    base character's (`Font.selected`): 者 U+8005 U+E0101, the dotted 者."""
+    return {chr(point) + chr(selector) for (point, selector), name in font.variants.items()
+            if name is not None and name != font.cmap.get(point)}
+
+
+def variant_choices(font: C.Font) -> set[str]:
+    """`variants` with one sequence for each glyph, what `VARIANTS` lists: where several selectors
+    of a character draw one glyph, the first ideographic one (U+E0100 on) stands for them, else
+    the first. 者 U+FE00 draws the same dotted 者 as 者 U+E0101 and is recorded but not listed."""
+    glyphs: dict[tuple[int, str], int] = {}
+    for (point, selector), name in sorted(font.variants.items()):
+        if name is None or name == font.cmap.get(point):
+            continue
+        held = glyphs.get((point, name))
+        if held is None or (held < 0xE0100 <= selector):
+            glyphs[(point, name)] = selector
+    return {chr(point) + chr(selector) for (point, _), selector in glyphs.items()}
+
+
+def variant_index(keys: Iterable[str]) -> dict[str, str]:
+    """`VARIANTS`' content: each base character of `keys` → its selectors, in code point order."""
+    index: dict[str, str] = {}
+    for key in sorted(k for k in keys if len(k) == 2 and C._selector(k[1])):
+        index[key[0]] = index.get(key[0], "") + key[1]
+    return index
+
+
+def _write_variants(out: Path, manifest: dict, keys: Iterable[str]) -> None:
+    """Write `VARIANTS` for the variation sequences among `keys`, beside those the folder already
+    lists, and name it in the manifest. A folder with none has no such file."""
+    path = out / VARIANTS
+    held = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+    index = variant_index({base + selector for base, selectors in held.items() for selector in selectors} | set(keys))
+    if not index:
+        return
+    data = _dump(index)
+    _replace(path, data)
+    manifest["files"]["variants"] = {"path": VARIANTS, "bytes": len(data), "characters": len(index),
+                                     "sequences": sum(len(selectors) for selectors in index.values())}
+    manifest.setdefault("paths", {})["variants"] = PATHS["variants"]
+
+
 def own_letters(font: C.Font) -> set[str]:
     """Every letter the style's main font maps, ideographs included: a character with no usable
     sequence (帰) is still written, on its own and as an operand."""
@@ -796,6 +842,7 @@ PATHS = {
     "encoding": "every file under g/ and p/ is gzip-compressed JSON (mtime 0, keys sorted); serve it with Content-Encoding: gzip or decompress it",
     "missing": "a key or (place, operand) absent from its shard, or whose shard is absent, has no record or no host the composer cuts cleanly",
     "work": ".work/g/{hh}/{sha256}.json and .work/p/{hh}/{sha256}.json are the per-key files the export's workers write and pack builds the shards from. .work/ must never be uploaded: each of its files is one more object written (rclone copy --exclude '.work/**')",
+    "variants": "variants.json: {character: its variation selectors}, the variation sequences the main font draws with a glyph of its own, one for each glyph (the first ideographic selector where several draw it), each with a record under the character and its selector; a sequence left out for sharing a glyph has its record too. Absent where the font has none",
     "added": "manifest added lists records written into a finished folder afterwards (export-web --add): the set, the commit that wrote them, how many, how many of the folder's records it redrew and matched first (probe), and how many shards changed. The folder's version gains +<set>, since files are served immutable by URL and new bytes need a new name",
     "rerun": ".export names the version, the layout, font and KanjiVG hashes, the key set and the parity sizes that wrote the folder; a rerun with the same, from a known clean commit, keeps the .work/ files and writes only the missing ones, then packs every shard afresh; anything else starts afresh. .complete is written last, after manifest.json and the shards",
 }
@@ -911,10 +958,12 @@ def _export(composer: C.Composer, out: Path, joyo: list[str] | None = None, pari
         pool.join()
 
     # Records: every operand the index holds, every character a sequence describes, every
-    # positional form, the parity drawings' leaves, every sequence the font draws, every operand of
+    # positional form, the parity drawings' leaves, every sequence the font draws, every variation
+    # sequence the main font draws with a glyph of its own (`variants`), every operand of
     # the layout table, every operand with a host list, every letter the fonts draw (`letters`), and
     # every letter the main font maps (`own_letters`).
     chars = {w for _, w in composer.operands if _leaf(w)} | set(composer.by_sequence.values()) | letters(composer.font) | own_letters(composer.font)
+    chars |= variants(composer.font)
     chars |= {form for forms in composer.forms.values() for form, _ in forms}
     chars |= {written for _, written in _INJECT if _leaf(written)}
     for rows, _ in sets.values():
@@ -1015,6 +1064,8 @@ def _export(composer: C.Composer, out: Path, joyo: list[str] | None = None, pari
             ],
         },
     }
+    (out / VARIANTS).unlink(missing_ok=True)
+    _write_variants(out, manifest, chars & variant_choices(composer.font))
     _write_manifest(out, manifest)
     manifest = pack(out, root, log)
     complete.write_text(manifest["version"], encoding="utf-8")
@@ -1128,6 +1179,7 @@ def add(composer: C.Composer, out: Path, keys: Iterable[str], name: str, root: P
         before[shard] = {"sha256": hashlib.sha256(packed).hexdigest() if packed is not None else None,
                          "bytes": len(data) if packed is not None else 0, "entries": len(json.loads(data))}
     pending["keys"] = sorted(set(pending.get("keys", [])) | set(new))
+    pending["variants"] = sorted(set(pending.get("variants", [])) | (set(new) & variant_choices(composer.font)))
     pending["added"]["keys"] = len(pending["keys"])
     (out / ".complete").unlink(missing_ok=True)
     _replace(out / PENDING, _dump(pending))
@@ -1277,6 +1329,8 @@ def _pack_pending(out: Path, manifest: dict, log, changed: list[str]) -> dict:
                     "p95_gzip": int(np.percentile(gz, 95)), "max_gzip": int(gz.max()),
                     "bytes": pending["bytes"] + raw, "entries": pending["entries"] + entries})
     manifest["files"]["records"] = summary
+    # A stopped addition packs the records it wrote: only those are listed.
+    _write_variants(out, manifest, [key for key in pending.get("variants", []) if (out / record_work(key)).exists()])
     entry = {**pending["added"], "shards": len(changed)}
     if manifest.get("added", [None])[-1] != entry:
         manifest.setdefault("added", []).append(entry)
