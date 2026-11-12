@@ -62,6 +62,11 @@ into gzipped shards by the first three hex digits of their SHA-256 (`g/<hhh>.jso
 so a sequence loads only the shards its parts fall in. This package reads format 6 and no earlier
 one; a manifest of another format is a failed load.
 
+A character written with a variation selector (`者\u{E0101}`) draws the glyph the export's font maps
+that sequence to. `variationSequences(base)` from `@han-compose/composer/variants` reads the
+export's `variants.json` and answers each character with the sequences it draws; an export of a
+font with none answers an empty map.
+
 ## Examples
 
 ```
