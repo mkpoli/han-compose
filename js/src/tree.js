@@ -394,10 +394,13 @@ export const marksOf = part => typeof part === 'string' ? splitText(part).marks 
 function splitText(text) {
   const chars = [...text]
   if (chars.length === 1) return { base: text, marks: '' }
-  // An Emoji sequence or a conjoining jamo run is one component, not its first character and marks.
+  // An Emoji sequence, a conjoining jamo run or a component no code point names is one component,
+  // not its first character and marks.
   const emoji = EMOJI_START.test(chars[0]) ? emojiPrefix(text) : ''
-  let at = emoji ? [...emoji].length : hangulClusterAt(chars, 0)?.end ?? 1
+  let at = customAt(chars)?.end ?? (emoji ? [...emoji].length : hangulClusterAt(chars, 0)?.end ?? 1)
   if (isSelector(chars[at])) at++
+  // What follows and is no mark stays with the component.
+  while (at < chars.length && !isMark(chars[at])) at++
   return { base: chars.slice(0, at).join(''), marks: chars.slice(at).join('') }
 }
 
