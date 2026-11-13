@@ -2,7 +2,7 @@
 // The composer in the browser: han-compose's export (manifest, layout and the drawing data of each
 // key) loaded as a sequence needs it, and the sequence drawn from it as an SVG path. A file is
 // fetched once a page; a gzipped one (the export writes them so) is unpacked with DecompressionStream.
-import { APPROXIMATE, Composer, EMPTY, LookupError, keyOf, leafCutChar, mapOperands, parseTree } from './compose.js'
+import { APPROXIMATE, Composer, EMPTY, LookupError, designedSources, keyOf, leafCutChar, mapOperands, parseTree } from './compose.js'
 import { splitDescription } from './tree.js'
 import { hangulOfIds } from './hangul-ids.js'
 import { composeJamo } from './hangul.js'
@@ -280,7 +280,7 @@ export async function compose(source, sequence, { exclude = [], face = null, sep
   const tree = parseTree(description, arity)
   if (tooLarge(tree)) throw new LookupError(`${sequence} is larger than a preview draws.`)
   // A mark's outline loads like a component's.
-  await source.load(source.filesOf([...keysOf(tree, [], separate, fontStyle), ...marks]))
+  await source.load(source.filesOf([...keysOf(tree, [], separate, fontStyle), ...marks, ...designedSources(tree)]))
   for (let round = 0; round < ROUNDS; round++) {
     const store = source.store()
     let drawn = null, failure = null, composer = null, cells = false
