@@ -1,7 +1,7 @@
 // @ts-check
 // The tokens of a sequence field: each part, operator and loose mark with the offsets a caret and a
 // selection use. The syntax is the text layer's (`tree.js`); a token is one description at one path.
-import { EMPTY_MARKS, arity, emojiPrefix, hangulClusterAt, isMark, isSelector, isToneMark, modifierAt, parseDescription, strokeChain, takesModifier } from './tree.js'
+import { EMPTY_MARKS, arity, customAt, emojiPrefix, hangulClusterAt, isMark, isNode, isSelector, isToneMark, modifierAt, parseDescription, strokeChain, takesModifier } from './tree.js'
 
 /**
  * @typedef {{ path: number[], start: number, end: number, tokenEnd: number, text: string, noteStart?: number, noteEnd?: number }} Token
@@ -17,7 +17,13 @@ import { EMPTY_MARKS, arity, emojiPrefix, hangulClusterAt, isMark, isSelector, i
  */
 export function tokens(text) {
   if (!text) return []
-  try { parseDescription(text) } catch { return [] }
+  let tree
+  try { tree = parseDescription(text) } catch { return [] }
+  // The text reads with a custom component as one part, or with its braces, & and # as characters
+  // of their own; the tokens follow whichever reading the description took.
+  /** @param {import('./tree.js').Part} part @returns {boolean} */
+  const custom = part => isNode(part) ? part.parts.some(custom) : typeof part === 'string' && customAt([...part])?.end === [...part].length
+  const customs = custom(tree)
   /** @type {Token[]} */
   const out = []
   let at = 0
@@ -38,6 +44,13 @@ export function tokens(text) {
       selector()
       tones()
       out.push({ path, start, end: at, tokenEnd: at, text: text.slice(start, at) })
+      return
+    }
+    // A component no code point names is one token, in its source's spelling.
+    const named = customs ? customAt(chars, 0) : null
+    if (named) {
+      at += named.text.length
+      out.push({ path, start, end: at, tokenEnd: at, text: named.text })
       return
     }
     const char = emojiPrefix(text.slice(at)) || chars[0] || ''
