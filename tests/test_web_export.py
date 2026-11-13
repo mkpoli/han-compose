@@ -528,6 +528,38 @@ def test_added_letters_rebuild_only_their_shards(composer: compose.Composer, tmp
     assert web_export.added_version(version, "digits") == version + "+digits"
 
 
+def test_added_variation_sequences_are_recorded_and_listed(composer: compose.Composer, tmp_path: Path) -> None:
+    out, root = tmp_path / "out", _clean_root(tmp_path)
+    web_export.export(composer, out, only={"王", "何"}, pairs=set(), root=root, log=lambda _: None)
+    assert not (out / web_export.VARIANTS).exists()
+    found = web_export.variants(composer.font)
+    assert "者\U000E0101" in found and "侮\U000E0101" in found
+    # A sequence the font maps to its base character's own glyph is no variant.
+    assert all(composer.font._name(key) != composer.font._name(key[0]) for key in found)
+    # One sequence is listed for each glyph: U+FE00 draws the same dotted 者, recorded but not listed.
+    choices = web_export.variant_choices(composer.font)
+    assert "者\U0000FE00" in found - choices and composer.font._name("者\U0000FE00") == composer.font._name("者\U000E0101")
+    keys = {"者\U000E0101", "侮\U000E0101", "者\U0000FE00"}
+    web_export.add(composer, out, keys, "variants", root=root, log=lambda _: None)
+    packed = web_export.pack(out, root=root, log=lambda _: None)
+    assert packed["version"].endswith("+variants")
+    index = json.loads((out / web_export.VARIANTS).read_text(encoding="utf-8"))
+    assert index == {"者": "\U000E0101", "侮": "\U000E0101"}
+    assert packed["files"]["variants"]["sequences"] == 2
+    assert _record(out, "者\U0000FE00")["G"]["p"] == _record(out, "者\U000E0101")["G"]["p"]
+    # The record is the sequence's own glyph, not the plain character's.
+    plain = web_export.char_record(composer, "者", [], composer.layout.tables["all"], {})
+    assert _record(out, "者\U000E0101")["G"]["p"] != plain["G"]["p"]
+
+
+def test_a_full_export_lists_the_variation_sequences_it_records(composer: compose.Composer, tmp_path: Path) -> None:
+    out = tmp_path / "out"
+    manifest = web_export.export(composer, out, only={"王", "者", "者\U000E0101"}, pairs=set(), log=lambda _: None)
+    assert json.loads((out / web_export.VARIANTS).read_text(encoding="utf-8")) == {"者": "\U000E0101"}
+    assert manifest["files"]["variants"] == {"path": "variants.json", "bytes": (out / "variants.json").stat().st_size, "characters": 1, "sequences": 1}
+    assert _record(out, "者\U000E0101")["G"]["p"]
+
+
 def test_letters_are_not_added_from_another_font_or_a_dirty_tree(composer: compose.Composer, tmp_path: Path) -> None:
     out, root = tmp_path / "out", _clean_root(tmp_path)
     web_export.export(composer, out, only={"王"}, pairs=set(), root=root, log=lambda _: None)

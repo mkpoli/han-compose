@@ -103,6 +103,11 @@ new name, and the folder is uploaded whole under it. The manifest's `added` name
 set, the count and the shards changed. Adding the same set again keeps the name. `--dry-run`
 reports how many keys and shards an addition would take and writes nothing.
 
+Records also hold every variation sequence the style's main font draws with a glyph of its own
+(者 U+8005 U+E0101, the dotted 者), under the character and its selector, and `variants.json` lists
+each character's selectors. `export-web OUT --add variants` writes them into a finished folder the
+same way, and the folder's version gains `+variants`.
+
 `.work/` must never be uploaded: each of its files would be one more object written. Exclude it
 when copying the folder out:
 

@@ -29,7 +29,7 @@ import { hangulLetters } from './hangul-ids.js'
 import { toConjoiningJamo } from './hangul.js'
 import { componentFix } from './component-fixes.js'
 import { isOutbound, markFace, markParts } from './marks.js'
-import { splitToneMarks, toneMarksAt } from './tree.js'
+import { customAt, splitToneMarks, toneMarksAt } from './tree.js'
 import { hexOf } from './sha256.js'
 import componentConstants from './constants.json' with { type: 'json' }
 import numberedFiveContext from '../data/numbered-five-context.json' with { type: 'json' }
@@ -208,6 +208,9 @@ export function parseTree(sequence, arity) {
   const node = () => {
     if (at >= chars.length) throw new LookupError(`${sequence} is missing a component.`)
     let ch = chars[at++]
+    // A component no code point names ({53}, &CDP-8BD0;, #(-𠃌㇉)) is one component.
+    const custom = customAt(chars, at - 1)
+    if (custom) { at = custom.end; return custom.text }
     const n = arity(ch)
     if (!n) {
       // A run of conjoining jamo that forms one syllable is one component, as the editor reads it.
@@ -343,6 +346,25 @@ const VARIANT_CUTS = {
     '0569d2e44325d2d0dc3c4a2ee2f26f044aa3fa08d623bd06a935b39dc5b419fe': [[0,1,2,3,4,5,6,7,8],[9,10,11,12,13,14,15]],
   }],
 }
+
+// Descriptions whose designed glyph no split of the parts reproduces: 鬱's 冖 runs under the top
+// row and between 鬯 and 彡, so a composed 鬱 leaves a seam or a doubled stroke and reads as another
+// character. The export's glyph is partitioned here, one piece per operand in reading order. A face
+// whose glyph the digest does not name (Fangsong merges the top row into one outline) draws the
+// whole glyph instead of a broken composition.
+const YU_CUTS = {
+  'fb9c7330b5c71f7e790ac36839fc97e904c1d8f042820ec0088a4422b509f3fb': [[0,1,3,4],[6,7,9,17,25],[2,5,8,24],[18],[10,11,12,13,14,15,16,19,20],[21,22,23]],
+  'a56b3b57174cd99a9b3dc5a1f4266124b633b61d1258ce40e699f51c4db020aa': [[0,8,9,14],[2,4,5,18,28,29,30],[1,3,15,16],[17],[6,7,10,11,12,13,19,20,22,23,24,31],[21,25,26,27]],
+  'a14ef02d3559416bf3d41ed615ac00fdef92479390e68602544bde166cb7ec47': [[2],[1],[0],[3],[5,6,7,8,9,11,13],[4,10,12]],
+}
+
+const LEAF_CUTS = {
+  '⿳⿲木缶木冖⿰鬯彡': ['鬱', YU_CUTS],
+}
+
+/** The character whose designed glyph `sequence` is partitioned from, for a caller that must load
+ *  its record before sketching. @param {string} sequence */
+export const leafCutChar = sequence => LEAF_CUTS[sequence]?.[0] ?? null
 
 // 身 shortens its first stroke and lifts its foot for the left column. The cuts from 射, 躬 and
 // 躭 have that form; a cut from a dense neighbour (𨊂, 軀, 軆) keeps the standalone width, which
@@ -847,6 +869,8 @@ export class Composer {
 
   /** The leaves of `sequence` laid out in the current face. */
   sketched(sequence) {
+    const partitioned = this.leafCutSketch(sequence)
+    if (partitioned) return partitioned
     const out = []
     const walk = (node, region, atRoot) => {
       const pyramid = this.pyramid(node)
@@ -1020,6 +1044,8 @@ export class Composer {
     }
     const native = this.enclosureParts(node, region)
     if (native) return native
+    const interlocked = this.leafParts(node, region)
+    if (interlocked) return interlocked
     const designed = this.variantParts(node, region)
     if (designed) return designed
     const key = keyOf(node), nativeSource = yanGlyphs.get(key) ?? yanSources.get(key)
@@ -1331,6 +1357,47 @@ export class Composer {
     if (!this.separate) return [placed(glyph, glyph.box, target, this.ink(char), `glyph ${char}`)]
     return indices.map(group => {
       const part = derived(glyph, group.map(i => glyph.contours[i]))
+      return { ...placed(part, part.box, mapped(part.box, glyph.box, target), this.ink(char), `glyph ${char}`), balanceBox: glyph.box }
+    })
+  }
+
+  /** The leaf boxes of a partitioned designed glyph, in the sketch's own units, so a document view
+   *  frames each piece by the box the drawing gives it. */
+  leafCutSketch(sequence) {
+    const entry = LEAF_CUTS[sequence]
+    if (!entry || this.excluded(entry[0])) return null
+    const [char, cuts] = entry, record = this.glyphRecord(char)
+    if (!record) return null
+    const glyph = partOf(record), target = fitted(glyph.box, this.face, this.C.STRETCH)
+    const groups = cuts[hexOf(JSON.stringify(record.p))]
+    if (!groups) return null
+    const tree = this.parse(sequence)
+    const count = node => typeof node === 'string' ? 1 : node.slice(1).reduce((sum, kid) => sum + count(kid), 0)
+    if (typeof tree === 'string' || groups.length !== count(tree)) return null
+    return groups.map((group, index) => {
+      const part = derived(glyph, group.map(i => glyph.contours[i]))
+      return { index, box: mapped(part.box, glyph.box, target), empty: false }
+    })
+  }
+
+  /** The designed glyph of a description whose operands interlock, partitioned one piece per leaf;
+   *  a face the partition does not name draws the whole glyph, which still reads as the character. */
+  leafParts(node, region) {
+    const entry = Array.isArray(node) ? LEAF_CUTS[keyOf(node)] : null
+    if (!entry || this.expanding.size || this.excluded(entry[0])) return null
+    const [char, cuts] = entry, record = this.glyphRecord(char)
+    if (!record) return null
+    const glyph = partOf(record), target = fitted(glyph.box, region, this.C.STRETCH)
+    const count = node => typeof node === 'string' ? 1 : node.slice(1).reduce((sum, kid) => sum + count(kid), 0)
+    const groups = cuts[hexOf(JSON.stringify(record.p))]
+    if (!this.separate || !groups || groups.length !== count(node)) return [placed(glyph, glyph.box, target, this.ink(char), `glyph ${char}`)]
+    return groups.map(group => {
+      const part = derived(glyph, group.map(index => glyph.contours[index]))
+      // A stroke the piece holds whole stays addressable, its contours renumbered to the piece.
+      const strokes = (glyph.strokes ?? [])
+        .filter(([, contours]) => contours.every(contour => group.includes(contour)))
+        .map(([id, contours]) => [id, contours.map(contour => group.indexOf(contour))])
+      if (strokes.length) part.strokes = strokes
       return { ...placed(part, part.box, mapped(part.box, glyph.box, target), this.ink(char), `glyph ${char}`), balanceBox: glyph.box }
     })
   }
