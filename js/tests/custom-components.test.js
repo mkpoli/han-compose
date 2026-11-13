@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import { customAt, descriptionEnd, isCustom, parseDescription, writeDescription } from '../src/tree.js'
+import { customAt, descriptionEnd, isCustom, marksOf, normalizeMarks, parseDescription, withoutMarks, writeDescription } from '../src/tree.js'
 import { tokens } from '../src/tokens.js'
 import { parseTree } from '../src/compose.js'
 
@@ -45,5 +45,15 @@ describe('the tokens of a field holding one', () => {
   it('follow the reading the description took', () => {
     expect(texts('⿳{1}')).toEqual(['⿳', '{', '1', '}'])
     expect(texts('⿰{5')).toEqual(['⿰', '{', '5'])
+  })
+})
+
+describe('loose marks beside one', () => {
+  it('leave a custom component whole', () => {
+    const tree = parseDescription('⿹{53}一')
+    expect(normalizeMarks(tree)).toEqual(tree)
+    expect(marksOf('&CDP-8964;')).toBe('')
+    expect(withoutMarks('#(-𠃌㇉)')).toBe('#(-𠃌㇉)')
+    expect(writeDescription(normalizeMarks(parseDescription('⿰木&CDP-8964;')))).toBe('⿰木&CDP-8964;')
   })
 })
