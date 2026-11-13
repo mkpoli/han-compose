@@ -176,6 +176,10 @@
       "types": "./types/constructs.d.ts",
       "default": "./src/constructs.js"
     },
+    "./variants": {
+      "types": "./types/variants.d.ts",
+      "default": "./src/variants.js"
+    },
     "./constants.json": "./src/constants.json"
   },
   "files": [
