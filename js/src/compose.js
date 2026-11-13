@@ -29,7 +29,7 @@ import { hangulLetters } from './hangul-ids.js'
 import { toConjoiningJamo } from './hangul.js'
 import { componentFix } from './component-fixes.js'
 import { isOutbound, markFace, markParts } from './marks.js'
-import { splitToneMarks, toneMarksAt } from './tree.js'
+import { customAt, splitToneMarks, toneMarksAt } from './tree.js'
 import { hexOf } from './sha256.js'
 import componentConstants from './constants.json' with { type: 'json' }
 import numberedFiveContext from '../data/numbered-five-context.json' with { type: 'json' }
@@ -208,6 +208,9 @@ export function parseTree(sequence, arity) {
   const node = () => {
     if (at >= chars.length) throw new LookupError(`${sequence} is missing a component.`)
     let ch = chars[at++]
+    // A component no code point names ({53}, &CDP-8BD0;, #(-𠃌㇉)) is one component.
+    const custom = customAt(chars, at - 1)
+    if (custom) { at = custom.end; return custom.text }
     const n = arity(ch)
     if (!n) {
       // A run of conjoining jamo that forms one syllable is one component, as the editor reads it.

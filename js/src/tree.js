@@ -73,6 +73,37 @@ export function strokeChain(chars, at) {
   return char === undefined ? null : { char, end: close + 1 }
 }
 
+/** The longest custom component, in code points. */
+const CUSTOM_LONGEST = 48
+/** @type {ReadonlyArray<readonly ['numbered' | 'entity' | 'chain', string, string, RegExp]>} */
+const CUSTOM_FORMS = [
+  ['numbered', '{', '}', /^[0-9]{1,4}$/],
+  ['entity', '&', ';', /^[A-Za-z][A-Za-z0-9+_-]*$/],
+  ['chain', '#(', ')', /^[^\s()[\]{}#&;]+$/u],
+]
+/**
+ * The component no code point names that starts at `chars[at]`, in its source's spelling, and where
+ * it ends: a numbered component of BabelStone IDS (`{53}`, IDS.TXT note 6), an entity reference of
+ * CHISE IDS (`&CDP-8BD0;`) or a zi.tools stroke chain (`#(-𠃌㇉)`, 白式 IDS §5). Null where none
+ * starts there. Each is one component of a description; a chain the grammar gives a character is
+ * read as that character first (`strokeChain`).
+ * @param {string[]} chars @param {number} [at]
+ * @returns {{ text: string, kind: 'numbered' | 'entity' | 'chain', end: number } | null}
+ */
+export function customAt(chars, at = 0) {
+  for (const [kind, open, close, inside] of CUSTOM_FORMS) {
+    if (chars[at] !== open[0] || (open.length > 1 && chars[at + 1] !== open[1])) continue
+    const start = at + open.length
+    const end = chars.indexOf(close, start)
+    if (end < 0 || end - at > CUSTOM_LONGEST) return null
+    const body = chars.slice(start, end).join('')
+    return inside.test(body) ? { text: open + body + close, kind, end: end + 1 } : null
+  }
+  return null
+}
+/** Whether a component is one no code point names. @param {string | null | undefined} component */
+export const isCustom = component => { const chars = [...(component ?? '')]; return customAt(chars)?.end === chars.length }
+
 const segmenter = new Intl.Segmenter('und', { granularity: 'grapheme' })
 const EMOJI_START = /^(?:\p{Extended_Pictographic}|\p{Regional_Indicator}|[0-9#*])/u
 const EMOJI = /\p{Extended_Pictographic}|\p{Regional_Indicator}|[0-9#*]\uFE0F?\u20E3/u
@@ -199,14 +230,30 @@ export function modifierAt(chars, at) {
  * @returns {Part}
  */
 export function parseDescription(sequence) {
+  // Braces, & and # are graphic characters too: where a text does not read whole with a custom
+  // component, its characters are read one by one (⿳{1} as {, 1 and }).
+  const literal = () => { try { const read = readDescription(sequence, false); return read.short ? null : read.tree } catch { return null } }
+  try {
+    const read = readDescription(sequence, true)
+    return read.short && /[{&#]/.test(sequence) ? literal() ?? read.tree : read.tree
+  } catch (error) {
+    const tree = /[{&#]/.test(sequence) ? literal() : null
+    if (tree === null) throw error
+    return tree
+  }
+}
+
+/** A description read, and whether the text ended before its operators had their parts.
+ * @param {string} sequence @param {boolean} customs @returns {{ tree: Part, short: boolean }} */
+function readDescription(sequence, customs) {
   const chars = [...sequence]
-  let at = 0
+  let at = 0, short = false
   /** @returns {Part} */
   const read = () => {
     const emoji = EMOJI_START.test(chars[at] ?? '') ? emojiPrefix(chars.slice(at).join('')) : ''
     const char = emoji || chars[at]
     at += emoji ? [...emoji].length : 1
-    if (char === undefined) return null
+    if (char === undefined) { short = true; return null }
     // A stroke chain that names a character stands for that character.
     if (char === '#' && !emoji) {
       const chain = strokeChain(chars, at - 1)
@@ -219,6 +266,9 @@ export function parseDescription(sequence) {
         return written + tones
       }
     }
+    // A component no code point names is one part, written as its source writes it.
+    const custom = emoji || !customs ? null : customAt(chars, at - 1)
+    if (custom) { at = custom.end; return custom.text }
     const n = arity(char)
     if (!n) {
       if (EMPTY_MARKS.includes(char)) return null
@@ -247,7 +297,7 @@ export function parseDescription(sequence) {
     tree = withMarks(tree, marks)
   }
   if (at < chars.length) throw new SyntaxError(`More follows one description in ${sequence}.`)
-  return tree
+  return { tree, short }
 }
 
 /**
@@ -268,11 +318,19 @@ export const writeDescription = tree => isEmpty(tree) ? EMPTY : isNode(tree) ? o
  * @returns {number}
  */
 export function descriptionEnd(chars, at = 0) {
+  const end = endOf(chars, at, true)
+  return end < 0 ? endOf(chars, at, false) : end
+}
+
+/** @param {string[]} chars @param {number} at @param {boolean} customs @returns {number} */
+function endOf(chars, at, customs) {
   const char = chars[at]
   if (char === undefined) return -1
   const chain = strokeChain(chars, at)
   // A stroke chain stands for the character it names, and takes a variation selector like one.
   if (chain) return toneMarksAt(chars, isSelector(chars[chain.end]) ? chain.end + 1 : chain.end)
+  const custom = customs ? customAt(chars, at) : null
+  if (custom) return custom.end
   const n = arity(char)
   if (!n) {
     const emoji = EMOJI_START.test(char) ? emojiPrefix(chars.slice(at).join('')) : ''
@@ -287,7 +345,7 @@ export function descriptionEnd(chars, at = 0) {
   let end = at + 1
   const note = MODIFIABLE.has(char) ? modifierAt(chars, end) : ''
   if (note) end += [...note].length + 2
-  for (let k = 0; k < n && end >= 0; k++) end = descriptionEnd(chars, end)
+  for (let k = 0; k < n && end >= 0; k++) end = endOf(chars, end, customs)
   return end
 }
 
