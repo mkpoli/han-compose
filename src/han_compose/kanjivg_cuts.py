@@ -17,7 +17,7 @@ import gzip
 import re
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
-from functools import lru_cache
+from functools import cache, cached_property, lru_cache
 from pathlib import Path
 
 import numpy as np
@@ -56,61 +56,80 @@ class Group:
 @dataclass
 class Entry:
     root: Group
-    paths: list[np.ndarray]  # sampled centreline per stroke, 109 box, y down
+    d: list[str]  # each stroke's path data, in stroke order
+
+    @cached_property
+    def paths(self) -> list[np.ndarray]:
+        """Sampled centreline per stroke, 109 box, y down."""
+        return [sample_path(d) for d in self.d]
 
 
 _NUM = re.compile(r"[-+]?(?:\d*\.\d+|\d+\.?)(?:[eE][-+]?\d+)?")
+_TOKEN = re.compile(r"[MmLlCcSsZzHhVv]|" + _NUM.pattern)
+
+
+@cache
+def _weights(steps: int) -> tuple[list[float], list[tuple[float, float, float, float]]]:
+    """The parameters past a segment's start, and a cubic's four weights at each."""
+    ts = np.linspace(0, 1, steps)[1:]
+    cubic = [((1 - t) ** 3, 3 * (1 - t) ** 2 * t, 3 * (1 - t) * t ** 2, t ** 3) for t in ts]
+    return [float(t) for t in ts], [tuple(float(w) for w in row) for row in cubic]
 
 
 def sample_path(d: str, steps: int = 12) -> np.ndarray:
     """Points along an SVG path of M, L, C, S commands (absolute or relative), as KanjiVG writes them."""
-    tokens = re.findall(r"[MmLlCcSsZzHhVv]|" + _NUM.pattern, d)
-    pts, cur, start, last_ctrl, cmd, i = [], np.zeros(2), np.zeros(2), None, None, 0
-
-    def num():
-        nonlocal i
-        v = float(tokens[i])
-        i += 1
-        return v
-
-    while i < len(tokens):
-        if re.fullmatch(r"[A-Za-z]", tokens[i]):
+    tokens = _TOKEN.findall(d)
+    ts, cubic = _weights(steps)
+    pts: list[tuple[float, float]] = []
+    x = y = sx = sy = 0.0
+    ctrl: tuple[float, float] | None = None
+    cmd, i, n = None, 0, len(tokens)
+    while i < n:
+        if tokens[i][0].isalpha():
             cmd = tokens[i]
             i += 1
             if cmd in "Zz":
-                cur = start.copy()
+                x, y = sx, sy
                 continue
         rel = cmd.islower()
         c = cmd.upper()
-        base = cur if rel else np.zeros(2)
+        bx, by = (x, y) if rel else (0.0, 0.0)
         if c == "M":
-            cur = base + np.array([num(), num()])
-            start = cur.copy()
-            pts.append(cur.copy())
+            x, y = bx + float(tokens[i]), by + float(tokens[i + 1])
+            i += 2
+            sx, sy = x, y
+            pts.append((x, y))
             cmd = "l" if rel else "L"
-            last_ctrl = None
+            ctrl = None
         elif c == "L":
-            nxt = base + np.array([num(), num()])
-            pts.extend(cur + (nxt - cur) * t for t in np.linspace(0, 1, steps)[1:])
-            cur, last_ctrl = nxt, None
+            nx, ny = bx + float(tokens[i]), by + float(tokens[i + 1])
+            i += 2
+            dx, dy = nx - x, ny - y
+            pts.extend((x + dx * t, y + dy * t) for t in ts)
+            x, y, ctrl = nx, ny, None
         elif c == "H":
-            nxt = np.array([num() + (cur[0] if rel else 0), cur[1]])
-            pts.append(nxt)
-            cur, last_ctrl = nxt, None
+            x = float(tokens[i]) + (x if rel else 0)
+            i += 1
+            pts.append((x, y))
+            ctrl = None
         elif c == "V":
-            nxt = np.array([cur[0], num() + (cur[1] if rel else 0)])
-            pts.append(nxt)
-            cur, last_ctrl = nxt, None
+            y = float(tokens[i]) + (y if rel else 0)
+            i += 1
+            pts.append((x, y))
+            ctrl = None
         elif c in "CS":
             if c == "C":
-                p1 = base + np.array([num(), num()])
+                x1, y1 = bx + float(tokens[i]), by + float(tokens[i + 1])
+                i += 2
+            elif ctrl is not None:
+                x1, y1 = 2 * x - ctrl[0], 2 * y - ctrl[1]
             else:
-                p1 = 2 * cur - last_ctrl if last_ctrl is not None else cur.copy()
-            p2 = base + np.array([num(), num()])
-            p3 = base + np.array([num(), num()])
-            for t in np.linspace(0, 1, steps)[1:]:
-                pts.append((1 - t) ** 3 * cur + 3 * (1 - t) ** 2 * t * p1 + 3 * (1 - t) * t ** 2 * p2 + t ** 3 * p3)
-            cur, last_ctrl = p3, p2
+                x1, y1 = x, y
+            x2, y2 = bx + float(tokens[i]), by + float(tokens[i + 1])
+            x3, y3 = bx + float(tokens[i + 2]), by + float(tokens[i + 3])
+            i += 4
+            pts.extend((a * x + b * x1 + e * x2 + f * x3, a * y + b * y1 + e * y2 + f * y3) for a, b, e, f in cubic)
+            x, y, ctrl = x3, y3, (x2, y2)
         else:
             i += 1
     return np.array(pts) if pts else np.zeros((0, 2))
@@ -123,7 +142,7 @@ def kanjivg_file(cache: Path | None = None) -> Path:
 
 @lru_cache(maxsize=1)
 def load(path: str) -> dict[str, Entry]:
-    """Every kanji of a KanjiVG file (plain or gzipped): its groups and its strokes' centrelines."""
+    """Every kanji of a KanjiVG file (plain or gzipped): its groups and its strokes' path data."""
     out: dict[str, Entry] = {}
     with (gzip.open(path) if str(path).endswith(".gz") else open(path, "rb")) as f:
         root = ET.parse(f).getroot()
@@ -131,7 +150,7 @@ def load(path: str) -> dict[str, Entry]:
         top = next(iter(kanji), None)
         if top is None:
             continue
-        paths: list[np.ndarray] = []
+        paths: list[str] = []
 
         def build(node, paths=paths) -> Group:
             g = Group(node.get(KVG + "element"), node.get(KVG + "position"))
@@ -140,7 +159,7 @@ def load(path: str) -> dict[str, Entry]:
                     g.groups.append(build(child, paths))
                 elif child.tag == "path":
                     g.strokes.append(len(paths))
-                    paths.append(sample_path(child.get("d", "")))
+                    paths.append(child.get("d", ""))
             return g
 
         root = build(top)
@@ -275,7 +294,7 @@ class Cutter:
         if entry is None or owners is None:
             return None
         glyph = self.c.font.glyph(char)
-        strokes = set(range(len(entry.paths)))
+        strokes = set(range(len(entry.d)))
         node = tree
         for step in [*path, None]:
             if not isinstance(node, tuple):
