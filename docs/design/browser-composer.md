@@ -19,8 +19,8 @@ copy was tested. The fork has moved back here, as `js/`, and ids-input imports i
 | The outline files drawn without an export | this repository, `data/` |
 | The preview component, badges, focus, document layers, export as a file | ids-input, `src/svelte/` and `src/document/` |
 
-- Only `web_export.py` shapes the export. The package reads the one format the export writes; an
-  earlier format is a failed load, not a fallback.
+- Only `web_export.py` shapes the export, and writes format 6. The package reads formats 5 and 6
+  (`FORMATS` in `js/src/loader.js`); any other format is a failed load.
 - A sequence is the contract between the two. The package parses it with its own `parseDescription`
   into `{ op, parts }` trees. The editor's tree reaches the package only as text, or as the document
   `documentView` reads for a layered preview.

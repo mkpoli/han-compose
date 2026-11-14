@@ -4,7 +4,8 @@ han-compose draws a Han character from its ideographic description sequence (IDS
 `⿰亻哥`, as font outlines. Use it to draw a character no font has, one with no code point, or a
 regional form the font does not draw. Each part comes from a character the font already draws,
 cut out of it (along KanjiVG's component groups where KanjiVG has that kanji), set where the
-font's designers put parts like it, and brought to one stroke weight. The result is an SVG path in
+font's designers put parts like it. The sans and serif styles then bring the parts to one stroke
+weight; kaisho and fangsong keep the weight each part has in its font. The result is an SVG path in
 a 1000-unit em, in a sans style from Noto Sans CJK JP, whose ideographs GenZui Sans takes unchanged;
 a serif (明朝) style from Noto Serif CJK JP; a kaisho (楷書) style from Kureedo Full, the Klee One
 design with historical kana and LXGW WenKai Light for the characters Klee lacks; or a fangsong (仿宋)
@@ -24,7 +25,8 @@ so the image is shared under CC BY-SA 3.0.
 han-compose lays out ⿰ ⿱ ⿲ ⿳, the enclosures ⿴ to ⿺ and ⿼ ⿽, the overlay ⿻, the reflection ⿾
 and the half-turn ⿿. The right-hand enclosures ⿼ and ⿽ use the enclosing outline's opening or a
 default box when no opening is found; their placement is approximate and can differ substantially
-from a designed glyph. It does not draw ㇯ or 〾, and its fonts have no Tangut.
+from a designed glyph. The Python composer does not draw ㇯ or 〾, which the browser package (`js/`) draws by an
+approximate rule, and its fonts have no Tangut.
 Chữ Nôm characters are Han characters and are drawn like
 any other.
 
