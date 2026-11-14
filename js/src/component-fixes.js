@@ -60,6 +60,17 @@ function wideBottom(part) {
   return boxes.length ? Math.min(...boxes.map(box => box[1])) : boxOf(part)[1]
 }
 
+/** 止's four strokes, told apart by shape: the stem (tallest), the left stroke (next tallest, left
+ *  of the stem), the base (lowest of the flat two) and the short right bar. Null for any other
+ *  outline, such as a face that joins them. */
+function stopStrokes(part) {
+  if (part.part.contours.length !== 4) return null
+  const boxes = part.part.contours.map((contour, index) => ({ index, box: boxIn(part, contour) }))
+  const [stem, left, ...flat] = boxes.toSorted((a, b) => heightOf(b.box) - heightOf(a.box))
+  const [base, short] = flat.toSorted((a, b) => a.box[1] - b.box[1])
+  return centreX(left.box) < centreX(stem.box) && centreX(short.box) > centreX(stem.box) ? { stem, left, base, short } : null
+}
+
 /** A part with some contours replaced; the part's box and flags stay. */
 function revised(part, contours) {
   const out = derived(part.part, contours, part.part.box.slice())
@@ -101,17 +112,18 @@ export function narrowed(part, indices, factor) {
   return revised(part, contours)
 }
 
-/** `part` with the named contours raised by `rise` in the target, along y, keeping their columns. */
-export function raised(part, indices, rise) {
+/** `part` with the named contours lowered by `drop` in the target, along y, keeping their columns;
+ *  a negative `drop` raises them. */
+export function lowered(part, indices, drop) {
   const [, sy] = scaleOf(part)
-  if (!(rise > 0) || !(sy > 0)) return part
+  if (!drop || !(sy > 0)) return part
   const contours = part.part.contours.slice()
   for (const index of indices) {
     const contour = contours[index]
     const light = Float64Array.from(contour.light), heavy = Float64Array.from(contour.heavy ?? contour.light)
     for (let i = 1; i < light.length; i += 2) {
-      light[i] = light[i] - rise / sy
-      heavy[i] = heavy[i] - rise / sy
+      light[i] = light[i] - drop / sy
+      heavy[i] = heavy[i] - drop / sy
     }
     contours[index] = { ...contour, light, heavy }
   }
@@ -192,7 +204,7 @@ export const COMPONENT_FIXES = {
       if (bars.length > 1) {
         const upper = bars.at(-1)
         body = respanned(body, upper.index, x + 0.08 * width, right - 0.08 * width)
-        body = raised(body, [upper.index], centreY(upper.box) - (y + 0.25 * height))
+        body = lowered(body, [upper.index], centreY(upper.box) - (y + 0.25 * height))
       }
       return parts.map(part => part === mouth ? { ...part, target: mouthTarget } : part === earth ? body : part)
     },
@@ -217,8 +229,27 @@ export const COMPONENT_FIXES = {
   },
   // ⿻二丿: 二 drawn on its own has its lower line sitting lower than 龵 draws the pair under a
   // 丿 — the font lifts that line towards the upper one. The lower bar keeps its width and rises.
-  // ⿻一止 keeps a visible stem above the bar. 正's joined top is only a reference
-  // for stroke weight; the overlay must retain the protruding head of 止.
+  // ⿻一止 as the lower part of 𡋨 and 𢓩 draws it: the 一 crosses the stem a third of the way down,
+  // leaving the head of 止 above it, and 止's right bar and left stroke sit below the crossing, the
+  // bar just past halfway down and the left stroke starting there. The four strokes of 止 are told
+  // apart by shape, since the faces number them differently. A face that joins 止 into one outline
+  // keeps its strokes, and the 一 crosses above its right bar instead.
+  '⿻一止': {
+    glyphs: { '止': ['d9cf7eaf2648b8013a21bd390043e9d8f757f7af0f35af748ec96357a65ea6d0', '5c3b9c7da7f4c9120ea1966ca6f3c7ffebfe374b344fff5e3e9b4ece8440201f',
+      '057fcad4bac3a40f3749acaaec39e7beff5e18d0e01deb18b074bc3e06367174', '2e7bfdb342d36055f8d4138b9b64ceaa892cc6504d62ea76c696800d6faf3221'] },
+    apply(parts) {
+      const stop = partFrom(parts, 'glyph 止'), bar = parts.find(part => part !== stop)
+      if (!stop || !bar) return parts
+      const [, y, , top] = boxOf(stop), height = top - y, thickness = heightOf(bar.target)
+      const across = (/** @type {number} */ down) => ({ ...bar, target: [bar.target[0], top - down * height - thickness / 2, bar.target[2], top - down * height + thickness / 2] })
+      const strokes = stopStrokes(stop)
+      if (!strokes) return parts.map(part => part === bar ? across(0.24) : part)
+      let body = lowered(stop, [strokes.short.index], centreY(strokes.short.box) - (top - 0.585 * height))
+      body = clippedAbove(body, [strokes.left.index], top - 0.5 * height)
+      const line = across(0.33)
+      return parts.map(part => part === stop ? body : part === bar ? line : part)
+    },
+  },
   // ⿱𠂉一: the cut of 監's right side leaves the 一 short; as the component's lower line it runs
   // out to the face's right edge, five percent in from the left.
   // ⿱𠂉丶: the 丶 is taken from 遝, whose lower dot is a 捺, and fills the band as one. The 丶
@@ -341,9 +372,9 @@ export const COMPONENT_FIXES = {
 
 /** Whether `composer`'s glyphs are the outlines a correction was read against. */
 function matches(fix, composer) {
-  return Object.entries(fix.glyphs).every(([ch, digest]) => {
+  return Object.entries(fix.glyphs).every(([ch, digests]) => {
     const record = composer.glyphRecord(ch)
-    return record && hexOf(JSON.stringify(record.p)) === digest
+    return record && [digests].flat().includes(hexOf(JSON.stringify(record.p)))
   })
 }
 

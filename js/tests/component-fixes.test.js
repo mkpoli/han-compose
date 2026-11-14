@@ -141,6 +141,30 @@ describe('C049 ⿱𰀁口', () => {
   })
 })
 
+describe('C080 ⿻一止', () => {
+  // 止 as Noto Serif numbers its strokes: right bar, base, stem, left stroke; the 一 from 吏.
+  const stop = () => part('glyph 止', [38, -81, 967, 840], [38, -81, 967, 840],
+    [[544, 407, 921, 487], [38, -82, 967, -3], [502, -43, 583, 840], [182, -40, 261, 609]])
+  const line = () => part('overlay 吏', [65, 674, 931, 743], [65, 674, 931, 743], [[65, 674, 931, 743]])
+  const fix = COMPONENT_FIXES['⿻一止']
+  it('crosses a third of the way down, with 止’s right bar and left stroke below the crossing', () => {
+    const [bar, body] = fix.apply([line(), stop()])
+    const height = 840 + 82, fromTop = y => (840 - y) / height
+    const [shortBar, , stem, left] = body.part.contours.map(contour => targetBox(body, contour))
+    expect(fromTop((bar.target[1] + bar.target[3]) / 2)).toBeCloseTo(0.33, 2)
+    expect(fromTop((shortBar[1] + shortBar[3]) / 2)).toBeCloseTo(0.585, 2)
+    expect(fromTop(left[3])).toBeCloseTo(0.5, 2)
+    expect(bar.target[3] - bar.target[1]).toBeCloseTo(69, 6)
+    expect(stem[3]).toBeCloseTo(840, 6)
+  })
+  it('lifts only the 一 above the right bar where the face joins 止 into one outline', () => {
+    const joined = part('glyph 止', [38, -81, 967, 840], [38, -81, 967, 840], [[38, -82, 967, 840]])
+    const [bar, body] = fix.apply([line(), joined])
+    expect((840 - (bar.target[1] + bar.target[3]) / 2) / (840 + 82)).toBeCloseTo(0.24, 2)
+    expect(body).toBe(joined)
+  })
+})
+
 describe('C070 ⿵冂丨', () => {
   it('runs the 丨 up to the frame’s top bar', () => {
     const frame = part('learned 円', [90, -81, 916, 772], [94, -60, 926, 768], [[90, -81, 916, 772]])
