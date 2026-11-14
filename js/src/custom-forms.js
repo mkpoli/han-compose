@@ -41,21 +41,25 @@ const cutEntry = h => h.c === null ? { ...h } : { ...h, ...h.c, c: true }
  * @param {{ fallback?: any, load?: () => Promise<any>, style?: string }} options
  */
 export function customFormsSource({ fallback = null, load = () => pageLoader(CUSTOM_FORMS), style = 'sans' } = {}) {
-  let hosts = {}
+  let hosts = {}, ready = null
   const lists = new Map()
+  /** Read the file and the fallback, then name the library's places in the manifest. Kept once the
+   *  file has been read; asked again by the next drawing when it could not be. */
+  async function prepare() {
+    const [data] = await Promise.all([read(load), fallback?.ready()])
+    hosts = data?.hosts?.[style] ?? {}
+    const manifest = fallback?.manifest ?? { constants, spelled: [] }
+    const listed = manifest.files?.hosts?.places
+    // An export that names its host places lists only those; the library's are added to them.
+    source.manifest = listed ? { ...manifest, files: { ...manifest.files, hosts: { ...manifest.files.hosts,
+      places: [...listed, ...Object.entries(hosts).flatMap(([key, byPlace]) => Object.keys(byPlace).map(place => `${place}\t${key}`))] } } }
+      : manifest
+    source.layout = fallback?.layout ?? null
+    if (!data) ready = null
+  }
   const source = {
     manifest: null, layout: null,
-    async ready() {
-      const [data] = await Promise.all([read(load), fallback?.ready()])
-      hosts = data?.hosts?.[style] ?? {}
-      const manifest = fallback?.manifest ?? { constants, spelled: [] }
-      const listed = manifest.files?.hosts?.places
-      // An export that names its host places lists only those; the library's are added to them.
-      source.manifest = listed ? { ...manifest, files: { ...manifest.files, hosts: { ...manifest.files.hosts,
-        places: [...listed, ...Object.entries(hosts).flatMap(([key, byPlace]) => Object.keys(byPlace).map(place => `${place}\t${key}`))] } } }
-        : manifest
-      source.layout = fallback?.layout ?? null
-    },
+    ready: () => ready ??= prepare().catch(error => { ready = null; throw error }),
     load: names => fallback ? fallback.load(names) : Promise.resolve(),
     filesOf: keys => fallback ? fallback.filesOf(keys.filter(key => !hosts[key])) : new Set(),
     store() {

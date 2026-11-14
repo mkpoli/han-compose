@@ -1878,7 +1878,10 @@ export class Composer {
 
   /** The drawn part closest to what `node` needs at `index` of `op` inside `box`, as [record, piece]. */
   host(op, index, node, siblings, box, isPlaced = false) {
-    if (containsComponentForm(keyOf(node), this.fontStyle)) return null
+    // A component form draws from its own outlines; a cut form with a library of host cuts (`P`, its
+    // places) draws, like an encoded part, from the cut closest to its place.
+    const library = typeof node === 'string' && componentRecord(node, this.fontStyle)?.P?.length
+    if (!library && containsComponentForm(keyOf(node), this.fontStyle)) return null
     if (this.keepsRowLayout(op, node)) return null
     // A cut of an entire repeated row can include strokes belonging to its host.
     // Draw the row from its own glyph or its operands instead.
