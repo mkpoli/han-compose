@@ -43,11 +43,6 @@ from han_compose import (
 from han_compose.vocab import ROOT, cache_root
 
 app = typer.Typer(add_completion=False)
-# A composer keeps a few million tuples for the whole run: every sequence's tree and the host index
-# over them. At the default threshold the collector walks them again after every two thousand
-# allocations, about a fifth of a drawing's time, and finds nothing: the composer makes little
-# garbage in cycles. A young collection now waits for a hundred thousand.
-gc.set_threshold(100_000, 50, 100)
 
 
 #: The design drawn in: `sans` (Noto Sans CJK JP), `serif` (Noto Serif CJK JP), `kaisho` (Kureedo) or `fangsong` (Zhuque Fangsong), `compose.STYLES`.
@@ -97,9 +92,18 @@ def _composer(style: str = compose.DEFAULT_STYLE, **options) -> compose.Composer
     return composer
 
 
+def _collect_less() -> None:
+    """Start a young collection after a hundred thousand allocations, where Python starts one after
+    two thousand. A drawing builds the trees of every sequence and the host index over them, which
+    it keeps, and little garbage in cycles: at the default the collector runs thousands of times
+    while they are built, about a fifth of the time a drawing takes."""
+    gc.set_threshold(100_000)
+
+
 @app.command()
 def draw(sequence: str, style: str = STYLE) -> None:
     """Print the SVG of one sequence."""
+    _collect_less()
     path = compose.svg_path(_composer(style).compose(sequence))
     print(f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {compose.EM} {compose.EM}"><path d="{path}"/></svg>')
 
@@ -111,6 +115,7 @@ def draw_many(sequences: Path, out: Path, style: str = STYLE) -> None:
     import hashlib
     import unicodedata
 
+    _collect_less()
     composer = _composer(style)
     out.mkdir(parents=True, exist_ok=True)
     for line in sequences.read_text(encoding="utf-8").splitlines():
