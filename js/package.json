@@ -1,7 +1,7 @@
 {
   "name": "@han-compose/composer",
   "version": "0.1.0",
-  "description": "Draw an Ideographic Description Sequence in the browser: the composing engine of han-compose, its export reader, and a Web Worker that draws it.",
+  "description": "Draws a Han character from its ideographic description sequence (IDS), such as ⿰亻哥, as an SVG path, from parts of characters a font already draws.",
   "license": "MIT",
   "author": "mkpoli",
   "repository": {
@@ -17,8 +17,13 @@
     "han",
     "kanji",
     "hanzi",
-    "compose",
-    "svelte"
+    "hanja",
+    "chu nom",
+    "tangut",
+    "glyph",
+    "svg",
+    "unicode",
+    "typography"
   ],
   "type": "module",
   "sideEffects": [
