@@ -43,6 +43,11 @@ from han_compose import (
 from han_compose.vocab import ROOT, cache_root
 
 app = typer.Typer(add_completion=False)
+# A composer keeps a few million tuples for the whole run: every sequence's tree and the host index
+# over them. At the default threshold the collector walks them again after every two thousand
+# allocations, about a fifth of a drawing's time, and finds nothing: the composer makes little
+# garbage in cycles. A young collection now waits for a hundred thousand.
+gc.set_threshold(100_000, 50, 100)
 
 
 #: The design drawn in: `sans` (Noto Sans CJK JP), `serif` (Noto Serif CJK JP), `kaisho` (Kureedo) or `fangsong` (Zhuque Fangsong), `compose.STYLES`.
