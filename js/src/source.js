@@ -6,7 +6,7 @@
 import { bundledSource } from './bundled.js'
 import { fromUrl, unpack } from './loader.js'
 import { onlyBundled } from './local.js'
-import { unicodeSource } from './unicode.js'
+import { fetchBundled, unicodeSource } from './unicode.js'
 import { hasTangut, tangutSource } from './tangut.js'
 import { hasBopomofo, bopomofoSource } from './bopomofo.js'
 import { hasSmallSeal, smallSealSource } from './small-seal.js'
@@ -112,7 +112,7 @@ function bundledLoader(path, optional, loaders, read) {
     const file = fileOf(name)
     try {
       const answer = read ? await read(file, loaders[file])
-        : loaders[file] ? await fetch(loaders[file]) : null
+        : loaders[file] ? await fetchBundled(loaders[file]) : null
       if (answer === null) return {}
       return answer instanceof Response ? await parsed(answer, file) : answer
     } catch (error) {
