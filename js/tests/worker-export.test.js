@@ -23,8 +23,10 @@ it('reads an export once for a warming and for sequences of different kinds', as
     const times = name => asked.filter(path => path.endsWith(name)).length
     expect(times('manifest.json')).toBe(1)
     expect(times('layout.json')).toBe(1)
-    // A record read for one sequence is not read again for the next.
-    expect(new Set(asked.filter(path => /\/g\//.test(path))).size).toBe(asked.filter(path => /\/g\//.test(path)).length)
+    // A record or host list read for one sequence is not read again for the next.
+    const shards = asked.filter(path => /^[gp]\//.test(path))
+    expect(shards.length).toBeGreaterThan(0)
+    expect(new Set(shards).size).toBe(shards.length)
   } finally {
     globalThis.self = previousSelf
     globalThis.fetch = previousFetch

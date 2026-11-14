@@ -56,7 +56,8 @@ export const traitKey = traits => Object.entries(traits).map(([name, on]) => `${
  * replaces how the export is read, and `read` how a bundled file is: a page that reads its own assets
  * (a Worker over its deployment's files) answers by path, wherever `loaders` puts them. `exported`
  * is the export's own source (`exportSource`) where the caller keeps one for every sequence it draws
- * from `base`, so the export's files are read once however the sequences differ.
+ * from `base`, so the export's files are read once however the sequences differ; how that source
+ * reads the export was said when it was built, and `fetch` and `read` here reach the bundled files alone.
  * @param {string} sequence
  * @param {{ base?: string, fontStyle?: string, separate?: boolean, bundled?: boolean, remote?: boolean, loaders?: Record<string, string>, traits?: ReturnType<typeof traitsOf>, exported?: ReturnType<typeof exportSource> | null, fetch?: typeof globalThis.fetch, read?: (path: string, url?: string) => Promise<Response> }} [options]
  */
