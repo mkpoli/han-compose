@@ -22,7 +22,7 @@ export function bundledSource({ load, matches, fallback = null, under = false, a
         source.manifest = fallback?.manifest ?? { constants, spelled: [] }
       }).catch(error => { ready = null; throw error })
     },
-    modelFiles: () => fallback?.modelFiles() ?? [],
+    modelFiles: options => fallback?.modelFiles(options) ?? [],
     load: names => fallback ? fallback.load(names) : Promise.resolve(),
     filesOf: keys => fallback ? fallback.filesOf(under ? keys : keys.filter(key => !owns(key))) : new Set(),
     store() {

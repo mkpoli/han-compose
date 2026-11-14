@@ -51,7 +51,7 @@ export function unicodeSource({ fallback = null, load = readShard } = {}) {
         source.manifest = fallback?.manifest ?? { constants, spelled: [] }
       }).catch(error => { ready = null; throw error })
     },
-    modelFiles: () => fallback?.modelFiles() ?? [],
+    modelFiles: options => fallback?.modelFiles(options) ?? [],
     async load(names) {
       const remote = [], local = []
       for (const name of names) (name.startsWith('unicode/') ? local : remote).push(name)

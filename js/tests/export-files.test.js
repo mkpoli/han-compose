@@ -2,7 +2,8 @@
 // keys, the learned layout and the identity table load when a description sets parts beside each
 // other, and with the table read no record is asked for to learn what a description names.
 import { describe, expect, it } from 'bun:test'
-import { compose, createSource } from '../src/loader.js'
+import { gunzipSync } from 'node:zlib'
+import { compose, createSource, sketch } from '../src/loader.js'
 import { files, identityOf, shardOf, shards } from './fixtures/small-export.js'
 
 /** A source over `held`, noting each file it reads in `asked`. */
@@ -64,22 +65,52 @@ describe('the files a drawing reads', () => {
     expect((await store({ ...files, ...shards('g', twins) })).identity('⿰木口')).toEqual({ e: '甲' })
   })
 
-  it('draws a character turned whole from its records, without the layout or the identity table', async () => {
+  it('draws a character turned whole with the identity table and without the layout', async () => {
+    // 木 is written ⿱三永: finding what ⿾木 names tries its respellings (⿾⿱三永), which the table
+    // answers, so no record is asked for beyond those of the keys the description writes.
+    const wood = JSON.parse(gunzipSync(files[shardOf('g', '木')]))['木']
+    const records = [['木', { ...wood, s: '⿱三永' }], ['⿱三永', { e: '木' }]]
     const asked = []
-    const drawn = await compose(sourceOf(files, asked), '⿾木')
+    const drawn = await compose(sourceOf({ ...files, ...shards('g', records) }, asked), '⿾木')
     expect(drawn.d).not.toBe('')
-    expect(asked.filter(name => MODEL.includes(name))).toEqual([])
+    expect(asked.filter(name => MODEL.includes(name))).toEqual(['identity.json'])
+    const named = new Set(['木', '三', '永', '⿱三永', '⿾木'].map(key => shardOf('g', key)))
+    expect(asked.filter(name => name.startsWith('g/') && !named.has(name))).toEqual([])
   })
 
-  it('leaves a key to its record until the table is read', async () => {
+  it('leaves a single character to its record until the table is read, and asks for the table for a sequence', async () => {
     const source = sourceOf(files)
     await source.ready()
     const store = source.store()
     expect(store.identity('木')).toBeUndefined()
-    expect(store.identity('⿰木口')).toBeUndefined()
     expect(store.missing.size).toBe(0)
-    await source.load(source.modelFiles())
+    expect(store.identity('⿰木口')).toBeNull()
+    expect([...store.missing]).toEqual(['identity.json'])
+    await source.load(store.missing)
     expect(source.store().identity('⿰木口')).toEqual({})
+  })
+
+  it('draws a character with no glyph from its sequence as it does with the layout and the table read first', async () => {
+    // 甲 has a sequence and no glyph: a lone character asks for neither file until the composer
+    // turns to its sequence, and the drawing made then is the one made with both at hand.
+    const held = { ...files, ...shards('g', [['甲', { s: '⿰木口' }], ['⿰木口', { e: '甲' }]]) }
+    const asked = []
+    const drawn = await compose(sourceOf(held, asked), '甲')
+    expect(asked.filter(name => MODEL.includes(name)).sort()).toEqual([...MODEL].sort())
+    const eager = sourceOf(held)
+    await eager.ready()
+    await eager.load(eager.modelFiles())
+    expect(drawn.d).toBe((await compose(eager, '甲')).d)
+    expect(drawn.d).toBe((await compose(sourceOf(held), '⿰木口')).d)
+    expect(drawn.missing).toEqual(['甲'])
+  })
+
+  it('sketches a description with the layout read', async () => {
+    const asked = [], source = sourceOf(files, asked)
+    const leaves = await sketch(source, '⿰木口')
+    expect(leaves).toHaveLength(2)
+    expect(asked).toContain('layout.json')
+    expect(source.layout.ops).toContain('⿰')
   })
 
   it('reads the layout when a node asks for it', async () => {
@@ -92,12 +123,35 @@ describe('the files a drawing reads', () => {
     expect(source.store().layout.ops).toContain('⿰')
   })
 
-  it('reports the export unavailable when the layout or the identity table cannot be read', async () => {
+  it('reports the export unavailable when the layout or the identity table is missing, cannot be fetched or cannot be read', async () => {
     for (const lost of MODEL) {
-      const { [lost]: _, ...held } = files
-      const failure = await compose(sourceOf(held), '⿰木口').catch(error => error)
-      expect(failure.unavailable).toBe(true)
+      const { [lost]: _, ...without } = files
+      const failing = createSource(async name => {
+        if (name === lost) throw new Error(`${name}: 503`)
+        return new Uint8Array(Buffer.from(files[name] ?? '')).buffer
+      })
+      for (const source of [sourceOf(without), failing, sourceOf({ ...files, [lost]: 'not json' })]) {
+        const failure = await compose(source, '⿰木口').catch(error => error)
+        expect(failure).toBeInstanceOf(Error)
+        expect(failure.unavailable).toBe(true)
+      }
     }
+    // A shard that cannot be fetched fails the drawing without calling the export unavailable.
+    const shard = shardOf('g', '木')
+    const failure = await compose(createSource(async name => {
+      if (name === shard) throw new Error(`${name}: 503`)
+      return files[name] === undefined ? null : new Uint8Array(Buffer.from(files[name])).buffer
+    }), '木').catch(error => error)
+    expect(failure.message).toContain('503')
+    expect(failure.unavailable).toBeUndefined()
+  })
+
+  it('keeps the layout and the table, not their text', async () => {
+    const source = sourceOf(files)
+    await compose(source, '⿰木口')
+    await source.load(source.modelFiles())
+    expect(source.layout.ops).toContain('⿰')
+    expect(source.store().identity('⿰木口')).toEqual({})
   })
 
   it('refuses an export of another format', async () => {
