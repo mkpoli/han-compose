@@ -138,6 +138,8 @@ def variants(character: str, out: Path = VARIANTS_OUT, style: str = STYLE, every
 
     if _style(style) not in V.COLLECTIONS:
         raise typer.BadParameter(f"variants draws {' or '.join(V.COLLECTIONS)}, not {style}.")
+    if len(character) != 1:
+        raise typer.BadParameter(f"{character!r} is not one character.")
     try:
         fonts = V.Fonts.of(style)
         found, sources = V.forms(character, fonts)
