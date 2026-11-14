@@ -12,8 +12,10 @@ const data = JSON.parse(gunzipSync(readFileSync(new URL('../data/custom-forms.js
 const ENTITY = '&CDP-8958;'
 
 it('names the sequences that call for the cut forms', () => {
-  for (const text of ['⿰木&CDP-8958;', '⿱#(丿𠃊)卩', '⿰亻{53}']) expect(hasCustomComponent(text)).toBe(true)
-  for (const text of ['⿰木口', '木', '⿱丿乚']) expect(hasCustomComponent(text)).toBe(false)
+  for (const text of ['⿰木&CDP-8958;', '⿱#(丿𠃊)卩']) expect(hasCustomComponent(text)).toBe(true)
+  // A numbered component has its own forms, a chain the grammar names is a character, and an entity
+  // spelled another way is no CHISE reference: none of them asks for the file.
+  for (const text of ['⿰木口', '木', '⿱丿乚', '⿰亻{53}', '⿰亻#(H)', '⿰亻&#x4E00;']) expect(hasCustomComponent(text)).toBe(false)
   expect(traitsOf('⿰木&CDP-8958;').custom).toBe(true)
   expect(traitsOf('⿰木口').custom).toBe(false)
 })
@@ -33,4 +35,14 @@ it('draws a component no code point names from the form cut for it', async () =>
   const source = createSource(async name => files[name] === undefined ? null : new Uint8Array(Buffer.from(files[name])).buffer)
   const { parts } = await compose(source, `⿰木${ENTITY}`, { fontStyle: 'sans' })
   expect(parts.some(part => part.origin === `${data.forms.sans[ENTITY].face}: ${ENTITY}, cut from ${data.forms.sans[ENTITY].from}`)).toBe(true)
+})
+
+it('draws what it can when the cut forms cannot be read, and asks again next time', async () => {
+  const { customFormsSource } = await import('../src/custom-forms.js')
+  let calls = 0
+  const failing = customFormsSource({ load: async () => { calls++; return {} } })
+  await failing.ready()
+  const again = customFormsSource({ load: async () => { calls++; throw new Error('offline') } })
+  await again.ready()
+  expect(calls).toBe(2)
 })
