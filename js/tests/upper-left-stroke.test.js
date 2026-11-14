@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'bun:test'
-import { Composer } from '../src/compose.js'
+import { Composer, topEdgeStart } from '../src/compose.js'
+import { commands, makePart, placed } from '../src/geometry.js'
 import { compose, createSource } from '../src/loader.js'
 import { files, shards } from './fixtures/small-export.js'
 import strokes from './fixtures/sans-strokes.json' with { type: 'json' }
@@ -85,6 +86,11 @@ describe('a bare stroke at the upper left of ⿸', () => {
     expect(centre(dot)[0]).toBeGreaterThan(centre(sweep)[0])
     expect(centre(dot)[1]).toBeGreaterThan(centre(sweep)[1])
   })
+  it('does not stand a tick on a stem', async () => {
+    const { stroke } = await boxes('⿸丿丨')
+    expect(stroke.origin).toBe('glyph 丿')
+    expect(stroke.box[3]).toBeGreaterThan(600)
+  })
   it('does not take a slanted stroke for a bar to stand on', async () => {
     // 丶 leads with a slant: the stroke runs down the side instead of standing on it.
     const { stroke } = await boxes('⿸丿丶')
@@ -113,5 +119,46 @@ describe('a bare stroke at the upper left of ⿸', () => {
     const composer = new Composer(data.store())
     expect(composer.strokeEnclosure(['厃', '口'], composer.face)).toBeNull()
     expect(composer.strokeEnclosure([['⿱', '丿', '口'], '口'], composer.face)).toBeNull()
+  })
+})
+
+describe('the top edge a tick stands on', () => {
+  /** A placed outline through `points`, [x, y] pairs with y up. */
+  const shape = (/** @type {number[][]} */ points) => {
+    const light = Float64Array.from(points.flat())
+    const part = makePart([{ ops: commands('M' + 'L'.repeat(points.length - 1)), light, heavy: light, width: null }])
+    return placed(part, part.box, part.box, 0, 'shape')
+  }
+  const rect = (/** @type {number} */ x0, /** @type {number} */ y0, /** @type {number} */ x1, /** @type {number} */ y1) =>
+    shape([[x0, y0], [x1, y0], [x1, y1], [x0, y1]])
+  /** The edge's left end for parts drawn with upright strokes 80 wide and level strokes 40. */
+  const edge = (/** @type {any[]} */ ...parts) => {
+    const boxes = parts.map(part => part.target)
+    const box = [Math.min(...boxes.map(b => b[0])), Math.min(...boxes.map(b => b[1])), Math.max(...boxes.map(b => b[2])), Math.max(...boxes.map(b => b[3]))]
+    return topEdgeStart(parts, box, [80, 40])
+  }
+  it('is the left end of a box and of a thin bar alike', () => {
+    expect(edge(rect(100, 0, 900, 600))).toBeCloseTo(100, 0)
+    expect(edge(rect(100, 560, 900, 600))).toBeCloseTo(100, 0)
+  })
+  it('reads past a corner that stands proud of the bar', () => {
+    // A serif on the left stem rises 30 above the bar.
+    expect(edge(rect(100, 560, 900, 600), rect(100, 0, 180, 630))).toBeCloseTo(100, 0)
+  })
+  it('allows a brush bar its slight rise', () => {
+    expect(edge(shape([[100, 540], [900, 580], [900, 620], [100, 580]]))).toBeCloseTo(100, 0)
+  })
+  it('is none for a stroke that falls to the right', () => {
+    expect(edge(shape([[100, 560], [900, 480], [900, 520], [100, 600]]))).toBeNull()
+  })
+  it('is none for a stroke that climbs steeply', () => {
+    expect(edge(shape([[100, 300], [900, 560], [900, 600], [100, 340]]))).toBeNull()
+  })
+  it('is none for a stem', () => {
+    expect(edge(rect(100, 0, 180, 600))).toBeNull()
+    expect(edge(rect(100, 0, 180, 600), rect(700, 0, 780, 300))).toBeNull()
+  })
+  it('is none for a bar that starts in the right half', () => {
+    expect(edge(rect(100, 0, 180, 300), rect(600, 560, 1000, 600))).toBeNull()
   })
 })

@@ -174,8 +174,14 @@ const TICK_DONORS = [['白', 0], ['小', 1]]
 const TICK_BODY = [0.9, 0.7], TICK_SUNK = 0.6, TICK_INSET = 0.5
 /** The widest a tick may be against its height: a flatter donor stroke is drawn in to this. */
 const TICK_SLANT = 0.8
-/** How many rows of a 64-row raster a bar's top edge may vary by past its corner. */
-const BAR_LEVEL = 1
+/** A bar a tick can stand on, in the drawing's stroke widths: how far below the part's top its
+ *  edge is looked for, how long the edge runs from its left end, how much of that run is the
+ *  corner (a serif or a brush's first press may stand proud there), and how far the rest may fall
+ *  and rise to the right. A brush bar rises a little; a dot or a slanted stroke falls or climbs
+ *  more, and a stem is too short. The band and the lengths along the edge are in upright strokes'
+ *  widths, which a serif face keeps where its level strokes thin out; the fall and the rise are
+ *  in level strokes'. */
+const BAR_BAND = 2.5, BAR_RUN = 3, BAR_CORNER = 1.5, BAR_FALL = 0.15, BAR_RISE = 0.4
 /** How large a part that is one glyph may stand under such a stroke, against the share of the face
  *  its own glyph takes: a character may grow a little, and a bare stroke, whose glyph alone fills
  *  half the face, is set smaller, so a dot stays a dot at the lower right. */
@@ -1512,9 +1518,9 @@ export class Composer {
       // Under a tick the part takes the lower-right band whole, whatever its own size.
       const under = this.node(inner, [x1 - TICK_BODY[0] * w, y0, x1, y0 + TICK_BODY[1] * h])
       const box = union(under.map(part => part.target))
-      const edge = topEdgeStart(under, box)
+      const stem = this.stem0[1][0] * h / (this.face[3] - this.face[1])
+      const edge = topEdgeStart(under, box, [this.stem0[0][0] * w / (this.face[2] - this.face[0]), stem])
       if (edge !== null) {
-        const stem = this.stem0[1][0] * h / (this.face[3] - this.face[1])
         const foot = box[3] - TICK_SUNK * stem, rise = y1 - foot, left = edge + TICK_INSET * stem
         const piece = tick ?? glyph
         const slant = Math.min(TICK_SLANT, (piece.box[2] - piece.box[0]) / Math.max(piece.box[3] - piece.box[1], 1))
@@ -3416,26 +3422,33 @@ function extraBar(part, mask, references) {
 }
 
 /**
- * Where the top edge of the placed parts starts, when it starts as a level bar: the left end of a
- * box's or a frame's top stroke, or of a bar that leads the part. Null for a part led by a stem, a
- * dot or a slanted stroke, and for an edge that starts in the right half.
- * @param {any[]} parts @param {number[]} box @returns {number | null} The edge's left end.
+ * Where the top edge of the placed parts starts, when it starts as a bar (`BAR_BAND` and the
+ * constants beside it): the left end of a box's or a frame's top stroke, or of a bar that leads
+ * the part. Null for a part led by a stem, a dot or a slanted stroke, and for an edge that starts
+ * in the right half.
+ * @param {any[]} parts @param {number[]} box
+ * @param {number[]} stems The drawing's upright and level stroke widths.
+ * @returns {number | null} The edge's left end.
  */
-function topEdgeStart(parts, box, size = 64) {
-  if (box[2] <= box[0] || box[3] <= box[1]) return null
-  const ink = fill(groupRings(parts), size, box), band = size >> 3, run = Math.round(size * 0.3)
-  /** The first inked row of a column within the band, or -1. @param {number} c */
-  const top = c => { for (let r = 0; r < band; r++) if (ink[r * size + c] === 1) return r; return -1 }
+export function topEdgeStart(parts, box, [upright, level], size = 64) {
+  const wide = box[2] - box[0]
+  if (wide <= 0 || box[3] <= box[1] || upright <= 0 || level <= 0) return null
+  // Columns span the part and rows the band under its top, so a row is a fixed share of a stroke.
+  const band = BAR_BAND * upright
+  const ink = fill(groupRings(parts), size, [box[0], box[3] - band, box[2], box[3]])
+  const columns = (/** @type {number} */ strokes) => strokes * upright * size / wide
+  const rows = (/** @type {number} */ strokes) => strokes * level * size / band
+  /** The first inked row of a column, or -1. @param {number} c */
+  const top = c => { for (let r = 0; r < size; r++) if (ink[r * size + c] === 1) return r; return -1 }
   let left = 0
   while (left < size && top(left) < 0) left++
+  const run = Math.ceil(columns(BAR_RUN))
   if (left > size / 2 || left + run > size) return null
-  // A bar's edge is level past its corner, where a serif or a brush's first press may stand
-  // proud. A dot or a slanted stroke keeps falling or climbs out of the band.
   const edge = Array.from({ length: run }, (_, i) => top(left + i))
   if (edge.some(at => at < 0)) return null
-  const level = edge.slice(Math.ceil(run / 3))
-  if (Math.max(...level) - Math.min(...level) > BAR_LEVEL) return null
-  return box[0] + left * (box[2] - box[0]) / size
+  const [first, ...rest] = edge.slice(Math.ceil(columns(BAR_CORNER)))
+  if (rest.some(at => at - first > rows(BAR_FALL) || first - at > rows(BAR_RISE))) return null
+  return box[0] + left * wide / size
 }
 
 /** The share of the inner parts' ink lying on the enclosing part's. */
