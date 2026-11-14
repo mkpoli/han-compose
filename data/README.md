@@ -112,6 +112,18 @@ centred without reshaping; regenerate it with `scripts/build_numbered_five.py`. 
 `fec2847` and record their font versions and digests in `numbered-forms.json`; the PUA glyphs are
 under the Arphic Public License, the Noto and Plangothic cuts under their own SIL OFL terms.
 
+## `custom-forms.json.gz`
+
+Forms for zi.tools stroke chains (`#(丿𠃊)`) and CHISE entities (`&CDP-8958;`), each cut from a
+character that writes it beside encoded parts: the host's outlines are split where they do not touch,
+the parts' outlines are lifted away by matching each part drawn alone, and what is left is the form.
+A cut stands when it matches the entity's GlyphWiki glyph, when two hosts agree, or, from one host,
+when its parts lift away unmistakably (`single`). Each entry records its host (`from`), face, parts
+and scores. Sans cuts come from Noto Sans CJK JP 2.004 and Plangothic V2.9.5795 (SIL OFL), Serif
+cuts from Noto Serif CJK JP 2.003 (SIL OFL) and Jigmo 2025-09-12 (CC0 1.0), as each style draws.
+Built by ids-input's `scripts/build_custom_cuts.py`; the composer loads it once a sequence names
+such a component, and a form in `js/src/component-forms.json` takes precedence.
+
 ## `ids-project.tsv.gz`
 
 This project's own IDS descriptions: characters newer than BabelStone's Unicode 16.0 edition and

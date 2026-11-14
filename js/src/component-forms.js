@@ -36,6 +36,21 @@ export function componentRecord(text, style = 'sans') {
   const form = forms(style)?.get(text)
   return form ? { ink: form.ink, o: form.parts.reduce((n, p) => n + p.contours.length, 0) } : null
 }
+/**
+ * Forms cut from characters for components no code point names (a zi.tools stroke chain, a CHISE
+ * entity), by their own text, loaded with `custom-forms.json.gz` once a sequence names one. A form
+ * written above stays where both have one; Kaisho and Fangsong take none, having no cut of their own.
+ * @param {{ forms?: Record<string, Record<string, { g: any[], from: string, face: string }>> }} data
+ */
+export function addCutForms(data) {
+  for (const [style, entries] of Object.entries(data?.forms ?? {})) {
+    const map = ownFormsOnly(style) ? null : styles[style]
+    if (!map) continue
+    for (const [text, entry] of Object.entries(entries)) {
+      if (!map.has(text)) map.set(text, { ...formOf(entry.g), origin: `${entry.face}: ${text}, cut from ${entry.from}` })
+    }
+  }
+}
 export function componentParts(text, region = constants.face, style = 'sans', atRoot = true) {
   const form = forms(style)?.get(text)
   if (!form) return null
@@ -48,8 +63,8 @@ export function componentParts(text, region = constants.face, style = 'sans', at
   const target = atRoot ? mapped(frame, constants.face, region) : region
   const font = style === 'kaisho' ? 'Kureedo' : style === 'fangsong' ? 'Zhuque Fangsong' : `Noto ${style === 'serif' ? 'Serif' : 'Sans'} CJK`
   const editorial = editorialForms.get(text)
-  const origin = editorial ? `${editorial} editorial (${font}): ${text}`
-    : text === '⿰冫⿱丿丶' || text === '⿰冫⿾冫' ? 'four-dot repetition' : `${font}: ${text}`
+  const origin = form.origin ?? (editorial ? `${editorial} editorial (${font}): ${text}`
+    : text === '⿰冫⿱丿丶' || text === '⿰冫⿾冫' ? 'four-dot repetition' : `${font}: ${text}`)
   return parts.map(part => ({ ...placed(part, part.box, mapped(part.box, frame, target), ink, origin), fixed: true }))
 }
 export function componentDrawing(text, style = 'sans') {

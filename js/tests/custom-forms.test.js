@@ -1,0 +1,36 @@
+import { expect, it } from 'bun:test'
+import { readFileSync } from 'node:fs'
+import { gunzipSync } from 'node:zlib'
+import { addCutForms, componentDrawing, isComponentForm } from '../src/component-forms.js'
+import { hasCustomComponent } from '../src/custom-forms.js'
+import { compose, createSource } from '../src/loader.js'
+import { traitsOf } from '../src/source.js'
+import { files } from './fixtures/small-export.js'
+
+const data = JSON.parse(gunzipSync(readFileSync(new URL('../data/custom-forms.json.gz', import.meta.url))).toString('utf8'))
+// &CDP-8958; is 冐 without ⺜ in both faces; #(-𠃍㇉) has a form written by hand.
+const ENTITY = '&CDP-8958;'
+
+it('names the sequences that call for the cut forms', () => {
+  for (const text of ['⿰木&CDP-8958;', '⿱#(丿𠃊)卩', '⿰亻{53}']) expect(hasCustomComponent(text)).toBe(true)
+  for (const text of ['⿰木口', '木', '⿱丿乚']) expect(hasCustomComponent(text)).toBe(false)
+  expect(traitsOf('⿰木&CDP-8958;').custom).toBe(true)
+  expect(traitsOf('⿰木口').custom).toBe(false)
+})
+
+it('draws a component no code point names from the form cut for it', async () => {
+  expect(data.format).toBe('han-compose/custom-forms')
+  expect(isComponentForm(ENTITY, 'sans')).toBe(false)
+  const handWritten = componentDrawing('#(-𠃍㇉)', 'sans')?.d
+  addCutForms(data)
+  for (const style of ['sans', 'serif']) {
+    expect(isComponentForm(ENTITY, style)).toBe(true)
+    expect(componentDrawing(ENTITY, style)?.d).toMatch(/^M/)
+  }
+  // Kaisho and Fangsong draw only their own forms; a form written by hand is not replaced.
+  expect(isComponentForm(ENTITY, 'kaisho')).toBe(false)
+  expect(componentDrawing('#(-𠃍㇉)', 'sans')?.d).toBe(handWritten)
+  const source = createSource(async name => files[name] === undefined ? null : new Uint8Array(Buffer.from(files[name])).buffer)
+  const { parts } = await compose(source, `⿰木${ENTITY}`, { fontStyle: 'sans' })
+  expect(parts.some(part => part.origin === `${data.forms.sans[ENTITY].face}: ${ENTITY}, cut from ${data.forms.sans[ENTITY].from}`)).toBe(true)
+})
