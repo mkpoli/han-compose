@@ -1,0 +1,16 @@
+Shuishu (data/sources/shuishu/outlines.json.gz)
+
+The glyph outlines are the Shuishu characters as the ISO/IEC 10646 code charts print them: they are
+taken from the font `Uni1B300Shuishu` embedded in the Amendment 2.2 chart document by its editor, and
+reached through the document's own ToUnicode map. The chart document is
+<https://www.unicode.org/wg2/docs/n4922-5theditionPdam2-2-charts.pdf>, SHA-256
+b200ce0f5ec06bb97a6c16f08507ba531de88b2f88395462a4915be5824ddd6e, published by the Unicode
+Consortium for ISO/IEC JTC 1/SC 2/WG 2. The characters come from WG2 N4758 and its revisions.
+
+The code points are the tentative allocations of that amendment: U+1B300..U+1B4E5 for the proposed
+logograms and U+1B500..U+1B52E for its 47 radicals. Unicode 18.0.0 leaves them unassigned, so text
+written with them is not claimed to be assigned Unicode.
+
+Neither the chart document nor its embedded font states separate glyph redistribution terms. The
+outlines are the font's own contours, written out and rescaled into a grid as a rendering aid, and
+credited to their sources.

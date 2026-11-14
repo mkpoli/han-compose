@@ -74,6 +74,27 @@ CC BY-SA, with the 3.0 notice kept above. One table derived from it is committed
 each character writes first, read from KanjiVG's stroke types; it is shared alike under CC BY-SA 3.0.
 Source record: `data/sources/kanjivg.yaml`.
 
+## Bundled outlines
+
+`data/sources/*/outlines.json.gz`, `data/unicode/` and `data/palette/` hold the outlines the browser
+package (`js/`) draws without an export. `js/scripts/data.mjs` copies them into the package together
+with every text in `data/licences/`.
+
+| Outlines | Source | Terms | Text in `data/licences/` |
+|---|---|---|---|
+| Tangut | Noto Serif Tangut 2.168 (Google) | SIL OFL 1.1 | `OFL-NotoSerifTangut.txt` |
+| Bopomofo | Noto Sans CJK JP 2.004 (Adobe); Plangothic P1 V2.9.5795 for U+31BC–U+31BF | SIL OFL 1.1 | `OFL-NotoSansCJK.txt`, `OFL-Plangothic.txt` |
+| Jurchen | Alari Xuwasun Jurchen, public beta of 2026-10-12 (Sulfa, Dooran, Raxon7) | SIL OFL 1.1 | `OFL-AlariXuwasunJurchen.txt` |
+| Small Seal | Kaiyuan Small Seal Font (frankslin/kaiyuan-small-seal-font) | SIL OFL 1.1 | `OFL-KaiyuanSmallSeal.txt` |
+| Small Seal, the 48 sequences that spell a character | CHISE-IDS `IDS-SW-JIGUGE.txt` (MORIOKA Tomohiko and contributors) | GPL-2.0-or-later | `GPL-2.0-CHISE-IDS.txt` |
+| New Korean Orthography letters | Four drawings by Nanuun-saram on Wikimedia Commons, 2016-02-08 | CC BY-SA 4.0 | `CC-BY-SA-4.0-NewKorean.txt` |
+| Shuishu | The chart font of ISO/IEC 10646 Amendment 2.2 (WG2 N4922) | none stated | `NOTICE-Shuishu.txt` |
+| Palette fallback | Plangothic, Noto Sans CJK, BabelStone Han PUA | SIL OFL 1.1; Arphic Public License | `OFL-Plangothic.txt`, `OFL-NotoSansCJK.txt`, `Arphic-Public-License.txt` |
+| Unicode fallback | The Noto fonts, Jigmo, Noto Emoji, GNU Unifont, Iosevka, UniHieroglyphica | per source, with its copyright line, in `data/unicode/outlines.json` | `OFL-1.1.txt`, `CC0-1.0.txt` |
+
+The chart font the Shuishu outlines come from states no redistribution terms. `data/README.md`
+records each set's files, digests and rebuild.
+
 ## Web export
 
 `scripts/compose_ids.py export-web` writes the data a browser port of the composer reads

@@ -1,0 +1,28 @@
+New Korean Orthography letters (data/sources/new-korean/outlines.json.gz)
+=========================================================================
+
+The letter outlines are derived from the four SVG drawings by Nanuun-saram
+on Wikimedia Commons, made 2016-02-08:
+
+  https://commons.wikimedia.org/wiki/File:Nkchar-l.svg
+  https://commons.wikimedia.org/wiki/File:Nkchar-rr.svg
+  https://commons.wikimedia.org/wiki/File:Nkchar-w.svg
+  https://commons.wikimedia.org/wiki/File:Nkchar-y.svg
+
+They are licensed under the Creative Commons Attribution-ShareAlike 4.0
+International License:
+
+  https://creativecommons.org/licenses/by-sa/4.0/
+
+The outlines are a derivative of those drawings and are distributed under
+the same license. The code points follow the proposal in
+
+  OBAYASHI Muneaki, "Amended Proposal to add the '6 letters' (Hangul Jamo)",
+  L2/19-230R, 2019-06-24,
+  https://www.unicode.org/L2/L2019/19230r-six-hangul-letters.pdf
+
+and are not assigned in Unicode 18.0.0.
+
+The outlines are a rendering aid; they are not an encoding proposal and
+carry no endorsement from the authors of the proposal or of the Commons
+drawings.
