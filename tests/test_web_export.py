@@ -87,12 +87,12 @@ def test_releasing_host_geometry_keeps_what_depends_only_on_the_font() -> None:
 def test_a_record_and_a_host_list_live_in_the_shard_their_sha256_names() -> None:
     for key in ("亻", "葛\U000e0100", "⿰亻可"):
         h = hashlib.sha256(key.encode()).hexdigest()
-        assert web_export.record_shard(key) == f"g/{h[:3]}.json"
+        assert web_export.record_shard(key) == f"g/{h[:2]}/{h[:4]}.json"
         assert web_export.record_work(key) == f".work/g/{h[:2]}/{h}.json"
     h = hashlib.sha256("L\t亻".encode()).hexdigest()
     assert web_export.hosts_shard("L", "亻") == f"p/{h[:3]}.json"
     assert web_export.hosts_work("L", "亻") == f".work/p/{h[:2]}/{h}.json"
-    assert web_export.SHARDS == 4096
+    assert web_export.SHARDS == {"g": 65536, "p": 4096}
 
 
 def test_outlines_survive_the_round_trip_within_a_quarter_unit() -> None:
@@ -134,7 +134,7 @@ def test_a_glyphs_stroke_groups_follow_kanjivg(composer: compose.Composer) -> No
 def test_a_glyph_record_carries_its_stroke_groups(exported) -> None:
     out, _, _ = exported
     with gzip.open(out / web_export.record_shard("于"), "rt", encoding="utf-8") as f:
-        record = json.load(f)[web_export.key_hash("于")]
+        record = json.load(f)["于"]
     assert record["G"]["sg"] == [[0, [2]], [1, [0]], [2, [1]]]
 
 
@@ -193,13 +193,11 @@ def _read(out: Path, path: str) -> dict:
 
 
 def _record(out: Path, key: str) -> dict:
-    record = _read(out, web_export.record_shard(key))[web_export.key_hash(key)]
-    assert record["k"] == key
-    return record
+    return _read(out, web_export.record_shard(key))[key]
 
 
-def _hosts(out: Path, place: str, operand: str) -> dict:
-    return _read(out, web_export.hosts_shard(place, operand))[web_export.hosts_hash(place, operand)]
+def _hosts(out: Path, place: str, operand: str) -> list:
+    return _read(out, web_export.hosts_shard(place, operand))[web_export.hosts_key(place, operand)]
 
 
 def _files(root: Path) -> dict[str, bytes]:
@@ -222,20 +220,23 @@ def test_the_export_has_a_manifest_a_layout_records_and_host_lists(exported, com
     assert manifest["composer"]["layout_file"] == compose_layout.LAYOUT_FILE
     assert manifest["constants"]["STRETCH"] == compose.STRETCH and manifest["constants"]["HOST_SNAP"] == compose.HOST_SNAP
     assert manifest["constants"]["SHARES"]["⿳,3"] == list(compose.SHARES[("⿳", 3)])
-    assert manifest["files"]["records"]["files"] == len(list((out / "g").glob("*.json")))
+    assert manifest["files"]["records"]["files"] == len(list((out / "g").glob("*/*.json")))
     assert manifest["files"]["hosts"]["files"] == len(list((out / "p").glob("*.json")))
     assert manifest["pack"]["shards"] == web_export.SHARDS and manifest["pack"]["commit"]
-    # Each shard holds exactly the per-key files whose hash starts with its name, keys sorted.
+    # Each shard holds exactly the per-key files whose hash starts with its name, under their keys, sorted.
     for folder, kind in (("g", "records"), ("p", "hosts")):
         work = sorted(p.stem for p in (out / ".work" / folder).glob("*/*.json"))
-        shards = {}
-        for f in sorted((out / folder).glob("*.json")):
+        held = []
+        for f in sorted((out / folder).rglob("*.json")):
             raw = gzip.decompress(f.read_bytes())
             entries = json.loads(raw)
-            assert list(entries) == sorted(entries) and all(h.startswith(f.stem) for h in entries)
-            assert len(f.stem) == 3 and raw == web_export._dump(entries)
-            shards.update(entries)
-        assert sorted(shards) == work and manifest["files"][kind]["entries"] == len(work)
+            assert list(entries) == sorted(entries) and all(web_export.key_hash(key).startswith(f.stem) for key in entries)
+            assert len(f.stem) == web_export.SHARD_DIGITS[folder] and raw == web_export._dump(entries)
+            assert str(f.relative_to(out)) == web_export.shard_file(folder, f.stem)
+            held += [web_export.key_hash(key) for key in entries]
+        assert sorted(held) == work and manifest["files"][kind]["entries"] == len(work)
+    # A record is filed under its key and does not repeat it.
+    assert all("k" not in record for f in (out / "g").rglob("*.json") for record in json.loads(gzip.decompress(f.read_bytes())).values())
     layout = json.loads((out / "layout.json").read_text())
     assert layout["dtype"] in web_export.LAYOUT_DTYPES and len(layout["seeds"]) == compose_layout.SEEDS
     assert layout["features"]["per_input"] == layout["seeds"][0][0]["shape"][0]
@@ -250,17 +251,16 @@ def test_the_export_has_a_manifest_a_layout_records_and_host_lists(exported, com
     # P names exactly the places with a host list for the key.
     listed_places: dict[str, set] = {}
     for f in (out / "p").glob("*.json"):
-        for listed in json.loads(gzip.decompress(f.read_bytes())).values():
-            listed_places.setdefault(listed["operand"], set()).add(listed["place"])
+        for filed in json.loads(gzip.decompress(f.read_bytes())):
+            place, operand = filed.split("\t")
+            listed_places.setdefault(operand, set()).add(place)
     for key in ("亻", "可", "何", "王"):
         places = record(key).get("P", [])
         assert places == sorted(places) and set(places) == listed_places.get(key, set())
     assert record("可")["P"] == ["L", "⿵1"]
     # A list holds every index entry, in the index's order, each with its cut or null.
     index, _ = composer._index
-    listed = _hosts(out, "L", "可")
-    assert listed["place"] == "L" and listed["operand"] == "可"
-    hosts = listed["hosts"]
+    hosts = _hosts(out, "L", "可")
     assert [h["r"] for h in hosts] == list(range(len(index[("L", "可")])))
     for h in hosts:
         char, tree, path, i = index[("L", "可")][h["r"]]
@@ -386,13 +386,39 @@ def test_a_rerun_of_the_same_version_keeps_the_files_a_stopped_run_wrote(compose
     assert after[str(lost.relative_to(out))] == before[str(lost.relative_to(out))]
     assert after[web_export.record_shard("王")] == before[web_export.record_shard("王")]
     # The kept work file is what the rebuilt shard holds.
-    assert _hosts(out, "L", "王")["hosts"] == []
+    assert _hosts(out, "L", "王") == []
     # Another key set starts afresh, and so does an unknown commit.
     web_export.export(composer, out, **{**options, "only": {"王", "可"}})
-    assert _hosts(out, "L", "王")["hosts"]
+    assert _hosts(out, "L", "王")
     kept.write_bytes(gzip.compress(b'{"place":"L","operand":"\\u738b","hosts":[]}', mtime=0))
     web_export.export(composer, out, **{**options, "root": tmp_path / "not-a-checkout"})
-    assert _hosts(out, "L", "王")["hosts"]
+    assert _hosts(out, "L", "王")
+
+
+def test_the_identity_table_holds_every_sequence_and_the_character_each_describes(exported) -> None:
+    out, _, manifest = exported
+    data = (out / web_export.IDENTITY).read_bytes()
+    sequences, described = web_export.read_identity(json.loads(data))
+    records = {key: record for f in (out / "g").rglob("*.json")
+               for key, record in json.loads(gzip.decompress(f.read_bytes())).items()}
+    assert sequences == {key: record["s"] for key, record in records.items() if "s" in record}
+    assert described == {key: record["e"] for key, record in records.items() if "e" in record}
+    assert described["⿰亻可"] == "何" and sequences["何"] == "⿰亻可"
+    assert manifest["files"]["identity"] == {"path": "identity.json", "bytes": len(data), "gzip": len(gzip.compress(data, 9, mtime=0)),
+                                             "characters": len(sequences), "sequences": len(described)}
+
+
+def test_the_identity_table_names_only_what_the_listing_does_not_imply() -> None:
+    # 甲 and 乙 are written alike and the sequence describes 甲, the last listed; 丙's sequence
+    # describes nothing; 言 is one character describing another.
+    sequences = {"甲": "⿰木口", "乙": "⿰木口", "丙": "⿱三永"}
+    described = {"⿰木口": "甲", "言": "訁"}
+    table = web_export.identity(sequences, described)
+    assert table == {"characters": "丙\n乙\n甲", "sequences": "⿱三永\n⿰木口\n⿰木口", "e": {"⿱三永": None, "言": "訁"}}
+    assert web_export.read_identity(table) == (sequences, described)
+    # Where the sequence describes the earlier of the two, the table says so.
+    assert web_export.identity(sequences, {"⿰木口": "乙"})["e"] == {"⿰木口": "乙", "⿱三永": None}
+    assert web_export.read_identity(web_export.identity({}, {})) == ({}, {})
 
 
 def _as_format_4(out: Path) -> None:

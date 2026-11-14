@@ -2,19 +2,18 @@
 // piece per leaf: 鬱's 冖 runs under the top row and between 鬯 and 彡, which no composed split
 // reproduces.
 import { describe, expect, it } from 'bun:test'
-import { createHash } from 'node:crypto'
 import { gzipSync } from 'node:zlib'
 import { compose, createSource } from '../src/loader.js'
-import { files } from './fixtures/small-export.js'
+import { files, identityOf, shardOf } from './fixtures/small-export.js'
 import yu from './fixtures/yu-glyph.json' with { type: 'json' }
 
-const hex = text => createHash('sha256').update(text).digest('hex')
 /** The small export with 鬱's record: the designed glyph both descriptions name. */
 const source = () => {
-  const name = `g/${hex('鬱').slice(0, 3)}.json`
-  const body = gzipSync(JSON.stringify({ [hex('鬱')]: yu }))
+  const name = shardOf('g', '鬱')
+  const body = gzipSync(JSON.stringify({ '鬱': yu }))
   return createSource(async file => {
     if (file === name) return new Uint8Array(body).buffer
+    if (file === 'identity.json') return new Uint8Array(Buffer.from(identityOf([['鬱', yu]]))).buffer
     const written = files[file]
     return written === undefined ? null : new Uint8Array(Buffer.from(written)).buffer
   })

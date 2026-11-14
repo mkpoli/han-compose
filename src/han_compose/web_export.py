@@ -6,17 +6,20 @@
   composer draws with, the file scheme, the files' sizes, and the licence notices;
 - `layout.json`: the learned layout's model on every character ("all", `SEEDS` networks), its
   weights quantized (`LAYOUT_DTYPES`), with the feature definition;
-- `g/<hhh>.json`: the records of the keys (characters and sequences) whose SHA-256 starts with
-  `hhh`, by that hash: a key's glyph outlines at weight 400 and the move to the style's heavy
-  weight, its ink, its shape features and the layout table's statistics, its positional forms;
+- `identity.json`: every character's sequence and the character each sequence describes, in one
+  table, so a port finding what a description names reads no record for it;
+- `g/<hh>/<hhhh>.json`: the records of the keys (characters and sequences) whose SHA-256 starts with
+  `hhhh`, by key: a key's glyph outlines at weight 400 and the move to the style's heavy weight, its
+  ink, its shape features and the layout table's statistics, its positional forms;
 - `p/<hhh>.json`: the host lists of the (place, operand)s whose SHA-256 of place + TAB + operand
-  starts with `hhh`, by that hash: the pieces host characters give that operand there, every host
-  `Composer._ranked`, `_instance` and the kin and facing places may weigh, each cut by the composer
-  (along KanjiVG's groups where it can).
+  starts with `hhh`, by place + TAB + operand: the pieces host characters give that operand there,
+  every host `Composer._ranked`, `_instance` and the kin and facing places may weigh, each cut by the
+  composer (along KanjiVG's groups where it can).
 
-`hhh` is the hash's first three hex digits, so each folder holds at most 4,096 shards. Every file
-under `g/` and `p/` is gzip-compressed JSON, so a page fetches only the shards the operands of a
-sequence fall in.
+A record shard is named by the hash's first four hex digits (65,536 shards, a few records each) and
+a host-list shard by its first three (4,096). Every file under `g/` and `p/` is gzip-compressed
+JSON. A drawing reads the records of its own keys and of the hosts it cuts, so a shard holds little
+beyond the record asked for.
 
 Workers write one file per record and per host list under `.work/` (`.work/g/<hh>/<sha256>.json`,
 `.work/p/<hh>/<sha256>.json`), which a stopped run resumes from; `pack` builds the shards from them.
@@ -51,11 +54,16 @@ from . import compose_layout as L
 
 #: The export's own format; a change to any file's shape makes a new one. 4 is the style-aware
 #: manifest without shards; 5 packs the records and host lists into shards; 6 adds the optional
-#: `G.sg` stroke groups.
-FORMAT = 6
-#: Shards are named by the hash's first `SHARD_DIGITS` hex digits.
-SHARD_DIGITS = 3
-SHARDS = 16 ** SHARD_DIGITS
+#: `G.sg` stroke groups; 7 names a shard's entries by key, packs the records a few to a shard and
+#: adds the identity table.
+FORMAT = 7
+#: A shard is named by the first hex digits of its keys' hash: this many for each folder. A drawing
+#: reads a few dozen records out of some 200,000, each from another shard, so a record shard holds
+#: only a few; a host list is read whole and its shard holds a dozen.
+SHARD_DIGITS = {"g": 4, "p": 3}
+SHARDS = {folder: 16 ** digits for folder, digits in SHARD_DIGITS.items()}
+#: Every character's sequence and the character each sequence describes.
+IDENTITY = "identity.json"
 #: The per-key files workers write, under the output folder.
 WORK = ".work"
 #: The variation sequences the folder holds records for, by base character.
@@ -82,14 +90,26 @@ def hosts_hash(place: str, operand: str) -> str:
     return key_hash(f"{place}\t{operand}")
 
 
+def shard_file(folder: str, h: str) -> str:
+    """The shard of `folder` holding the key hashed `h`. Record shards sit in a folder of their
+    first two digits, so no folder lists 65,536 files."""
+    name = h[:SHARD_DIGITS[folder]]
+    return f"g/{name[:2]}/{name}.json" if folder == "g" else f"p/{name}.json"
+
+
 def record_shard(key: str) -> str:
-    """The shard holding a key's record: `g/<first three hex digits>.json`."""
-    return f"g/{key_hash(key)[:SHARD_DIGITS]}.json"
+    """The shard holding a key's record: `g/<hh>/<first four hex digits>.json`."""
+    return shard_file("g", key_hash(key))
 
 
 def hosts_shard(place: str, operand: str) -> str:
     """The shard holding a (place, operand)'s host list: `p/<first three hex digits>.json`."""
-    return f"p/{hosts_hash(place, operand)[:SHARD_DIGITS]}.json"
+    return shard_file("p", hosts_hash(place, operand))
+
+
+def hosts_key(place: str, operand: str) -> str:
+    """What a host list is filed under in its shard: place + TAB + operand."""
+    return f"{place}\t{operand}"
 
 
 def record_work(key: str) -> str:
@@ -817,7 +837,6 @@ NOT_EXPORTED = {
 
 #: What each field of a record and of a host list means, as the manifest states it.
 RECORD = {
-    "k": "the record's key",
     "P": "the places that have a host list in p/ for this key, sorted; absent when none has one",
     "G": "the key's own glyph: v 1 when the variable font draws it (its strokes can be weighted), else a fallback's, with w its measured stroke widths; every character a sequence describes has one",
     "b": "box (x0, y0, x1, y1), font units, y up",
@@ -830,18 +849,19 @@ RECORD = {
     "o": "outline count the layout reads (compose_layout.outlines): a sequence's is that of the character it describes",
     "f": "shape features the layout reads (compose_layout.shape): a sequence's are those of the character it describes",
     "u": "layout table 'all' per place: [mean box, spread, count]",
-    "hosts": "a host list in a p/ shard: {place, operand, hosts}: every entry of Composer._index for that place and operand, in its order. Each entry: r its position there (the kin and facing places slice the list to KIN_HOSTS, _instance to INSTANCE_HOSTS), h host, i operand index, op node operator, ok other operands' keys, si their ink, d depth, v 1 when the variable font draws the host, j 1 when Japan writes it, hd the hand (丿 or 一) the hand filter compares when the host has one, and c its cut. c is null when _host_node does not cut the entry cleanly; else {k the indices of the host glyph's contours (the host's G in its record) the piece keeps, b the piece's box, fr the node's frame, wh 1 for the whole character, g the pieces' gap, kv 1 when cut along KanjiVG's groups}, with p (and w) its own outlines in place of k for a piece holding a contour its glyph does not. pc 1 marks a cut only a parity drawing made, under its own exclusion. A port ranks the whole list against the target as _ranked does (exact, alien, sibling-ink ratio, depth), takes its caps (32 of the variable font's and 32 of the fallbacks' for a part placed in the em, 16 each otherwise) before cutting, so an entry with c null still takes a place, and draws a chosen entry's piece from its host's G",
+    "hosts": "a host list in a p/ shard: every entry of Composer._index for that place and operand, in its order. Each entry: r its position there (the kin and facing places slice the list to KIN_HOSTS, _instance to INSTANCE_HOSTS), h host, i operand index, op node operator, ok other operands' keys, si their ink, d depth, v 1 when the variable font draws the host, j 1 when Japan writes it, hd the hand (丿 or 一) the hand filter compares when the host has one, and c its cut. c is null when _host_node does not cut the entry cleanly; else {k the indices of the host glyph's contours (the host's G in its record) the piece keeps, b the piece's box, fr the node's frame, wh 1 for the whole character, g the pieces' gap, kv 1 when cut along KanjiVG's groups}, with p (and w) its own outlines in place of k for a piece holding a contour its glyph does not. pc 1 marks a cut only a parity drawing made, under its own exclusion. A port ranks the whole list against the target as _ranked does (exact, alien, sibling-ink ratio, depth), takes its caps (32 of the variable font's and 32 of the fallbacks' for a part placed in the em, 16 each otherwise) before cutting, so an entry with c null still takes a place, and draws a chosen entry's piece from its host's G",
     "parity rows": "c character, s sequence, x characters excluded while drawing it (it and its twins), face the em face under that exclusion, d SVG path (y down from ascent) or null with error, origins per part",
 }
 
 #: The file scheme, as the manifest states it.
 PATHS = {
-    "records": "g/{hhh}.json: {sha256 hex of the key's UTF-8: record}, the records of every key (a character with any variation selector, or a whole sequence) whose hash starts with hhh",
-    "hosts": "p/{hhh}.json: {sha256 hex of UTF-8 place + TAB + operand: host list}, the host lists of every operand (a character or a whole sequence) in a place whose hash starts with hhh",
-    "hhh": "the hash's first three hex digits: at most 4,096 shards in each of g/ and p/",
+    "records": "g/{hh}/{hhhh}.json: {key: record}, the records of every key (a character with any variation selector, or a whole sequence) whose SHA-256 (of its UTF-8, in hex) starts with hhhh; hh is that hash's first two digits",
+    "hosts": "p/{hhh}.json: {place + TAB + operand: host list}, the host lists of every operand (a character or a whole sequence) in a place whose SHA-256 of UTF-8 place + TAB + operand starts with hhh",
+    "shards": "a record shard is named by the hash's first four hex digits (at most 65,536, a few records each: a drawing reads a few dozen records, each from another shard), a host-list shard by its first three (at most 4,096)",
+    "identity": "identity.json: {characters, sequences, e}. characters and sequences are two lists joined by newlines, in step: each character and its sequence (s in its record). A sequence describes the last character listed with it, except where e says otherwise: {sequence: the character it describes, or null for none}. It holds every s and e of the records, so what a description names is found without reading one",
     "encoding": "every file under g/ and p/ is gzip-compressed JSON (mtime 0, keys sorted); serve it with Content-Encoding: gzip or decompress it",
     "missing": "a key or (place, operand) absent from its shard, or whose shard is absent, has no record or no host the composer cuts cleanly",
-    "work": ".work/g/{hh}/{sha256}.json and .work/p/{hh}/{sha256}.json are the per-key files the export's workers write and pack builds the shards from. .work/ must never be uploaded: each of its files is one more object written (rclone copy --exclude '.work/**')",
+    "work": ".work/g/{hh}/{sha256}.json and .work/p/{hh}/{sha256}.json are the per-key files the export's workers write and pack builds the shards and identity.json from: a record with its key (k), a host list as {place, operand, hosts}. .work/ must never be uploaded: each of its files is one more object written (rclone copy --exclude '.work/**')",
     "variants": "variants.json: {character: its variation selectors}, the variation sequences the main font draws with a glyph of its own, one for each glyph (the first ideographic selector where several draw it), each with a record under the character and its selector; a sequence left out for sharing a glyph has its record too. Absent where the font has none",
     "added": "manifest added lists records written into a finished folder afterwards (export-web --add): the set, the commit that wrote them, how many, how many of the folder's records it redrew and matched first (probe), and how many shards changed. The folder's version gains +<set>, since files are served immutable by URL and new bytes need a new name",
     "rerun": ".export names the version, the layout, font and KanjiVG hashes, the key set and the parity sizes that wrote the folder; a rerun with the same, from a known clean commit, keeps the .work/ files and writes only the missing ones, then packs every shard afresh; anything else starts afresh. .complete is written last, after manifest.json and the shards",
@@ -906,7 +926,7 @@ def _export(composer: C.Composer, out: Path, joyo: list[str] | None = None, pari
         for folder in (WORK, "g", "p"):
             if (out / folder).exists():
                 shutil.rmtree(out / folder)
-        for name in ("manifest.json", "layout.json", "parity.json", "parity-held-out.json", "OFL.txt", "CC0.txt", "MIT-hfhchan-ids.txt"):
+        for name in ("manifest.json", "layout.json", IDENTITY, "parity.json", "parity-held-out.json", "OFL.txt", "CC0.txt", "MIT-hfhchan-ids.txt"):
             (out / name).unlink(missing_ok=True)
     for name, wanted in (("parity.json", parity), ("parity-held-out.json", held_out)):
         if not wanted:
@@ -1214,6 +1234,21 @@ def _sync_dir(path: Path) -> None:
         os.close(fd)
 
 
+def _sync_files(path: Path) -> None:
+    """Flush every file of the filesystem holding `path` to disk: `syncfs`, or a sync of every
+    filesystem where the C library has none."""
+    import ctypes
+    import os
+
+    fd = os.open(path, os.O_RDONLY)
+    try:
+        syncfs = getattr(ctypes.CDLL(None, use_errno=True), "syncfs", None)
+        if syncfs is None or syncfs(fd) != 0:
+            os.sync()
+    finally:
+        os.close(fd)
+
+
 def _read_work(path: Path):
     try:
         return json.loads(gzip.decompress(path.read_bytes()))
@@ -1247,27 +1282,33 @@ def pack(out: Path, root: Path | None = None, log=print, changed: list[str] | No
             raise WorkFileError(f"{out / WORK / folder} is missing, but the manifest records {expected}")
     if (out / PENDING).exists():
         return _pack_pending(out, manifest, log, changed if changed is not None else [])
+    described: dict[str, str] = {}
+    sequences: dict[str, str] = {}
     for folder in ("g", "p"):
         files: dict[str, list[Path]] = {}
         for path in (out / WORK / folder).glob("*/*.json"):
-            files.setdefault(path.stem[:SHARD_DIGITS], []).append(path)
+            files.setdefault(path.stem[:SHARD_DIGITS[folder]], []).append(path)
         building = out / f".pack-{folder}"
         if building.exists():
             shutil.rmtree(building)
         building.mkdir()
         sizes = []
         for k, shard in enumerate(sorted(files)):
-            entries = {path.stem: _read_work(path) for path in files[shard]}
-            sizes.append(_write_gzip(building / f"{shard}.json", entries))
-            if (k + 1) % 1000 == 0:
+            entries = dict(_entry(folder, _read_work(path)) for path in files[shard])
+            if folder == "g":
+                _note_identity(entries, sequences, described)
+            sizes.append(_write_gzip(building / shard_file(folder, shard).split("/", 1)[1], entries, sync=False))
+            if (k + 1) % 4000 == 0:
                 log(f"pack {folder} {k + 1}/{len(files)}")
-        _sync_dir(building)
+        # Thousands of small files: one sync for all of them, before the folder takes its place.
+        _sync_files(building)
         if (out / folder).exists():
             shutil.rmtree(out / folder)
         building.rename(out / folder)
         kind = "records" if folder == "g" else "hosts"
         manifest["files"][kind] = {**manifest["files"].get(kind, {}), **_summary(sizes),
                                    "entries": sum(len(v) for v in files.values())}
+    manifest["files"]["identity"] = _write_identity(out, sequences, described)
     _stamp_version(out, version)
     manifest["format"] = FORMAT
     manifest["version"] = version
@@ -1277,6 +1318,59 @@ def pack(out: Path, root: Path | None = None, log=print, changed: list[str] | No
     _write_manifest(out, manifest)
     _sync_dir(out)
     return manifest
+
+
+def _entry(folder: str, value: dict) -> tuple[str, dict | list]:
+    """A work file's value as its shard holds it: a record under its key, without the key; a host
+    list's entries under place + TAB + operand."""
+    if folder == "g":
+        return value["k"], {name: field for name, field in value.items() if name != "k"}
+    return hosts_key(value["place"], value["operand"]), value["hosts"]
+
+
+def _note_identity(records: dict[str, dict], sequences: dict[str, str], described: dict[str, str]) -> None:
+    """Take each record's sequence (`s`) and the character it describes (`e`) into the two tables."""
+    for key, record in records.items():
+        if "s" in record:
+            sequences[key] = record["s"]
+        if "e" in record:
+            described[key] = record["e"]
+
+
+def identity(sequences: dict[str, str], described: dict[str, str]) -> dict:
+    """The identity table of an export: every character with its sequence (`sequences`) as two
+    lists in step, joined by newlines, and what each sequence describes (`described`). A reader
+    takes a sequence to describe the last character listed with it; `e` holds only what differs
+    from that, a sequence's own character or null for none."""
+    characters = sorted(sequences)
+    implied = {sequences[character]: character for character in characters}
+    differs = {sequence: described.get(sequence) for sequence in sorted(set(implied) | set(described))
+               if implied.get(sequence) != described.get(sequence)}
+    return {"characters": "\n".join(characters), "sequences": "\n".join(sequences[c] for c in characters), "e": differs}
+
+
+def read_identity(table: dict) -> tuple[dict[str, str], dict[str, str]]:
+    """`identity` read back: (sequences, described)."""
+    characters = table["characters"].split("\n") if table["characters"] else []
+    sequences = dict(zip(characters, table["sequences"].split("\n")))
+    described = {sequence: character for character, sequence in sequences.items()}
+    for sequence, character in table["e"].items():
+        if character is None:
+            described.pop(sequence, None)
+        else:
+            described[sequence] = character
+    return sequences, described
+
+
+def _write_identity(out: Path, sequences: dict[str, str], described: dict[str, str]) -> dict:
+    """Write `IDENTITY` and answer its entry in the manifest's `files`."""
+    for key in (*sequences, *sequences.values(), *described, *described.values()):
+        if "\n" in key:
+            raise ValueError(f"{key!r} holds a newline, which the identity table separates entries with")
+    data = _dump(identity(sequences, described))
+    _replace(out / IDENTITY, data)
+    return {"path": IDENTITY, "bytes": len(data), "gzip": len(gzip.compress(data, 9, mtime=0)),
+            "characters": len(sequences), "sequences": len(described)}
 
 
 def _stamp_version(out: Path, version: str) -> None:
@@ -1308,10 +1402,12 @@ def _pack_pending(out: Path, manifest: dict, log, changed: list[str]) -> dict:
     (`added_version`), in the manifest, the parity files and `.export`."""
     pending = json.loads((out / PENDING).read_text(encoding="utf-8"))
     summary = dict(manifest["files"]["records"])
+    sequences, described = read_identity(json.loads((out / IDENTITY).read_text(encoding="utf-8")))
     raw = entries = 0
     for k, (shard, before) in enumerate(sorted(pending["shards"].items())):
         h = Path(shard).stem
-        records = {path.stem: _read_work(path) for path in sorted((out / WORK / "g" / h[:2]).glob(f"{h}*.json"))}
+        records = dict(_entry("g", _read_work(path)) for path in sorted((out / WORK / "g" / h[:2]).glob(f"{h}*.json")))
+        _note_identity(records, sequences, described)
         data = _dump(records)
         packed = gzip.compress(data, 9, mtime=0)
         target = out / shard
@@ -1323,12 +1419,16 @@ def _pack_pending(out: Path, manifest: dict, log, changed: list[str]) -> dict:
         entries += len(records) - before["entries"]
         if (k + 1) % 500 == 0:
             log(f"pack {k + 1}/{len(pending['shards'])}")
+    for folder in sorted({(out / shard).parent for shard in pending["shards"]}):
+        _sync_dir(folder)
     _sync_dir(out / "g")
-    gz = np.array(sorted(path.stat().st_size for path in (out / "g").glob("*.json")) or [0])
-    summary.update({"files": len(list((out / "g").glob("*.json"))), "gzip": int(gz.sum()), "median_gzip": int(np.median(gz)),
+    held = sorted(path.stat().st_size for path in (out / "g").glob("*/*.json"))
+    gz = np.array(held or [0])
+    summary.update({"files": len(held), "gzip": int(gz.sum()), "median_gzip": int(np.median(gz)),
                     "p95_gzip": int(np.percentile(gz, 95)), "max_gzip": int(gz.max()),
                     "bytes": pending["bytes"] + raw, "entries": pending["entries"] + entries})
     manifest["files"]["records"] = summary
+    manifest["files"]["identity"] = _write_identity(out, sequences, described)
     # A stopped addition packs the records it wrote: only those are listed.
     _write_variants(out, manifest, [key for key in pending.get("variants", []) if (out / record_work(key)).exists()])
     entry = {**pending["added"], "shards": len(changed)}

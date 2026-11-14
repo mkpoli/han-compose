@@ -476,7 +476,7 @@ export class Composer {
     this.pyramids = new WeakMap()
     this.bases = new WeakMap()
     this.nativeEnclosures = new Set()
-    this.normalizer = createRenderNormalizer({ record: key => this.rec(key), parse: text => this.parse(text), keyOf, excluded: key => this.excluded(key) })
+    this.normalizer = createRenderNormalizer({ record: key => this.identity(key), parse: text => this.parse(text), keyOf, excluded: key => this.excluded(key) })
     this.resolutions = new Map()
     // Stacked operand pairs, settled against their ink once the drawing is weighted.
     this.joints = []
@@ -486,6 +486,16 @@ export class Composer {
   parse = sequence => parseTree(sequence, this.arity)
   // A key holding an empty slot has no record and no hosts: nothing is asked for it.
   rec = key => key.includes(EMPTY) ? null : (componentRecord(key, this.fontStyle) ?? this.data.rec(key))
+  /** What a description's identity is found by: a key's sequence (`s`) and the character it
+   *  describes (`e`). A store with an identity table answers from it; without one, and for a
+   *  component form, the key's record does. */
+  identity = key => {
+    if (key.includes(EMPTY)) return null
+    const form = componentRecord(key, this.fontStyle)
+    if (form) return form
+    const known = this.data.identity?.(key)
+    return known === undefined ? this.data.rec(key) : known
+  }
   excluded = ch => this.exclude.has(ch)
   slot = (op, i) => this.SLOTS[op] ? this.SLOTS[op][i] : `${op}${i}`
   /**

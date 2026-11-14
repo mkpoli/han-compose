@@ -28,7 +28,7 @@ Four are public ([Exports](#exports)), and `compose` fetches only the files a se
 import { writeFile } from 'node:fs/promises'
 import { compose, drawingSvg, fromUrl } from '@han-compose/composer'
 
-const source = fromUrl('https://ids-input-composer.mkpoli.workers.dev/a83fc941166b-sans-compose-layout-v4-f6+variants/')
+const source = fromUrl('https://ids-input-composer.mkpoli.workers.dev/a83fc941166b-sans-compose-layout-v4-f7+variants/')
 
 const drawing = await compose(source, '⿰亻哥')
 await writeFile('out.svg', drawingSvg(drawing))
@@ -47,10 +47,10 @@ One source serves any number of sequences and keeps what it has loaded.
 
 ```js
 const EXPORTS = {
-  sans: 'https://ids-input-composer.mkpoli.workers.dev/a83fc941166b-sans-compose-layout-v4-f6+variants/',
-  serif: 'https://ids-input-composer.mkpoli.workers.dev/8156f838798c-serif-compose-layout-v4-serif-f6+variants/',
-  kaisho: 'https://ids-input-composer.mkpoli.workers.dev/ce3eaafda8f9-kaisho-compose-layout-v4-kaisho-f6/',
-  fangsong: 'https://ids-input-composer.mkpoli.workers.dev/9f797e2322d2-fangsong-compose-layout-v4-fangsong-f6/',
+  sans: 'https://ids-input-composer.mkpoli.workers.dev/a83fc941166b-sans-compose-layout-v4-f7+variants/',
+  serif: 'https://ids-input-composer.mkpoli.workers.dev/8156f838798c-serif-compose-layout-v4-serif-f7+variants/',
+  kaisho: 'https://ids-input-composer.mkpoli.workers.dev/ce3eaafda8f9-kaisho-compose-layout-v4-kaisho-f7/',
+  fangsong: 'https://ids-input-composer.mkpoli.workers.dev/9f797e2322d2-fangsong-compose-layout-v4-fangsong-f7/',
 }
 
 // `fontStyle` names the export's style. It defaults to 'sans'.
@@ -111,7 +111,7 @@ before it, whose promise rejects with an `AbortError`, as does a drawing that ou
 import { composerPreview, drawingSvg } from '@han-compose/composer'
 
 const preview = composerPreview({
-  base: 'https://ids-input-composer.mkpoli.workers.dev/a83fc941166b-sans-compose-layout-v4-f6+variants/',
+  base: 'https://ids-input-composer.mkpoli.workers.dev/a83fc941166b-sans-compose-layout-v4-f7+variants/',
 })
 preview.warm() // start the Worker and read the export before the first drawing
 
@@ -211,12 +211,12 @@ tokens('⿰亻⿱七木')[2]
 bun install
 bun run check                 # the types the declarations are made from
 bun test tests                # the engine, its loader, the Worker, the bundled outlines
-bun examples/draw-to-svg.js https://ids-input-composer.mkpoli.workers.dev/a83fc941166b-sans-compose-layout-v4-f6+variants/ '⿰木口' > out.svg
+bun examples/draw-to-svg.js https://ids-input-composer.mkpoli.workers.dev/a83fc941166b-sans-compose-layout-v4-f7+variants/ '⿰木口' > out.svg
 bun examples/bundled-script.js '𗀀' > tangut.svg
 COMPOSER_EXPORT=~/exports/serif bun run parity:check   # an export written with export-web --parity N --held-out M
 ```
 
-The package reads export formats 5 and 6. The method, its measurements and the export's layout are in the
+The package reads export format 7. The method, its measurements and the export's layout are in the
 [repository](https://github.com/mkpoli/han-compose).
 
 ## Licence

@@ -75,17 +75,20 @@ keeps both: syncing one extra alone drops the other.
 `export-web` writes what a browser port of the composer reads: the learned layout, the records of
 every character and sequence and the host lists of every place and operand, a manifest with the
 composer's version, its constants and the licence notices, and the licence texts. Records and host
-lists are packed into gzipped shards named by the first three hex digits of their SHA-256
-(`g/<hhh>.json`, `p/<hhh>.json`, at most 4,096 each), each a JSON object from the full hash to the
-record or list, so a page loads only the shards a sequence names. `--parity N` adds N reference
+lists are packed into gzipped shards named by the first hex digits of their SHA-256, each a JSON
+object from the key to the record or list: four digits for a record (`g/<hh>/<hhhh>.json`, at most
+65,536 shards of a few records each) and three for a host list (`p/<hhh>.json`, at most 4,096). A
+drawing reads a few dozen records, each from another shard, so a small shard keeps it to little more
+than the records it uses. `identity.json` holds every character's sequence and the character each
+sequence describes, so a page finds what a description names without reading a record for each
+spelling it tries. `--parity N` adds N reference
 drawings of compound jōyō kanji whose hosts join the export, and `--held-out M` M more whose hosts
 do not, for the port's parity test.
 
 Workers write one file per record and host list under `out/.work/`, which a stopped run resumes
 from, and the export builds the shards from them at the end. `export-web-pack` builds the shards
 again from a finished folder's `.work/`, and brings its manifest, parity files and `.export` stamp
-to format 6, so a format-4 or format-5 folder whose `g/` and `p/` are moved under `.work/` becomes
-the folder a format-6 export writes. A rerun resumes from `.work/` only under the same version, which names
+to format 7, so a folder of an earlier format becomes the folder a format-7 export writes. A rerun resumes from `.work/` only under the same version, which names
 the commit: from another commit `export-web` starts afresh. Every host's glyph and KanjiVG
 ownership are read once before the workers fork, and the workers share them. Host cutting releases
 cut geometry after each batch of 64 records and at the end of each list. Every candidate, its rank and failed-cut

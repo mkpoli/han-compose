@@ -28,6 +28,8 @@ export function bundledSource({ load, matches, fallback = null, under = false, a
       const remote = fallback?.store()
       return {
         manifest: source.manifest, layout: source.layout, missing: remote?.missing ?? new Set(),
+        // A key these records answer is read from its record, as a store without a table reads it.
+        identity: key => answers(key, remote) ? undefined : remote?.identity?.(key),
         rec: key => answers(key, remote) ? records[keyOf(key)] ?? null : remote?.rec(key) ?? null,
         hosts: (key, place) => answers(key, remote) ? [] : remote?.hosts(key, place) ?? [],
         places: key => answers(key, remote) ? [] : remote?.places(key) ?? [],
