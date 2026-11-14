@@ -1172,6 +1172,18 @@ export class Composer {
         return [frame, ...this.node(children[1], room)]
       }
     }
+    // A cut form round a part (a stroke chain such as the frame of 马) has no character that places
+    // what it holds, so the part fills the room the form's own ink leaves, as a surround construct's does.
+    const cutFrame = !this.separate && op in this.ENCLOSE && typeof children[0] === 'string'
+      && isComponentForm(children[0], this.fontStyle) && !this.data.rec(children[0])?.G
+      ? componentParts(children[0], region, this.fontStyle, false) : null
+    if (cutFrame) {
+      const [x0, y0, x1, y1] = this.INSIDE[op]
+      const w = region[2] - region[0], h = region[3] - region[1]
+      const room = this.room(op, cutFrame, region)
+        ?? [region[0] + x0 * w, region[1] + y0 * h, region[0] + x1 * w, region[1] + y1 * h]
+      return [...cutFrame, ...this.node(children[1], room)]
+    }
     // Native compound forms have no trained layout features; fit their actual outlines.
     if (this.hosted && this.layout && (!hasRepetition || ownFormsOnly(this.fontStyle)) && children.length === 2 && this.hasHosts(op, children) && (atRoot ? this.layout.ops.includes(op) : op === '⿰' || op === '⿱')) {
       // A description nothing in the export spells as one character has nothing to integrate a host
