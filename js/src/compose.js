@@ -16,7 +16,8 @@
 // Everything here is synchronous. `data.rec(key)` answers a key's record, `data.hosts(key, place)`
 // every host entry of it there, cut or not, and `data.places(key)` the places it is held in; each
 // answers empty for a key the export lacks or whose file is not loaded yet (which the caller loads
-// before drawing again).
+// before drawing again). A store that holds the export's identity table also answers
+// `data.identity(key)`: the key's sequence and the character it describes, without its record.
 import { EM_BOX, area, centre, count, derived, drawnBox, drawnContours, fill, fitted, grown, groupRings, makePart, mapped, partInk, partOf,
   placed, pointsBox, pyRound, raster, rings, scaleOf, shrunk, square, stretchOf, targetFor, union, within } from './geometry.js'
 import { ownFormsOnly, componentParts, componentPosition, componentPositionBox, componentRecord, containsComponentForm, isComponentForm, isGroupedForm } from './component-forms.js'
@@ -438,7 +439,7 @@ const DESIGNED_CUTS = {
 
 export class Composer {
   /**
-   * `data`: `{ manifest, layout, rec(key), hosts(key, place), places(key) }`; `exclude`: characters nothing is taken from (a
+   * `data`: `{ manifest, layout, rec(key), hosts(key, place), places(key), identity?(key) }`; `exclude`: characters nothing is taken from (a
    * character redrawn to test, with its twins); `face`: the box a whole character fills, when those
    * characters change it (the manifest's is the median of `FULL` with none excluded); `separate`:
    * draw operands as individual pieces where possible, including cuts from a matching whole glyph,

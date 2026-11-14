@@ -421,6 +421,70 @@ def test_the_identity_table_names_only_what_the_listing_does_not_imply() -> None
     assert web_export.read_identity(web_export.identity({}, {})) == ({}, {})
 
 
+def _folder(out: Path, records: dict[str, dict]) -> dict:
+    """A packed folder holding `records` and nothing else: enough of one for `pack` to work on."""
+    for key, record in records.items():
+        web_export._write_gzip(out / web_export.record_work(key), {"k": key, **record})
+    (out / ".work" / "p").mkdir(parents=True, exist_ok=True)
+    version = f"abc-sans-layout-f{web_export.FORMAT}"
+    (out / "manifest.json").write_text(json.dumps({"format": web_export.FORMAT, "version": version, "files": {"records": {}, "hosts": {}}}))
+    return web_export.pack(out, root=out, log=lambda _: None)
+
+
+def _pend(out: Path, manifest: dict, records: dict[str, dict]) -> None:
+    """Leave `records` in the folder as an addition `add` wrote and did not pack."""
+    shards = {}
+    for key in records:
+        shard = out / web_export.record_shard(key)
+        data = gzip.decompress(shard.read_bytes()) if shard.exists() else b"{}"
+        shards[web_export.record_shard(key)] = {"sha256": hashlib.sha256(shard.read_bytes()).hexdigest() if shard.exists() else None,
+                                                "bytes": len(data) if shard.exists() else 0, "entries": len(json.loads(data))}
+    for key, record in records.items():
+        web_export._write_gzip(out / web_export.record_work(key), {"k": key, **record})
+    (out / web_export.PENDING).write_bytes(web_export._dump({
+        "shards": shards, "added": {"set": "more", "commit": "abc", "keys": len(records), "probe": 0},
+        "keys": sorted(records), "variants": [], **{k: manifest["files"]["records"][k] for k in ("bytes", "entries")}}))
+
+
+def test_a_packed_addition_joins_the_identity_table(tmp_path: Path) -> None:
+    out = tmp_path / "out"
+    manifest = _folder(out, {"甲": {"s": "⿰木口"}, "⿰木口": {"e": "甲"}, "木": {"ink": 1}})
+    assert web_export.read_identity(json.loads((out / web_export.IDENTITY).read_text())) == ({"甲": "⿰木口"}, {"⿰木口": "甲"})
+    # 乙 is written as 甲 is and sorts before it; 丙 brings a sequence of its own.
+    _pend(out, manifest, {"乙": {"s": "⿰木口"}, "丙": {"s": "⿱三永"}, "⿱三永": {"e": "丙"}})
+    packed = web_export.pack(out, root=out, log=lambda _: None)
+    sequences, described = web_export.read_identity(json.loads((out / web_export.IDENTITY).read_text()))
+    assert sequences == {"甲": "⿰木口", "乙": "⿰木口", "丙": "⿱三永"}
+    assert described == {"⿰木口": "甲", "⿱三永": "丙"}
+    assert packed["files"]["identity"]["characters"] == 3 and packed["files"]["identity"]["sequences"] == 2
+    assert packed["files"]["records"]["entries"] == manifest["files"]["records"]["entries"] + 3
+    assert _record(out, "丙") == {"s": "⿱三永"} and not (out / web_export.PENDING).exists()
+
+
+def test_an_addition_left_in_a_folder_of_an_earlier_format_is_named(tmp_path: Path) -> None:
+    out = tmp_path / "out"
+    manifest = _folder(out, {"木": {"ink": 1}})
+    _pend(out, manifest, {"口": {"ink": 2}})
+    earlier = {**json.loads((out / "manifest.json").read_text()), "format": web_export.FORMAT - 1}
+    (out / "manifest.json").write_text(json.dumps(earlier))
+    with pytest.raises(web_export.WorkFileError, match="pack it at the commit that added it"):
+        web_export.pack(out, root=out, log=lambda _: None)
+    assert (out / web_export.PENDING).exists()
+
+
+def test_a_flush_that_fails_stops_the_pack(tmp_path: Path, monkeypatch) -> None:
+    import ctypes
+
+    class Failing:
+        def syncfs(self, fd: int) -> int:
+            ctypes.set_errno(5)
+            return -1
+
+    monkeypatch.setattr(ctypes, "CDLL", lambda *args, **kwargs: Failing())
+    with pytest.raises(OSError):
+        web_export._sync_files(tmp_path)
+
+
 def _as_format_4(out: Path) -> None:
     """Turn a fresh export into what a format-4 one left once its per-key files are under `.work/`:
     no shards, a format-4 manifest with that format's file scheme and per-file sizes, and the
@@ -430,6 +494,7 @@ def _as_format_4(out: Path) -> None:
     old = lambda version: version[: -len(f"-f{web_export.FORMAT}")] + "-f4"
     shutil.rmtree(out / "g")
     shutil.rmtree(out / "p")
+    (out / web_export.IDENTITY).unlink()  # a format-4 folder holds no identity table: pack writes it
     (out / "p").mkdir()
     (out / "p" / "fff.json").write_bytes(b"stale")  # pack replaces each folder whole
     manifest = json.loads((out / "manifest.json").read_text())

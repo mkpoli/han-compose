@@ -56,7 +56,8 @@ describe('the files a drawing reads', () => {
     const held = await store({ ...files, ...shards('g', records) })
     expect(held.identity('⿰木口')).toEqual({ e: '甲' })
     expect(held.identity('甲')).toEqual({ s: '⿰木口' })
-    expect(held.identity('⿰木木')).toBeNull()
+    // The table holds every key with a sequence or a character: one it lacks has neither.
+    expect(held.identity('⿰木木')).toEqual({})
     // Two characters written alike: the table names the one the sequence describes.
     const twins = [['甲', { s: '⿰木口' }], ['乙', { s: '⿰木口' }], ['⿰木口', { e: '甲' }]]
     expect(JSON.parse(identityOf(twins)).e).toEqual({ '⿰木口': '甲' })
@@ -78,7 +79,7 @@ describe('the files a drawing reads', () => {
     expect(store.identity('⿰木口')).toBeUndefined()
     expect(store.missing.size).toBe(0)
     await source.load(source.modelFiles())
-    expect(source.store().identity('⿰木口')).toBeNull()
+    expect(source.store().identity('⿰木口')).toEqual({})
   })
 
   it('reads the layout when a node asks for it', async () => {

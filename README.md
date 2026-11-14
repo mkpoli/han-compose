@@ -88,7 +88,8 @@ do not, for the port's parity test.
 Workers write one file per record and host list under `out/.work/`, which a stopped run resumes
 from, and the export builds the shards from them at the end. `export-web-pack` builds the shards
 again from a finished folder's `.work/`, and brings its manifest, parity files and `.export` stamp
-to format 7, so a folder of an earlier format becomes the folder a format-7 export writes. A rerun resumes from `.work/` only under the same version, which names
+to format 7, so a format-6 folder, and a format-4 or format-5 folder whose `g/` and `p/` are moved
+under `.work/`, becomes the folder a format-7 export writes. A rerun resumes from `.work/` only under the same version, which names
 the commit: from another commit `export-web` starts afresh. Every host's glyph and KanjiVG
 ownership are read once before the workers fork, and the workers share them. Host cutting releases
 cut geometry after each batch of 64 records and at the end of each list. Every candidate, its rank and failed-cut
