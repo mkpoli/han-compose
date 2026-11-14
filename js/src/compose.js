@@ -1147,7 +1147,7 @@ export class Composer {
     // A cut form round a part (a stroke chain such as the frame of 马) has no character that places
     // what it holds, so the part fills the room the form's own ink leaves, as a surround construct's does.
     const cutFrame = !this.separate && op in this.ENCLOSE && typeof children[0] === 'string'
-      && isComponentForm(children[0], this.fontStyle) && !this.rec(children[0])?.G
+      && isComponentForm(children[0], this.fontStyle) && !this.data.rec(children[0])?.G
       ? componentParts(children[0], region, this.fontStyle, false) : null
     if (cutFrame) {
       const [x0, y0, x1, y1] = this.INSIDE[op]
