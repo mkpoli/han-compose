@@ -171,6 +171,8 @@ const FALLING_STROKES = new Set(['丿', '㇒', 'ノ'])
 const TICK_BODY = 0.76, TICK_REACH = 0.24, TICK_SUNK = 0.85, TICK_INSET = 0.5
 /** How far such a tick may be widened past its glyph's own proportion. */
 const TICK_STRETCH = 1.3
+/** How many rows of a 64-row raster a bar's top edge may vary by past its corner. */
+const BAR_LEVEL = 1
 /** How large a part that is one glyph may stand under such a stroke, against the share of the face
  *  its own glyph takes: a character may grow a little, and a bare stroke, whose glyph alone fills
  *  half the face, is set smaller, so a dot stays a dot at the lower right. */
@@ -3399,17 +3401,20 @@ function extraBar(part, mask, references) {
  * dot or a slanted stroke, and for an edge that starts in the right half.
  * @param {any[]} parts @param {number[]} box @returns {number | null} The edge's left end.
  */
-function topEdgeStart(parts, box, size = 32) {
+function topEdgeStart(parts, box, size = 64) {
   if (box[2] <= box[0] || box[3] <= box[1]) return null
-  const ink = fill(groupRings(parts), size, box), band = 4, run = Math.round(size * 0.3)
+  const ink = fill(groupRings(parts), size, box), band = size >> 3, run = Math.round(size * 0.3)
   /** The first inked row of a column within the band, or -1. @param {number} c */
   const top = c => { for (let r = 0; r < band; r++) if (ink[r * size + c] === 1) return r; return -1 }
   let left = 0
   while (left < size && top(left) < 0) left++
   if (left > size / 2 || left + run > size) return null
-  // A bar keeps its height along the run; a slanted stroke climbs out of the band or across it.
-  const first = top(left)
-  for (let c = left; c < left + run; c++) { const at = top(c); if (at < 0 || Math.abs(at - first) > 1) return null }
+  // A bar's edge is level past its corner, where a serif or a brush's first press may stand
+  // proud. A dot or a slanted stroke keeps falling or climbs out of the band.
+  const edge = Array.from({ length: run }, (_, i) => top(left + i))
+  if (edge.some(at => at < 0)) return null
+  const level = edge.slice(Math.ceil(run / 3))
+  if (Math.max(...level) - Math.min(...level) > BAR_LEVEL) return null
   return box[0] + left * (box[2] - box[0]) / size
 }
 
