@@ -162,6 +162,18 @@ const CELL_MIDDLE_INSET = 0.08
 const CELL_AXIS = { '⿵': 1, '⿶': 1 }
 /** The scale `fitInside` walks down to, and the share of a box a room is short of before it gives way. */
 const FIT_FLOOR = 0.45
+/** The falling strokes, which over a bar or a box are the tick of 白 and 鸟. */
+const FALLING_STROKES = new Set(['丿', '㇒', 'ノ'])
+/** Under such a stroke drawn as a tick (白, 鸟): the share of the cell's height the part below
+ *  takes, the tick's width as a share of the cell's, and how far its foot sinks into the corner
+ *  it stands on and stands in from that corner's side, in stroke widths. The foot ends inside the
+ *  corner's ink, so its tip does not show beside it. */
+const TICK_BODY = 0.76, TICK_REACH = 0.24, TICK_SUNK = 0.85, TICK_INSET = 0.5
+/** How far such a tick may be widened past its glyph's own proportion. */
+const TICK_STRETCH = 1.3
+/** A bare stroke at the upper left of any other part: the stroke's box and the box of the part to
+ *  its lower right, as shares of the cell from its lower-left corner. */
+const SWEEP_STROKE = [0, 0.3, 0.4, 1], SWEEP_BODY = [0.3, 0, 1, 0.74]
 /** Frames a font sets as a left half and a right half: the halves stand at the sides of the cell
  *  and the enclosed part sits between them (𦥑 in ⿴𦥑囟, read as ⿲). */
 const SPLIT_FRAMES = new Set(['𦥑'])
@@ -1125,6 +1137,8 @@ export class Composer {
       const adopted = this.enclosureRow(op, children, region)
       if (adopted) return adopted
     }
+    const stroke = op === '⿸' && this.strokeEnclosure(children, region)
+    if (stroke) return stroke
     const legs = !this.separate && op === '⿸' && this.legEnclosure(children, region)
     if (legs) return legs
     const yan = !this.separate && op === '⿸' && this.yanEnclosure(children, region)
@@ -1452,6 +1466,46 @@ export class Composer {
     }
     const lower = this.node(contents[2], lowerBox)
     return [...outer, legs, ...lower]
+  }
+
+  /**
+   * ⿸ whose upper-left operand is a bare stroke no character is described with there (丿, 丶, 丨).
+   * Such a stroke's glyph runs across the whole face and encloses nothing, so the layout a real
+   * enclosure gets sets it over the cell and its operand wherever the stroke leaves room. Here the
+   * stroke goes to the upper left and the operand to the lower right. A falling stroke over a part
+   * whose top edge starts as a bar (口, 日, 田, a frame) is the tick of 白 and 鸟: it stands on
+   * the left end of that edge and touches it.
+   * @param {(string | any[])[]} children @param {number[]} region
+   */
+  strokeEnclosure(children, region) {
+    const [outer, inner] = children
+    if (this.partial || typeof outer !== 'string' || !this.stroked(outer) || this.host('⿸', 0, outer, [inner], region)) return null
+    const glyph = this.drawnGlyph(outer, true)
+    if (!glyph) return null
+    const [x0, y0, x1, y1] = region, w = x1 - x0, h = y1 - y0
+    const set = (/** @type {number[]} */ box) => [placed(glyph, glyph.box, box, this.ink(outer), `glyph ${outer}`)]
+    const at = (/** @type {number[]} */ share) => [x0 + share[0] * w, y0 + share[1] * h, x0 + share[2] * w, y0 + share[3] * h]
+    const falling = FALLING_STROKES.has(outer)
+    if (falling) {
+      const under = this.node(inner, [x0, y0, x1, y0 + TICK_BODY * h])
+      const box = union(under.map(part => part.target))
+      const edge = topEdgeStart(under, box)
+      if (edge !== null) {
+        const stem = this.stem0[1][0] * h / (this.face[3] - this.face[1])
+        const foot = box[3] - TICK_SUNK * stem, rise = y1 - foot, left = edge + TICK_INSET * stem
+        // The tick keeps near its glyph's own slant: widened to the cell's share it would lie flat.
+        const own = (glyph.box[2] - glyph.box[0]) / Math.max(glyph.box[3] - glyph.box[1], 1)
+        const reach = Math.min(TICK_REACH * w, rise * own * TICK_STRETCH, x1 - left)
+        return [...set([left, foot, left + reach, y1]), ...under]
+      }
+    }
+    // A falling stroke fills its box, as the stroke of 𠂆 runs down the side; any other keeps its
+    // own proportion and stands in the box's upper-left corner.
+    const cell = at(SWEEP_STROKE), kept = fitted(glyph.box, cell, this.C.STRETCH)
+    const stroke = set(falling ? cell : [x0, y1 - (kept[3] - kept[1]), x0 + (kept[2] - kept[0]), y1])
+    const room = at(SWEEP_BODY), lower = this.node(inner, room)
+    this.fit(stroke, lower, region, this.stem0[0][0], this.C, { room })
+    return [...stroke, ...lower]
   }
 
   yanEnclosure(children, region) {
@@ -3325,6 +3379,23 @@ function extraBar(part, mask, references) {
 }
 
 /** The share of the inner parts' ink lying on the enclosing part's. */
+/**
+ * Where the top edge of the placed parts starts, when it starts as a bar: the left end of a box's
+ * or a frame's top stroke, or of a bar that leads the part. Null for a part led by a stem, a dot
+ * or a slanted stroke, and for an edge that starts in the right half.
+ * @param {any[]} parts @param {number[]} box @returns {number | null} The edge's left end.
+ */
+function topEdgeStart(parts, box, size = 32) {
+  if (box[2] <= box[0] || box[3] <= box[1]) return null
+  const ink = fill(groupRings(parts), size, box), band = [0, 1, 2], run = Math.round(size * 0.3)
+  const inked = (/** @type {number} */ c) => band.some(r => ink[r * size + c] === 1)
+  let left = 0
+  while (left < size && !inked(left)) left++
+  if (left > size / 2) return null
+  for (let c = left; c < left + run; c++) if (c >= size || !inked(c)) return null
+  return box[0] + left * (box[2] - box[0]) / size
+}
+
 export function collision(outer, inner, region, size = 64) {
   const a = fill(groupRings(outer), size, region), b = fill(groupRings(inner), size, region)
   let both = 0, total = 0
