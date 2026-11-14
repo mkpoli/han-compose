@@ -81,12 +81,19 @@ export function sourceFor(sequence, { base, fontStyle = 'sans', separate = false
   if (traits.newKorean) source = overlay(newKoreanSource, source, 'sources/new-korean/outlines.json.gz')
   if (traits.shuishu) source = overlay(shuishuSource, source, 'sources/shuishu/outlines.json.gz')
   if (traits.jurchen) source = overlay(jurchenSource, source, 'sources/jurchen/outlines.json.gz')
-  if (traits.palette) source = overlay(paletteSource, source, 'sources/palette/outlines.json.gz', { under: fontStyle !== 'sans', style: fontStyle })
+  if (traits.palette) {
+    // In Sans the palette reads a second file, the cuts of the numbered components. A host that
+    // reads or lists it answers for it as for the first.
+    const sans = bundledLoader(SANS_CUTS, !local, loaders, read)
+    source = overlay(paletteSource, source, 'sources/palette/outlines.json.gz', { under: fontStyle !== 'sans', style: fontStyle, ...(sans ? { sans } : {}) })
+  }
   return source ?? bundledSource({ load: async () => ({ records: {} }), matches: () => false })
 }
 
 /** The path a Unicode overlay reads stands for each of its shards. */
 const UNICODE = 'unicode/outlines/'
+/** The Sans cuts of the numbered components, which the palette lays over its own outlines. */
+const SANS_CUTS = 'numbered-sans-outlines.json.gz'
 
 /** A bundled file's parsed JSON, from the bytes a response holds. @param {Response} response @param {string} name */
 async function parsed(response, name) {
