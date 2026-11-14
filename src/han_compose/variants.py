@@ -18,22 +18,40 @@ come in. Two fonts' drawings of one shape differ, so they are never the same for
 
 Every label is read from a font's `name` table or from a pinned data file. `sheet` lays the forms
 out as one SVG.
+
+`composed` does the same for a sequence: one drawing by the composer for each way to write its
+components with the variation sequences the style's font draws (`spellings`).
 """
 
 from __future__ import annotations
 
 import hashlib
 import io
+import math
 import zipfile
 from dataclasses import dataclass, field
 from functools import cached_property
+from itertools import islice, product
 from pathlib import Path
 from xml.sax.saxutils import escape
 
 from fontTools.pens.recordingPen import DecomposingRecordingPen
 from fontTools.ttLib import TTCollection, TTFont
 
-from .compose import _JIGMO, EM, OFL, Source, _fetched
+from .compose import (
+    _JIGMO,
+    EM,
+    OFL,
+    STYLES,
+    Composer,
+    Font,
+    Node,
+    Source,
+    _fetched,
+    _selector,
+    parse,
+    svg_path,
+)
 from .vocab import cache_root
 
 
@@ -114,7 +132,9 @@ IPAMJ = Source("ipamj/ipamjm.ttf", "https://dforest.watch.impress.co.jp/library/
 #: Jigmo's BMP font first, then the supplementary planes.
 JIGMO = (_JIGMO[2], _JIGMO[0], _JIGMO[1])
 
-KINDS = ("regional", "ivs", "svs", "compatibility")
+KINDS = ("regional", "ivs", "svs", "compatibility", "composed")
+#: The most ways `spellings` writes one sequence.
+COMBINATIONS = 24
 
 
 def missing(style: str, cache: Path | None = None) -> list[str]:
@@ -298,6 +318,11 @@ class Form:
     #: An IVD sequence's collections and identifiers, or a standardized sequence's description.
     registered: list[dict[str, str]] = field(default_factory=list)
     description: str | None = None
+    #: A composed form's components written with a variation selector, and where each part drawn came from.
+    components: list[dict] = field(default_factory=list)
+    parts: list[str] = field(default_factory=list)
+    #: Why the form has no outline.
+    note: str | None = None
 
     def record(self) -> dict:
         out: dict = {"kind": self.kind, "label": self.label, "sequence": self.sequence,
@@ -309,10 +334,14 @@ class Form:
             out["registered"] = self.registered
         if self.description:
             out["description"] = self.description
+        if self.components:
+            out["components"] = self.components
+        if self.parts:
+            out["parts"] = self.parts
         if self.same_as:
             out["same_as"] = self.same_as
-        if self.outline is None:
-            out["note"] = "No font on disk maps this sequence."
+        if self.note:
+            out["note"] = self.note
         out["outline"] = self.outline
         return out
 
@@ -350,6 +379,7 @@ def forms(char: str, fonts: Fonts, cache: Path | None = None) -> tuple[list[Form
     first: dict[str, str] = {}
     for form in out:
         if form.face is None:
+            form.note = "No font on disk maps this sequence."
             continue
         form.outline = form.face.outline(form.glyph)
         held = first.setdefault(same(form.outline), form.label)
@@ -367,10 +397,99 @@ def document(char: str, style: str, found: list[Form], sources: dict[str, str], 
         "style": style,
         "forms": [form.record() for form in found],
         "irg_sources": {"note": "Unihan's kIRG_*Source values for the character. No form here is a source's glyph.", **sources},
-        "fonts": [{"file": face.file, "face": f"{face.name} {face.version}", "sha256": face.sha256, "licence": face.licence}
-                  for face in fonts.all if id(face) in used],
-        "data": [{"file": Path(table.file).name, "edition": table.edition, "url": table.url, "sha256": table.sha256,
-                  "licence": table.licence} for table in (IVD, STANDARDIZED, UNIHAN)],
+        "fonts": [_font(face) for face in fonts.all if id(face) in used],
+        "data": [_pin(table) for table in (IVD, STANDARDIZED, UNIHAN)],
+    }
+
+
+def _font(face: Face) -> dict:
+    return {"file": face.file, "face": f"{face.name} {face.version}", "sha256": face.sha256, "licence": face.licence}
+
+
+def _pin(table: Table) -> dict:
+    return {"file": Path(table.file).name, "edition": table.edition, "url": table.url, "sha256": table.sha256,
+            "licence": table.licence}
+
+
+# ------------------------------------------------------------------ sequences
+def _leaves(node: Node) -> list[str]:
+    return [node] if isinstance(node, str) else [leaf for kid in node[1:] for leaf in _leaves(kid)]
+
+
+def spellings(sequence: str, font: Font) -> tuple[list[str], int]:
+    """`sequence` written each way its components' variation sequences allow, as written first, and
+    how many ways there are: at most `COMBINATIONS` are handed back. A component takes each sequence
+    the style's font draws with a glyph of its own, one for each glyph (`web_export.variant_choices`).
+    A component written with a selector keeps it."""
+    from .web_export import variant_choices
+
+    tree = parse(sequence)
+    choices = variant_choices(font)
+    options = [[leaf, *sorted(choice for choice in choices if choice[0] == leaf)] if len(leaf) == 1 else [leaf]
+               for leaf in _leaves(tree)]
+
+    def written(node: Node, leaves) -> str:
+        return next(leaves) if isinstance(node, str) else node[0] + "".join(written(kid, leaves) for kid in node[1:])
+
+    return ([written(tree, iter(chosen)) for chosen in islice(product(*options), COMBINATIONS)],
+            math.prod(len(option) for option in options))
+
+
+def _selected(component: str, cache: Path | None) -> dict:
+    """A component written with a selector, with what registers or standardizes the sequence."""
+    base, selector = ord(component[0]), ord(component[1])
+    out: dict = {"component": component[0], "sequence": component, "codepoints": [f"U+{base:04X}", f"U+{selector:04X}"]}
+    entries = registered(base, cache).get(selector)
+    if entries:
+        out["registered"] = [{"collection": c, "identifier": i} for c, i in entries]
+    description = standardized(base, cache).get(selector)
+    if description:
+        out["description"] = description
+    return out
+
+
+def composed(sequence: str, composer: Composer, cache: Path | None = None) -> tuple[list[Form], int]:
+    """One drawing by `composer` for each of `spellings`, and how many ways there are in all. A form
+    is labelled by the components it writes with a selector, each with its collection and
+    identifier; the sequence as written is labelled by itself."""
+    source = composer.font.style.font
+    face = Face(source.file, composer.font.font, source.licence, source.sha256)
+    written, total = spellings(sequence, composer.font)
+    out, first = [], {}
+    for text in written:
+        components = [_selected(leaf, cache) for leaf in _leaves(parse(text)) if len(leaf) == 2 and _selector(leaf[1])]
+        names = [c["component"] + " " + (", ".join(f"{r['collection']} {r['identifier']}" for r in c["registered"])
+                                         if "registered" in c else " ".join(c["codepoints"])) for c in components]
+        form = Form("composed", "; ".join(names) or text, text, face, components=components)
+        try:
+            placed = composer.compose(text)
+        except (LookupError, ValueError) as error:
+            form.note = f"Not drawn: {error}"
+        else:
+            form.outline, form.parts = svg_path(placed), [item.origin for item in placed]
+            held = first.setdefault(same(form.outline), form.label)
+            if held != form.label:
+                form.same_as = held
+        out.append(form)
+    return out, total
+
+
+def sequence_document(sequence: str, style: str, found: list[Form], total: int) -> dict:
+    """`variants.json` for a sequence: the drawings, how many ways there were to write it, and the
+    fonts the style composes from."""
+    main, fallbacks = STYLES[style].font, STYLES[style].fallbacks
+    face = found[0].face
+    return {
+        "sequence": sequence,
+        "codepoints": [f"U+{ord(char):04X}" for char in sequence],
+        "style": style,
+        "combinations": total,
+        "cap": COMBINATIONS,
+        "forms": [form.record() for form in found],
+        "fonts": [{**_font(face), "url": main.url},
+                  *({"file": source.file, "url": source.url, "sha256": source.sha256, "licence": source.licence,
+                     "note": "Draws the parts the style's font lacks."} for source in fallbacks)],
+        "data": [_pin(table) for table in (IVD, STANDARDIZED)],
     }
 
 
@@ -382,42 +501,56 @@ LINE = 15
 MARGIN = 24
 
 
-def _heading(kind: str, fonts: Fonts) -> str:
-    if kind == "regional":
-        face = fonts.regional[0]
-        return f"Regional designs of {face.family.rsplit(' ', 1)[0]} {face.version}"
-    return {"ivs": f"Ideographic Variation Database {IVD.edition}",
+def headings(fonts: Fonts) -> dict[str, str]:
+    """What a character's sheet writes above each kind."""
+    face = fonts.regional[0]
+    return {"regional": f"Regional designs of {face.family.rsplit(' ', 1)[0]} {face.version}",
+            "ivs": f"Ideographic Variation Database {IVD.edition}",
             "svs": f"Standardized variation sequences, Unicode {STANDARDIZED.edition}",
-            "compatibility": f"CJK compatibility ideographs, Unihan {UNIHAN.edition}"}[kind]
+            "compatibility": f"CJK compatibility ideographs, Unihan {UNIHAN.edition}"}
+
+
+def sequence_headings(found: list[Form], total: int) -> dict[str, str]:
+    """What a sequence's sheet writes above its drawings, with the cap where it cut them short."""
+    face = found[0].face
+    cut = f", {len(found)} of {total} combinations" if total > len(found) else ""
+    return {"composed": f"Composed in {face.name} {face.version}{cut}"}
 
 
 def _caption(form: Form, found: list[Form], every: bool) -> list[tuple[str, bool]]:
     """A cell's lines beneath its drawing, each with whether it is set lighter: the label, where the
     form is drawn from, and the forms that share its outline."""
-    lines = [(part, False) for part in form.label.split(", ")]
-    if form.kind != "regional":
+    if form.kind == "composed":
+        lines = [(part, False) for part in form.label.split("; ")]
+        if form.outline is None:
+            lines.append(("not drawn", True))
+    else:
+        lines = [(part, False) for part in form.label.split(", ")]
+    if form.kind in ("ivs", "svs", "compatibility"):
         selector = f"U+{ord(form.sequence[-1]):04X}, " if form.kind == "ivs" else ""
         lines.append((selector + (form.face.name if form.face else "no font on disk"), True))
     if every and form.same_as:
         lines.append((f"= {form.same_as}", True))
     if not every:
-        lines += [(f"= {part}", True) for other in found if other.same_as == form.label for part in other.label.split(", ")]
+        lines += [(f"= {part}", True) for other in found if other.same_as == form.label
+                  for part in other.label.split("; " if other.kind == "composed" else ", ")]
     return lines
 
 
-def sheet(char: str, found: list[Form], fonts: Fonts, every: bool = False) -> str:
-    """The forms as one SVG, a row or more for each kind, each drawing above its labels. A form
-    another already draws is named beneath that one, or drawn too when `every` is set. The ink is
-    `currentColor`: dark on a light page, light on a dark one."""
+def sheet(title: str, found: list[Form], above: dict[str, str], every: bool = False) -> str:
+    """The forms as one SVG under `title`, a row or more for each kind beneath its heading in
+    `above`, each drawing above its labels. A form another already draws is named beneath that one,
+    or drawn too when `every` is set. The ink is `currentColor`: dark on a light page, light on a
+    dark one."""
     body, y, widest = [], MARGIN + 22, 2
-    body.append(f'<text x="{MARGIN}" y="{y}" font-size="20">{escape(char)} U+{ord(char):04X}</text>')
+    body.append(f'<text x="{MARGIN}" y="{y}" font-size="20">{escape(title)}</text>')
     y += 14
     for kind in KINDS:
         cells = [form for form in found if form.kind == kind and (every or not form.same_as)]
         if not cells:
             continue
         y += 26
-        body.append(f'<text x="{MARGIN}" y="{y}" font-size="13" fill-opacity="0.7">{escape(_heading(kind, fonts))}</text>')
+        body.append(f'<text x="{MARGIN}" y="{y}" font-size="13" fill-opacity="0.7">{escape(above[kind])}</text>')
         y += 12
         widest = max(widest, min(len(cells), COLUMNS))
         for start in range(0, len(cells), COLUMNS):

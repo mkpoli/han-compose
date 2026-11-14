@@ -128,30 +128,45 @@ VARIANTS_ALL = typer.Option(False, "--all", help="draw the forms another form al
 
 
 @app.command()
-def variants(character: str, out: Path = VARIANTS_OUT, style: str = STYLE, every: bool = VARIANTS_ALL) -> None:
-    """Write every form of one character into `out` (`han_compose.variants`): `variants.json`, each
-    form with its label, the text that selects it, its font, glyph and outline, and `variants.svg`,
-    one sheet of them. The forms are Noto CJK's regional designs, the character's sequences in the
-    Ideographic Variation Database, its standardized variation sequences and its compatibility
-    ideographs. `--style` is sans or serif, the designs Noto CJK draws by region."""
+def variants(sequence: str, out: Path = VARIANTS_OUT, style: str = STYLE, every: bool = VARIANTS_ALL) -> None:
+    """Write every form of one character, or of one sequence, into `out` (`han_compose.variants`):
+    `variants.json`, each form with its label, the text that selects it, its font, glyph and
+    outline, and `variants.svg`, one sheet of them.
+
+    A character's forms are Noto CJK's regional designs, its sequences in the Ideographic Variation
+    Database, its standardized variation sequences and its compatibility ideographs; `--style` is
+    sans or serif, the designs Noto CJK draws by region. A sequence is composed once for each way
+    to write its components with the variation sequences the style's font draws, in any style."""
     from han_compose import variants as V
 
-    if _style(style) not in V.COLLECTIONS:
-        raise typer.BadParameter(f"variants draws {' or '.join(V.COLLECTIONS)}, not {style}.")
-    try:
-        fonts = V.Fonts.of(style)
-        found, sources = V.forms(character, fonts)
-    except (FileNotFoundError, ValueError) as error:
-        raise typer.BadParameter(str(error)) from error
-    if not any(form.outline for form in found):
-        raise typer.BadParameter(f"No font draws {character}.")
+    _style(style)
     out.mkdir(parents=True, exist_ok=True)
-    document = V.document(character, style, found, sources, fonts)
+    if len(sequence) == 1:
+        if style not in V.COLLECTIONS:
+            raise typer.BadParameter(f"A character's variants are drawn in {' or '.join(V.COLLECTIONS)}, not {style}.")
+        try:
+            fonts = V.Fonts.of(style)
+            found, sources = V.forms(sequence, fonts)
+        except (FileNotFoundError, ValueError) as error:
+            raise typer.BadParameter(str(error)) from error
+        document = V.document(sequence, style, found, sources, fonts)
+        title, above = f"{sequence} U+{ord(sequence):04X}", V.headings(fonts)
+        summary = {"character": sequence, "forms": len(found), **{kind: sum(form.kind == kind for form in found) for kind in V.KINDS[:4]}}
+    else:
+        composer = _composer(style)
+        _require_layout(composer, style)
+        try:
+            found, total = V.composed(sequence, composer)
+        except ValueError as error:
+            raise typer.BadParameter(str(error)) from error
+        document = V.sequence_document(sequence, style, found, total)
+        title, above = sequence, V.sequence_headings(found, total)
+        summary = {"sequence": sequence, "forms": len(found), "combinations": total, "cap": V.COMBINATIONS}
+    if not any(form.outline for form in found):
+        raise typer.BadParameter(f"No font draws {sequence}.")
     (out / "variants.json").write_text(json.dumps(document, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
-    (out / "variants.svg").write_text(V.sheet(character, found, fonts, every), encoding="utf-8")
-    counts = {kind: sum(form.kind == kind for form in found) for kind in V.KINDS}
-    print(json.dumps({"character": character, "forms": len(found), **counts,
-                      "distinct": sum(bool(form.outline) and not form.same_as for form in found),
+    (out / "variants.svg").write_text(V.sheet(title, found, above, every), encoding="utf-8")
+    print(json.dumps({**summary, "distinct": sum(bool(form.outline) and not form.same_as for form in found),
                       "undrawn": sum(form.outline is None for form in found)}, ensure_ascii=False))
 
 
