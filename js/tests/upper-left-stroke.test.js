@@ -181,6 +181,10 @@ describe('the top edge a tick stands on', () => {
     // The tick's foot goes by the bar, not by the serif's tip.
     expect(Math.abs(bar(...parts) - 600)).toBeLessThan(6)
   })
+  it('is none for a bar a short stem stands through', () => {
+    // 中 and 古: the stem rises less than a bar may lie under the top, with the bar on both sides.
+    expect(edge(rect(100, 400, 900, 440), rect(460, 0, 540, 520))).toBeNull()
+  })
   it('is none for a bar under a stem that rises from its middle', () => {
     // 木 and 申: the bar is not the part's top edge.
     expect(edge(rect(100, 400, 900, 440), rect(460, 0, 540, 600))).toBeNull()

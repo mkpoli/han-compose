@@ -178,11 +178,13 @@ const TICK_BODY = [0.78, 0.74], TICK_SUNK = 0.6, TICK_INSET = 0.5
  *  slanted stroke falls or climbs more, and a stem is too short. The band and the lengths along
  *  the edge are in upright strokes' widths, which a serif face keeps where its level strokes thin
  *  out; the fall and the rise are in level strokes'. */
-const BAR_BAND = 1.75, BAR_RUN = 3, BAR_CORNER = 1.5, BAR_FALL = 0.15, BAR_RISE = 0.4
+const BAR_BAND = 1.75, BAR_RUN = 3, BAR_CORNER = 1.5, BAR_FALL = 0.15, BAR_RISE = 0.6
 /** The share of the part's width at each end left out when its top is found: a serif at a bar's
  *  far end or a brush's first press at its corner may stand proud of the bar, where a stem that
- *  rises from the middle (木, 申) makes the bar no top edge at all. */
-const BAR_ENDS = 0.15
+ *  rises from the middle (木, 申) makes the bar no top edge at all. Between the ends, ink that
+ *  stands this many upright strokes' widths over the bar, with the bar on both sides of it, is
+ *  such a stem however short it is (中, 古). */
+const BAR_ENDS = 0.15, BAR_PROUD = 0.75
 /** How large a part that is one glyph may stand under such a stroke, against the share of the face
  *  its own glyph takes: a character may grow a little, and a bare stroke, whose glyph alone fills
  *  half the face, is set smaller, so a dot stays a dot at the lower right. */
@@ -3457,6 +3459,15 @@ export function topEdgeStart(parts, box, [upright, level], size = 64) {
   if (edge.some(at => at < 0)) return null
   const [first, ...rest] = edge.slice(Math.ceil(columns(BAR_CORNER)))
   if (rest.some(at => at - first > rows(BAR_FALL) || first - at > rows(BAR_RISE))) return null
+  // A stem through the bar: a span narrower than the run standing proud between two stretches of bar.
+  const onBar = (/** @type {number} */ at) => at >= 0 && Math.abs(at - first) <= rows(BAR_RISE)
+  const proud = BAR_PROUD * upright * size / band
+  let open = -1
+  for (let c = Math.ceil(size * BAR_ENDS); c < size * (1 - BAR_ENDS); c++) {
+    const at = top(c)
+    if (at >= 0 && first - at > proud) { if (open < 0 && onBar(top(c - 1))) open = c }
+    else { if (open >= 0 && onBar(at) && c - open < run) return null; open = -1 }
+  }
   return [box[0] + left * wide / size, box[3] - first * band / size]
 }
 
