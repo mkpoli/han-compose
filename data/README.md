@@ -778,6 +778,8 @@ the intact `⿱士冖` crown from 壱 above the short 一 from 壹. The line mov
 vertically without scaling its strokes. `⿱⿱士冖一` uses the same layout. `⿻者丶` uses the glyph shared by
 者 + U+E0101 and U+FA5B, verified in both fonts' variation tables.
 Exact 塁 and 疂 descriptions use their complete native JP glyphs.
+The zi.tools stroke chain `#(-𠃍㇉)`, the frame of 马, is 马 without its 一: in both fonts the 一 is
+a separate outline, so the cut follows the font's own contours.
 `⿱宀儿` uses 宂 (U+5B82), whose source regions are HTKP; `⿻三丨` uses
 丰 (U+4E30), whose exact source regions are GJKPV. Explicit IDS typed in the
 editor remain unchanged; palette selection inserts the encoded counterparts.
