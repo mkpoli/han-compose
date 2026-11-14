@@ -922,6 +922,8 @@ COMBINING_PLACES = frozenset({"⿺0"})
 ENCLOSING_PLACES = frozenset(op + "0" for op in ENCLOSE) - COMBINING_PLACES
 #: Operands drawn across each other.
 OVERLAY = "⿻"
+#: 〾 marks a variant of its operand, which is drawn as it is.
+VARIANT = "〾"
 #: Least likeness of a piece whose operand is overlaid: its sketch, the operands' own glyphs laid
 #: over each other, is far from a designed shape (⿻干二 cut from 拜 scores 0.41).
 LIKENESS_OVERLAID = 0.35
@@ -2444,6 +2446,8 @@ class Composer:
         # Resolve each node's original identity before changing its rendering layout.
         node = self._respelled(node)
         op, children = node[0], list(node[1:])
+        if op == VARIANT:
+            return self._node(children[0], region, at_root)
         if op in ("⿾", "⿿"):
             # Reflect both masters in each part's frame, then move the part's target
             # within the node's region. A half-turn reflects both axes.
