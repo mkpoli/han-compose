@@ -57,8 +57,9 @@ describe('the files a drawing reads', () => {
     const held = await store({ ...files, ...shards('g', records) })
     expect(held.identity('⿰木口')).toEqual({ e: '甲' })
     expect(held.identity('甲')).toEqual({ s: '⿰木口' })
-    // The table holds every key with a sequence or a character: one it lacks has neither.
-    expect(held.identity('⿰木木')).toEqual({})
+    // A key with no record reads as its record would: null. One whose record holds neither is told apart.
+    expect(held.identity('⿰木木')).toBeNull()
+    expect((await store({ ...files, ...shards('g', [...records, ['丙', {}]]) })).identity('丙')).toEqual({})
     // Two characters written alike: the table names the one the sequence describes.
     const twins = [['甲', { s: '⿰木口' }], ['乙', { s: '⿰木口' }], ['⿰木口', { e: '甲' }]]
     expect(JSON.parse(identityOf(twins)).e).toEqual({ '⿰木口': '甲' })
@@ -87,7 +88,11 @@ describe('the files a drawing reads', () => {
     expect(store.identity('⿰木口')).toBeNull()
     expect([...store.missing]).toEqual(['identity.json'])
     await source.load(store.missing)
-    expect(source.store().identity('⿰木口')).toEqual({})
+    // With the table read it answers for both, and asks for nothing.
+    const read = source.store()
+    expect(read.identity('木')).toEqual({})
+    expect(read.identity('⿰木口')).toBeNull()
+    expect(read.missing.size).toBe(0)
   })
 
   it('draws a character with no glyph from its sequence as it does with the layout and the table read first', async () => {
@@ -151,7 +156,7 @@ describe('the files a drawing reads', () => {
     await compose(source, '⿰木口')
     await source.load(source.modelFiles())
     expect(source.layout.ops).toContain('⿰')
-    expect(source.store().identity('⿰木口')).toEqual({})
+    expect(source.store().identity('木')).toEqual({})
   })
 
   it('refuses an export of another format', async () => {

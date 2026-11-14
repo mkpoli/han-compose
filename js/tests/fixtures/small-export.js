@@ -15,14 +15,16 @@ export const shardOf = (folder, text) => {
   const h = hex(text)
   return folder === 'g' ? `g/${h.slice(0, 2)}/${h.slice(0, 4)}.json` : `p/${h.slice(0, 3)}.json`
 }
-/** The identity table of `entries` (`[key, record]`): each character's sequence, and what each
- *  sequence describes where that is not the character listed with it. */
+/** The identity table of `entries` (`[key, record]`): each character's sequence, what each
+ *  sequence describes where that is not the character listed with it, and the keys whose record
+ *  holds neither. */
 export const identityOf = entries => {
   const written = entries.filter(([, record]) => record.s !== undefined)
   const implied = new Map(written.map(([key, record]) => [record.s, key]))
   const e = Object.fromEntries(entries.filter(([key, record]) => record.e !== undefined && implied.get(key) !== record.e).map(([key, record]) => [key, record.e]))
   for (const [sequence] of implied) if (!entries.some(([key, record]) => key === sequence && record.e !== undefined)) e[sequence] = null
-  return JSON.stringify({ characters: written.map(([key]) => key).join('\n'), sequences: written.map(([, record]) => record.s).join('\n'), e })
+  const plain = entries.filter(([, record]) => record.s === undefined && record.e === undefined).map(([key]) => key)
+  return JSON.stringify({ characters: written.map(([key]) => key).join('\n'), sequences: written.map(([, record]) => record.s).join('\n'), e, plain: plain.join('\n') })
 }
 /** The export's shards: each entry under its text (a key, or place TAB operand), gzipped. The
  *  records' shards come with the identity table of those records. */

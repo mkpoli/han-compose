@@ -6,8 +6,9 @@
   composer draws with, the file scheme, the files' sizes, and the licence notices;
 - `layout.json`: the learned layout's model on every character ("all", `SEEDS` networks), its
   weights quantized (`LAYOUT_DTYPES`), with the feature definition;
-- `identity.json`: every character's sequence and the character each sequence describes, in one
-  table, so a port finding what a description names reads no record for it;
+- `identity.json`: every character's sequence, the character each sequence describes and every
+  other key that has a record, in one table, so a port finding what a description names reads no
+  record for it;
 - `g/<hh>/<hhhh>.json`: the records of the keys (characters and sequences) whose SHA-256 starts with
   `hhhh`, by key: a key's glyph outlines at weight 400 and the move to the style's heavy weight, its
   ink, its shape features and the layout table's statistics, its positional forms;
@@ -858,7 +859,7 @@ PATHS = {
     "records": "g/{hh}/{hhhh}.json: {key: record}, the records of every key (a character with any variation selector, or a whole sequence) whose SHA-256 (of its UTF-8, in hex) starts with hhhh; hh is that hash's first two digits",
     "hosts": "p/{hhh}.json: {place + TAB + operand: host list}, the host lists of every operand (a character or a whole sequence) in a place whose SHA-256 of UTF-8 place + TAB + operand starts with hhh",
     "shards": "a record shard is named by the hash's first four hex digits (at most 65,536, a few records each: a drawing reads a few dozen records, each from another shard), a host-list shard by its first three (at most 4,096)",
-    "identity": "identity.json: {characters, sequences, e}. characters and sequences are two lists joined by newlines, in step: each character and its sequence (s in its record). A sequence describes the last character listed with it, except where e says otherwise: {sequence: the character it describes, or null for none}. It holds every s and e of the records, so what a description names is found without reading one",
+    "identity": "identity.json: {characters, sequences, e, plain}. characters and sequences are two lists joined by newlines, in step: each character and its sequence (s in its record). A sequence describes the last character listed with it, except where e says otherwise: {sequence: the character it describes, or null for none}. plain lists, joined by newlines, every other key with a record: one with no s and no e. It holds every key of the records with its s and e, so what a description names, and whether a key has a record at all, is found without reading one",
     "encoding": "every file under g/ and p/ is gzip-compressed JSON (mtime 0, keys sorted); serve it with Content-Encoding: gzip or decompress it",
     "missing": "a key or (place, operand) absent from its shard, or whose shard is absent, has no record or no host the composer cuts cleanly",
     "work": ".work/g/{hh}/{sha256}.json and .work/p/{hh}/{sha256}.json are the per-key files the export's workers write and pack builds the shards and identity.json from: a record with its key (k), a host list as {place, operand, hosts}. .work/ must never be uploaded: each of its files is one more object written (rclone copy --exclude '.work/**')",
@@ -1289,6 +1290,7 @@ def pack(out: Path, root: Path | None = None, log=print, changed: list[str] | No
         return _pack_pending(out, manifest, log, changed if changed is not None else [])
     described: dict[str, str] = {}
     sequences: dict[str, str] = {}
+    plain: set[str] = set()
     for folder in ("g", "p"):
         files: dict[str, list[Path]] = {}
         for path in (out / WORK / folder).glob("*/*.json"):
@@ -1301,7 +1303,7 @@ def pack(out: Path, root: Path | None = None, log=print, changed: list[str] | No
         for k, shard in enumerate(sorted(files)):
             entries = dict(_entry(folder, _read_work(path)) for path in files[shard])
             if folder == "g":
-                _note_identity(entries, sequences, described)
+                _note_identity(entries, sequences, described, plain)
             sizes.append(_write_gzip(building / shard_file(folder, shard).split("/", 1)[1], entries, sync=False))
             if (k + 1) % 4000 == 0:
                 log(f"pack {folder} {k + 1}/{len(files)}")
@@ -1313,7 +1315,7 @@ def pack(out: Path, root: Path | None = None, log=print, changed: list[str] | No
         kind = "records" if folder == "g" else "hosts"
         manifest["files"][kind] = {**manifest["files"].get(kind, {}), **_summary(sizes),
                                    "entries": sum(len(v) for v in files.values())}
-    manifest["files"]["identity"] = _write_identity(out, sequences, described)
+    manifest["files"]["identity"] = _write_identity(out, sequences, described, plain)
     _stamp_version(out, version)
     manifest["format"] = FORMAT
     manifest["version"] = version
@@ -1333,29 +1335,36 @@ def _entry(folder: str, value: dict) -> tuple[str, dict | list]:
     return hosts_key(value["place"], value["operand"]), value["hosts"]
 
 
-def _note_identity(records: dict[str, dict], sequences: dict[str, str], described: dict[str, str]) -> None:
-    """Take each record's sequence (`s`) and the character it describes (`e`) into the two tables."""
+def _note_identity(records: dict[str, dict], sequences: dict[str, str], described: dict[str, str], plain: set[str]) -> None:
+    """Take each record into the identity tables: its sequence (`s`), the character it describes
+    (`e`), or, with neither, its key among the plain ones."""
     for key, record in records.items():
         if "s" in record:
             sequences[key] = record["s"]
         if "e" in record:
             described[key] = record["e"]
+        if "s" in record or "e" in record:
+            plain.discard(key)
+        else:
+            plain.add(key)
 
 
-def identity(sequences: dict[str, str], described: dict[str, str]) -> dict:
+def identity(sequences: dict[str, str], described: dict[str, str], plain: Iterable[str] = ()) -> dict:
     """The identity table of an export: every character with its sequence (`sequences`) as two
-    lists in step, joined by newlines, and what each sequence describes (`described`). A reader
-    takes a sequence to describe the last character listed with it; `e` holds only what differs
-    from that, a sequence's own character or null for none."""
+    lists in step, joined by newlines, what each sequence describes (`described`), and the keys
+    that have a record and neither (`plain`), joined by newlines. A reader takes a sequence to
+    describe the last character listed with it; `e` holds only what differs from that, a
+    sequence's own character or null for none."""
     characters = sorted(sequences)
     implied = {sequences[character]: character for character in characters}
     differs = {sequence: described.get(sequence) for sequence in sorted(set(implied) | set(described))
                if implied.get(sequence) != described.get(sequence)}
-    return {"characters": "\n".join(characters), "sequences": "\n".join(sequences[c] for c in characters), "e": differs}
+    return {"characters": "\n".join(characters), "sequences": "\n".join(sequences[c] for c in characters), "e": differs,
+            "plain": "\n".join(sorted(plain))}
 
 
-def read_identity(table: dict) -> tuple[dict[str, str], dict[str, str]]:
-    """`identity` read back: (sequences, described)."""
+def read_identity(table: dict) -> tuple[dict[str, str], dict[str, str], set[str]]:
+    """`identity` read back: (sequences, described, plain)."""
     characters = table["characters"].split("\n") if table["characters"] else []
     sequences = dict(zip(characters, table["sequences"].split("\n")))
     described = {sequence: character for character, sequence in sequences.items()}
@@ -1364,18 +1373,18 @@ def read_identity(table: dict) -> tuple[dict[str, str], dict[str, str]]:
             described.pop(sequence, None)
         else:
             described[sequence] = character
-    return sequences, described
+    return sequences, described, set(table["plain"].split("\n")) if table["plain"] else set()
 
 
-def _write_identity(out: Path, sequences: dict[str, str], described: dict[str, str]) -> dict:
+def _write_identity(out: Path, sequences: dict[str, str], described: dict[str, str], plain: set[str]) -> dict:
     """Write `IDENTITY` and answer its entry in the manifest's `files`."""
-    for key in (*sequences, *sequences.values(), *described, *described.values()):
+    for key in (*sequences, *sequences.values(), *described, *described.values(), *plain):
         if "\n" in key:
             raise ValueError(f"{key!r} holds a newline, which the identity table separates entries with")
-    data = _dump(identity(sequences, described))
+    data = _dump(identity(sequences, described, plain))
     _replace(out / IDENTITY, data)
     return {"path": IDENTITY, "bytes": len(data), "gzip": len(gzip.compress(data, 9, mtime=0)),
-            "characters": len(sequences), "sequences": len(described)}
+            "characters": len(sequences), "sequences": len(described), "plain": len(plain)}
 
 
 def _stamp_version(out: Path, version: str) -> None:
@@ -1412,12 +1421,12 @@ def _pack_pending(out: Path, manifest: dict, log, changed: list[str]) -> dict:
         raise WorkFileError(f"{out / PENDING} holds an addition to a format {manifest.get('format')} folder: "
                             f"pack it at the commit that added it, then pack again to bring the folder to format {FORMAT}")
     summary = dict(manifest["files"]["records"])
-    sequences, described = read_identity(json.loads((out / IDENTITY).read_text(encoding="utf-8")))
+    sequences, described, plain = read_identity(json.loads((out / IDENTITY).read_text(encoding="utf-8")))
     raw = entries = 0
     for k, (shard, before) in enumerate(sorted(pending["shards"].items())):
         h = Path(shard).stem
         records = dict(_entry("g", _read_work(path)) for path in sorted((out / WORK / "g" / h[:2]).glob(f"{h}*.json")))
-        _note_identity(records, sequences, described)
+        _note_identity(records, sequences, described, plain)
         data = _dump(records)
         packed = gzip.compress(data, 9, mtime=0)
         target = out / shard
@@ -1438,7 +1447,7 @@ def _pack_pending(out: Path, manifest: dict, log, changed: list[str]) -> dict:
                     "p95_gzip": int(np.percentile(gz, 95)), "max_gzip": int(gz.max()),
                     "bytes": pending["bytes"] + raw, "entries": pending["entries"] + entries})
     manifest["files"]["records"] = summary
-    manifest["files"]["identity"] = _write_identity(out, sequences, described)
+    manifest["files"]["identity"] = _write_identity(out, sequences, described, plain)
     # A stopped addition packs the records it wrote: only those are listed.
     _write_variants(out, manifest, [key for key in pending.get("variants", []) if (out / record_work(key)).exists()])
     entry = {**pending["added"], "shards": len(changed)}
