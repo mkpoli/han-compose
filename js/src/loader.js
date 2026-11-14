@@ -57,8 +57,10 @@ export async function unpack(buffer) {
 // `wh` for the whole character, the gap `g` and `kv` for a KanjiVG cut, read here onto the entry. A
 // cut marked `pc` was made only under a parity row's exclusion.
 //
-// The identity table (`identity.json`) holds every character's sequence and the character each
-// sequence describes, as the records do (`s`, `e`): finding what a description names reads no record.
+// Two files serve a description that sets parts beside each other, and load when one is first drawn:
+// the learned layout, and the identity table (`identity.json`), which holds every character's
+// sequence and the character each sequence describes, as the records do (`s`, `e`). With the table
+// read, finding what a description names reads no record.
 const FORMAT = 7
 const cutEntry = h => h.c === null ? { ...h } : { ...h, ...h.c, c: true }
 const hostsKey = (key, place) => `${place}\t${key}`
@@ -108,27 +110,40 @@ export function createSource(read, { concurrency = 32 } = {}) {
   })
   // Host lists are read into the composer's order once a page, so their pieces are decoded once.
   const files = new Map(), loading = new Map(), lists = new Map()
-  let identity = null
+  let layout = null, identity = null
+  const model = () => source.manifest.files
+  const parsed = async (name, bytes) => {
+    const { layout: learned, identity: table } = model()
+    if (name !== learned.path && name !== table.path) return bytes ? JSON.parse(await unpack(bytes)) : {}
+    // A drawing that needs the model cannot be made without it: the page then draws what it holds itself.
+    if (!bytes) throw Object.assign(new Error(`${name}: missing`), { unavailable: true })
+    const value = JSON.parse(await unpack(bytes))
+    if (name === learned.path) layout = readLayout(value)
+    else identity = readIdentity(value)
+    return value
+  }
   const source = {
-    manifest: null, layout: null,
+    manifest: null,
+    /** The learned layout: null until a drawing has loaded it (`modelFiles`). */
+    get layout() { return layout },
     ready() {
       ready ??= (async () => {
         source.manifest = JSON.parse(await unpack(await read('manifest.json')))
         if (source.manifest.format !== FORMAT) throw new Error(`The composer export's format ${source.manifest.format} is not read here.`)
-        const { layout, identity: table } = source.manifest.files
-        const [learned, described] = await Promise.all([read(layout.path), read(table.path)])
-        source.layout = readLayout(JSON.parse(await unpack(learned)))
-        identity = readIdentity(JSON.parse(await unpack(described)))
       })().catch(error => { ready = null; throw error })
       return ready
     },
-    /** Loads files by name, each once; a file the export lacks reads as empty. */
+    /** The files a description that sets parts beside each other reads beside its records: the
+     *  learned layout and the identity table. They load like any file, by name. */
+    modelFiles: () => [model().layout.path, model().identity.path],
+    /** Loads files by name, each once; a shard the export lacks reads as empty. */
     load(names) {
       return Promise.all([...names].map(name => {
         if (files.has(name)) return null
-        if (!loading.has(name)) loading.set(name, limited(name).then(async bytes => {
-          files.set(name, bytes ? JSON.parse(await unpack(bytes)) : {})
-        }).finally(() => loading.delete(name)))
+        if (!loading.has(name)) loading.set(name, limited(name)
+          .catch(error => { throw model().layout.path === name || model().identity.path === name ? Object.assign(error, { unavailable: true }) : error })
+          .then(async bytes => { files.set(name, await parsed(name, bytes)) })
+          .finally(() => loading.delete(name)))
         return loading.get(name)
       }))
     },
@@ -139,7 +154,9 @@ export function createSource(read, { concurrency = 32 } = {}) {
       const missing = new Set()
       const file = name => { const found = files.get(name); if (!found) missing.add(name); return found ?? null }
       return {
-        manifest: source.manifest, layout: source.layout, missing,
+        manifest: source.manifest, missing,
+        // The learned layout, asked for when a node is first laid out by it.
+        get layout() { if (!layout) missing.add(model().layout.path); return layout },
         rec: key => file(recordFile(key))?.[key] ?? null,
         // A host list in the order of the composer's index (`r`).
         hosts: (key, place) => {
@@ -149,8 +166,9 @@ export function createSource(read, { concurrency = 32 } = {}) {
           return lists.get(id)
         },
         places: key => file(recordFile(key))?.[key]?.P ?? [],
-        // A key's sequence and the character it describes (`{ e, s }`, or null), from the identity table.
-        identity: key => identity(key),
+        // A key's sequence and the character it describes (`{ e, s }`, or null), from the identity
+        // table once it is read; until then (undefined) the key's record answers.
+        identity: key => identity ? identity(key) : undefined,
       }
     },
   }
@@ -241,6 +259,11 @@ function extraOperators(tree, { fontStyle, separate, nativeEnclosures }) {
   return [...op, ...tree.slice(1).flatMap(child => extraOperators(child, { fontStyle, separate, nativeEnclosures }))].filter(op => APPROXIMATE.includes(op))
 }
 
+/** Whether a tree holds an operator of two operands or more. Such a description is laid out by the
+ *  learned model, and finding what it names tries many spellings; a lone character, and one turned
+ *  or mirrored whole (⿾正), is drawn from its records. */
+const setsParts = tree => Array.isArray(tree) && (tree.length > 2 || tree.slice(1).some(setsParts))
+
 /** A box in font units (y up) as the drawing's SVG box has it: [x, y, width, height], y down. */
 export const svgBox = b => [b[0], ASCENT - b[3], b[2] - b[0], b[3] - b[1]]
 
@@ -269,7 +292,15 @@ export async function sketch(source, sequence, { fontStyle = 'sans' } = {}) {
     new Composer(store, { fontStyle }).faceBeside(marks)
     if (store.missing.size) await source.load(store.missing)
   }
-  return new Composer(source.store(), { fontStyle }).sketch(description, marks).map(leaf => ({ ...leaf, box: svgBox(leaf.box) }))
+  if (setsParts(parseTree(description, arity))) await source.load(source.modelFiles())
+  // A description that turned out to be laid out by the model after all is sketched again with it.
+  for (let again = false; ; again = true) {
+    const store = source.store()
+    const leaves = new Composer(store, { fontStyle }).sketch(description, marks)
+    const model = source.modelFiles().filter(name => store.missing.has(name))
+    if (again || !model.length) return leaves.map(leaf => ({ ...leaf, box: svgBox(leaf.box) }))
+    await source.load(model)
+  }
 }
 
 /**
@@ -303,8 +334,9 @@ export async function compose(source, sequence, { exclude = [], face = null, sep
   const description = normaliseHangul(syllable ?? base, arity)
   const tree = parseTree(description, arity)
   if (tooLarge(tree)) throw new LookupError(`${sequence} is larger than a preview draws.`)
-  // A mark's outline loads like a component's.
-  await source.load(source.filesOf([...keysOf(tree, [], separate, fontStyle), ...marks]))
+  // A mark's outline loads like a component's. A description that sets parts beside each other is
+  // laid out by the model and resolved through the identity table: both load beside its first records.
+  await source.load([...source.filesOf([...keysOf(tree, [], separate, fontStyle), ...marks]), ...(setsParts(tree) ? source.modelFiles() : [])])
   for (let round = 0; round < ROUNDS; round++) {
     const store = source.store()
     let drawn = null, failure = null, composer = null, cells = false

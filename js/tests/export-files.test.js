@@ -1,5 +1,6 @@
 // Which of the export's files a drawing reads: a record's shard holds a few records under their
-// keys, and with the identity table read no record is asked for to learn what a description names.
+// keys, the learned layout and the identity table load when a description sets parts beside each
+// other, and with the table read no record is asked for to learn what a description names.
 import { describe, expect, it } from 'bun:test'
 import { compose, createSource } from '../src/loader.js'
 import { files, identityOf, shardOf, shards } from './fixtures/small-export.js'
@@ -9,12 +10,27 @@ const sourceOf = (held, asked = []) => createSource(async name => {
   asked.push(name)
   return held[name] === undefined ? null : new Uint8Array(Buffer.from(held[name])).buffer
 })
+const MODEL = ['layout.json', 'identity.json']
 
 describe('the files a drawing reads', () => {
   it('names a record shard by four digits of its key\'s hash, in a folder of the first two', () => {
     expect(shardOf('g', '木')).toMatch(/^g\/([0-9a-f]{2})\/\1[0-9a-f]{2}\.json$/)
     const asked = []
     return compose(sourceOf(files, asked), '木').then(() => expect(asked).toContain(shardOf('g', '木')))
+  })
+
+  it('draws a lone character without the layout or the identity table', async () => {
+    const asked = []
+    const drawn = await compose(sourceOf(files, asked), '木')
+    expect(drawn.d).not.toBe('')
+    expect(asked.filter(name => MODEL.includes(name))).toEqual([])
+  })
+
+  it('reads the layout and the identity table once for descriptions that set parts beside each other', async () => {
+    const asked = [], source = sourceOf(files, asked)
+    await compose(source, '⿰木口')
+    await compose(source, '⿱木口')
+    expect(asked.filter(name => MODEL.includes(name)).sort()).toEqual([...MODEL].sort())
   })
 
   it('asks for no record to learn that a spelling names no character', async () => {
@@ -34,7 +50,7 @@ describe('the files a drawing reads', () => {
     const store = async held => {
       const source = sourceOf(held)
       await source.ready()
-      await source.load(source.filesOf(['甲', '⿰木口']))
+      await source.load([...source.modelFiles(), ...source.filesOf(['甲', '⿰木口'])])
       return source.store()
     }
     const held = await store({ ...files, ...shards('g', records) })
@@ -45,6 +61,42 @@ describe('the files a drawing reads', () => {
     const twins = [['甲', { s: '⿰木口' }], ['乙', { s: '⿰木口' }], ['⿰木口', { e: '甲' }]]
     expect(JSON.parse(identityOf(twins)).e).toEqual({ '⿰木口': '甲' })
     expect((await store({ ...files, ...shards('g', twins) })).identity('⿰木口')).toEqual({ e: '甲' })
+  })
+
+  it('draws a character turned whole from its records, without the layout or the identity table', async () => {
+    const asked = []
+    const drawn = await compose(sourceOf(files, asked), '⿾木')
+    expect(drawn.d).not.toBe('')
+    expect(asked.filter(name => MODEL.includes(name))).toEqual([])
+  })
+
+  it('leaves a key to its record until the table is read', async () => {
+    const source = sourceOf(files)
+    await source.ready()
+    const store = source.store()
+    expect(store.identity('木')).toBeUndefined()
+    expect(store.identity('⿰木口')).toBeUndefined()
+    expect(store.missing.size).toBe(0)
+    await source.load(source.modelFiles())
+    expect(source.store().identity('⿰木口')).toBeNull()
+  })
+
+  it('reads the layout when a node asks for it', async () => {
+    const source = sourceOf(files)
+    await source.ready()
+    const store = source.store()
+    expect(store.layout).toBeNull()
+    expect([...store.missing]).toEqual(['layout.json'])
+    await source.load(store.missing)
+    expect(source.store().layout.ops).toContain('⿰')
+  })
+
+  it('reports the export unavailable when the layout or the identity table cannot be read', async () => {
+    for (const lost of MODEL) {
+      const { [lost]: _, ...held } = files
+      const failure = await compose(sourceOf(held), '⿰木口').catch(error => error)
+      expect(failure.unavailable).toBe(true)
+    }
   })
 
   it('refuses an export of another format', async () => {
