@@ -1,9 +1,10 @@
 # @han-compose/composer
 
 Draws a Han character from its ideographic description sequence (IDS), such as `⿰亻哥`, as an SVG
-path. Each part is cut from a character a font already draws, set where the font's designers put
-parts like it, and brought to one stroke weight, so a character with no code point comes out in the
-font's own style. It runs in a browser, in a Web Worker, and in Node and Bun.
+path. Each part is cut from a character a font already draws and set where the font's designers
+put parts like it, and the sans and serif styles bring the parts to one stroke weight. A character
+with no code point comes out in the font's own style. It runs in a browser, in a Web Worker, and in
+Node and Bun.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/mkpoli/han-compose/main/docs/images/composer-dark.png">
@@ -52,7 +53,7 @@ const EXPORTS = {
   fangsong: 'https://ids-input-composer.mkpoli.workers.dev/9f797e2322d2-fangsong-compose-layout-v4-fangsong-f6/',
 }
 
-// The style is passed with its export.
+// `fontStyle` names the export's style. It defaults to 'sans'.
 const drawing = await compose(fromUrl(EXPORTS.serif), '⿰亻哥', { fontStyle: 'serif' })
 ```
 
@@ -67,12 +68,12 @@ from any static host.
 | Field | |
 |---|---|
 | `d` | The SVG path of the ink, nonzero fill. |
-| `parts` | Each drawn part: its path `d`, its `box` as `[x, y, width, height]`, and its `origin` (`learned 倡`, `glyph 口`). |
+| `parts` | Each drawn part: its path `d`, its `box` as `[x, y, width, height]`, its `origin` (`learned 倡`, `glyph 口`), and `cut: true` on a piece `㇯` takes away. |
 | `slots` | Each empty slot (`⬚`), in reading order, with its `box`. |
-| `cut` | The path of what `㇯` takes away, masked out of `d`. |
+| `cut` | The path of what `㇯` takes away, to mask out of `d` as `drawingSvg` does. |
 | `stroke` | The stroke widths the drawing is weighted to, across x and y. |
-| `kanjivg` | `true` when a part was cut along KanjiVG's component groups. The drawing is then CC BY-SA 3.0. |
-| `approximate` | The operators drawn by an approximate rule: `⿼ ⿽ ⿾ ⿿ ㇯ 〾`. |
+| `kanjivg` | `true` when a part was cut along KanjiVG's component groups or drawn with a hand form read from it. The drawing is then CC BY-SA 3.0. |
+| `approximate` | The operators the drawing used that have only an approximate rule, among `⿼ ⿽ ⿾ ⿿ ㇯ 〾`. |
 
 `drawingSvg(drawing, { ink, background, padding, size, placeholders, idPrefix })` writes the whole
 drawing as an SVG. The parts are paths of their own when a page styles them:
@@ -81,28 +82,30 @@ drawing as an SVG. The parts are paths of their own when a page styles them:
 const drawing = await compose(source, '⿰亻哥', { separate: true })
 const colours = ['#cf222e', '#0969da']
 const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000">${
-  drawing.parts.map((part, i) => `<path d="${part.d}" fill="${colours[i % 2]}"/>`).join('')
+  drawing.parts.filter(part => !part.cut).map((part, i) => `<path d="${part.d}" fill="${colours[i % 2]}"/>`).join('')
 }</svg>`
 ```
 
 `separate` draws each operand as a piece even where one glyph spells the whole description, and
-`exclude: ['侮']` names characters nothing may be taken from.
+falls back to that glyph when the operands cannot be drawn apart. `exclude: ['侮']` names characters
+nothing may be taken from.
 
 ## What a sequence may hold
 
 | | |
 |---|---|
-| `⿰亻哥` `⿵門⿰亻哥` | The operators `⿰ ⿱ ⿲ ⿳ ⿴ ⿵ ⿶ ⿷ ⿸ ⿹ ⿺ ⿻`, nested to 8 levels and 24 nodes. |
+| `⿰亻哥` `⿵門⿰亻哥` | The operators `⿰ ⿱ ⿲ ⿳ ⿴ ⿵ ⿶ ⿷ ⿸ ⿹ ⿺ ⿻`, up to 24 in a sequence and 8 deep. |
 | `⿼叵口` `⿾可` `㇯口丨` | `⿼ ⿽`, the reflection `⿾`, the half-turn `⿿`, the subtraction `㇯` and `〾`. |
 | `⿱艹⬚` | `⬚` (U+2B1A), an empty slot: the layout keeps its room and reports its box. |
 | `⿸广⿰KO` | Letters and digits of Latin, Greek, Cyrillic, kana and Hangul as parts. |
 | `⿰ㄱㅏ` | Hangul letters, drawn as the syllable they spell. |
-| `者󠄁` | A variation sequence, drawn as the glyph the export's font maps it to. |
+| `者󠄁` | A variation sequence, drawn as the glyph the font maps it to. The sans and serif exports hold them. |
 
 ## In a page
 
 `composerPreview` draws in a module Worker, one sequence at a time. A newer request ends the one
-before it, whose promise rejects with an `AbortError`.
+before it, whose promise rejects with an `AbortError`, as does a drawing that outlasts `timeout`
+(120 seconds).
 
 ```js
 import { composerPreview, drawingSvg } from '@han-compose/composer'
@@ -158,7 +161,8 @@ const mixed = await compose(sourceFor('⿰𗀀哥', { base }), '⿰𗀀哥')    
 
 ## Errors
 
-`compose` throws a `LookupError` whose message says what could not be drawn.
+`compose` throws a `LookupError` whose message says what could not be drawn or that the sequence is
+past the limits. An export that cannot be read throws the error of the read.
 
 ```js
 import { LookupError } from '@han-compose/composer'
@@ -209,15 +213,21 @@ bun run check                 # the types the declarations are made from
 bun test tests                # the engine, its loader, the Worker, the bundled outlines
 bun examples/draw-to-svg.js https://ids-input-composer.mkpoli.workers.dev/a83fc941166b-sans-compose-layout-v4-f6+variants/ '⿰木口' > out.svg
 bun examples/bundled-script.js '𗀀' > tangut.svg
-COMPOSER_EXPORT=~/exports/serif bun run parity:check   # against the Python composer's drawings
+COMPOSER_EXPORT=~/exports/serif bun run parity:check   # an export written with export-web --parity N --held-out M
 ```
 
-The package reads export format 6. The method, its measurements and the export's layout are in the
+The package reads export formats 5 and 6. The method, its measurements and the export's layout are in the
 [repository](https://github.com/mkpoli/han-compose).
 
 ## Licence
 
-MIT. The fonts and tables behind an export keep their own terms, which its `manifest.json` lists
-under `licences`; the texts for the bundled outlines are in `data/licences`. A drawing with
-`kanjivg: true` adapts [KanjiVG](https://kanjivg.tagaini.net/) (© Ulrich Apel, CC BY-SA 3.0) and is
-shared alike with that notice.
+MIT for the code. The bundled outlines keep their sources' terms, with the texts in `data/licences`:
+SIL OFL 1.1 for most, CC BY-SA 4.0 for the New Korean Orthography letters, GPL-2.0-or-later for the
+Small Seal sequences from CHISE-IDS, CC0 1.0 and the Arphic Public License for parts of the
+fallbacks; the chart font the Shuishu outlines come from states none. The
+[repository](https://github.com/mkpoli/han-compose/blob/main/docs/licensing.md) lists each source.
+
+The fonts and tables behind an export keep their own terms, which its `manifest.json` lists under
+`licences`. A drawing with `kanjivg: true` adapts KanjiVG and is shared alike under CC BY-SA 3.0
+with the notice "KanjiVG, Copyright (C) 2009-2013 Ulrich Apel, CC BY-SA 3.0,
+https://kanjivg.tagaini.net/".
