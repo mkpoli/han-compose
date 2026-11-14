@@ -122,6 +122,39 @@ def draw_many(sequences: Path, out: Path, style: str = STYLE) -> None:
         print(f"{sequence}\t{name}")
 
 
+#: Where `variants` writes, and whether its sheet draws a form another form already draws.
+VARIANTS_OUT = typer.Option(..., "--out", help="the folder variants.json and variants.svg go in")
+VARIANTS_ALL = typer.Option(False, "--all", help="draw the forms another form already draws too")
+
+
+@app.command()
+def variants(character: str, out: Path = VARIANTS_OUT, style: str = STYLE, every: bool = VARIANTS_ALL) -> None:
+    """Write every form of one character into `out` (`han_compose.variants`): `variants.json`, each
+    form with its label, the text that selects it, its font, glyph and outline, and `variants.svg`,
+    one sheet of them. The forms are Noto CJK's regional designs, the character's sequences in the
+    Ideographic Variation Database, its standardized variation sequences and its compatibility
+    ideographs. `--style` is sans or serif, the designs Noto CJK draws by region."""
+    from han_compose import variants as V
+
+    if _style(style) not in V.COLLECTIONS:
+        raise typer.BadParameter(f"variants draws {' or '.join(V.COLLECTIONS)}, not {style}.")
+    try:
+        fonts = V.Fonts.of(style)
+        found, sources = V.forms(character, fonts)
+    except (FileNotFoundError, ValueError) as error:
+        raise typer.BadParameter(str(error)) from error
+    if not any(form.outline for form in found):
+        raise typer.BadParameter(f"No font draws {character}.")
+    out.mkdir(parents=True, exist_ok=True)
+    document = V.document(character, style, found, sources, fonts)
+    (out / "variants.json").write_text(json.dumps(document, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+    (out / "variants.svg").write_text(V.sheet(character, found, fonts, every), encoding="utf-8")
+    counts = {kind: sum(form.kind == kind for form in found) for kind in V.KINDS}
+    print(json.dumps({"character": character, "forms": len(found), **counts,
+                      "distinct": sum(bool(form.outline) and not form.same_as for form in found),
+                      "undrawn": sum(form.outline is None for form in found)}, ensure_ascii=False))
+
+
 UNIHAN_URL = "https://www.unicode.org/Public/16.0.0/ucd/Unihan.zip"
 UNIHAN_SHA256 = "b8f000df69de7828d21326a2ffea462b04bc7560022989f7cc704f10521ef3e0"
 
