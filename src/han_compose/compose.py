@@ -332,26 +332,32 @@ def _selector(char: str) -> bool:
     return 0xFE00 <= point <= 0xFE0F or 0xE0100 <= point <= 0xE01EF
 
 
+def _read(chars: list[str], at: int, sequence: str) -> tuple[Node, int]:
+    """The node starting at `chars[at]`, and where the next one starts."""
+    if at >= len(chars):
+        raise ValueError(f"{sequence} is missing a component.")
+    char = chars[at]
+    at += 1
+    arity = 2 if char in BINARY else 3 if char in TERNARY else 1 if char in UNARY else 0
+    if not arity:
+        if at < len(chars) and _selector(chars[at]):
+            char += chars[at]
+            at += 1
+        return char, at
+    operands = []
+    for _ in range(arity):
+        operand, at = _read(chars, at, sequence)
+        operands.append(operand)
+    return (char, *operands), at
+
+
+@cache
 def parse(sequence: str) -> Node:
-    """`⿰亻⿱亠女` as ('⿰', '亻', ('⿱', '亠', '女')); a character, with any variation selector, stands for itself."""
+    """`⿰亻⿱亠女` as ('⿰', '亻', ('⿱', '亠', '女')); a character, with any variation selector, stands for itself.
+    A sequence is read once: the composer reads every sequence it knows several times over, and a
+    tree, made of tuples and strings, is the same whoever holds it."""
     chars = list(sequence)
-    at = 0
-
-    def node() -> Node:
-        nonlocal at
-        if at >= len(chars):
-            raise ValueError(f"{sequence} is missing a component.")
-        char = chars[at]
-        at += 1
-        arity = 2 if char in BINARY else 3 if char in TERNARY else 1 if char in UNARY else 0
-        if not arity:
-            if at < len(chars) and _selector(chars[at]):
-                char += chars[at]
-                at += 1
-            return char
-        return (char, *(node() for _ in range(arity)))
-
-    tree = node()
+    tree, at = _read(chars, 0, sequence)
     if at != len(chars):
         raise ValueError(f"{sequence} has more components than its operators take.")
     return tree
