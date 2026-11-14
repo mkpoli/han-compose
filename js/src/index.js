@@ -228,6 +228,7 @@ export const dataUrls = {
   'sources/palette/outlines.json.gz': dataUrl('sources/palette/outlines.json.gz'),
   'numbered-sans-outlines.json.gz': dataUrl('numbered-sans-outlines.json.gz'),
   'numbered-five-context.json': dataUrl('numbered-five-context.json'),
+  'custom-forms.json.gz': dataUrl('custom-forms.json.gz'),
   // The shards the package ships, read from its own `data/`: a name it has no file for would be a
   // URL that answers nothing. `unicode.json` holds the ones `export-web` wrote.
   ...Object.fromEntries(unicodeShards.map(name => [name, dataUrl(name)])),
