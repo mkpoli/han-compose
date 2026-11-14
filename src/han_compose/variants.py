@@ -29,6 +29,7 @@ import hashlib
 import io
 import math
 import zipfile
+from collections import Counter
 from dataclasses import dataclass, field
 from functools import cached_property
 from itertools import islice, product
@@ -435,10 +436,12 @@ def spellings(sequence: str, font: Font) -> tuple[list[str], int]:
             math.prod(len(option) for option in options))
 
 
-def _selected(component: str, cache: Path | None) -> dict:
-    """A component written with a selector, with what registers or standardizes the sequence."""
+def _selected(component: str, position: int, cache: Path | None) -> dict:
+    """A component written with a selector, its place among the sequence's components, and what
+    registers or standardizes the sequence."""
     base, selector = ord(component[0]), ord(component[1])
-    out: dict = {"component": component[0], "sequence": component, "codepoints": [f"U+{base:04X}", f"U+{selector:04X}"]}
+    out: dict = {"component": component[0], "position": position, "sequence": component,
+                 "codepoints": [f"U+{base:04X}", f"U+{selector:04X}"]}
     entries = registered(base, cache).get(selector)
     if entries:
         out["registered"] = [{"collection": c, "identifier": i} for c, i in entries]
@@ -451,15 +454,20 @@ def _selected(component: str, cache: Path | None) -> dict:
 def composed(sequence: str, composer: Composer, cache: Path | None = None) -> tuple[list[Form], int]:
     """One drawing by `composer` for each of `spellings`, and how many ways there are in all. A form
     is labelled by the components it writes with a selector, each with its collection and
-    identifier; the sequence as written is labelled by itself."""
+    identifier; the sequence as written is labelled by itself. A component the sequence holds more
+    than once is numbered by its place among the components (`者[5]`), so no two labels are alike."""
     source = composer.font.style.font
     face = Face(source.file, composer.font.font, source.licence, source.sha256)
     written, total = spellings(sequence, composer.font)
     out, first = [], {}
     for text in written:
-        components = [_selected(leaf, cache) for leaf in _leaves(parse(text)) if len(leaf) == 2 and _selector(leaf[1])]
-        names = [c["component"] + " " + (", ".join(f"{r['collection']} {r['identifier']}" for r in c["registered"])
-                                         if "registered" in c else " ".join(c["codepoints"])) for c in components]
+        leaves = _leaves(parse(text))
+        held = Counter(leaf[0] for leaf in leaves)
+        components = [_selected(leaf, position, cache) for position, leaf in enumerate(leaves, 1)
+                      if len(leaf) == 2 and _selector(leaf[1])]
+        names = [c["component"] + (f"[{c['position']}]" if held[c["component"]] > 1 else "") + " "
+                 + (", ".join(f"{r['collection']} {r['identifier']}" for r in c["registered"])
+                    if "registered" in c else " ".join(c["codepoints"])) for c in components]
         form = Form("composed", "; ".join(names) or text, text, face, components=components)
         try:
             placed = composer.compose(text)

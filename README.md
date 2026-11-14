@@ -156,7 +156,8 @@ uv run scripts/compose_ids.py variants ⿰氵者 --out 氵者/
 ```
 
 Each drawing is labelled by the components it writes with a selector (`者 Adobe-Japan1 CID+13349`),
-and `parts` lists where the composer took each part from. At most 24 ways are drawn; `combinations`
+a component the sequence holds more than once with its place among the components (`者[5]`), and
+`parts` lists where the composer took each part from. At most 24 ways are drawn; `combinations`
 gives how many there are.
 
 The Noto collection is read from `cache/fonts/`, else from `/usr/share/fonts/opentype/noto/`, where

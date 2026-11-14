@@ -141,8 +141,13 @@ def test_each_way_is_composed_and_labelled_by_the_sequences_it_writes(tmp_path: 
     assert found[1].parts == ["glyph 200"] and found[1].outline != found[0].outline
     record = found[3].record()
     assert record["outline"] is None and record["note"] == "Not drawn: no host"
-    assert record["components"][1] == {"component": "者", "sequence": "者\U000e0101", "codepoints": ["U+8005", "U+E0101"],
+    assert record["components"][1] == {"component": "者", "position": 3, "sequence": "者\U000e0101",
+                                       "codepoints": ["U+8005", "U+E0101"],
                                        "registered": [{"collection": "Adobe-Japan1", "identifier": "CID+13349"}]}
+    # A component the sequence holds twice is numbered by its place, so each way has a label of its own.
+    twice, _ = variants.composed("⿰者者", composer, tmp_path)
+    assert [form.label for form in twice] == ["⿰者者", "者[2] Adobe-Japan1 CID+13349", "者[1] Adobe-Japan1 CID+13349",
+                                              "者[1] Adobe-Japan1 CID+13349; 者[2] Adobe-Japan1 CID+13349"]
     document = variants.sequence_document("⿱葛⿰氵者", "sans", found, total)
     assert (document["combinations"], document["cap"]) == (4, 24) and document["fonts"][0]["face"] == "Test Sans 1.0"
     root = ET.fromstring(variants.sheet("⿱葛⿰氵者", found, variants.sequence_headings(found[:2], total)))
