@@ -155,28 +155,14 @@ def variants(character: str, out: Path = VARIANTS_OUT, style: str = STYLE, every
                       "undrawn": sum(form.outline is None for form in found)}, ensure_ascii=False))
 
 
-UNIHAN_URL = "https://www.unicode.org/Public/16.0.0/ucd/Unihan.zip"
-UNIHAN_SHA256 = "b8f000df69de7828d21326a2ffea462b04bc7560022989f7cc704f10521ef3e0"
-
-
 def joyo() -> list[str]:
     """The jōyō kanji, by Unihan 16.0's kJoyoKanji, fetched once into `<cache>/ucd/unihan/`."""
-    import hashlib
     import io
     import zipfile
 
-    import httpx
+    from han_compose.variants import UNIHAN
 
-    from han_compose.vocab import cache_root
-
-    path = cache_root() / "ucd" / "unihan" / "Unihan-16.0.0.zip"
-    if not path.exists():
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_bytes(httpx.get(UNIHAN_URL, follow_redirects=True, timeout=300).content)
-    data = path.read_bytes()
-    if hashlib.sha256(data).hexdigest() != UNIHAN_SHA256:
-        raise ValueError(f"{path} does not match its pinned SHA-256.")
-    text = zipfile.ZipFile(io.BytesIO(data)).read("Unihan_OtherMappings.txt").decode()
+    text = zipfile.ZipFile(io.BytesIO(UNIHAN.read())).read("Unihan_OtherMappings.txt").decode()
     return [chr(int(line.split("\t")[0].removeprefix("U+"), 16)) for line in text.splitlines() if "\tkJoyoKanji\t" in line]
 
 
