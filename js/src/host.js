@@ -14,7 +14,8 @@ export const hasEntity = sequence => /&[A-Za-z][A-Za-z0-9+_-]*;/.test(sequence)
 /** The host's records over `fallback`; a reference the file does not hold is left to `fallback`.
  *  @param {{ load: () => Promise<any>, fallback?: any }} options */
 export const hostSource = ({ load, fallback = null }) => bundledSource({
-  load: async () => ({ records: (await load())?.records ?? {} }),
+  // A record with no outline draws nothing, and is left to what is beneath.
+  load: async () => ({ records: Object.fromEntries(Object.entries((await load())?.records ?? {}).filter(([, record]) => record?.G)) }),
   matches: (/** @type {string} */ key) => hasEntity(key),
   fallback,
 })

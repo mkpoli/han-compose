@@ -50,6 +50,18 @@ describe('outlines a host supplies', () => {
     await compose(sourceFor(tangut, { bundled: true, loaders }), tangut)
     expect(asked).not.toContain('http://host/outlines')
   })
+  it('leave a record with no outline to what is beneath', async () => {
+    const beneath = {
+      manifest: { constants: {} }, layout: null,
+      ready: async () => {}, load: async () => {}, filesOf: keys => new Set(keys),
+      store: () => ({ manifest: {}, layout: null, missing: new Set(), rec: key => ({ marker: key }), hosts: () => [], places: () => [] }),
+    }
+    for (const records of [{ [NAME]: { k: NAME, G: null } }, null, 'no records']) {
+      const source = hostSource({ load: async () => ({ records }), fallback: beneath })
+      await source.ready()
+      expect(source.store().rec(NAME)).toEqual({ marker: NAME })
+    }
+  })
   it('change nothing where the host lists no file', async () => {
     const source = sourceFor(`⿰${NAME}⬚`, { bundled: true })
     await source.ready()
