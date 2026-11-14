@@ -1,0 +1,23 @@
+id: unicode-ucd
+name: Unicode Character Database, StandardizedVariants.txt and Unihan
+publisher: Unicode, Inc.
+kind: reference-table
+url: https://www.unicode.org/Public/16.0.0/ucd/
+version: "16.0.0"
+licence: Unicode License v3
+licence_evidence: "The files' headers: © 2024 Unicode®, Inc. For terms of use and license, see https://www.unicode.org/terms_of_use.html"
+attribution: © 2024 Unicode®, Inc.
+access:
+  files:
+    - url: https://www.unicode.org/Public/16.0.0/ucd/StandardizedVariants.txt
+      sha256: 36e799b2c5d902af094b4dd2cb60622bffc079824bfd0bf62e3a636d698b3fb5
+    - url: https://www.unicode.org/Public/16.0.0/ucd/Unihan.zip
+      sha256: b8f000df69de7828d21326a2ffea462b04bc7560022989f7cc704f10521ef3e0
+format:
+  StandardizedVariants.txt: "base selector; description; (4FAE FE00; CJK COMPATIBILITY IDEOGRAPH-FA30;)"
+  Unihan_IRGSources.txt: "U+XXXX<TAB>property<TAB>value (U+FA30 kCompatibilityVariant U+4FAE)"
+notes:
+  - "`han_compose.variants` fetches both, checks them against these SHA-256s and reads a character's standardized variation sequences, the compatibility ideographs whose kCompatibilityVariant it is, and its kIRG_*Source values. Nothing of them is committed."
+  - "The kIRG_*Source values are listed as data. No drawing `variants` makes is an IRG source glyph: its regional forms are Noto CJK's designs."
+  - "`scripts/compose_ids.py bench --chars joyo` and `export-web --parity` read kJoyoKanji from the same Unihan archive."
+checked: 2026-11-15

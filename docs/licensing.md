@@ -47,8 +47,41 @@ committed.
   lists. Its strokes are lighter than Noto Serif's; a part taken from it is thinned and thickened
   synthetically, as Plangothic's are.
 
+`variants` (`han_compose.variants`) reads fonts of its own, in `sans` and in `serif`:
+
+- **Noto Sans CJK 2.004 and Noto Serif CJK 2.002, the Regular collections** (© 2014-2021 and
+  © 2017-2023 Adobe, SIL OFL 1.1), static. `NotoSansCJK-Regular.ttc` (SHA-256
+  `b76b0433203017ca80401b2ee0dd69350349871c4b19d504c34dbdd80541690a`) holds the faces Noto Sans CJK
+  JP, KR, SC, TC and HK in that order, then the five Noto Sans Mono CJK faces in the same order;
+  `NotoSerifCJK-Regular.ttc` (SHA-256
+  `93069d8e9e45d515cc421c971a79e6a5777704b348e36a9ef86578bf58adef77`) holds Noto Serif CJK JP, KR,
+  SC, TC and HK. Both are the files Debian's `fonts-noto-cjk` 1:20230817+repack1-3 installs in
+  `/usr/share/fonts/opentype/noto/`, packaged from https://github.com/notofonts/noto-cjk. They are
+  read in place and not fetched. Uncertain: whether the upstream release files have the same bytes;
+  they were not compared.
+- **IPAmj Mincho 006.01** ("Copyright(c) Information-technology Promotion Agency, Japan (IPA),
+  2011-2019", IPA Font License v1.0, https://opensource.org/licenses/IPA/), static, 2,048 units to
+  the em. Fetched from https://dforest.watch.impress.co.jp/library/i/ipamjfont/10750/ipamjm00601.zip
+  (SHA-256 `35494e0f2896f38b3f7369a8421a895cea6440a42c0a66ac95eab47d6ed25b68`; `ipamjm.ttf`
+  `a3e84f495f3c388db7a1473bf1985c1c076d0c814100f10a027ca6853eb1e8cb`); the font's page is
+  https://moji.or.jp/mojikiban/font/. It maps Hanyo-Denshi and Moji_Joho sequences, each Moji_Joho
+  one to the glyph named by its MJ number. An outline `variants` writes from it stays under the IPA
+  Font License.
+- **Jigmo 2025-09-12** (CC0 1.0), as in `serif`. It draws the sequences neither of the others maps,
+  but for seven Moji_Joho sequences registered after it was made.
+
 ## Tables
 
+- **Ideographic Variation Database, `IVD_Sequences.txt` of 2026-08-03** (Copyright 2006–2026
+  Unicode, Inc.; its header gives https://www.unicode.org/copyright.html for its terms). The
+  sequences `variants` lists and their collections and identifiers. Fetched and pinned
+  (`variants.IVD`); nothing of it is committed. Source record: `data/sources/ivd.yaml`.
+- **Unicode Character Database 16.0.0** (© 2024 Unicode, Inc., Unicode License v3,
+  `data/licences/Unicode-3.0.txt`): `StandardizedVariants.txt` for the standardized variation
+  sequences; `Unihan.zip`, whose `Unihan_IRGSources.txt` gives `kCompatibilityVariant` and the
+  `kIRG_*Source` values and whose `Unihan_OtherMappings.txt` gives `kJoyoKanji` for `bench` and
+  `export-web`. Fetched and pinned (`variants.STANDARDIZED`, `variants.UNIHAN`); nothing of them is
+  committed. Source record: `data/sources/unicode-ucd.yaml`.
 - `data/vocab/han-ids.tsv`, `data/vocab/han-component-forms.tsv`: BabelStone IDS.TXT, whose header
   states that IDS sequences are facts not eligible for copyright and waives any claim to the file's
   format, used as public domain and credited; Unicode's EquivalentUnifiedIdeograph.txt (Unicode
