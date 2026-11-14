@@ -168,6 +168,13 @@ describe('the top edge a tick stands on', () => {
     // A serif on the left stem rises 30 above the bar.
     expect(edge(rect(100, 560, 900, 600), rect(100, 0, 180, 630))).toBeCloseTo(100, 0)
   })
+  it('reads past a serif that stands proud at the far end', () => {
+    expect(edge(rect(100, 560, 900, 600), shape([[820, 600], [900, 600], [870, 720]]))).toBeCloseTo(100, 0)
+  })
+  it('is none for a bar under a stem that rises from its middle', () => {
+    // 木 and 申: the bar is not the part's top edge.
+    expect(edge(rect(100, 400, 900, 440), rect(460, 0, 540, 600))).toBeNull()
+  })
   it('allows a brush bar its slight rise', () => {
     expect(edge(shape([[100, 540], [900, 580], [900, 620], [100, 580]]))).toBeCloseTo(100, 0)
   })
