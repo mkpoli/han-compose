@@ -5,7 +5,7 @@
 // `compose` reads the export over HTTP: its manifest, its layout, and only the records and host
 // lists the sequence needs. What comes back is a drawing in a 1000-unit box: `d` is the ink, and
 // `parts` says which leaf of the description each piece stands for.
-import { compose, drawingSvg, fromUrl } from '@han-compose/composer'
+import { compose, drawingSvg, fromUrl } from 'han-compose'
 
 const [base, sequence = '⿰木口'] = process.argv.slice(2)
 if (!base) {

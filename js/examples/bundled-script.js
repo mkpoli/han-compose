@@ -4,8 +4,8 @@
 //
 // A page that has no composer export still draws the scripts whose outlines ship in this package:
 // `sourceFor` picks them by what the sequence contains, and reads the package's own `data/` files.
-import { compose, drawingSvg } from '@han-compose/composer'
-import { sourceFor } from '@han-compose/composer/source'
+import { compose, drawingSvg } from 'han-compose'
+import { sourceFor } from 'han-compose/source'
 
 const sequence = process.argv[2] ?? '𗀀'
 const source = sourceFor(sequence, { bundled: true })
