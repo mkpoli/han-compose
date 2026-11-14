@@ -4,7 +4,7 @@ import { compose, createSource } from '../src/loader.js'
 import { files, shards } from './fixtures/small-export.js'
 import strokes from './fixtures/sans-strokes.json' with { type: 'json' }
 
-// 丿 and 丨 as the Sans export draws them (Noto Sans CJK, SIL OFL 1.1); 口, 木 and 厃 are the
+// 丿, 丨 and 丶 as the Sans export draws them (Noto Sans CJK, SIL OFL 1.1); 口, 木 and 厃 are the
 // small export's boxes. No host list names a stroke at the upper left of ⿸.
 const source = () => {
   const input = { ...files, ...shards('g', Object.entries(strokes)) }
@@ -59,6 +59,36 @@ describe('a bare stroke at the upper left of ⿸', () => {
     expect(tick.box[0]).toBeGreaterThanOrEqual(under[0])
     expect(tick.box[0] + tick.box[2]).toBeLessThan(under[2])
     expect(tick.box[1] + tick.box[3]).toBeGreaterThan(under[1])
+  })
+  it('keeps a dot its own size at the lower right', async () => {
+    const { stroke, rest } = await boxes('⿸丿丶')
+    const sweep = span([stroke]), dot = span(rest)
+    expect(dot[2] - dot[0]).toBeLessThan(400)
+    expect(dot[3] - dot[1]).toBeLessThan(400)
+    expect(centre(dot)[0]).toBeGreaterThan(centre(sweep)[0])
+    expect(centre(dot)[1]).toBeGreaterThan(centre(sweep)[1])
+  })
+  it('does not take a slanted stroke for a bar to stand on', async () => {
+    // 丶 leads with a slant: the stroke runs down the side instead of standing on it.
+    const { stroke } = await boxes('⿸丿丶')
+    expect(stroke.box[3]).toBeGreaterThan(400)
+  })
+  it('keeps an empty slot at the lower right', async () => {
+    const drawn = await compose(source(), '⿸丿⬚', { layout: 'composed' })
+    expect(drawn.parts.map(part => part.origin)).toEqual(['glyph 丿'])
+    expect(drawn.slots).toHaveLength(1)
+    const [left, top, width, height] = drawn.slots[0].box
+    expect(left + width / 2).toBeGreaterThan(500)
+    expect(top + height / 2).toBeGreaterThan(450)
+  })
+  it('leaves a stroke with a host cut to the enclosure layout', async () => {
+    const data = source()
+    await compose(data, '⿸丨口', { layout: 'composed' })
+    const composer = new Composer(data.store())
+    expect(composer.strokeEnclosure(['丨', '口'], composer.face)).not.toBeNull()
+    // A face whose export cuts the stroke from a character that has it there draws that cut.
+    composer.host = () => ({ record: { h: '后' }, piece: null })
+    expect(composer.strokeEnclosure(['丨', '口'], composer.face)).toBeNull()
   })
   it('leaves an enclosing part to the enclosure layout', async () => {
     const data = source()
