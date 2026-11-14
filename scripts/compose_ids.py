@@ -159,11 +159,17 @@ def _bench_sets() -> dict[str, str]:
 def _aligned_overlap(placed: list[compose.Placed], real: list[compose.Placed], size: int) -> float:
     """Overlap with each drawing's ink stretched to fill the raster: the shape, wherever it stands."""
     def mask(items: list[compose.Placed]) -> np.ndarray:
-        parts = [compose._rings(item.part.contours, item.contours()) for item in items]
-        points = np.concatenate([ring for rings in parts for ring in rings])
+        parts = [(item.cut, compose._rings(item.part.contours, item.contours())) for item in items]
+        points = np.concatenate([ring for cut, rings in parts if not cut for ring in rings])
         box = (*map(float, points.min(axis=0)), *map(float, points.max(axis=0)))
-        # Each part filled apart and joined, as `compose.raster` does: parts overlap.
-        return np.logical_or.reduce([compose.fill(rings, size, box) for rings in parts])
+        # Each part filled apart and joined, less what ㇯ takes away, as `compose.raster` does: parts overlap.
+        ink, taken = np.zeros((size, size), bool), np.zeros((size, size), bool)
+        for cut, rings in parts:
+            if cut:
+                taken |= compose.fill(rings, size, box)
+            else:
+                ink |= compose.fill(rings, size, box)
+        return ink & ~taken
     a, b = mask(placed), mask(real)
     return float((a & b).sum()) / max(float((a | b).sum()), 1.0)
 
@@ -187,7 +193,7 @@ def _bench_one(item: tuple[str, str]) -> dict:
         row[name] = float((mask & truth).sum()) / max(float((mask | truth).sum()), 1.0)
         if name == "composer":
             row["aligned"] = _aligned_overlap(placed, real, size)
-            made = sum(drawer.ink("", p.part) * (p.scale[0] + p.scale[1]) / 2 for p in placed)
+            made = sum(drawer.ink("", p.part) * (p.scale[0] + p.scale[1]) / 2 for p in placed if not p.cut)
             row["outline"] = made / drawer.ink("", glyph)
             drawn = compose.stems(compose.raster(placed, 400), unit)
             true = compose.stems(compose.raster(real, 400), unit)

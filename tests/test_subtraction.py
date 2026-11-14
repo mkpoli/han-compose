@@ -56,3 +56,30 @@ def test_a_cut_inside_a_row_stays_in_its_own_half():
     centre = lambda p: (p.target[0] + p.target[2]) / 2
     assert centre(placed[0]) < 500 < centre(placed[1])
     assert centre(placed[2]) > 500
+
+
+def test_a_subtraction_has_no_reference_sketch():
+    c = fixture()
+    assert c._sketch(compose.parse("⿰木口")) is not None
+    assert c._sketch(compose.parse("㇯木口")) is None
+
+
+def test_the_guide_leaves_a_drawing_with_a_cut_as_the_layout_placed_it():
+    from han_compose import compose_guide
+
+    c = fixture()
+    placed = c.compose("㇯木口")
+    assert compose_guide.Guide([]).fit(c, "㇯木口", placed) is placed
+
+
+def test_the_bench_measures_ink_less_the_cut():
+    import importlib.util
+    from pathlib import Path
+
+    spec = importlib.util.spec_from_file_location("compose_ids", Path(__file__).parents[1] / "scripts" / "compose_ids.py")
+    script = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(script)
+    c = fixture()
+    placed = c.compose("㇯木口")
+    kept = [p for p in placed if not p.cut]
+    assert script._aligned_overlap(placed, kept, 64) < script._aligned_overlap(kept, kept, 64) == 1.0

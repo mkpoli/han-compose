@@ -1457,8 +1457,10 @@ class Composer:
                 placed = self._plain._node(node, self._plain.face)
             except LookupError:
                 return None
-            contours = [Contour(c.ops, points, points) for p in placed if not p.cut
-                        for c, points in zip(p.part.contours, p.contours())]
+            # What ㇯ leaves is no set of contours, so a subtraction has no sketch.
+            if any(p.cut for p in placed):
+                return None
+            contours = [Contour(c.ops, points, points) for p in placed for c, points in zip(p.part.contours, p.contours())]
             return Part(contours) if contours else None
         return self._memo(self._sketches, key(node), draw, pending=True)
 
@@ -2482,7 +2484,8 @@ class Composer:
             taken = self._node(children[1], region)
             for item in taken:
                 item.cut = True
-            return out + taken
+            # A fitted root enclosure stays one with its cut beside it.
+            return type(out)([*out, *taken])
         if op not in AXIS and op not in ENCLOSE and op != OVERLAY:
             raise LookupError(f"{op} is not laid out.")
         if op == OVERLAY:
@@ -3545,7 +3548,10 @@ def raster(placed: list[Placed], size: int = 128) -> np.ndarray:
     box = (0.0, ASCENT - EM, EM, ASCENT)
     mask, taken = np.zeros((size, size), bool), np.zeros((size, size), bool)
     for item in placed:
-        (taken if item.cut else mask).__ior__(fill(_rings(item.part.contours, item.contours()), size, box))
+        if item.cut:
+            taken |= fill(_rings(item.part.contours, item.contours()), size, box)
+        else:
+            mask |= fill(_rings(item.part.contours, item.contours()), size, box)
     return mask & ~taken
 
 
