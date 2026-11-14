@@ -167,11 +167,11 @@ const FALLING_STROKES = new Set(['丿', '㇒', 'ノ'])
 /** The characters whose own stroke is that tick, with the stroke's number: 白's first, and the
  *  left stroke of 小 for a face that joins 白's tick to its frame. */
 const TICK_DONORS = [['白', 0], ['小', 1]]
-/** Under such a tick: the share of the cell's height and width the part below is given, at the
- *  lower right, and how far the tick's foot sinks into the corner it stands on and stands in from
- *  that corner's side, in stroke widths. The foot ends inside the corner's ink, so its tip does
+/** Under such a tick: the share of the cell's width and height the part below is given, at the
+ *  lower right, about as wide as it is tall as the box of 白 is, and how far the tick's foot
+ *  sinks into the corner it stands on and stands in from that corner's side, in stroke widths. The foot ends inside the corner's ink, so its tip does
  *  not show beside it. */
-const TICK_BODY = [0.9, 0.7], TICK_SUNK = 0.6, TICK_INSET = 0.5
+const TICK_BODY = [0.78, 0.74], TICK_SUNK = 0.6, TICK_INSET = 0.5
 /** A bar a tick can stand on, in the drawing's stroke widths: how far below the part's top its
  *  edge is looked for, how long the edge runs from its left end, how much of that run is the
  *  corner (a serif or a brush's first press may stand proud there), and how far the rest may fall
