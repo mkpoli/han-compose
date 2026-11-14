@@ -37,18 +37,23 @@ One source serves any number of sequences and keeps what it has loaded.
 
 ## Exports
 
-| Style | `fontStyle` | Fonts | Export |
-|---|---|---|---|
-| Sans | `'sans'` | Noto Sans CJK JP, Plangothic | `https://ids-input-composer.mkpoli.workers.dev/a83fc941166b-sans-compose-layout-v4-f6+variants/` |
-| Serif (明朝) | `'serif'` | Noto Serif CJK JP, Jigmo | `https://ids-input-composer.mkpoli.workers.dev/8156f838798c-serif-compose-layout-v4-serif-f6+variants/` |
-| Kaisho (楷書) | `'kaisho'` | Kureedo Full, GenZui Sans | `https://ids-input-composer.mkpoli.workers.dev/ce3eaafda8f9-kaisho-compose-layout-v4-kaisho-f6/` |
-| Fangsong (仿宋) | `'fangsong'` | Zhuque Fangsong, Jigmo | `https://ids-input-composer.mkpoli.workers.dev/9f797e2322d2-fangsong-compose-layout-v4-fangsong-f6/` |
-
-Pass the export's style with it:
+| Style | `fontStyle` | Fonts |
+|---|---|---|
+| Sans | `'sans'` | Noto Sans CJK JP, Plangothic |
+| Serif (明朝) | `'serif'` | Noto Serif CJK JP, Jigmo |
+| Kaisho (楷書) | `'kaisho'` | Kureedo Full, GenZui Sans |
+| Fangsong (仿宋) | `'fangsong'` | Zhuque Fangsong, Jigmo |
 
 ```js
-const serif = fromUrl('https://ids-input-composer.mkpoli.workers.dev/8156f838798c-serif-compose-layout-v4-serif-f6+variants/')
-const drawing = await compose(serif, '⿰亻哥', { fontStyle: 'serif' })
+const EXPORTS = {
+  sans: 'https://ids-input-composer.mkpoli.workers.dev/a83fc941166b-sans-compose-layout-v4-f6+variants/',
+  serif: 'https://ids-input-composer.mkpoli.workers.dev/8156f838798c-serif-compose-layout-v4-serif-f6+variants/',
+  kaisho: 'https://ids-input-composer.mkpoli.workers.dev/ce3eaafda8f9-kaisho-compose-layout-v4-kaisho-f6/',
+  fangsong: 'https://ids-input-composer.mkpoli.workers.dev/9f797e2322d2-fangsong-compose-layout-v4-fangsong-f6/',
+}
+
+// The style is passed with its export.
+const drawing = await compose(fromUrl(EXPORTS.serif), '⿰亻哥', { fontStyle: 'serif' })
 ```
 
 An export's files never change under its URL. `export-web` in the
