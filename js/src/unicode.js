@@ -23,9 +23,21 @@ export function hasUnicodeGlyph(key) {
 }
 
 const fileOf = key => `unicode/${(key.codePointAt(0) >> 8).toString(16).padStart(3, '0')}`
+/** The package's `data/` folder, from this module's own address. Kept as a string: a bundler only
+ *  rewrites `new URL(…, import.meta.url)` written out in full. */
+const DATA_ROOT = String(import.meta.url).replace(/[^/]*$/, '../data/')
+/**
+ * The URL of a file under the package's `data/`. A file at the top of the folder keeps the
+ * `new URL(…, import.meta.url)` form, which Vite turns into an asset of the build; Vite reads that form
+ * as a glob of the folder's top level only, so a nested file (`unicode/outlines/…`, `sources/…`) came
+ * out `undefined` and was fetched as `src/undefined`. A nested one is resolved against the folder
+ * instead; a build that moves the package's files passes `loaders` for those, as it always had to.
+ * @param {string} path @returns {URL}
+ */
+export const dataFile = path => path.includes('/') ? new URL(path, DATA_ROOT) : new URL(`../data/${path}`, import.meta.url)
 /** A bundled file's parsed JSON, as the page reads it: the file under the package's `data/`. */
 export const pageLoader = async path => {
-  const response = await fetchBundled(new URL(`../data/${path}`, import.meta.url))
+  const response = await fetchBundled(dataFile(path))
   if (!response.ok) throw new Error(`${path}: ${response.status}`)
   return JSON.parse(await unpack(await response.arrayBuffer()))
 }

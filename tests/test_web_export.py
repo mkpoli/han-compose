@@ -599,8 +599,10 @@ def test_added_letters_rebuild_only_their_shards(composer: compose.Composer, tmp
     assert sorted(changed) == sorted({web_export.record_shard(k) for k in keys}) == added["shards"]
     assert not (out / web_export.PENDING).exists()
     after = _files(out)
-    # Only the shards the letters fall in and the manifest differ.
-    assert {k for k in before.keys() | after.keys() if before.get(k) != after.get(k) and not k.startswith(".")} == {*changed, "manifest.json"}
+    # Only the shards the letters fall in, the identity table that lists them and the manifest differ.
+    assert {k for k in before.keys() | after.keys() if before.get(k) != after.get(k) and not k.startswith(".")} == {*changed, "manifest.json", web_export.IDENTITY}
+    plain = lambda files: web_export.read_identity(json.loads(files[web_export.IDENTITY]))[2]
+    assert plain(after) - plain(before) == keys
     assert _record(out, "K")["G"]["p"] and _record(out, "가")["G"]["p"]
     version = manifest["version"] + "+letters"
     assert packed["version"] == version
