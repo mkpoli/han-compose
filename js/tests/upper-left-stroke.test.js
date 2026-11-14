@@ -158,7 +158,13 @@ describe('the top edge a tick stands on', () => {
   const edge = (/** @type {any[]} */ ...parts) => {
     const boxes = parts.map(part => part.target)
     const box = [Math.min(...boxes.map(b => b[0])), Math.min(...boxes.map(b => b[1])), Math.max(...boxes.map(b => b[2])), Math.max(...boxes.map(b => b[3]))]
-    return topEdgeStart(parts, box, [80, 40])
+    return topEdgeStart(parts, box, [80, 40])?.[0] ?? null
+  }
+  /** The bar's top for the same parts. */
+  const bar = (/** @type {any[]} */ ...parts) => {
+    const boxes = parts.map(part => part.target)
+    const box = [Math.min(...boxes.map(b => b[0])), Math.min(...boxes.map(b => b[1])), Math.max(...boxes.map(b => b[2])), Math.max(...boxes.map(b => b[3]))]
+    return topEdgeStart(parts, box, [80, 40])?.[1] ?? null
   }
   it('is the left end of a box and of a thin bar alike', () => {
     expect(edge(rect(100, 0, 900, 600))).toBeCloseTo(100, 0)
@@ -169,7 +175,11 @@ describe('the top edge a tick stands on', () => {
     expect(edge(rect(100, 560, 900, 600), rect(100, 0, 180, 630))).toBeCloseTo(100, 0)
   })
   it('reads past a serif that stands proud at the far end', () => {
-    expect(edge(rect(100, 560, 900, 600), shape([[820, 600], [900, 600], [870, 720]]))).toBeCloseTo(100, 0)
+    // The serif stands higher over the bar than a bar may lie under the part's top.
+    const parts = [rect(100, 560, 900, 600), shape([[820, 600], [900, 600], [870, 780]])]
+    expect(edge(...parts)).toBeCloseTo(100, 0)
+    // The tick's foot goes by the bar, not by the serif's tip.
+    expect(Math.abs(bar(...parts) - 600)).toBeLessThan(6)
   })
   it('is none for a bar under a stem that rises from its middle', () => {
     // 木 and 申: the bar is not the part's top edge.

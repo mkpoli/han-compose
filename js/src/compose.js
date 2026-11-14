@@ -1519,8 +1519,9 @@ export class Composer {
       const box = union(under.map(part => part.target))
       const stem = this.stem0[1][0] * h / (this.face[3] - this.face[1])
       const edge = topEdgeStart(under, box, [this.stem0[0][0] * w / (this.face[2] - this.face[0]), stem])
-      if (edge !== null) {
-        const foot = box[3] - TICK_SUNK * stem, rise = y1 - foot, left = edge + TICK_INSET * stem
+      if (edge) {
+        // The foot stands on the bar itself, which a serif or a corner may stand proud of.
+        const foot = edge[1] - TICK_SUNK * stem, rise = y1 - foot, left = edge[0] + TICK_INSET * stem
         // A pass short of the donor's glyph fetches it and is drawn again.
         const [donor, piece] = this.tick() ?? [outer, glyph]
         const slant = (piece.box[2] - piece.box[0]) / Math.max(piece.box[3] - piece.box[1], 1)
@@ -3429,7 +3430,7 @@ function extraBar(part, mask, references) {
  * in the right half.
  * @param {any[]} parts @param {number[]} box
  * @param {number[]} stems The drawing's upright and level stroke widths.
- * @returns {number | null} The edge's left end.
+ * @returns {number[] | null} The edge's left end and the bar's top, as [x, y].
  */
 export function topEdgeStart(parts, box, [upright, level], size = 64) {
   const wide = box[2] - box[0]
@@ -3456,7 +3457,7 @@ export function topEdgeStart(parts, box, [upright, level], size = 64) {
   if (edge.some(at => at < 0)) return null
   const [first, ...rest] = edge.slice(Math.ceil(columns(BAR_CORNER)))
   if (rest.some(at => at - first > rows(BAR_FALL) || first - at > rows(BAR_RISE))) return null
-  return box[0] + left * wide / size
+  return [box[0] + left * wide / size, box[3] - first * band / size]
 }
 
 /** The share of the inner parts' ink lying on the enclosing part's. */
