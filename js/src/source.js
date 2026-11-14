@@ -14,6 +14,7 @@ import { hasNewKorean, newKoreanSource } from './new-korean.js'
 import { hasShuishu, shuishuSource } from './shuishu.js'
 import { hasJurchen, jurchenSource } from './jurchen.js'
 import { hasPaletteGlyph, paletteSource } from './palette.js'
+import { HOST_OUTLINES, hasEntity, hostSource } from './host.js'
 import { isEmpty, isNode, parseDescription as parse, splitDescription, tonesOf } from './tree.js'
 
 /**
@@ -41,6 +42,7 @@ export function traitsOf(sequence) {
     shuishu: hasShuishu(sequence),
     jurchen: hasJurchen(sequence),
     palette: [...sequence].some(hasPaletteGlyph),
+    entity: hasEntity(sequence),
   }
 }
 
@@ -82,6 +84,8 @@ export function sourceFor(sequence, { base, fontStyle = 'sans', separate = false
   if (traits.shuishu) source = overlay(shuishuSource, source, 'sources/shuishu/outlines.json.gz')
   if (traits.jurchen) source = overlay(jurchenSource, source, 'sources/jurchen/outlines.json.gz')
   if (traits.palette) source = overlay(paletteSource, source, 'sources/palette/outlines.json.gz', { under: fontStyle !== 'sans', style: fontStyle })
+  // A host's own outlines answer for the entity references they hold; without the file, nothing changes.
+  if (traits.entity && HOST_OUTLINES in loaders) source = overlay(hostSource, source, HOST_OUTLINES)
   return source ?? bundledSource({ load: async () => ({ records: {} }), matches: () => false })
 }
 
