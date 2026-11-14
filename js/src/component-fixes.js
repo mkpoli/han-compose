@@ -204,7 +204,7 @@ export const COMPONENT_FIXES = {
       if (bars.length > 1) {
         const upper = bars.at(-1)
         body = respanned(body, upper.index, x + 0.08 * width, right - 0.08 * width)
-        body = lowered(body, [upper.index], centreY(upper.box) - (y + 0.25 * height))
+        body = lowered(body, [upper.index], Math.max(0, centreY(upper.box) - (y + 0.25 * height)))
       }
       return parts.map(part => part === mouth ? { ...part, target: mouthTarget } : part === earth ? body : part)
     },
@@ -239,11 +239,11 @@ export const COMPONENT_FIXES = {
       '057fcad4bac3a40f3749acaaec39e7beff5e18d0e01deb18b074bc3e06367174', '2e7bfdb342d36055f8d4138b9b64ceaa892cc6504d62ea76c696800d6faf3221'] },
     apply(parts) {
       const stop = partFrom(parts, 'glyph 止'), bar = parts.find(part => part !== stop)
-      if (!stop || !bar) return parts
+      if (!stop || !bar || heightOf(bar.target) > 0.2 * widthOf(bar.target)) return parts
       const [, y, , top] = boxOf(stop), height = top - y, thickness = heightOf(bar.target)
       const across = (/** @type {number} */ down) => ({ ...bar, target: [bar.target[0], top - down * height - thickness / 2, bar.target[2], top - down * height + thickness / 2] })
       const strokes = stopStrokes(stop)
-      if (!strokes) return parts.map(part => part === bar ? across(0.24) : part)
+      if (!strokes) return stop.part.contours.length === 1 ? parts.map(part => part === bar ? across(0.24) : part) : parts
       let body = lowered(stop, [strokes.short.index], centreY(strokes.short.box) - (top - 0.585 * height))
       body = clippedAbove(body, [strokes.left.index], top - 0.5 * height)
       const line = across(0.33)

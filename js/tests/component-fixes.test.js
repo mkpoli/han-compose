@@ -4,6 +4,7 @@
 import { describe, expect, it } from 'bun:test'
 import { COMPONENT_FIXES, clippedAbove, componentFix, dotIn, narrowed, respanned, withoutContours } from '@han-compose/composer/component-fixes'
 import { makePart, partOf, placed, pointsBox } from '@han-compose/composer/geometry'
+import { hexOf } from '@han-compose/composer/sha256'
 
 /** A placed part of rectangular contours: `boxes` in font units, drawn from `source` into `target`. */
 function part(origin, source, target, boxes) {
@@ -142,26 +143,44 @@ describe('C049 ⿱𰀁口', () => {
 })
 
 describe('C080 ⿻一止', () => {
-  // 止 as Noto Serif numbers its strokes: right bar, base, stem, left stroke; the 一 from 吏.
-  const stop = () => part('glyph 止', [38, -81, 967, 840], [38, -81, 967, 840],
-    [[544, 407, 921, 487], [38, -82, 967, -3], [502, -43, 583, 840], [182, -40, 261, 609]])
-  const line = () => part('overlay 吏', [65, 674, 931, 743], [65, 674, 931, 743], [[65, 674, 931, 743]])
+  // 止's strokes in font units, in the order each face numbers them; the 一 from 吏.
+  const STROKES = { right: [544, 407, 921, 487], base: [38, -82, 967, -3], stem: [502, -43, 583, 840], left: [182, -40, 261, 609] }
+  const ORDERS = { serif: ['right', 'base', 'stem', 'left'], sans: ['stem', 'left', 'right', 'base'] }
+  // Drawn at half size and offset, so a mix-up of source and target units shows.
+  const target = [100, 200, 564.5, 661]
+  const stop = order => part('glyph 止', [38, -82, 967, 840], target, order.map(name => STROKES[name]))
+  const line = () => part('overlay 吏', [65, 674, 931, 743], [130, 500, 563, 534.5], [[65, 674, 931, 743]])
   const fix = COMPONENT_FIXES['⿻一止']
-  it('crosses a third of the way down, with 止’s right bar and left stroke below the crossing', () => {
-    const [bar, body] = fix.apply([line(), stop()])
-    const height = 840 + 82, fromTop = y => (840 - y) / height
-    const [shortBar, , stem, left] = body.part.contours.map(contour => targetBox(body, contour))
-    expect(fromTop((bar.target[1] + bar.target[3]) / 2)).toBeCloseTo(0.33, 2)
-    expect(fromTop((shortBar[1] + shortBar[3]) / 2)).toBeCloseTo(0.585, 2)
-    expect(fromTop(left[3])).toBeCloseTo(0.5, 2)
-    expect(bar.target[3] - bar.target[1]).toBeCloseTo(69, 6)
-    expect(stem[3]).toBeCloseTo(840, 6)
-  })
+  const fromTop = y => (target[3] - y) / (target[3] - target[1])
+  for (const [face, order] of Object.entries(ORDERS)) {
+    it(`crosses a third of the way down, with 止’s right bar and left stroke below it (${face} order)`, () => {
+      const [bar, body] = fix.apply([line(), stop(order)])
+      const at = Object.fromEntries(order.map((name, index) => [name, targetBox(body, body.part.contours[index])]))
+      expect(fromTop((bar.target[1] + bar.target[3]) / 2)).toBeCloseTo(0.33, 2)
+      expect(fromTop((at.right[1] + at.right[3]) / 2)).toBeCloseTo(0.585, 2)
+      expect(fromTop(at.left[3])).toBeCloseTo(0.5, 2)
+      expect(bar.target[3] - bar.target[1]).toBeCloseTo(34.5, 6)
+      expect(at.stem[3]).toBeCloseTo(target[3], 6)
+      expect(at.base[1]).toBeCloseTo(target[1], 6)
+    })
+  }
   it('lifts only the 一 above the right bar where the face joins 止 into one outline', () => {
-    const joined = part('glyph 止', [38, -81, 967, 840], [38, -81, 967, 840], [[38, -82, 967, 840]])
+    const joined = part('glyph 止', [38, -82, 967, 840], target, [[38, -82, 967, 840]])
     const [bar, body] = fix.apply([line(), joined])
-    expect((840 - (bar.target[1] + bar.target[3]) / 2) / (840 + 82)).toBeCloseTo(0.24, 2)
+    expect(fromTop((bar.target[1] + bar.target[3]) / 2)).toBeCloseTo(0.24, 2)
     expect(body).toBe(joined)
+  })
+  it('leaves an outline it cannot read alone', () => {
+    const three = part('glyph 止', [38, -82, 967, 840], target, [STROKES.stem, STROKES.left, STROKES.base])
+    const parts = [line(), three]
+    expect(fix.apply(parts)).toBe(parts)
+  })
+  it('lists the four faces’ 止 and leaves any other outline alone', () => {
+    expect(fix.glyphs['止']).toHaveLength(4)
+    const other = [[0, 0]]
+    expect(fix.glyphs['止']).not.toContain(hexOf(JSON.stringify(other)))
+    const parts = [line(), stop(ORDERS.serif)]
+    expect(componentFix('⿻一止', parts, { glyphRecord: ch => ch === '止' ? { p: other } : null, face: [38, -81, 967, 840] })).toBe(parts)
   })
 })
 
