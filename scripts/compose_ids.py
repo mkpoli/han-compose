@@ -95,8 +95,7 @@ def _composer(style: str = compose.DEFAULT_STYLE, **options) -> compose.Composer
 @app.command()
 def draw(sequence: str, style: str = STYLE) -> None:
     """Print the SVG of one sequence."""
-    path = compose.svg_path(_composer(style).compose(sequence))
-    print(f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {compose.EM} {compose.EM}"><path d="{path}"/></svg>')
+    print(compose.svg(_composer(style).compose(sequence)))
 
 
 @app.command("draw-many")
@@ -113,12 +112,12 @@ def draw_many(sequences: Path, out: Path, style: str = STYLE) -> None:
         if not sequence:
             continue
         try:
-            path = compose.svg_path(composer.compose(sequence))
+            drawing = compose.svg(composer.compose(sequence))
         except (LookupError, ValueError) as error:
             print(f"{sequence}\tnot drawn: {error}")
             continue
         name = hashlib.sha256(sequence.encode()).hexdigest() + ".svg"
-        (out / name).write_text(f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {compose.EM} {compose.EM}"><path d="{path}"/></svg>', encoding="utf-8")
+        (out / name).write_text(drawing, encoding="utf-8")
         print(f"{sequence}\t{name}")
 
 
