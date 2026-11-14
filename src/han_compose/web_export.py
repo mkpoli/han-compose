@@ -1236,15 +1236,20 @@ def _sync_dir(path: Path) -> None:
 
 def _sync_files(path: Path) -> None:
     """Flush every file of the filesystem holding `path` to disk: `syncfs`, or a sync of every
-    filesystem where the C library has none."""
+    filesystem where the C library has none. A flush that fails raises `OSError`, so the folder
+    being built never takes the place of the one before it."""
     import ctypes
     import os
 
+    syncfs = getattr(ctypes.CDLL(None, use_errno=True), "syncfs", None)
+    if syncfs is None:
+        os.sync()
+        return
     fd = os.open(path, os.O_RDONLY)
     try:
-        syncfs = getattr(ctypes.CDLL(None, use_errno=True), "syncfs", None)
-        if syncfs is None or syncfs(fd) != 0:
-            os.sync()
+        if syncfs(fd) != 0:
+            error = ctypes.get_errno()
+            raise OSError(error, f"{path}: {os.strerror(error)}")
     finally:
         os.close(fd)
 
@@ -1401,6 +1406,11 @@ def _pack_pending(out: Path, manifest: dict, log, changed: list[str]) -> dict:
     `shards` the count changed, to the manifest's `added` (once, should a run stop after the manifest). The version gains `+<set>`
     (`added_version`), in the manifest, the parity files and `.export`."""
     pending = json.loads((out / PENDING).read_text(encoding="utf-8"))
+    # An addition is packed into the shards of the format it was written for. One left unpacked in
+    # a folder of an earlier format has no identity table to add to, and its shards are not these.
+    if manifest.get("format") != FORMAT or not (out / IDENTITY).exists():
+        raise WorkFileError(f"{out / PENDING} holds an addition to a format {manifest.get('format')} folder: "
+                            f"pack it at the commit that added it, then pack again to bring the folder to format {FORMAT}")
     summary = dict(manifest["files"]["records"])
     sequences, described = read_identity(json.loads((out / IDENTITY).read_text(encoding="utf-8")))
     raw = entries = 0

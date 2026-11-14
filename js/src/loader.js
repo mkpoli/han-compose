@@ -64,8 +64,14 @@ const cutEntry = h => h.c === null ? { ...h } : { ...h, ...h.c, c: true }
 const hostsKey = (key, place) => `${place}\t${key}`
 const recordFile = key => { const h = hexOf(key); return `g/${h.slice(0, 2)}/${h.slice(0, 4)}.json` }
 const hostsFile = (key, place) => `p/${hexOf(hostsKey(key, place)).slice(0, 3)}.json`
+/** What a shard holds under `key`, or null. A shard is an object keyed by what a description
+ *  writes, so only its own entries count: `constructor` names no record. */
+const held = (shard, key) => shard && Object.hasOwn(shard, key) ? shard[key] : null
 
-/** The identity table as a lookup: a key's `{ e, s }` as its record holds them, or null for a key
+/** A key the identity table does not hold has no sequence and describes no character. The table
+ *  holds every one that does, so this is an answer, where a record not loaded yet is none. */
+const NEITHER = Object.freeze({})
+/** The identity table as a lookup: a key's `{ e, s }` as its record holds them, `NEITHER` for a key
  *  with neither. `characters` and `sequences` are lists in step, joined by newlines; a sequence
  *  describes the last character listed with it, except where `e` names another, or none (null). */
 function readIdentity({ characters, sequences, e }) {
@@ -82,7 +88,7 @@ function readIdentity({ characters, sequences, e }) {
   return key => {
     if (!known.has(key)) {
       const e = described.get(key), s = sequenceOf.get(key)
-      known.set(key, e === undefined && s === undefined ? null : { ...(e === undefined ? {} : { e }), ...(s === undefined ? {} : { s }) })
+      known.set(key, e === undefined && s === undefined ? NEITHER : { ...(e === undefined ? {} : { e }), ...(s === undefined ? {} : { s }) })
     }
     return known.get(key)
   }
@@ -140,16 +146,17 @@ export function createSource(read, { concurrency = 32 } = {}) {
       const file = name => { const found = files.get(name); if (!found) missing.add(name); return found ?? null }
       return {
         manifest: source.manifest, layout: source.layout, missing,
-        rec: key => file(recordFile(key))?.[key] ?? null,
+        rec: key => held(file(recordFile(key)), key),
         // A host list in the order of the composer's index (`r`).
         hosts: (key, place) => {
           const f = file(hostsFile(key, place)), id = hostsKey(key, place)
           if (!f) return []
-          if (!lists.has(id)) lists.set(id, (f[id] ?? []).map(cutEntry).sort((a, b) => a.r - b.r))
+          if (!lists.has(id)) lists.set(id, (held(f, id) ?? []).map(cutEntry).sort((a, b) => a.r - b.r))
           return lists.get(id)
         },
-        places: key => file(recordFile(key))?.[key]?.P ?? [],
-        // A key's sequence and the character it describes (`{ e, s }`, or null), from the identity table.
+        places: key => held(file(recordFile(key)), key)?.P ?? [],
+        // A key's sequence and the character it describes (`{ e, s }`, either or neither), from the
+        // identity table.
         identity: key => identity(key),
       }
     },
