@@ -25,9 +25,16 @@ export function hasUnicodeGlyph(key) {
 const fileOf = key => `unicode/${(key.codePointAt(0) >> 8).toString(16).padStart(3, '0')}`
 /** A bundled file's parsed JSON, as the page reads it: the file under the package's `data/`. */
 export const pageLoader = async path => {
-  const response = await fetch(new URL(`../data/${path}`, import.meta.url))
+  const url = new URL(`../data/${path}`, import.meta.url)
+  const response = await fetch(url).catch(error => fromDisk(url, error))
   if (!response.ok) throw new Error(`${path}: ${response.status}`)
   return JSON.parse(await unpack(await response.arrayBuffer()))
+}
+/** Node's `fetch` reads no `file:` URL, so an installed package's own file is read from disk there. */
+async function fromDisk(url, error) {
+  const files = url.protocol === 'file:' ? globalThis.process?.getBuiltinModule?.('node:fs/promises') : null
+  if (!files) throw error
+  return new Response(await files.readFile(url))
 }
 const readShard = name => pageLoader(`unicode/outlines/${name.slice('unicode/'.length)}.json.gz`)
 
