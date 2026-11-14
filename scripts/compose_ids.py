@@ -140,7 +140,6 @@ def variants(sequence: str, out: Path = VARIANTS_OUT, style: str = STYLE, every:
     from han_compose import variants as V
 
     _style(style)
-    out.mkdir(parents=True, exist_ok=True)
     if len(sequence) == 1:
         if style not in V.COLLECTIONS:
             raise typer.BadParameter(f"A character's variants are drawn in {' or '.join(V.COLLECTIONS)}, not {style}.")
@@ -164,6 +163,7 @@ def variants(sequence: str, out: Path = VARIANTS_OUT, style: str = STYLE, every:
         summary = {"sequence": sequence, "forms": len(found), "combinations": total, "cap": V.COMBINATIONS}
     if not any(form.outline for form in found):
         raise typer.BadParameter(f"No font draws {sequence}.")
+    out.mkdir(parents=True, exist_ok=True)
     (out / "variants.json").write_text(json.dumps(document, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
     (out / "variants.svg").write_text(V.sheet(title, found, above, every), encoding="utf-8")
     print(json.dumps({**summary, "distinct": sum(bool(form.outline) and not form.same_as for form in found),
