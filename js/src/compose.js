@@ -172,8 +172,6 @@ const TICK_DONORS = [['白', 0], ['小', 1]]
  *  that corner's side, in stroke widths. The foot ends inside the corner's ink, so its tip does
  *  not show beside it. */
 const TICK_BODY = [0.9, 0.7], TICK_SUNK = 0.6, TICK_INSET = 0.5
-/** The widest a tick may be against its height: a flatter donor stroke is drawn in to this. */
-const TICK_SLANT = 0.8
 /** A bar a tick can stand on, in the drawing's stroke widths: how far below the part's top its
  *  edge is looked for, how long the edge runs from its left end, how much of that run is the
  *  corner (a serif or a brush's first press may stand proud there), and how far the rest may fall
@@ -1496,8 +1494,6 @@ export class Composer {
   strokeEnclosure(children, region) {
     const [outer, inner] = children
     const falling = FALLING_STROKES.has(outer)
-    // Asked for before the loading check, so a pass that is short of the donor fetches it.
-    const [donor, tick] = (falling && this.tick()) || [null, null]
     if (this.partial || typeof outer !== 'string' || !this.stroked(outer) || this.host('⿸', 0, outer, [inner], region)) return null
     const glyph = this.drawnGlyph(outer, true)
     if (!glyph) return null
@@ -1522,10 +1518,11 @@ export class Composer {
       const edge = topEdgeStart(under, box, [this.stem0[0][0] * w / (this.face[2] - this.face[0]), stem])
       if (edge !== null) {
         const foot = box[3] - TICK_SUNK * stem, rise = y1 - foot, left = edge + TICK_INSET * stem
-        const piece = tick ?? glyph
-        const slant = Math.min(TICK_SLANT, (piece.box[2] - piece.box[0]) / Math.max(piece.box[3] - piece.box[1], 1))
+        // A pass short of the donor's glyph fetches it and is drawn again.
+        const [donor, piece] = this.tick() ?? [outer, glyph]
+        const slant = (piece.box[2] - piece.box[0]) / Math.max(piece.box[3] - piece.box[1], 1)
         const target = [left, foot, Math.min(left + rise * slant, x1), y1]
-        return [placed(piece, piece.box, target, this.ink(outer), donor ? `tick ${donor}` : `glyph ${outer}`), ...under]
+        return [placed(piece, piece.box, target, this.ink(donor), piece === glyph ? `glyph ${outer}` : `tick ${donor}`), ...under]
       }
     }
     // A falling stroke fills its box, as the stroke of 𠂆 runs down the side; any other keeps its
@@ -1542,7 +1539,8 @@ export class Composer {
   tick() {
     for (const [donor, stroke] of TICK_DONORS) {
       const record = this.excluded(donor) ? null : this.glyphRecord(donor)
-      if (!record) continue
+      // A donor still loading is waited for, not passed over for the next.
+      if (!record) { if (this.partial) return null; continue }
       const glyph = partOf(record), groups = /** @type {[number, number[]][]} */ (glyph.strokes ?? [])
       const own = groups.find(([id]) => id === stroke)?.[1]
       if (!own?.length || groups.some(([id, contours]) => id !== stroke && contours.some(c => own.includes(c)))) continue

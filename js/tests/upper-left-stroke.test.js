@@ -86,10 +86,33 @@ describe('a bare stroke at the upper left of ⿸', () => {
     expect(centre(dot)[0]).toBeGreaterThan(centre(sweep)[0])
     expect(centre(dot)[1]).toBeGreaterThan(centre(sweep)[1])
   })
+  it('keeps a dot at the upper left the size its glyph has', async () => {
+    const { stroke, rest } = await boxes('⿸丶口')
+    const dot = span([stroke]), box = span(rest)
+    expect(dot[3] - dot[1]).toBeLessThan(500)
+    expect(dot[2]).toBeLessThan(box[0])
+    expect(dot[1]).toBeLessThan(box[1])
+  })
   it('does not stand a tick on a stem', async () => {
     const { stroke } = await boxes('⿸丿丨')
     expect(stroke.origin).toBe('glyph 丿')
     expect(stroke.box[3]).toBeGreaterThan(600)
+  })
+  it('takes a tick only from a stroke that is an outline of its own', async () => {
+    const data = source()
+    // Both donors' glyphs are loaded: 白 by the first drawing, 小 by the one that leaves 白 out.
+    await compose(data, '⿸丿口', { layout: 'composed' })
+    await compose(data, '⿸丿口', { layout: 'composed', exclude: ['白'] })
+    const composer = new Composer(data.store())
+    expect(composer.tick()?.[0]).toBe('白')
+    // The tick is weighted as its donor's glyph is, not as 丿.
+    const [tick] = composer.strokeEnclosure(['丿', '口'], composer.face)
+    expect(tick.native).toBe(composer.ink('白'))
+    expect(tick.native).not.toBe(composer.ink('丿'))
+    // A face that joins the tick of 白 to its frame: the first two strokes share an outline.
+    const record = composer.glyphRecord('白')
+    composer.glyphRecord = ch => ch === '白' ? { ...record, sg: [[0, [3]], [1, [3, 2]], [2, [2]], [3, [1]], [4, [0]]] } : Composer.prototype.glyphRecord.call(composer, ch)
+    expect(composer.tick()?.[0]).toBe('小')
   })
   it('does not take a slanted stroke for a bar to stand on', async () => {
     // 丶 leads with a slant: the stroke runs down the side instead of standing on it.
