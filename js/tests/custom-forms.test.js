@@ -22,6 +22,7 @@ it('names the sequences that call for the cut forms', () => {
 
 it('draws a component no code point names from the form cut for it', async () => {
   expect(data.format).toBe('han-compose/custom-forms')
+  expect(data.version).toBe(2)
   expect(isComponentForm(ENTITY, 'sans')).toBe(false)
   const handWritten = componentDrawing('#(-𠃍㇉)', 'sans')?.d
   addCutForms(data)
@@ -45,4 +46,26 @@ it('draws what it can when the cut forms cannot be read, and asks again next tim
   const again = customFormsSource({ load: async () => { calls++; throw new Error('offline') } })
   await again.ready()
   expect(calls).toBe(2)
+})
+
+it('serves each component host cuts by place, as an export serves an encoded component', async () => {
+  const { customFormsSource } = await import('../src/custom-forms.js')
+  const { createSource } = await import('../src/loader.js')
+  const { files } = await import('./fixtures/small-export.js')
+  const fallback = createSource(async name => files[name] === undefined ? null : new Uint8Array(Buffer.from(files[name])).buffer)
+  const source = customFormsSource({ fallback, load: async () => data, style: 'sans' })
+  await source.ready()
+  const store = source.store()
+  const places = store.places(ENTITY)
+  expect(places).toEqual(Object.keys(data.hosts.sans[ENTITY]))
+  const [first] = store.hosts(ENTITY, places[0])
+  // Flattened as the export's entries are: the cut's box and outlines beside the host.
+  expect(first.c).toBe(true)
+  expect(first.h).toBe(data.hosts.sans[ENTITY][places[0]][0].h)
+  expect(first.b).toHaveLength(4)
+  expect(first.p.length).toBeGreaterThan(0)
+  // The layout reads the component's usual boxes and shape from its form's record.
+  const { componentRecord } = await import('../src/component-forms.js')
+  expect(componentRecord(ENTITY, 'sans').u[places[0]][2]).toBe(data.hosts.sans[ENTITY][places[0]].length)
+  expect(componentRecord(ENTITY, 'sans').f).toHaveLength(71)
 })
