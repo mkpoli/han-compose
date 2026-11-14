@@ -167,8 +167,8 @@ def test_each_way_is_composed_and_labelled_by_the_sequences_it_writes(tmp_path: 
     twice, _ = variants.composed("⿰者者", composer, tmp_path)
     assert [form.label for form in twice] == ["⿰者者", "者[2] Adobe-Japan1 CID+13349", "者[1] Adobe-Japan1 CID+13349",
                                               "者[1] Adobe-Japan1 CID+13349; 者[2] Adobe-Japan1 CID+13349"]
-    document = variants.sequence_document("⿱葛⿰氵者", "sans", found, total)
-    assert (document["combinations"], document["cap"]) == (4, 24) and document["fonts"][0]["face"] == "Test Sans 1.0"
+    document = variants.sequence_document("⿱葛⿰氵者", "sans", found, total, [{"file": "Test.ttf"}])
+    assert (document["combinations"], document["cap"]) == (4, 24) and document["fonts"] == [{"file": "Test.ttf"}]
     root = ET.fromstring(variants.sheet("⿱葛⿰氵者", found, variants.sequence_headings(found[:2], total)))
     texts = [text.text for text in root.findall("{http://www.w3.org/2000/svg}text")]
     assert "Composed in Test Sans 1.0, 2 of 4 combinations" in texts and "= 葛 U+845B U+E0100" in texts and "not drawn" in texts
@@ -270,8 +270,6 @@ def test_the_command_writes_the_forms_and_one_sheet(sans: variants.Fonts, tmp_pa
     assert len(sheet.findall("{http://www.w3.org/2000/svg}path")) == summary["distinct"] == 10
     with pytest.raises(typer.BadParameter):
         compose_ids.variants("釁", out=tmp_path, style="kaisho", every=False)
-    with pytest.raises(typer.BadParameter):
-        compose_ids.variants("釁釁", out=tmp_path, style="sans", every=False)
 
 
 def test_the_command_composes_a_sequence_once_for_each_form_of_者(tmp_path: Path, capsys) -> None:
@@ -280,11 +278,15 @@ def test_the_command_composes_a_sequence_once_for_each_form_of_者(tmp_path: Pat
     sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
     import compose_ids
 
-    needed = [cache_root() / "fonts" / compose.STYLES["sans"].font.file, compose_ids._layout_path("sans"),
-              variants.IVD.path(), variants.STANDARDIZED.path()]
+    sans = compose.STYLES["sans"]
+    needed = [*(cache_root() / "fonts" / source.file for source in (sans.font, *sans.fallbacks)),
+              compose_ids._layout_path("sans"), variants.IVD.path(), variants.STANDARDIZED.path()]
     absent = [path.name for path in needed if not path.exists()]
     if absent:
         pytest.skip(f"Not on disk: {', '.join(absent)}.")
+    with pytest.raises(typer.BadParameter, match="more components"):
+        compose_ids.variants("釁釁", out=tmp_path / "none", style="sans", every=False)
+    assert not (tmp_path / "none").exists()
     compose_ids.variants("⿰氵者", out=tmp_path, style="sans", every=False)
     summary = json.loads(capsys.readouterr().out)
     assert (summary["forms"], summary["combinations"], summary["distinct"]) == (2, 2, 2)
@@ -293,3 +295,4 @@ def test_the_command_composes_a_sequence_once_for_each_form_of_者(tmp_path: Pat
     assert plain["label"] == "⿰氵者" and dotted["label"] == "者 Adobe-Japan1 CID+13349"
     assert dotted["codepoints"] == ["U+2FF0", "U+6C35", "U+8005", "U+E0101"] and "glyph 者\U000e0101" in dotted["parts"]
     assert plain["outline"] != dotted["outline"]
+    assert [font["sha256"] for font in document["fonts"]] == [source.sha256 for source in (sans.font, *sans.fallbacks)]

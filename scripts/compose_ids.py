@@ -156,9 +156,9 @@ def variants(sequence: str, out: Path = VARIANTS_OUT, style: str = STYLE, every:
         _require_layout(composer, style)
         try:
             found, total = V.composed(sequence, composer)
+            document = V.sequence_document(sequence, style, found, total, V.composing_fonts(style))
         except ValueError as error:
             raise typer.BadParameter(str(error)) from error
-        document = V.sequence_document(sequence, style, found, total)
         title, above = sequence, V.sequence_headings(found, total)
         summary = {"sequence": sequence, "forms": len(found), "combinations": total, "cap": V.COMBINATIONS}
     if not any(form.outline for form in found):

@@ -50,6 +50,8 @@ from .compose import (
     Source,
     _fetched,
     _selector,
+    fallback_files,
+    font_file,
     parse,
     svg_path,
 )
@@ -494,11 +496,22 @@ def composed(sequence: str, composer: Composer, cache: Path | None = None) -> tu
     return out, total
 
 
-def sequence_document(sequence: str, style: str, found: list[Form], total: int) -> dict:
-    """`variants.json` for a sequence: the drawings, how many ways there were to write it, and the
-    fonts the style composes from."""
-    main, fallbacks = STYLES[style].font, STYLES[style].fallbacks
-    face = found[0].face
+def composing_fonts(style: str, cache: Path | None = None) -> list[dict]:
+    """The fonts a style composes from, each checked against its pin as read: its main font, then
+    those that draw the parts it lacks."""
+    sources = (STYLES[style].font, *STYLES[style].fallbacks)
+    out = []
+    for source, path in zip(sources, (font_file(cache, style), *fallback_files(cache, style))):
+        face = Face(source.file, TTFont(path, lazy=True), source.licence, _pinned(path, source.sha256))
+        out.append({**_font(face), "url": source.url})
+        if source is not sources[0]:
+            out[-1]["note"] = "Draws the parts the style's font lacks."
+    return out
+
+
+def sequence_document(sequence: str, style: str, found: list[Form], total: int, fonts: list[dict]) -> dict:
+    """`variants.json` for a sequence: the drawings, how many ways there were to write it, and
+    `composing_fonts`."""
     return {
         "sequence": sequence,
         "codepoints": [f"U+{ord(char):04X}" for char in sequence],
@@ -506,9 +519,7 @@ def sequence_document(sequence: str, style: str, found: list[Form], total: int) 
         "combinations": total,
         "cap": COMBINATIONS,
         "forms": [form.record() for form in found],
-        "fonts": [{**_font(face), "url": main.url},
-                  *({"file": source.file, "url": source.url, "sha256": source.sha256, "licence": source.licence,
-                     "note": "Draws the parts the style's font lacks."} for source in fallbacks)],
+        "fonts": fonts,
         "data": [_pin(table) for table in (IVD, STANDARDIZED)],
     }
 
