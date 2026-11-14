@@ -48,6 +48,25 @@ def test_a_data_file_that_does_not_match_its_pin_is_refused(tmp_path: Path) -> N
         table.read(tmp_path)
 
 
+def test_a_download_that_does_not_match_its_pin_is_not_kept(tmp_path: Path, monkeypatch) -> None:
+    import httpx
+
+    table = Table("fetched.txt", "https://example.invalid/fetched.txt", hashlib.sha256(b"right").hexdigest(), "none", "test")
+    served = [b"wrong", b"right"]
+    monkeypatch.setattr(httpx, "get", lambda url, **options: SimpleNamespace(raise_for_status=lambda: SimpleNamespace(content=served.pop(0))))
+    with pytest.raises(ValueError, match="pinned SHA-256"):
+        table.read(tmp_path)
+    assert not table.path(tmp_path).exists()
+    assert table.read(tmp_path) == b"right" and table.path(tmp_path).read_bytes() == b"right"
+
+
+def test_a_font_file_that_does_not_match_its_pin_is_refused(tmp_path: Path) -> None:
+    (tmp_path / "font.ttf").write_bytes(b"font")
+    assert variants._pinned(tmp_path / "font.ttf", hashlib.sha256(b"font").hexdigest()) == hashlib.sha256(b"font").hexdigest()
+    with pytest.raises(ValueError, match="pinned SHA-256"):
+        variants._pinned(tmp_path / "font.ttf", hashlib.sha256(b"other").hexdigest())
+
+
 def test_a_sequence_two_collections_register_is_one_sequence_with_both(tmp_path: Path, monkeypatch) -> None:
     text = "# IVD_Sequences\n845B E0100; Adobe-Japan1; CID+1481\n845B E0102; Hanyo-Denshi; JA1975\n845B E0102; Moji_Joho; MJ022335\n845C E0100; Adobe-Japan1; CID+1\n"
     monkeypatch.setattr(variants, "IVD", _table(tmp_path, "ivd.txt", text.encode()))

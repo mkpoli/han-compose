@@ -55,12 +55,17 @@ class Table:
         import httpx
 
         path = self.path(cache)
-        if not path.exists():
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_bytes(httpx.get(self.url, follow_redirects=True, timeout=300).content)
-        data = path.read_bytes()
+        if path.exists():
+            data = path.read_bytes()
+            if hashlib.sha256(data).hexdigest() != self.sha256:
+                raise ValueError(f"{path} does not match its pinned SHA-256.")
+            return data
+        data = httpx.get(self.url, follow_redirects=True, timeout=300).raise_for_status().content
+        # Checked before it is kept, so a failed download is fetched again.
         if hashlib.sha256(data).hexdigest() != self.sha256:
-            raise ValueError(f"{path} does not match its pinned SHA-256.")
+            raise ValueError(f"{self.url} does not match its pinned SHA-256.")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(data)
         return data
 
 
@@ -127,6 +132,13 @@ def missing(style: str, cache: Path | None = None) -> list[str]:
 
 
 # ------------------------------------------------------------------ fonts
+def _pinned(path: Path, sha256: str) -> str:
+    """The digest of a font file as read, which must be its pin: `variants.json` states it."""
+    if hashlib.sha256(path.read_bytes()).hexdigest() != sha256:
+        raise ValueError(f"{path} does not match its pinned SHA-256.")
+    return sha256
+
+
 def outline(commands: list[tuple[str, tuple]], scale: float, ascent: float) -> str:
     """Pen commands as an SVG path in a 1000 × 1000 box, y down from the em's top, to a tenth of a unit."""
     def at(point: tuple[float, float]) -> str:
@@ -222,12 +234,12 @@ class Fonts:
         path = collection.path(cache)
         if path is None:
             raise FileNotFoundError(f"{collection.file} is neither in {(cache or cache_root()) / 'fonts'} nor in {SYSTEM_FONTS}.")
-        if hashlib.sha256(path.read_bytes()).hexdigest() != collection.sha256:
-            raise ValueError(f"{path} does not match its pinned SHA-256.")
-        faces = {face.family: face for face in (Face(collection.file, font, collection.licence, collection.sha256)
+        faces = {face.family: face for face in (Face(collection.file, font, collection.licence, _pinned(path, collection.sha256))
                                                 for font in TTCollection(path, lazy=True).fonts)}
-        others = [Face(source.file, TTFont(_fetched(source, cache), lazy=True), source.licence, source.sha256)
-                  for source in (IPAMJ, *JIGMO)]
+        others = []
+        for source in (IPAMJ, *JIGMO):
+            path = _fetched(source, cache)
+            others.append(Face(source.file, TTFont(path, lazy=True), source.licence, _pinned(path, source.sha256)))
         return cls([faces[family] for family in collection.families], others)
 
     @property
