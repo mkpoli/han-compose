@@ -398,14 +398,17 @@ def test_a_rerun_of_the_same_version_keeps_the_files_a_stopped_run_wrote(compose
 def test_the_identity_table_holds_every_sequence_and_the_character_each_describes(exported) -> None:
     out, _, manifest = exported
     data = (out / web_export.IDENTITY).read_bytes()
-    sequences, described = web_export.read_identity(json.loads(data))
+    sequences, described, plain = web_export.read_identity(json.loads(data))
     records = {key: record for f in (out / "g").rglob("*.json")
                for key, record in json.loads(gzip.decompress(f.read_bytes())).items()}
     assert sequences == {key: record["s"] for key, record in records.items() if "s" in record}
     assert described == {key: record["e"] for key, record in records.items() if "e" in record}
     assert described["⿰亻可"] == "何" and sequences["何"] == "⿰亻可"
+    # Every other key with a record is listed as plain, so the table says whether a key has one.
+    assert plain == {key for key, record in records.items() if "s" not in record and "e" not in record}
+    assert plain and not plain & (set(sequences) | set(described))
     assert manifest["files"]["identity"] == {"path": "identity.json", "bytes": len(data), "gzip": len(gzip.compress(data, 9, mtime=0)),
-                                             "characters": len(sequences), "sequences": len(described)}
+                                             "characters": len(sequences), "sequences": len(described), "plain": len(plain)}
 
 
 def test_the_identity_table_names_only_what_the_listing_does_not_imply() -> None:
@@ -413,12 +416,12 @@ def test_the_identity_table_names_only_what_the_listing_does_not_imply() -> None
     # describes nothing; 言 is one character describing another.
     sequences = {"甲": "⿰木口", "乙": "⿰木口", "丙": "⿱三永"}
     described = {"⿰木口": "甲", "言": "訁"}
-    table = web_export.identity(sequences, described)
-    assert table == {"characters": "丙\n乙\n甲", "sequences": "⿱三永\n⿰木口\n⿰木口", "e": {"⿱三永": None, "言": "訁"}}
-    assert web_export.read_identity(table) == (sequences, described)
+    table = web_export.identity(sequences, described, {"木", "口"})
+    assert table == {"characters": "丙\n乙\n甲", "sequences": "⿱三永\n⿰木口\n⿰木口", "e": {"⿱三永": None, "言": "訁"}, "plain": "口\n木"}
+    assert web_export.read_identity(table) == (sequences, described, {"木", "口"})
     # Where the sequence describes the earlier of the two, the table says so.
     assert web_export.identity(sequences, {"⿰木口": "乙"})["e"] == {"⿰木口": "乙", "⿱三永": None}
-    assert web_export.read_identity(web_export.identity({}, {})) == ({}, {})
+    assert web_export.read_identity(web_export.identity({}, {})) == ({}, {}, set())
 
 
 def _folder(out: Path, records: dict[str, dict]) -> dict:
@@ -449,15 +452,15 @@ def _pend(out: Path, manifest: dict, records: dict[str, dict]) -> None:
 def test_a_packed_addition_joins_the_identity_table(tmp_path: Path) -> None:
     out = tmp_path / "out"
     manifest = _folder(out, {"甲": {"s": "⿰木口"}, "⿰木口": {"e": "甲"}, "木": {"ink": 1}})
-    assert web_export.read_identity(json.loads((out / web_export.IDENTITY).read_text())) == ({"甲": "⿰木口"}, {"⿰木口": "甲"})
-    # 乙 is written as 甲 is and sorts before it; 丙 brings a sequence of its own.
-    _pend(out, manifest, {"乙": {"s": "⿰木口"}, "丙": {"s": "⿱三永"}, "⿱三永": {"e": "丙"}})
+    assert web_export.read_identity(json.loads((out / web_export.IDENTITY).read_text())) == ({"甲": "⿰木口"}, {"⿰木口": "甲"}, {"木"})
+    # 乙 is written as 甲 is and sorts before it; 丙 brings a sequence of its own; 口 has neither.
+    _pend(out, manifest, {"乙": {"s": "⿰木口"}, "丙": {"s": "⿱三永"}, "⿱三永": {"e": "丙"}, "口": {"ink": 2}})
     packed = web_export.pack(out, root=out, log=lambda _: None)
-    sequences, described = web_export.read_identity(json.loads((out / web_export.IDENTITY).read_text()))
+    sequences, described, plain = web_export.read_identity(json.loads((out / web_export.IDENTITY).read_text()))
     assert sequences == {"甲": "⿰木口", "乙": "⿰木口", "丙": "⿱三永"}
-    assert described == {"⿰木口": "甲", "⿱三永": "丙"}
-    assert packed["files"]["identity"]["characters"] == 3 and packed["files"]["identity"]["sequences"] == 2
-    assert packed["files"]["records"]["entries"] == manifest["files"]["records"]["entries"] + 3
+    assert described == {"⿰木口": "甲", "⿱三永": "丙"} and plain == {"木", "口"}
+    assert packed["files"]["identity"] == {**packed["files"]["identity"], "characters": 3, "sequences": 2, "plain": 2}
+    assert packed["files"]["records"]["entries"] == manifest["files"]["records"]["entries"] + 4
     assert _record(out, "丙") == {"s": "⿱三永"} and not (out / web_export.PENDING).exists()
 
 

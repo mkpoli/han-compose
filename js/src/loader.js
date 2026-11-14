@@ -68,13 +68,14 @@ const hostsFile = (key, place) => `p/${hexOf(hostsKey(key, place)).slice(0, 3)}.
  *  writes, so only its own entries count: `constructor` names no record. */
 const held = (shard, key) => shard && Object.hasOwn(shard, key) ? shard[key] : null
 
-/** A key the identity table does not hold has no sequence and describes no character. The table
- *  holds every one that does, so this is an answer, where a record not loaded yet is none. */
+/** What the table answers for a key whose record holds no sequence and describes no character. */
 const NEITHER = Object.freeze({})
-/** The identity table as a lookup: a key's `{ e, s }` as its record holds them, `NEITHER` for a key
- *  with neither. `characters` and `sequences` are lists in step, joined by newlines; a sequence
- *  describes the last character listed with it, except where `e` names another, or none (null). */
-function readIdentity({ characters, sequences, e }) {
+/** The identity table as a lookup: a key's `{ e, s }` as its record holds them, `NEITHER` for a
+ *  record with neither, and null for a key that has no record, which is what reading the record
+ *  itself would answer. `characters` and `sequences` are lists in step, joined by newlines; a
+ *  sequence describes the last character listed with it, except where `e` names another, or none
+ *  (null); `plain` lists the keys that have a record with neither. */
+function readIdentity({ characters, sequences, e, plain }) {
   const sequenceOf = new Map(), described = new Map()
   if (characters) {
     const written = sequences.split('\n')
@@ -84,11 +85,13 @@ function readIdentity({ characters, sequences, e }) {
     if (character === null) described.delete(sequence)
     else described.set(sequence, character)
   }
+  const recorded = new Set(plain ? plain.split('\n') : [])
   const known = new Map()
   return key => {
     if (!known.has(key)) {
       const e = described.get(key), s = sequenceOf.get(key)
-      known.set(key, e === undefined && s === undefined ? NEITHER : { ...(e === undefined ? {} : { e }), ...(s === undefined ? {} : { s }) })
+      known.set(key, e === undefined && s === undefined ? (recorded.has(key) ? NEITHER : null)
+        : { ...(e === undefined ? {} : { e }), ...(s === undefined ? {} : { s }) })
     }
     return known.get(key)
   }
@@ -155,8 +158,8 @@ export function createSource(read, { concurrency = 32 } = {}) {
           return lists.get(id)
         },
         places: key => held(file(recordFile(key)), key)?.P ?? [],
-        // A key's sequence and the character it describes (`{ e, s }`, either or neither), from the
-        // identity table.
+        // A key's sequence and the character it describes (`{ e, s }`, either or neither), or null
+        // for a key with no record, from the identity table.
         identity: key => identity(key),
       }
     },

@@ -40,8 +40,9 @@ describe('the files a drawing reads', () => {
     const held = await store({ ...files, ...shards('g', records) })
     expect(held.identity('⿰木口')).toEqual({ e: '甲' })
     expect(held.identity('甲')).toEqual({ s: '⿰木口' })
-    // The table holds every key with a sequence or a character: one it lacks has neither.
-    expect(held.identity('⿰木木')).toEqual({})
+    // A key with no record reads as its record would: null. One whose record holds neither is told apart.
+    expect(held.identity('⿰木木')).toBeNull()
+    expect((await store({ ...files, ...shards('g', [...records, ['丙', {}]]) })).identity('丙')).toEqual({})
     // Two characters written alike: the table names the one the sequence describes.
     const twins = [['甲', { s: '⿰木口' }], ['乙', { s: '⿰木口' }], ['⿰木口', { e: '甲' }]]
     expect(JSON.parse(identityOf(twins)).e).toEqual({ '⿰木口': '甲' })
