@@ -145,8 +145,8 @@ def variants(character: str, out: Path = VARIANTS_OUT, style: str = STYLE, every
         raise typer.BadParameter(str(error)) from error
     if not any(form.outline for form in found):
         raise typer.BadParameter(f"No font draws {character}.")
-    out.mkdir(parents=True, exist_ok=True)
     document = V.document(character, style, found, sources, fonts)
+    out.mkdir(parents=True, exist_ok=True)
     (out / "variants.json").write_text(json.dumps(document, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
     (out / "variants.svg").write_text(V.sheet(character, found, fonts, every), encoding="utf-8")
     counts = {kind: sum(form.kind == kind for form in found) for kind in V.KINDS}
