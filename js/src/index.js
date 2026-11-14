@@ -10,6 +10,7 @@ import { onlyBundled } from './local.js'
 import { LIMITS, LookupError, PYRAMID_LAYERS, compose, createSource, fromUrl, size, sketch, svgBox, tooLarge } from './loader.js'
 import { parseTree } from './compose.js'
 import { splitDescription } from './tree.js'
+import { dataFile } from './unicode.js'
 import outlines from '../data/unicode/outlines.json' with { type: 'json' }
 
 export { APPROXIMATE, EMPTY }
@@ -213,7 +214,7 @@ function parseLoose(text) {
 /** A path under the package's `data/`, and the URL of the file: absolute, so a host that serves the
  *  package's own files, or a bundler that moves them, answers at the URL the page asks for. */
 /** @param {string} path */
-const dataUrl = path => new URL(`../data/${path}`, import.meta.url).href
+const dataUrl = path => dataFile(path).href
 /** The Unicode shards the package carries, by their path under `data/`: the ones its own
  *  `data/unicode/outlines.json` records, so a build is handed no URL that answers nothing. */
 const unicodeShards = Object.keys(outlines.shards).map(name => `unicode/outlines/${name}.json.gz`)
@@ -227,6 +228,7 @@ export const dataUrls = {
   'sources/palette/outlines.json.gz': dataUrl('sources/palette/outlines.json.gz'),
   'numbered-sans-outlines.json.gz': dataUrl('numbered-sans-outlines.json.gz'),
   'numbered-five-context.json': dataUrl('numbered-five-context.json'),
+  'custom-forms.json.gz': dataUrl('custom-forms.json.gz'),
   // The shards the package ships, read from its own `data/`: a name it has no file for would be a
   // URL that answers nothing. `unicode.json` holds the ones `export-web` wrote.
   ...Object.fromEntries(unicodeShards.map(name => [name, dataUrl(name)])),
