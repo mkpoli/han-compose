@@ -75,6 +75,21 @@ def test_a_models_table_and_networks_are_read_when_first_asked_for(tmp_path, mon
     assert len(read) == count + 7
 
 
+def test_a_model_file_written_after_it_was_loaded_is_refused(tmp_path) -> None:
+    import os
+
+    table = L.Table.of(ROWS)
+    layers = [np.zeros((5, 4)), np.zeros(4), np.zeros((4, 8)), np.zeros(8)]
+    path = tmp_path / "m.npz"
+    L.LayoutModel({"all": table}, {"all": [layers]}, {}).save(path)
+    back = L.LayoutModel.load(path)
+    assert back.tables["all"].counts == table.counts
+    L.LayoutModel({"all": L.Table.of(ROWS[:1])}, {"all": [layers]}, {}).save(path)
+    os.utime(path, ns=(0, path.stat().st_mtime_ns + 1))
+    with pytest.raises(ValueError, match="written after it was loaded"):
+        back.weights["all"]
+
+
 def test_gelu_is_the_tanh_form_training_uses() -> None:
     x = np.array([-3.0, -1.0, 0.0, 0.5, 2.0])
     expected = [-0.003637, -0.158808, 0.0, 0.345714, 1.954598]

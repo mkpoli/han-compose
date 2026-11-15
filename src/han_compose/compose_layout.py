@@ -180,19 +180,27 @@ class LayoutModel:
         """A saved model. A model's table and networks are read when first asked for: a drawing
         reads those of "all", a character redrawn to test those of its fold, and a character
         drawn from its own glyph none."""
+        written = path.stat().st_mtime_ns
         with np.load(path) as data:
             meta = json.loads(bytes(data["meta"]).decode())
+
+        def again():
+            """The file opened again. One written since `meta` was read is refused: its arrays may
+            belong to other keys."""
+            if path.stat().st_mtime_ns != written:
+                raise ValueError(f"{path} was written after it was loaded.")
+            return np.load(path)
 
         def table(name: str) -> Table:
             t = meta["tables"][name]
             keys = [tuple(k.split("\t", 1)) for k in t["keys"]]
-            with np.load(path) as data:
+            with again() as data:
                 return Table(dict(zip(keys, data[f"{name}.sums"])), dict(zip(keys, data[f"{name}.squares"])),
                              dict(zip(keys, data[f"{name}.counts"].tolist())),
                              {p: np.array(v) for p, v in t["defaults"].items()})
 
         def networks(name: str) -> list[list[np.ndarray]]:
-            with np.load(path) as data:
+            with again() as data:
                 return [[data[f"{name}.{s}.{k}"] for k in range(n)] for s, n in enumerate(meta["weights"][name])]
 
         return cls(_Named(meta["tables"], table), _Named(meta["weights"], networks), meta["fold_of"])
