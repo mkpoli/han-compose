@@ -437,9 +437,11 @@ const ENCLOSURE_FORMS = {
       '656184795d653a390844e1bfd99e8efddfb5c36be68d683d9d8986984f150a85': [0, 1, 2, 3, 4],
       '2fa6f7b8e09a68c6173dafe84d5b96d5b4c36dc9a7e6b77703d9ed9f13ff525a': [0, 3, 4, 6, 7],
     }],
-    // 爬 (⿺爪巴) draws the designed ⿺爪; a described ⿺爪… has no host cut with that posture.
+    // 爬 (⿺爪巴) draws the designed ⿺爪 in Noto Sans CJK JP and Noto Serif CJK JP; a described ⿺爪…
+    // has no host cut with that posture.
     爪: ['爬', {
       '631556d7281ca84d39388d047c9dfbada101ae2cda66713c29263f7b9d9b5df6': [0, 1, 2, 3],
+      '009071aeb3455d8806aca0e9a6152e47751512ff5ace34d924e91d6bcee89c6e': [0, 1, 7, 8],
     }],
   },
   // 𭰲 (⿰氵⿵冂并) is the only encoded character with this shape; its frame serves the ⿵冂 enclosure.
