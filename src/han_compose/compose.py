@@ -481,17 +481,59 @@ def spelled_nodes() -> set[str]:
 
 
 # ------------------------------------------------------------------ outlines
+#: Stands for a contour's heavy points or stroke width until its glyph works them out (`Contour.weigh`).
+LATER = object()
+_REQUIRED = object()
+
+
+class _Weighed:
+    """A field of a contour that its glyph may leave for later (`LATER`): reading it works out the
+    heavy points and the stroke width of every contour of the glyph (`Contour.weigh`)."""
+
+    def __init__(self, default=_REQUIRED):
+        self.default = default
+
+    def __set_name__(self, owner: type, name: str) -> None:
+        self.name = "_" + name
+
+    def __get__(self, contour: Contour | None, owner: type | None = None):
+        if contour is None:
+            # What a dataclass reads for the field's default: none unless one was given.
+            if self.default is _REQUIRED:
+                raise AttributeError(self.name)
+            return self.default
+        if contour.weigh is not None:
+            contour.weigh()
+        return contour.__dict__[self.name]
+
+    def __set__(self, contour: Contour, value) -> None:
+        if contour.__dict__.get("weigh") is not None:
+            # Weighed first, so that what is set here is not worked out over.
+            contour.weigh()
+        contour.__dict__[self.name] = value
+
+
 @dataclass
 class Contour:
     """One closed contour: its pen commands (command, points, whether it closes on an implied
     point), and its points at weight 400 and at the style's heavy weight. A contour of a fallback font
     also carries its glyph's stroke width as measured, across x and across y, which the style's
-    `stem_curve` (fitted on its variable font's outlines) does not predict for another design."""
+    `stem_curve` (fitted on its variable font's outlines) does not predict for another design.
+
+    A font leaves the heavy points and the stroke width of a glyph it reads for later (`LATER`):
+    hosts are ranked and cut by their outlines at weight 400, and few of them are drawn."""
 
     ops: list[tuple[str, int, bool]]
     light: np.ndarray
-    heavy: np.ndarray
-    width: tuple[float, float] | None = None
+    heavy: np.ndarray = _Weighed()
+    width: tuple[float, float] | None = _Weighed(None)
+    #: Works out `heavy` and `width` for every contour of the glyph, where they were left for later.
+    weigh: Callable[[], None] | None = field(default=None, repr=False, compare=False)
+
+    @property
+    def measured(self) -> bool:
+        """Whether the contour carries its glyph's stroke width, known before it is worked out."""
+        return self.__dict__["_width"] is not None
 
     @cached_property
     def box(self) -> Box:
@@ -621,6 +663,8 @@ class Font:
         return self._name(char) is not None or (len(char) == 1 and any(ord(char) in cmap for _, cmap, _, _ in self.fallbacks))
 
     def glyph(self, char: str) -> Part | None:
+        """The glyph's outline at weight 400. Its heavy outline, and its stroke width where that is
+        measured, are worked out when a contour is first asked for either (`Contour.weigh`)."""
         if char not in self._parts:
             part = None
             name = self._name(char)
@@ -629,39 +673,62 @@ class Font:
                     if ord(char) in cmap:
                         pen = DecomposingRecordingPen(glyphs)
                         glyphs[cmap[ord(char)]].draw(pen)
-                        # A static font has one weight: its heavy outline is the light one grown by as
-                        # much as this font's stems of the same width grow at heavy, so its parts are
-                        # thinned and thickened like the font's own.
-                        rings = [(ops, p * scale if scale != 1 else p) for ops, p in _contours(pen)]
-                        flat = [Contour(ops, p, p) for ops, p in rings]
-                        if self.family is not None:
-                            density = sum(c.length for c in flat)
-                            width = tuple(self.family[axis] * self.width(density, axis) for axis in (0, 1))
-                        else:
-                            mask = fill(_rings(flat, [c.light for c in flat], steps=2), 200, (0.0, ASCENT - EM, EM, ASCENT))
-                            width = tuple(w if np.isfinite(w) else self.stem[axis][0] for axis, w in enumerate(stems(mask, EM / 200)))
-                        grow = tuple(width[axis] * (self.stem[axis][1] / self.stem[axis][0] - 1) / 2 for axis in (0, 1))
-                        contours = [Contour(ops, p, _grown(p, grow), width) for ops, p in rings]
+                        contours = [Contour(ops, p * scale if scale != 1 else p, LATER, LATER) for ops, p in _contours(pen)]
+                        self._later(contours, lambda contours=contours: self._grown_heavy(contours))
                         part = Part(contours) if contours else None
                         break
             if name is not None:
-                light, heavy = DecomposingRecordingPen(self.light), DecomposingRecordingPen(self.heavy)
+                light = DecomposingRecordingPen(self.light)
                 self.light[name].draw(light)
-                self.heavy[name].draw(heavy)
-                contours = [Contour(ops, p, q) for (ops, p), (_, q) in zip(_contours(light), _contours(heavy))]
-                if self.static:
-                    flat = [Contour(ops, p, p) for ops, p in _contours(light)]
-                    mask = fill(_rings(flat, [c.light for c in flat], steps=2), 200, (0.0, ASCENT - EM, EM, ASCENT))
-                    width = tuple(w if np.isfinite(w) else self.stem[axis][0] for axis, w in enumerate(stems(mask, EM / 200)))
-                    for c in contours:
-                        c.heavy = _grown(c.light, (STATIC_GROW, STATIC_GROW))
-                        c.width = width
-                if self.grow_y:
-                    for c in contours:
-                        c.heavy = np.column_stack([c.heavy[:, 0], _grown(c.light, (0.0, self.grow_y))[:, 1]])
+                contours = [Contour(ops, p, LATER, LATER if self.static else None) for ops, p in _contours(light)]
+                self._later(contours, lambda contours=contours: self._own_heavy(name, contours))
                 part = Part(contours) if contours else None
             self._parts[char] = part
         return self._parts[char]
+
+    @staticmethod
+    def _later(contours: list[Contour], work: Callable[[], tuple[list[np.ndarray], tuple[float, float] | None]]) -> None:
+        """Leave the contours' heavy points and stroke width to `work`, called when one is first read."""
+        def weigh() -> None:
+            heavy, width = work()
+            for contour, points in zip(contours, heavy, strict=True):
+                contour.weigh = None
+                contour.heavy, contour.width = points, width
+
+        for contour in contours:
+            contour.weigh = weigh
+
+    def _measured(self, contours: list[Contour]) -> tuple[float, float]:
+        """The stroke width measured on a glyph's ink, this font's own stem where none can be."""
+        mask = fill(_rings(contours, [c.light for c in contours], steps=2), 200, (0.0, ASCENT - EM, EM, ASCENT))
+        return tuple(w if np.isfinite(w) else self.stem[axis][0] for axis, w in enumerate(stems(mask, EM / 200)))
+
+    def _grown_heavy(self, contours: list[Contour]) -> tuple[list[np.ndarray], tuple[float, float]]:
+        """A fallback glyph's heavy outline and stroke width. A static font has one weight: its heavy
+        outline is the light one grown by as much as this font's stems of the same width grow at
+        heavy, so its parts are thinned and thickened like the font's own."""
+        if self.family is not None:
+            density = sum(c.length for c in contours)
+            width = tuple(self.family[axis] * self.width(density, axis) for axis in (0, 1))
+        else:
+            width = self._measured(contours)
+        grow = tuple(width[axis] * (self.stem[axis][1] / self.stem[axis][0] - 1) / 2 for axis in (0, 1))
+        return [_grown(c.light, grow) for c in contours], width
+
+    def _own_heavy(self, name: str, contours: list[Contour]) -> tuple[list[np.ndarray], tuple[float, float] | None]:
+        """The heavy outline of a glyph of the style's own font, with its stroke width where the
+        font is static."""
+        width = None
+        if self.static:
+            heavy, width = [_grown(c.light, (STATIC_GROW, STATIC_GROW)) for c in contours], self._measured(contours)
+        else:
+            pen = DecomposingRecordingPen(self.heavy)
+            self.heavy[name].draw(pen)
+            heavy = [points for _, points in _contours(pen)]
+        if self.grow_y:
+            heavy = [np.column_stack([points[:, 0], _grown(c.light, (0.0, self.grow_y))[:, 1]])
+                     for c, points in zip(contours, heavy, strict=True)]
+        return heavy, width
 
 
 def _across(rings: list[np.ndarray], axis: int) -> float:
@@ -1777,12 +1844,12 @@ class Composer:
         if not isinstance(node, str):
             return True
         expected = self._own_outlines(node)
-        if (piece.contours and piece.contours[0].width is None and expected
+        if (piece.contours and not piece.contours[0].measured and expected
                 and len(piece.contours) > expected + EXTRA_OUTLINES):
             return False
         if not self._like_fellows(piece, slot(op, index), node):
             return False
-        if piece.contours and piece.contours[0].width is None and len(piece.contours) == expected:
+        if piece.contours and not piece.contours[0].measured and len(piece.contours) == expected:
             # Drawn with its operand's own strokes, whatever most hosts there draw (巳 left of 攵 in
             # 攺, where most hosts nest a smaller 巳 atop another part, as in 巽).
             return True
@@ -1925,7 +1992,7 @@ class Composer:
     def _traded(self, pieces: list[Part], operands: list[Node]) -> bool:
         """Whether pieces the variable font draws traded a stroke: one has fewer outlines than its
         operand is drawn with while another has more (囗's bottom stroke cut into ⺀㐅 in 図)."""
-        if not all(p.contours and p.contours[0].width is None for p in pieces):
+        if not all(p.contours and not p.contours[0].measured for p in pieces):
             return False
         expected = [self._own_outlines(n) for n in operands]
         if not all(expected):
