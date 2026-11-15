@@ -45,31 +45,67 @@ export async function unpack(buffer) {
   return await new Response(stream).text()
 }
 
-// Where the export keeps each key's data: the one place that knows file names. han-compose's formats 5
-// packs the records in `g/<hhh>.json` and the host lists in `p/<hhh>.json`, `hhh` the first three hex
-// digits of the SHA-256 of the key's UTF-8 (of place TAB operand for a host list); each file is an
-// object from the full hash to the record or list, gzip bytes under a .json name, served as
-// application/octet-stream and unpacked here. A record lists the places it has host lists in (`P`,
-// absent when it has none). A host list holds every entry of the composer's index with the fields it
-// ranks by. An entry's cut `c` is null where the composer could not cut it; else its piece as the
-// indices `k` of the host glyph's contours it keeps (or its own outlines `p`), its box `b`, the
-// node's frame `fr`, `wh` for the whole character, the gap `g` and `kv` for a KanjiVG cut, read here
-// onto the entry. A cut marked `pc` was made only under a parity row's exclusion.
-const FORMATS = new Set([5, 6])
-const shard = (folder, h) => `${folder}/${h.slice(0, 3)}.json`
+// Where the export keeps each key's data: the one place that knows file names. han-compose's format 7
+// packs the records in `g/<hh>/<hhhh>.json` and the host lists in `p/<hhh>.json`, the digits the first
+// of the SHA-256 of the key's UTF-8 (of place TAB operand for a host list); each file is an object
+// from the key (place TAB operand) to the record or list, gzip bytes under a .json name, served as
+// application/octet-stream and unpacked here. A record shard holds a few records, so a drawing reads
+// little beyond the records it uses. A record lists the places it has host lists in (`P`, absent when
+// it has none). A host list holds every entry of the composer's index with the fields it ranks by. An
+// entry's cut `c` is null where the composer could not cut it; else its piece as the indices `k` of
+// the host glyph's contours it keeps (or its own outlines `p`), its box `b`, the node's frame `fr`,
+// `wh` for the whole character, the gap `g` and `kv` for a KanjiVG cut, read here onto the entry. A
+// cut marked `pc` was made only under a parity row's exclusion.
+//
+// Two files load when a description first needs them. The identity table (`identity.json`) holds
+// every character's sequence and the character each sequence describes, as the records do (`s`,
+// `e`): a description holding an operator reads it, and with it read, finding what the description
+// names reads no record. The learned layout sets parts beside each other: a description holding an
+// operator of two operands or more reads it too.
+const FORMAT = 7
 const cutEntry = h => h.c === null ? { ...h } : { ...h, ...h.c, c: true }
-const recordHash = key => hexOf(key)
-const hostsHash = (key, place) => hexOf(`${place}\t${key}`)
-const recordFile = key => shard('g', recordHash(key))
-const hostsFile = (key, place) => shard('p', hostsHash(key, place))
-const recordOf = (file, key) => file[recordHash(key)] ?? null
+const hostsKey = (key, place) => `${place}\t${key}`
+const recordFile = key => { const h = hexOf(key); return `g/${h.slice(0, 2)}/${h.slice(0, 4)}.json` }
+const hostsFile = (key, place) => `p/${hexOf(hostsKey(key, place)).slice(0, 3)}.json`
+/** What a shard holds under `key`, or null. A shard is an object keyed by what a description
+ *  writes, so only its own entries count: `constructor` names no record. */
+const held = (shard, key) => shard && Object.hasOwn(shard, key) ? shard[key] : null
+
+/** What the table answers for a key whose record holds no sequence and describes no character. */
+const NEITHER = Object.freeze({})
+/** The identity table as a lookup: a key's `{ e, s }` as its record holds them, `NEITHER` for a
+ *  record with neither, and null for a key that has no record, which is what reading the record
+ *  itself would answer. `characters` and `sequences` are lists in step, joined by newlines; a
+ *  sequence describes the last character listed with it, except where `e` names another, or none
+ *  (null); `plain` lists the keys that have a record with neither. */
+function readIdentity({ characters, sequences, e, plain }) {
+  const sequenceOf = new Map(), described = new Map()
+  if (characters) {
+    const written = sequences.split('\n')
+    characters.split('\n').forEach((character, i) => { sequenceOf.set(character, written[i]); described.set(written[i], character) })
+  }
+  for (const [sequence, character] of Object.entries(e)) {
+    if (character === null) described.delete(sequence)
+    else described.set(sequence, character)
+  }
+  const recorded = new Set(plain ? plain.split('\n') : [])
+  const known = new Map()
+  return key => {
+    if (!known.has(key)) {
+      const e = described.get(key), s = sequenceOf.get(key)
+      known.set(key, e === undefined && s === undefined ? (recorded.has(key) ? NEITHER : null)
+        : { ...(e === undefined ? {} : { e }), ...(s === undefined ? {} : { s }) })
+    }
+    return known.get(key)
+  }
+}
 
 /**
  * A source of the export's files. `read(name)` answers a file's bytes (an ArrayBuffer) by its name
- * in the export (`manifest.json`, `layout.json`, `g/07a.json`), or null where there is no such file;
- * `fromUrl` builds one over HTTP.
+ * in the export (`manifest.json`, `layout.json`, `g/07/07a3.json`), or null where there is no such
+ * file; `fromUrl` builds one over HTTP.
  */
-export function createSource(read, { concurrency = 10 } = {}) {
+export function createSource(read, { concurrency = 32 } = {}) {
   let ready = null
   // At most `concurrency` files are asked for at once; the rest wait their turn.
   let active = 0
@@ -84,23 +120,44 @@ export function createSource(read, { concurrency = 10 } = {}) {
   })
   // Host lists are read into the composer's order once a page, so their pieces are decoded once.
   const files = new Map(), loading = new Map(), lists = new Map()
+  let layout = null, identity = null, operators = null
+  const model = () => source.manifest.files
+  const isModel = name => name === model().layout.path || name === model().identity.path
+  const parsed = async (name, bytes) => {
+    if (!isModel(name)) return bytes ? JSON.parse(await unpack(bytes)) : {}
+    if (!bytes) throw new Error(`${name}: missing`)
+    const value = JSON.parse(await unpack(bytes))
+    if (name === model().layout.path) layout = readLayout(value)
+    else identity = readIdentity(value)
+    // The layout and the table are kept as they are read, not their text beside them.
+    return true
+  }
   const source = {
-    manifest: null, layout: null,
+    manifest: null,
+    /** The learned layout: null until a drawing has loaded it (`modelFiles`). */
+    get layout() { return layout },
     ready() {
       ready ??= (async () => {
         source.manifest = JSON.parse(await unpack(await read('manifest.json')))
-        if (!FORMATS.has(source.manifest.format)) throw new Error(`The composer export's format ${source.manifest.format} is not read here.`)
-        source.layout = readLayout(JSON.parse(await unpack(await read(source.manifest.files.layout.path))))
+        if (source.manifest.format !== FORMAT) throw new Error(`The composer export's format ${source.manifest.format} is not read here.`)
+        const { BINARY, TERNARY, UNARY } = source.manifest.constants
+        operators = new Set([...BINARY, ...TERNARY, ...UNARY])
       })().catch(error => { ready = null; throw error })
       return ready
     },
-    /** Loads files by name, each once; a file the export lacks reads as empty. */
+    /** The files a description holding an operator reads beside its records: the identity table,
+     *  and the learned layout unless `layout` is false, as for a description that sets no parts
+     *  beside each other. They load like any file, by name. */
+    modelFiles: ({ layout: learned = true } = {}) => [model().identity.path, ...(learned ? [model().layout.path] : [])],
+    /** Loads files by name, each once; a shard the export lacks reads as empty. */
     load(names) {
       return Promise.all([...names].map(name => {
         if (files.has(name)) return null
-        if (!loading.has(name)) loading.set(name, limited(name).then(async bytes => {
-          files.set(name, bytes ? JSON.parse(await unpack(bytes)) : {})
-        }).finally(() => loading.delete(name)))
+        if (!loading.has(name)) loading.set(name, limited(name).then(bytes => parsed(name, bytes)).then(value => { files.set(name, value) })
+          // A drawing that needs the layout or the table cannot be made without it, whether the file
+          // could not be fetched or could not be read: the page then draws what it holds itself.
+          .catch(error => { throw isModel(name) ? Object.assign(error, { unavailable: true }) : error })
+          .finally(() => loading.delete(name)))
         return loading.get(name)
       }))
     },
@@ -111,21 +168,29 @@ export function createSource(read, { concurrency = 10 } = {}) {
       const missing = new Set()
       const file = name => { const found = files.get(name); if (!found) missing.add(name); return found ?? null }
       return {
-        manifest: source.manifest, layout: source.layout, missing,
-        rec: key => { const f = file(recordFile(key)); return f ? recordOf(f, key) : null },
+        manifest: source.manifest, missing,
+        // The learned layout, asked for when a node is first laid out by it.
+        get layout() { if (!layout) missing.add(model().layout.path); return layout },
+        rec: key => held(file(recordFile(key)), key),
         // A host list in the order of the composer's index (`r`).
         hosts: (key, place) => {
-          const f = file(hostsFile(key, place)), id = `${place}\t${key}`
+          const f = file(hostsFile(key, place)), id = hostsKey(key, place)
           if (!f) return []
-          if (!lists.has(id)) {
-            const list = (f[hostsHash(key, place)]?.hosts ?? []).map(cutEntry)
-            lists.set(id, list.sort((a, b) => a.r - b.r))
-          }
+          if (!lists.has(id)) lists.set(id, (held(f, id) ?? []).map(cutEntry).sort((a, b) => a.r - b.r))
           return lists.get(id)
         },
-        places: key => {
-          const f = file(recordFile(key))
-          return f ? recordOf(f, key)?.P ?? [] : []
+        places: key => held(file(recordFile(key)), key)?.P ?? [],
+        // A key's sequence and the character it describes (`{ e, s }`, either or neither), or null
+        // for a key with no record, from the identity table. Until the table is read a single
+        // character's record answers (undefined here), so a lone character is drawn without it; a
+        // sequence asks for the table, since finding what it names tries many spellings, each a
+        // record of its own.
+        identity: key => {
+          if (identity) return identity(key)
+          const first = key.codePointAt(0)
+          if (first === undefined || !operators.has(String.fromCodePoint(first))) return undefined
+          missing.add(model().identity.path)
+          return null
         },
       }
     },
@@ -217,6 +282,14 @@ function extraOperators(tree, { fontStyle, separate, nativeEnclosures }) {
   return [...op, ...tree.slice(1).flatMap(child => extraOperators(child, { fontStyle, separate, nativeEnclosures }))].filter(op => APPROXIMATE.includes(op))
 }
 
+/** Whether a tree holds an operator of two operands or more: such a description is laid out by the
+ *  learned model. */
+const setsParts = tree => Array.isArray(tree) && (tree.length > 2 || tree.slice(1).some(setsParts))
+/** The model files a tree reads before it is drawn: none for a lone character, the identity table
+ *  for a description holding an operator, and the layout too where it sets parts beside each other.
+ *  A character turned or mirrored whole (⿾正) is resolved through the table and laid out by none. */
+const modelOf = (source, tree) => Array.isArray(tree) ? source.modelFiles({ layout: setsParts(tree) }) : []
+
 /** A box in font units (y up) as the drawing's SVG box has it: [x, y, width, height], y down. */
 export const svgBox = b => [b[0], ASCENT - b[3], b[2] - b[0], b[3] - b[1]]
 
@@ -245,7 +318,15 @@ export async function sketch(source, sequence, { fontStyle = 'sans' } = {}) {
     new Composer(store, { fontStyle }).faceBeside(marks)
     if (store.missing.size) await source.load(store.missing)
   }
-  return new Composer(source.store(), { fontStyle }).sketch(description, marks).map(leaf => ({ ...leaf, box: svgBox(leaf.box) }))
+  await source.load(modelOf(source, parseTree(description, arity)))
+  // A description that asked for the layout or the table after all is sketched again with them.
+  for (let again = false; ; again = true) {
+    const store = source.store()
+    const leaves = new Composer(store, { fontStyle }).sketch(description, marks)
+    const model = source.modelFiles().filter(name => store.missing.has(name))
+    if (again || !model.length) return leaves.map(leaf => ({ ...leaf, box: svgBox(leaf.box) }))
+    await source.load(model)
+  }
 }
 
 /**
@@ -279,8 +360,9 @@ export async function compose(source, sequence, { exclude = [], face = null, sep
   const description = normaliseHangul(syllable ?? base, arity)
   const tree = parseTree(description, arity)
   if (tooLarge(tree)) throw new LookupError(`${sequence} is larger than a preview draws.`)
-  // A mark's outline loads like a component's.
-  await source.load(source.filesOf([...keysOf(tree, [], separate, fontStyle), ...marks]))
+  // A mark's outline loads like a component's. The identity table and the layout load beside the
+  // first records of a description that reads them.
+  await source.load([...source.filesOf([...keysOf(tree, [], separate, fontStyle), ...marks]), ...modelOf(source, tree)])
   for (let round = 0; round < ROUNDS; round++) {
     const store = source.store()
     let drawn = null, failure = null, composer = null, cells = false

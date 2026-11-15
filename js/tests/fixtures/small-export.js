@@ -9,13 +9,30 @@ import { gzipSync } from 'node:zlib'
 
 export const constants = JSON.parse(readFileSync(join(import.meta.dirname, '../../src/constants.json'), 'utf8'))
 const hex = text => createHash('sha256').update(text).digest('hex')
-/** The shard a key's record or host list is in: the first three hex digits of its SHA-256. */
-export const shardOf = (folder, text) => `${folder}/${hex(text).slice(0, 3)}.json`
-/** The export's shards: each entry under the full hash of its text, gzipped. */
+/** The shard a key's record or host list is in: named by the first hex digits of its SHA-256, four
+ *  for a record and three for a host list. */
+export const shardOf = (folder, text) => {
+  const h = hex(text)
+  return folder === 'g' ? `g/${h.slice(0, 2)}/${h.slice(0, 4)}.json` : `p/${h.slice(0, 3)}.json`
+}
+/** The identity table of `entries` (`[key, record]`): each character's sequence, what each
+ *  sequence describes where that is not the character listed with it, and the keys whose record
+ *  holds neither. */
+export const identityOf = entries => {
+  const written = entries.filter(([, record]) => record.s !== undefined)
+  const implied = new Map(written.map(([key, record]) => [record.s, key]))
+  const e = Object.fromEntries(entries.filter(([key, record]) => record.e !== undefined && implied.get(key) !== record.e).map(([key, record]) => [key, record.e]))
+  for (const [sequence] of implied) if (!entries.some(([key, record]) => key === sequence && record.e !== undefined)) e[sequence] = null
+  const plain = entries.filter(([, record]) => record.s === undefined && record.e === undefined).map(([key]) => key)
+  return JSON.stringify({ characters: written.map(([key]) => key).join('\n'), sequences: written.map(([, record]) => record.s).join('\n'), e, plain: plain.join('\n') })
+}
+/** The export's shards: each entry under its text (a key, or place TAB operand), gzipped. The
+ *  records' shards come with the identity table of those records. */
 export const shards = (folder, entries) => {
   const out = {}
-  for (const [text, value] of entries) ((out[shardOf(folder, text)] ??= {})[hex(text)] = value)
-  return Object.fromEntries(Object.entries(out).map(([name, file]) => [name, gzipSync(JSON.stringify(file))]))
+  for (const [text, value] of entries) ((out[shardOf(folder, text)] ??= {})[text] = value)
+  return { ...Object.fromEntries(Object.entries(out).map(([name, file]) => [name, gzipSync(JSON.stringify(file))])),
+    ...(folder === 'g' ? { 'identity.json': identityOf(entries) } : {}) }
 }
 const int16 = values => Buffer.from(Int16Array.from(values).buffer).toString('base64')
 // A glyph of boxes, each [x0, y0, x1, y1] in font units: one square contour per box.
@@ -23,7 +40,7 @@ const glyph = boxes => {
   const b = [Math.min(...boxes.map(x => x[0])), Math.min(...boxes.map(x => x[1])), Math.max(...boxes.map(x => x[2])), Math.max(...boxes.map(x => x[3]))]
   return { v: 1, b, p: boxes.map(([x0, y0, x1, y1]) => ['MLLL', int16([x0, y0, x1, y0, x1, y1, x0, y1].map(v => v * 4)), int16(Array(8).fill(0))]) }
 }
-const character = (key, boxes) => ({ k: key, G: glyph(boxes), ink: boxes.reduce((s, [x0, y0, x1, y1]) => s + 2 * (x1 - x0 + y1 - y0), 0), nl: boxes.length, o: boxes.length })
+const character = (key, boxes) => ({ G: glyph(boxes), ink: boxes.reduce((s, [x0, y0, x1, y1]) => s + 2 * (x1 - x0 + y1 - y0), 0), nl: boxes.length, o: boxes.length })
 export const ops = ['⿰', '⿱', '⿸', '⿺', '⿵', '⿹', '⿶', '⿴', '⿷']
 export const layout = { ops, defaults: Object.fromEntries(['L', 'R', 'T', 'B', ...ops.slice(2).flatMap(op => [`${op}0`, `${op}1`])].map(p => [p, [0, 0, 1000, 1000]])),
   features: {}, seeds: [[{ shape: [ops.length + 2 * 81, 8], data: Buffer.alloc(2 * (ops.length + 162) * 8).toString('base64') }, Buffer.alloc(32).toString('base64')]] }
@@ -36,7 +53,7 @@ const records = {
   永: character('永', [[100, 0, 900, 800]]),
   // 冂 as the pinned Sans export draws it: sixteen contours whose bar, sides and foot close as a
   // frame, which a cell split would tear apart.
-  冂: { k: '冂', G: { v: 1, b: [41.13,-82.14,957.51,841.58],
+  冂: { G: { v: 1, b: [41.13,-82.14,957.51,841.58],
     p: [
       ['MLLL', int16([176,3280,2124,3280,2124,2972,176,2972]), int16([0,0,0,0,0,0,0,0])],
       ['MLLL', int16([2408,2712,3852,2712,3852,2312,2408,2312]), int16([0,0,0,0,0,0,0,0])],
@@ -59,7 +76,7 @@ const records = {
 }
 /** Each file of the export by its name: JSON text, or gzip bytes for a shard. */
 export const files = {
-  'manifest.json': JSON.stringify({ format: 6, files: { layout: { path: 'layout.json' } }, constants, spelled: [] }),
+  'manifest.json': JSON.stringify({ format: 7, files: { layout: { path: 'layout.json' }, identity: { path: 'identity.json' } }, constants, spelled: [] }),
   'layout.json': JSON.stringify(layout),
   ...shards('g', Object.entries(records)),
 }

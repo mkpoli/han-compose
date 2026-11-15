@@ -14,20 +14,24 @@ export function bundledSource({ load, matches, fallback = null, under = false, a
   // A record with no outline cannot draw, whatever else it says of the key.
   const answers = (key, remote) => owns(key) && !(under && remote?.rec(key)?.G)
   const source = {
-    manifest: null, layout: null,
+    manifest: null,
+    get layout() { return fallback?.layout ?? null },
     ready() {
       return ready ??= Promise.all([load(), fallback?.ready()]).then(([data]) => {
         records = data.records
         source.manifest = fallback?.manifest ?? { constants, spelled: [] }
-        source.layout = fallback?.layout ?? null
       }).catch(error => { ready = null; throw error })
     },
+    modelFiles: options => fallback?.modelFiles(options) ?? [],
     load: names => fallback ? fallback.load(names) : Promise.resolve(),
     filesOf: keys => fallback ? fallback.filesOf(under ? keys : keys.filter(key => !owns(key))) : new Set(),
     store() {
       const remote = fallback?.store()
       return {
-        manifest: source.manifest, layout: source.layout, missing: remote?.missing ?? new Set(),
+        manifest: source.manifest, missing: remote?.missing ?? new Set(),
+        get layout() { return remote?.layout ?? null },
+        // A key these records answer is read from its record, as a store without a table reads it.
+        identity: key => answers(key, remote) ? undefined : remote?.identity?.(key),
         rec: key => answers(key, remote) ? records[keyOf(key)] ?? null : remote?.rec(key) ?? null,
         hosts: (key, place) => answers(key, remote) ? [] : remote?.hosts(key, place) ?? [],
         places: key => answers(key, remote) ? [] : remote?.places(key) ?? [],
