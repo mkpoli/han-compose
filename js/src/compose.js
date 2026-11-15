@@ -1409,7 +1409,21 @@ export class Composer {
     const indices = cuts[hexOf(JSON.stringify(record.p))]
     if (!indices) return null
     const glyph = partOf(record)
-    return { record: { h: char }, piece: derived(glyph, indices.map(i => glyph.contours[i])) }
+    const piece = derived(glyph, indices.map(i => glyph.contours[i]))
+    // Where the designed character sets what the frame holds: 巴's box in 爬.
+    const held = glyph.contours.filter((_, i) => !indices.includes(i)).map(c => pointsBox(c.light))
+    if (held.length) piece.held = union(held)
+    return { record: { h: char }, piece }
+  }
+
+  /** Seat the inner group where the designed character sets its own: ⿺爪口's 口 in 巴's place in
+   *  爬, so the inner part keeps clear of the sweep. */
+  seatInDesignedFrame(groups) {
+    const frame = groups[0]?.find(p => p.part?.held)
+    if (!frame || !groups[1]?.length) return
+    const room = mapped(frame.part.held, frame.source, frame.target)
+    const box = union(groups[1].map(p => p.target)), seat = fitted(box, room, this.C.STRETCH)
+    for (const p of groups[1]) p.target = mapped(p.target, box, seat)
   }
 
   /** The designed tail of `node`'s pressed enclosure, or null where the face draws none. */
@@ -2400,12 +2414,7 @@ export class Composer {
         }
       }
     }
-    // A described ⿺爪… draws the inner a little low and small next to 爬's designed frame.
-    if (op === '⿺' && children[0] === '爪' && groups[1]?.length) {
-      const box = union(groups[1].map(p => p.target)), cx = (box[0] + box[2]) / 2, cy = (box[1] + box[3]) / 2
-      const down = 0.12 * (this.face[3] - this.face[1]), right = 0.04 * (this.face[2] - this.face[0])
-      for (const p of groups[1]) p.target = [cx + (p.target[0] - cx) * 1.15 + right, cy + (p.target[1] - cy) * 1.15 - down, cx + (p.target[2] - cx) * 1.15 + right, cy + (p.target[3] - cy) * 1.15 - down]
-    }
+    this.seatInDesignedFrame(groups)
     this.recordJoints(op, groups)
     return this.flatten(groups)
   }
@@ -2691,12 +2700,7 @@ export class Composer {
         }
       }
     }
-    // A described ⿺爪… draws the inner a little low and small next to 爬's designed frame.
-    if (op === '⿺' && children[0] === '爪' && groups[1]?.length) {
-      const box = union(groups[1].map(p => p.target)), cx = (box[0] + box[2]) / 2, cy = (box[1] + box[3]) / 2
-      const down = 0.12 * (this.face[3] - this.face[1]), right = 0.04 * (this.face[2] - this.face[0])
-      for (const p of groups[1]) p.target = [cx + (p.target[0] - cx) * 1.15 + right, cy + (p.target[1] - cy) * 1.15 - down, cx + (p.target[2] - cx) * 1.15 + right, cy + (p.target[3] - cy) * 1.15 - down]
-    }
+    this.seatInDesignedFrame(groups)
     this.recordJoints(op, groups)
     return this.flatten(groups)
   }
