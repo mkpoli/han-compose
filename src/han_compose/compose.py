@@ -246,11 +246,15 @@ COVER_ROOTS = frozenset({"冖", "宀", "穴", "雨"})
 def covers() -> frozenset[str]:
     """Every component that is 冖-shaped: the roots, and a component whose sequence ends in one
     (宀 is 丶 over 冖; 龸 is ⺌ over 冖; 𤇾, 𫇦, 𰃮 and 𦥯 likewise). The shape is what the layout
-    follows, so the table is derived from the sequence rather than listing each rare component."""
+    follows, so the table is derived from the sequence rather than listing each rare component.
+    Only a sequence that starts with ⿱ and ends in a cover found so far is parsed: its last operand
+    is its last character, with a variation selector its last two."""
     out = set(COVER_ROOTS)
     seqs = japanese_sequences()
     for _ in range(3):
         for char, sequence in seqs.items():
+            if not sequence.startswith("⿱") or (sequence[-1] not in out and sequence[-2:] not in out):
+                continue
             try:
                 tree = parse(sequence)
             except (ValueError, StopIteration):

@@ -19,6 +19,22 @@ def test_the_property_follows_the_sequence():
     assert "木" not in covers
 
 
+def test_only_a_sequence_that_may_end_in_a_cover_is_parsed(monkeypatch):
+    every = set(C.COVER_ROOTS)
+    for _ in range(3):
+        for char, sequence in C.japanese_sequences().items():
+            try:
+                tree = C.parse(sequence)
+            except (ValueError, StopIteration):
+                continue
+            if isinstance(tree, tuple) and tree[0] == "⿱" and isinstance(tree[2], str) and tree[2] in every:
+                every.add(char)
+    parsed, parse = [], C.parse
+    monkeypatch.setattr(C, "parse", lambda sequence: parsed.append(sequence) or parse(sequence))
+    assert C.covers.__wrapped__() == every
+    assert len(set(parsed)) < 1000
+
+
 def test_a_middle_cover_closes_on_both_neighbours():
     top = placed(0, 500, 900, 800)
     cover = placed(0, 350, 900, 450)
