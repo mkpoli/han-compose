@@ -25,8 +25,8 @@ so the image is shared under CC BY-SA 3.0.
 han-compose lays out ⿰ ⿱ ⿲ ⿳, the enclosures ⿴ to ⿺ and ⿼ ⿽, the overlay ⿻, the reflection ⿾
 and the half-turn ⿿. The right-hand enclosures ⿼ and ⿽ use the enclosing outline's opening or a
 default box when no opening is found; their placement is approximate and can differ substantially
-from a designed glyph. 〾 draws its operand as it is. The Python composer does not draw ㇯, which the
-browser package (`js/`) draws by an approximate rule, and its fonts have no Tangut.
+from a designed glyph. 〾 draws its operand as it is, and ㇯ draws its second operand where it lies
+in the first, as a cut taken out of it. Its fonts have no Tangut.
 Chữ Nôm characters are Han characters and are drawn like
 any other.
 

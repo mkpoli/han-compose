@@ -924,6 +924,8 @@ ENCLOSING_PLACES = frozenset(op + "0" for op in ENCLOSE) - COMBINING_PLACES
 OVERLAY = "⿻"
 #: 〾 marks a variant of its operand, which is drawn as it is.
 VARIANT = "〾"
+#: ㇯ draws its second operand where it lies in the first, as a cut taken out of it.
+SUBTRACT = "㇯"
 #: Least likeness of a piece whose operand is overlaid: its sketch, the operands' own glyphs laid
 #: over each other, is far from a designed shape (⿻干二 cut from 拜 scores 0.41).
 LIKENESS_OVERLAID = 0.35
@@ -1069,6 +1071,8 @@ class Placed:
     native: float = 0.0
     #: Where the part comes from: "teacher 謌", "host 何" or "glyph 王".
     origin: str = ""
+    #: Whether the part is taken out of the ink it lies on (㇯) instead of being drawn.
+    cut: bool = False
 
     @property
     def scale(self) -> tuple[float, float]:
@@ -1452,6 +1456,9 @@ class Composer:
             try:
                 placed = self._plain._node(node, self._plain.face)
             except LookupError:
+                return None
+            # What ㇯ leaves is no set of contours, so a subtraction has no sketch.
+            if any(p.cut for p in placed):
                 return None
             contours = [Contour(c.ops, points, points) for p in placed for c, points in zip(p.part.contours, p.contours())]
             return Part(contours) if contours else None
@@ -2472,6 +2479,13 @@ class Composer:
                                                        region[axis] + region[axis + 2] - target[axis])
                 item.target = tuple(target)
             return out
+        if op == SUBTRACT:
+            out = self._node(children[0], region, at_root)
+            taken = self._node(children[1], region)
+            for item in taken:
+                item.cut = True
+            # A fitted root enclosure stays one with its cut beside it.
+            return type(out)([*out, *taken])
         if op not in AXIS and op not in ENCLOSE and op != OVERLAY:
             raise LookupError(f"{op} is not laid out.")
         if op == OVERLAY:
@@ -3447,16 +3461,29 @@ def _segments(ops: list[tuple[str, int, bool]], points: np.ndarray) -> list[tupl
     return out
 
 
-def svg_path(placed: list[Placed]) -> str:
+def svg_path(placed: list[Placed], cut: bool = False) -> str:
     """The composed outlines as one SVG path, in a 1000 × 1000 box with y down from the em's top.
-    Fill it with the nonzero rule: strokes and parts overlap."""
+    Fill it with the nonzero rule: strokes and parts overlap. `cut` gives the path of what ㇯ takes
+    away instead, to mask out of the ink; it is empty where nothing is taken."""
     flip = lambda p: f"{p[0]:.1f} {ASCENT - p[1]:.1f}"
     out = []
     for item in placed:
+        if item.cut != cut:
+            continue
         for contour, points in zip(item.part.contours, item.contours()):
             out.extend(kind + " ".join(map(flip, pts)) for kind, pts in _segments(contour.ops, points))
             out.append("Z")
     return "".join(out)
+
+
+def svg(placed: list[Placed]) -> str:
+    """The drawing as an SVG document: its ink, with what ㇯ takes away masked out of it."""
+    ink, taken = svg_path(placed), svg_path(placed, cut=True)
+    head = f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {EM} {EM}">'
+    if not taken:
+        return f'{head}<path d="{ink}"/></svg>'
+    return (f'{head}<mask id="cut"><rect x="0" y="0" width="{EM}" height="{EM}" fill="#fff"/>'
+            f'<path d="{taken}" fill="#000"/></mask><path d="{ink}" mask="url(#cut)"/></svg>')
 
 
 @cache
@@ -3517,12 +3544,15 @@ def _rings(contours: list[Contour], points: list[np.ndarray], steps: int = 6) ->
 
 
 def raster(placed: list[Placed], size: int = 128) -> np.ndarray:
-    """A size × size mask of the em, the parts filled and joined."""
+    """A size × size mask of the em, the parts filled and joined, less what ㇯ takes away."""
     box = (0.0, ASCENT - EM, EM, ASCENT)
-    mask = np.zeros((size, size), bool)
+    mask, taken = np.zeros((size, size), bool), np.zeros((size, size), bool)
     for item in placed:
-        mask |= fill(_rings(item.part.contours, item.contours()), size, box)
-    return mask
+        if item.cut:
+            taken |= fill(_rings(item.part.contours, item.contours()), size, box)
+        else:
+            mask |= fill(_rings(item.part.contours, item.contours()), size, box)
+    return mask & ~taken
 
 
 def _crossings(part: Part, axis: int) -> float:
