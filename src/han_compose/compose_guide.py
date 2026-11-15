@@ -69,8 +69,8 @@ class Guide:
         # composition alone until a guide trained on them is available.
         if sequence and sequence[0] in ("⿼", "⿽"):
             return placed
-        # The guide has seen no subtraction: what ㇯ takes away stays where the layout put it.
-        if any(item.cut for item in placed):
+        # The guide has seen no subtraction: a drawing with ㇯ stays as the layout made it.
+        if C.SUBTRACT in sequence:
             return placed
         gain = self.ink(composer, sequence, placed) - 0.5
         if LEVEL == "part":

@@ -1093,6 +1093,19 @@ class Placed:
         return [(c.light + (c.heavy - c.light) * weight - centre) * scale + goal for c in self.part.contours]
 
 
+def _paths(tree: Node, wanted: str, at: tuple[int, ...] = ()) -> list[tuple[int, ...]]:
+    """The path to each node under `tree` written as `wanted`, in reading order."""
+    if isinstance(tree, str):
+        return []
+    out = []
+    for step, child in enumerate(tree[1:]):
+        if key(child) == wanted:
+            out.append((*at, step))
+        else:
+            out.extend(_paths(child, wanted, (*at, step)))
+    return out
+
+
 def _share(box: Box, frame: Box) -> Box:
     """`box` as shares of `frame`: (0, 0, 1, 1) fills it."""
     w, h = max(frame[2] - frame[0], 1), max(frame[3] - frame[1], 1)
@@ -2486,6 +2499,13 @@ class Composer:
                 item.target = tuple(target)
             return out
         if op == SUBTRACT:
+            first = children[0]
+            name = first if isinstance(first, str) else None if key(first) in self.spelled else self.by_sequence.get(key(first))
+            # A sketch is a character's own glyphs squeezed into place: only a hosted drawing cuts.
+            kept = self._without(name, children[1]) if name is not None and self.hosted else None
+            if kept is not None:
+                # What is left fills the region as a whole glyph would, its strokes as dense as the glyph drew them.
+                return [self._place(kept, region, self.ink(name), f"glyph {name}")]
             out = self._node(children[0], region, at_root)
             taken = self._node(children[1], region)
             for item in taken:
@@ -3088,6 +3108,51 @@ class Composer:
         sx = (target[2] - target[0]) / max(source[2] - source[0], 1)
         sy = (target[3] - target[1]) / max(source[3] - source[1], 1)
         return max(sx / sy, sy / sx)
+
+    def _without(self, char: str, taken: Node) -> Part | None:
+        """`char`'s glyph less the component `taken`: where the character's sequence names it, as
+        written or with its compound components written out, the glyph is cut level by level down
+        to it and its outlines are left out (明 less 月); of several the sequence names, the piece
+        most like `taken` goes, the later of two alike. A character the variable font draws whose
+        sequence does not name it is cut along the group KanjiVG names so (鹿 less 比). None when
+        the character is excluded or has no glyph, or neither names `taken` in a way the glyph cuts."""
+        glyph = self.font.glyph(char)
+        if glyph is None or char in self.exclude:
+            return None
+        best = None
+        for tree, path in self._named(char, key(taken)):
+            host = self._host_node(char, tree, path[:-1]) or self._host_node(char, tree, path[:-1], strict=False)
+            if host is None:
+                continue
+            gone = {id(c) for c in host.pieces[path[-1]].contours}
+            rest = [c for c in glyph.contours if id(c) not in gone]
+            if not rest or len(rest) + len(gone) != len(glyph.contours):
+                continue
+            like = self.likeness(host.pieces[path[-1]], taken)
+            if best is None or like >= best[0]:
+                best = (like, Part(rest))
+        if best is not None:
+            return best[1]
+        if self.kvg is None or not isinstance(taken, str) or not self.font.own(char):
+            return None
+        return self.kvg.less(char, taken)
+
+    def _named(self, char: str, wanted: str) -> list[tuple[tuple, tuple[int, ...]]]:
+        """`char`'s sequence with the path to each node of it written as `wanted`: as the sequence
+        is written (語 ⿰訁吾 names 吾), then with its compound components written out (and 五);
+        empty where the character has no sequence to read."""
+        try:
+            tree = parse(self.sequences[char]) if char in self.sequences else None
+        except ValueError:
+            tree = None
+        if not isinstance(tree, tuple):
+            return []
+        out = [(tree, path) for path in _paths(tree, wanted)]
+        written = self._expanded(tree, char, {}, EXPAND_DEPTH)
+        if written != tree:
+            seen = {path for _, path in out}
+            out.extend((written, path) for path in _paths(written, wanted) if path not in seen)
+        return out
 
     def _place(self, part: Part, target: Box, native: float, origin: str) -> Placed:
         """A whole glyph drawn into `target`, its proportions changed by at most `STRETCH`."""
