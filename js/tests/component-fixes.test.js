@@ -2,9 +2,9 @@
 // and tied to the outlines it was read against, so these tests exercise the correction itself on
 // the shapes it was written for, and the guard that leaves another export's drawing alone.
 import { describe, expect, it } from 'bun:test'
-import { COMPONENT_FIXES, clippedAbove, componentFix, dotIn, narrowed, respanned, withoutContours } from '@han-compose/composer/component-fixes'
-import { makePart, partOf, placed, pointsBox } from '@han-compose/composer/geometry'
-import { hexOf } from '@han-compose/composer/sha256'
+import { COMPONENT_FIXES, clippedAbove, componentFix, dotIn, narrowed, respanned, withoutContours } from 'han-compose/component-fixes'
+import { makePart, partOf, placed, pointsBox } from 'han-compose/geometry'
+import { hexOf } from 'han-compose/sha256'
 
 /** A placed part of rectangular contours: `boxes` in font units, drawn from `source` into `target`. */
 function part(origin, source, target, boxes) {

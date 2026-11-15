@@ -14,6 +14,7 @@ import { hasNewKorean, newKoreanSource } from './new-korean.js'
 import { hasShuishu, shuishuSource } from './shuishu.js'
 import { hasJurchen, jurchenSource } from './jurchen.js'
 import { hasPaletteGlyph, paletteSource } from './palette.js'
+import { CUSTOM_FORMS, customFormsSource, hasCustomComponent } from './custom-forms.js'
 import { isEmpty, isNode, parseDescription as parse, splitDescription, tonesOf } from './tree.js'
 
 /**
@@ -41,6 +42,7 @@ export function traitsOf(sequence) {
     shuishu: hasShuishu(sequence),
     jurchen: hasJurchen(sequence),
     palette: [...sequence].some(hasPaletteGlyph),
+    custom: hasCustomComponent(sequence),
   }
 }
 
@@ -54,11 +56,14 @@ export const traitKey = traits => Object.entries(traits).map(([name, on]) => `${
  * `bundled` draws without the export, as a page does when the export could not be read; `remote`
  * keeps the export even for a sequence bundled outlines would cover, as warming does. `fetch`
  * replaces how the export is read, and `read` how a bundled file is: a page that reads its own assets
- * (a Worker over its deployment's files) answers by path, wherever `loaders` puts them.
+ * (a Worker over its deployment's files) answers by path, wherever `loaders` puts them. `exported`
+ * is the export's own source (`exportSource`) where the caller keeps one for every sequence it draws
+ * from `base`, so the export's files are read once however the sequences differ; how that source
+ * reads the export was said when it was built, and `fetch` and `read` here reach the bundled files alone.
  * @param {string} sequence
- * @param {{ base?: string, fontStyle?: string, separate?: boolean, bundled?: boolean, remote?: boolean, loaders?: Record<string, string>, traits?: ReturnType<typeof traitsOf>, fetch?: typeof globalThis.fetch, read?: (path: string, url?: string) => Promise<Response> }} [options]
+ * @param {{ base?: string, fontStyle?: string, separate?: boolean, bundled?: boolean, remote?: boolean, loaders?: Record<string, string>, traits?: ReturnType<typeof traitsOf>, exported?: ReturnType<typeof exportSource> | null, fetch?: typeof globalThis.fetch, read?: (path: string, url?: string) => Promise<Response> }} [options]
  */
-export function sourceFor(sequence, { base, fontStyle = 'sans', separate = false, bundled = false, remote = false, loaders = {}, traits = null, fetch: get, read } = {}) {
+export function sourceFor(sequence, { base, fontStyle = 'sans', separate = false, bundled = false, remote = false, loaders = {}, traits = null, exported = null, fetch: get, read } = {}) {
   traits = traits ?? traitsOf(sequence ?? '')
   const local = !remote && (bundled || traits.empty || onlyBundled(sequence, separate, false, fontStyle))
   /** The source of one script or palette, over `fallback`, reading its file by path or URL. A kind
@@ -69,10 +74,8 @@ export function sourceFor(sequence, { base, fontStyle = 'sans', separate = false
     const load = bundledLoader(path, !local, loaders, read)
     return kind({ fallback, ...options, ...(load ? { load } : {}) })
   }
-  // A bundled sequence needs no export: a failing one is not asked for at all. The export's own
-  // Unicode fallback reads its shards where the host says they are.
-  const shards = bundledLoader(UNICODE, true, loaders, read)
-  let source = local ? null : fromUrl(base, { ...(get ? { fetch: get } : {}), ...(shards ? { load: shards } : {}) })
+  // A bundled sequence needs no export: a failing one is not asked for at all.
+  let source = local ? null : exported ?? exportSource(base, { loaders, fetch: get, read })
   // Bundled alone, a leaf may be one only the Unicode outlines hold; they load only what is asked for.
   if (local && (traits.loose || bundled)) source = overlay(unicodeSource, source, UNICODE)
   if (traits.tangut) source = overlay(tangutSource, source, 'sources/tangut/outlines.json.gz')
@@ -82,7 +85,19 @@ export function sourceFor(sequence, { base, fontStyle = 'sans', separate = false
   if (traits.shuishu) source = overlay(shuishuSource, source, 'sources/shuishu/outlines.json.gz')
   if (traits.jurchen) source = overlay(jurchenSource, source, 'sources/jurchen/outlines.json.gz')
   if (traits.palette) source = overlay(paletteSource, source, 'sources/palette/outlines.json.gz', { under: fontStyle !== 'sans', style: fontStyle })
+  if (traits.custom) source = overlay(customFormsSource, source, CUSTOM_FORMS, { style: fontStyle })
   return source ?? bundledSource({ load: async () => ({ records: {} }), matches: () => false })
+}
+
+/**
+ * The export at `base` as a source, its own Unicode fallback reading its shards where the host says
+ * they are. A caller drawing many sequences from one export keeps this and hands it to `sourceFor`.
+ * @param {string | undefined} base
+ * @param {{ loaders?: Record<string, string>, fetch?: typeof globalThis.fetch, read?: (path: string, url?: string) => Promise<Response> }} [options]
+ */
+export function exportSource(base, { loaders = {}, fetch: get, read } = {}) {
+  const shards = bundledLoader(UNICODE, true, loaders, read)
+  return fromUrl(base, { ...(get ? { fetch: get } : {}), ...(shards ? { load: shards } : {}) })
 }
 
 /** The path a Unicode overlay reads stands for each of its shards. */

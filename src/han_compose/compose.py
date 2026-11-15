@@ -332,26 +332,32 @@ def _selector(char: str) -> bool:
     return 0xFE00 <= point <= 0xFE0F or 0xE0100 <= point <= 0xE01EF
 
 
+def _read(chars: list[str], at: int, sequence: str) -> tuple[Node, int]:
+    """The node starting at `chars[at]`, and where the next one starts."""
+    if at >= len(chars):
+        raise ValueError(f"{sequence} is missing a component.")
+    char = chars[at]
+    at += 1
+    arity = 2 if char in BINARY else 3 if char in TERNARY else 1 if char in UNARY else 0
+    if not arity:
+        if at < len(chars) and _selector(chars[at]):
+            char += chars[at]
+            at += 1
+        return char, at
+    operands = []
+    for _ in range(arity):
+        operand, at = _read(chars, at, sequence)
+        operands.append(operand)
+    return (char, *operands), at
+
+
+@cache
 def parse(sequence: str) -> Node:
-    """`⿰亻⿱亠女` as ('⿰', '亻', ('⿱', '亠', '女')); a character, with any variation selector, stands for itself."""
+    """`⿰亻⿱亠女` as ('⿰', '亻', ('⿱', '亠', '女')); a character, with any variation selector, stands for itself.
+    A sequence is read once: the composer reads every sequence it knows several times over, and a
+    tree, made of tuples and strings, is the same whoever holds it."""
     chars = list(sequence)
-    at = 0
-
-    def node() -> Node:
-        nonlocal at
-        if at >= len(chars):
-            raise ValueError(f"{sequence} is missing a component.")
-        char = chars[at]
-        at += 1
-        arity = 2 if char in BINARY else 3 if char in TERNARY else 1 if char in UNARY else 0
-        if not arity:
-            if at < len(chars) and _selector(chars[at]):
-                char += chars[at]
-                at += 1
-            return char
-        return (char, *(node() for _ in range(arity)))
-
-    tree = node()
+    tree, at = _read(chars, 0, sequence)
     if at != len(chars):
         raise ValueError(f"{sequence} has more components than its operators take.")
     return tree
@@ -922,6 +928,10 @@ COMBINING_PLACES = frozenset({"⿺0"})
 ENCLOSING_PLACES = frozenset(op + "0" for op in ENCLOSE) - COMBINING_PLACES
 #: Operands drawn across each other.
 OVERLAY = "⿻"
+#: 〾 marks a variant of its operand, which is drawn as it is.
+VARIANT = "〾"
+#: ㇯ draws its second operand where it lies in the first, as a cut taken out of it.
+SUBTRACT = "㇯"
 #: Least likeness of a piece whose operand is overlaid: its sketch, the operands' own glyphs laid
 #: over each other, is far from a designed shape (⿻干二 cut from 拜 scores 0.41).
 LIKENESS_OVERLAID = 0.35
@@ -1067,6 +1077,8 @@ class Placed:
     native: float = 0.0
     #: Where the part comes from: "teacher 謌", "host 何" or "glyph 王".
     origin: str = ""
+    #: Whether the part is taken out of the ink it lies on (㇯) instead of being drawn.
+    cut: bool = False
 
     @property
     def scale(self) -> tuple[float, float]:
@@ -1079,6 +1091,19 @@ class Placed:
         goal = np.array([(self.target[0] + self.target[2]) / 2, (self.target[1] + self.target[3]) / 2])
         weight = np.array(self.weight)
         return [(c.light + (c.heavy - c.light) * weight - centre) * scale + goal for c in self.part.contours]
+
+
+def _paths(tree: Node, wanted: str, at: tuple[int, ...] = ()) -> list[tuple[int, ...]]:
+    """The path to each node under `tree` written as `wanted`, in reading order."""
+    if isinstance(tree, str):
+        return []
+    out = []
+    for step, child in enumerate(tree[1:]):
+        if key(child) == wanted:
+            out.append((*at, step))
+        else:
+            out.extend(_paths(child, wanted, (*at, step)))
+    return out
 
 
 def _share(box: Box, frame: Box) -> Box:
@@ -1450,6 +1475,9 @@ class Composer:
             try:
                 placed = self._plain._node(node, self._plain.face)
             except LookupError:
+                return None
+            # What ㇯ leaves is no set of contours, so a subtraction has no sketch.
+            if any(p.cut for p in placed):
                 return None
             contours = [Contour(c.ops, points, points) for p in placed for c, points in zip(p.part.contours, p.contours())]
             return Part(contours) if contours else None
@@ -2444,6 +2472,8 @@ class Composer:
         # Resolve each node's original identity before changing its rendering layout.
         node = self._respelled(node)
         op, children = node[0], list(node[1:])
+        if op == VARIANT:
+            return self._node(children[0], region, at_root)
         if op in ("⿾", "⿿"):
             # Reflect both masters in each part's frame, then move the part's target
             # within the node's region. A half-turn reflects both axes.
@@ -2468,6 +2498,20 @@ class Composer:
                                                        region[axis] + region[axis + 2] - target[axis])
                 item.target = tuple(target)
             return out
+        if op == SUBTRACT:
+            first = children[0]
+            name = first if isinstance(first, str) else None if key(first) in self.spelled else self.by_sequence.get(key(first))
+            # A sketch is a character's own glyphs squeezed into place: only a hosted drawing cuts.
+            kept = self._without(name, children[1]) if name is not None and self.hosted else None
+            if kept is not None:
+                # What is left fills the region as a whole glyph would, its strokes as dense as the glyph drew them.
+                return [self._place(kept, region, self.ink(name), f"glyph {name}")]
+            out = self._node(children[0], region, at_root)
+            taken = self._node(children[1], region)
+            for item in taken:
+                item.cut = True
+            # A fitted root enclosure stays one with its cut beside it.
+            return type(out)([*out, *taken])
         if op not in AXIS and op not in ENCLOSE and op != OVERLAY:
             raise LookupError(f"{op} is not laid out.")
         if op == OVERLAY:
@@ -3065,6 +3109,51 @@ class Composer:
         sy = (target[3] - target[1]) / max(source[3] - source[1], 1)
         return max(sx / sy, sy / sx)
 
+    def _without(self, char: str, taken: Node) -> Part | None:
+        """`char`'s glyph less the component `taken`: where the character's sequence names it, as
+        written or with its compound components written out, the glyph is cut level by level down
+        to it and its outlines are left out (明 less 月); of several the sequence names, the piece
+        most like `taken` goes, the later of two alike. A character the variable font draws whose
+        sequence does not name it is cut along the group KanjiVG names so (鹿 less 比). None when
+        the character is excluded or has no glyph, or neither names `taken` in a way the glyph cuts."""
+        glyph = self.font.glyph(char)
+        if glyph is None or char in self.exclude:
+            return None
+        best = None
+        for tree, path in self._named(char, key(taken)):
+            host = self._host_node(char, tree, path[:-1]) or self._host_node(char, tree, path[:-1], strict=False)
+            if host is None:
+                continue
+            gone = {id(c) for c in host.pieces[path[-1]].contours}
+            rest = [c for c in glyph.contours if id(c) not in gone]
+            if not rest or len(rest) + len(gone) != len(glyph.contours):
+                continue
+            like = self.likeness(host.pieces[path[-1]], taken)
+            if best is None or like >= best[0]:
+                best = (like, Part(rest))
+        if best is not None:
+            return best[1]
+        if self.kvg is None or not isinstance(taken, str) or not self.font.own(char):
+            return None
+        return self.kvg.less(char, taken)
+
+    def _named(self, char: str, wanted: str) -> list[tuple[tuple, tuple[int, ...]]]:
+        """`char`'s sequence with the path to each node of it written as `wanted`: as the sequence
+        is written (語 ⿰訁吾 names 吾), then with its compound components written out (and 五);
+        empty where the character has no sequence to read."""
+        try:
+            tree = parse(self.sequences[char]) if char in self.sequences else None
+        except ValueError:
+            tree = None
+        if not isinstance(tree, tuple):
+            return []
+        out = [(tree, path) for path in _paths(tree, wanted)]
+        written = self._expanded(tree, char, {}, EXPAND_DEPTH)
+        if written != tree:
+            seen = {path for _, path in out}
+            out.extend((written, path) for path in _paths(written, wanted) if path not in seen)
+        return out
+
     def _place(self, part: Part, target: Box, native: float, origin: str) -> Placed:
         """A whole glyph drawn into `target`, its proportions changed by at most `STRETCH`."""
         return Placed(part, part.box, fitted(part.box, target), native=native, origin=origin)
@@ -3443,16 +3532,29 @@ def _segments(ops: list[tuple[str, int, bool]], points: np.ndarray) -> list[tupl
     return out
 
 
-def svg_path(placed: list[Placed]) -> str:
+def svg_path(placed: list[Placed], cut: bool = False) -> str:
     """The composed outlines as one SVG path, in a 1000 × 1000 box with y down from the em's top.
-    Fill it with the nonzero rule: strokes and parts overlap."""
+    Fill it with the nonzero rule: strokes and parts overlap. `cut` gives the path of what ㇯ takes
+    away instead, to mask out of the ink; it is empty where nothing is taken."""
     flip = lambda p: f"{p[0]:.1f} {ASCENT - p[1]:.1f}"
     out = []
     for item in placed:
+        if item.cut != cut:
+            continue
         for contour, points in zip(item.part.contours, item.contours()):
             out.extend(kind + " ".join(map(flip, pts)) for kind, pts in _segments(contour.ops, points))
             out.append("Z")
     return "".join(out)
+
+
+def svg(placed: list[Placed]) -> str:
+    """The drawing as an SVG document: its ink, with what ㇯ takes away masked out of it."""
+    ink, taken = svg_path(placed), svg_path(placed, cut=True)
+    head = f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {EM} {EM}">'
+    if not taken:
+        return f'{head}<path d="{ink}"/></svg>'
+    return (f'{head}<mask id="cut"><rect x="0" y="0" width="{EM}" height="{EM}" fill="#fff"/>'
+            f'<path d="{taken}" fill="#000"/></mask><path d="{ink}" mask="url(#cut)"/></svg>')
 
 
 @cache
@@ -3513,12 +3615,15 @@ def _rings(contours: list[Contour], points: list[np.ndarray], steps: int = 6) ->
 
 
 def raster(placed: list[Placed], size: int = 128) -> np.ndarray:
-    """A size × size mask of the em, the parts filled and joined."""
+    """A size × size mask of the em, the parts filled and joined, less what ㇯ takes away."""
     box = (0.0, ASCENT - EM, EM, ASCENT)
-    mask = np.zeros((size, size), bool)
+    mask, taken = np.zeros((size, size), bool), np.zeros((size, size), bool)
     for item in placed:
-        mask |= fill(_rings(item.part.contours, item.contours()), size, box)
-    return mask
+        if item.cut:
+            taken |= fill(_rings(item.part.contours, item.contours()), size, box)
+        else:
+            mask |= fill(_rings(item.part.contours, item.contours()), size, box)
+    return mask & ~taken
 
 
 def _crossings(part: Part, axis: int) -> float:

@@ -1,0 +1,21 @@
+id: ivd
+name: Ideographic Variation Database, IVD_Sequences.txt
+publisher: Unicode, Inc.
+kind: reference-table
+url: https://www.unicode.org/ivd/
+version: "2026-08-03"
+licence: Unicode terms of use
+licence_evidence: "The file's header: Copyright 2006–2026 Unicode, Inc. For terms of use, see: https://www.unicode.org/copyright.html"
+attribution: Copyright 2006–2026 Unicode, Inc.
+access:
+  file: https://www.unicode.org/ivd/data/2026-08-03/IVD_Sequences.txt
+  sha256: 2b466659c2bfde1c52e60bd9fc883ab14dfa5c583df024b80352420265d2cd87
+format:
+  line: "base selector; collection; identifier (845B E0100; Adobe-Japan1; CID+1481)"
+notes:
+  - "`han_compose.variants` fetches the file, checks it against this SHA-256 and lists each sequence of a character with every collection that registers it and its identifier there. Nothing of it is committed."
+  - "The edition holds 39,509 entries for 29,642 distinct sequences, in the collections Adobe-Japan1, CAAPH, Hanyo-Denshi, KRName, MSARG and Moji_Joho. A Hanyo-Denshi and a Moji_Joho entry often share one sequence."
+  - "A sequence is drawn from the first font that maps it: the Noto CJK collection's faces, IPAmj Mincho 006.01, Jigmo 2025-09-12. Counted on 2026-11-15, in sans and in serif alike: the JP face draws 14,682, the KR face 36, IPAmj 11,385 and Jigmo 3,532. Seven Moji_Joho sequences (粤 U+7CA4 U+E0103, MJ058288) are in none of them and are listed without an outline."
+  - "IPAmj maps each of the 11,384 Moji_Joho sequences it draws to the glyph named by the sequence's identifier (MJ022340 to `mj022340`)."
+  - "Uncertain: which licence the terms of use give this file. The header names the terms page and no licence."
+checked: 2026-11-15

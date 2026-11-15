@@ -16,7 +16,8 @@
 // Everything here is synchronous. `data.rec(key)` answers a key's record, `data.hosts(key, place)`
 // every host entry of it there, cut or not, and `data.places(key)` the places it is held in; each
 // answers empty for a key the export lacks or whose file is not loaded yet (which the caller loads
-// before drawing again).
+// before drawing again). A store that holds the export's identity table also answers
+// `data.identity(key)`: the key's sequence and the character it describes, without its record.
 import { EM_BOX, area, centre, count, derived, drawnBox, drawnContours, fill, fitted, grown, groupRings, makePart, mapped, partInk, partOf,
   placed, pointsBox, pyRound, raster, rings, scaleOf, shrunk, square, stretchOf, targetFor, union, within } from './geometry.js'
 import { ownFormsOnly, componentParts, componentPosition, componentPositionBox, componentRecord, containsComponentForm, isComponentForm, isGroupedForm } from './component-forms.js'
@@ -438,7 +439,7 @@ const DESIGNED_CUTS = {
 
 export class Composer {
   /**
-   * `data`: `{ manifest, layout, rec(key), hosts(key, place), places(key) }`; `exclude`: characters nothing is taken from (a
+   * `data`: `{ manifest, layout, rec(key), hosts(key, place), places(key), identity?(key) }`; `exclude`: characters nothing is taken from (a
    * character redrawn to test, with its twins); `face`: the box a whole character fills, when those
    * characters change it (the manifest's is the median of `FULL` with none excluded); `separate`:
    * draw operands as individual pieces where possible, including cuts from a matching whole glyph,
@@ -448,7 +449,6 @@ export class Composer {
     this.data = data
     const m = data.manifest, c = m.constants
     this.C = c
-    this.layout = data.layout
     this.exclude = new Set(exclude)
     this.spelled = new Set(m.spelled)
     this.AXIS = c.AXIS
@@ -476,7 +476,7 @@ export class Composer {
     this.pyramids = new WeakMap()
     this.bases = new WeakMap()
     this.nativeEnclosures = new Set()
-    this.normalizer = createRenderNormalizer({ record: key => this.rec(key), parse: text => this.parse(text), keyOf, excluded: key => this.excluded(key) })
+    this.normalizer = createRenderNormalizer({ record: key => this.identity(key), parse: text => this.parse(text), keyOf, excluded: key => this.excluded(key) })
     this.resolutions = new Map()
     // Stacked operand pairs, settled against their ink once the drawing is weighted.
     this.joints = []
@@ -486,6 +486,18 @@ export class Composer {
   parse = sequence => parseTree(sequence, this.arity)
   // A key holding an empty slot has no record and no hosts: nothing is asked for it.
   rec = key => key.includes(EMPTY) ? null : (componentRecord(key, this.fontStyle) ?? this.data.rec(key))
+  /** What a description's identity is found by: a key's sequence (`s`) and the character it
+   *  describes (`e`). A store with an identity table answers from it; without one, and for a
+   *  component form, the key's record does. */
+  identity = key => {
+    if (key.includes(EMPTY)) return null
+    const form = componentRecord(key, this.fontStyle)
+    if (form) return form
+    const known = this.data.identity?.(key)
+    return known === undefined ? this.data.rec(key) : known
+  }
+  /** The learned layout. A store reads it when a node first asks, so a lone character is drawn without it. */
+  get layout() { return this.data.layout }
   excluded = ch => this.exclude.has(ch)
   slot = (op, i) => this.SLOTS[op] ? this.SLOTS[op][i] : `${op}${i}`
   /**
@@ -1171,6 +1183,18 @@ export class Composer {
           ?? [region[0] + x0 * w, region[1] + y0 * h, region[0] + x1 * w, region[1] + y1 * h]
         return [frame, ...this.node(children[1], room)]
       }
+    }
+    // A cut form round a part (a stroke chain such as the frame of 马) has no character that places
+    // what it holds, so the part fills the room the form's own ink leaves, as a surround construct's does.
+    const cutFrame = !this.separate && op in this.ENCLOSE && typeof children[0] === 'string'
+      && isComponentForm(children[0], this.fontStyle) && !this.data.rec(children[0])?.G
+      ? componentParts(children[0], region, this.fontStyle, false) : null
+    if (cutFrame) {
+      const [x0, y0, x1, y1] = this.INSIDE[op]
+      const w = region[2] - region[0], h = region[3] - region[1]
+      const room = this.room(op, cutFrame, region)
+        ?? [region[0] + x0 * w, region[1] + y0 * h, region[0] + x1 * w, region[1] + y1 * h]
+      return [...cutFrame, ...this.node(children[1], room)]
     }
     // Native compound forms have no trained layout features; fit their actual outlines.
     if (this.hosted && this.layout && (!hasRepetition || ownFormsOnly(this.fontStyle)) && children.length === 2 && this.hasHosts(op, children) && (atRoot ? this.layout.ops.includes(op) : op === '⿰' || op === '⿱')) {
@@ -1866,7 +1890,10 @@ export class Composer {
 
   /** The drawn part closest to what `node` needs at `index` of `op` inside `box`, as [record, piece]. */
   host(op, index, node, siblings, box, isPlaced = false) {
-    if (containsComponentForm(keyOf(node), this.fontStyle)) return null
+    // A component form draws from its own outlines; a cut form with a library of host cuts (`P`, its
+    // places) draws, like an encoded part, from the cut closest to its place.
+    const library = typeof node === 'string' && componentRecord(node, this.fontStyle)?.P?.length
+    if (!library && containsComponentForm(keyOf(node), this.fontStyle)) return null
     if (this.keepsRowLayout(op, node)) return null
     // A cut of an entire repeated row can include strokes belonging to its host.
     // Draw the row from its own glyph or its operands instead.
