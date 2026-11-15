@@ -34,6 +34,7 @@ import hashlib
 import json
 import math
 import re
+import unicodedata
 from collections import Counter
 from collections.abc import Callable, Iterable, Iterator, Mapping
 from dataclasses import dataclass, field, replace
@@ -387,6 +388,39 @@ def _modifier(chars: list[str], at: int) -> str:
     return text if MODIFIER.fullmatch(text) else ""
 
 
+#: The conjoining Hangul jamo by class: initials, medials, finals. The two fillers form no syllable.
+JAMO = (("L", 0x1100, 0x115E), ("L", 0xA960, 0xA97C), ("V", 0x1161, 0x11A7), ("V", 0xD7B0, 0xD7C6),
+        ("T", 0x11A8, 0x11FF), ("T", 0xD7CB, 0xD7FB))
+#: The medials written under their initial, and those that are a dot there (아래아).
+BELOW_VOWELS = frozenset("\u1169\u116d\u116e\u1172\u1173")
+DOT_VOWELS = frozenset("\u119e\u119f")
+
+
+def jamo_class(char: str) -> str | None:
+    """Which part of a syllable a conjoining jamo writes: L, V or T; None for anything else."""
+    point = ord(char) if len(char) == 1 else -1
+    return next((name for name, first, last in JAMO if first <= point <= last and point not in (0x115F, 0x1160)), None)
+
+
+def _jamo_run(chars: list[str], at: int) -> int | None:
+    """Where the run of conjoining jamo that starts at `chars[at]` and forms one syllable ends
+    (initials, medials, then any finals); None where none starts there."""
+    end = at
+    for name, needed in (("L", True), ("V", True), ("T", False)):
+        start = end
+        while end < len(chars) and jamo_class(chars[end]) == name:
+            end += 1
+        if needed and end == start:
+            return None
+    return end
+
+
+def is_jamo_run(text: str) -> bool:
+    """Whether `text` is one run of conjoining jamo that forms a syllable no code point spells."""
+    chars = list(text)
+    return len(chars) > 1 and _jamo_run(chars, 0) == len(chars)
+
+
 def _read(chars: list[str], at: int, sequence: str) -> tuple[Node, int]:
     """The node starting at `chars[at]`, and where the next one starts."""
     if at >= len(chars):
@@ -395,6 +429,16 @@ def _read(chars: list[str], at: int, sequence: str) -> tuple[Node, int]:
     at += 1
     arity = 2 if char in BINARY else 3 if char in TERNARY else 1 if char in UNARY else 0
     if not arity:
+        # Only an initial opens a run: every other leaf is spared the look.
+        end = _jamo_run(chars, at - 1) if "\u1100" <= char <= "\u115e" or "\ua960" <= char <= "\ua97c" else None
+        if end is not None:
+            # A syllable written as jamo is one component: the syllable itself where a code point
+            # spells it (한), else the run.
+            run = "".join(chars[at - 1:end])
+            whole = unicodedata.normalize("NFC", run)
+            # With a variation selector after it the run is kept as written, as `js/` keeps it.
+            selected = end < len(chars) and _selector(chars[end])
+            char, at = whole if len(whole) == 1 and not selected else run, end
         if at < len(chars) and _selector(chars[at]):
             char += chars[at]
             at += 1
@@ -1240,6 +1284,8 @@ class Placed:
     origin: str = ""
     #: Whether the part is taken out of the ink it lies on (㇯) instead of being drawn.
     cut: bool = False
+    #: Whether the part keeps the size and weight it was placed at, whatever the character's density.
+    fixed: bool = False
 
     @property
     def scale(self) -> tuple[float, float]:
@@ -2813,6 +2859,39 @@ class Composer:
             out.append((gain, drawing, features))
         return out
 
+    def _jamo_syllable(self, run: str, region: Box) -> list[Placed]:
+        """A run of conjoining jamo no glyph spells, its letters stood where a syllable sets them:
+        the initial above a medial written under it or left of one written beside it, the finals
+        below, and 아래아 a dot of its own size under the initial. Several initials, medials or
+        finals share their place side by side. `js/` (`runLeaf`) sets them in the same boxes."""
+        x0, y0, x1, y1 = region
+        w, h = x1 - x0, y1 - y0
+        letters = {name: [c for c in run if jamo_class(c) == name] for name in "LVT"}
+        below, last = letters["V"][0] in BELOW_VOWELS | DOT_VOWELS, bool(letters["T"])
+        places = {
+            "L": ((0.14, 0.54, 0.86, 0.98) if last else (0.14, 0.26, 0.86, 0.98)) if below
+                 else ((0.02, 0.24, 0.50, 0.90) if last else (0.01, 0.12, 0.52, 0.88)),
+            "V": ((0.10, 0.34, 0.90, 0.56) if last else (0.10, 0.14, 0.90, 0.42)) if below
+                 else ((0.50, 0.34, 0.98, 0.98) if last else (0.50, 0.06, 0.98, 0.96)),
+            "T": (0.18, 0.02, 0.82, 0.32),
+        }
+        out: list[Placed] = []
+        for name in "LVT":
+            a, b, c, d = places[name]
+            if name == "V" and letters["V"][0] in DOT_VOWELS:
+                # A dot stretched to a letter's room would be a blob: it keeps a size of its own.
+                side, y = min(w, h) * 0.15, y0 + (0.40 if last else 0.04) * h
+                dot = self._node(letters["V"][0], (x0 + w / 2 - side / 2, y, x0 + w / 2 + side / 2, y + side))
+                for part in dot:
+                    # A dot has no stem for the weight pass to bring to the character's.
+                    part.fixed = True
+                out.extend(dot)
+                continue
+            for k, letter in enumerate(letters[name]):
+                left, right = (a + (c - a) * at / len(letters[name]) for at in (k, k + 1))
+                out.extend(self._node(letter, (x0 + left * w, y0 + b * h, x0 + right * w, y0 + d * h)))
+        return out
+
     def _balance(self, placed: list[Placed]) -> None:
         """Each part's strokes brought to the width the whole character's density calls for: a part
         drawn in a sparser glyph is thinned, one squeezed along an axis is thickened along it. A
@@ -2821,6 +2900,8 @@ class Composer:
         density = sum(self.ink("", p.part) * (p.scale[0] + p.scale[1]) / 2 for p in placed)
         ratio = [self.font.stem[axis][1] / self.font.stem[axis][0] - 1 for axis in (0, 1)]
         for p in placed:
+            if p.fixed:
+                continue
             weight, target = [], list(p.target)
             for axis, s in enumerate(p.scale):
                 extent = p.source[axis + 2] - p.source[axis]
@@ -2839,6 +2920,8 @@ class Composer:
 
     def _node(self, node: Node, region: Box, at_root: bool = False) -> list[Placed]:
         """`node` drawn into `region`; at the root, the whole character, laid out in the em."""
+        if isinstance(node, str) and is_jamo_run(node):
+            return self._jamo_syllable(node, region)
         encoded = node if isinstance(node, str) else None if key(node) in self.spelled else self.by_sequence.get(key(node))
         if at_root and not isinstance(node, str):
             # Characters sharing a sequence (申 由 甲 are all ⿻日丨): the one redrawn is the one
