@@ -3008,10 +3008,28 @@ export class Composer {
     return out
   }
 
-  /** ㇯ the first operand less the second: its own outlines where the export cut them, else what
-   *  is left of its description, else the second operand cut out of it. */
+  /** ㇯ a character less a component or a stroke KanjiVG names in it (鹿 less 比, 兵 less 丶): its
+   *  own glyph without the outlines the export lists for that name (`G.ls`, written by
+   *  `kanjivg_cuts.Cutter.taken`), fitted to the region. Null where the export lists none, and
+   *  where the drawing is asked for part by part.
+   *  @param {(string | any[])[]} children @param {number[]} region */
+  less(children, region) {
+    const [first, taken] = children
+    if (!this.hosted || this.separate || typeof taken !== 'string') return null
+    const base = typeof first === 'string' ? first : this.spelled.has(keyOf(first)) ? null : this.bySequence(keyOf(first))
+    if (!base || this.excluded(base)) return null
+    const glyph = this.glyph(base), gone = this.glyphRecord(base)?.ls?.[taken]
+    if (!glyph || !gone) return null
+    const kept = glyph.contours.filter((_, k) => !gone.includes(k))
+    if (!kept.length) return null
+    return [this.place(derived(glyph, kept, union(kept.map(contour => pointsBox(contour.light)))), region, this.ink(base), `glyph ${base}`)]
+  }
+
+  /** ㇯ the first operand less the second: its own outlines where the export cut them, else the
+   *  glyph without what KanjiVG names so (`less`), else what is left of its description, else the
+   *  second operand cut out of it. */
   subtracted(children, region, atRoot) {
-    const left = this.remainder([SUBTRACT, ...children], region, atRoot)
+    const left = this.remainder([SUBTRACT, ...children], region, atRoot) ?? this.less(children, region)
     if (left) return left
     // A character with no description the part can be found in: the part is laid over it and cut out.
     this.approximate.add(SUBTRACT)
@@ -3026,8 +3044,9 @@ export class Composer {
    * character's own outlines: each part that stays is the cut the export made of it in that
    * character, set where it lies there. A part that lies inside one of the character's operands
    * is taken out of that operand in the same way, in the operand's place. Where the export has no
-   * cut of a part that stays, what is left of the description is composed instead, the place of
-   * each part taken out left empty. Null where the character has no description or does not hold
+   * cut of a part that stays, the glyph without what KanjiVG names so is drawn (`less`), and
+   * failing that what is left of the description is composed, the place of each part taken out
+   * left empty. Null where the character has no description or does not hold
    * the part.
    * @param {any[]} node @param {number[]} region @param {boolean} [atRoot]
    * @returns {any[] | null}
@@ -3078,6 +3097,10 @@ export class Composer {
       return Boolean(rest)
     }
     if (tree.slice(1).every((child, i) => draw(child, tree[0], i, `${i}`))) return out
+    // The character's own glyph without what KanjiVG names so comes before a drawing of what is
+    // left of its description, as `Composer._without` has it.
+    const named = taken.length === 1 ? this.less([base, taken[0]], region ?? this.face) : null
+    if (named) return named
     /** @param {any} at @returns {any} */
     const open = at => at === null ? GONE : Array.isArray(at) ? [at[0], ...at.slice(1).map(open)] : at
     return this.node(open(tree), region, atRoot).filter(part => !Number.isNaN(part.empty))

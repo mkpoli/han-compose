@@ -334,6 +334,37 @@ class Cutter:
             return C.Part(kept) if kept else None
         return None
 
+    def taken(self, char: str) -> dict[str, list[int]]:
+        """Every component and stroke `less` takes out of `char`, by the name ㇯ writes it with, and
+        the glyph's outlines (their indices) that go with it: what a port reads in place of KanjiVG.
+        A name is a group's component, a form or a base the table gives that component, a stroke's
+        type or the character written for that type."""
+        entry, glyph = self.entries.get(char), self.c.font.glyph(char)
+        if entry is None or glyph is None:
+            return {}
+        if not hasattr(self, "_named_by"):
+            # component → every operand `names` answers it for.
+            named: dict[str, set[str]] = {}
+            for table in (self.c.bases, self._bases_of):
+                for operand, components in table.items():
+                    for component in components:
+                        named.setdefault(component, set()).add(operand)
+            self._named_by = named
+        names = set()
+        for g in entry.root.walk():
+            if g is not entry.root and g.element:
+                names |= {g.element} | self._named_by.get(g.element, set())
+        for kind in entry.types:
+            for stroke in _stroke_types(kind):
+                names |= {stroke} | {name for name, typed in STROKES.items() if typed == stroke}
+        out = {}
+        for name in sorted(names - {""}):
+            kept = self.less(char, name)
+            if kept is not None:
+                stays = {id(contour) for contour in kept.contours}
+                out[name] = [k for k, contour in enumerate(glyph.contours) if id(contour) not in stays]
+        return out
+
     def host_node(self, char: str, tree: tuple, path: tuple) -> C.Host | None:
         entry, owners = self.entries.get(char), self.owners(char)
         if entry is None or owners is None:
