@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import { sweptPart } from '../src/compose.js'
+import { Composer, near, sweptPart } from '../src/compose.js'
 import { partOf, placed } from '../src/geometry.js'
 import { compose, createSource } from '../src/loader.js'
 import { constants, files, layout, shards } from './fixtures/small-export.js'
@@ -36,6 +36,24 @@ describe('⿺ inside a larger description', () => {
       expect(right(foot)).toBeGreaterThan(right(held) - 20)
       expect(held.box[1] + held.box[3]).toBeLessThan(foot.box[1] + foot.box[3])
       expect(foot.box[0]).toBeLessThan(held.box[0])
+    })
+  }
+})
+
+describe('a part held over a swept foot, once the drawing is weighted', () => {
+  // The last is mirrored as a whole: the pair is fitted as it stands without the mirror.
+  for (const sequence of ['⿱口⿺几力', '⿰口⿺几力', '⿰口⿾⿺几力']) {
+    it(`stands clear of the foot in ${sequence}`, async () => {
+      const from = source()
+      await compose(from, sequence, { layout: 'composed' })
+      const composer = new Composer(from.store())
+      const all = composer.compose(sequence)
+      const swept = all.filter(part => part.origin === 'swept glyph 几'), held = all.filter(part => part.origin.endsWith('力'))
+      expect(swept).toHaveLength(2)
+      expect(held).toHaveLength(1)
+      // No ink of 力 stands within 12 font units of 几's: half of what the refit keeps clear,
+      // `ROOM_MARGIN` of a stroke of about 60 units.
+      expect(near(swept, held, composer.face, 12, 500)).toBe(false)
     })
   }
 })

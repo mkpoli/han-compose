@@ -166,6 +166,9 @@ const CELL_MIDDLE_INSET = 0.08
 const CELL_AXIS = { '⿵': 1, '⿶': 1 }
 /** The scale `fitInside` walks down to, and the share of a box a room is short of before it gives way. */
 const FIT_FLOOR = 0.45
+/** The raster a part held over a swept foot is refitted on once the drawing is weighted. It covers
+ *  the part and the margin round it, so a cell is a few font units and the margin several cells. */
+const SETTLE_SIZE = 96
 /** The falling strokes, which at the upper left of ⿸ are the first stroke of 久 and 夂. */
 const FALLING_STROKES = new Set(['丿', '㇒', 'ノ'])
 /** The characters whose own stroke is that stroke, with the stroke's number: 久's first, and the
@@ -530,6 +533,8 @@ export class Composer {
     this.resolutions = new Map()
     // Stacked operand pairs, settled against their ink once the drawing is weighted.
     this.joints = []
+    // Swept glyphs with the part each holds over its foot, refitted once the drawing is weighted.
+    this.sweeps = []
     /** How much smaller than it was laid out the character is drawn, beside marks that take a margin. */
     this.carried = 1
   }
@@ -707,6 +712,7 @@ export class Composer {
     this.approximate.clear()
     this.nativeEnclosures.clear()
     this.joints.length = 0
+    this.sweeps.length = 0
     this.carried = 1
     let slots = 0
     const number = node => node === EMPTY ? `${EMPTY}${slots++}` : Array.isArray(node) ? mapOperands(node, number) : node
@@ -752,7 +758,10 @@ export class Composer {
           else part.leaf = before[i]
         })
       }
-      if (!this.partial && this.weighted) this.balance(out)
+      if (!this.partial && this.weighted) {
+        this.balance(out)
+        this.settleSweeps()
+      }
       this.settleJoints()
       const construct = CONSTRUCTS[sequence]
       // The bundled body is Noto's: a face with its own forms keeps the drawing it made. A nested
@@ -2595,6 +2604,7 @@ export class Composer {
       const inner = this.node(children[1], hu ? huRoom : room)
       if (!hu) this.fit(outer, inner, region, this.stem0[0][0], C,
         fallback && op === '⿽' ? { room, bounds: room } : undefined)
+      if (held) this.sweeps.push([outer, inner])
       return [...outer, ...inner]
     }
     const axis = this.AXIS[op]
@@ -3143,6 +3153,40 @@ export class Composer {
       const to = [box[0], box[1], box[2], box[3] + gap]
       if (stretchOf(box, to) > C.STRETCH) continue
       for (const part of below) part.target = targetFor(part, mapped(drawnBox(part), box, to))
+    }
+  }
+
+  /** A part held over a swept foot is fitted before the drawing is weighted. In a small cell
+   *  `balance` thickens both and the clearance closes: where the part's ink then comes within
+   *  `ROOM_MARGIN` of a stroke of the swept glyph's, the part is fitted again, no larger than it
+   *  stood and inside the box its ink stood in. Its weight is not set again, so a part made smaller here keeps
+   *  strokes that much thinner than `balance` gave it. Runs before `settleJoints`, which closes a
+   *  stack on the ink this leaves. */
+  settleSweeps() {
+    // The pair is kept `ROOM_MARGIN` of the stroke the drawing is weighted to apart. `fitInside`
+    // clears half of `ROOM_MARGIN` of the width it is given, so it is given two strokes.
+    const C = this.C, stroke = this.stroke[0], margin = C.ROOM_MARGIN * stroke
+    const plain = p => ({ ...p, flips: undefined })
+    for (const [outer, inner] of this.sweeps) {
+      if (!outer.length || !inner.length) continue
+      // A mirror over the whole pair leaves its parts where they stand to each other, and
+      // `fitInside` moves targets, which are the unmirrored boxes: fit the pair without it. A pair
+      // whose parts are mirrored apart is left as it is.
+      const flips = JSON.stringify(outer[0].flips ?? [])
+      if ([...outer, ...inner].some(p => JSON.stringify(p.flips ?? []) !== flips)) continue
+      const frame = outer.map(plain), held = inner.map(plain)
+      // The raster covers the part and twice the margin round it, square so that its cells are:
+      // ink further off cannot come within the margin of a part that stays inside its box.
+      const stood = inkBounds(held), side = Math.max(stood[2] - stood[0], stood[3] - stood[1]) + 4 * margin
+      const cx = (stood[0] + stood[2]) / 2, cy = (stood[1] + stood[3]) / 2, cell = side / SETTLE_SIZE
+      const region = [cx - side / 2, cy - side / 2, cx + side / 2, cy + side / 2]
+      if (!near(frame, held, region, margin, SETTLE_SIZE)) continue
+      // A cell of slack lets a part that is clear where it stands pass at its own size.
+      const limit = [stood[0] - cell, stood[1] - cell, stood[2] + cell, stood[3] + cell]
+      if (!fitInside(frame, held, region, 2 * stroke, C, { size: SETTLE_SIZE, room: bounds(held), bounds: limit })) continue
+      // A placement under a cell from where the part stood is the raster's rounding, not a move.
+      const shift = Math.max(...held.flatMap((p, i) => p.target.map((edge, k) => Math.abs(edge - inner[i].target[k]))))
+      if (shift >= cell) held.forEach((p, i) => { inner[i].target = p.target })
     }
   }
 
