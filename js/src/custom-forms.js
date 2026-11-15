@@ -60,6 +60,7 @@ export function customFormsSource({ fallback = null, load = () => pageLoader(CUS
   const source = {
     manifest: null, layout: null,
     ready: () => ready ??= prepare().catch(error => { ready = null; throw error }),
+    modelFiles: options => fallback?.modelFiles(options) ?? [],
     load: names => fallback ? fallback.load(names) : Promise.resolve(),
     filesOf: keys => fallback ? fallback.filesOf(keys.filter(key => !hosts[key])) : new Set(),
     store() {
