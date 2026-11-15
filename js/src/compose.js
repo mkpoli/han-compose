@@ -448,6 +448,12 @@ const ENCLOSURE_FORMS = {
       '656184795d653a390844e1bfd99e8efddfb5c36be68d683d9d8986984f150a85': [0, 1, 2, 3, 4],
       '2fa6f7b8e09a68c6173dafe84d5b96d5b4c36dc9a7e6b77703d9ed9f13ff525a': [0, 3, 4, 6, 7],
     }],
+    // 爬 (⿺爪巴) draws the designed ⿺爪 in Noto Sans CJK JP and Noto Serif CJK JP; a described ⿺爪…
+    // has no host cut with that posture.
+    爪: ['爬', {
+      '631556d7281ca84d39388d047c9dfbada101ae2cda66713c29263f7b9d9b5df6': [0, 1, 2, 3],
+      '009071aeb3455d8806aca0e9a6152e47751512ff5ace34d924e91d6bcee89c6e': [0, 1, 7, 8],
+    }],
   },
   // 𭰲 (⿰氵⿵冂并) is the only encoded character with this shape; its frame serves the ⿵冂 enclosure.
   '⿵': {
@@ -455,6 +461,20 @@ const ENCLOSURE_FORMS = {
       '345749510c894ac303898cacbbd71bc35880cb6179990632d00b1ffe463f2d71': [3],
     }],
   },
+}
+
+/** Characters whose glyphs the tree's designed cuts are read from; the loader preloads them. */
+export const designedSources = tree => {
+  const out = new Set()
+  const visit = node => {
+    if (!Array.isArray(node)) return
+    const [op, ...children] = node
+    for (const [key, [char]] of Object.entries(ENCLOSURE_FORMS[op] ?? {})) if (children[0] === key) out.add(char)
+    for (const [key, [char]] of Object.entries(DESIGNED_CUTS)) if (children.includes(key)) out.add(char)
+    children.forEach(visit)
+  }
+  visit(tree)
+  return [...out]
 }
 
 // Left components the export carries no host cuts for, taken from a designed character's glyph.
@@ -1422,7 +1442,21 @@ export class Composer {
     const indices = cuts[hexOf(JSON.stringify(record.p))]
     if (!indices) return null
     const glyph = partOf(record)
-    return { record: { h: char }, piece: derived(glyph, indices.map(i => glyph.contours[i])) }
+    const piece = derived(glyph, indices.map(i => glyph.contours[i]))
+    // Where the designed character sets what the frame holds: 巴's box in 爬.
+    const held = glyph.contours.filter((_, i) => !indices.includes(i)).map(c => pointsBox(c.light))
+    if (held.length) piece.held = union(held)
+    return { record: { h: char }, piece }
+  }
+
+  /** Seat the inner group where the designed character sets its own: ⿺爪口's 口 in 巴's place in
+   *  爬, so the inner part keeps clear of the sweep. */
+  seatInDesignedFrame(groups) {
+    const frame = groups[0]?.find(p => p.part?.held)
+    if (!frame || !groups[1]?.length) return
+    const room = mapped(frame.part.held, frame.source, frame.target)
+    const box = union(groups[1].map(p => p.target)), seat = fitted(box, room, this.C.STRETCH)
+    for (const p of groups[1]) p.target = mapped(p.target, box, seat)
   }
 
   /** The designed tail of `node`'s pressed enclosure, or null where the face draws none. */
@@ -2012,6 +2046,11 @@ export class Composer {
 
   /** The drawn part closest to what `node` needs at `index` of `op` inside `box`, as [record, piece]. */
   host(op, index, node, siblings, box, isPlaced = false) {
+    // The designed ⿺爪 (爬) is the only cut with the enclosure's posture.
+    if (op === '⿺' && index === 0 && node === '爪') {
+      const designed = this.enclosureForm(op, node)
+      if (designed) return designed
+    }
     // A component form draws from its own outlines; a cut form with a library of host cuts (`P`, its
     // places) draws, like an encoded part, from the cut closest to its place.
     const library = typeof node === 'string' && this.formRecord(node)?.P?.length
@@ -2426,6 +2465,7 @@ export class Composer {
         }
       }
     }
+    this.seatInDesignedFrame(groups)
     this.recordJoints(op, groups)
     return this.flatten(groups)
   }
@@ -2711,6 +2751,7 @@ export class Composer {
         }
       }
     }
+    this.seatInDesignedFrame(groups)
     this.recordJoints(op, groups)
     return this.flatten(groups)
   }
