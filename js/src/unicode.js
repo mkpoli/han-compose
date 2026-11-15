@@ -84,6 +84,7 @@ export function unicodeSource({ fallback = null, load = readShard } = {}) {
       const remote = fallback?.store(), missing = remote?.missing ?? new Set()
       return {
         manifest: source.manifest, layout: source.layout, missing,
+        identity: key => remote?.identity?.(key),
         rec(key) {
           const record = remote?.rec(key)
           // If a remote record is still loading, finish that round before fetching a fallback.

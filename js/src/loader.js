@@ -45,31 +45,64 @@ export async function unpack(buffer) {
   return await new Response(stream).text()
 }
 
-// Where the export keeps each key's data: the one place that knows file names. han-compose's formats 5
-// packs the records in `g/<hhh>.json` and the host lists in `p/<hhh>.json`, `hhh` the first three hex
-// digits of the SHA-256 of the key's UTF-8 (of place TAB operand for a host list); each file is an
-// object from the full hash to the record or list, gzip bytes under a .json name, served as
-// application/octet-stream and unpacked here. A record lists the places it has host lists in (`P`,
-// absent when it has none). A host list holds every entry of the composer's index with the fields it
-// ranks by. An entry's cut `c` is null where the composer could not cut it; else its piece as the
-// indices `k` of the host glyph's contours it keeps (or its own outlines `p`), its box `b`, the
-// node's frame `fr`, `wh` for the whole character, the gap `g` and `kv` for a KanjiVG cut, read here
-// onto the entry. A cut marked `pc` was made only under a parity row's exclusion.
-const FORMATS = new Set([5, 6])
-const shard = (folder, h) => `${folder}/${h.slice(0, 3)}.json`
+// Where the export keeps each key's data: the one place that knows file names. han-compose's format 7
+// packs the records in `g/<hh>/<hhhh>.json` and the host lists in `p/<hhh>.json`, the digits the first
+// of the SHA-256 of the key's UTF-8 (of place TAB operand for a host list); each file is an object
+// from the key (place TAB operand) to the record or list, gzip bytes under a .json name, served as
+// application/octet-stream and unpacked here. A record shard holds a few records, so a drawing reads
+// little beyond the records it uses. A record lists the places it has host lists in (`P`, absent when
+// it has none). A host list holds every entry of the composer's index with the fields it ranks by. An
+// entry's cut `c` is null where the composer could not cut it; else its piece as the indices `k` of
+// the host glyph's contours it keeps (or its own outlines `p`), its box `b`, the node's frame `fr`,
+// `wh` for the whole character, the gap `g` and `kv` for a KanjiVG cut, read here onto the entry. A
+// cut marked `pc` was made only under a parity row's exclusion.
+//
+// The identity table (`identity.json`) holds every character's sequence and the character each
+// sequence describes, as the records do (`s`, `e`): finding what a description names reads no record.
+const FORMAT = 7
 const cutEntry = h => h.c === null ? { ...h } : { ...h, ...h.c, c: true }
-const recordHash = key => hexOf(key)
-const hostsHash = (key, place) => hexOf(`${place}\t${key}`)
-const recordFile = key => shard('g', recordHash(key))
-const hostsFile = (key, place) => shard('p', hostsHash(key, place))
-const recordOf = (file, key) => file[recordHash(key)] ?? null
+const hostsKey = (key, place) => `${place}\t${key}`
+const recordFile = key => { const h = hexOf(key); return `g/${h.slice(0, 2)}/${h.slice(0, 4)}.json` }
+const hostsFile = (key, place) => `p/${hexOf(hostsKey(key, place)).slice(0, 3)}.json`
+/** What a shard holds under `key`, or null. A shard is an object keyed by what a description
+ *  writes, so only its own entries count: `constructor` names no record. */
+const held = (shard, key) => shard && Object.hasOwn(shard, key) ? shard[key] : null
+
+/** What the table answers for a key whose record holds no sequence and describes no character. */
+const NEITHER = Object.freeze({})
+/** The identity table as a lookup: a key's `{ e, s }` as its record holds them, `NEITHER` for a
+ *  record with neither, and null for a key that has no record, which is what reading the record
+ *  itself would answer. `characters` and `sequences` are lists in step, joined by newlines; a
+ *  sequence describes the last character listed with it, except where `e` names another, or none
+ *  (null); `plain` lists the keys that have a record with neither. */
+function readIdentity({ characters, sequences, e, plain }) {
+  const sequenceOf = new Map(), described = new Map()
+  if (characters) {
+    const written = sequences.split('\n')
+    characters.split('\n').forEach((character, i) => { sequenceOf.set(character, written[i]); described.set(written[i], character) })
+  }
+  for (const [sequence, character] of Object.entries(e)) {
+    if (character === null) described.delete(sequence)
+    else described.set(sequence, character)
+  }
+  const recorded = new Set(plain ? plain.split('\n') : [])
+  const known = new Map()
+  return key => {
+    if (!known.has(key)) {
+      const e = described.get(key), s = sequenceOf.get(key)
+      known.set(key, e === undefined && s === undefined ? (recorded.has(key) ? NEITHER : null)
+        : { ...(e === undefined ? {} : { e }), ...(s === undefined ? {} : { s }) })
+    }
+    return known.get(key)
+  }
+}
 
 /**
  * A source of the export's files. `read(name)` answers a file's bytes (an ArrayBuffer) by its name
- * in the export (`manifest.json`, `layout.json`, `g/07a.json`), or null where there is no such file;
- * `fromUrl` builds one over HTTP.
+ * in the export (`manifest.json`, `layout.json`, `g/07/07a3.json`), or null where there is no such
+ * file; `fromUrl` builds one over HTTP.
  */
-export function createSource(read, { concurrency = 10 } = {}) {
+export function createSource(read, { concurrency = 32 } = {}) {
   let ready = null
   // At most `concurrency` files are asked for at once; the rest wait their turn.
   let active = 0
@@ -84,13 +117,17 @@ export function createSource(read, { concurrency = 10 } = {}) {
   })
   // Host lists are read into the composer's order once a page, so their pieces are decoded once.
   const files = new Map(), loading = new Map(), lists = new Map()
+  let identity = null
   const source = {
     manifest: null, layout: null,
     ready() {
       ready ??= (async () => {
         source.manifest = JSON.parse(await unpack(await read('manifest.json')))
-        if (!FORMATS.has(source.manifest.format)) throw new Error(`The composer export's format ${source.manifest.format} is not read here.`)
-        source.layout = readLayout(JSON.parse(await unpack(await read(source.manifest.files.layout.path))))
+        if (source.manifest.format !== FORMAT) throw new Error(`The composer export's format ${source.manifest.format} is not read here.`)
+        const { layout, identity: table } = source.manifest.files
+        const [learned, described] = await Promise.all([read(layout.path), read(table.path)])
+        source.layout = readLayout(JSON.parse(await unpack(learned)))
+        identity = readIdentity(JSON.parse(await unpack(described)))
       })().catch(error => { ready = null; throw error })
       return ready
     },
@@ -112,21 +149,18 @@ export function createSource(read, { concurrency = 10 } = {}) {
       const file = name => { const found = files.get(name); if (!found) missing.add(name); return found ?? null }
       return {
         manifest: source.manifest, layout: source.layout, missing,
-        rec: key => { const f = file(recordFile(key)); return f ? recordOf(f, key) : null },
+        rec: key => held(file(recordFile(key)), key),
         // A host list in the order of the composer's index (`r`).
         hosts: (key, place) => {
-          const f = file(hostsFile(key, place)), id = `${place}\t${key}`
+          const f = file(hostsFile(key, place)), id = hostsKey(key, place)
           if (!f) return []
-          if (!lists.has(id)) {
-            const list = (f[hostsHash(key, place)]?.hosts ?? []).map(cutEntry)
-            lists.set(id, list.sort((a, b) => a.r - b.r))
-          }
+          if (!lists.has(id)) lists.set(id, (held(f, id) ?? []).map(cutEntry).sort((a, b) => a.r - b.r))
           return lists.get(id)
         },
-        places: key => {
-          const f = file(recordFile(key))
-          return f ? recordOf(f, key)?.P ?? [] : []
-        },
+        places: key => held(file(recordFile(key)), key)?.P ?? [],
+        // A key's sequence and the character it describes (`{ e, s }`, either or neither), or null
+        // for a key with no record, from the identity table.
+        identity: key => identity(key),
       }
     },
   }
