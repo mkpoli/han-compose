@@ -276,3 +276,28 @@ def test_stroke_types_read_forms_and_alternatives():
     assert _stroke_types("㇑a") == ["㇑"]
     assert _stroke_types("㇔/㇏") == ["㇔", "㇏"]
     assert _stroke_types("") == [""]
+
+
+def test_what_a_port_reads_is_every_name_kanjivg_takes_out_and_the_outlines_that_go():
+    cutter, glyph = kanjivg_cutter([{0}, {1}, {2}, {3}])
+    assert cutter.taken("鹿") == {"广": [0, 1], "比": [2, 3]}
+    assert cutter.taken("馬") == {}
+    for name, gone in cutter.taken("鹿").items():
+        kept = cutter.less("鹿", name).contours
+        assert kept == [c for k, c in enumerate(glyph.contours) if k not in gone]
+
+
+def test_a_stroke_is_listed_by_its_type_and_by_the_character_written_for_it():
+    cutter, _ = typed_cutter(["㇒", "㇐a", "㇑", "㇔/㇏"])
+    assert cutter.taken("兵") == {"㇐": [1], "一": [1], "㇑": [2], "丨": [2], "㇒": [0], "丿": [0], "㇔": [3], "丶": [3], "㇏": [3]}
+    # A type the character has twice, or a stroke sharing its outline, is not listed.
+    cutter, _ = typed_cutter(["㇐", "㇑", "㇐b", "㇔"], [{0}, {1}, {2, 3}, {3}])
+    assert cutter.taken("兵") == {"㇑": [1], "丨": [1]}
+
+
+def test_a_component_is_listed_under_the_forms_and_bases_the_table_gives_it():
+    cutter, _ = kanjivg_cutter([{0}, {1}, {2}, {3}])
+    cutter.c.bases = {"⺇": ["比"]}
+    cutter._bases_of = {"庀": {"广"}}
+    assert cutter.taken("鹿") == {"广": [0, 1], "庀": [0, 1], "比": [2, 3], "⺇": [2, 3]}
+    assert cutter.less("鹿", "⺇").contours == cutter.less("鹿", "比").contours

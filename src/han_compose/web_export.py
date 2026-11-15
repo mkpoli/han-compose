@@ -465,6 +465,10 @@ def char_record(composer: C.Composer, char: str, places: list[str], table: L.Tab
         groups = composer.kvg.groups(char) if composer.kvg is not None else None
         if groups:
             out["G"]["sg"] = groups
+        # ㇯ takes KanjiVG's word only for a glyph of the variable font (`Composer._without`).
+        gone = composer.kvg.taken(char) if composer.kvg is not None and composer.font.own(char) else None
+        if gone:
+            out["G"]["ls"] = gone
     if char in composer.sequences:
         out["s"] = composer.sequences[char]
     if char in composer.atomic:
@@ -881,6 +885,7 @@ RECORD = {
     "P": "the places that have a host list in p/ for this key, sorted; absent when none has one",
     "G": "the key's own glyph: v 1 when the variable font draws it (its strokes can be weighted), else a fallback's, with w its measured stroke widths; every character a sequence describes has one",
     "b": "box (x0, y0, x1, y1), font units, y up",
+    "ls": "in G: what ㇯ takes out of the character by KanjiVG (kanjivg_cuts.Cutter.taken): {name: the indices of the contours that go}, a name being a component KanjiVG groups in it (or a form or base of that component) or a stroke it has just one of, by its type or the character written for it. A port draws ㇯ of the character and that name as the glyph without those contours, fitted to the region",
     "p": "contours: [commands, light points, move to constants.HEAVY], points int16 little-endian base64, x y interleaved, in 1/quant units",
     "commands": "M one point, L one point, Q<n> n points of a TrueType quadratic run (implied on-curve points between off-curve ones), Q<n>* when the contour closes on an implied point: it starts midway between the last and first",
     "s": "the character's sequence", "e": "the character a sequence describes (its own record holds G, a, s)", "at": "atomic: drawn whole",

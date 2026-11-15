@@ -732,3 +732,18 @@ def test_the_export_lists_overlay_groups_and_records_the_characters_they_draw_fr
     # What the drawing takes is among what the export lists.
     taken = {p.origin.removeprefix("instance ") for p in composer.compose("⿻[x]木口")}
     assert taken <= {entry["h"] for entry in groups}
+
+
+def test_a_characters_record_lists_what_kanjivg_lets_subtraction_take_out(composer) -> None:
+    index, _ = composer._index
+    places = sorted({place for place, _ in index})
+    record = web_export.char_record(composer, "兵", places, composer.layout.tables["all"], {})
+    gone = record["G"]["ls"]
+    glyph = composer.font.glyph("兵")
+    # 兵 has one 丶 and two ㇒: the dot is listed, by its type and by its character; the ㇒ is not.
+    assert gone["丶"] == gone["㇔"] and len(gone["丶"]) == 1 and "㇒" not in gone and "丿" not in gone
+    kept = composer.kvg.less("兵", "丶").contours
+    assert kept == [c for k, c in enumerate(glyph.contours) if k not in gone["丶"]]
+    # What the drawing takes out is what the record lists.
+    drawn = composer.compose("㇯兵丶")
+    assert [p.origin for p in drawn] == ["glyph 兵"] and drawn[0].part.contours == kept
