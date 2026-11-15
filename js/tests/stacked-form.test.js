@@ -12,7 +12,7 @@ const source = async () => {
   const store = source.store
   source.store = () => {
     const data = store(), rec = data.rec
-    return { ...data, rec: key => rec([...'人八王丷'].includes(key) ? '木' : key) }
+    return { ...data, rec: key => rec([...'人八王丷龷由田冂山'].includes(key) ? '木' : key) }
   }
   return source
 }
@@ -24,6 +24,17 @@ for (const fontStyle of ['sans', 'serif']) {
       const drawn = await compose(src, flat, { fontStyle })
       expect(drawn.d).toBe((await compose(src, nested, { fontStyle })).d)
       expect(drawn.parts.some(p => String(p.origin).endsWith(': ⿱八⿻王丷'))).toBe(true)
+    }
+  })
+}
+
+for (const fontStyle of ['sans', 'serif']) {
+  it(`${fontStyle} draws 黄金萬兩 whole from its editorial form`, async () => {
+    const src = await source()
+    for (const separate of [false, true]) {
+      const { parts } = await compose(src, '⿳龷由⿳八⿻王丷⿱田⿵冂山', { fontStyle, separate })
+      expect(parts.length).toBeGreaterThan(0)
+      expect(parts.every(p => String(p.origin).startsWith('UHK-HUANG-JIN-WAN-LIANG editorial'))).toBe(true)
     }
   })
 }
