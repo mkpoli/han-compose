@@ -292,6 +292,8 @@ def test_xing_enclosure_draws_as_three_columns(nested):
     ("⿸倝", "⿰𠦝⿱𠆢{inner}"),
     ("⿶𩰲", "⿱⿲弓{inner}弓鬲"),
     ("⿹𣪊", "⿰⿱⿳士冖一{inner}殳"),
+    ("⿶𲻋", "⿳⿴𦥑{inner}一八"),
+    ("⿶⿳𦥑一八", "⿳⿴𦥑{inner}一八"),
 ])
 @pytest.mark.parametrize("inner", ["米", "几", "⬚", "⿱木口"])
 def test_disconnected_enclosures_keep_source_description(outer, rendered, inner):

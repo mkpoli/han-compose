@@ -23,6 +23,7 @@ These rules retain the entered two-part IDS and use the expanded structure for r
 | ⿸攸X | ⿲亻丨⿱攵X | 翛: 羽; 絛: 糸 (H/T/J/K/P forms) |
 | ⿸𪧇X | ⿱宀⿰爿X | 寎: 丙; 㝥: 米 |
 | ⿸朕X | ⿰月⿱关X | Requested insertion layout; for example X = 氺 |
+| ⿶𲻋X | ⿳⿴𦥑X一八 | 𮍫: 夕; 𮍭: 歹; 𮍮: 水 |
 
 The bundled BabelStone IDS snapshot supplies the outer decompositions and the expanded example structures. The input forms are rendering conventions inferred from those structures, except where the snapshot explicitly records an alternative: for example, 旗 has both `⿰方⿱𠂉其` and `⿸𭤨其`. The snapshot contains 122 descriptions beginning with `⿸𭤨`.
 
@@ -32,6 +33,8 @@ The four hosts 須, 攸, 𪧇 and 朕 also accept their literal spellings `⿰�
 
 `⿴⿰𨸏⿾𨸏X` uses the same layout as `⿴𨺅X`; an editor retains the two explicit outer leaves when that form is entered. The mirrored half is drawn by reflecting the glyph's contours. `⿸倝X` uses the 人 component's upper form 𠆢, as the recorded examples do.
 
+`𲻋` (U+32ECB) is the frame of 興 without what it holds, 𦥑 over 一 over 八; `⿶⿳𦥑一八X` uses the same layout. CHISE writes six characters (U+2E36B to U+2E36E, U+2E370 and U+2E371) as `⿶𲻋X` and BabelStone writes the same six as `⿳⿴𦥑X一八`.
+
 `⿶𤕰X` (鼎) remains a candidate requiring further geometry checks. Ordinary connected enclosures such as 門, 疒 and 戊 are not rewritten simply because they have decompositions.
 
 Fully expanded four-part grids of 口, 火, 又, 水 or 屮 are normalized before glyph/host lookup so both spellings choose the same rendering. For example, `⿰⿱口口⿱口口` is laid out as `⿱⿰口口⿰口口`. Either spelling can be the outer operand of `⿴`; its middle operand is placed between the two rows. An editor retains the original leaf order, including column-first selection for the column-first input. Other grids are unchanged.
@@ -40,3 +43,5 @@ Fully expanded four-part grids of 口, 火, 又, 水 or 屮 are normalized befor
 
 - `data/vocab/han-ids.tsv`: bundled BabelStone IDS data, records for the components and examples above. Regional labels describe the source forms; X labels alternative analyses.
 - Report by @zoenshiueh_lieu, 2026-10-26, the 行 enclosure problem and the preferred forms `⿶𩰲米` and `⿹𣪊几`.
+- `data/ids-corpus.json.gz`: the six CHISE rows spelled `⿶𲻋X` (`IDS-UCS-Ext-F.txt`, main at 2026-11-04, GPL-2.0-or-later) and the BabelStone rows for the same characters (2025-06-27, public domain).
+- Report by @mkpoli, 2026-11-12, mkpoli/ids-input#927: `⿶𲻋爻` in `⿱⿶𲻋爻石`, as in 𨏐 and 𫚃.
