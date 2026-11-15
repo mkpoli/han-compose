@@ -27,8 +27,9 @@ and the half-turn ⿿. The right-hand enclosures ⿼ and ⿽ use the enclosing o
 default box when no opening is found; their placement is approximate and can differ substantially
 from a designed glyph. 〾 draws its operand as it is. ㇯ leaves its second operand out of the
 first: the first's glyph is cut along its sequence, or along KanjiVG's component groups, and the
-outlines of that component are dropped (㇯鹿比). Where neither names the component, the second
-operand is drawn where it lies in the first and masked out of it. Its fonts have no Tangut.
+outlines of that component are dropped (㇯鹿比); a lone stroke is the one stroke KanjiVG types so,
+where the character has just one (㇯兵丶). Where none of these names it, the second operand is
+drawn where it lies in the first and masked out of it. Its fonts have no Tangut.
 Chữ Nôm characters are Han characters and are drawn like
 any other.
 
