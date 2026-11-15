@@ -202,6 +202,7 @@ uv run ruff check
 | `data/` | the vocab tables, and the outlines the engine draws a part from when no export has it |
 | `docs/design/ids-composer.md` | the method, its measurements, and what did not help |
 | `docs/design/browser-composer.md` | the browser engine, and where the editor it serves meets it |
+| `docs/design/stroke-weight.md` | how parts are brought to one stroke weight, and what a new font needs for it |
 
 ## Sources
 
