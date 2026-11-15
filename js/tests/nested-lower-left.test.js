@@ -60,6 +60,24 @@ describe('a glyph swept in a cell smaller than the face', () => {
       }
     }
   })
+  it('moves both masters of the foot alike, so the heavy stroke keeps its width', () => {
+    // The sweeping stroke is the one that reaches the glyph's lower right corner. Point by point,
+    // its heavy master stands as far from its light one after the sweep as before it.
+    const sweep = glyph.contours.find(contour => {
+      const xs = contour.light.filter((_, i) => i % 2 === 0), ys = contour.light.filter((_, i) => i % 2 === 1)
+      return Math.max(...xs) > x1 - 0.15 * w && Math.min(...ys) < y0 + 0.25 * h && Math.max(...ys) - Math.min(...ys) > 0.3 * h
+    })
+    expect(sweep).toBeDefined()
+    if (!sweep) return
+    for (const [p, scale] of /** @type {const} */ ([[whole, 1], [half, 0.5]])) {
+      const swept = sweptPart(p, edge0(p), constants)
+      expect(swept).toHaveLength(2)
+      if (!swept) continue
+      const [contour] = swept[1].part.contours
+      for (let i = 0; i < contour.light.length; i += 2)
+        expect(contour.heavy[i] - contour.light[i]).toBeCloseTo((sweep.heavy[i] - sweep.light[i]) * scale, 5)
+    }
+  })
   it('measures a glyph that states no width by the width its ink calls for', () => {
     const plain = partOf({ ...parts.几.G })
     const swept = sweptPart(placed(plain, plain.box, half.target, parts.几.ink, 'glyph 几'), edge0(half), constants)
