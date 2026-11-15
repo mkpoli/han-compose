@@ -16,7 +16,8 @@
 // Everything here is synchronous. `data.rec(key)` answers a key's record, `data.hosts(key, place)`
 // every host entry of it there, cut or not, and `data.places(key)` the places it is held in; each
 // answers empty for a key the export lacks or whose file is not loaded yet (which the caller loads
-// before drawing again).
+// before drawing again). A store that holds the export's identity table also answers
+// `data.identity(key)`: the key's sequence and the character it describes, without its record.
 import { EM_BOX, area, centre, count, derived, drawnBox, drawnContours, fill, fitted, grown, groupRings, makePart, mapped, partInk, partOf,
   placed, pointsBox, pyRound, raster, rings, scaleOf, shrunk, square, stretchOf, targetFor, union, within } from './geometry.js'
 import { ownFormsOnly, componentParts, componentPosition, componentPositionBox, componentRecord, containsComponentForm, isComponentForm, isGroupedForm } from './component-forms.js'
@@ -438,7 +439,7 @@ const DESIGNED_CUTS = {
 
 export class Composer {
   /**
-   * `data`: `{ manifest, layout, rec(key), hosts(key, place), places(key) }`; `exclude`: characters nothing is taken from (a
+   * `data`: `{ manifest, layout, rec(key), hosts(key, place), places(key), identity?(key) }`; `exclude`: characters nothing is taken from (a
    * character redrawn to test, with its twins); `face`: the box a whole character fills, when those
    * characters change it (the manifest's is the median of `FULL` with none excluded); `separate`:
    * draw operands as individual pieces where possible, including cuts from a matching whole glyph,
@@ -448,7 +449,6 @@ export class Composer {
     this.data = data
     const m = data.manifest, c = m.constants
     this.C = c
-    this.layout = data.layout
     this.exclude = new Set(exclude)
     this.spelled = new Set(m.spelled)
     this.AXIS = c.AXIS
@@ -476,7 +476,7 @@ export class Composer {
     this.pyramids = new WeakMap()
     this.bases = new WeakMap()
     this.nativeEnclosures = new Set()
-    this.normalizer = createRenderNormalizer({ record: key => this.rec(key), parse: text => this.parse(text), keyOf, excluded: key => this.excluded(key) })
+    this.normalizer = createRenderNormalizer({ record: key => this.identity(key), parse: text => this.parse(text), keyOf, excluded: key => this.excluded(key) })
     this.resolutions = new Map()
     // Stacked operand pairs, settled against their ink once the drawing is weighted.
     this.joints = []
@@ -486,6 +486,18 @@ export class Composer {
   parse = sequence => parseTree(sequence, this.arity)
   // A key holding an empty slot has no record and no hosts: nothing is asked for it.
   rec = key => key.includes(EMPTY) ? null : (componentRecord(key, this.fontStyle) ?? this.data.rec(key))
+  /** What a description's identity is found by: a key's sequence (`s`) and the character it
+   *  describes (`e`). A store with an identity table answers from it; without one, and for a
+   *  component form, the key's record does. */
+  identity = key => {
+    if (key.includes(EMPTY)) return null
+    const form = componentRecord(key, this.fontStyle)
+    if (form) return form
+    const known = this.data.identity?.(key)
+    return known === undefined ? this.data.rec(key) : known
+  }
+  /** The learned layout. A store reads it when a node first asks, so a lone character is drawn without it. */
+  get layout() { return this.data.layout }
   excluded = ch => this.exclude.has(ch)
   slot = (op, i) => this.SLOTS[op] ? this.SLOTS[op][i] : `${op}${i}`
   /**

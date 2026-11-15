@@ -56,13 +56,14 @@ export function unicodeSource({ fallback = null, load = readShard } = {}) {
   const files = new Map(), loading = new Map()
   let ready = null
   const source = {
-    manifest: null, layout: null,
+    manifest: null,
+    get layout() { return fallback?.layout ?? null },
     ready() {
       return ready ??= Promise.resolve().then(() => fallback?.ready()).then(() => {
         source.manifest = fallback?.manifest ?? { constants, spelled: [] }
-        source.layout = fallback?.layout ?? null
       }).catch(error => { ready = null; throw error })
     },
+    modelFiles: options => fallback?.modelFiles(options) ?? [],
     async load(names) {
       const remote = [], local = []
       for (const name of names) (name.startsWith('unicode/') ? local : remote).push(name)
@@ -83,7 +84,9 @@ export function unicodeSource({ fallback = null, load = readShard } = {}) {
     store() {
       const remote = fallback?.store(), missing = remote?.missing ?? new Set()
       return {
-        manifest: source.manifest, layout: source.layout, missing,
+        manifest: source.manifest, missing,
+        get layout() { return remote?.layout ?? null },
+        identity: key => remote?.identity?.(key),
         rec(key) {
           const record = remote?.rec(key)
           // If a remote record is still loading, finish that round before fetching a fallback.

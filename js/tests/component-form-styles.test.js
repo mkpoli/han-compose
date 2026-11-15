@@ -32,7 +32,7 @@ it('loads the internal operands of a Noto-only form for Kaisho', async () => {
   const stop = new Error('stop after initial file selection')
   const source = {
     ready: async () => {}, manifest: { constants },
-    filesOf: keys => { requests.push(...keys); return [] },
+    filesOf: keys => { requests.push(...keys); return [] }, modelFiles: () => [],
     load: async () => { throw stop },
   }
   await expect(compose(source, '⿱木⿱丿乚', { fontStyle: 'kaisho' })).rejects.toThrow(stop.message)

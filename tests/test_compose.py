@@ -26,6 +26,28 @@ def test_a_sequence_parses_into_its_operators_and_operands() -> None:
             compose.parse(broken)
 
 
+def test_a_sequence_is_read_once_and_reading_leaves_nothing_to_collect() -> None:
+    import gc
+
+    assert compose.parse("⿰亻⿱亠女") is compose.parse("⿰亻⿱亠女")
+    # A sequence that does not parse is refused each time it is read.
+    for _ in range(2):
+        with pytest.raises(ValueError):
+            compose.parse("⿰亻")
+    # The composer reads every sequence it knows: a reading that left a reference cycle behind
+    # would have the collector run thousands of times over a drawing.
+    gc.collect()
+    was = gc.isenabled()
+    gc.disable()
+    try:
+        for index in range(2000):
+            compose.parse.__wrapped__(f"⿰亻⿱亠{chr(0x4E00 + index)}")
+        assert gc.collect() == 0
+    finally:
+        if was:
+            gc.enable()
+
+
 def test_a_host_is_cut_where_no_outline_crosses() -> None:
     left, right = square(0, 0, 300, 800), square(400, 0, 900, 800)
     pieces = compose.split(Part([right, left]), 0, 2)

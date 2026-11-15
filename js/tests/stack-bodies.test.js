@@ -1,14 +1,12 @@
 // A flat stack holding a run the export designs as one body is drawn as that body in its own row
 // (`Composer.groupedStack`), on a fixture export that names which runs it designs.
 import { describe, expect, it } from 'bun:test'
-import { createHash } from 'node:crypto'
 import { gzipSync } from 'node:zlib'
 import { Composer } from '../src/compose.js'
 import { compose, createSource, sketch } from '../src/loader.js'
 import { groupParts } from '../src/group-parts.js'
-import { files } from './fixtures/small-export.js'
+import { files, identityOf, shardOf } from './fixtures/small-export.js'
 
-const hex = text => createHash('sha256').update(text).digest('hex')
 const int16 = values => Buffer.from(Int16Array.from(values).buffer).toString('base64')
 const boxGlyph = ([x0, y0, x1, y1]) => ({ v: 1, b: [x0, y0, x1, y1],
   p: [['MLLL', int16([x0, y0, x1, y0, x1, y1, x0, y1].map(value => value * 4)), int16(Array(8).fill(0))]] })
@@ -17,15 +15,16 @@ const boxGlyph = ([x0, y0, x1, y1]) => ({ v: 1, b: [x0, y0, x1, y1],
 const sourceOf = (records = {}, hosts = []) => {
   const extra = new Map()
   const put = (folder, text, value) => {
-    const name = `${folder}/${hex(text).slice(0, 3)}.json`
+    const name = shardOf(folder, text)
     const file = extra.has(name) ? JSON.parse(extra.get(name)) : {}
-    file[hex(text)] = value
+    file[text] = value
     extra.set(name, JSON.stringify(file))
   }
   for (const [key, record] of Object.entries(records)) put('g', key, record)
-  for (const [key, place, entries] of hosts) put('p', `${place}\t${key}`, { hosts: entries })
+  for (const [key, place, entries] of hosts) put('p', `${place}\t${key}`, entries)
+  const identity = identityOf(Object.entries(records))
   return createSource(async name => {
-    const body = extra.has(name) ? gzipSync(extra.get(name)) : files[name]
+    const body = name === 'identity.json' ? identity : extra.has(name) ? gzipSync(extra.get(name)) : files[name]
     return body === undefined ? null : new Uint8Array(Buffer.from(body)).buffer
   })
 }
@@ -189,7 +188,7 @@ describe('a run of a flat stack the export designs as one body', () => {
     await eager.ready()
     // Every record and host list the export holds, loaded before the drawing starts.
     await eager.load(['⿳口木扌', '⿱口木', '⿱木扌', '口', '木', '扌', '永', '厃'].flatMap(key => [...eager.filesOf([key])]))
-    await eager.load(['B', 'M', 'L', 'T'].map(place => `p/${hex(`${place}\t⿱口木`).slice(0, 3)}.json`))
+    await eager.load(['B', 'M', 'L', 'T'].map(place => shardOf('p', `${place}\t⿱口木`)))
     expect((await compose(lazy, '⿳口木扌')).d).toBe((await compose(eager, '⿳口木扌')).d)
   })
 
