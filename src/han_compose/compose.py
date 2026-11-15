@@ -35,7 +35,7 @@ import json
 import math
 import re
 from collections import Counter
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass, field, replace
 from functools import cache, cached_property, lru_cache
 from itertools import combinations, pairwise
@@ -225,6 +225,10 @@ HOST_SNAP = 1.05
 EXPAND_DEPTH = 2
 #: Below how many characters writing a part out its hosts are sought inside components too.
 EXPAND_FEW = 3
+#: How many characters the searches for single operands may read (`Hosts`), as a multiple of how
+#: many sequences there are, before every sequence is indexed at once: reading a character costs a
+#: search far less than indexing it, and one drawing's searches read under half as many.
+SEARCHED = 1.0
 #: An enclosure cut by its enclosing operand's template (`Composer._guided`): how many KanjiVG cuts
 #: make the template, at what size, grown by how many pixels, and how much of an outline must lie on
 #: it to go with the enclosing part.
@@ -1166,6 +1170,247 @@ class _Exclusion(set):
     __rand__ = __and__
 
 
+#: The description operators: nearly every sequence names one, so none helps find an operand's hosts.
+_OPERATORS = frozenset(BINARY | TERNARY | UNARY)
+
+
+def _parsed(sequence: str) -> Node | None:
+    """A sequence's tree (`parse`), or None for a malformed one."""
+    try:
+        return parse(sequence)
+    except ValueError:
+        return None
+
+
+def _held(char: str, tree: tuple, node: Node, path: tuple, wanted: Node, written: str, names: dict, found: dict) -> None:
+    """`Composer._indexed`'s walk for one operand: `found[place]` gains an entry for each laid-out
+    node under `node` that holds `wanted` there, or a component named `written` that `names`
+    records as written out."""
+    if not isinstance(node, tuple) or (node[0] not in AXIS and node[0] not in ENCLOSE and node[0] != OVERLAY):
+        return
+    for i, child in enumerate(node[1:]):
+        if child == wanted or (names and names.get(id(child)) == written):
+            found.setdefault(slot(node[0], i), []).append((char, tree, path, i))
+        _held(char, tree, child, path + (i,), wanted, written, names, found)
+
+
+def _laid_out(char: str, tree: tuple, node: Node, path: tuple, op: str, found: list) -> None:
+    """`Composer._indexed`'s walk for one operator: `found` gains each node of `op` under `node`."""
+    if not isinstance(node, tuple) or (node[0] not in AXIS and node[0] not in ENCLOSE and node[0] != OVERLAY):
+        return
+    if node[0] == op:
+        found.append((char, tree, path))
+    for i, child in enumerate(node[1:]):
+        _laid_out(char, tree, child, path + (i,), op, found)
+
+
+class _Read(Mapping):
+    """A mapping whose values are found when asked for: `find` answers one key with a list, empty
+    for a key it does not hold, and `every` gives the mapping whole, for whatever reads all of it."""
+
+    def __init__(self, find: Callable[[object], list], every: Callable[[], dict]):
+        self.find, self.every = find, every
+
+    def __getitem__(self, name) -> list:
+        found = self.find(name)
+        if not found:
+            raise KeyError(name)
+        return found
+
+    def __iter__(self):
+        return iter(self.every())
+
+    def __len__(self) -> int:
+        return len(self.every())
+
+
+class _Usage(dict):
+    """(place, operand) → how many of its hosts have a Japanese sequence, counted when first asked."""
+
+    def __init__(self, hosts: Mapping, japanese: set[str]):
+        self.hosts, self.japanese = hosts, japanese
+
+    def __missing__(self, place: tuple[str, str]) -> int:
+        self[place] = sum(1 for char, *_ in self.hosts.get(place, ()) if char in self.japanese)
+        return self[place]
+
+
+class Hosts(Mapping):
+    """(place, operand) → the drawn characters holding that operand there, as `Composer._indexed`
+    lists them, found one operand at a time.
+
+    A drawing asks about a few dozen of the tens of thousands of operands the characters hold. An
+    operand's hosts are read from the characters whose sequences name its rarest component; where
+    fewer than `EXPAND_FEW` of them write it out, also from those that hold it inside a component:
+    the characters naming a character that names that component, `EXPAND_DEPTH` components down.
+    Whatever reads every operand indexes every sequence at once instead (`whole`), as do searches
+    once they have read `SEARCHED` times as many characters as there are sequences.
+    """
+
+    def __init__(self, composer: Composer, drawn: Callable[[str], bool]):
+        self.composer, self.drawn = composer, drawn
+        self._whole: tuple[dict, dict] | None = None
+        #: operand → place → entries: where characters write the operand out, and where they hold
+        #: it inside a component written out.
+        self._written: dict[str, dict[str, list]] = {}
+        self._inside: dict[str, dict[str, list]] = {}
+        self._entries: dict[tuple[str, str], list] = {}
+        self._nodes: dict[str, list] = {}
+        self._by_operand: dict[str, list[tuple[str, str]]] | None = None
+        #: How many characters the searches have read.
+        self._read = 0
+
+    @property
+    def whole(self) -> tuple[dict, dict]:
+        """Every operand's hosts and every operator's nodes, indexed at once (`Composer._indexed`)."""
+        if self._whole is None:
+            self._whole = self.composer._indexed(self.drawn)
+        return self._whole
+
+    @cached_property
+    def templates(self) -> Mapping[str, list]:
+        """operator → the drawn characters with a node of it, each with its tree and the path to the node."""
+        return _Read(self.nodes, lambda: self.whole[1])
+
+    @cached_property
+    def by_operand(self) -> Mapping[str, list[tuple[str, str]]]:
+        """operand → the (place, operand) keys it is held under, in the order of the keys."""
+        return _Read(self.places, self._every_place)
+
+    @cached_property
+    def _naming(self) -> tuple[dict[str, list[str]], dict[str, int]]:
+        """component → the characters whose sequences name it, drawn or not, in the order of the
+        sequences; and each character's position in that order."""
+        naming: dict[str, list[str]] = {}
+        order: dict[str, int] = {}
+        for char, sequence in self.composer.sequences.items():
+            order[char] = len(order)
+            for component in set(sequence):
+                if component not in _OPERATORS:
+                    naming.setdefault(component, []).append(char)
+        return naming, order
+
+    def _candidates(self, written: str) -> list[str]:
+        """The characters whose sequences name the rarest component of `written`: every character
+        that holds `written` is among them."""
+        naming, _ = self._naming
+        return min((naming.get(component, []) for component in written if component not in _OPERATORS), key=len, default=[])
+
+    def _afford(self, characters: int) -> bool:
+        """Count `characters` more read by a search; False once every sequence is indexed instead."""
+        self._read += characters
+        if self._read > SEARCHED * len(self.composer.sequences):
+            _ = self.whole
+        return self._whole is None
+
+    def _writers(self, written: str) -> dict[str, list] | None:
+        """place → the entries of the characters that write `written` out as an operand; None once
+        every sequence is indexed instead."""
+        if written not in self._written:
+            sequences = self.composer.sequences
+            # An operand's key is the stretch of the sequence it was read from.
+            named = [char for char in self._candidates(written) if written in sequences[char]]
+            if not self._afford(len(named)):
+                return None
+            wanted, found = _parsed(written), {}
+            for char in named if wanted is not None else ():
+                if self.drawn(char):
+                    tree = _parsed(sequences[char])
+                    if tree is not None:
+                        _held(char, tree, tree, (), wanted, written, {}, found)
+            self._written[written] = found
+        return self._written[written]
+
+    def _holders(self, written: str) -> dict[str, list] | None:
+        """place → the entries of the characters that hold `written` inside a component written out
+        from its own sequence (`Composer._expanded`); None once every sequence is indexed instead."""
+        if written not in self._inside:
+            composer = self.composer
+            _, order = self._naming
+            # Such a character names a component written out, whose sequence names the operand's
+            # rarest component or a component written out that does.
+            reach = set(self._candidates(written))
+            front = reach
+            for _ in range(EXPAND_DEPTH):
+                front = {char for component in front if composer._written_out(component) is not None
+                         for char in self._candidates(component)} - reach
+                reach |= front
+            if not self._afford(len(reach)):
+                return None
+            wanted, found = _parsed(written), {}
+            for char in sorted(reach, key=order.__getitem__) if wanted is not None else ():
+                if self.drawn(char):
+                    tree = _parsed(composer.sequences[char])
+                    if tree is not None:
+                        names: dict = {}
+                        expanded = composer._expanded(tree, char, names, EXPAND_DEPTH)
+                        if names:
+                            _held(char, expanded, expanded, (), wanted, written, names, found)
+            self._inside[written] = found
+        return self._inside[written]
+
+    def _search(self, place: str, written: str) -> list | None:
+        """The entries under (place, written); None once every sequence is indexed instead."""
+        writers = self._writers(written)
+        if writers is None:
+            return None
+        entries = writers.get(place, [])
+        if len(entries) < EXPAND_FEW:
+            holders = self._holders(written)
+            if holders is None:
+                return None
+            have = {entry[0] for entry in entries}
+            entries = entries + [entry for entry in holders.get(place, ()) if entry[0] not in have]
+        return entries
+
+    def __getitem__(self, key: tuple[str, str]) -> list:
+        if self._whole is None and key not in self._entries:
+            found = self._search(*key)
+            if found is not None:
+                self._entries[key] = found
+        entries = (self._entries if self._whole is None else self._whole[0]).get(key)
+        if not entries:
+            raise KeyError(key)
+        return entries
+
+    def __iter__(self):
+        return iter(self.whole[0])
+
+    def __len__(self) -> int:
+        return len(self.whole[0])
+
+    def places(self, written: str) -> list[tuple[str, str]]:
+        """The (place, operand) keys `written` is held under, in the order of the keys."""
+        if self._whole is None:
+            writers = self._writers(written)
+            holders = None if writers is None else self._holders(written)
+            if holders is not None:
+                return [(place, written) for place in dict.fromkeys([*writers, *holders])]
+        return self._every_place().get(written, [])
+
+    def _every_place(self) -> dict[str, list[tuple[str, str]]]:
+        if self._by_operand is None:
+            self._by_operand = {}
+            for place, written in self.whole[0]:
+                self._by_operand.setdefault(written, []).append((place, written))
+        return self._by_operand
+
+    def nodes(self, op: str) -> list[tuple[str, tuple, tuple]]:
+        """The drawn characters with a node of `op`, each with its tree and the path to the node."""
+        if self._whole is None and op not in self._nodes:
+            sequences = self.composer.sequences
+            named = [char for char, sequence in sequences.items() if op in sequence]
+            if self._afford(len(named)):
+                found: list = []
+                for char in named:
+                    if self.drawn(char):
+                        tree = _parsed(sequences[char])
+                        if tree is not None:
+                            _laid_out(char, tree, tree, (), op, found)
+                self._nodes[op] = found
+        return self._nodes[op] if self._whole is None else self._whole[1].get(op, [])
+
+
 @dataclass
 class Composer:
     font: Font
@@ -1257,12 +1502,14 @@ class Composer:
         return positional_forms()
 
     @cached_property
-    def _index(self) -> tuple[dict, dict]:
+    def _index(self) -> tuple[Mapping, Mapping]:
         """(slot, operand) → drawn characters holding that operand there, and operator → drawn
         characters with a node of it; each with its tree and the path of positions to the node.
-        A style that keeps its own hosts indexes no character a fallback font draws."""
+        A style that keeps its own hosts indexes no character a fallback font draws. Both are
+        found as they are asked for (`Hosts`)."""
         own = getattr(getattr(self.font, "style", None), "own_hosts", False)
-        return self._indexed(self.font.own if own else self.font.has)
+        hosts = Hosts(self, self.font.own if own else self.font.has)
+        return hosts, hosts.templates
 
     @cached_property
     def operands(self) -> set[tuple[str, str]]:
@@ -1315,23 +1562,30 @@ class Composer:
         parts. Single-body characters stay whole. `names` records each written-out node's name."""
         if isinstance(node, tuple):
             return (node[0], *(self._expanded(k, char, names, depth) for k in node[1:]))
-        if depth <= 0 or node == char or node in self.atomic or node not in self.sequences:
-            return node
-        try:
-            own = parse(self.sequences[node])
-        except ValueError:
-            return node
-        if not isinstance(own, tuple) or own[0] not in AXIS and own[0] not in ENCLOSE:
+        own = None if depth <= 0 or node == char else self._written_out(node)
+        if own is None:
             return node
         out = self._expanded(own, char, names, depth - 1)
         names[id(out)] = node
         return out
 
+    def _written_out(self, component: str) -> tuple | None:
+        """The sequence `_expanded` writes a compound component out from; None for an atomic or
+        single-body character and for one with no sequence to read."""
+        if component in self.atomic or component not in self.sequences:
+            return None
+        own = _parsed(self.sequences[component])
+        return own if isinstance(own, tuple) and (own[0] in AXIS or own[0] in ENCLOSE) else None
+
     @cached_property
-    def _places(self) -> dict[str, list[tuple[str, str]]]:
+    def _places(self) -> Mapping[str, list[tuple[str, str]]]:
         """operand → the (place, operand) keys it is held under."""
+        hosts, _ = self._index
+        if isinstance(hosts, Hosts):
+            return hosts.by_operand
+        # An index given whole is read through.
         out: dict[str, list[tuple[str, str]]] = {}
-        for place, written in self._index[0]:
+        for place, written in hosts:
             out.setdefault(written, []).append((place, written))
         return out
 
@@ -1959,11 +2213,10 @@ class Composer:
         return japanese_characters()
 
     @cached_property
-    def usage(self) -> Counter:
-        """(position, operand) → how many characters with a Japanese sequence write that operand there."""
-        hosts, _ = self._index
-        japanese = self.japanese
-        return Counter({k: sum(1 for char, *_ in v if char in japanese) for k, v in hosts.items()})
+    def usage(self) -> Mapping[tuple[str, str], int]:
+        """(position, operand) → how many characters with a Japanese sequence write that operand
+        there, counted for a position when it is first asked about."""
+        return _Usage(self._index[0], self.japanese)
 
     @cached_property
     def bases(self) -> dict[str, list[str]]:
