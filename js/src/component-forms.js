@@ -14,8 +14,10 @@ const formOf = groups => {
   if (back && back !== WINDING) for (const part of parts) part.reverse = true
   return { parts, frame: union(parts.map(p => p.box)), ink: parts.reduce((n, p) => n + partInk(p), 0) }
 }
+// A `native` form gives a description its parts and nothing else: an encoded character that holds it
+// keeps its own glyph, and the layout reads what the export records of the description.
 const styles = Object.fromEntries(Object.entries(data.forms).map(([style, forms]) => [style,
-  new Map(Object.entries(forms).map(([text, groups]) => [text, formOf(groups)]))]))
+  new Map(Object.entries(forms).map(([text, groups]) => [text, { ...formOf(groups), native: data.native?.[style]?.includes(text) ?? false }]))]))
 // Numbered components draw in the palette tile only. Keeping their forms out of `styles` leaves the
 // composer's glyph records reachable for separated and cell layouts; the sequence itself draws from
 // `numbered-sans-outlines.json.gz` in the surface source.
@@ -29,9 +31,11 @@ const editorialForms = new Map(Object.entries(data.editorial ?? {}).flatMap(([id
 /** Faces whose bundled forms come only from their own font: Noto's must not stand in for them. @param {string} style */
 export const ownFormsOnly = style => style === 'kaisho' || style === 'fangsong'
 const forms = style => styles[style] ?? (ownFormsOnly(style) ? null : styles.sans)
-export const containsComponentForm = (text, style = 'sans') => [...(forms(style)?.keys() ?? [])].some(key => text.includes(key))
+export const containsComponentForm = (text, style = 'sans') => [...(forms(style)?.entries() ?? [])].some(([key, form]) => !form.native && text.includes(key))
 export const isGroupedForm = (text, style = 'sans') => (forms(style)?.get(text)?.parts.length ?? 0) > 1
 export const isComponentForm = (text, style = 'sans') => forms(style)?.has(text) ?? false
+/** Whether `text` has a native form in `style`: one that keeps what the export knows of it. */
+export const isNativeForm = (text, style = 'sans') => forms(style)?.get(text)?.native ?? false
 export function componentRecord(text, style = 'sans') {
   const form = forms(style)?.get(text)
   // A cut form carries what the layout reads of its component: usual boxes by place and shape features.
