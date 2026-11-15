@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 // The Worker entry is published beside the rest: a host that wraps its own Worker, and an audit that
-// drives the handler directly, import `@han-compose/composer/worker` rather than reach into `src/`.
+// drives the handler directly, import `han-compose/worker` rather than reach into `src/`.
 // The handler itself is covered by `yan-worker.test.js`.
 describe('the worker entry', () => {
   const root = join(import.meta.dirname, '..')

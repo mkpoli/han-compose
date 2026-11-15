@@ -14,6 +14,7 @@ import { hasNewKorean, newKoreanSource } from './new-korean.js'
 import { hasShuishu, shuishuSource } from './shuishu.js'
 import { hasJurchen, jurchenSource } from './jurchen.js'
 import { hasPaletteGlyph, paletteSource } from './palette.js'
+import { CUSTOM_FORMS, customFormsSource, hasCustomComponent } from './custom-forms.js'
 import { HOST_OUTLINES, hasEntity, hostSource } from './host.js'
 import { isEmpty, isNode, parseDescription as parse, splitDescription, tonesOf } from './tree.js'
 
@@ -42,6 +43,7 @@ export function traitsOf(sequence) {
     shuishu: hasShuishu(sequence),
     jurchen: hasJurchen(sequence),
     palette: [...sequence].some(hasPaletteGlyph),
+    custom: hasCustomComponent(sequence),
     entity: hasEntity(sequence),
   }
 }
@@ -83,7 +85,13 @@ export function sourceFor(sequence, { base, fontStyle = 'sans', separate = false
   if (traits.newKorean) source = overlay(newKoreanSource, source, 'sources/new-korean/outlines.json.gz')
   if (traits.shuishu) source = overlay(shuishuSource, source, 'sources/shuishu/outlines.json.gz')
   if (traits.jurchen) source = overlay(jurchenSource, source, 'sources/jurchen/outlines.json.gz')
-  if (traits.palette) source = overlay(paletteSource, source, 'sources/palette/outlines.json.gz', { under: fontStyle !== 'sans', style: fontStyle })
+  if (traits.palette) {
+    // In Sans the palette reads a second file, the cuts of the numbered components. A host that
+    // reads or lists it answers for it as for the first.
+    const sans = bundledLoader(SANS_CUTS, !local, loaders, read)
+    source = overlay(paletteSource, source, 'sources/palette/outlines.json.gz', { under: fontStyle !== 'sans', style: fontStyle, ...(sans ? { sans } : {}) })
+  }
+  if (traits.custom) source = overlay(customFormsSource, source, CUSTOM_FORMS, { style: fontStyle })
   // A host's own outlines answer for the entity references they hold; without the file, nothing changes.
   if (traits.entity && HOST_OUTLINES in loaders) source = overlay(hostSource, source, HOST_OUTLINES)
   return source ?? bundledSource({ load: async () => ({ records: {} }), matches: () => false })
@@ -91,6 +99,8 @@ export function sourceFor(sequence, { base, fontStyle = 'sans', separate = false
 
 /** The path a Unicode overlay reads stands for each of its shards. */
 const UNICODE = 'unicode/outlines/'
+/** The Sans cuts of the numbered components, which the palette lays over its own outlines. */
+const SANS_CUTS = 'numbered-sans-outlines.json.gz'
 
 /** A bundled file's parsed JSON, from the bytes a response holds. @param {Response} response @param {string} name */
 async function parsed(response, name) {

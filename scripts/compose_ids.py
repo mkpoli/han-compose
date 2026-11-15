@@ -95,8 +95,7 @@ def _composer(style: str = compose.DEFAULT_STYLE, **options) -> compose.Composer
 @app.command()
 def draw(sequence: str, style: str = STYLE) -> None:
     """Print the SVG of one sequence."""
-    path = compose.svg_path(_composer(style).compose(sequence))
-    print(f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {compose.EM} {compose.EM}"><path d="{path}"/></svg>')
+    print(compose.svg(_composer(style).compose(sequence)))
 
 
 @app.command("draw-many")
@@ -113,37 +112,71 @@ def draw_many(sequences: Path, out: Path, style: str = STYLE) -> None:
         if not sequence:
             continue
         try:
-            path = compose.svg_path(composer.compose(sequence))
+            drawing = compose.svg(composer.compose(sequence))
         except (LookupError, ValueError) as error:
             print(f"{sequence}\tnot drawn: {error}")
             continue
         name = hashlib.sha256(sequence.encode()).hexdigest() + ".svg"
-        (out / name).write_text(f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {compose.EM} {compose.EM}"><path d="{path}"/></svg>', encoding="utf-8")
+        (out / name).write_text(drawing, encoding="utf-8")
         print(f"{sequence}\t{name}")
 
 
-UNIHAN_URL = "https://www.unicode.org/Public/16.0.0/ucd/Unihan.zip"
-UNIHAN_SHA256 = "b8f000df69de7828d21326a2ffea462b04bc7560022989f7cc704f10521ef3e0"
+#: Where `variants` writes, and whether its sheet draws a form another form already draws.
+VARIANTS_OUT = typer.Option(..., "--out", help="the folder variants.json and variants.svg go in")
+VARIANTS_ALL = typer.Option(False, "--all", help="draw the forms another form already draws too")
+
+
+@app.command()
+def variants(sequence: str, out: Path = VARIANTS_OUT, style: str = STYLE, every: bool = VARIANTS_ALL) -> None:
+    """Write every form of one character, or of one sequence, into `out` (`han_compose.variants`):
+    `variants.json`, each form with its label, the text that selects it, its font, glyph and
+    outline, and `variants.svg`, one sheet of them.
+
+    A character's forms are Noto CJK's regional designs, its sequences in the Ideographic Variation
+    Database, its standardized variation sequences and its compatibility ideographs; `--style` is
+    sans or serif, the designs Noto CJK draws by region. A sequence is composed once for each way
+    to write its components with the variation sequences the style's font draws, in any style."""
+    from han_compose import variants as V
+
+    _style(style)
+    if len(sequence) == 1:
+        if style not in V.COLLECTIONS:
+            raise typer.BadParameter(f"A character's variants are drawn in {' or '.join(V.COLLECTIONS)}, not {style}.")
+        try:
+            fonts = V.Fonts.of(style)
+            found, sources = V.forms(sequence, fonts)
+        except (FileNotFoundError, ValueError) as error:
+            raise typer.BadParameter(str(error)) from error
+        document = V.document(sequence, style, found, sources, fonts)
+        title, above = f"{sequence} U+{ord(sequence):04X}", V.headings(fonts)
+        summary = {"character": sequence, "forms": len(found), **{kind: sum(form.kind == kind for form in found) for kind in V.KINDS[:4]}}
+    else:
+        composer = _composer(style)
+        _require_layout(composer, style)
+        try:
+            found, total = V.composed(sequence, composer)
+            document = V.sequence_document(sequence, style, found, total, V.composing_fonts(style))
+        except ValueError as error:
+            raise typer.BadParameter(str(error)) from error
+        title, above = sequence, V.sequence_headings(found, total)
+        summary = {"sequence": sequence, "forms": len(found), "combinations": total, "cap": V.COMBINATIONS}
+    if not any(form.outline for form in found):
+        raise typer.BadParameter(f"No font draws {sequence}.")
+    out.mkdir(parents=True, exist_ok=True)
+    (out / "variants.json").write_text(json.dumps(document, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+    (out / "variants.svg").write_text(V.sheet(title, found, above, every), encoding="utf-8")
+    print(json.dumps({**summary, "distinct": sum(bool(form.outline) and not form.same_as for form in found),
+                      "undrawn": sum(form.outline is None for form in found)}, ensure_ascii=False))
 
 
 def joyo() -> list[str]:
     """The jōyō kanji, by Unihan 16.0's kJoyoKanji, fetched once into `<cache>/ucd/unihan/`."""
-    import hashlib
     import io
     import zipfile
 
-    import httpx
+    from han_compose.variants import UNIHAN
 
-    from han_compose.vocab import cache_root
-
-    path = cache_root() / "ucd" / "unihan" / "Unihan-16.0.0.zip"
-    if not path.exists():
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_bytes(httpx.get(UNIHAN_URL, follow_redirects=True, timeout=300).content)
-    data = path.read_bytes()
-    if hashlib.sha256(data).hexdigest() != UNIHAN_SHA256:
-        raise ValueError(f"{path} does not match its pinned SHA-256.")
-    text = zipfile.ZipFile(io.BytesIO(data)).read("Unihan_OtherMappings.txt").decode()
+    text = zipfile.ZipFile(io.BytesIO(UNIHAN.read())).read("Unihan_OtherMappings.txt").decode()
     return [chr(int(line.split("\t")[0].removeprefix("U+"), 16)) for line in text.splitlines() if "\tkJoyoKanji\t" in line]
 
 
@@ -160,11 +193,17 @@ def _bench_sets() -> dict[str, str]:
 def _aligned_overlap(placed: list[compose.Placed], real: list[compose.Placed], size: int) -> float:
     """Overlap with each drawing's ink stretched to fill the raster: the shape, wherever it stands."""
     def mask(items: list[compose.Placed]) -> np.ndarray:
-        parts = [compose._rings(item.part.contours, item.contours()) for item in items]
-        points = np.concatenate([ring for rings in parts for ring in rings])
+        parts = [(item.cut, compose._rings(item.part.contours, item.contours())) for item in items]
+        points = np.concatenate([ring for cut, rings in parts if not cut for ring in rings])
         box = (*map(float, points.min(axis=0)), *map(float, points.max(axis=0)))
-        # Each part filled apart and joined, as `compose.raster` does: parts overlap.
-        return np.logical_or.reduce([compose.fill(rings, size, box) for rings in parts])
+        # Each part filled apart and joined, less what ㇯ takes away, as `compose.raster` does: parts overlap.
+        ink, taken = np.zeros((size, size), bool), np.zeros((size, size), bool)
+        for cut, rings in parts:
+            if cut:
+                taken |= compose.fill(rings, size, box)
+            else:
+                ink |= compose.fill(rings, size, box)
+        return ink & ~taken
     a, b = mask(placed), mask(real)
     return float((a & b).sum()) / max(float((a | b).sum()), 1.0)
 
@@ -188,7 +227,7 @@ def _bench_one(item: tuple[str, str]) -> dict:
         row[name] = float((mask & truth).sum()) / max(float((mask | truth).sum()), 1.0)
         if name == "composer":
             row["aligned"] = _aligned_overlap(placed, real, size)
-            made = sum(drawer.ink("", p.part) * (p.scale[0] + p.scale[1]) / 2 for p in placed)
+            made = sum(drawer.ink("", p.part) * (p.scale[0] + p.scale[1]) / 2 for p in placed if not p.cut)
             row["outline"] = made / drawer.ink("", glyph)
             drawn = compose.stems(compose.raster(placed, 400), unit)
             true = compose.stems(compose.raster(real, 400), unit)
