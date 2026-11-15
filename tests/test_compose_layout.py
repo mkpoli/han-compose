@@ -38,6 +38,43 @@ def test_a_model_is_saved_and_read_back_whole(tmp_path) -> None:
     assert all(np.allclose(x, y) for x, y in zip(back.weights["0"][0], layers))
 
 
+def test_a_models_table_and_networks_are_read_when_first_asked_for(tmp_path, monkeypatch) -> None:
+    table = L.Table.of(ROWS)
+    rng = np.random.default_rng(0)
+    layers = [rng.normal(size=(5, 4)), rng.normal(size=4), rng.normal(size=(4, 8)), rng.normal(size=8)]
+    L.LayoutModel({"all": table, "0": table}, {"all": [layers], "0": [layers]}, {"a": 0}).save(tmp_path / "m.npz")
+    read, load = [], np.load
+
+    class Spied:
+        def __init__(self, path):
+            self.data = load(path)
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            self.data.close()
+
+        def __getitem__(self, name):
+            read.append(name)
+            return self.data[name]
+
+    monkeypatch.setattr(np, "load", Spied)
+    back = L.LayoutModel.load(tmp_path / "m.npz")
+    assert read == ["meta"] and set(back.tables) == set(back.weights) == {"all", "0"}
+    assert back.tables["all"].counts == table.counts and len(back.weights["all"][0]) == 4
+    assert back.tables["all"] is back.tables["all"]
+    assert {name.split(".")[0] for name in read} == {"meta", "all"}
+    with pytest.raises(KeyError):
+        back.tables["1"]
+    # Before workers fork, every model is read.
+    count = len(read)
+    back.read()
+    assert {name.split(".")[0] for name in read[count:]} == {"0"}
+    back.read()
+    assert len(read) == count + 7
+
+
 def test_gelu_is_the_tanh_form_training_uses() -> None:
     x = np.array([-3.0, -1.0, 0.0, 0.5, 2.0])
     expected = [-0.003637, -0.158808, 0.0, 0.345714, 1.954598]

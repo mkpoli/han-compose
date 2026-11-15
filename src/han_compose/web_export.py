@@ -942,7 +942,8 @@ def _export(composer: C.Composer, out: Path, joyo: list[str] | None = None, pari
     index, _ = composer._index
     _ = composer.japanese, composer.usage, composer.by_sequence, composer.twins
     _PLACES = sorted({p for p, _ in index})
-    table = composer.layout.tables["all"]
+    # The table and the networks the workers lay out with, read before they fork.
+    table, _ = composer.layout.tables["all"], composer.layout.weights["all"]
 
     # Parity drawings first: the hosts the injected set uses join the export; the held-out set's do not.
     sets = {"injected": ([], []), "held_out": ([], [])}

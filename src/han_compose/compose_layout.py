@@ -18,6 +18,7 @@ from __future__ import annotations
 import json
 import math
 import random
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -110,12 +111,33 @@ def _gelu(x: np.ndarray) -> np.ndarray:
     return 0.5 * x * (1 + np.tanh(0.7978845608028654 * (x + 0.044715 * x ** 3)))
 
 
+class _Named(Mapping):
+    """A saved model's tables, or its networks, by model ("all", or a fold's number): each is read
+    from the file when first asked for, and kept."""
+
+    def __init__(self, names: Iterable[str], read: Callable[[str], object]):
+        self._names, self._read, self._found = tuple(names), read, {}
+
+    def __getitem__(self, name: str):
+        if name not in self._found:
+            if name not in self._names:
+                raise KeyError(name)
+            self._found[name] = self._read(name)
+        return self._found[name]
+
+    def __iter__(self):
+        return iter(self._names)
+
+    def __len__(self) -> int:
+        return len(self._names)
+
+
 @dataclass
 class LayoutModel:
     """Five fold models and one on everything, each `SEEDS` networks averaged, with their tables."""
 
-    tables: dict[str, Table]
-    weights: dict[str, list[list[np.ndarray]]]
+    tables: Mapping[str, Table]
+    weights: Mapping[str, list[list[np.ndarray]]]
     fold_of: dict[str, int]
     _shapes: dict | None = None
     #: The operators it lays out.
@@ -155,17 +177,31 @@ class LayoutModel:
 
     @classmethod
     def load(cls, path: Path) -> LayoutModel:
-        data = np.load(path)
-        meta = json.loads(bytes(data["meta"]).decode())
-        tables = {}
-        for name, t in meta["tables"].items():
+        """A saved model. A model's table and networks are read when first asked for: a drawing
+        reads those of "all", a character redrawn to test those of its fold, and a character
+        drawn from its own glyph none."""
+        with np.load(path) as data:
+            meta = json.loads(bytes(data["meta"]).decode())
+
+        def table(name: str) -> Table:
+            t = meta["tables"][name]
             keys = [tuple(k.split("\t", 1)) for k in t["keys"]]
-            tables[name] = Table(dict(zip(keys, data[f"{name}.sums"])), dict(zip(keys, data[f"{name}.squares"])),
-                                 dict(zip(keys, data[f"{name}.counts"].tolist())),
-                                 {p: np.array(v) for p, v in t["defaults"].items()})
-        weights = {name: [[data[f"{name}.{s}.{k}"] for k in range(n)] for s, n in enumerate(runs)]
-                   for name, runs in meta["weights"].items()}
-        return cls(tables, weights, meta["fold_of"])
+            with np.load(path) as data:
+                return Table(dict(zip(keys, data[f"{name}.sums"])), dict(zip(keys, data[f"{name}.squares"])),
+                             dict(zip(keys, data[f"{name}.counts"].tolist())),
+                             {p: np.array(v) for p, v in t["defaults"].items()})
+
+        def networks(name: str) -> list[list[np.ndarray]]:
+            with np.load(path) as data:
+                return [[data[f"{name}.{s}.{k}"] for k in range(n)] for s, n in enumerate(meta["weights"][name])]
+
+        return cls(_Named(meta["tables"], table), _Named(meta["weights"], networks), meta["fold_of"])
+
+    def read(self) -> None:
+        """Read every model's table and networks now: before workers fork, so that they share them."""
+        for parts in (self.tables, self.weights):
+            for name in parts:
+                parts[name]
 
 
 def examples(composer: C.Composer, workers: int = 3) -> list[dict]:
