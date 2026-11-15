@@ -1,4 +1,4 @@
-import { expect, it } from 'bun:test'
+import { describe, expect, it } from 'bun:test'
 import data from '../src/component-forms.json'
 import { componentDrawing, componentParts, componentRecord, containsComponentForm, isComponentForm, isGroupedForm, isNativeForm } from '../src/component-forms.js'
 import { Composer } from '../src/compose.js'
@@ -67,6 +67,45 @@ it('draws 萬 with the bottom of 両 as one prepared form', () => {
     const drawing = componentDrawing('⿳艹田⿵冂山', style)
     expect(drawing.d).not.toMatch(/NaN|Infinity/)
     expect(componentParts('⿳艹田⿵冂山', undefined, style)).toHaveLength(2)
+  }
+})
+
+describe('the groups of a bundled form', () => {
+  // A drawing that keeps one piece per leaf draws each group as a layer of its own. A counter whose
+  // outline is in another group fills solid there: 同 in ⿴𦥑同, whose 冂 the font draws in one
+  // outline with 𦥑, stood as a black box.
+  const area = (/** @type {number[]} */ flat) => { let a = 0; for (let i = 0; i < flat.length; i += 2) { const j = (i + 2) % flat.length; a += flat[i] * flat[j + 1] - flat[j] * flat[i + 1] } return a / 2 }
+  const inside = (/** @type {number[]} */ flat, /** @type {number} */ x, /** @type {number} */ y) => {
+    let hit = false
+    for (let i = 0, j = flat.length - 2; i < flat.length; j = i, i += 2) {
+      const xi = flat[i], yi = flat[i + 1], xj = flat[j], yj = flat[j + 1]
+      if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) hit = !hit
+    }
+    return hit
+  }
+  // A point inside a counter: the mean of its points. Its first point can lie on the outline's edge.
+  // An outline holds a counter when it is the larger of the two and that point is inside it: the
+  // point alone is also inside whatever the counter itself holds (口 in the counter of 冂).
+  const middle = (/** @type {number[]} */ flat) => {
+    let x = 0, y = 0
+    for (let i = 0; i < flat.length; i += 2) { x += flat[i]; y += flat[i + 1] }
+    return [x / (flat.length / 2), y / (flat.length / 2)]
+  }
+  for (const [style, forms] of Object.entries(data.forms)) {
+    it(`each hold the outline of every counter they hold, in ${style}`, () => {
+      const apart = []
+      for (const [text, groups] of Object.entries(forms)) {
+        if (groups.length < 2) continue
+        const rings = groups.map(group => group.map(([, points]) => points))
+        // The form's largest contour is an outline: a contour running the other way is a counter.
+        const outline = Math.sign(area(rings.flat().reduce((best, flat) => Math.abs(area(flat)) > Math.abs(area(best)) ? flat : best)))
+        const alone = rings.every(group => group.filter(flat => Math.sign(area(flat)) !== outline)
+          .every(counter => group.some(flat => Math.sign(area(flat)) === outline
+            && Math.abs(area(flat)) > Math.abs(area(counter)) && inside(flat, ...middle(counter)))))
+        if (!alone) apart.push(text)
+      }
+      expect(apart).toEqual([])
+    })
   }
 })
 
