@@ -33,6 +33,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+import os
 import re
 import unicodedata
 from collections import Counter
@@ -718,6 +719,24 @@ class Part:
         return boxes[:, 0].min(), boxes[:, 1].min(), boxes[:, 2].max(), boxes[:, 3].max()
 
 
+class Fallback:
+    """A static font that draws what a style's main font lacks. Its glyphs are opened when one is
+    first drawn: a drawing made of the main font's glyphs opens none."""
+
+    def __init__(self, path: Path, em: int):
+        self.path, self.opener = path, os.getpid()
+        self.font = TTFont(path)
+        self.cmap = self.font.getBestCmap()
+        #: What brings its em to the main font's (Jigmo draws on 1,024 units).
+        self.scale = em / self.font["head"].unitsPerEm
+
+    @cached_property
+    def glyphs(self):
+        # A process forked since the font was opened shares its file with the others forked from
+        # it, and reading the tables there would move the file under them: it opens the font again.
+        return (self.font if os.getpid() == self.opener else TTFont(self.path)).getGlyphSet()
+
+
 class Font:
     """A style's variable font with a `wght` axis, read at weight 400 and at the style's `heavy`, and
     static fonts that draw what it lacks: a glyph from one of those has one set of points, and its
@@ -726,10 +745,7 @@ class Font:
     def __init__(self, path: Path, fallbacks: list[Path] = (), style: str = DEFAULT_STYLE):
         self.style = STYLES[style]
         self.font = TTFont(path)
-        fonts = [TTFont(f) for f in fallbacks]
-        # Each fallback with the scale that brings its em to this font's (Jigmo draws on 1,024 units).
-        self.fallbacks = [(font, font.getBestCmap(), font.getGlyphSet(), self.font["head"].unitsPerEm / font["head"].unitsPerEm)
-                          for font in fonts]
+        self.fallbacks = [Fallback(f, self.font["head"].unitsPerEm) for f in fallbacks]
         self.cmap = self.font.getBestCmap()
         self.static = "fvar" not in self.font
         # Ideographic variation sequences: (base, selector) → glyph name, None for the base's own glyph.
@@ -751,17 +767,26 @@ class Font:
             across_x = (across_x[0], across_x[1] + 2 * STATIC_GROW)
             across_y = (across_y[0], across_y[1] + 2 * STATIC_GROW)
         self.stem = (across_x, across_y)
-        #: The fallbacks' stroke widths against this font's at 400, across x and across y.
-        self.family = None
-        if not self.style.kindred:
-            _font, cmap, glyphs, scale = next(f for f in self.fallbacks if ord("丨") in f[1] and ord("一") in f[1])
-            widths = []
-            for char, axis in (("丨", 0), ("一", 1)):
-                pen = DecomposingRecordingPen(glyphs)
-                glyphs[cmap[ord(char)]].draw(pen)
-                flat = [Contour(ops, p * scale, p * scale) for ops, p in _contours(pen)]
-                widths.append(_across(_rings(flat, [c.light for c in flat], steps=8), axis) / self.stem[axis][0])
-            self.family = (widths[0], widths[1])
+
+    @cached_property
+    def family(self) -> tuple[float, float] | None:
+        """The fallbacks' stroke widths against this font's at 400, across x and across y: None where
+        the fallbacks are of this font's design. Measured when a fallback glyph is first weighed."""
+        if self.style.kindred:
+            return None
+        fallback = next(f for f in self.fallbacks if ord("丨") in f.cmap and ord("一") in f.cmap)
+        widths = []
+        for char, axis in (("丨", 0), ("一", 1)):
+            pen = DecomposingRecordingPen(fallback.glyphs)
+            fallback.glyphs[fallback.cmap[ord(char)]].draw(pen)
+            flat = [Contour(ops, p * fallback.scale, p * fallback.scale) for ops, p in _contours(pen)]
+            widths.append(_across(_rings(flat, [c.light for c in flat], steps=8), axis) / self.stem[axis][0])
+        return widths[0], widths[1]
+
+    def open_fallbacks(self) -> None:
+        """Open every fallback's glyphs now: before workers fork, so that they share them."""
+        for fallback in self.fallbacks:
+            fallback.glyphs
 
     @classmethod
     def of(cls, style: str = DEFAULT_STYLE, cache: Path | None = None) -> Font:
@@ -802,7 +827,7 @@ class Font:
         return self._name(char) is not None
 
     def has(self, char: str) -> bool:
-        return self._name(char) is not None or (len(char) == 1 and any(ord(char) in cmap for _, cmap, _, _ in self.fallbacks))
+        return self._name(char) is not None or (len(char) == 1 and any(ord(char) in f.cmap for f in self.fallbacks))
 
     def glyph(self, char: str) -> Part | None:
         """The glyph's outline at weight 400. Its heavy outline, and its stroke width where that is
@@ -811,10 +836,11 @@ class Font:
             part = None
             name = self._name(char)
             if name is None and len(char) == 1:
-                for _, cmap, glyphs, scale in self.fallbacks:
-                    if ord(char) in cmap:
-                        pen = DecomposingRecordingPen(glyphs)
-                        glyphs[cmap[ord(char)]].draw(pen)
+                for fallback in self.fallbacks:
+                    if ord(char) in fallback.cmap:
+                        scale = fallback.scale
+                        pen = DecomposingRecordingPen(fallback.glyphs)
+                        fallback.glyphs[fallback.cmap[ord(char)]].draw(pen)
                         contours = [Contour(ops, p * scale if scale != 1 else p, LATER, LATER) for ops, p in _contours(pen)]
                         self._later(contours, lambda contours=contours: self._grown_heavy(contours))
                         part = Part(contours) if contours else None

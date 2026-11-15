@@ -48,7 +48,8 @@ def test_only_fallbacks_of_the_main_fonts_design_teach_the_layout() -> None:
 
     for style, expected in (("sans", {"一", "𠀀"}), ("serif", {"一"}), ("kaisho", {"一"}), ("fangsong", {"一"})):
         seen.clear()
-        font = SimpleNamespace(style=compose.STYLES[style], has=lambda ch: True, own=lambda ch: ch == "一")
+        font = SimpleNamespace(style=compose.STYLES[style], has=lambda ch: True, own=lambda ch: ch == "一",
+                               open_fallbacks=lambda: None)
         fake = SimpleNamespace(font=font, sequences={"一": "⿱一一", "𠀀": "⿰一一"}, _index=({}, {}))
         context = SimpleNamespace(Pool=Pool)
         original = mp.get_context
@@ -113,6 +114,35 @@ def serif() -> compose.Font:
     if not _cached("serif"):
         pytest.skip("The serif fonts are not cached; `scripts/compose_ids.py draw --style serif` fetches them.")
     return compose.Font.of("serif")
+
+
+def test_a_fallbacks_glyphs_are_opened_when_one_is_first_drawn() -> None:
+    if not _cached("serif"):
+        pytest.skip("The serif fonts are not cached; `scripts/compose_ids.py draw --style serif` fetches them.")
+    font = compose.Font.of("serif")
+    opened = lambda: ["glyphs" in vars(fallback) for fallback in font.fallbacks]
+    assert len(font.fallbacks) > 1 and not any(opened()) and "family" not in vars(font)
+    # A character of the main font opens none; one a fallback draws opens that fallback alone.
+    assert font.glyph("何") is not None and not any(opened())
+    char = "\U00031350"  # Extension H: Jigmo3
+    drawn = [ord(char) in fallback.cmap for fallback in font.fallbacks]
+    part = font.glyph(char)
+    assert opened() == drawn and sum(drawn) == 1 and "family" not in vars(font)
+    # Weighing it measures the fallbacks' strokes against the main font's.
+    assert part.contours[0].width is not None and font.family is not None
+    # Before workers fork every fallback is opened, so that they share the glyphs.
+    font.open_fallbacks()
+    assert all(opened())
+
+
+def test_a_forked_process_opens_a_fallbacks_glyphs_from_a_file_of_its_own(monkeypatch: pytest.MonkeyPatch) -> None:
+    if not _cached("sans"):
+        pytest.skip("The sans fonts are not cached; `scripts/compose_ids.py draw` fetches them.")
+    here, there = (compose.Fallback(compose.fallback_files()[-1], 1000) for _ in range(2))
+    assert here.glyphs.font is here.font
+    monkeypatch.setattr(compose.os, "getpid", lambda: there.opener + 1)
+    assert there.glyphs.font is not there.font
+    assert there.glyphs[there.cmap[0x30000]].width == here.glyphs[here.cmap[0x30000]].width
 
 
 def test_serif_horizontals_grow_toward_heavy_as_its_verticals_do(serif: compose.Font) -> None:
