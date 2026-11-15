@@ -150,6 +150,18 @@ compared exactly, in a 1000-unit em, so two fonts' drawings of one shape stay ap
 sequence no font maps is listed with `"outline": null`. `glyph` is the font's own glyph name: Noto's
 `cid` numbers count its own glyphs, not Adobe-Japan1's.
 
+Given a sequence, `variants` composes it once for each way to write its components with the
+variation sequences the style's font draws with a glyph of their own, in any style:
+
+```sh
+uv run scripts/compose_ids.py variants ⿰氵者 --out 氵者/
+```
+
+Each drawing is labelled by the components it writes with a selector (`者 Adobe-Japan1 CID+13349`),
+a component the sequence holds more than once with its place among the components (`者[5]`), and
+`parts` lists where the composer took each part from. At most 24 ways are drawn; `combinations`
+gives how many there are.
+
 The Noto collection is read from `cache/fonts/`, else from `/usr/share/fonts/opentype/noto/`, where
 Debian's `fonts-noto-cjk` installs it. It is checked against that package's digest and never
 downloaded. IPAmj Mincho, Jigmo and the data files download on first use. `docs/licensing.md` lists
