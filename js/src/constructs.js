@@ -2,11 +2,48 @@
 // another way. A construct's body is a part record cut from the host glyph (han-compose's
 // han-constructs.tsv), carried here so the browser composer needs no runtime cut; a construct with
 // `contours` cuts the host glyph at drawing time, so it follows the export; a construct with
-// `replace: 'top'` draws its first operand with the host's form of it. Outlines: Noto Sans CJK JP
-// and its fallbacks, SIL OFL 1.1 / CC0.
-import { derived, mapped, partInk, partOf, placed, pointsBox, union } from './geometry.js'
+// `replace: 'top'` draws its first operand with the host's form of it; a construct with `draw` builds
+// its parts from its hosts' glyphs. Outlines: Noto Sans CJK JP and its fallbacks, SIL OFL 1.1 / CC0.
+import constants from './constants.json' with { type: 'json' }
+import { centre, derived, fitted, mapped, partInk, partOf, placed, pointsBox, rings, union } from './geometry.js'
 import { hexOf } from './sha256.js'
 
+
+/**
+ * The flesh form ⿵冂⺀: 冂 with two short slanting dots, as 兪 (⿱⿵入一⿰⿵冂⺀巜) draws its lower
+ * left. Both parts come from glyphs every face draws at full size, so the form has the face's own
+ * strokes at their own weight: the frame is its 冂, and the dots are 斗's two. `faces` names each
+ * face by the digests of its 冂 and its 斗, with the contours of 斗 that are the dots, upper first.
+ * An export drawing another 冂 or 斗 keeps the composer's own parts.
+ *
+ * The proportions are 兪's. The frame is `aspect` as wide as it is tall. The dots stand one above
+ * the other, their centres `across` of the frame's width from its left and `heights` of its height
+ * from its foot. `leg`, `slide` and `span` are how a frame is narrowed (`narrowed`).
+ */
+const FLESH = {
+  frame: '冂',
+  dots: '斗',
+  faces: [
+    // Noto Sans CJK JP.
+    { frame: '48603871f396fef1e1f397eb0bf3cbe5d5d1fd43136db653c8cd2926e6e8b127',
+      dots: '752e2007a0eb368d6c6133ea1179c9ca52de9606f0b798081cff58d47ca0b053', contours: [2, 3] },
+    // Noto Serif CJK JP.
+    { frame: '6e93dd63760a5f69f57b7d44645089d372acb81ec013beb49f13944c2990aba7',
+      dots: 'f130606454c6fb3d9f071b9ac824915084da4682f30b0de059fd55be05574e26', contours: [0, 1] },
+    // Zhuque Fangsong.
+    { frame: '1540bc73b468535943737d402161078936ba09458e915935d0d5980e8f647576',
+      dots: '285397283d5264531ba4133a51c70b7746daa7bf23d891a2df821fa92fc17c78', contours: [2, 1] },
+    // The Kaisho export.
+    { frame: '909af0cabf947cc9c4bddc13eccf8dadc5b9339cc1494e5c4141adf6afb70bff',
+      dots: 'ce53c78da51036dd4d8929c0619245e2ed9b00ffa182896728024c875099e49d', contours: [1, 2] },
+  ],
+  aspect: 0.68,
+  across: 0.48,
+  heights: [0.68, 0.41],
+  leg: 0.35,
+  slide: 0.5,
+  span: 0.8,
+}
 
 /** The bottom of 𱵺 (⿳𠆳𠚍禸): 𠚍禸, 离's lower body. */
 const XIE_BOTTOM = {"b":[135.0,-69.0,872.0,538.0],"p":[["MLQ2LQ2","SATUBugEIAeoBcgGIAZkBoAFDAYQBXAGSATUBg==","U//6AP//awBMAFMA+QDw/+3/iv+w/6//wf+p/w=="],["MLQ2Q2LQ2Q2LQ2Q2Q2Q2Q2","0AScB3QF+AfABnQH4AfwBuAIhAeoCSwIiArsB6AJOAeYCJwGxAkMBsAKfAUUChAFHAmkBegHPAacBogFGAX4BNwEMAV0BGgF+AXwBTAHlAYYBhQH0AScBw==","O//xAPb/awA3AFkA+f9tAK//UADf/2sAMgEpAE8AsP8rAQkAQQBWABIBBAACAI7/vf+r/wMAk/86AKj/3/+Q/63/sf+k/hMAyP9ZAMH++v/I/6f/yv+m/w=="],["MLQ2LQ2","sAYQCEQHaAgACBQIhAi0B/AHVAd4B6wHsAYQCA==","Mv/uAPf/bQBHAFQA+QD7//v/iv+2/63/wf+p/w=="],["MLQ2LQ2","lAnIBjQKHAfwCsAGcAtYBtAKAAZgCmAGlAnIBg==","Rf/1AP7/bQBMAFIA+wDw/+7/i/+x/6//wP+q/w=="],["MLQ2LLQ2LQ2LQ2LQ2Q2Q2LQ2Q2Q2LLLLLQ2LLLLLQ2LQ2LLLLLLQ2LLQ3Q2Q2Q3","LAzQ/zQM0P90DND/dAwEAHQMcAIgB3AClAa4AQAGFAGYCVQBTAmwAfAIEALICVwC7ApAAYALSACUCvD/ZApEACgKmABEBkwApAU4AAQFIADkBBAA5AQUAMQEgACEBAQB4AQcAVAFrAGEBeQB6AVwAjwDcAI8A+z+HALs/hwCQAN0BkADqAaUA9gG7APsAuwD7ALcB/wD3Af8A8AERAjABNQHHAUUB4AFtAfMBWwIcAXwCAwFaAjABKQLwASkC9wHvAzcB7wM7AMgCOwD6AeUA7QHQAOgDUADoA0EAKANqP9gDTj/EA0g/3wM9P7UCvz+sApo/2wK0P8YC8z/+AvM/ywM0P8=","AAAVAQAAYQBz/2EAc/8AAHP/n/9GAJ//bQDC/1IBcQDl/lQAl//A/wP/KgAkAG8AbwA9ANAAzv/B/4j/if/M/7z/m/8OAKD/EwCg/ysAov9z/2P/c//y/3z/3f82/0AArv9VAJX/PwCT/z0A7v6f/40An/+NAJ//c/+f/3P/YQCy/2EAhv8xABP/n/9z/5//c/9hAI0AYQCNAGEAhf5dALL/r//E/gQAAgBsAEsAUwABAfT/hQFGAHP/YQBz/2EAjQBhAI0An/9NAJ//dwDM//0AYQCNAGEAjQAAAI0A5v9eAK7/KACj/xMAn/+a/6D/gP/V//j+ZQACAGEA+/9hAPX/YQA="]],"w":[71.66,51.79]}
@@ -90,7 +127,99 @@ export const CONSTRUCTS = {
     { host: '眔', label: '眔 upper 丶', contours: [7], digest: 'c64879c4a5b1ea6bab191c69549cfce19af842d496ddd279d505cd49f6b338f2' },
     { host: '眔', label: '眔 lower 丶', contours: [5], digest: 'c64879c4a5b1ea6bab191c69549cfce19af842d496ddd279d505cd49f6b338f2' },
   ] },
+  // The flesh form is a shape of 月, so a layout gives it the place it gives 月 (`like`).
+  '⿵冂⺀': { host: FLESH.frame, hosts: [FLESH.frame, FLESH.dots], nested: true, like: '月', draw: fleshParts },
 }
+
+/** `contour` with each point of both masters moved by `move`.
+ * @param {{ light: Float64Array, heavy: Float64Array }} contour @param {(x: number, y: number) => number[]} move */
+const moved = (contour, move) => {
+  /** @param {Float64Array} points */
+  const at = points => {
+    const out = new Float64Array(points.length)
+    for (let i = 0; i < points.length; i += 2) [out[i], out[i + 1]] = move(points[i], points[i + 1])
+    return out
+  }
+  return { ...contour, light: at(contour.light), heavy: at(contour.heavy) }
+}
+
+/**
+ * A 冂 drawn `by` narrower with its strokes as wide as they were. The right leg and its hook slide
+ * toward the left leg along the bar, which shortens over the opening between them and keeps its
+ * slope. The opening is read below the frame's middle, in both masters, so it is open at every
+ * weight: the left leg is what lies in the left `leg` of the width, and the opening runs from its
+ * inner edge to the tip of the hook. The slide is spread over the middle `span` of the opening and
+ * closes at most `slide` of it, so the hook stays clear of the left leg; what is left of `by` is
+ * for the placement to scale.
+ * @param {{ contours: any[], box: number[] }} frame @param {number} by
+ */
+function narrowed(frame, by) {
+  const [x0, y0, x1, y1] = frame.box, legs = x0 + FLESH.leg * (x1 - x0), middle = (y0 + y1) / 2
+  let inner = x0, tip = x1
+  for (const { light, heavy } of frame.contours) for (const points of [light, heavy]) for (let i = 0; i < points.length; i += 2) {
+    if (points[i + 1] > middle) continue
+    if (points[i] < legs) inner = Math.max(inner, points[i])
+    else tip = Math.min(tip, points[i])
+  }
+  const shift = Math.min(by, FLESH.slide * (tip - inner))
+  if (!(shift > 0)) return frame
+  const from = inner + (tip - inner) * (1 - FLESH.span) / 2, to = tip - (tip - inner) * (1 - FLESH.span) / 2
+  const outline = rings(frame.contours, frame.contours.map(contour => contour.light))
+  /** The bar's upper edge over `x`. @param {number} x */
+  const top = x => {
+    let y = -Infinity
+    for (const ring of outline) for (let i = 0; i < ring.length; i += 2) {
+      const j = (i + 2) % ring.length, ax = ring[i], bx = ring[j]
+      if (ax !== bx && (ax - x) * (bx - x) <= 0) y = Math.max(y, ring[i + 1] + (ring[j + 1] - ring[i + 1]) * (x - ax) / (bx - ax))
+    }
+    return y
+  }
+  const rise = top(to) - top(from), slope = Number.isFinite(rise) ? rise / (to - from) : 0
+  return derived(frame, frame.contours.map(contour => moved(contour, (x, y) => {
+    const slid = shift * Math.min(1, Math.max(0, (x - from) / (to - from)))
+    return [x - slid, y - slope * slid]
+  })))
+}
+
+/**
+ * The flesh form's two parts, the frame and the dots, one for each leaf. Alone it is as tall as the
+ * face and keeps its proportions; in a character it takes the place it is given as a glyph of its
+ * proportions would, within `STRETCH`. The frame is narrowed to the place's proportions before it
+ * is scaled, so its strokes thin only as far as the place is smaller. The dots keep their own
+ * proportions: they scale with the frame's width, or between its width and height where the place
+ * is wider than the form. Empty where the export lacks a glyph or draws another 冂 or 斗.
+ * @param {Record<string, { b: number[], p: any[] } | null> | null} records
+ * @param {number[]} region
+ * @param {boolean} atRoot
+ */
+function fleshParts(records, region, atRoot) {
+  const frameRecord = records?.[FLESH.frame], dotsRecord = records?.[FLESH.dots]
+  if (!frameRecord || !dotsRecord) return []
+  const digests = [frameRecord, dotsRecord].map(record => hexOf(JSON.stringify(record.p)))
+  const indices = FLESH.faces.find(face => face.frame === digests[0] && face.dots === digests[1])?.contours
+  if (!indices) return []
+  const glyph = partOf(frameRecord), donor = partOf(dotsRecord)
+  const [x0, y0, x1, y1] = glyph.box, height = y1 - y0, width = FLESH.aspect * height
+  const own = [(x0 + x1 - width) / 2, y0, (x0 + x1 + width) / 2, y1]
+  const place = fitted(own, region, atRoot ? 1 : constants.STRETCH)
+  const frame = narrowed(glyph, x1 - x0 - height * (place[2] - place[0]) / (place[3] - place[1]))
+  const dots = derived(donor, indices.map((index, k) => {
+    const contour = donor.contours[index], [cx, cy] = centre(pointsBox(contour.light))
+    const dx = own[0] + FLESH.across * width - cx, dy = y0 + FLESH.heights[k] * height - cy
+    return moved(contour, (x, y) => [x + dx, y + dy])
+  }))
+  const sx = (place[2] - place[0]) / width, sy = (place[3] - place[1]) / height
+  const scale = Math.min(sx, Math.sqrt(sx * sy))
+  const [cx, cy] = centre(mapped(dots.box, own, place))
+  const w = (dots.box[2] - dots.box[0]) * scale / 2, h = (dots.box[3] - dots.box[1]) * scale / 2
+  return [
+    placed(frame, frame.box, place, partInk(glyph), `construct ${FLESH.frame}`),
+    placed(dots, dots.box, [cx - w, cy - h, cx + w, cy + h], partInk(donor), `construct ${FLESH.dots} ⺀`),
+  ]
+}
+
+/** The characters whose glyphs a construct is drawn from. @param {{ host: string, hosts?: string[], cuts?: { host: string }[] }} spec */
+export const constructHosts = spec => new Set([spec.host, ...(spec.hosts ?? []), ...(spec.cuts ?? []).map(cut => cut.host)])
 
 /** A construct's stored body drawn in `box`, or null where it has none.
  * @param {{ body?: any, host?: string, keep?: string } | null} spec @param {number[]} box */
@@ -106,14 +235,15 @@ export function constructBody(spec, box) {
  * cut its place in the face, so the host's spacing between the top and the row holds. Another entry
  * keeps `keepParts` operands and fits a `body` (or the host's own `contours`) into the box the rest
  * filled. A digest names the outline a cut was made for; an export drawing another glyph keeps its
- * own parts.
- * @param {{ host: string, fill?: boolean, cuts?: { host: string, label: string, contours: number[], digest: string, box?: number[] }[], keep?: string, keepParts?: number, skipTail?: number, body?: any, contours?: number[], digest?: string }} spec
+ * own parts. A `draw` entry builds its parts itself from the glyphs of its `hosts`.
+ * @param {{ host: string, fill?: boolean, draw?: (records: Record<string, { b: number[], p: any[] } | null> | null, region: number[], atRoot: boolean) => any[], cuts?: { host: string, label: string, contours: number[], digest: string, box?: number[] }[], keep?: string, keepParts?: number, skipTail?: number, body?: any, contours?: number[], digest?: string }} spec
  * @param {any[]} out
- * @param {Record<string, { b: number[], p: any[] } | null> | null} [records] The glyphs the cuts name.
+ * @param {Record<string, { b: number[], p: any[] } | null> | null} [records] The glyphs the construct is drawn from.
  * @param {number[] | null} [face]
  * @param {boolean} [atRoot] Whether the construct is the whole character; a `fill` construct inside one fills `face`.
  */
 export function constructParts(spec, out, records = null, face = null, atRoot = true) {
+  if (spec.draw) return spec.draw(records, face ?? constants.face, atRoot)
   if (spec.cuts) {
     const host = records?.[spec.host]
     if (!host) return out

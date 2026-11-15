@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import { makePart, mapped, partOf, placed, pointsBox } from 'han-compose/geometry'
+import { drawnContours, makePart, mapped, partOf, placed, pointsBox, rings, scaleOf } from 'han-compose/geometry'
 import { BODY_FORMS, CONSTRUCTS, IVD_FORMS, SURROUND_CONSTRUCTS, bodyForm, constructParts, ivdParts } from 'han-compose/constructs'
 import { Composer } from 'han-compose/compose'
 import { hexOf } from 'han-compose/sha256.js'
@@ -11,6 +11,9 @@ import notoJie from './fixtures/noto-jie.json' with { type: 'json' }
 import notoQi from './fixtures/noto-qi.json' with { type: 'json' }
 // 眔 from the Kaisho export (ce3eaafda8f9-kaisho-compose-layout-v4-kaisho-f7).
 import kaishoEye from './fixtures/kaisho-eye-lower.json' with { type: 'json' }
+// 冂 and 斗 from the four faces' exports (a83fc941166b sans, 8156f838798c serif, 9f797e2322d2
+// fangsong, ce3eaafda8f9 kaisho).
+import fleshFaces from './fixtures/flesh-faces.json' with { type: 'json' }
 
 const rect = (x0, y0, x1, y1) => {
   const light = new Float64Array([x0, y0, x1, y0, x1, y1, x0, y1])
@@ -361,5 +364,192 @@ describe('C052 ⿲𰀪丨⿱丶丶 from the Kaisho export’s 眔', () => {
   })
   it('leaves another export’s 眔 to the composer', () => {
     expect(constructParts(spec, [], { 眔: notoQi['気'].G }, constants.face)).toEqual([])
+  })
+})
+
+describe('⿵冂⺀, the flesh form, from each face’s 冂 and 斗', () => {
+  const spec = CONSTRUCTS['⿵冂⺀']
+  const { face } = constants
+  /** The widths of the ink a line crosses in a drawn part: across `axis` 0 a level line at height
+   *  `at`, across `axis` 1 an upright one at `at`. */
+  const strokes = (p, axis, at) => {
+    const cuts = []
+    for (const ring of rings(p.part.contours, drawnContours(p))) for (let i = 0; i < ring.length; i += 2) {
+      const j = (i + 2) % ring.length, a = ring[i + 1 - axis], b = ring[j + 1 - axis]
+      if ((a - at) * (b - at) < 0) cuts.push(ring[i + axis] + (ring[j + axis] - ring[i + axis]) * (at - a) / (b - a))
+    }
+    cuts.sort((a, b) => a - b)
+    return Array.from({ length: cuts.length / 2 }, (_, k) => cuts[2 * k + 1] - cuts[2 * k])
+  }
+  /** The two legs' widths at mid-height and the bar's thickness over the opening. */
+  const weight = p => {
+    const [x0, y0, x1, y1] = p.target
+    return { legs: strokes(p, 0, (y0 + y1) / 2), bar: strokes(p, 1, x0 + 0.4 * (x1 - x0)).at(-1) }
+  }
+  const own = record => { const part = partOf(record); return placed(part, part.box, part.box, 0, 'glyph 冂') }
+
+  for (const [style, records] of Object.entries(fleshFaces)) {
+    it(`draws the face’s 冂 round two of its dots, one part for each leaf, in ${style}`, () => {
+      const [frame, dots] = constructParts(spec, [], records, face)
+      expect([frame.origin, dots.origin]).toEqual(['construct 冂', 'construct 斗 ⺀'])
+      expect(frame.part.contours).toHaveLength(partOf(records['冂']).contours.length)
+      expect(dots.part.contours).toHaveLength(2)
+      // The dots are drawn at one scale, the upper one first, one above the other.
+      const [sx, sy] = scaleOf(dots)
+      expect(sx).toBeCloseTo(sy, 6)
+      const [upper, lower] = dots.part.contours.map(c => mapped(pointsBox(c.light), dots.source, dots.target))
+      expect(upper[1]).toBeGreaterThan(lower[3])
+      expect((upper[0] + upper[2]) / 2).toBeCloseTo((lower[0] + lower[2]) / 2, 6)
+      // They stand in the opening, clear of both legs, the bar and the hook's foot.
+      const [left, right] = weight(frame).legs
+      expect(Math.min(upper[0], lower[0])).toBeGreaterThan(frame.target[0] + left)
+      expect(Math.max(upper[2], lower[2])).toBeLessThan(frame.target[2] - right)
+      expect(upper[3]).toBeLessThan(frame.target[3] - weight(frame).bar)
+      expect(lower[1]).toBeGreaterThan(frame.target[1] + 0.2 * (frame.target[3] - frame.target[1]))
+    })
+
+    it(`stands alone as tall as the face, at its own proportions and its strokes’ own weight, in ${style}`, () => {
+      const [frame] = constructParts(spec, [], records, face)
+      expect([frame.target[1], frame.target[3]]).toEqual([face[1], face[3]])
+      expect((frame.target[2] - frame.target[0]) / (face[3] - face[1])).toBeCloseTo(0.68, 6)
+      expect((frame.target[0] + frame.target[2]) / 2).toBeCloseTo((face[0] + face[2]) / 2, 6)
+      // Narrowing slides the right leg in along the bar, so every stroke is as wide as the face’s 冂
+      // draws it at this height: a frame scaled narrower would thin both legs.
+      const glyph = own(records['冂']), grown = (face[3] - face[1]) / (glyph.target[3] - glyph.target[1])
+      const drawn = weight(frame), native = weight(glyph)
+      expect(drawn.legs).toHaveLength(2)
+      // A face of one weight is never weighted again, and its opening is the whole of what slides.
+      // A weighted face’s opening is what stays open in its heavy master, so less of it slides.
+      const still = glyph.part.contours.every(c => c.light.every((v, i) => v === c.heavy[i]))
+      drawn.legs.forEach((leg, k) => expect(Math.abs(leg / (grown * native.legs[k]) - 1)).toBeLessThan(still ? 0.03 : 0.1))
+      expect(Math.abs(drawn.bar / (grown * native.bar) - 1)).toBeLessThan(0.05)
+    })
+
+    it(`slides the right leg inside the opening both masters leave, in ${style}`, () => {
+      const [frame] = constructParts(spec, [], records, face)
+      const glyph = partOf(records['冂']), middle = (glyph.box[1] + glyph.box[3]) / 2
+      // The left leg, below the middle, is where the glyph draws it in both masters.
+      glyph.contours.forEach((contour, k) => {
+        for (const master of ['light', 'heavy']) for (let i = 0; i < contour[master].length; i += 2) {
+          if (contour[master][i + 1] > middle || contour[master][i] > glyph.box[0] + 0.35 * (glyph.box[2] - glyph.box[0])) continue
+          expect(frame.part.contours[k][master][i]).toBe(contour[master][i])
+        }
+      })
+      // The hook, below the middle, moves whole: every point of it by the same slide.
+      const slides = new Set()
+      glyph.contours.forEach((contour, k) => {
+        for (const master of ['light', 'heavy']) for (let i = 0; i < contour[master].length; i += 2) {
+          if (contour[master][i + 1] > middle || contour[master][i] < glyph.box[0] + 0.35 * (glyph.box[2] - glyph.box[0])) continue
+          slides.add(Math.round((contour[master][i] - frame.part.contours[k][master][i]) * 100))
+        }
+      })
+      expect(slides.size).toBe(1)
+      expect([...slides][0]).toBeGreaterThan(0)
+    })
+
+    it(`takes a column whole and keeps more of its strokes than the squeeze, in ${style}`, () => {
+      const column = [100, -50, 500, 800]
+      const [frame, dots] = constructParts(spec, [], records, column, false)
+      frame.target.forEach((v, i) => expect(v).toBeCloseTo(column[i], 6))
+      const glyph = own(records['冂']), squeeze = (column[2] - column[0]) / (glyph.target[2] - glyph.target[0])
+      weight(frame).legs.forEach((leg, k) => expect(leg / weight(glyph).legs[k]).toBeGreaterThan(1.25 * squeeze))
+      const [sx, sy] = scaleOf(dots)
+      expect(sx).toBeCloseTo(sy, 6)
+      expect(dots.target[0]).toBeGreaterThan(column[0])
+      expect(dots.target[2]).toBeLessThan(column[2])
+    })
+
+    it(`keeps its proportions within the stretch in a wide place, centred, in ${style}`, () => {
+      const wide = [0, 0, 900, 400]
+      const [frame] = constructParts(spec, [], records, wide, false)
+      expect([frame.target[1], frame.target[3]]).toEqual([0, 400])
+      expect((frame.target[2] - frame.target[0]) / 400).toBeCloseTo(0.68 * constants.STRETCH, 6)
+      expect((frame.target[0] + frame.target[2]) / 2).toBeCloseTo(450, 6)
+    })
+  }
+
+  it('names the four faces’ 冂 and 斗 and leaves another export to the composer', () => {
+    expect(constructParts(spec, [], { 冂: fleshFaces.sans['冂'], 斗: fleshFaces.serif['冂'] }, face)).toEqual([])
+    // A known 斗 beside another face’s 冂 is no face the form was read from.
+    expect(constructParts(spec, [], { 冂: fleshFaces.serif['冂'], 斗: fleshFaces.sans['斗'] }, face)).toEqual([])
+    expect(constructParts(spec, [], { 冂: fleshFaces.sans['冂'], 斗: null }, face)).toEqual([])
+    expect(constructParts(spec, [], { 冂: null, 斗: fleshFaces.sans['斗'] }, face)).toEqual([])
+  })
+
+  const dou = { k: '斗', ink: 4000, o: 4, nl: 4, G: fleshFaces.sans['斗'] }
+  const drawer = (options = {}, records = {}) => new Composer({
+    manifest: { constants, spelled: [] }, layout: null,
+    rec: key => ({ 斗: dou, ...records })[key] ?? notoYu[key] ?? null,
+    hosts: () => [], places: () => [],
+  }, options)
+
+  it('is drawn alone and as a component, and separated into its two leaves', () => {
+    expect(drawer().compose('⿵冂⺀').map(part => part.origin)).toEqual(['construct 冂', 'construct 斗 ⺀'])
+    expect(drawer().compose('⿰⿵冂⺀刂').map(part => part.origin)).toEqual(['construct 冂', 'construct 斗 ⺀', 'glyph 刂'])
+    const separated = drawer({ separate: true }).compose('⿰⿵冂⺀刂')
+    expect(separated.map(part => part.origin)).toEqual(['construct 冂', 'construct 斗 ⺀', 'glyph 刂'])
+  })
+
+  it('keeps the composer’s own parts where a glyph it is drawn from is excluded or another', () => {
+    const own = ['glyph 冂', 'glyph ⺀']
+    expect(drawer({ exclude: ['斗'] }).compose('⿵冂⺀').map(part => part.origin)).toEqual(own)
+    expect(drawer({ exclude: ['冂'] }).compose('⿵冂⺀').map(part => part.origin)).not.toContain('construct 冂')
+    expect(drawer({}, { 斗: { ...dou, G: fleshFaces.serif['斗'] } }).compose('⿵冂⺀').map(part => part.origin)).toEqual(own)
+    expect(drawer({}, { 冂: { ...notoYu['冂'], G: fleshFaces.serif['冂'] } }).compose('⿵冂⺀').map(part => part.origin)).toEqual(own)
+  })
+
+  describe('in a row a layout sets', () => {
+    // A layout of one layer that sets each operand in its usual box: the mean a record holds for
+    // its place, or the layout’s default for a description with no record.
+    const ops = ['⿰', '⿱', '⿵']
+    const usual = () => {
+      const rows = ops.length + 20, data = new Float32Array(rows * 8)
+      for (const operand of [0, 1]) for (let k = 0; k < 4; k++) data[(ops.length + 10 * operand + k) * 8 + 4 * operand + k] = 1
+      return { ops, shape: 0, defaults: { L: [0, -80, 620, 840], R: [640, -80, 960, 840], '⿵0': [0, -80, 1000, 840], '⿵1': [200, -80, 800, 600] },
+        seeds: [[{ w: { rows, cols: 8, data }, b: new Float32Array(8) }]] }
+    }
+    // 月 stands on the left in a narrower box than a description with no record is given.
+    const moon = [60, -70, 440, 800]
+    // 偂 draws the row at its lower right: the frame in one column, 刂 in the other.
+    const row = [520, -70, 940, 420]
+    const donor = { h: '偂', op: '⿰', j: 1, v: 1, d: 1, si: 3499, fr: row, k: [0] }
+    const hosts = { 'L\t⿵冂⺀': [{ ...donor, ok: ['刂'], b: [520, -70, 700, 420] }], 'R\t刂': [{ ...donor, ok: ['⿵冂⺀'], b: [760, -70, 940, 420] }] }
+    const set = (options = {}, records = {}) => new Composer({
+      manifest: { constants, spelled: [] }, layout: usual(),
+      rec: key => ({ 斗: dou, 月: { ...notoYu['月'], u: { L: [moon, [0, 0, 0, 0], 9] } }, ...records })[key] ?? notoYu[key] ?? null,
+      hosts: (key, place) => hosts[`${place}\t${key}`] ?? [], places: () => [],
+    }, options)
+    const left = composer => composer.predict('⿰', composer.parse('⿰⿵冂⺀刂').slice(1))[0].map(Math.round)
+    const fallbacks = [
+      ['斗 is excluded', () => set({ exclude: ['斗'] })],
+      ['冂 is excluded', () => set({ exclude: ['冂'] })],
+      ['the export draws another 斗', () => set({}, { 斗: { ...dou, G: fleshFaces.serif['斗'] } })],
+      ['the export draws another 冂', () => set({}, { 冂: { ...notoYu['冂'], G: fleshFaces.serif['冂'] } })],
+    ]
+
+    it('takes the place the layout gives 月, and no donor’s row, where it is drawn', () => {
+      expect(left(set())).toEqual(moon)
+      const composer = set()
+      expect(composer.enclosureRow('⿰', composer.parse('⿰⿵冂⺀刂').slice(1), null)).toBeNull()
+      const [frame, , knife] = set().compose('⿰⿵冂⺀刂')
+      expect(frame.origin).toBe('construct 冂')
+      // The frame fills 月’s column, and 刂 keeps the right of the face, not the donor’s column.
+      expect(frame.target[0]).toBeGreaterThanOrEqual(moon[0] - 1)
+      expect(frame.target[2]).toBeLessThanOrEqual(moon[2] + 1)
+      expect(knife.target[0]).toBeGreaterThan(moon[2])
+    })
+
+    for (const [name, composer] of fallbacks) it(`keeps the layout and the donor’s row of its description where ${name}`, () => {
+      expect(left(composer())).toEqual([0, -80, 620, 840])
+      const drawn = composer()
+      const adopted = drawn.enclosureRow('⿰', drawn.parse('⿰⿵冂⺀刂').slice(1), null)
+      expect(adopted).not.toBeNull()
+      expect(adopted.map(part => part.origin)).not.toContain('construct 冂')
+      // Each operand is drawn in its column of the donor’s row.
+      const knife = adopted.at(-1).target
+      expect(knife[0]).toBeGreaterThanOrEqual(760 - 1)
+      expect(knife[2]).toBeLessThanOrEqual(940 + 1)
+      expect(Math.max(...adopted.slice(0, -1).map(part => part.target[2]))).toBeLessThanOrEqual(700 + 1)
+    })
   })
 })
