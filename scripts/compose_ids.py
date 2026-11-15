@@ -121,28 +121,49 @@ def draw_many(sequences: Path, out: Path, style: str = STYLE) -> None:
         print(f"{sequence}\t{name}")
 
 
-UNIHAN_URL = "https://www.unicode.org/Public/16.0.0/ucd/Unihan.zip"
-UNIHAN_SHA256 = "b8f000df69de7828d21326a2ffea462b04bc7560022989f7cc704f10521ef3e0"
+#: Where `variants` writes, and whether its sheet draws a form another form already draws.
+VARIANTS_OUT = typer.Option(..., "--out", help="the folder variants.json and variants.svg go in")
+VARIANTS_ALL = typer.Option(False, "--all", help="draw the forms another form already draws too")
+
+
+@app.command()
+def variants(character: str, out: Path = VARIANTS_OUT, style: str = STYLE, every: bool = VARIANTS_ALL) -> None:
+    """Write every form of one character into `out` (`han_compose.variants`): `variants.json`, each
+    form with its label, the text that selects it, its font, glyph and outline, and `variants.svg`,
+    one sheet of them. The forms are Noto CJK's regional designs, the character's sequences in the
+    Ideographic Variation Database, its standardized variation sequences and its compatibility
+    ideographs. `--style` is sans or serif, the designs Noto CJK draws by region."""
+    from han_compose import variants as V
+
+    if _style(style) not in V.COLLECTIONS:
+        raise typer.BadParameter(f"variants draws {' or '.join(V.COLLECTIONS)}, not {style}.")
+    if len(character) != 1:
+        raise typer.BadParameter(f"{character!r} is not one character.")
+    try:
+        fonts = V.Fonts.of(style)
+        found, sources = V.forms(character, fonts)
+    except (FileNotFoundError, ValueError) as error:
+        raise typer.BadParameter(str(error)) from error
+    if not any(form.outline for form in found):
+        raise typer.BadParameter(f"No font draws {character}.")
+    document = V.document(character, style, found, sources, fonts)
+    out.mkdir(parents=True, exist_ok=True)
+    (out / "variants.json").write_text(json.dumps(document, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+    (out / "variants.svg").write_text(V.sheet(character, found, fonts, every), encoding="utf-8")
+    counts = {kind: sum(form.kind == kind for form in found) for kind in V.KINDS}
+    print(json.dumps({"character": character, "forms": len(found), **counts,
+                      "distinct": sum(bool(form.outline) and not form.same_as for form in found),
+                      "undrawn": sum(form.outline is None for form in found)}, ensure_ascii=False))
 
 
 def joyo() -> list[str]:
     """The jōyō kanji, by Unihan 16.0's kJoyoKanji, fetched once into `<cache>/ucd/unihan/`."""
-    import hashlib
     import io
     import zipfile
 
-    import httpx
+    from han_compose.variants import UNIHAN
 
-    from han_compose.vocab import cache_root
-
-    path = cache_root() / "ucd" / "unihan" / "Unihan-16.0.0.zip"
-    if not path.exists():
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_bytes(httpx.get(UNIHAN_URL, follow_redirects=True, timeout=300).content)
-    data = path.read_bytes()
-    if hashlib.sha256(data).hexdigest() != UNIHAN_SHA256:
-        raise ValueError(f"{path} does not match its pinned SHA-256.")
-    text = zipfile.ZipFile(io.BytesIO(data)).read("Unihan_OtherMappings.txt").decode()
+    text = zipfile.ZipFile(io.BytesIO(UNIHAN.read())).read("Unihan_OtherMappings.txt").decode()
     return [chr(int(line.split("\t")[0].removeprefix("U+"), 16)) for line in text.splitlines() if "\tkJoyoKanji\t" in line]
 
 

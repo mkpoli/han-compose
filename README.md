@@ -123,6 +123,38 @@ rclone copy out/ <remote>:<bucket>/<version>/ --exclude '.work/**'
 Fonts download to `cache/fonts/` on first use. `$HAN_COMPOSE_CACHE` points the cache elsewhere.
 `COMPOSE_GUIDE` points at a folder of `guide-*.onnx`.
 
+## Variants
+
+```sh
+uv run scripts/compose_ids.py variants 釁 --style serif --out 釁/
+```
+
+`variants` writes the forms of one character into a folder: `variants.json`, each form with its
+label, the text that selects it, its font, glyph and outline, and `variants.svg`, one sheet of them.
+`--style` is `sans` or `serif`.
+
+| Kind | Forms | Drawn from |
+|---|---|---|
+| `regional` | the character in Noto CJK's JP, KR, SC, TC and HK faces | the Regular collection of Noto Sans CJK 2.004 or Noto Serif CJK 2.002 |
+| `ivs` | each sequence the Ideographic Variation Database of 2026-08-03 registers, with its collection and identifier (`Adobe-Japan1 CID+1481`) | the first font that maps the sequence: the collection's faces, IPAmj Mincho, Jigmo |
+| `svs` | each sequence of Unicode 16.0.0's `StandardizedVariants.txt` | the same fonts |
+| `compatibility` | each compatibility ideograph Unihan 16.0.0's `kCompatibilityVariant` gives the character | the first of those fonts that maps its code point |
+
+The regional forms are Noto's own designs for each region, labelled with the face's name. They are
+not the IRG source glyphs of the Unicode code charts. `irg_sources` lists the character's
+`kIRG_*Source` values from Unihan as data, and no drawing is a source's glyph.
+
+A form whose outline an earlier form already has is kept in the JSON with `same_as`, that form's
+label. The sheet names it beneath the earlier form, and `--all` draws it as well. Outlines are
+compared exactly, in a 1000-unit em, so two fonts' drawings of one shape stay apart. A registered
+sequence no font maps is listed with `"outline": null`. `glyph` is the font's own glyph name: Noto's
+`cid` numbers count its own glyphs, not Adobe-Japan1's.
+
+The Noto collection is read from `cache/fonts/`, else from `/usr/share/fonts/opentype/noto/`, where
+Debian's `fonts-noto-cjk` installs it. It is checked against that package's digest and never
+downloaded. IPAmj Mincho, Jigmo and the data files download on first use. `docs/licensing.md` lists
+each input with its URL, digest and terms.
+
 ## Checks
 
 ```sh
@@ -141,8 +173,9 @@ uv run ruff check
 | `src/han_compose/compose_standalone.py` | the size a part takes when it stands alone |
 | `src/han_compose/kanjivg_cuts.py` | cutting a host along KanjiVG's component groups |
 | `src/han_compose/vocab.py` | the vocab tables and the cache |
+| `src/han_compose/variants.py` | a character's regional designs, variation sequences and compatibility ideographs |
 | `src/han_compose/web_export.py` | the layout and drawing data for the browser engine |
-| `scripts/compose_ids.py` | `draw`, `draw-many`, `bench`, `calibrate`, `learn`, `learn-alone`, `export-web`, `export-web-pack` |
+| `scripts/compose_ids.py` | `draw`, `draw-many`, `variants`, `bench`, `calibrate`, `learn`, `learn-alone`, `export-web`, `export-web-pack` |
 | `tests/` | tests over cutting, layout, drawn output and the web export |
 | `js/` | `han-compose`, the same composer in the browser, with its own tests |
 | `data/` | the vocab tables, and the outlines the engine draws a part from when no export has it |
