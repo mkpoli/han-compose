@@ -1151,6 +1151,15 @@ CELL_STRETCH = 2.2
 OPEN_ONE_SIDE = 4.0
 #: Characters overlaying the same first operand looked at, and how many agree an overlaid layout.
 OVERLAY_HOSTS = 24
+#: The place an overlay's KanjiVG groups are listed under (`kanjivg_cuts.group_index`), by their
+#: components, sorted and joined: the overlay drawn whole in another character.
+OVERLAY_GROUPS = "⿻*"
+#: The least share of the smaller operand's extent, along each axis, by which the two operands of
+#: an overlay cross in a group that stands for it: at a half, the middle of the smaller lies inside
+#: the other. Over the overlays the sequence table writes, the groups KanjiVG makes of their
+#: components cross by under 0.3 (306, stacks and rows such as 呆 and 早) or by over 0.5 (809);
+#: the 15 between are a bar or a dot resting on the other operand (丙, 兀, 主).
+OVERLAY_CROSS = 0.5
 TEACHERS_OVERLAY = 3
 #: How many overlays of any operands are averaged when none share an operand.
 OVERLAY_ANY = 60
