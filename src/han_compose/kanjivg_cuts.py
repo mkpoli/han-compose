@@ -40,6 +40,8 @@ class Group:
     position: str | None
     strokes: list[int] = field(default_factory=list)
     groups: list[Group] = field(default_factory=list)
+    #: Which piece of its component the group is (`kvg:part`), where other strokes come between its strokes.
+    part: str | None = None
 
     def all_strokes(self) -> list[int]:
         out = list(self.strokes)
@@ -153,7 +155,7 @@ def load(path: str) -> dict[str, Entry]:
         paths: list[str] = []
 
         def build(node, paths=paths) -> Group:
-            g = Group(node.get(KVG + "element"), node.get(KVG + "position"))
+            g = Group(node.get(KVG + "element"), node.get(KVG + "position"), part=node.get(KVG + "part"))
             for child in node:
                 if child.tag == "g":
                     g.groups.append(build(child, paths))
@@ -290,16 +292,22 @@ class Cutter:
         return found
 
     def less(self, char: str, taken: str) -> C.Part | None:
-        """The glyph's outlines less those of the strokes KanjiVG groups as `taken` (鹿 less 比); of
-        several such groups, the last in stroke order. None when KanjiVG names no such group in the
-        character, the glyph and KanjiVG disagree, or an outline holds strokes of both sides."""
+        """The glyph's outlines less those of the strokes KanjiVG groups as `taken` (鹿 less 比). A
+        component KanjiVG draws in pieces (`kvg:part`: 衣 round the 口 of 哀) is all of them; of
+        several whole ones, the last in stroke order whose outlines hold no other stroke. None when
+        KanjiVG names no such group in the character, the glyph and KanjiVG disagree, or every
+        such component shares an outline with the rest."""
         entry, owners = self.entries.get(char), self.owners(char)
         if entry is None or owners is None:
             return None
         glyph, want = self.c.font.glyph(char), self.names(taken)
+        named = [g for g in entry.root.walk() if g is not entry.root and g.element in want]
+        pieces = {s for g in named if g.part for s in g.all_strokes()}
+        found = [set(g.all_strokes()) for g in named if not g.part] + ([pieces] if pieces else [])
+        # A group inside another of the same name is that one's own part, not a component apart.
+        found = [strokes for strokes in found if not any(strokes < other for other in found)]
         every = set(entry.root.all_strokes())
-        for group in reversed([g for g in entry.root.walk() if g is not entry.root and g.element in want]):
-            gone = set(group.all_strokes())
+        for gone in sorted(found, key=max, reverse=True):
             if not gone or gone == every or any(own & gone and not own <= gone for own in owners):
                 continue
             return C.Part([ct for ct, own in zip(glyph.contours, owners) if not own & gone])

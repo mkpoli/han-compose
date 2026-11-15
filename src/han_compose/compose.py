@@ -2493,11 +2493,13 @@ class Composer:
                 item.target = tuple(target)
             return out
         if op == SUBTRACT:
-            name = children[0] if isinstance(children[0], str) else self.by_sequence.get(key(children[0]))
-            kept = self._without(name, children[1]) if name is not None else None
+            first = children[0]
+            name = first if isinstance(first, str) else None if key(first) in self.spelled else self.by_sequence.get(key(first))
+            # A sketch is a character's own glyphs squeezed into place: only a hosted drawing cuts.
+            kept = self._without(name, children[1]) if name is not None and self.hosted else None
             if kept is not None:
-                # What is left of the glyph fills the region as a whole glyph would.
-                return [self._place(kept, region, self.ink("", kept), f"glyph {name}")]
+                # What is left fills the region as a whole glyph would, its strokes as dense as the glyph drew them.
+                return [self._place(kept, region, self.ink(name), f"glyph {name}")]
             out = self._node(children[0], region, at_root)
             taken = self._node(children[1], region)
             for item in taken:
@@ -3102,12 +3104,12 @@ class Composer:
         return max(sx / sy, sy / sx)
 
     def _without(self, char: str, taken: Node) -> Part | None:
-        """`char`'s glyph less the component `taken`: where the character's sequence names it, with
-        compound components written out, the glyph is cut level by level down to it and its
-        outlines are left out (明 less 月); of several the sequence names, the piece most like
-        `taken` goes. A character whose sequence does not name it is cut along the group KanjiVG
-        names so (鹿 less 比). None when the character is excluded or has no glyph, or neither
-        names `taken` in a way the glyph cuts."""
+        """`char`'s glyph less the component `taken`: where the character's sequence names it, as
+        written or with its compound components written out, the glyph is cut level by level down
+        to it and its outlines are left out (明 less 月); of several the sequence names, the piece
+        most like `taken` goes, the later of two alike. A character the variable font draws whose
+        sequence does not name it is cut along the group KanjiVG names so (鹿 less 比). None when
+        the character is excluded or has no glyph, or neither names `taken` in a way the glyph cuts."""
         glyph = self.font.glyph(char)
         if glyph is None or char in self.exclude:
             return None
@@ -3116,29 +3118,35 @@ class Composer:
             host = self._host_node(char, tree, path[:-1]) or self._host_node(char, tree, path[:-1], strict=False)
             if host is None:
                 continue
-            piece = host.pieces[path[-1]]
-            gone = {id(c) for c in piece.contours}
+            gone = {id(c) for c in host.pieces[path[-1]].contours}
             rest = [c for c in glyph.contours if id(c) not in gone]
             if not rest or len(rest) + len(gone) != len(glyph.contours):
                 continue
-            like = self.likeness(piece, taken)
-            if best is None or like > best[0]:
+            like = self.likeness(host.pieces[path[-1]], taken)
+            if best is None or like >= best[0]:
                 best = (like, Part(rest))
         if best is not None:
             return best[1]
-        return self.kvg.less(char, taken) if self.kvg is not None and isinstance(taken, str) else None
+        if self.kvg is None or not isinstance(taken, str) or not self.font.own(char):
+            return None
+        return self.kvg.less(char, taken)
 
     def _named(self, char: str, wanted: str) -> list[tuple[tuple, tuple[int, ...]]]:
-        """`char`'s sequence with its compound components written out, with the path to each node
-        of it written as `wanted`; empty where the character has no sequence to read."""
+        """`char`'s sequence with the path to each node of it written as `wanted`: as the sequence
+        is written (語 ⿰訁吾 names 吾), then with its compound components written out (and 五);
+        empty where the character has no sequence to read."""
         try:
             tree = parse(self.sequences[char]) if char in self.sequences else None
         except ValueError:
             tree = None
         if not isinstance(tree, tuple):
             return []
-        tree = self._expanded(tree, char, {}, EXPAND_DEPTH)
-        return [(tree, path) for path in _paths(tree, wanted)]
+        out = [(tree, path) for path in _paths(tree, wanted)]
+        written = self._expanded(tree, char, {}, EXPAND_DEPTH)
+        if written != tree:
+            seen = {path for _, path in out}
+            out.extend((written, path) for path in _paths(written, wanted) if path not in seen)
+        return out
 
     def _place(self, part: Part, target: Box, native: float, origin: str) -> Placed:
         """A whole glyph drawn into `target`, its proportions changed by at most `STRETCH`."""

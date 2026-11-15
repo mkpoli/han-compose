@@ -85,7 +85,7 @@ def test_the_bench_measures_ink_less_the_cut():
     assert script._aligned_overlap(placed, kept, 64) < script._aligned_overlap(kept, kept, 64) == 1.0
 
 
-def two_part_fixture():
+def two_part_fixture(hosted=True):
     """明 drawn as two outlines, 日 on the left and 月 on the right, with its sequence."""
     def box(x0, x1):
         points = np.array([[x0, 0], [x1, 0], [x1, 100], [x0, 100]], dtype=float)
@@ -94,7 +94,7 @@ def two_part_fixture():
     glyphs = {"明": compose.Part([left, right]), "日": compose.Part([box(0, 100)]), "月": compose.Part([box(0, 101)])}
     font = SimpleNamespace(glyph=glyphs.get, has=lambda ch: ch in glyphs,
                            own=lambda ch: ch in glyphs, stem=((4, 8), (4, 8)))
-    c = compose.Composer(font, {"明": "⿰日月"}, hosted=False, weighted=False, reuse=False)
+    c = compose.Composer(font, {"明": "⿰日月", "語": "⿰言吾", "吾": "⿱五口"}, hosted=hosted, weighted=False, reuse=False)
     c.__dict__["spelled"] = set()
     c.__dict__["atomic"] = set()
     return c, left, right
@@ -120,6 +120,8 @@ def test_a_component_the_sequence_names_is_left_out_of_the_glyph():
     assert asked[0] == ("明", "⿰日月", ())
     assert [(p.origin, p.cut) for p in placed] == [("glyph 明", False)]
     assert placed[0].part.contours == [left]
+    # Its strokes are as dense as the whole glyph drew them.
+    assert placed[0].native == c.ink("明")
     assert compose.svg_path(placed, cut=True) == ""
     kept = c.compose("㇯明日")
     assert kept[0].part.contours == [right]
@@ -172,3 +174,66 @@ def test_kanjivg_names_the_strokes_to_leave_out():
 def test_an_outline_holding_strokes_of_both_sides_is_not_cut():
     cutter, _ = kanjivg_cutter([{0}, {1, 2}, {2}, {3}])
     assert cutter.less("鹿", "比") is None
+
+
+def test_a_sketch_masks_and_cuts_no_host():
+    c, _, _ = two_part_fixture(hosted=False)
+    c._host_node = lambda *a, **k: (_ for _ in ()).throw(AssertionError("a sketch cut a host"))
+    assert [(p.origin, p.cut) for p in c.compose("㇯明月")] == [("glyph 明", False), ("glyph 月", True)]
+
+
+def test_a_component_is_found_as_written_before_it_is_written_out():
+    c, _, _ = two_part_fixture()
+    as_written = compose.parse("⿰言吾")
+    assert c._named("語", "吾") == [(as_written, (1,))]
+    assert c._named("語", "五") == [(compose.parse("⿰言⿱五口"), (1, 0))]
+    assert c._named("語", "木") == []
+    assert c._named("日", "一") == []
+
+
+def test_of_two_pieces_alike_the_later_goes():
+    c, left, right = two_part_fixture()
+    c.sequences["明"] = "⿰日日"
+    c._host_node = lambda char, tree, path, strict=True: compose.Host(char, [compose.Part([left]), compose.Part([right])], (0, 0, 100, 100), 20.0)
+    c.likeness = lambda part, node: 1.0
+    assert c._without("明", "日").contours == [left]
+    c.likeness = lambda part, node: 1.0 if part.contours[0] is left else 0.5
+    assert c._without("明", "日").contours == [right]
+
+
+def test_the_guide_leaves_what_is_left_of_a_glyph_alone():
+    from han_compose import compose_guide
+
+    c, left, right = two_part_fixture()
+    c._host_node = lambda char, tree, path, strict=True: compose.Host(char, [compose.Part([left]), compose.Part([right])], (0, 0, 100, 100), 20.0)
+    c.likeness = lambda part, node: 1.0
+    placed = c.compose("㇯明月")
+    assert not any(p.cut for p in placed)
+    assert compose_guide.Guide([]).fit(c, "㇯明月", placed) is placed
+
+
+def test_a_component_kanjivg_draws_in_pieces_goes_whole():
+    from han_compose import kanjivg_cuts as K
+
+    cutter, glyph = kanjivg_cutter([{0}, {1}, {2}, {3}])
+    root = K.Group("哀", None, [], [K.Group("衣", None, [0], part="1"), K.Group("口", None, [1, 2]), K.Group("衣", None, [3], part="2")])
+    cutter.entries["哀"] = K.Entry(root, ["M0 0"] * 4)
+    cutter._owners["哀"] = [{0}, {1}, {2}, {3}]
+    assert cutter.less("哀", "衣").contours == glyph.contours[1:3]
+    # One piece sharing an outline with the rest leaves the component uncut, not half removed.
+    cutter._owners["哀"] = [{0}, {1}, {2, 3}, {3}]
+    assert cutter.less("哀", "衣") is None
+
+
+def test_of_several_whole_components_the_last_clean_one_goes():
+    from han_compose import kanjivg_cuts as K
+
+    cutter, glyph = kanjivg_cutter([{0}, {1}, {2}, {3}])
+    root = K.Group("林", None, [], [K.Group("木", None, [0, 1]), K.Group("木", None, [2, 3])])
+    cutter.entries["林"] = K.Entry(root, ["M0 0"] * 4)
+    cutter._owners["林"] = [{0}, {1}, {2}, {3}]
+    assert cutter.less("林", "木").contours == glyph.contours[:2]
+    cutter._owners["林"] = [{0}, {1}, {2}, {3, 1}]
+    assert cutter.less("林", "木") is None
+    cutter._owners["林"] = [{0}, {1}, {2, 9}, {3}]
+    assert cutter.less("林", "木").contours == glyph.contours[2:]
