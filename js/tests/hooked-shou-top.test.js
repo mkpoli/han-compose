@@ -1,5 +1,6 @@
 import { expect, it } from 'bun:test'
 import { compose, createSource } from '../src/loader.js'
+import { componentParts } from '../src/component-forms.js'
 import { files } from './fixtures/small-export.js'
 
 const source = async () => {
@@ -19,6 +20,7 @@ const source = async () => {
 
 const ORIGIN = 'MOE-A00836-011 editorial'
 // Each spelling of the hooked top, and how many components it names.
+const TOPS = ['⿻龶⿱乛丷', '⿱⿻韦丷一', '⿱⿱𰀁乛⿱⺌一']
 const SPELLINGS = [['⿱⿻龶⿱乛丷吋', 3], ['⿳⿻韦丷一吋', 3], ['⿳⿱𰀁乛⿱⺌一⿰口寸', 4]]
 
 for (const fontStyle of ['sans', 'serif']) {
@@ -37,6 +39,18 @@ for (const fontStyle of ['sans', 'serif']) {
       const { parts } = await compose(src, sequence, { fontStyle, separate: true })
       expect(parts.length).toBe(components + base)
       expect(parts.map(p => String(p.origin).startsWith(ORIGIN))).toEqual([...Array(components).fill(true), ...Array(base).fill(false)])
+    }
+  })
+
+  it(`${fontStyle} draws one top under every spelling, with 丷 as its own two dots`, () => {
+    const boxes = TOPS.map(key => {
+      const targets = componentParts(key, undefined, fontStyle).map(part => part.target)
+      return [0, 1, 2, 3].map(i => Math.round((i < 2 ? Math.min : Math.max)(...targets.map(t => t[i]))))
+    })
+    expect(new Set(boxes.map(String)).size).toBe(1)
+    // 丷 is the third component of ⿻龶⿱乛丷 and the second of ⿱⿻韦丷一.
+    for (const [key, at] of [['⿻龶⿱乛丷', 2], ['⿱⿻韦丷一', 1]]) {
+      expect(componentParts(key, undefined, fontStyle)[at].part.contours.length).toBe(2)
     }
   })
 
