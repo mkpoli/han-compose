@@ -145,6 +145,8 @@ def records(composer: C.Composer, workers: int = 3) -> list[dict]:
     if getattr(composer, "kvg", None) is not None:
         # KanjiVG read before the workers fork, so that they share it.
         _ = composer.kvg.entries
+    # The fallbacks' glyphs opened before the workers fork, for the same reason.
+    composer.font.open_fallbacks()
     with mp.get_context("fork").Pool(workers, maxtasksperchild=60) as pool:
         return [r for r in pool.imap(_record, chars, chunksize=1) if r["inst"]]
 

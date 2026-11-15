@@ -43,9 +43,10 @@ def test_every_host_glyph_and_its_ownership_are_read_before_the_workers_fork() -
 
     glyphs, owners = [], []
     c = SimpleNamespace(_index=({("L", "木"): [("林", (), (), 0), ("村", (), (), 0)], ("R", "木"): [("林", (), (), 1)]}, None),
-                        font=SimpleNamespace(glyph=glyphs.append), kvg=SimpleNamespace(owners=owners.append))
+                        font=SimpleNamespace(glyph=glyphs.append, open_fallbacks=lambda: glyphs.append("fallbacks")),
+                        kvg=SimpleNamespace(owners=owners.append))
     web_export._load_font_caches(c)
-    assert glyphs == owners == ["村", "林"]
+    assert glyphs == ["fallbacks", "村", "林"] and owners == ["村", "林"]
 
 
 def test_every_host_glyph_is_weighed_before_the_workers_fork() -> None:
@@ -55,7 +56,7 @@ def test_every_host_glyph_is_weighed_before_the_workers_fork() -> None:
     left = SimpleNamespace(contours=[SimpleNamespace(weigh=lambda: weighed.append("林"))])
     done = SimpleNamespace(contours=[SimpleNamespace(weigh=None)])
     c = SimpleNamespace(_index=({("L", "木"): [("林", (), (), 0), ("村", (), (), 0)]}, None),
-                        font=SimpleNamespace(glyph={"林": left, "村": done}.get), kvg=None)
+                        font=SimpleNamespace(glyph={"林": left, "村": done}.get, open_fallbacks=lambda: None), kvg=None)
     web_export._load_font_caches(c)
     assert weighed == ["林"]
 
