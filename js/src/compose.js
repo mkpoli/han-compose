@@ -153,6 +153,9 @@ const CELL_INSET = 0.018
 const CELL_TOP = 0.28
 /** A part may stretch this much to fill its cell, more than the composer allows a placed part. */
 const CELL_STRETCH = 4
+// The share of a narrow row's cell the parts of a character drawn from its description cover, under
+// which the character's glyph fills the cell instead.
+const CELL_FILLED = 0.85
 /** An inner part of a side enclosure sits inside its outer: it takes less than the cell's height.
  *  The middle row of a three-row description is inset across, as in the reference. */
 const CELL_INNER_INSET = 0.15
@@ -469,6 +472,9 @@ export class Composer {
     this.stem0 = c.stem
     this.arities = new Map([...c.BINARY.map(op => [op, 2]), ...c.TERNARY.map(op => [op, 3]), ...c.UNARY.map(op => [op, 1])])
     this.expanding = new Set()
+    // The pairs written as operands of a row along their own axis, by their node and by their
+    // operand list (`narrowRow`).
+    this.beside = new WeakSet()
     this.approximate = new Set()
     this.coverCache = new Map()
     // Characters whose glyph the export lacks and whose sequence stands in for it.
@@ -1145,6 +1151,10 @@ export class Composer {
     // between the halves of a frame, which is no run to group.
     node = (written === node ? this.groupedStack(node) : null) ?? written
     const op = node[0], children = node.slice(1)
+    // A pair aligned along the axis of the row it is an operand of stands beside that row's other
+    // parts: its operand list is marked for `narrowRow`, and so are such pairs among its operands.
+    if (this.beside.has(node)) this.beside.add(children)
+    if (op in this.AXIS) for (const child of children) if (Array.isArray(child) && child.length === 3 && this.AXIS[child[0]] === this.AXIS[op]) this.beside.add(child)
     // Two syllables in one block close up as the manuscript sets them; an ideograph's two operands
     // would halve the face and leave the pair standing apart.
     if (op === '⿱' && children.length === 2 && children.every(isHangulSyllable)) return this.hangulBlock(children, region)
@@ -2116,6 +2126,9 @@ export class Composer {
     // and wider right are for different parts, and the same glyph drawn once from each shows as two
     // sizes of one shape (the two pairs of bars of ⿰𠄠𠄠).
     const even = isRepeatedRow([op, ...children]) ? evenCells(boxes, this.AXIS[op]) : null
+    // Two operands set beside another part along their own axis stand in cells as narrow as a row
+    // of three's, and fill them as its operands do.
+    const narrow = op in this.AXIS && this.narrowRow(children)
     const groups = []
     for (let i = 0; i < children.length; i++) {
       const child = children[i]
@@ -2165,7 +2178,8 @@ export class Composer {
         // The left column is where a square glyph loses its form; a right or upper operand keeps
         // its own glyph, which the box's size matches.
         if (own && (i > 0 || stretchOf(own.box, box) <= C.STRETCH)) {
-          groups.push([this.place(own, box, this.ink(child), `glyph ${child}`)])
+          const group = [this.place(own, box, this.ink(child), `glyph ${child}`)]
+          groups.push(narrow ? this.fillCell(child, group, box, this.beside.has(children)) : group)
           continue
         }
       }
@@ -2191,7 +2205,10 @@ export class Composer {
           const anchor = opening && (tight || area(opening) > area(box)) ? centre(this.held(opening, op, frameOf)) : centre(inner)
           groups.push(grid ? this.cellLayout(grid, inner, { leafIndices: false }) : this.node(child, inner))
           this.fit(groups[0], groups[1], frameOf, stem, C, { room: inner, anchor })
-        } else groups.push(this.node(child, even ? even[i] : box))
+        } else {
+          const cell = even ? even[i] : box, group = this.node(child, cell)
+          groups.push(narrow ? this.fillCell(child, group, cell, this.beside.has(children)) : group)
+        }
         continue
       }
       let { record: drawn, piece: source } = part
@@ -2425,7 +2442,7 @@ export class Composer {
             const glyph = typeof child === 'string' ? this.glyph(child) : null
             if (designed) groups.push(placed(designed.piece, designed.piece.box, fitted(designed.piece.box, box, C.STRETCH), this.ink(designed.record.h), `host ${designed.record.h}`))
             else if (glyph && !(axis === 0 && child === '\u{F2A9}' && this.fontStyle === 'sans')) groups.push(placed(glyph, glyph.box, box, this.ink(child), `glyph ${child}`))
-            else groups.push(this.row(child, box, children.length, axis === 0))
+            else groups.push(this.row(child, box, this.narrowRow(children), axis === 0, this.beside.has(children)))
           }
           return this.flatten(groups)
         }
@@ -2502,7 +2519,7 @@ export class Composer {
       const source = part ? this.pieceFor(child, part.piece) : undefined
       if (part) groups.push([{ ...placed(source, source.box, fitted(source.box, target, Math.max(C.STRETCH, C.CELL_STRETCH)), this.ink(part.record.h), `host ${part.record.h}`), ...(axis === 1 ? { gap: part.record.g } : {}) }])
       else {
-        const stack = this.row(child, target, children.length, axis === 0)
+        const stack = this.row(child, target, this.narrowRow(children), axis === 0, this.beside.has(children))
         if (top) this.closeShortStack(stack, box)
         groups.push(stack)
       }
@@ -2555,16 +2572,37 @@ export class Composer {
     return this.flatten(groups)
   }
 
-  /** `child` drawn into `box` as one of `count` aligned operands; a whole glyph in a row of three may
-   *  change its proportions up to `ROW_STRETCH`. */
-  row(child, box, n, sideBySide) {
+  /** `child` drawn into `box` as one of the aligned operands of a row; in a narrow row
+   *  (`narrowRow`) it fills its cell (`fillCell`). */
+  row(child, box, narrow, sideBySide, pair = false) {
     const designed = typeof child === 'string' ? this.designedCut(child) : null
     if (designed) return [placed(designed.piece, designed.piece.box, fitted(designed.piece.box, box, this.C.STRETCH), this.ink(designed.record.h), `host ${designed.record.h}`)]
     const group = this.node(child, box, false, sideBySide)
-    if (n === 3 && group.length === 1 && !group[0].nativeAspect && group[0].origin.startsWith('glyph ')) group[0].target = fitted(group[0].source, box, this.C.ROW_STRETCH)
-    else if (n === 3 && group.length > 1 && group[0].balanceBox && group.every(p => p.balanceBox === group[0].balanceBox)) {
+    return narrow ? this.fillCell(child, group, box, pair) : group
+  }
+
+  /** Whether the cells of the aligned operands `children` are as narrow as a row of three's: three
+   *  operands, or a pair written as an operand of a row along its own axis (the four columns of
+   *  ⿰⿰週末⿰農場). A pair in a stack beside a row, or in the room of an enclosure, is neither. */
+  narrowRow(children) { return children.length >= 3 || this.beside.has(children) }
+
+  /** What `node` drew for `child` in a narrow row's cell, filling the cell: a whole glyph may
+   *  change its proportions up to `ROW_STRETCH`. A character is drawn from its description where
+   *  the cell would squeeze its glyph; in a pair beside another part, when those parts cover under
+   *  `CELL_FILLED` of the cell (辶 under 周 in a quarter column, 曲 and 辰 apart in theirs), the glyph
+   *  fills it after all, so one column of the row is not smaller than the next. */
+  fillCell(child, group, box, pair = false) {
+    if (group.length === 1 && !group[0].nativeAspect && group[0].origin.startsWith('glyph ')) group[0].target = fitted(group[0].source, box, this.C.ROW_STRETCH)
+    else if (group.length > 1 && group[0].balanceBox && group.every(p => p.balanceBox === group[0].balanceBox)) {
       const frame = group[0].balanceBox, target = fitted(frame, box, this.C.ROW_STRETCH)
       for (const part of group) part.target = mapped(part.source, frame, target)
+    } else if (pair && group.length > 1 && typeof child === 'string' && !this.excluded(child)) {
+      const glyph = this.drawnGlyph(child, true)
+      if (glyph && covered(group.filter(part => !part.cut).map(part => part.target)) < CELL_FILLED * area(box)) {
+        const whole = placed(glyph, glyph.box, fitted(glyph.box, box, this.C.ROW_STRETCH), this.ink(child), `glyph ${child}`)
+        if (glyph.fixed) whole.fixed = true
+        return [whole]
+      }
     }
     return group
   }
@@ -3270,6 +3308,19 @@ function coverPairs(op, children, covers) {
   if (op === '⿱') return covers.has(children[0]) ? [[0, 1]] : []
   if (op === '⿳') return [0, 1].filter(i => i + 1 < children.length && covers.has(children[i])).map(i => [i, i + 1])
   return []
+}
+
+/** The area `boxes` cover together, an overlap counted once. */
+function covered(boxes) {
+  const xs = [...new Set(boxes.flatMap(b => [b[0], b[2]]))].sort((a, b) => a - b)
+  let total = 0
+  for (let i = 0; i + 1 < xs.length; i++) {
+    const spans = boxes.filter(b => b[0] <= xs[i] && b[2] >= xs[i + 1]).map(b => [b[1], b[3]]).sort((a, b) => a[0] - b[0])
+    let high = -Infinity, height = 0
+    for (const [y0, y1] of spans) if (y1 > high) { height += y1 - Math.max(y0, high); high = y1 }
+    total += height * (xs[i + 1] - xs[i])
+  }
+  return total
 }
 
 /** The middle band of a three-band stack, narrowed to `MIDDLE_ACROSS` of the region when it is an
