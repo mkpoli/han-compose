@@ -52,6 +52,7 @@ import numpy as np
 
 from . import compose as C
 from . import compose_layout as L
+from . import kanjivg_cuts as K
 
 #: The export's own format; a change to any file's shape makes a new one. 4 is the style-aware
 #: manifest without shards; 5 packs the records and host lists into shards; 6 adds the optional
@@ -425,6 +426,25 @@ def hosts_for(composer: C.Composer, place: str, written: str) -> list[dict]:
 
 
 # ------------------------------------------------------------------ keys
+def groups_for(composer: C.Composer, key: str) -> list[dict]:
+    """The KanjiVG groups made of the components `key` lists (sorted, joined), for an overlay of
+    those components drawn whole in another character (`kanjivg_cuts.groups_like`). Each entry: `r`
+    its position among the groups of those components, `h` the character, `v` and `j` as a host
+    entry has them, `gn` the group's components, `gc` for each outline the piece keeps the
+    components (positions in `gn`) whose strokes it holds, and `c` the piece as a host entry's cut
+    states it: `k` the indices of the character's contours, `b` their box, `kv` 1."""
+    records = []
+    for rank, (char, group) in enumerate(K.group_index(composer.kvg).get(tuple(key), [])):
+        cut = K.group_cut(composer.kvg, char, group)
+        if cut is None:
+            continue
+        piece = C.Part([composer.font.glyph(char).contours[k] for k in cut[0]])
+        records.append({"r": rank, "h": char, "v": int(composer.font.own(char)), "j": int(char in composer.japanese),
+                        "gn": [g.element for g in K._named(group)], "gc": cut[1],
+                        "c": {"b": _r(piece.box), "k": cut[0], "kv": 1}})
+    return records
+
+
 def _alternatives(composer: C.Composer, char: str, places: Iterable[str]) -> dict[str, list[str]]:
     out = {}
     for place in places:
@@ -636,6 +656,15 @@ def _work(task: tuple[str, ...]):
         if not hosts:
             return task, {}, None
         return task, _cuts(hosts), _write(path, {"place": place, "operand": written, "hosts": hosts})
+    if kind == "group":
+        place, written = task[1], task[2]
+        path = hosts_work(place, written)
+        found = _existing(path)
+        if found is not None:
+            return task, {h["h"] for h in found[0]["hosts"]}, found[1]
+        groups = groups_for(_WORKER, written)
+        # What the parent counts of a group list: the characters it draws from.
+        return task, {h["h"] for h in groups}, _write(path, {"place": place, "operand": written, "hosts": groups}) if groups else None
     key = task[1]
     path = record_work(key)
     found = _existing(path)
@@ -647,9 +676,14 @@ def _work(task: tuple[str, ...]):
 
 
 def tasks(composer: C.Composer, only: set[str] | None = None) -> list[tuple[str, str, str]]:
-    """Every (place, operand) the index holds: a host list each."""
+    """Every (place, operand) the index holds: a host list each. With KanjiVG, every set of
+    components it makes a group of too (`groups_for`), under `OVERLAY_GROUPS`."""
     index, _ = composer._index
-    return [("host", place, written) for place, written in sorted(index) if only is None or written in only]
+    out = [("host", place, written) for place, written in sorted(index) if only is None or written in only]
+    if composer.kvg is not None:
+        out += [("group", C.OVERLAY_GROUPS, "".join(parts)) for parts in sorted(K.group_index(composer.kvg))
+                if all(len(part) == 1 for part in parts) and (only is None or set(parts) <= only)]
+    return out
 
 
 # ------------------------------------------------------------------ parity
@@ -856,7 +890,8 @@ RECORD = {
     "f": "shape features the layout reads (compose_layout.shape): a sequence's are those of the character it describes",
     "u": "layout table 'all' per place: [mean box, spread, count]",
     "hosts": "a host list in a p/ shard: every entry of Composer._index for that place and operand, in its order. Each entry: r its position there (the kin and facing places slice the list to KIN_HOSTS, _instance to INSTANCE_HOSTS), h host, i operand index, op node operator, ok other operands' keys, si their ink, d depth, v 1 when the variable font draws the host, j 1 when Japan writes it, hd the hand (丿 or 一) the hand filter compares when the host has one, and c its cut. c is null when _host_node does not cut the entry cleanly; else {k the indices of the host glyph's contours (the host's G in its record) the piece keeps, b the piece's box, fr the node's frame, wh 1 for the whole character, g the pieces' gap, kv 1 when cut along KanjiVG's groups}, with p (and w) its own outlines in place of k for a piece holding a contour its glyph does not. pc 1 marks a cut only a parity drawing made, under its own exclusion. A port ranks the whole list against the target as _ranked does (exact, alien, sibling-ink ratio, depth), takes its caps (32 of the variable font's and 32 of the fallbacks' for a part placed in the em, 16 each otherwise) before cutting, so an entry with c null still takes a place, and draws a chosen entry's piece from its host's G",
-    "parity rows": "c character, s sequence, x characters excluded while drawing it (it and its twins), face the em face under that exclusion, d SVG path (y down from ascent) or null with error, origins per part",
+    "groups": "a list in a p/ shard under the place constants.OVERLAY_GROUPS and an operand that is the components of an overlay, each one character, sorted by code point and joined: the KanjiVG groups made of exactly those components, for an overlay drawn whole from another character (kanjivg_cuts.groups_like). Each entry: r its position, h the character, v and j as in a host entry, c its cut (k, b, kv), gn the group's components in its own order, gc for each contour of k the positions in gn of the components whose strokes it holds. A port keeps an entry only where its two operands cross (kanjivg_cuts.across, constants.OVERLAY_CROSS) and takes the one needing the least stretch, if within STRETCH",
+    "parity rows":"c character, s sequence, x characters excluded while drawing it (it and its twins), face the em face under that exclusion, d SVG path (y down from ascent) or null with error, origins per part",
 }
 
 #: The file scheme, as the manifest states it.
@@ -974,10 +1009,16 @@ def _export(composer: C.Composer, out: Path, joyo: list[str] | None = None, pari
     lists: dict[tuple[str, str], dict[tuple, tuple | None]] = {}
     sizes: dict[str, list[tuple[int, int]]] = {"records": [], "hosts": []}
     pool = _pool(workers, HOST_CHUNKS)
-    for (_, place, written), cuts, size in _run(pool, work, HOST_CHUNK, log, "hosts", 2000):
-        if size is not None:
+    grouped: set[str] = set()
+    for (kind, place, written), cuts, size in _run(pool, work, HOST_CHUNK, log, "hosts", 2000):
+        if size is None:
+            continue
+        sizes["hosts"].append(size)
+        if kind == "group":
+            # A group list's operand is a set of components, no key: it has no record and no place.
+            grouped |= cuts
+        else:
             lists[(place, written)] = cuts
-            sizes["hosts"].append(size)
     split = sum(1 for cuts in lists.values() for k in cuts.values() if k is None)
     if pool:
         pool.close()
@@ -1004,7 +1045,7 @@ def _export(composer: C.Composer, out: Path, joyo: list[str] | None = None, pari
         seqs &= only
         kids &= only
     # Every host a list cuts: a port draws a chosen entry's piece from its host's glyph.
-    chars |= {h for cuts in lists.values() for h, _, _ in cuts}
+    chars |= {h for cuts in lists.values() for h, _, _ in cuts} | grouped
     _EXTRA = {}
     for (place, kid) in sorted(table.counts):
         if kid in kids:

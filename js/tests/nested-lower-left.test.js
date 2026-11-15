@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import { sweptPart } from '../src/compose.js'
+import { Composer, near, sweptPart } from '../src/compose.js'
 import { partOf, placed } from '../src/geometry.js'
 import { compose, createSource } from '../src/loader.js'
 import { constants, files, layout, shards } from './fixtures/small-export.js'
@@ -40,6 +40,24 @@ describe('⿺ inside a larger description', () => {
   }
 })
 
+describe('a part held over a swept foot, once the drawing is weighted', () => {
+  // The last is mirrored as a whole: the pair is fitted as it stands without the mirror.
+  for (const sequence of ['⿱口⿺几力', '⿰口⿺几力', '⿰口⿾⿺几力']) {
+    it(`stands clear of the foot in ${sequence}`, async () => {
+      const from = source()
+      await compose(from, sequence, { layout: 'composed' })
+      const composer = new Composer(from.store())
+      const all = composer.compose(sequence)
+      const swept = all.filter(part => part.origin === 'swept glyph 几'), held = all.filter(part => part.origin.endsWith('力'))
+      expect(swept).toHaveLength(2)
+      expect(held).toHaveLength(1)
+      // No ink of 力 stands within 12 font units of 几's: half of what the refit keeps clear,
+      // `ROOM_MARGIN` of a stroke of about 60 units.
+      expect(near(swept, held, composer.face, 12, 500)).toBe(false)
+    })
+  }
+})
+
 const edge0 = (/** @type {{ target: number[] }} */ p) => p.target[0] + 0.5 * (p.target[2] - p.target[0])
 
 describe('a glyph swept in a cell smaller than the face', () => {
@@ -60,6 +78,24 @@ describe('a glyph swept in a cell smaller than the face', () => {
       }
     }
   })
+  it('moves both masters of the foot alike, so the heavy stroke keeps its width', () => {
+    // The sweeping stroke is the one that reaches the glyph's lower right corner. Point by point,
+    // its heavy master stands as far from its light one after the sweep as before it.
+    const sweep = glyph.contours.find(contour => {
+      const xs = contour.light.filter((_, i) => i % 2 === 0), ys = contour.light.filter((_, i) => i % 2 === 1)
+      return Math.max(...xs) > x1 - 0.15 * w && Math.min(...ys) < y0 + 0.25 * h && Math.max(...ys) - Math.min(...ys) > 0.3 * h
+    })
+    expect(sweep).toBeDefined()
+    if (!sweep) return
+    for (const [p, scale] of /** @type {const} */ ([[whole, 1], [half, 0.5]])) {
+      const swept = sweptPart(p, edge0(p), constants)
+      expect(swept).toHaveLength(2)
+      if (!swept) continue
+      const [contour] = swept[1].part.contours
+      for (let i = 0; i < contour.light.length; i += 2)
+        expect(contour.heavy[i] - contour.light[i]).toBeCloseTo((sweep.heavy[i] - sweep.light[i]) * scale, 5)
+    }
+  })
   it('measures a glyph that states no width by the width its ink calls for', () => {
     const plain = partOf({ ...parts.几.G })
     const swept = sweptPart(placed(plain, plain.box, half.target, parts.几.ink, 'glyph 几'), edge0(half), constants)
@@ -70,5 +106,33 @@ describe('a glyph swept in a cell smaller than the face', () => {
       expect(contour.width[1]).toBeCloseTo(own[1] * sy, 5)
     }
     expect(swept).toHaveLength(2)
+  })
+})
+
+describe('⿺ round a part with no host cut, as the whole description', () => {
+  for (const sequence of ['⿺几⿱口力', '⿺几⿰口力']) {
+    it(`sweeps 几 under the part in ${sequence}`, async () => {
+      const all = await drawn(sequence)
+      const swept = all.filter(part => part.origin === 'swept glyph 几')
+      const held = all.filter(part => !part.origin.startsWith('swept'))
+      expect(swept).toHaveLength(2)
+      expect(held).toHaveLength(2)
+      const [strokes, foot] = swept
+      // Both operands of the part stand right of the pressed strokes and over the foot.
+      for (const part of held) {
+        expect(part.box[0]).toBeGreaterThan(right(strokes) - 40)
+        expect(right(foot)).toBeGreaterThan(right(part) - 20)
+        expect(part.box[1] + part.box[3]).toBeLessThan(foot.box[1] + foot.box[3])
+      }
+    })
+  }
+  it('sweeps 几 under an empty slot', async () => {
+    const drawing = await compose(source(), '⿺几⬚', { layout: 'composed' })
+    const swept = drawing.parts.filter(part => part.origin === 'swept glyph 几')
+    expect(swept).toHaveLength(2)
+    expect(drawing.slots).toHaveLength(1)
+    const [strokes, foot] = swept, [slot] = drawing.slots
+    expect(slot.box[0]).toBeGreaterThan(right(strokes) - 40)
+    expect(right(foot)).toBeGreaterThan(right(slot) - 20)
   })
 })

@@ -73,12 +73,13 @@ class Guide:
         if C.SUBTRACT in sequence:
             return placed
         gain = self.ink(composer, sequence, placed) - 0.5
-        if LEVEL == "part":
-            return [_fitted(item, item.part.contours, gain) for item in placed]
         out = []
         for item in placed:
-            for group in C._units(item.part.contours):
-                out.append(_fitted(item, group, gain))
+            if item.fixed:
+                # A part placed at a size of its own stays as it was placed.
+                out.append(item)
+            else:
+                out.extend(_fitted(item, group, gain) for group in ([item.part.contours] if LEVEL == "part" else C._units(item.part.contours)))
         return out
 
 

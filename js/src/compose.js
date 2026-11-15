@@ -166,6 +166,9 @@ const CELL_MIDDLE_INSET = 0.08
 const CELL_AXIS = { '⿵': 1, '⿶': 1 }
 /** The scale `fitInside` walks down to, and the share of a box a room is short of before it gives way. */
 const FIT_FLOOR = 0.45
+/** The raster a part held over a swept foot is refitted on once the drawing is weighted. It covers
+ *  the part and the margin round it, so a cell is a few font units and the margin several cells. */
+const SETTLE_SIZE = 96
 /** The falling strokes, which at the upper left of ⿸ are the first stroke of 久 and 夂. */
 const FALLING_STROKES = new Set(['丿', '㇒', 'ノ'])
 /** The characters whose own stroke is that stroke, with the stroke's number: 久's first, and the
@@ -530,6 +533,8 @@ export class Composer {
     this.resolutions = new Map()
     // Stacked operand pairs, settled against their ink once the drawing is weighted.
     this.joints = []
+    // Swept glyphs with the part each holds over its foot, refitted once the drawing is weighted.
+    this.sweeps = []
     /** How much smaller than it was laid out the character is drawn, beside marks that take a margin. */
     this.carried = 1
   }
@@ -707,6 +712,7 @@ export class Composer {
     this.approximate.clear()
     this.nativeEnclosures.clear()
     this.joints.length = 0
+    this.sweeps.length = 0
     this.carried = 1
     let slots = 0
     const number = node => node === EMPTY ? `${EMPTY}${slots++}` : Array.isArray(node) ? mapOperands(node, number) : node
@@ -752,7 +758,10 @@ export class Composer {
           else part.leaf = before[i]
         })
       }
-      if (!this.partial && this.weighted) this.balance(out)
+      if (!this.partial && this.weighted) {
+        this.balance(out)
+        this.settleSweeps()
+      }
       this.settleJoints()
       const construct = CONSTRUCTS[sequence]
       // The bundled body is Noto's: a face with its own forms keeps the drawing it made. A nested
@@ -1367,12 +1376,14 @@ export class Composer {
     const chars = [...run]
     const classes = chars.map(jamoClass)
     let at = 0
-    const initial = chars[at++]
+    // A run opens with one initial or several; a lone letter of any class stands for itself.
+    /** @type {string[]} */ const initials = [chars[at++]]
+    while (classes[at] === 'L') initials.push(chars[at++])
     /** @type {string[]} */ const vowels = []
     while (classes[at] === 'V') vowels.push(chars[at++])
     /** @type {string[]} */ const finals = []
     while (classes[at] === 'T') finals.push(chars[at++])
-    if (!vowels.length) return this.node(initial, region)
+    if (!vowels.length) return this.node(initials[0], region)
     const below = BELOW_VOWELS.has(vowels[0]) || DOT_VOWELS.has(vowels[0])
     const hasFinal = finals.length > 0
     const parts = []
@@ -1382,7 +1393,12 @@ export class Composer {
     const initialBox = below
       ? (hasFinal ? box(0.14, 0.54, 0.86, 0.98) : box(0.14, 0.26, 0.86, 0.98))
       : (hasFinal ? box(0.02, 0.24, 0.50, 0.90) : box(0.01, 0.12, 0.52, 0.88))
-    parts.push(...this.node(initial, initialBox))
+    // Several initials share the initial's place side by side, as finals share theirs.
+    const [ix0, iy0, ix1, iy1] = initialBox
+    initials.forEach((letter, i) => {
+      const from = ix0 + (ix1 - ix0) * (i / initials.length), to = ix0 + (ix1 - ix0) * ((i + 1) / initials.length)
+      parts.push(...this.node(letter, [from, iy0, to, iy1]))
+    })
     if (DOT_VOWELS.has(vowels[0])) {
       // 아라아 and its fellows are dots: a dot drawn to fill a letter's room would be a blob.
       // A dot keeps its own round shape: squaring it to a letter's room would draw a lozenge.
@@ -2351,6 +2367,9 @@ export class Composer {
       // description is drawn: the host cut carries the font's smaller row.
       if (!part && op in this.ENCLOSE && i === 0) part = this.enclosureForm(op, child)
       if (!part) {
+        // A part with no host cut (a description, an empty slot) is set over a swept foot by
+        // `shares`: where it will sweep the outer glyph, answer nothing and `node` hands it the pair.
+        if (op === '⿺' && i === 1 && this.sweptUnder(children, this.enclosing(op, children, frameOf), frameOf)) return null
         if (op in this.ENCLOSE && i === 1) {
           // An inner the opening cannot hold is drawn into the opening itself, so it cannot
           // overflow the frame. A grid drawn whole can still have one row smaller than the other
@@ -2544,6 +2563,31 @@ export class Composer {
     for (const part of below) part.target = [part.target[0], part.target[1] + shift, part.target[2], part.target[3] + shift]
   }
 
+  /** The enclosing operand as `shares` draws it over `region`: its designed form where it has one,
+   *  its own drawing otherwise. */
+  enclosing(op, children, region) {
+    const outer = this.node(children[0], region)
+    const designed = this.enclosureForm(op, children[0])
+    return designed
+      ? [placed(designed.piece, designed.piece.box, fitted(designed.piece.box, region, this.C.STRETCH), this.ink(designed.record.h), `host ${designed.record.h}`)]
+      : outer
+  }
+
+  /** A glyph round the lower left of another part, pressed left and its foot drawn out under that
+   *  part from the box the layout gives it: the swept pieces and that box mapped into `region`.
+   *  Null where `outer` is no single glyph, the layout places nothing, or the glyph has no foot to
+   *  sweep. */
+  sweptUnder(children, outer, region) {
+    if (!this.layout?.ops.includes('⿺') || !this.hosted || this.partial) return null
+    if (outer.length !== 1 || !outer[0].origin.startsWith('glyph')) return null
+    const boxes = this.predict('⿺', children), frame = union(boxes)
+    // Boxes the layout leaves empty place nothing, as `learned` reads them.
+    if (!(frame[2] > frame[0] && frame[3] > frame[1] && boxes.every(b => b[2] > b[0] && b[3] > b[1]))) return null
+    const held = mapped(boxes[1], frame, region)
+    const swept = sweptPart(outer[0], held[0] - this.C.FACING[0], this.C, this.tailForm(keyOf(children[0])))
+    return swept ? { swept, held } : null
+  }
+
   /** Operands sharing the region along an aligned operator by `SHARES`; an enclosed one in the room its
    *  enclosing part leaves. */
   shares(op, children, region, atRoot = false) {
@@ -2552,9 +2596,7 @@ export class Composer {
       // Inside a larger description the halves stand apart as they do at the root.
       const split = this.splitFrame(op, children, region)
       if (split) return split
-      let outer = this.node(children[0], region)
-      const designedOuter = this.enclosureForm(op, children[0])
-      if (designedOuter) outer = [placed(designedOuter.piece, designedOuter.piece.box, fitted(designedOuter.piece.box, region, C.STRETCH), this.ink(designedOuter.record.h), `host ${designedOuter.record.h}`)]
+      let outer = this.enclosing(op, children, region)
       // 虍's whole glyph leaves the inner only the narrow hook. The export's designed 虍 cuts
       // (from 慮, 虜, 虞 …) open wider, so take one when the outer is 虍.
       if (op === '⿸' && typeof children[0] === 'string' && children[0] === '虍') {
@@ -2563,17 +2605,9 @@ export class Composer {
       }
       // A glyph round the lower left of another part is swept under it inside a larger description
       // as it is at the root, from the box the layout gives the part it holds (⿺几力 under 助).
-      let held = null
-      if (op === '⿺' && this.layout?.ops.includes(op) && this.hosted && !this.partial
-        && outer.length === 1 && outer[0].origin.startsWith('glyph')) {
-        const boxes = this.predict(op, children), frame = union(boxes)
-        // Boxes the layout leaves empty place nothing, as `learned` reads them.
-        if (frame[2] > frame[0] && frame[3] > frame[1] && boxes.every(b => b[2] > b[0] && b[3] > b[1])) {
-          const box = mapped(boxes[1], frame, region)
-          const swept = sweptPart(outer[0], box[0] - C.FACING[0], C, this.tailForm(keyOf(children[0])))
-          if (swept) { outer = swept; held = box }
-        }
-      }
+      const under = op === '⿺' ? this.sweptUnder(children, outer, region) : null
+      if (under) outer = under.swept
+      const held = under?.held ?? null
       let room = this.room(op, outer, region)
       // Over a swept foot the part stands where the layout puts it, inside the opening.
       if (held) {
@@ -2595,6 +2629,7 @@ export class Composer {
       const inner = this.node(children[1], hu ? huRoom : room)
       if (!hu) this.fit(outer, inner, region, this.stem0[0][0], C,
         fallback && op === '⿽' ? { room, bounds: room } : undefined)
+      if (held) this.sweeps.push([outer, inner])
       return [...outer, ...inner]
     }
     const axis = this.AXIS[op]
@@ -2853,8 +2888,55 @@ export class Composer {
       || (1 / C.OVERLAY_INK <= this.ink(k) / Math.max(this.ink(t.written[j]), 1) && this.ink(k) / Math.max(this.ink(t.written[j]), 1) <= C.OVERLAY_INK)))
   }
 
-  /** Operands drawn across each other (⿻), where characters overlaying like operands put them. */
+  /** An overlay drawn whole in another character, where KanjiVG groups exactly its components and
+   *  draws its two operands across each other (`kanjivg_cuts.groups_like`): the top of 脊 in 鶺 for
+   *  ⿻人⿰二二, 束 in 整 for ⿻木口. The export lists such groups under `OVERLAY_GROUPS` by their
+   *  components, sorted and joined; a group whose operands do not cross is a stack or a row of
+   *  them (呆 for ⿻木口) and is passed over. The one needing the least stretch is taken, if within
+   *  `STRETCH`. Null where the export lists none.
+   *  @param {(string | any[])[]} children @param {number[]} region */
+  overlayGroup(children, region) {
+    const C = this.C
+    // Drawn part by part, an overlay keeps a piece for each operand, as `node` keeps off `instance`.
+    if (!this.hosted || this.separate || !C.OVERLAY_GROUPS || this.spelled.has(keyOf(['⿻', ...children]))) return null
+    /** @param {string | any[]} node @returns {string[]} */
+    const leaves = node => typeof node === 'string' ? [node] : node.slice(1).flatMap(leaves)
+    const sides = children.map(child => new Set(leaves(child)))
+    const parts = children.flatMap(leaves)
+    // A group is listed by components of one character each, in code point order.
+    if (parts.length < 2 || parts.some(part => [...part].length !== 1)) return null
+    const key = parts.sort((a, b) => (a.codePointAt(0) ?? 0) - (b.codePointAt(0) ?? 0)).join('')
+    // An operand's outlines are those holding its components' strokes alone; the two operands
+    // cross where the boxes of their outlines overlap by `OVERLAY_CROSS` of the smaller both ways.
+    // It cannot be told for a component both operands name, or an operand with no outline of its own.
+    const across = h => {
+      if (children.length !== 2 || [...sides[0]].some(name => sides[1].has(name))) return true
+      const contours = this.pieceOf(h).contours, boxes = []
+      for (const side of sides) {
+        const own = contours.filter((_, k) => h.gc[k].every(n => side.has(h.gn[n]))).map(contour => pointsBox(contour.light))
+        if (!own.length) return true
+        boxes.push(union(own))
+      }
+      const [a, b] = boxes
+      return [0, 1].every(axis => Math.min(a[axis + 2], b[axis + 2]) - Math.max(a[axis], b[axis])
+        >= C.OVERLAY_CROSS * Math.min(a[axis + 2] - a[axis], b[axis + 2] - b[axis]))
+    }
+    let best = null
+    for (const h of this.hostsOf(key, C.OVERLAY_GROUPS)) {
+      if (this.excluded(h.h) || !across(h)) continue
+      const stretch = stretchOf(this.cutOf(h).box, region)
+      if (!best || stretch < best[0]) best = [stretch, h]
+    }
+    if (!best || best[0] > C.STRETCH) return null
+    const piece = this.pieceOf(best[1])
+    return placed(piece, piece.box, region.slice(), this.ink(best[1].h), `instance ${best[1].h}`)
+  }
+
+  /** Operands drawn across each other (⿻): whole from a character that draws them so
+   *  (`overlayGroup`), else where characters overlaying like operands put them. */
   overlay(children, region) {
+    const whole = this.overlayGroup(children, region)
+    if (whole) return [whole]
     const C = this.C, keys = children.map(keyOf), usable = this.overlayTeachers(children)
     if (!usable.length && children.length === 2) {
       const outer = this.node(children[0], region)
@@ -3143,6 +3225,40 @@ export class Composer {
       const to = [box[0], box[1], box[2], box[3] + gap]
       if (stretchOf(box, to) > C.STRETCH) continue
       for (const part of below) part.target = targetFor(part, mapped(drawnBox(part), box, to))
+    }
+  }
+
+  /** A part held over a swept foot is fitted before the drawing is weighted. In a small cell
+   *  `balance` thickens both and the clearance closes: where the part's ink then comes within
+   *  `ROOM_MARGIN` of a stroke of the swept glyph's, the part is fitted again, no larger than it
+   *  stood and inside the box its ink stood in. Its weight is not set again, so a part made smaller here keeps
+   *  strokes that much thinner than `balance` gave it. Runs before `settleJoints`, which closes a
+   *  stack on the ink this leaves. */
+  settleSweeps() {
+    // The pair is kept `ROOM_MARGIN` of the stroke the drawing is weighted to apart. `fitInside`
+    // clears half of `ROOM_MARGIN` of the width it is given, so it is given two strokes.
+    const C = this.C, stroke = this.stroke[0], margin = C.ROOM_MARGIN * stroke
+    const plain = p => ({ ...p, flips: undefined })
+    for (const [outer, inner] of this.sweeps) {
+      if (!outer.length || !inner.length) continue
+      // A mirror over the whole pair leaves its parts where they stand to each other, and
+      // `fitInside` moves targets, which are the unmirrored boxes: fit the pair without it. A pair
+      // whose parts are mirrored apart is left as it is.
+      const flips = JSON.stringify(outer[0].flips ?? [])
+      if ([...outer, ...inner].some(p => JSON.stringify(p.flips ?? []) !== flips)) continue
+      const frame = outer.map(plain), held = inner.map(plain)
+      // The raster covers the part and twice the margin round it, square so that its cells are:
+      // ink further off cannot come within the margin of a part that stays inside its box.
+      const stood = inkBounds(held), side = Math.max(stood[2] - stood[0], stood[3] - stood[1]) + 4 * margin
+      const cx = (stood[0] + stood[2]) / 2, cy = (stood[1] + stood[3]) / 2, cell = side / SETTLE_SIZE
+      const region = [cx - side / 2, cy - side / 2, cx + side / 2, cy + side / 2]
+      if (!near(frame, held, region, margin, SETTLE_SIZE)) continue
+      // A cell of slack lets a part that is clear where it stands pass at its own size.
+      const limit = [stood[0] - cell, stood[1] - cell, stood[2] + cell, stood[3] + cell]
+      if (!fitInside(frame, held, region, 2 * stroke, C, { size: SETTLE_SIZE, room: bounds(held), bounds: limit })) continue
+      // A placement under a cell from where the part stood is the raster's rounding, not a move.
+      const shift = Math.max(...held.flatMap((p, i) => p.target.map((edge, k) => Math.abs(edge - inner[i].target[k]))))
+      if (shift >= cell) held.forEach((p, i) => { inner[i].target = p.target })
     }
   }
 
@@ -4024,14 +4140,11 @@ export function sweptPart(p, edge, C, tail = null) {
   const shift = (left - x0) * pressed - (left - x0)
   if (end <= turn + shift) return null
   const start = turn + shift
-  const drawnOut = points => {
-    const out = points.slice()
-    for (let i = 0; i < out.length; i += 2) {
-      const x = points[i]
-      out[i] = x <= turn ? x + shift : x <= end ? start + (x - turn) * (end - start) / (end - turn) : x
-    }
-    return out
-  }
+  // Each point's displacement is read from the stroke as drawn and added to both masters, so the
+  // stem and the hook keep their own width in each: the inner edges of the heavy ones lie between
+  // `turn` and `end`, where the foot is drawn out.
+  const dx = pts.map((x, i) => i % 2 ? 0 : x <= turn ? shift : x <= end ? start + (x - turn) * (end - start) / (end - turn) - x : 0)
+  const drawnOut = points => points.map((value, i) => value + dx[i])
   const [sx, sy] = scaleOf(p)
   const cx = (p.source[0] + p.source[2]) / 2, cy = (p.source[1] + p.source[3]) / 2
   const gx = (p.target[0] + p.target[2]) / 2, gy = (p.target[1] + p.target[3]) / 2

@@ -43,10 +43,10 @@ def test_a_stack_or_a_row_of_the_same_components_is_no_overlay():
 
 
 def test_operands_that_only_touch_do_not_cross():
-    # 口 resting on 木's bar: a fifth of 口's height lies inside 木's box, under `CROSS`.
+    # 口 resting on 木's bar: a fifth of 口's height lies inside 木's box, under `OVERLAY_CROSS`.
     touching = [rect(20, 32, 80, 72), rect(40, 0, 60, 40), rect(0, 20, 100, 40)]
     made, _ = cutter({"褒": (K.Group("褒", None, [], [K.Group("呆", None, [], [K.Group("口", None, [0]), K.Group("木", None, [1, 2])])]), touching)})
-    assert K.CROSS > 8 / 40
+    assert compose.OVERLAY_CROSS > 8 / 40
     assert K.groups_like(made, ("⿻", "木", "口"), set()) == []
 
 
@@ -95,3 +95,53 @@ def test_an_excluded_character_gives_no_group():
     made, _ = cutter({
         "速": (K.Group("速", None, [], [K.Group("束", None, [], [K.Group("木", None, [0, 1]), K.Group("口", None, [2])])]), THROUGH)})
     assert K.groups_like(made, ("⿻", "木", "口"), {"速"}) == []
+
+
+def exported(characters, japanese=()):
+    """A composer as the exporter reads one, over `characters` (as `cutter` takes them)."""
+    made, glyphs = cutter(characters)
+    font = SimpleNamespace(glyph=glyphs.get, own=lambda char: char in glyphs)
+    return SimpleNamespace(kvg=made, font=font, japanese=set(japanese), _index=({("⿰0", "木"): []}, None)), glyphs
+
+
+def test_the_export_lists_a_group_by_its_components_with_what_the_crossing_test_reads():
+    from han_compose import web_export
+
+    composer, _ = exported({
+        "速": (K.Group("速", None, [], [K.Group("束", None, [], [K.Group("木", None, [0, 1]), K.Group("口", None, [2])])]), THROUGH),
+        "褒": (K.Group("褒", None, [], [K.Group("呆", None, [], [K.Group("口", "top", [0]), K.Group("木", "bottom", [1, 2])])]), STACKED)},
+        japanese="速")
+    assert web_export.groups_for(composer, "口木") == [
+        {"r": 0, "h": "速", "v": 1, "j": 1, "gn": ["木", "口"], "gc": [[0], [0], [1]], "c": {"b": [0.0, 0.0, 100.0, 100.0], "k": [0, 1, 2], "kv": 1}},
+        {"r": 1, "h": "褒", "v": 1, "j": 0, "gn": ["口", "木"], "gc": [[0], [1], [1]], "c": {"b": [0.0, 0.0, 100.0, 100.0], "k": [0, 1, 2], "kv": 1}},
+    ]
+    assert web_export.groups_for(composer, "木木") == []
+    # A stack is listed too: which groups cross depends on how the overlay's operands divide them.
+    assert ("group", compose.OVERLAY_GROUPS, "口木") in web_export.tasks(composer)
+    assert ("group", compose.OVERLAY_GROUPS, "口木") in web_export.tasks(composer, only={"木", "口"})
+    assert ("group", compose.OVERLAY_GROUPS, "口木") not in web_export.tasks(composer, only={"木"})
+    assert ("host", "⿰0", "木") in web_export.tasks(composer)
+
+
+def test_a_listed_group_crosses_where_the_drawing_takes_it():
+    from han_compose import web_export
+
+    composer, glyphs = exported({
+        "速": (K.Group("速", None, [], [K.Group("束", None, [], [K.Group("木", None, [0, 1]), K.Group("口", None, [2])])]), THROUGH),
+        "褒": (K.Group("褒", None, [], [K.Group("呆", None, [], [K.Group("口", "top", [0]), K.Group("木", "bottom", [1, 2])])]), STACKED)})
+    node = ("⿻", "木", "口")
+    taken = {char for char, _ in K.groups_like(composer.kvg, node, set())}
+    for record in web_export.groups_for(composer, "口木"):
+        boxes = [glyphs[record["h"]].contours[k].box for k in record["c"]["k"]]
+        assert K.across(node, record["gn"], record["gc"], boxes) == (record["h"] in taken)
+    assert taken == {"速"}
+
+
+def test_an_outline_holding_strokes_of_two_components_is_neither_operands_own():
+    # 木's bar and 口 drawn as one outline: 口 has none of its own, so the group cannot be told apart.
+    root = K.Group("速", None, [], [K.Group("束", None, [], [K.Group("木", None, [0, 1]), K.Group("口", None, [2])])])
+    made, _ = cutter({"速": (root, THROUGH[:2])})
+    made._owners["速"] = [{0}, {1, 2}]
+    kept, held = K.group_cut(made, "速", root.groups[0])
+    assert (kept, held) == ([0, 1], [[0], [0, 1]])
+    assert K.across(("⿻", "木", "口"), ["木", "口"], held, [c.box for c in THROUGH[:2]])
