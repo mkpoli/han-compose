@@ -3734,7 +3734,10 @@ def _swept(placed: Placed, edge: float) -> list[Placed] | None:
     goal = np.array([(placed.target[0] + placed.target[2]) / 2, (placed.target[1] + placed.target[3]) / 2])
 
     def at(c: Contour, move) -> Contour:
-        return Contour(c.ops, move((c.light - centre) * scale + goal), move((c.heavy - centre) * scale + goal), c.width)
+        # The contours stand at the size they are drawn at, so the stroke widths they state are the
+        # scaled ones: `_balance` reads them against a scale of one.
+        width = None if c.width is None else (c.width[0] * scale[0], c.width[1] * scale[1])
+        return Contour(c.ops, move((c.light - centre) * scale + goal), move((c.heavy - centre) * scale + goal), width)
 
     # The other strokes pressed by their target box, so that weighting thickens their stems back.
     strokes = Part([at(c, lambda p: p) for k, c in enumerate(placed.part.contours) if k != sweep])
