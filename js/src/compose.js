@@ -3839,7 +3839,11 @@ export function sweptPart(p, edge, C, tail = null) {
   const gx = (p.target[0] + p.target[2]) / 2, gy = (p.target[1] + p.target[3]) / 2
   const at = (c, move) => {
     const map = src => { const out = new Float64Array(src.length); for (let i = 0; i < src.length; i += 2) { out[i] = (src[i] - cx) * sx + gx; out[i + 1] = (src[i + 1] - cy) * sy + gy } return move(out) }
-    return { ops: c.ops, light: map(c.light), heavy: map(c.heavy), width: c.width }
+    // The contours stand at the size they are drawn at, so the stroke widths they state are the
+    // scaled ones: `balance` reads them against a scale of one. A glyph stating none takes the
+    // width its ink calls for, as `balance` would.
+    const own = c.width ?? [0, 1].map(axis => C.STEM_CURVE[axis][0] + C.STEM_CURVE[axis][1] * p.native / 1000)
+    return { ops: c.ops, light: map(c.light), heavy: map(c.heavy), width: [own[0] * sx, own[1] * sy] }
   }
   const strokes = derived(p.part, p.part.contours.filter((_, k) => k !== sweep).map(c => at(c, q => q)))
   const box = strokes.box
