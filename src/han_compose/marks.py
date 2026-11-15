@@ -4,8 +4,8 @@ The shapes come from the bundled Unicode outlines (`data/unicode/outlines`), whi
 composer draws them from too, then from the composer's fonts; where a mark sits follows what it is.
 A combining mark sits over or under the whole drawing, centred. A kana voicing mark, a spacing accent,
 a tone letter and a superscript sit beside the drawing, at the upper right. Marks beside the drawing
-reserve a margin: `mark_face` shrinks the character into the rest of the box, so the mark stands
-outside it instead of over its strokes. `js/src/marks.js` places them the same way."""
+reserve a margin: the character is laid out in the whole box and carried into the rest of it
+(`mark_face`), so the mark stands outside it instead of over its strokes. `js/src/marks.js` places them the same way."""
 
 from __future__ import annotations
 
@@ -205,7 +205,7 @@ def face_beside(composer: Composer, marks: str, frame: Box) -> Box:
 
 
 def marked(composer: Composer, sequence: str, marks: str) -> list[Placed]:
-    """`sequence` drawn in the face its marks leave it, with the marks."""
+    """`sequence` drawn, carried into the face its marks leave it, with the marks."""
     frame = composer.face
     face = face_beside(composer, marks, frame)
     composer._beside = None if face == frame else face

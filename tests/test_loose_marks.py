@@ -98,14 +98,39 @@ def test_a_mark_beside_the_drawing_takes_a_margin_the_character_shrinks_out_of(m
     assert not (compose.raster(body(placed)) & compose.raster(placed[-1:])).any()
 
 
-def test_the_face_is_whole_again_after_a_drawing_with_marks():
+def test_the_character_is_the_one_laid_out_in_the_whole_face_carried_into_the_smaller():
+    c = fixture()
+    plain, placed = c.compose("⿰木口"), body(c.compose("⿰木口" + VOICED))
+    beside = marks.face_beside(c, VOICED, c.face)
+    assert [p.origin for p in placed] == [p.origin for p in plain]
+    for small, whole in zip(placed, plain, strict=True):
+        assert small.target == pytest.approx(compose.mapped(whole.target, c.face, beside))
+        assert small.source == whole.source
+
+
+def test_parts_placed_in_em_units_shrink_with_the_rest(monkeypatch):
+    # The learned layout places a root's parts in em units, whatever region the root was given.
+    c = fixture()
+    whole = c.face
+    part = c.font.glyph("木")
+    monkeypatch.setattr(compose.Composer, "_node", lambda self, node, region, at_root=False: [
+        compose.Placed(part, part.box, (whole[0], whole[1], whole[2], whole[3]), origin="learned 木")])
+    placed = c.compose("⿰木口" + VOICED)
+    beside = marks.face_beside(c, VOICED, whole)
+    assert beside != whole
+    assert placed[0].target == pytest.approx(beside)
+    assert not (compose.raster(placed[:1]) & compose.raster(placed[-1:])).any()
+
+
+def test_nothing_is_carried_after_a_drawing_with_marks():
     c = fixture()
     face = c.face
+    plain = [p.target for p in c.compose("⿰木口")]
     c.compose("⿰木口" + VOICED)
-    assert c.face == face
     with pytest.raises(LookupError):
         c.compose("⿰木丙" + VOICED)
-    assert c.face == face
+    assert c._beside is None and c.face == face
+    assert [p.target for p in c.compose("⿰木口")] == plain
 
 
 def test_the_guide_fits_a_character_only_in_the_whole_face():

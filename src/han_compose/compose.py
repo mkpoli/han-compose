@@ -1549,7 +1549,7 @@ class Composer:
     #: Entries that depend on the exclusion, each as (value, characters its computation asked about).
     _any_overlays: dict[None, tuple] = field(default_factory=dict, init=False, repr=False)
     _faces: dict[None, tuple] = field(default_factory=dict, init=False, repr=False)
-    #: The box a description draws in beside its loose marks, while it is drawn.
+    #: The box a character is carried into beside its loose marks, while it is drawn.
     _beside: Box | None = field(default=None, init=False, repr=False)
     _hosts: dict[tuple, tuple] = field(default_factory=dict, init=False, repr=False)
     _sketches: dict[str, tuple] = field(default_factory=dict, init=False, repr=False)
@@ -1703,10 +1703,7 @@ class Composer:
 
     @property
     def face(self) -> Box:
-        """The median box of permitted full ideographs, or the em when none are available; beside
-        loose marks, what they leave of it."""
-        if self._beside is not None:
-            return self._beside
+        """The median box of permitted full ideographs, or the em when none are available."""
         def median() -> Box:
             boxes = [g.box for char in FULL if char not in self.exclude if (g := self.font.glyph(char)) is not None]
             return tuple(float(v) for v in np.median(np.array(boxes), axis=0)) if boxes else (0.0, ASCENT - EM, EM, ASCENT)
@@ -2710,6 +2707,10 @@ class Composer:
                     composed, whole = raster(placed, 96), raster([alone], 96)
                     if (composed & whole).sum() < HELD_AGREE * max((composed | whole).sum(), 1):
                         placed = [alone]
+        if self._beside is not None:
+            # The character as it is laid out in the whole face, carried into what its marks leave:
+            # whatever placed its parts (a glyph, hosts, the learned layout), it shrinks as one.
+            placed = type(placed)(replace(p, target=mapped(p.target, self.face, self._beside)) for p in placed)
         if self.weighted:
             self._balance(placed)
         # The guide's ink is the character in the whole face, not in what marks beside it leave.
