@@ -1376,12 +1376,14 @@ export class Composer {
     const chars = [...run]
     const classes = chars.map(jamoClass)
     let at = 0
-    const initial = chars[at++]
+    // A run opens with one initial or several; a lone letter of any class stands for itself.
+    /** @type {string[]} */ const initials = [chars[at++]]
+    while (classes[at] === 'L') initials.push(chars[at++])
     /** @type {string[]} */ const vowels = []
     while (classes[at] === 'V') vowels.push(chars[at++])
     /** @type {string[]} */ const finals = []
     while (classes[at] === 'T') finals.push(chars[at++])
-    if (!vowels.length) return this.node(initial, region)
+    if (!vowels.length) return this.node(initials[0], region)
     const below = BELOW_VOWELS.has(vowels[0]) || DOT_VOWELS.has(vowels[0])
     const hasFinal = finals.length > 0
     const parts = []
@@ -1391,7 +1393,12 @@ export class Composer {
     const initialBox = below
       ? (hasFinal ? box(0.14, 0.54, 0.86, 0.98) : box(0.14, 0.26, 0.86, 0.98))
       : (hasFinal ? box(0.02, 0.24, 0.50, 0.90) : box(0.01, 0.12, 0.52, 0.88))
-    parts.push(...this.node(initial, initialBox))
+    // Several initials share the initial's place side by side, as finals share theirs.
+    const [ix0, iy0, ix1, iy1] = initialBox
+    initials.forEach((letter, i) => {
+      const from = ix0 + (ix1 - ix0) * (i / initials.length), to = ix0 + (ix1 - ix0) * ((i + 1) / initials.length)
+      parts.push(...this.node(letter, [from, iy0, to, iy1]))
+    })
     if (DOT_VOWELS.has(vowels[0])) {
       // 아라아 and its fellows are dots: a dot drawn to fill a letter's room would be a blob.
       // A dot keeps its own round shape: squaring it to a letter's room would draw a lozenge.
