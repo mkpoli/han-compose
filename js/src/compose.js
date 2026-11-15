@@ -1822,9 +1822,10 @@ export class Composer {
    *  unchanged, so editable leaf indices still hold. */
   normalizeFormRuns(node) {
     if (!Array.isArray(node)) return node
-    const kids = node.slice(1).map(child => this.normalizeFormRuns(child))
-    const op = node[0], key = keyOf(node), char = this.bySequence(key)
-    if ((op === '⿳' || op === '⿲') && kids.length === 3 && !isComponentForm(key, this.fontStyle) && !(char && !this.excluded(char))) {
+    const key = keyOf(node), char = this.bySequence(key)
+    if (isComponentForm(key, this.fontStyle) || (char && !this.excluded(char))) return node
+    const op = node[0], kids = node.slice(1).map(child => this.normalizeFormRuns(child))
+    if ((op === '⿳' || op === '⿲') && kids.length === 3) {
       const pair = op === '⿳' ? '⿱' : '⿰'
       for (const at of [0, 1]) {
         const run = [pair, kids[at], kids[at + 1]]
