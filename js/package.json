@@ -82,6 +82,10 @@
       "types": "./types/palette.d.ts",
       "default": "./src/palette.js"
     },
+    "./host": {
+      "types": "./types/host.d.ts",
+      "default": "./src/host.js"
+    },
     "./component-forms": {
       "types": "./types/component-forms.d.ts",
       "default": "./src/component-forms.js"

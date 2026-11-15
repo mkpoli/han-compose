@@ -159,6 +159,19 @@ const tangut = await compose(sourceFor('𗀀', { bundled: true }), '𗀀') // no
 const mixed = await compose(sourceFor('⿰𗀀哥', { base }), '⿰𗀀哥')      // Tangut from the package, 哥 from the export
 ```
 
+### Outlines of the host's own
+
+An entity reference (`&CDP-8BD0;`, `&GW-u58ec-var-001;`) is one component whose glyph belongs to a
+set outside Unicode. A host that has outlines for some lists a file of them as
+`host/outlines.json.gz` in `loaders`: `{ "records": { "&GW-u58ec-var-001;": record } }`, each record in
+the export's format (`{ k, G: { v, b, p }, ink, o }`). The file is read only for a sequence that
+names an entity, and a reference it does not hold is drawn as before.
+
+```js
+const preview = composerPreview({ base, loaders: { 'host/outlines.json.gz': '/data/my-outlines.json.gz' } })
+await preview('⿰氵&GW-u58ec-var-001;')
+```
+
 ## Errors
 
 `compose` throws a `LookupError` whose message says what could not be drawn or that the sequence is
@@ -203,6 +216,7 @@ tokens('⿰亻⿱七木')[2]
 | `/variants` | `variationSequences(base)`: the variation sequences an export draws |
 | `/drawing-svg`, `/document-source`, `/document-view` | A drawing as an SVG file, and as the layers of a document |
 | `/tangut`, `/jurchen`, `/shuishu`, `/small-seal`, `/bopomofo`, `/new-korean`, `/unicode`, `/palette` | One source for each set of bundled outlines |
+| `/host` | `hostSource`, `HOST_OUTLINES`: outlines a host supplies for entity references |
 | `/src/<name>.js` | Every other module of the engine |
 
 ## Develop
