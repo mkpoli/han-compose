@@ -950,6 +950,10 @@ export class Composer {
           // A short stack in a tall column of a ⿲ takes the top of its column, as `shares` draws it.
           walk(kid, (op === '⿲' && axis === 0 ? this.shortStackBox(kid, box) : null) ?? box, false)
         })
+      } else if (this.splitsFrame(op, kids)) {
+        // The room between the halves, as `splitFrame` draws it.
+        walk(kids[0], region, false)
+        walk(kids[1], this.frameHalves(this.glyph(kids[0]), kids[0], region).room, false)
       } else if (this.INSIDE[op]) {
         walk(kids[0], region, false)
         const [x0, y0, x1, y1] = this.INSIDE[op], w = region[2] - region[0], h = region[3] - region[1]
@@ -1632,7 +1636,18 @@ export class Composer {
         const count = n => Array.isArray(n) ? n.slice(1).reduce((sum, child) => sum + count(child), 0) : 1
         const sourceInner = count(node[2])
         const outside = outer.length === 1 ? Array(count(enclosure.tree) - sourceInner).fill(outer[0]) : outer
-        return [...outside.slice(0, enclosure.innerIndex), ...inner, ...outside.slice(enclosure.innerIndex)]
+        // A split frame among the layout's own leaves is drawn as two parts of its leaf.
+        const drawn = n => !Array.isArray(n) ? [1] : this.splitsFrame(n[0], n.slice(1)) ? [2, ...drawn(n[2])] : n.slice(1).flatMap(drawn)
+        const pieces = drawn(enclosure.tree)
+        pieces.splice(enclosure.innerIndex, sourceInner)
+        const owned = outside.map((owner, i) => Array(pieces[i] ?? 1).fill(owner))
+        return [...owned.slice(0, enclosure.innerIndex).flat(), ...inner, ...owned.slice(enclosure.innerIndex).flat()]
+      }
+      // A split frame is drawn as two halves, both its own leaf's, before what it holds.
+      if (this.splitsFrame(node[0], node.slice(1))) {
+        split = true
+        const [frame] = walk(node[1])
+        return [frame, frame, ...walk(node[2])]
       }
       // Other rewrites can merge or introduce leaves; leave their grouping to geometry.
       if (this.respelled(node) !== node) valid = false
@@ -2079,12 +2094,22 @@ export class Composer {
     }
   }
 
+  /** A frame drawn as two halves with its inner part between them (𦥑 in ⿴𦥑囟 reads as ⿲), or
+   *  null for any other enclosure. */
+  splitFrame(op, children, region) {
+    const frame = this.splitsFrame(op, children) ? this.frameHalves(this.glyph(children[0]), children[0], region) : null
+    return frame ? [...frame.sides, ...this.node(children[1], frame.room)] : null
+  }
+
+  /** Whether `op` over `children` is a frame `splitFrame` draws as two halves. */
+  splitsFrame(op, children) {
+    return op === '⿴' && typeof children[0] === 'string' && SPLIT_FRAMES.has(children[0])
+      && this.frameHalves(this.glyph(children[0]), children[0], this.face) !== null
+  }
+
   learned(op, children, region, ownParts = false) {
-    // A frame drawn as two halves holds its inner part between them (𦥑 in ⿴𦥑囟 reads as ⿲).
-    if (op === '⿴' && typeof children[0] === 'string' && SPLIT_FRAMES.has(children[0])) {
-      const frame = this.frameHalves(this.glyph(children[0]), children[0], region ?? this.face)
-      if (frame) return [...frame.sides, ...this.node(children[1], frame.room)]
-    }
+    const split = this.splitFrame(op, children, region ?? this.face)
+    if (split) return split
     const C = this.C, stem = this.stem0[0][0], frameOf = region ?? this.face
     let boxes = this.predict(op, children)
     // The network can give a rare nested stack a band its strokes do not fill: when the top of a
@@ -2369,6 +2394,9 @@ export class Composer {
   shares(op, children, region, atRoot = false) {
     const C = this.C
     if (op in this.ENCLOSE) {
+      // Inside a larger description the halves stand apart as they do at the root.
+      const split = this.splitFrame(op, children, region)
+      if (split) return split
       let outer = this.node(children[0], region)
       const designedOuter = this.enclosureForm(op, children[0])
       if (designedOuter) outer = [placed(designedOuter.piece, designedOuter.piece.box, fitted(designedOuter.piece.box, region, C.STRETCH), this.ink(designedOuter.record.h), `host ${designedOuter.record.h}`)]
