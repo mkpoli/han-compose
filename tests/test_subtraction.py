@@ -237,3 +237,42 @@ def test_of_several_whole_components_the_last_clean_one_goes():
     assert cutter.less("林", "木") is None
     cutter._owners["林"] = [{0}, {1}, {2, 9}, {3}]
     assert cutter.less("林", "木").contours == glyph.contours[2:]
+
+
+def typed_cutter(types, owners=None):
+    from han_compose import kanjivg_cuts as K
+
+    cutter, glyph = kanjivg_cutter(owners or [{0}, {1}, {2}, {3}])
+    root = K.Group("兵", None, [0, 1, 2, 3])
+    cutter.entries["兵"] = K.Entry(root, ["M0 0"] * 4, types)
+    cutter._owners["兵"] = owners or [{0}, {1}, {2}, {3}]
+    return cutter, glyph
+
+
+def test_a_lone_stroke_is_the_one_kanjivg_types_so():
+    cutter, glyph = typed_cutter(["㇒", "㇐a", "㇑", "㇔/㇏"])
+    assert cutter.less("兵", "丶").contours == glyph.contours[:3]
+    assert cutter.less("兵", "㇏").contours == glyph.contours[:3]
+    assert cutter.less("兵", "一").contours == [glyph.contours[0], *glyph.contours[2:]]
+    assert cutter.less("兵", "丿").contours == glyph.contours[1:]
+    assert cutter.less("兵", "㇒").contours == glyph.contours[1:]
+    assert cutter.less("兵", "乚") is None
+
+
+def test_a_stroke_type_the_character_has_twice_is_not_guessed():
+    cutter, _ = typed_cutter(["㇐", "㇑", "㇐b", "㇑a"])
+    assert cutter.less("兵", "一") is None
+    assert cutter.less("兵", "丨") is None
+
+
+def test_a_stroke_sharing_its_outline_is_not_cut():
+    cutter, _ = typed_cutter(["㇒", "㇐", "㇑", "㇔"], [{0}, {1}, {2, 3}, {3}])
+    assert cutter.less("兵", "丶") is None
+
+
+def test_stroke_types_read_forms_and_alternatives():
+    from han_compose.kanjivg_cuts import _stroke_types
+
+    assert _stroke_types("㇑a") == ["㇑"]
+    assert _stroke_types("㇔/㇏") == ["㇔", "㇏"]
+    assert _stroke_types("") == [""]

@@ -30,6 +30,9 @@ KANJIVG_SHA256 = "d4a8e5e11533fe6a5d81a158b2c153964322641d2982c90a919461f3c06dca
 KANJIVG_FILE = "kanjivg-20260714.xml.gz"
 #: Share of a stroke's centreline that must lie inside an outline for the outline to hold it.
 INSIDE = 0.6
+#: The ideographs that name a stroke, by the stroke KanjiVG types it as (`kvg:type`); a CJK stroke
+#: character (㇏) names itself.
+STROKES = {"一": "㇐", "丨": "㇑", "丶": "㇔", "丿": "㇒", "乚": "㇟", "亅": "㇚", "𠃌": "㇆", "𠃍": "㇕", "𠃊": "㇗"}
 #: Raster size an outline is filled at to test centreline points, and the pixels it is grown by.
 SIZE, GROW = 160, 2
 
@@ -59,6 +62,8 @@ class Group:
 class Entry:
     root: Group
     d: list[str]  # each stroke's path data, in stroke order
+    #: Each stroke's type (`kvg:type`: ㇐, ㇑a, ㇔/㇏), in stroke order; empty where the file gives none.
+    types: list[str] = field(default_factory=list)
 
     @cached_property
     def paths(self) -> list[np.ndarray]:
@@ -153,21 +158,23 @@ def load(path: str) -> dict[str, Entry]:
         if top is None:
             continue
         paths: list[str] = []
+        types: list[str] = []
 
-        def build(node, paths=paths) -> Group:
+        def build(node, paths=paths, types=types) -> Group:
             g = Group(node.get(KVG + "element"), node.get(KVG + "position"), part=node.get(KVG + "part"))
             for child in node:
                 if child.tag == "g":
-                    g.groups.append(build(child, paths))
+                    g.groups.append(build(child, paths, types))
                 elif child.tag == "path":
                     g.strokes.append(len(paths))
                     paths.append(child.get("d", ""))
+                    types.append(child.get(KVG + "type", ""))
             return g
 
         root = build(top)
         char = root.element
         if char and len(char) == 1 and ord(char) >= 0x2E80:
-            out[char] = Entry(root, paths)
+            out[char] = Entry(root, paths, types)
     return out
 
 
@@ -294,9 +301,11 @@ class Cutter:
     def less(self, char: str, taken: str) -> C.Part | None:
         """The glyph's outlines less those of the strokes KanjiVG groups as `taken` (鹿 less 比). A
         component KanjiVG draws in pieces (`kvg:part`: 衣 round the 口 of 哀) is all of them; of
-        several whole ones, the last in stroke order whose outlines hold no other stroke. None when
-        KanjiVG names no such group in the character, the glyph and KanjiVG disagree, or every
-        such component shares an outline with the rest."""
+        several whole ones, the last in stroke order whose outlines hold no other stroke. A stroke
+        no group names (兵 less 丶) is the one stroke KanjiVG types so, where the character has
+        just one and its outline holds no other. None when KanjiVG names no such group or stroke
+        in the character, the glyph and KanjiVG disagree, or what is named shares an outline with
+        the rest."""
         entry, owners = self.entries.get(char), self.owners(char)
         if entry is None or owners is None:
             return None
@@ -311,6 +320,12 @@ class Cutter:
             if not gone or gone == every or any(own & gone and not own <= gone for own in owners):
                 continue
             return C.Part([ct for ct, own in zip(glyph.contours, owners) if not own & gone])
+        # A lone stroke no group names: the one stroke of its type, where the character has just one.
+        stroke = STROKES.get(taken, taken)
+        typed = [k for k, kind in enumerate(entry.types) if stroke in _stroke_types(kind)]
+        if len(typed) == 1 and not found and not any(typed[0] in own and len(own) > 1 for own in owners):
+            kept = [ct for ct, own in zip(glyph.contours, owners) if typed[0] not in own]
+            return C.Part(kept) if kept else None
         return None
 
     def host_node(self, char: str, tree: tuple, path: tuple) -> C.Host | None:
@@ -347,6 +362,11 @@ class Cutter:
             spans = sorted((p.box[axis], p.box[axis + 2]) for p in pieces)
             gap = float(np.mean([spans[k + 1][0] - spans[k][1] for k in range(len(spans) - 1)]))
         return C.Host(char, pieces, whole_box, gap, whole=not path)
+
+
+def _stroke_types(kind: str) -> list[str]:
+    """The strokes a `kvg:type` names: ㇑a is ㇑ in one of its forms, ㇔/㇏ either of two."""
+    return [name.rstrip("abcdefghijklmnopqrstuvwxyz") for name in kind.split("/")]
 
 
 def _leaves(node) -> list[str]:
