@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import { Composer, near, strokeMiddle, topEdgeStart } from '../src/compose.js'
+import { Composer, near, strokeCross, strokeMiddle, topEdgeStart } from '../src/compose.js'
 import { commands, makePart, placed } from '../src/geometry.js'
 import { compose, createSource } from '../src/loader.js'
 import { files, shards } from './fixtures/small-export.js'
@@ -74,6 +74,17 @@ describe('a bare stroke at the upper left of ⿸', () => {
     expect(leg.target[0]).toBe(composer.face[0])
     const at = strokeMiddle(fall, (fall.target[3] - (bar.target[3] - 40)) / (fall.target[3] - fall.target[1]))
     expect(Math.abs(at - (bar.target[0] + 40))).toBeLessThan(40)
+  })
+  it('covers a corner that stands over its bar', async () => {
+    const data = source()
+    await compose(data, '⿸丿口', { layout: 'composed' })
+    const composer = new Composer(data.store())
+    // A serif face's stem rises over the bar it leads: its top must not show left of the stroke.
+    composer.node = (_node, room) => [rect(room[0], room[3] - 140, room[2], room[3] - 60), rect(room[0], room[1], room[0] + 80, room[3])]
+    const [fall, , stem] = composer.strokeEnclosure(['丿', '口'], composer.face)
+    const [left, right] = strokeCross(fall, (fall.target[3] - (stem.target[3] - 5)) / (fall.target[3] - fall.target[1]))
+    expect(left).toBeLessThan(stem.target[0])
+    expect(right).toBeGreaterThan(stem.target[0] + 20)
   })
   it('follows the bar of a part short of its room, the two centred together', async () => {
     const data = source()
@@ -234,7 +245,12 @@ describe('the top edge a falling stroke meets', () => {
   })
   it('reads past a corner that stands proud of the bar', () => {
     // A serif on the left stem rises 30 above the bar.
-    expect(edge(rect(100, 560, 900, 600), rect(100, 0, 180, 630))).toBeCloseTo(100, 0)
+    const parts = [rect(100, 560, 900, 600), rect(100, 0, 180, 630)]
+    expect(edge(...parts)).toBeCloseTo(100, 0)
+    // The corner's own top is told apart from the bar's.
+    const [, level, tip] = topEdgeStart(parts, [100, 0, 900, 630], [80, 40])
+    expect(Math.abs(level - 600)).toBeLessThan(6)
+    expect(Math.abs(tip - 630)).toBeLessThan(6)
   })
   it('reads past a serif that stands proud at the far end', () => {
     // The serif stands higher over the bar than a bar may lie under the part's top.

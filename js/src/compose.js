@@ -172,6 +172,10 @@ const FALL_DONORS = [['久', 0], ['八', 0]]
  *  lies: the stroke runs through the left end of the part's top edge, as the first stroke of 久
  *  runs through the start of its second, and falls on down the part's left side. */
 const FALL_SIZE = [0.38, 0.5], FALL_JOINT = 0.42
+/** How far inside the stroke the corner's tip lies, in upright strokes' widths: a serif's stem or
+ *  a brush's first press stands over the bar, where the leaning stroke has moved on to the right,
+ *  and would show beside it. */
+const FALL_SUNK = 0.1
 /** A part with no such corner (人, 厶, a part led by a stem): how far down the stroke its top
  *  lies, and how it keeps clear of the stroke's foot. It moves in from the left by a share of the
  *  cell's width at a time, a number of times at most, until its ink is this many upright strokes'
@@ -1567,7 +1571,7 @@ export class Composer {
       placed(piece, piece.box, [left, top - tall, left + wide, top], this.ink(donor), piece === glyph ? `glyph ${outer}` : `stroke ${donor}`)
     const upright = this.stem0[0][0] * w / (this.face[2] - this.face[0]), level = this.stem0[1][0] * h / (this.face[3] - this.face[1])
     // Where the stroke's middle line lies at the joint, from its left.
-    const across = strokeMiddle(set(x0, y1), FALL_JOINT) - x0
+    const nominal = set(x0, y1), across = strokeMiddle(nominal, FALL_JOINT) - x0
     const under = this.node(inner, [x0, y0, x1, y1 - FALL_JOINT * tall + level / 2])
     const box = union(under.map(part => part.target))
     const corner = topEdgeStart(under, box, [upright, level])
@@ -1579,17 +1583,21 @@ export class Composer {
       for (let i = 0; i < FALL_STEP[1] && near([stroke], below, region, FALL_CLEAR * upright); i++) squeeze(below, 0, FALL_STEP[0] * w, 0)
       return centredIn([stroke, ...below], region)
     }
-    // The part moves in from the left until its corner lies under the stroke's joint.
-    const lead = corner[0] + upright / 2 - box[0], span = box[2] - box[0]
-    const left = lead < span ? (x0 + across - lead * box[2] / span) / (1 - lead / span) : box[0]
-    let joint = corner[0] + upright / 2
+    // The corner's left end lies half a stroke left of the stroke's middle line, or further in
+    // where its tip stands over the bar: the tip is covered at its own height too.
+    const tip = Math.max(0, FALL_JOINT - (corner[2] - corner[1] + level / 2) / tall)
+    const reach = Math.max(across - upright / 2, strokeCross(nominal, tip)[0] - x0 + FALL_SUNK * upright)
+    // The part moves in from the left until its corner lies there.
+    const lead = corner[0] - box[0], span = box[2] - box[0]
+    const left = lead < span ? (x0 + reach - lead * box[2] / span) / (1 - lead / span) : box[0]
+    let end = corner[0]
     if (left > box[0]) {
       squeeze(under, 0, left - box[0], 0)
-      joint = left + lead * (box[2] - left) / span
+      end = left + lead * (box[2] - left) / span
     }
     // The stroke follows the bar down where the part is short of its room (一, 乛).
     const top = Math.min(corner[1] - level / 2 + FALL_JOINT * tall, y1)
-    return centredIn([set(Math.max(joint - across, x0), top), ...under], region)
+    return centredIn([set(Math.max(end - reach, x0), top), ...under], region)
   }
 
   /** The stroke this face draws by itself in one of the donors, as [donor, piece]: a donor's
@@ -3488,7 +3496,8 @@ function extraBar(part, mask, references) {
  * in the right half.
  * @param {any[]} parts @param {number[]} box
  * @param {number[]} stems The drawing's upright and level stroke widths.
- * @returns {number[] | null} The edge's left end and the bar's top, as [x, y].
+ * @returns {number[] | null} The edge's left end, the bar's top and the top of the corner at that
+ *   end, which may stand over the bar, as [x, y, tip].
  */
 export function topEdgeStart(parts, box, [upright, level], size = 64) {
   const wide = box[2] - box[0]
@@ -3524,16 +3533,25 @@ export function topEdgeStart(parts, box, [upright, level], size = 64) {
     if (at >= 0 && first - at > proud) { if (open < 0 && onBar(top(c - 1))) open = c }
     else { if (open >= 0 && onBar(at) && c - open < run) return null; open = -1 }
   }
-  return [box[0] + left * wide / size, box[3] - first * band / size]
+  const tip = Math.min(first, ...edge.slice(0, Math.ceil(columns(BAR_CORNER))))
+  return [box[0] + left * wide / size, box[3] - first * band / size, box[3] - tip * band / size]
 }
 
-/** The middle of a placed stroke's ink where it crosses the line `share` of the way down its box. */
-export function strokeMiddle(part, share, size = 64) {
+/** The left and right ends of a placed stroke's ink where it crosses the line `share` of the way
+ *  down its box: the box's own sides where the line meets no ink. */
+export function strokeCross(part, share, size = 64) {
   const box = part.target, mask = fill(groupRings([part]), size, box)
-  const row = Math.min(size - 1, Math.floor(share * size))
-  let sum = 0, n = 0
-  for (let c = 0; c < size; c++) if (mask[row * size + c] === 1) { sum += c + 0.5; n++ }
-  return box[0] + (n ? sum / n / size : 0.5) * (box[2] - box[0])
+  const row = Math.min(size - 1, Math.max(0, Math.floor(share * size)))
+  let first = -1, last = -1
+  for (let c = 0; c < size; c++) if (mask[row * size + c] === 1) { if (first < 0) first = c; last = c }
+  const wide = box[2] - box[0]
+  return first < 0 ? [box[0], box[2]] : [box[0] + first * wide / size, box[0] + (last + 1) * wide / size]
+}
+
+/** The middle of that crossing. */
+export function strokeMiddle(part, share, size = 64) {
+  const [left, right] = strokeCross(part, share, size)
+  return (left + right) / 2
 }
 
 /** Whether the inner parts' ink comes within `reach` of the enclosing part's. */
