@@ -127,6 +127,8 @@ def test_a_sequence_is_written_once_for_each_glyph_its_components_sequences_draw
         ["⿱葛⿰氵者", "⿱葛⿰氵者\U000e0101", "⿱葛\U000e0100⿰氵者", "⿱葛\U000e0100⿰氵者\U000e0101"], 4)
     # A component written with a selector keeps it.
     assert variants.spellings("⿰葛\U000e0101者", font) == (["⿰葛\U000e0101者", "⿰葛\U000e0101者\U000e0101"], 2)
+    # An operator's modifier is written back with it.
+    assert variants.spellings("⿻[1:]氵者", font) == (["⿻[1:]氵者", "⿻[1:]氵者\U000e0101"], 2)
 
 
 def test_the_ways_to_write_a_sequence_stop_at_the_cap_and_are_counted_in_full() -> None:
