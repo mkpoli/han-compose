@@ -76,19 +76,51 @@ function topEdgeBelow(part, x, limit) {
   return high
 }
 
-/** Where a horizontal line at `y` runs through a part's ink, in its own units: [left, right] spans. */
-function inkAcross(part, y) {
+/** Where a horizontal line at `y` runs through a part's ink, in its own units: [left, right] spans
+ *  of the light master, or of the `heavy` one. */
+function inkAcross(part, y, heavy = false) {
   const xs = []
   for (const contour of part.part.contours) {
-    const light = contour.light, n = light.length / 2
+    const points = heavy ? contour.heavy ?? contour.light : contour.light, n = points.length / 2
     for (let i = 0; i < n; i++) {
-      const j = (i + 1) % n, x1 = light[i * 2], y1 = light[i * 2 + 1], x2 = light[j * 2], y2 = light[j * 2 + 1]
+      const j = (i + 1) % n, x1 = points[i * 2], y1 = points[i * 2 + 1], x2 = points[j * 2], y2 = points[j * 2 + 1]
       if (y1 === y2 || (y1 - y) * (y2 - y) > 0) continue
       xs.push(x1 + (x2 - x1) * (y - y1) / (y2 - y1))
     }
   }
   xs.sort((a, b) => a - b)
   return Array.from({ length: Math.floor(xs.length / 2) }, (_, i) => [xs[i * 2], xs[i * 2 + 1]])
+}
+
+/** The one stroke a horizontal line crosses `up` of the way up a part, in its own units: its left
+ *  edge, width and middle, or null where the line crosses no ink or several strokes. */
+function strokeAt(part, up, heavy = false) {
+  const spans = inkAcross(part, part.source[1] + up * heightOf(part.source), heavy)
+  if (spans.length !== 1) return null
+  const [left, right] = spans[0]
+  return { left, width: right - left, middle: (left + right) / 2 }
+}
+
+/** `part` narrowed to `width` of its own units by drawing in the ink left of `from`: what stands
+ *  right of `from` keeps its shape, and the scale falls away evenly leftwards from there, so a
+ *  sweeping stroke turns tighter without a corner. The ink left of `from` keeps at least 30% of its
+ *  extent. The part's source becomes the narrowed outline's box. */
+function drawnIn(part, from, width) {
+  const [x0, y0, x1, y1] = part.source, room = from - x0
+  const mean = Math.max(0.3, (width - (x1 - from)) / room)
+  if (!(room > 0) || mean >= 1) return part
+  const end = Math.max(2 * mean - 1, mean / 2), start = 2 * mean - end
+  const across = (/** @type {number} */ x) => {
+    const t = from - x
+    return t <= 0 ? x : from - (t <= room ? start * t + (end - start) * t * t / (2 * room) : mean * room + end * (t - room))
+  }
+  const contours = part.part.contours.map(contour => {
+    const light = Float64Array.from(contour.light), heavy = Float64Array.from(contour.heavy ?? contour.light)
+    for (let i = 0; i < light.length; i += 2) { light[i] = across(light[i]); heavy[i] = across(heavy[i]) }
+    return { ...contour, light, heavy }
+  })
+  const source = [from - mean * room, y0, x1, y1]
+  return { ...revised(part, contours, source.slice()), source }
 }
 
 /** 止's strokes in its own units, read from the points of its outline however the face splits it
@@ -128,9 +160,9 @@ function shifted(part, move) {
   return revised(part, contours)
 }
 
-/** A part with some contours replaced; the part's box and flags stay. */
-function revised(part, contours) {
-  const out = derived(part.part, contours, part.part.box.slice())
+/** A part with some contours replaced; the part's flags stay, and its box unless `box` is given. */
+function revised(part, contours, box = part.part.box.slice()) {
+  const out = derived(part.part, contours, box)
   if (part.fixed) out.fixed = true
   if (part.strokes) out.strokes = part.strokes
   return { ...part, part: out }
@@ -322,10 +354,15 @@ export const COMPONENT_FIXES = {
   // glyph is reduced within the local face and lifted, as 今 and 厶 set the dot.
   // ⿸⿹丅丿丨, the G-source left part of 𡉹, 𣂘 and 𥘱 (T writes ⿸⿹丅丿丶, 示 under its top bar),
   // after SimSun-ExtB's drawing: the bar spans the cell from 6% in and the stem stands at its middle.
-  // The 丿 and 丨 hang either side of it from 24% below the top, the 丿 within the left 34% and
-  // down to 7% above the foot, the 丨 centred 75–80% across and down to 11% above it. Both start at
-  // 丅's horizontal scale, and the weight balance then evens them with the stem; the 丨 is the
-  // face's own 丨 glyph.
+  // The 丿 and the 丨 hang either side of the stem from 24% below the top, the 丿 down to 7% above
+  // the foot and the 丨, the face's own glyph, to 11% above it. The three strokes share one width.
+  // The 丿 and the 丨 are drawn at the scale that gives them the stem's, which a static face keeps;
+  // a weighted face's balance then restores the stem's own width at any scale as far as the heavy
+  // master reaches, and weights the two as it weights the stem. Of the white between the cell's
+  // left edge and the stem, less the 丿's stroke, 38% lies between the 丿's head and the stem, and
+  // the tail is drawn in to the rest, so the head keeps its weight. Of the white between the stem
+  // and the cell's right edge, less the 丨, 53% lies between the stem and the 丨, and no less than
+  // 0.8 of a stroke where heavy strokes fill a narrow cell.
   '⿸⿹丅丿丨': {
     glyphs: {
       '丅': ['78dcd9aa0146cd9317b3cb7455389db2cc8f21df17d072493358c5efb0ed98fd', 'f2668a2d4aa3d88c538ddcecd7a48f607521f1be4f5e4b53d786ff9de7d8445d',
@@ -339,18 +376,30 @@ export const COMPONENT_FIXES = {
       const tee = partFrom(parts, 'glyph 丅'), slash = partFrom(parts, 'glyph 丿'), stroke = parts.find(part => part !== tee && part !== slash)
       const glyph = composer.glyph('丨')
       if (!tee || !slash || !stroke || parts.length !== 3 || !glyph) return parts
-      const [x, y, right, top] = region, width = right - x, height = top - y
-      const teeTarget = [x + 0.06 * width, y, right, top]
-      const [sx] = scaleOf({ ...tee, target: teeTarget })
-      const slashWidth = Math.min(widthOf(slash.source) * sx, 0.34 * width)
       const source = union(glyph.contours.map(contour => pointsBox(contour.light)))
-      // The stem keeps its stroke width in a narrow cell, so there the 丨 moves right to keep the
-      // gaps either side of it even: 75% across in the full face, 80% at 45% of its width.
-      const narrow = Math.min(1, Math.max(0, (1 - width / widthOf(composer.face)) / 0.55))
-      const middle = x + (0.75 + 0.05 * narrow) * width, half = widthOf(source) * sx / 2
-      const line = placed(derived(glyph, glyph.contours, source), source,
-        [middle - half, y + 0.11 * height, middle + half, top - 0.24 * height], composer.ink('丨'), 'glyph 丨')
-      return [{ ...tee, target: teeTarget }, { ...slash, target: [x, y + 0.07 * height, x + slashWidth, top - 0.24 * height] }, line]
+      // The 丿 and the 丨 carry 丅's ink, and the 丨 a box of 丅's breadth, so the balance weights
+      // them as it weights the stem and stops them at the heavy master where it stops the stem.
+      const line = { ...placed(derived(glyph, glyph.contours, source), source, source, tee.native, 'glyph 丨'), balanceBox: tee.source.slice() }
+      const stem = strokeAt(tee, 0.5), head = strokeAt(slash, 0.75), own = strokeAt(line, 0.5)
+      if (!stem || !head || !own) return parts
+      const [x, y, right, top] = region, width = right - x, height = top - y
+      const bar = { ...tee, target: [x + 0.06 * width, y, right, top] }, [sx] = scaleOf(bar)
+      // The width the strokes end at, and where the stem stands.
+      const thick = composer.weighted ? Math.min(stem.width, (strokeAt(tee, 0.5, true) ?? stem).width * sx) : stem.width * sx
+      const middle = bar.target[0] + (stem.middle - tee.source[0]) * sx
+      const headScale = sx * stem.width / head.width, lineScale = sx * stem.width / own.width
+      const headAt = middle - thick - 0.38 * Math.max(0, middle - x - 1.5 * thick)
+      const slashRight = headAt + (slash.source[2] - head.middle) * headScale
+      // The head is kept whole in the master it is drawn from, the heavy one's being the wider.
+      const from = composer.weighted ? Math.min(head.left, strokeAt(slash, 0.75, true)?.left ?? head.left) : head.left
+      const drawn = drawnIn(slash, from, (slashRight - x) / headScale)
+      // The 丨's box at the width it ends at shares the white; its stroke's middle is placed from that.
+      const ended = thick / own.width, white = Math.max(0, right - middle - thick / 2 - widthOf(source) * ended)
+      const lineAt = middle + thick / 2 + Math.min(white, Math.max(0.53 * white, 0.8 * thick)) + (own.middle - source[0]) * ended
+      const lineLeft = lineAt - (own.middle - source[0]) * lineScale
+      return [bar,
+        { ...drawn, native: tee.native, target: [Math.max(x, slashRight - widthOf(drawn.source) * headScale), y + 0.07 * height, slashRight, top - 0.24 * height] },
+        { ...line, target: [lineLeft, y + 0.11 * height, lineLeft + widthOf(source) * lineScale, top - 0.24 * height] }]
     },
   },
   // The vertical hook projects above the bent bar, including when used inside C078.
