@@ -33,6 +33,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+import os
 import re
 from collections import Counter
 from collections.abc import Callable, Iterator, Mapping
@@ -585,6 +586,7 @@ class Fallback:
     first drawn: a drawing made of the main font's glyphs opens none."""
 
     def __init__(self, path: Path, em: int):
+        self.path, self.opener = path, os.getpid()
         self.font = TTFont(path)
         self.cmap = self.font.getBestCmap()
         #: What brings its em to the main font's (Jigmo draws on 1,024 units).
@@ -592,7 +594,9 @@ class Fallback:
 
     @cached_property
     def glyphs(self):
-        return self.font.getGlyphSet()
+        # A process forked since the font was opened shares its file with the others forked from
+        # it, and reading the tables there would move the file under them: it opens the font again.
+        return (self.font if os.getpid() == self.opener else TTFont(self.path)).getGlyphSet()
 
 
 class Font:

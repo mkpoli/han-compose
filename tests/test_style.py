@@ -135,6 +135,16 @@ def test_a_fallbacks_glyphs_are_opened_when_one_is_first_drawn() -> None:
     assert all(opened())
 
 
+def test_a_forked_process_opens_a_fallbacks_glyphs_from_a_file_of_its_own(monkeypatch: pytest.MonkeyPatch) -> None:
+    if not _cached("sans"):
+        pytest.skip("The sans fonts are not cached; `scripts/compose_ids.py draw` fetches them.")
+    here, there = (compose.Fallback(compose.fallback_files()[-1], 1000) for _ in range(2))
+    assert here.glyphs.font is here.font
+    monkeypatch.setattr(compose.os, "getpid", lambda: there.opener + 1)
+    assert there.glyphs.font is not there.font
+    assert there.glyphs[there.cmap[0x30000]].width == here.glyphs[here.cmap[0x30000]].width
+
+
 def test_serif_horizontals_grow_toward_heavy_as_its_verticals_do(serif: compose.Font) -> None:
     (x_light, x_heavy), (y_light, y_heavy) = serif.stem
     # Noto Serif CJK draws its horizontals about 30 units wide at every weight; its verticals grow.
