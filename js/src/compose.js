@@ -4024,14 +4024,11 @@ export function sweptPart(p, edge, C, tail = null) {
   const shift = (left - x0) * pressed - (left - x0)
   if (end <= turn + shift) return null
   const start = turn + shift
-  const drawnOut = points => {
-    const out = points.slice()
-    for (let i = 0; i < out.length; i += 2) {
-      const x = points[i]
-      out[i] = x <= turn ? x + shift : x <= end ? start + (x - turn) * (end - start) / (end - turn) : x
-    }
-    return out
-  }
+  // Each point's displacement is read from the stroke as drawn and added to both masters, so the
+  // stem and the hook keep their own width in each: the inner edges of the heavy ones lie between
+  // `turn` and `end`, where the foot is drawn out.
+  const dx = pts.map((x, i) => i % 2 ? 0 : x <= turn ? shift : x <= end ? start + (x - turn) * (end - start) / (end - turn) - x : 0)
+  const drawnOut = points => points.map((value, i) => value + dx[i])
   const [sx, sy] = scaleOf(p)
   const cx = (p.source[0] + p.source[2]) / 2, cy = (p.source[1] + p.source[3]) / 2
   const gx = (p.target[0] + p.target[2]) / 2, gy = (p.target[1] + p.target[3]) / 2

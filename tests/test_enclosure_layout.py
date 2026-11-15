@@ -539,3 +539,25 @@ def test_mountain_enclosure_draws_between_sides_below_the_bar(nested):
     # Font coordinates increase upwards.
     assert inner.target[3] <= bar.target[1]
     assert bar.target[3] <= mountain.target[1]
+
+
+def test_a_swept_foot_moves_both_masters_alike():
+    # A block pressed left and a stroke that runs down, along the foot and up into a hook. The
+    # heavy stem and hook are twice as wide, so their inner edges lie where the foot is drawn out.
+    def outline(stem, foot, hook):
+        return np.array([(400, 900), (400 + stem, 900), (400 + stem, foot), (1000 - hook, foot),
+                         (1000 - hook, 300), (1000, 300), (1000, 0), (400, 0)], dtype=float)
+
+    ops = [("moveTo", 1, False)] + [("lineTo", 1, False)] * 7
+    sweep = compose.Contour(ops, outline(80, 80, 80), outline(160, 160, 160))
+    # The case needs the heavy stem's and hook's inner edges inside the drawn-out span.
+    assert 400 + compose.STEM_SPAN < 560 and 840 < 1000 - compose.SWEEP_END * 1000 < 920
+    part = compose.Part([rectangle((0, 200, 450, 900)), sweep])
+    swept = compose._swept(compose.Placed(part, part.box, part.box, origin="glyph 几"), 300)
+
+    assert swept is not None
+    foot = swept[1].part.contours[0]
+    assert np.allclose(foot.heavy - foot.light, sweep.heavy - sweep.light)
+    # The light hook stands right of the drawn-out span and keeps its place.
+    assert np.allclose(foot.light[3:6], sweep.light[3:6])
+

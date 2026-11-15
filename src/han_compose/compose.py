@@ -3782,11 +3782,16 @@ def _swept(placed: Placed, edge: float) -> list[Placed] | None:
     if end <= turn + shift:
         return None
 
+    # Each point's displacement is read from the stroke as drawn and added to both masters, so the
+    # stem and the hook keep their own width in each: the inner edges of the heavy ones lie between
+    # `turn` and `end`, where the foot is drawn out.
+    x = contours[sweep][:, 0]
+    start = turn + shift
+    dx = np.select([x <= turn, x <= end], [np.full_like(x, shift), start + (x - turn) * (end - start) / (end - turn) - x], 0.0)
+
     def drawn_out(points: np.ndarray) -> np.ndarray:
-        x = points[:, 0]
         out = points.copy()
-        start = turn + shift
-        out[:, 0] = np.select([x <= turn, x <= end], [x + shift, start + (x - turn) * (end - start) / (end - turn)], x)
+        out[:, 0] += dx
         return out
 
     scale = np.array(placed.scale)
