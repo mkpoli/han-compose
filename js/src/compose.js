@@ -2360,6 +2360,9 @@ export class Composer {
       // description is drawn: the host cut carries the font's smaller row.
       if (!part && op in this.ENCLOSE && i === 0) part = this.enclosureForm(op, child)
       if (!part) {
+        // A part with no host cut (a description, an empty slot) is set over a swept foot by
+        // `shares`: where it will sweep the outer glyph, answer nothing and `node` hands it the pair.
+        if (op === '⿺' && i === 1 && this.sweptUnder(children, this.enclosing(op, children, frameOf), frameOf)) return null
         if (op in this.ENCLOSE && i === 1) {
           // An inner the opening cannot hold is drawn into the opening itself, so it cannot
           // overflow the frame. A grid drawn whole can still have one row smaller than the other
@@ -2553,6 +2556,31 @@ export class Composer {
     for (const part of below) part.target = [part.target[0], part.target[1] + shift, part.target[2], part.target[3] + shift]
   }
 
+  /** The enclosing operand as `shares` draws it over `region`: its designed form where it has one,
+   *  its own drawing otherwise. */
+  enclosing(op, children, region) {
+    const outer = this.node(children[0], region)
+    const designed = this.enclosureForm(op, children[0])
+    return designed
+      ? [placed(designed.piece, designed.piece.box, fitted(designed.piece.box, region, this.C.STRETCH), this.ink(designed.record.h), `host ${designed.record.h}`)]
+      : outer
+  }
+
+  /** A glyph round the lower left of another part, pressed left and its foot drawn out under that
+   *  part from the box the layout gives it: the swept pieces and that box mapped into `region`.
+   *  Null where `outer` is no single glyph, the layout places nothing, or the glyph has no foot to
+   *  sweep. */
+  sweptUnder(children, outer, region) {
+    if (!this.layout?.ops.includes('⿺') || !this.hosted || this.partial) return null
+    if (outer.length !== 1 || !outer[0].origin.startsWith('glyph')) return null
+    const boxes = this.predict('⿺', children), frame = union(boxes)
+    // Boxes the layout leaves empty place nothing, as `learned` reads them.
+    if (!(frame[2] > frame[0] && frame[3] > frame[1] && boxes.every(b => b[2] > b[0] && b[3] > b[1]))) return null
+    const held = mapped(boxes[1], frame, region)
+    const swept = sweptPart(outer[0], held[0] - this.C.FACING[0], this.C, this.tailForm(keyOf(children[0])))
+    return swept ? { swept, held } : null
+  }
+
   /** Operands sharing the region along an aligned operator by `SHARES`; an enclosed one in the room its
    *  enclosing part leaves. */
   shares(op, children, region, atRoot = false) {
@@ -2561,9 +2589,7 @@ export class Composer {
       // Inside a larger description the halves stand apart as they do at the root.
       const split = this.splitFrame(op, children, region)
       if (split) return split
-      let outer = this.node(children[0], region)
-      const designedOuter = this.enclosureForm(op, children[0])
-      if (designedOuter) outer = [placed(designedOuter.piece, designedOuter.piece.box, fitted(designedOuter.piece.box, region, C.STRETCH), this.ink(designedOuter.record.h), `host ${designedOuter.record.h}`)]
+      let outer = this.enclosing(op, children, region)
       // 虍's whole glyph leaves the inner only the narrow hook. The export's designed 虍 cuts
       // (from 慮, 虜, 虞 …) open wider, so take one when the outer is 虍.
       if (op === '⿸' && typeof children[0] === 'string' && children[0] === '虍') {
@@ -2572,17 +2598,9 @@ export class Composer {
       }
       // A glyph round the lower left of another part is swept under it inside a larger description
       // as it is at the root, from the box the layout gives the part it holds (⿺几力 under 助).
-      let held = null
-      if (op === '⿺' && this.layout?.ops.includes(op) && this.hosted && !this.partial
-        && outer.length === 1 && outer[0].origin.startsWith('glyph')) {
-        const boxes = this.predict(op, children), frame = union(boxes)
-        // Boxes the layout leaves empty place nothing, as `learned` reads them.
-        if (frame[2] > frame[0] && frame[3] > frame[1] && boxes.every(b => b[2] > b[0] && b[3] > b[1])) {
-          const box = mapped(boxes[1], frame, region)
-          const swept = sweptPart(outer[0], box[0] - C.FACING[0], C, this.tailForm(keyOf(children[0])))
-          if (swept) { outer = swept; held = box }
-        }
-      }
+      const under = op === '⿺' ? this.sweptUnder(children, outer, region) : null
+      if (under) outer = under.swept
+      const held = under?.held ?? null
       let room = this.room(op, outer, region)
       // Over a swept foot the part stands where the layout puts it, inside the opening.
       if (held) {
