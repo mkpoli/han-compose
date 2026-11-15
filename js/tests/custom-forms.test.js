@@ -4,7 +4,7 @@ import { gunzipSync } from 'node:zlib'
 import { addCutForms, componentDrawing, isComponentForm } from '../src/component-forms.js'
 import { hasCustomComponent } from '../src/custom-forms.js'
 import { compose, createSource } from '../src/loader.js'
-import { traitsOf } from '../src/source.js'
+import { sourceFor, traitsOf } from '../src/source.js'
 import { files } from './fixtures/small-export.js'
 
 const data = JSON.parse(gunzipSync(readFileSync(new URL('../data/custom-forms.json.gz', import.meta.url))).toString('utf8'))
@@ -68,4 +68,17 @@ it('serves each component host cuts by place, as an export serves an encoded com
   const { componentRecord } = await import('../src/component-forms.js')
   expect(componentRecord(ENTITY, 'sans').u[places[0]][2]).toBe(data.hosts.sans[ENTITY][places[0]].length)
   expect(componentRecord(ENTITY, 'sans').f).toHaveLength(71)
+})
+
+it('draws a description that names one through the source a page asks for', async () => {
+  // The source of such a description is the cut forms over the rest: it names the model files of
+  // what is beneath, which a description with an operator asks every source for.
+  const base = 'https://example.org/export/'
+  const fetch = async url => { const file = files[String(url).slice(base.length)]; return file === undefined ? new Response('', { status: 404 }) : new Response(file) }
+  const text = `⿰木${ENTITY}`
+  const drawn = await compose(sourceFor(text, { base, fetch }), text, { fontStyle: 'sans' })
+  expect(drawn.parts.length).toBeGreaterThan(1)
+  const { customFormsSource } = await import('../src/custom-forms.js')
+  expect(customFormsSource({ load: async () => data }).modelFiles()).toEqual([])
+  expect(customFormsSource({ load: async () => data, fallback: { modelFiles: () => ['identity'] } }).modelFiles()).toEqual(['identity'])
 })
