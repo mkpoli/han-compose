@@ -4,12 +4,17 @@ import { gunzipSync, gzipSync } from 'node:zlib'
 import { compose } from '../src/loader.js'
 import { sourceFor, traitsOf } from '../src/source.js'
 import { HOST_OUTLINES, hasEntity, hostSource } from '../src/host.js'
+import { CUSTOM_FORMS } from '../src/custom-forms.js'
 
 const palette = JSON.parse(gunzipSync(readFileSync(new URL('../data/sources/palette/outlines.json.gz', import.meta.url))))
 const [borrowed] = Object.values(palette.records)
 const NAME = '&GW-u58ec-var-001;'
 const real = globalThis.fetch
 afterEach(() => { globalThis.fetch = real })
+// An entity also asks for the library's cut forms. The host here answers that file empty, so the
+// library's own copy is not read and joined to the component forms for every later test.
+const hosted = { [CUSTOM_FORMS]: 'http://host/custom-forms' }
+const empty = () => new Response(gzipSync('{}'))
 
 describe('outlines a host supplies', () => {
   it('draw an entity reference as a component', async () => {
@@ -39,9 +44,10 @@ describe('outlines a host supplies', () => {
     const asked = []
     globalThis.fetch = async url => {
       asked.push(String(url))
+      if (String(url) === hosted[CUSTOM_FORMS]) return empty()
       return String(url) === 'http://host/outlines' ? new Response(gzipSync(JSON.stringify({ records: { [NAME]: borrowed } }))) : real(url)
     }
-    const loaders = { [HOST_OUTLINES]: 'http://host/outlines' }
+    const loaders = { ...hosted, [HOST_OUTLINES]: 'http://host/outlines' }
     const drawn = await compose(sourceFor(`⿰${NAME}⬚`, { bundled: true, loaders }), `⿰${NAME}⬚`, { separate: true })
     expect(asked).toContain('http://host/outlines')
     expect(drawn.origins).toContain(`glyph ${NAME}`)
@@ -63,7 +69,8 @@ describe('outlines a host supplies', () => {
     }
   })
   it('change nothing where the host lists no file', async () => {
-    const source = sourceFor(`⿰${NAME}⬚`, { bundled: true })
+    globalThis.fetch = async url => String(url) === hosted[CUSTOM_FORMS] ? empty() : real(url)
+    const source = sourceFor(`⿰${NAME}⬚`, { bundled: true, loaders: hosted })
     await source.ready()
     expect(source.store().rec(NAME)).toBeNull()
   })
