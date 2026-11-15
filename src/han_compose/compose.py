@@ -35,11 +35,12 @@ import json
 import math
 import re
 from collections import Counter
-from collections.abc import Callable, Iterator, Mapping
+from collections.abc import Callable, Iterable, Iterator, Mapping
 from dataclasses import dataclass, field, replace
 from functools import cache, cached_property, lru_cache
 from itertools import combinations, pairwise
 from pathlib import Path
+from typing import Self
 
 import numpy as np
 from fontTools.pens.recordingPen import DecomposingRecordingPen
@@ -336,6 +337,56 @@ def _selector(char: str) -> bool:
     return 0xFE00 <= point <= 0xFE0F or 0xE0100 <= point <= 0xE01EF
 
 
+#: The operators zi.tools writes a modifier after: an overlay's matrix, an enclosure's index (`⿻[1:]丨日`).
+MODIFIABLE = frozenset("⿻⿴⿵⿶⿷⿼㇯")
+MODIFIER = re.compile(r"[0-9:,._xabcdlr|-]+")
+#: The longest modifier read, in characters between its brackets.
+MODIFIER_LONGEST = 64
+
+
+class Noted(tuple):
+    """A node whose operator carries a zi.tools modifier, `note`. The modifier says how the operands
+    lie on each other, which the composer does not read: the operator is laid out as it is without
+    one, and the node, written with its modifier, is no character's sequence."""
+
+    note: str
+
+    def __new__(cls, items: tuple, note: str) -> Self:
+        node = super().__new__(cls, items)
+        node.note = note
+        return node
+
+    def __eq__(self, other: object) -> bool:
+        return isinstance(other, Noted) and self.note == other.note and tuple.__eq__(self, other)
+
+    def __ne__(self, other: object) -> bool:
+        return not self == other
+
+    def __hash__(self) -> int:
+        return hash((tuple.__hash__(self), self.note))
+
+    def __getnewargs__(self) -> tuple:
+        return tuple(self), self.note
+
+
+def renoded(node: tuple, operands: Iterable[Node]) -> tuple:
+    """`node` with other operands, its operator's modifier kept."""
+    items = (node[0], *operands)
+    return Noted(items, node.note) if isinstance(node, Noted) else items
+
+
+def _modifier(chars: list[str], at: int) -> str:
+    """The modifier written at `chars[at]`, without its brackets; '' where none starts there."""
+    if at >= len(chars) or chars[at] != "[":
+        return ""
+    try:
+        close = chars.index("]", at + 1, at + MODIFIER_LONGEST + 2)
+    except ValueError:
+        return ""
+    text = "".join(chars[at + 1:close])
+    return text if MODIFIER.fullmatch(text) else ""
+
+
 def _read(chars: list[str], at: int, sequence: str) -> tuple[Node, int]:
     """The node starting at `chars[at]`, and where the next one starts."""
     if at >= len(chars):
@@ -348,11 +399,14 @@ def _read(chars: list[str], at: int, sequence: str) -> tuple[Node, int]:
             char += chars[at]
             at += 1
         return char, at
+    note = _modifier(chars, at) if char in MODIFIABLE else ""
+    if note:
+        at += len(note) + 2
     operands = []
     for _ in range(arity):
         operand, at = _read(chars, at, sequence)
         operands.append(operand)
-    return (char, *operands), at
+    return (Noted((char, *operands), note) if note else (char, *operands)), at
 
 
 @cache
@@ -398,9 +452,14 @@ def described(sequence: str) -> tuple[Node, str]:
     return parse("".join(chars[:at])), "".join(chars[at:])
 
 
+def operator(node: tuple) -> str:
+    """A node's operator as it is written, with its modifier."""
+    return f"{node[0]}[{node.note}]" if isinstance(node, Noted) else node[0]
+
+
 def key(node: Node) -> str:
     """A node written out again as a sequence."""
-    return node if isinstance(node, str) else node[0] + "".join(key(n) for n in node[1:])
+    return node if isinstance(node, str) else operator(node) + "".join(key(n) for n in node[1:])
 
 
 #: A sequence's source regions: (GJ), (G[B]) or (UTC2003).
@@ -1661,7 +1720,7 @@ class Composer:
         down (拠 ⿰扌処 as ⿰扌⿺夂几), so a character holding a component whole is a host for its
         parts. Single-body characters stay whole. `names` records each written-out node's name."""
         if isinstance(node, tuple):
-            return (node[0], *(self._expanded(k, char, names, depth) for k in node[1:]))
+            return renoded(node, (self._expanded(k, char, names, depth) for k in node[1:]))
         own = None if depth <= 0 or node == char else self._written_out(node)
         if own is None:
             return node
@@ -2525,7 +2584,7 @@ class Composer:
         """Use the expanded form for lookup and parent geometry, including nested requests."""
         if isinstance(node, str):
             return node
-        rebuilt = (node[0], *(self._normalize_requested_enclosures(child) for child in node[1:]))
+        rebuilt = renoded(node, (self._normalize_requested_enclosures(child) for child in node[1:]))
         return self._requested_enclosure(rebuilt)
 
     def _respelled(self, node: Node) -> Node:
@@ -2615,7 +2674,7 @@ class Composer:
         for part in "口火又水屮":
             if key(node) == f"⿰⿱{part}{part}⿱{part}{part}":
                 return ("⿱", ("⿰", part, part), ("⿰", part, part))
-        return (node[0], *(self._normalize_repeated_grids(child) for child in node[1:]))
+        return renoded(node, (self._normalize_repeated_grids(child) for child in node[1:]))
 
     def _cancel_transforms(self, node: Node) -> Node:
         """Cancel paired mirrors and half-turns before glyph lookup and layout."""
@@ -2624,7 +2683,7 @@ class Composer:
         kids = tuple(self._cancel_transforms(child) for child in node[1:])
         if node[0] in ("⿾", "⿿") and isinstance(kids[0], tuple) and kids[0][0] == node[0]:
             return kids[0][1]
-        return (node[0], *kids)
+        return renoded(node, kids)
 
     def _standalone_expanded_overlay(self, node: Node) -> Node:
         """Use an attested whole glyph for an expanded overlays; keep missing or excluded glyphs decomposed."""
@@ -3689,7 +3748,7 @@ def _replaced(tree: Node, path: tuple, node: Node) -> Node:
         return node
     kids = list(tree[1:])
     kids[path[0]] = _replaced(kids[path[0]], path[1:], node)
-    return (tree[0], *kids)
+    return renoded(tree, kids)
 
 
 def _swept(placed: Placed, edge: float) -> list[Placed] | None:

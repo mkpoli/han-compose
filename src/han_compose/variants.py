@@ -52,6 +52,7 @@ from .compose import (
     _selector,
     fallback_files,
     font_file,
+    operator,
     parse,
     svg_path,
 )
@@ -444,7 +445,7 @@ def spellings(sequence: str, font: Font) -> tuple[list[str], int]:
                for leaf in _leaves(tree)]
 
     def written(node: Node, leaves) -> str:
-        return next(leaves) if isinstance(node, str) else node[0] + "".join(written(kid, leaves) for kid in node[1:])
+        return next(leaves) if isinstance(node, str) else operator(node) + "".join(written(kid, leaves) for kid in node[1:])
 
     return ([written(tree, iter(chosen)) for chosen in islice(product(*options), COMBINATIONS)],
             math.prod(len(option) for option in options))
