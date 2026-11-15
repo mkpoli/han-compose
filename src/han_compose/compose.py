@@ -47,7 +47,7 @@ from fontTools.ttLib import TTFont
 
 from ._raster import fill
 from ._raster import ring as _ring
-from .vocab import BINARY, TERNARY, UNARY, read_rows
+from .vocab import BINARY, ROOT, TERNARY, UNARY, read_rows
 
 # Generated from the pinned BabelStone IDS catalog; see docs/pyramid-glyphs.md.
 _PYRAMID_GLYPHS = {
@@ -365,6 +365,37 @@ def parse(sequence: str) -> Node:
     if at != len(chars):
         raise ValueError(f"{sequence} has more components than its operators take.")
     return tree
+
+
+#: The Middle Korean tone marks, which name the tone of the syllable they follow.
+TONES = "\u302e\u302f"
+
+
+@cache
+def _mark_ranges() -> tuple[tuple[int, int], ...]:
+    ranges = json.loads((ROOT / "data" / "unicode" / "properties.json").read_text(encoding="utf-8"))["marks"]
+    return tuple((first, last) for first, last in ranges)
+
+
+def is_mark(char: str) -> bool:
+    """Whether `char` may trail a description as a loose mark: a combining mark, a modifier letter,
+    an accent or tone-letter symbol, a superscript or subscript digit, as `data/unicode/properties.json`
+    lists them. A tone mark of a Hangul syllable is that syllable's and is not one."""
+    point = ord(char)
+    return char not in TONES and any(first <= point <= last for first, last in _mark_ranges())
+
+
+def described(sequence: str) -> tuple[Node, str]:
+    """A sequence's tree (`parse`) and the loose marks written after it: `⿰木口́` as ⿰木口 and ́.
+    A mark where an operand is due is that operand (⿰木́)."""
+    chars = list(sequence)
+    end = len(chars)
+    while end > 1 and is_mark(chars[end - 1]):
+        end -= 1
+    _, at = _read(chars, 0, sequence)
+    if at < end or at == len(chars):
+        return parse(sequence), ""
+    return parse("".join(chars[:at])), "".join(chars[at:])
 
 
 def key(node: Node) -> str:
@@ -1518,6 +1549,8 @@ class Composer:
     #: Entries that depend on the exclusion, each as (value, characters its computation asked about).
     _any_overlays: dict[None, tuple] = field(default_factory=dict, init=False, repr=False)
     _faces: dict[None, tuple] = field(default_factory=dict, init=False, repr=False)
+    #: The box a description draws in beside its loose marks, while it is drawn.
+    _beside: Box | None = field(default=None, init=False, repr=False)
     _hosts: dict[tuple, tuple] = field(default_factory=dict, init=False, repr=False)
     _sketches: dict[str, tuple] = field(default_factory=dict, init=False, repr=False)
     _strokes: dict[tuple[str, str], tuple] = field(default_factory=dict, init=False, repr=False)
@@ -1670,7 +1703,10 @@ class Composer:
 
     @property
     def face(self) -> Box:
-        """The median box of permitted full ideographs, or the em when none are available."""
+        """The median box of permitted full ideographs, or the em when none are available; beside
+        loose marks, what they leave of it."""
+        if self._beside is not None:
+            return self._beside
         def median() -> Box:
             boxes = [g.box for char in FULL if char not in self.exclude if (g := self.font.glyph(char)) is not None]
             return tuple(float(v) for v in np.median(np.array(boxes), axis=0)) if boxes else (0.0, ASCENT - EM, EM, ASCENT)
@@ -2634,10 +2670,16 @@ class Composer:
         return [*kept, Placed(body, body.box, box, native=0.0, origin=f"construct {spec['host']} {spec['keep']}")]
 
     def compose(self, sequence: str) -> list[Placed]:
-        """The parts that draw `sequence`; LookupError when an operand can be drawn no way."""
+        """The parts that draw `sequence`, with the loose marks written after it (⿰木口́): a mark
+        beside the drawing takes a margin the character shrinks out of, and none takes part in its
+        layout or weight. LookupError when an operand can be drawn no way."""
+        tree, marks = described(sequence)
+        if marks:
+            from .marks import marked
+            return marked(self, key(tree), marks)
         tree = self._standalone_expanded_overlay(self._standalone_pyramid(
             self._standalone_repeated_grid(self._normalize_repeated_grids(
-                self._normalize_requested_enclosures(self._cancel_transforms(parse(sequence)))))))
+                self._normalize_requested_enclosures(self._cancel_transforms(tree))))))
         placed = self._node(tree, self.face, at_root=True)
         if self.rerank:
             options = self._reranked(tree, placed)
@@ -2670,7 +2712,8 @@ class Composer:
                         placed = [alone]
         if self.weighted:
             self._balance(placed)
-        if self.guide is not None:
+        # The guide's ink is the character in the whole face, not in what marks beside it leave.
+        if self.guide is not None and self._beside is None:
             placed = self.guide.fit(self, key(tree), placed)
         spec = constructs().get(sequence)
         if spec:
