@@ -1,7 +1,11 @@
 import { afterEach, describe, expect, it } from 'bun:test'
 import { gzipSync } from 'node:zlib'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { compose } from '../src/loader.js'
-import { sourceFor } from '../src/source.js'
+import { exportSource, sourceFor } from '../src/source.js'
+import { files } from './fixtures/small-export.js'
+import { served } from './support.js'
 
 const real = globalThis.fetch
 afterEach(() => { globalThis.fetch = real })
@@ -23,6 +27,23 @@ describe('bundled files a host serves', () => {
     await source.ready()
     await source.load(['unicode/003'])
     expect(asked).toEqual(['http://host/003'])
+  })
+  // 𲻋 (U+32ECB) is in no export; the package's shard `unicode/outlines/32e.json.gz` draws it.
+  const shard = readFileSync(join(import.meta.dirname, '..', 'data', 'unicode', 'outlines', '32e.json.gz'))
+  it('reads a shard an export lacks at the URL listed for it', async () => {
+    const asked = []
+    globalThis.fetch = async url => { asked.push(String(url)); return String(url) === 'http://host/32e' ? new Response(shard) : new Response('', { status: 404 }) }
+    const source = exportSource('/', { loaders: { 'unicode/outlines/32e.json.gz': 'http://host/32e' }, fetch: served(files) })
+    const drawn = await compose(source, '𲻋')
+    expect(drawn.parts.map(part => part.origin)).toEqual(['glyph 𲻋'])
+    // Nothing is asked of the package's own folder, which a page that moved the files does not serve.
+    expect(asked).toEqual(['http://host/32e'])
+  })
+  it('draws without a listed shard the host fails to serve', async () => {
+    globalThis.fetch = async () => new Response('', { status: 404 })
+    const source = exportSource('/', { loaders: { 'unicode/outlines/32e.json.gz': 'http://host/32e' }, fetch: served(files) })
+    expect((await compose(source, '木')).d.length).toBeGreaterThan(0)
+    await expect(compose(source, '𲻋')).rejects.toThrow('No glyph or sequence draws 𲻋.')
   })
   it('hands a file it fails to read to the next drawing when nothing else can answer', async () => {
     let calls = 0

@@ -29,7 +29,9 @@ from a designed glyph. 〾 draws its operand as it is. ㇯ leaves its second ope
 first: the first's glyph is cut along its sequence, or along KanjiVG's component groups, and the
 outlines of that component are dropped (㇯鹿比); a lone stroke is the one stroke KanjiVG types so,
 where the character has just one (㇯兵丶). Where none of these names it, the second operand is
-drawn where it lies in the first and masked out of it. Its fonts have no Tangut.
+drawn where it lies in the first and masked out of it. Marks written after a sequence are drawn
+with it: a combining mark over or under the drawing (⿰木口́), a spacing accent, a kana voicing
+mark or a superscript at its upper right (⿰木口¹). Its fonts have no Tangut.
 Chữ Nôm characters are Han characters and are drawn like
 any other.
 
@@ -200,6 +202,7 @@ uv run ruff check
 | `data/` | the vocab tables, and the outlines the engine draws a part from when no export has it |
 | `docs/design/ids-composer.md` | the method, its measurements, and what did not help |
 | `docs/design/browser-composer.md` | the browser engine, and where the editor it serves meets it |
+| `docs/design/stroke-weight.md` | how parts are brought to one stroke weight, and what a new font needs for it |
 
 ## Sources
 

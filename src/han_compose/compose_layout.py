@@ -174,10 +174,14 @@ def examples(composer: C.Composer, workers: int = 3) -> list[dict]:
 
     global _COMPOSER
     _COMPOSER = composer
-    _ = composer._index
+    # Every sequence indexed before the workers fork, so that they share the index.
+    len(composer._index[0])
     # Characters of fallbacks drawn in another design teach another designer's layout: left out.
     drawn = composer.font.has if composer.font.style.kindred else composer.font.own
     chars = sorted(ch for ch, seq in composer.sequences.items() if drawn(ch) and seq[0] in OPS)
+    if getattr(composer, "kvg", None) is not None:
+        # KanjiVG read before the workers fork, so that they share it.
+        _ = composer.kvg.entries
     # Workers are replaced as they go: their caches grow with every character cut.
     with mp.get_context("fork").Pool(workers, maxtasksperchild=6) as pool:
         rows = [r for r in pool.imap_unordered(_example, chars, chunksize=64) if r]

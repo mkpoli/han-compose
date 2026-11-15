@@ -81,6 +81,15 @@ export const CONSTRUCTS = {
       digest: 'ad473c2c2cf293512d44377319d9421cfb26b8ca149417bebf81994b8a341679' },
   ] },
   '⿰⿻三丨刀': JIE,
+  // ⿲𰀪丨⿱丶丶, 眔's lower half with 𰀪 and two dots, as the Kaisho export's 眔 draws it: its five
+  // strokes stand apart (8 and 6 the 𰀪, 1 the stem, 7 and 5 the dots), one cut per leaf. The cuts
+  // fill the description's place; alone, they stay where 眔 sets them.
+  '⿲𰀪丨⿱丶丶': { host: '眔', nested: true, fill: true, cuts: [
+    { host: '眔', label: '眔 𰀪', contours: [8, 6], digest: 'c64879c4a5b1ea6bab191c69549cfce19af842d496ddd279d505cd49f6b338f2' },
+    { host: '眔', label: '眔 丨', contours: [1], digest: 'c64879c4a5b1ea6bab191c69549cfce19af842d496ddd279d505cd49f6b338f2' },
+    { host: '眔', label: '眔 upper 丶', contours: [7], digest: 'c64879c4a5b1ea6bab191c69549cfce19af842d496ddd279d505cd49f6b338f2' },
+    { host: '眔', label: '眔 lower 丶', contours: [5], digest: 'c64879c4a5b1ea6bab191c69549cfce19af842d496ddd279d505cd49f6b338f2' },
+  ] },
 }
 
 /** A construct's stored body drawn in `box`, or null where it has none.
@@ -98,24 +107,28 @@ export function constructBody(spec, box) {
  * keeps `keepParts` operands and fits a `body` (or the host's own `contours`) into the box the rest
  * filled. A digest names the outline a cut was made for; an export drawing another glyph keeps its
  * own parts.
- * @param {{ host: string, cuts?: { host: string, label: string, contours: number[], digest: string, box?: number[] }[], keep?: string, keepParts?: number, skipTail?: number, body?: any, contours?: number[], digest?: string }} spec
+ * @param {{ host: string, fill?: boolean, cuts?: { host: string, label: string, contours: number[], digest: string, box?: number[] }[], keep?: string, keepParts?: number, skipTail?: number, body?: any, contours?: number[], digest?: string }} spec
  * @param {any[]} out
  * @param {Record<string, { b: number[], p: any[] } | null> | null} [records] The glyphs the cuts name.
  * @param {number[] | null} [face]
+ * @param {boolean} [atRoot] Whether the construct is the whole character; a `fill` construct inside one fills `face`.
  */
-export function constructParts(spec, out, records = null, face = null) {
+export function constructParts(spec, out, records = null, face = null, atRoot = true) {
   if (spec.cuts) {
     const host = records?.[spec.host]
     if (!host) return out
-    const frame = partOf(host), target = face ?? frame.box
-    const parts = []
+    const target = face ?? partOf(host).box
+    /** @type {[{ label: string, box?: number[] }, any][]} */
+    const pieces = []
     for (const cut of spec.cuts) {
       const record = records[cut.host]
       if (!record || hexOf(JSON.stringify(record.p)) !== cut.digest) return out
       const source = partOf(record)
-      const piece = derived(source, (cut.contours ?? []).map(i => source.contours[i]))
-      parts.push(placed(piece, piece.box, mapped(cut.box ?? piece.box, frame.box, target), 0, `construct ${cut.label}`))
+      pieces.push([cut, derived(source, (cut.contours ?? []).map(i => source.contours[i]))])
     }
+    // A `fill` construct is part of a character: inside one its cuts fill the place they are given.
+    const frame = spec.fill && !atRoot ? union(pieces.map(([cut, piece]) => cut.box ?? piece.box)) : partOf(host).box
+    const parts = pieces.map(([cut, piece]) => placed(piece, piece.box, mapped(cut.box ?? piece.box, frame, target), 0, `construct ${cut.label}`))
     // A `keepParts` entry replaces that many drawn parts with the cuts and leaves the rest.
     if (!spec.keepParts) return parts
     const kept = out.slice(spec.keepParts)

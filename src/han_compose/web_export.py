@@ -381,12 +381,14 @@ HOST_CACHE_BATCH = 64
 
 
 def _load_font_caches(composer: C.Composer) -> None:
-    """Read every host's glyph and KanjiVG ownership once, before the workers fork. They depend only
-    on the font, so the workers share them; cut geometry is what grows, and `_clear_host_caches`
-    releases it."""
+    """Read every host's glyph, at both weights, and KanjiVG ownership once, before the workers
+    fork. They depend only on the font, so the workers share them; cut geometry is what grows, and
+    `_clear_host_caches` releases it."""
     index, _ = composer._index
     for char in sorted({entry[0] for entries in index.values() for entry in entries}):
-        composer.font.glyph(char)
+        glyph = composer.font.glyph(char)
+        if glyph is not None and glyph.contours[0].weigh is not None:
+            glyph.contours[0].weigh()
         if composer.kvg is not None:
             composer.kvg.owners(char)
 

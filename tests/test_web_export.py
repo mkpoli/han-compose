@@ -48,6 +48,18 @@ def test_every_host_glyph_and_its_ownership_are_read_before_the_workers_fork() -
     assert glyphs == owners == ["村", "林"]
 
 
+def test_every_host_glyph_is_weighed_before_the_workers_fork() -> None:
+    from types import SimpleNamespace
+
+    weighed = []
+    left = SimpleNamespace(contours=[SimpleNamespace(weigh=lambda: weighed.append("林"))])
+    done = SimpleNamespace(contours=[SimpleNamespace(weigh=None)])
+    c = SimpleNamespace(_index=({("L", "木"): [("林", (), (), 0), ("村", (), (), 0)]}, None),
+                        font=SimpleNamespace(glyph={"林": left, "村": done}.get), kvg=None)
+    web_export._load_font_caches(c)
+    assert weighed == ["林"]
+
+
 def test_an_export_freezes_the_heap_only_for_its_length(monkeypatch: pytest.MonkeyPatch) -> None:
     import gc
 

@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import numpy as np
 
+from han_compose import kanjivg_cuts
 from han_compose.kanjivg_cuts import Entry, Group, sample_path
 
 
@@ -40,3 +43,16 @@ def test_entry_samples_its_strokes_when_first_read():
     assert "paths" not in vars(entry)
     assert [len(path) for path in entry.paths] == [12]
     assert entry.paths is entry.paths
+
+
+def test_a_cutter_reads_kanjivg_when_a_cut_first_asks(monkeypatch, tmp_path):
+    read = []
+    entry = Entry(Group("一", None, [0]), ["M0,0L11,0"])
+    monkeypatch.setattr(kanjivg_cuts, "load", lambda path: read.append(path) or {"一": entry})
+    composer = SimpleNamespace(forms={"水": [("氵", "L")]}, font=SimpleNamespace(glyph=lambda char: None))
+    cutter = kanjivg_cuts.Cutter(composer, tmp_path / "kanjivg.xml")
+    assert read == []
+    # A character with no glyph is cut nowhere, and asking is what reads the file.
+    assert cutter.owners("一") is None
+    assert read == [str(tmp_path / "kanjivg.xml")]
+    assert cutter.entries == {"一": entry} and len(read) == 1

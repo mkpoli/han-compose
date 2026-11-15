@@ -49,7 +49,7 @@ def test_only_fallbacks_of_the_main_fonts_design_teach_the_layout() -> None:
     for style, expected in (("sans", {"一", "𠀀"}), ("serif", {"一"}), ("kaisho", {"一"}), ("fangsong", {"一"})):
         seen.clear()
         font = SimpleNamespace(style=compose.STYLES[style], has=lambda ch: True, own=lambda ch: ch == "一")
-        fake = SimpleNamespace(font=font, sequences={"一": "⿱一一", "𠀀": "⿰一一"}, _index=None)
+        fake = SimpleNamespace(font=font, sequences={"一": "⿱一一", "𠀀": "⿰一一"}, _index=({}, {}))
         context = SimpleNamespace(Pool=Pool)
         original = mp.get_context
         mp.get_context = lambda *_, context=context: context
@@ -202,6 +202,67 @@ def test_the_serif_o_counter_stays_a_hole_at_heavy(serif: compose.Font) -> None:
     (x0, y0, x1, y1), (bx, by, bw, bh) = o.box, box
     counter = (int(((x0 + x1) / 2 - bx) / bw * size), int((by + bh - (y0 + y1) / 2) / bh * size))
     assert not mask[counter[1], counter[0]] and counter not in seen
+
+def test_a_contour_left_for_later_is_weighed_with_its_glyph_when_first_read() -> None:
+    import dataclasses
+
+    points = np.zeros((3, 2))
+    first, second = (compose.Contour([], points, compose.LATER, compose.LATER) for _ in range(2))
+    weighed = []
+
+    def weigh() -> None:
+        weighed.append(1)
+        for contour in (first, second):
+            contour.weigh = None
+            contour.heavy, contour.width = points + 1, (80.0, 75.0)
+
+    first.weigh = second.weigh = weigh
+    # Whether a width is measured on it is known without measuring.
+    assert first.measured and second.measured and weighed == []
+    assert second.width == (80.0, 75.0) and np.array_equal(first.heavy, points + 1) and weighed == [1]
+    assert dataclasses.replace(first, light=points + 2).width == (80.0, 75.0) and weighed == [1]
+    plain = compose.Contour([], points, points)
+    assert plain.width is None and not plain.measured and plain.weigh is None and plain.heavy is points
+    # What is set on a contour left for later stays: its glyph is weighed first.
+    third = compose.Contour([], points, compose.LATER, compose.LATER)
+    third.weigh = lambda: (setattr(third, "weigh", None), setattr(third, "heavy", points + 1), setattr(third, "width", (80.0, 75.0)))
+    third.heavy = points + 5
+    assert np.array_equal(third.heavy, points + 5) and third.width == (80.0, 75.0)
+
+
+def test_a_glyph_is_read_at_one_weight_until_one_of_its_contours_is_weighed(monkeypatch) -> None:
+    from fontTools.pens.recordingPen import DecomposingRecordingPen
+
+    if not _cached("sans"):
+        pytest.skip("The sans fonts are not cached; `scripts/compose_ids.py draw` fetches them.")
+    font = compose.Font.of("sans")
+    heavy, read, measured = font.heavy, [], []
+
+    class Counted:
+        def __getitem__(self, name: str):
+            read.append(name)
+            return heavy[name]
+
+    stems = compose.stems
+    monkeypatch.setattr(font, "heavy", Counted())
+    monkeypatch.setattr(compose, "stems", lambda mask, unit: measured.append(1) or stems(mask, unit))
+    assert font.own("何") and not font.own("𡉵") and font.has("𡉵")
+    own, fallback = font.glyph("何"), font.glyph("𡉵")
+    # Which font draws a glyph is told without weighing it.
+    assert not own.contours[0].measured and fallback.contours[0].measured
+    assert read == [] and measured == []
+
+    drawn = DecomposingRecordingPen(heavy)
+    heavy[font._name("何")].draw(drawn)
+    assert all(np.array_equal(c.heavy, points) for c, (_, points) in zip(own.contours, compose._contours(drawn), strict=True))
+    assert read == [font._name("何")] and own.contours[0].width is None
+
+    width = fallback.contours[-1].width
+    grow = tuple(width[axis] * (font.stem[axis][1] / font.stem[axis][0] - 1) / 2 for axis in (0, 1))
+    assert all(c.width == width and np.array_equal(c.heavy, compose._grown(c.light, grow)) for c in fallback.contours)
+    # Once for the whole glyph.
+    assert read == [font._name("何")] and measured == [1]
+
 
 def test_the_cli_refuses_a_style_it_does_not_know() -> None:
     import sys

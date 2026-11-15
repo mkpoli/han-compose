@@ -198,10 +198,12 @@ export function createSource(read, { concurrency = 32 } = {}) {
   return source
 }
 
-/** A source over HTTP: `base` is the folder holding the export, `suffix` what each name carries there (`.gz`). */
-export function fromUrl(base, { suffix = '', fetch: get = download } = {}) {
+/** A source over HTTP: `base` is the folder holding the export, `suffix` what each name carries there
+ *  (`.gz`). `load` reads a Unicode shard of the package for a character the export lacks, where a
+ *  host serves those files itself; without it the package's own copy is read. */
+export function fromUrl(base, { suffix = '', fetch: get = download, load } = {}) {
   const root = base.endsWith('/') ? base : `${base}/`
-  return unicodeSource({ fallback: createSource(async name => {
+  return unicodeSource({ ...(load ? { load } : {}), fallback: createSource(async name => {
     const response = await get(`${root}${name}${suffix}`)
     // Only a shard (`g/`, `p/`) may be missing, as the export writes none where no key falls; a
     // missing manifest or layout fails with its status like any other error.
@@ -279,7 +281,9 @@ function extraOperators(tree, { fontStyle, separate, nativeEnclosures }) {
   const key = keyOf(tree)
   if ((separate ? isGroupedForm : isComponentForm)(key, fontStyle)) return []
   const op = nativeEnclosures.has(key) ? [] : [tree[0]]
-  return [...op, ...tree.slice(1).flatMap(child => extraOperators(child, { fontStyle, separate, nativeEnclosures }))].filter(op => APPROXIMATE.includes(op))
+  // A subtraction is approximate only where the composer says so: drawn from a character's own
+  // outlines or from what is left of its description, it is not.
+  return [...op, ...tree.slice(1).flatMap(child => extraOperators(child, { fontStyle, separate, nativeEnclosures }))].filter(op => APPROXIMATE.includes(op) && op !== '㇯')
 }
 
 /** Whether a tree holds an operator of two operands or more: such a description is laid out by the

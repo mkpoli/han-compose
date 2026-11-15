@@ -35,7 +35,7 @@ import json
 import math
 import re
 from collections import Counter
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass, field, replace
 from functools import cache, cached_property, lru_cache
 from itertools import combinations, pairwise
@@ -47,7 +47,7 @@ from fontTools.ttLib import TTFont
 
 from ._raster import fill
 from ._raster import ring as _ring
-from .vocab import BINARY, TERNARY, UNARY, read_rows
+from .vocab import BINARY, ROOT, TERNARY, UNARY, read_rows
 
 # Generated from the pinned BabelStone IDS catalog; see docs/pyramid-glyphs.md.
 _PYRAMID_GLYPHS = {
@@ -225,6 +225,10 @@ HOST_SNAP = 1.05
 EXPAND_DEPTH = 2
 #: Below how many characters writing a part out its hosts are sought inside components too.
 EXPAND_FEW = 3
+#: How many characters the searches for single operands may read (`Hosts`), as a multiple of how
+#: many sequences there are, before every sequence is indexed at once: reading a character costs a
+#: search far less than indexing it, and one drawing's searches read under half as many.
+SEARCHED = 1.0
 #: An enclosure cut by its enclosing operand's template (`Composer._guided`): how many KanjiVG cuts
 #: make the template, at what size, grown by how many pixels, and how much of an outline must lie on
 #: it to go with the enclosing part.
@@ -363,6 +367,37 @@ def parse(sequence: str) -> Node:
     return tree
 
 
+#: The Middle Korean tone marks, which name the tone of the syllable they follow.
+TONES = "\u302e\u302f"
+
+
+@cache
+def _mark_ranges() -> tuple[tuple[int, int], ...]:
+    ranges = json.loads((ROOT / "data" / "unicode" / "properties.json").read_text(encoding="utf-8"))["marks"]
+    return tuple((first, last) for first, last in ranges)
+
+
+def is_mark(char: str) -> bool:
+    """Whether `char` may trail a description as a loose mark: a combining mark, a modifier letter,
+    an accent or tone-letter symbol, a superscript or subscript digit, as `data/unicode/properties.json`
+    lists them. A tone mark of a Hangul syllable is that syllable's and is not one."""
+    point = ord(char)
+    return char not in TONES and any(first <= point <= last for first, last in _mark_ranges())
+
+
+def described(sequence: str) -> tuple[Node, str]:
+    """A sequence's tree (`parse`) and the loose marks written after it: `⿰木口́` as ⿰木口 and ́.
+    A mark where an operand is due is that operand (⿰木́)."""
+    chars = list(sequence)
+    end = len(chars)
+    while end > 1 and is_mark(chars[end - 1]):
+        end -= 1
+    _, at = _read(chars, 0, sequence)
+    if at < end or at == len(chars):
+        return parse(sequence), ""
+    return parse("".join(chars[:at])), "".join(chars[at:])
+
+
 def key(node: Node) -> str:
     """A node written out again as a sequence."""
     return node if isinstance(node, str) else node[0] + "".join(key(n) for n in node[1:])
@@ -481,17 +516,59 @@ def spelled_nodes() -> set[str]:
 
 
 # ------------------------------------------------------------------ outlines
+#: Stands for a contour's heavy points or stroke width until its glyph works them out (`Contour.weigh`).
+LATER = object()
+_REQUIRED = object()
+
+
+class _Weighed:
+    """A field of a contour that its glyph may leave for later (`LATER`): reading it works out the
+    heavy points and the stroke width of every contour of the glyph (`Contour.weigh`)."""
+
+    def __init__(self, default=_REQUIRED):
+        self.default = default
+
+    def __set_name__(self, owner: type, name: str) -> None:
+        self.name = "_" + name
+
+    def __get__(self, contour: Contour | None, owner: type | None = None):
+        if contour is None:
+            # What a dataclass reads for the field's default: none unless one was given.
+            if self.default is _REQUIRED:
+                raise AttributeError(self.name)
+            return self.default
+        if contour.weigh is not None:
+            contour.weigh()
+        return contour.__dict__[self.name]
+
+    def __set__(self, contour: Contour, value) -> None:
+        if contour.__dict__.get("weigh") is not None:
+            # Weighed first, so that what is set here is not worked out over.
+            contour.weigh()
+        contour.__dict__[self.name] = value
+
+
 @dataclass
 class Contour:
     """One closed contour: its pen commands (command, points, whether it closes on an implied
     point), and its points at weight 400 and at the style's heavy weight. A contour of a fallback font
     also carries its glyph's stroke width as measured, across x and across y, which the style's
-    `stem_curve` (fitted on its variable font's outlines) does not predict for another design."""
+    `stem_curve` (fitted on its variable font's outlines) does not predict for another design.
+
+    A font leaves the heavy points and the stroke width of a glyph it reads for later (`LATER`):
+    hosts are ranked and cut by their outlines at weight 400, and few of them are drawn."""
 
     ops: list[tuple[str, int, bool]]
     light: np.ndarray
-    heavy: np.ndarray
-    width: tuple[float, float] | None = None
+    heavy: np.ndarray = _Weighed()
+    width: tuple[float, float] | None = _Weighed(None)
+    #: Works out `heavy` and `width` for every contour of the glyph, where they were left for later.
+    weigh: Callable[[], None] | None = field(default=None, repr=False, compare=False)
+
+    @property
+    def measured(self) -> bool:
+        """Whether the contour carries its glyph's stroke width, known before it is worked out."""
+        return self.__dict__["_width"] is not None
 
     @cached_property
     def box(self) -> Box:
@@ -621,6 +698,8 @@ class Font:
         return self._name(char) is not None or (len(char) == 1 and any(ord(char) in cmap for _, cmap, _, _ in self.fallbacks))
 
     def glyph(self, char: str) -> Part | None:
+        """The glyph's outline at weight 400. Its heavy outline, and its stroke width where that is
+        measured, are worked out when a contour is first asked for either (`Contour.weigh`)."""
         if char not in self._parts:
             part = None
             name = self._name(char)
@@ -629,39 +708,62 @@ class Font:
                     if ord(char) in cmap:
                         pen = DecomposingRecordingPen(glyphs)
                         glyphs[cmap[ord(char)]].draw(pen)
-                        # A static font has one weight: its heavy outline is the light one grown by as
-                        # much as this font's stems of the same width grow at heavy, so its parts are
-                        # thinned and thickened like the font's own.
-                        rings = [(ops, p * scale if scale != 1 else p) for ops, p in _contours(pen)]
-                        flat = [Contour(ops, p, p) for ops, p in rings]
-                        if self.family is not None:
-                            density = sum(c.length for c in flat)
-                            width = tuple(self.family[axis] * self.width(density, axis) for axis in (0, 1))
-                        else:
-                            mask = fill(_rings(flat, [c.light for c in flat], steps=2), 200, (0.0, ASCENT - EM, EM, ASCENT))
-                            width = tuple(w if np.isfinite(w) else self.stem[axis][0] for axis, w in enumerate(stems(mask, EM / 200)))
-                        grow = tuple(width[axis] * (self.stem[axis][1] / self.stem[axis][0] - 1) / 2 for axis in (0, 1))
-                        contours = [Contour(ops, p, _grown(p, grow), width) for ops, p in rings]
+                        contours = [Contour(ops, p * scale if scale != 1 else p, LATER, LATER) for ops, p in _contours(pen)]
+                        self._later(contours, lambda contours=contours: self._grown_heavy(contours))
                         part = Part(contours) if contours else None
                         break
             if name is not None:
-                light, heavy = DecomposingRecordingPen(self.light), DecomposingRecordingPen(self.heavy)
+                light = DecomposingRecordingPen(self.light)
                 self.light[name].draw(light)
-                self.heavy[name].draw(heavy)
-                contours = [Contour(ops, p, q) for (ops, p), (_, q) in zip(_contours(light), _contours(heavy))]
-                if self.static:
-                    flat = [Contour(ops, p, p) for ops, p in _contours(light)]
-                    mask = fill(_rings(flat, [c.light for c in flat], steps=2), 200, (0.0, ASCENT - EM, EM, ASCENT))
-                    width = tuple(w if np.isfinite(w) else self.stem[axis][0] for axis, w in enumerate(stems(mask, EM / 200)))
-                    for c in contours:
-                        c.heavy = _grown(c.light, (STATIC_GROW, STATIC_GROW))
-                        c.width = width
-                if self.grow_y:
-                    for c in contours:
-                        c.heavy = np.column_stack([c.heavy[:, 0], _grown(c.light, (0.0, self.grow_y))[:, 1]])
+                contours = [Contour(ops, p, LATER, LATER if self.static else None) for ops, p in _contours(light)]
+                self._later(contours, lambda contours=contours: self._own_heavy(name, contours))
                 part = Part(contours) if contours else None
             self._parts[char] = part
         return self._parts[char]
+
+    @staticmethod
+    def _later(contours: list[Contour], work: Callable[[], tuple[list[np.ndarray], tuple[float, float] | None]]) -> None:
+        """Leave the contours' heavy points and stroke width to `work`, called when one is first read."""
+        def weigh() -> None:
+            heavy, width = work()
+            for contour, points in zip(contours, heavy, strict=True):
+                contour.weigh = None
+                contour.heavy, contour.width = points, width
+
+        for contour in contours:
+            contour.weigh = weigh
+
+    def _measured(self, contours: list[Contour]) -> tuple[float, float]:
+        """The stroke width measured on a glyph's ink, this font's own stem where none can be."""
+        mask = fill(_rings(contours, [c.light for c in contours], steps=2), 200, (0.0, ASCENT - EM, EM, ASCENT))
+        return tuple(w if np.isfinite(w) else self.stem[axis][0] for axis, w in enumerate(stems(mask, EM / 200)))
+
+    def _grown_heavy(self, contours: list[Contour]) -> tuple[list[np.ndarray], tuple[float, float]]:
+        """A fallback glyph's heavy outline and stroke width. A static font has one weight: its heavy
+        outline is the light one grown by as much as this font's stems of the same width grow at
+        heavy, so its parts are thinned and thickened like the font's own."""
+        if self.family is not None:
+            density = sum(c.length for c in contours)
+            width = tuple(self.family[axis] * self.width(density, axis) for axis in (0, 1))
+        else:
+            width = self._measured(contours)
+        grow = tuple(width[axis] * (self.stem[axis][1] / self.stem[axis][0] - 1) / 2 for axis in (0, 1))
+        return [_grown(c.light, grow) for c in contours], width
+
+    def _own_heavy(self, name: str, contours: list[Contour]) -> tuple[list[np.ndarray], tuple[float, float] | None]:
+        """The heavy outline of a glyph of the style's own font, with its stroke width where the
+        font is static."""
+        width = None
+        if self.static:
+            heavy, width = [_grown(c.light, (STATIC_GROW, STATIC_GROW)) for c in contours], self._measured(contours)
+        else:
+            pen = DecomposingRecordingPen(self.heavy)
+            self.heavy[name].draw(pen)
+            heavy = [points for _, points in _contours(pen)]
+        if self.grow_y:
+            heavy = [np.column_stack([points[:, 0], _grown(c.light, (0.0, self.grow_y))[:, 1]])
+                     for c, points in zip(contours, heavy, strict=True)]
+        return heavy, width
 
 
 def _across(rings: list[np.ndarray], axis: int) -> float:
@@ -1166,6 +1268,247 @@ class _Exclusion(set):
     __rand__ = __and__
 
 
+#: The description operators: nearly every sequence names one, so none helps find an operand's hosts.
+_OPERATORS = frozenset(BINARY | TERNARY | UNARY)
+
+
+def _parsed(sequence: str) -> Node | None:
+    """A sequence's tree (`parse`), or None for a malformed one."""
+    try:
+        return parse(sequence)
+    except ValueError:
+        return None
+
+
+def _held(char: str, tree: tuple, node: Node, path: tuple, wanted: Node, written: str, names: dict, found: dict) -> None:
+    """`Composer._indexed`'s walk for one operand: `found[place]` gains an entry for each laid-out
+    node under `node` that holds `wanted` there, or a component named `written` that `names`
+    records as written out."""
+    if not isinstance(node, tuple) or (node[0] not in AXIS and node[0] not in ENCLOSE and node[0] != OVERLAY):
+        return
+    for i, child in enumerate(node[1:]):
+        if child == wanted or (names and names.get(id(child)) == written):
+            found.setdefault(slot(node[0], i), []).append((char, tree, path, i))
+        _held(char, tree, child, path + (i,), wanted, written, names, found)
+
+
+def _laid_out(char: str, tree: tuple, node: Node, path: tuple, op: str, found: list) -> None:
+    """`Composer._indexed`'s walk for one operator: `found` gains each node of `op` under `node`."""
+    if not isinstance(node, tuple) or (node[0] not in AXIS and node[0] not in ENCLOSE and node[0] != OVERLAY):
+        return
+    if node[0] == op:
+        found.append((char, tree, path))
+    for i, child in enumerate(node[1:]):
+        _laid_out(char, tree, child, path + (i,), op, found)
+
+
+class _Read(Mapping):
+    """A mapping whose values are found when asked for: `find` answers one key with a list, empty
+    for a key it does not hold, and `every` gives the mapping whole, for whatever reads all of it."""
+
+    def __init__(self, find: Callable[[object], list], every: Callable[[], dict]):
+        self.find, self.every = find, every
+
+    def __getitem__(self, name) -> list:
+        found = self.find(name)
+        if not found:
+            raise KeyError(name)
+        return found
+
+    def __iter__(self):
+        return iter(self.every())
+
+    def __len__(self) -> int:
+        return len(self.every())
+
+
+class _Usage(dict):
+    """(place, operand) → how many of its hosts have a Japanese sequence, counted when first asked."""
+
+    def __init__(self, hosts: Mapping, japanese: set[str]):
+        self.hosts, self.japanese = hosts, japanese
+
+    def __missing__(self, place: tuple[str, str]) -> int:
+        self[place] = sum(1 for char, *_ in self.hosts.get(place, ()) if char in self.japanese)
+        return self[place]
+
+
+class Hosts(Mapping):
+    """(place, operand) → the drawn characters holding that operand there, as `Composer._indexed`
+    lists them, found one operand at a time.
+
+    A drawing asks about a few dozen of the tens of thousands of operands the characters hold. An
+    operand's hosts are read from the characters whose sequences name its rarest component; where
+    fewer than `EXPAND_FEW` of them write it out, also from those that hold it inside a component:
+    the characters naming a character that names that component, `EXPAND_DEPTH` components down.
+    Whatever reads every operand indexes every sequence at once instead (`whole`), as do searches
+    once they have read `SEARCHED` times as many characters as there are sequences.
+    """
+
+    def __init__(self, composer: Composer, drawn: Callable[[str], bool]):
+        self.composer, self.drawn = composer, drawn
+        self._whole: tuple[dict, dict] | None = None
+        #: operand → place → entries: where characters write the operand out, and where they hold
+        #: it inside a component written out.
+        self._written: dict[str, dict[str, list]] = {}
+        self._inside: dict[str, dict[str, list]] = {}
+        self._entries: dict[tuple[str, str], list] = {}
+        self._nodes: dict[str, list] = {}
+        self._by_operand: dict[str, list[tuple[str, str]]] | None = None
+        #: How many characters the searches have read.
+        self._read = 0
+
+    @property
+    def whole(self) -> tuple[dict, dict]:
+        """Every operand's hosts and every operator's nodes, indexed at once (`Composer._indexed`)."""
+        if self._whole is None:
+            self._whole = self.composer._indexed(self.drawn)
+        return self._whole
+
+    @cached_property
+    def templates(self) -> Mapping[str, list]:
+        """operator → the drawn characters with a node of it, each with its tree and the path to the node."""
+        return _Read(self.nodes, lambda: self.whole[1])
+
+    @cached_property
+    def by_operand(self) -> Mapping[str, list[tuple[str, str]]]:
+        """operand → the (place, operand) keys it is held under, in the order of the keys."""
+        return _Read(self.places, self._every_place)
+
+    @cached_property
+    def _naming(self) -> tuple[dict[str, list[str]], dict[str, int]]:
+        """component → the characters whose sequences name it, drawn or not, in the order of the
+        sequences; and each character's position in that order."""
+        naming: dict[str, list[str]] = {}
+        order: dict[str, int] = {}
+        for char, sequence in self.composer.sequences.items():
+            order[char] = len(order)
+            for component in set(sequence):
+                if component not in _OPERATORS:
+                    naming.setdefault(component, []).append(char)
+        return naming, order
+
+    def _candidates(self, written: str) -> list[str]:
+        """The characters whose sequences name the rarest component of `written`: every character
+        that holds `written` is among them."""
+        naming, _ = self._naming
+        return min((naming.get(component, []) for component in written if component not in _OPERATORS), key=len, default=[])
+
+    def _afford(self, characters: int) -> bool:
+        """Count `characters` more read by a search; False once every sequence is indexed instead."""
+        self._read += characters
+        if self._read > SEARCHED * len(self.composer.sequences):
+            _ = self.whole
+        return self._whole is None
+
+    def _writers(self, written: str) -> dict[str, list] | None:
+        """place → the entries of the characters that write `written` out as an operand; None once
+        every sequence is indexed instead."""
+        if written not in self._written:
+            sequences = self.composer.sequences
+            # An operand's key is the stretch of the sequence it was read from.
+            named = [char for char in self._candidates(written) if written in sequences[char]]
+            if not self._afford(len(named)):
+                return None
+            wanted, found = _parsed(written), {}
+            for char in named if wanted is not None else ():
+                if self.drawn(char):
+                    tree = _parsed(sequences[char])
+                    if tree is not None:
+                        _held(char, tree, tree, (), wanted, written, {}, found)
+            self._written[written] = found
+        return self._written[written]
+
+    def _holders(self, written: str) -> dict[str, list] | None:
+        """place → the entries of the characters that hold `written` inside a component written out
+        from its own sequence (`Composer._expanded`); None once every sequence is indexed instead."""
+        if written not in self._inside:
+            composer = self.composer
+            _, order = self._naming
+            # Such a character names a component written out, whose sequence names the operand's
+            # rarest component or a component written out that does.
+            reach = set(self._candidates(written))
+            front = reach
+            for _ in range(EXPAND_DEPTH):
+                front = {char for component in front if composer._written_out(component) is not None
+                         for char in self._candidates(component)} - reach
+                reach |= front
+            if not self._afford(len(reach)):
+                return None
+            wanted, found = _parsed(written), {}
+            for char in sorted(reach, key=order.__getitem__) if wanted is not None else ():
+                if self.drawn(char):
+                    tree = _parsed(composer.sequences[char])
+                    if tree is not None:
+                        names: dict = {}
+                        expanded = composer._expanded(tree, char, names, EXPAND_DEPTH)
+                        if names:
+                            _held(char, expanded, expanded, (), wanted, written, names, found)
+            self._inside[written] = found
+        return self._inside[written]
+
+    def _search(self, place: str, written: str) -> list | None:
+        """The entries under (place, written); None once every sequence is indexed instead."""
+        writers = self._writers(written)
+        if writers is None:
+            return None
+        entries = writers.get(place, [])
+        if len(entries) < EXPAND_FEW:
+            holders = self._holders(written)
+            if holders is None:
+                return None
+            have = {entry[0] for entry in entries}
+            entries = entries + [entry for entry in holders.get(place, ()) if entry[0] not in have]
+        return entries
+
+    def __getitem__(self, key: tuple[str, str]) -> list:
+        if self._whole is None and key not in self._entries:
+            found = self._search(*key)
+            if found is not None:
+                self._entries[key] = found
+        entries = (self._entries if self._whole is None else self._whole[0]).get(key)
+        if not entries:
+            raise KeyError(key)
+        return entries
+
+    def __iter__(self):
+        return iter(self.whole[0])
+
+    def __len__(self) -> int:
+        return len(self.whole[0])
+
+    def places(self, written: str) -> list[tuple[str, str]]:
+        """The (place, operand) keys `written` is held under, in the order of the keys."""
+        if self._whole is None:
+            writers = self._writers(written)
+            holders = None if writers is None else self._holders(written)
+            if holders is not None:
+                return [(place, written) for place in dict.fromkeys([*writers, *holders])]
+        return self._every_place().get(written, [])
+
+    def _every_place(self) -> dict[str, list[tuple[str, str]]]:
+        if self._by_operand is None:
+            self._by_operand = {}
+            for place, written in self.whole[0]:
+                self._by_operand.setdefault(written, []).append((place, written))
+        return self._by_operand
+
+    def nodes(self, op: str) -> list[tuple[str, tuple, tuple]]:
+        """The drawn characters with a node of `op`, each with its tree and the path to the node."""
+        if self._whole is None and op not in self._nodes:
+            sequences = self.composer.sequences
+            named = [char for char, sequence in sequences.items() if op in sequence]
+            if self._afford(len(named)):
+                found: list = []
+                for char in named:
+                    if self.drawn(char):
+                        tree = _parsed(sequences[char])
+                        if tree is not None:
+                            _laid_out(char, tree, tree, (), op, found)
+                self._nodes[op] = found
+        return self._nodes[op] if self._whole is None else self._whole[1].get(op, [])
+
+
 @dataclass
 class Composer:
     font: Font
@@ -1206,6 +1549,8 @@ class Composer:
     #: Entries that depend on the exclusion, each as (value, characters its computation asked about).
     _any_overlays: dict[None, tuple] = field(default_factory=dict, init=False, repr=False)
     _faces: dict[None, tuple] = field(default_factory=dict, init=False, repr=False)
+    #: The box a character is carried into beside its loose marks, while it is drawn.
+    _beside: Box | None = field(default=None, init=False, repr=False)
     _hosts: dict[tuple, tuple] = field(default_factory=dict, init=False, repr=False)
     _sketches: dict[str, tuple] = field(default_factory=dict, init=False, repr=False)
     _strokes: dict[tuple[str, str], tuple] = field(default_factory=dict, init=False, repr=False)
@@ -1257,12 +1602,14 @@ class Composer:
         return positional_forms()
 
     @cached_property
-    def _index(self) -> tuple[dict, dict]:
+    def _index(self) -> tuple[Mapping, Mapping]:
         """(slot, operand) → drawn characters holding that operand there, and operator → drawn
         characters with a node of it; each with its tree and the path of positions to the node.
-        A style that keeps its own hosts indexes no character a fallback font draws."""
+        A style that keeps its own hosts indexes no character a fallback font draws. Both are
+        found as they are asked for (`Hosts`)."""
         own = getattr(getattr(self.font, "style", None), "own_hosts", False)
-        return self._indexed(self.font.own if own else self.font.has)
+        hosts = Hosts(self, self.font.own if own else self.font.has)
+        return hosts, hosts.templates
 
     @cached_property
     def operands(self) -> set[tuple[str, str]]:
@@ -1315,23 +1662,30 @@ class Composer:
         parts. Single-body characters stay whole. `names` records each written-out node's name."""
         if isinstance(node, tuple):
             return (node[0], *(self._expanded(k, char, names, depth) for k in node[1:]))
-        if depth <= 0 or node == char or node in self.atomic or node not in self.sequences:
-            return node
-        try:
-            own = parse(self.sequences[node])
-        except ValueError:
-            return node
-        if not isinstance(own, tuple) or own[0] not in AXIS and own[0] not in ENCLOSE:
+        own = None if depth <= 0 or node == char else self._written_out(node)
+        if own is None:
             return node
         out = self._expanded(own, char, names, depth - 1)
         names[id(out)] = node
         return out
 
+    def _written_out(self, component: str) -> tuple | None:
+        """The sequence `_expanded` writes a compound component out from; None for an atomic or
+        single-body character and for one with no sequence to read."""
+        if component in self.atomic or component not in self.sequences:
+            return None
+        own = _parsed(self.sequences[component])
+        return own if isinstance(own, tuple) and (own[0] in AXIS or own[0] in ENCLOSE) else None
+
     @cached_property
-    def _places(self) -> dict[str, list[tuple[str, str]]]:
+    def _places(self) -> Mapping[str, list[tuple[str, str]]]:
         """operand → the (place, operand) keys it is held under."""
+        hosts, _ = self._index
+        if isinstance(hosts, Hosts):
+            return hosts.by_operand
+        # An index given whole is read through.
         out: dict[str, list[tuple[str, str]]] = {}
-        for place, written in self._index[0]:
+        for place, written in hosts:
             out.setdefault(written, []).append((place, written))
         return out
 
@@ -1777,12 +2131,12 @@ class Composer:
         if not isinstance(node, str):
             return True
         expected = self._own_outlines(node)
-        if (piece.contours and piece.contours[0].width is None and expected
+        if (piece.contours and not piece.contours[0].measured and expected
                 and len(piece.contours) > expected + EXTRA_OUTLINES):
             return False
         if not self._like_fellows(piece, slot(op, index), node):
             return False
-        if piece.contours and piece.contours[0].width is None and len(piece.contours) == expected:
+        if piece.contours and not piece.contours[0].measured and len(piece.contours) == expected:
             # Drawn with its operand's own strokes, whatever most hosts there draw (巳 left of 攵 in
             # 攺, where most hosts nest a smaller 巳 atop another part, as in 巽).
             return True
@@ -1925,7 +2279,7 @@ class Composer:
     def _traded(self, pieces: list[Part], operands: list[Node]) -> bool:
         """Whether pieces the variable font draws traded a stroke: one has fewer outlines than its
         operand is drawn with while another has more (囗's bottom stroke cut into ⺀㐅 in 図)."""
-        if not all(p.contours and p.contours[0].width is None for p in pieces):
+        if not all(p.contours and not p.contours[0].measured for p in pieces):
             return False
         expected = [self._own_outlines(n) for n in operands]
         if not all(expected):
@@ -1959,11 +2313,10 @@ class Composer:
         return japanese_characters()
 
     @cached_property
-    def usage(self) -> Counter:
-        """(position, operand) → how many characters with a Japanese sequence write that operand there."""
-        hosts, _ = self._index
-        japanese = self.japanese
-        return Counter({k: sum(1 for char, *_ in v if char in japanese) for k, v in hosts.items()})
+    def usage(self) -> Mapping[tuple[str, str], int]:
+        """(position, operand) → how many characters with a Japanese sequence write that operand
+        there, counted for a position when it is first asked about."""
+        return _Usage(self._index[0], self.japanese)
 
     @cached_property
     def bases(self) -> dict[str, list[str]]:
@@ -2314,10 +2667,16 @@ class Composer:
         return [*kept, Placed(body, body.box, box, native=0.0, origin=f"construct {spec['host']} {spec['keep']}")]
 
     def compose(self, sequence: str) -> list[Placed]:
-        """The parts that draw `sequence`; LookupError when an operand can be drawn no way."""
+        """The parts that draw `sequence`, with the loose marks written after it (⿰木口́): a mark
+        beside the drawing takes a margin the character shrinks out of, and none takes part in its
+        layout or weight. LookupError when an operand can be drawn no way."""
+        tree, marks = described(sequence)
+        if marks:
+            from .marks import marked
+            return marked(self, key(tree), marks)
         tree = self._standalone_expanded_overlay(self._standalone_pyramid(
             self._standalone_repeated_grid(self._normalize_repeated_grids(
-                self._normalize_requested_enclosures(self._cancel_transforms(parse(sequence)))))))
+                self._normalize_requested_enclosures(self._cancel_transforms(tree))))))
         placed = self._node(tree, self.face, at_root=True)
         if self.rerank:
             options = self._reranked(tree, placed)
@@ -2348,9 +2707,14 @@ class Composer:
                     composed, whole = raster(placed, 96), raster([alone], 96)
                     if (composed & whole).sum() < HELD_AGREE * max((composed | whole).sum(), 1):
                         placed = [alone]
+        if self._beside is not None:
+            # The character as it is laid out in the whole face, carried into what its marks leave:
+            # whatever placed its parts (a glyph, hosts, the learned layout), it shrinks as one.
+            placed = type(placed)(replace(p, target=mapped(p.target, self.face, self._beside)) for p in placed)
         if self.weighted:
             self._balance(placed)
-        if self.guide is not None:
+        # The guide's ink is the character in the whole face, not in what marks beside it leave.
+        if self.guide is not None and self._beside is None:
             placed = self.guide.fit(self, key(tree), placed)
         spec = constructs().get(sequence)
         if spec:
@@ -3371,7 +3735,10 @@ def _swept(placed: Placed, edge: float) -> list[Placed] | None:
     goal = np.array([(placed.target[0] + placed.target[2]) / 2, (placed.target[1] + placed.target[3]) / 2])
 
     def at(c: Contour, move) -> Contour:
-        return Contour(c.ops, move((c.light - centre) * scale + goal), move((c.heavy - centre) * scale + goal), c.width)
+        # The contours stand at the size they are drawn at, so the stroke widths they state are the
+        # scaled ones: `_balance` reads them against a scale of one.
+        width = None if c.width is None else (c.width[0] * scale[0], c.width[1] * scale[1])
+        return Contour(c.ops, move((c.light - centre) * scale + goal), move((c.heavy - centre) * scale + goal), width)
 
     # The other strokes pressed by their target box, so that weighting thickens their stems back.
     strokes = Part([at(c, lambda p: p) for k, c in enumerate(placed.part.contours) if k != sweep])
