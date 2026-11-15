@@ -12,6 +12,8 @@ import { unicodeSource } from '../src/unicode.js'
 import { hasUnicodeGlyph } from '../src/unicode.js'
 import { onlyBundled } from '../src/local.js'
 import { compose, sketch } from '../src/loader.js'
+import { Composer } from '../src/compose.js'
+import { placed } from '../src/geometry.js'
 
 const data = name => JSON.parse(gunzipSync(readFileSync(new URL(`../data/sources/${name}/outlines.json.gz`, import.meta.url))))
 const bopomofo = data('bopomofo')
@@ -173,6 +175,60 @@ describe('drawing loose marks', () => {
     expect(left[2]).toBeLessThanOrEqual(syllable[0])
     // The mark stays on the syllable it follows, not on the whole description.
     expect(left[0]).toBeGreaterThan(500)
+  })
+
+  it('carries parts placed in em units into what the marks leave, with the rest', async () => {
+    const local = source()
+    // Loads the outlines the composer below reads.
+    await compose(local, '⿰ㄅㄚˇ')
+    const composer = new Composer(local.store())
+    const whole = composer.face.slice(), glyph = composer.glyph('ㄅ')
+    // The learned layout places a root's parts in em units, whatever region the root was given.
+    composer.node = () => [placed(glyph, glyph.box, whole.slice(), 0, 'learned ㄅ')]
+    const [body, mark] = composer.compose('⿰ㄅㄚ', 'ˇ')
+    expect(mark.origin).toBe('mark ˇ')
+    // The lower left stays; the upper right is the mark's.
+    expect(body.target.slice(0, 2)).toEqual(whole.slice(0, 2))
+    expect(body.target[2]).toBeLessThan(whole[2])
+    expect(body.target[3]).toBeLessThan(whole[3])
+    expect(body.target[2] < mark.target[0] || body.target[3] < mark.target[1]).toBe(true)
+    expect(composer.face).toEqual(whole)
+    // A combining mark leaves the character the whole face.
+    expect(composer.compose('⿰ㄅㄚ', '\u0301')[0].target).toEqual(whole)
+  })
+
+  it('keeps a mirrored character where its mirror image lies in the smaller box', async () => {
+    const local = source()
+    const box = drawn => {
+      const boxes = drawn.parts.filter(part => !part.origin.startsWith('mark ')).map(part => part.box)
+      return [Math.min(...boxes.map(b => b[0])), Math.min(...boxes.map(b => b[1])),
+        Math.max(...boxes.map(b => b[0] + b[2])), Math.max(...boxes.map(b => b[1] + b[3]))]
+    }
+    for (const op of ['⿾', '⿿']) {
+      const plain = box(await compose(local, `${op}ㄅ`)), marked = await compose(local, `${op}ㄅˇ`)
+      const ink = box(marked), mark = marked.parts.at(-1).box
+      // Boxes are [x, y, width, height], y down: the character keeps the lower left.
+      expect(ink[0]).toBeLessThanOrEqual(plain[0] + 1)
+      expect(ink[3]).toBeGreaterThanOrEqual(plain[3] - 1)
+      expect(ink[2] <= mark[0] || ink[1] >= mark[1] + mark[3]).toBe(true)
+    }
+  })
+
+  it('sketches the leaves of a character the layout places in em units inside what the marks leave', async () => {
+    const local = source()
+    await compose(local, '⿰ㄅㄚˇ')
+    const composer = new Composer(local.store())
+    const whole = composer.face.slice()
+    const plain = composer.sketch('⿰ㄅㄚ'), beside = composer.sketch('⿰ㄅㄚ', 'ˇ')
+    const face = composer.faceBeside('ˇ')
+    expect(face).not.toEqual(whole)
+    const scale = (face[2] - face[0]) / (whole[2] - whole[0])
+    beside.forEach((leaf, at) => {
+      const from = plain[at].box
+      expect(leaf.box[0]).toBeCloseTo(face[0] + (from[0] - whole[0]) * scale, 6)
+      expect(leaf.box[3]).toBeCloseTo(face[1] + (from[3] - whole[1]) * scale, 6)
+    })
+    expect(composer.face).toEqual(whole)
   })
 
   it('attaches a combining mark over the drawing and a Hangul tone mark at the left', async () => {

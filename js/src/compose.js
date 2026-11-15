@@ -510,6 +510,8 @@ export class Composer {
     this.resolutions = new Map()
     // Stacked operand pairs, settled against their ink once the drawing is weighted.
     this.joints = []
+    /** How much smaller than it was laid out the character is drawn, beside marks that take a margin. */
+    this.carried = 1
   }
 
   arity = ch => this.arities.get(ch) ?? 0
@@ -685,6 +687,7 @@ export class Composer {
     this.approximate.clear()
     this.nativeEnclosures.clear()
     this.joints.length = 0
+    this.carried = 1
     let slots = 0
     const number = node => node === EMPTY ? `${EMPTY}${slots++}` : Array.isArray(node) ? mapOperands(node, number) : node
     const tree = this.normalizeYan(number(this.cancelTransforms(this.parse(sequence))))
@@ -694,9 +697,19 @@ export class Composer {
     const frame = this.face.slice()
     const face = this.faceBeside(marks)
     const previous = this.face
-    this.face = face
     try {
       let out = this.node(this.standaloneExpandedOverlay(rendered) ?? this.standalonePyramid(rendered) ?? this.standaloneRepeatedGrid(rendered) ?? this.normalizeRepeatedGrids(rendered), this.face.slice(), true)
+      // The character is laid out in the whole face and carried into what its marks leave: whatever
+      // placed its parts (a glyph, hosts, the learned layout's em-unit boxes), it shrinks as one.
+      if (face.some((edge, at) => edge !== frame[at])) {
+        for (const part of out) {
+          part.target = mapped(part.target, frame, face)
+          // A mirrored or turned part is drawn about a point of the face, which moves with it.
+          if (part.flips) part.flips = part.flips.map(flip => ({ ...flip, about: mapped([...flip.about, ...flip.about], frame, face).slice(0, 2) }))
+        }
+        this.face = face
+        this.carried = (face[2] - face[0]) / (frame[2] - frame[0])
+      }
       // Separated drawings retain reading order. Only publish ownership when every
       // rendered leaf produced exactly one piece (including empty placeholders).
       const ownership = this.separate ? this.leafOwners(tree) : null
@@ -908,9 +921,11 @@ export class Composer {
    * font units, y up.
    */
   sketch(sequence, marks = '') {
-    const previous = this.face
-    this.face = this.faceBeside(marks)
-    try { return this.sketched(sequence) } finally { this.face = previous }
+    // As `compose` draws it: laid out in the whole face, then carried into what the marks leave.
+    const frame = this.face.slice(), face = this.faceBeside(marks)
+    const leaves = this.sketched(sequence)
+    if (face.some((edge, at) => edge !== frame[at])) for (const leaf of leaves) leaf.box = mapped(leaf.box, frame, face)
+    return leaves
   }
 
   /** The face a character takes beside its outbound marks: the whole face where none needs room. @param {string} marks */
@@ -3063,7 +3078,8 @@ export class Composer {
       const box = bounds(below), aboveBox = bounds(above)
       if (Math.abs(aboveBox[1] - box[3]) > 1) continue
       const gap = inkBounds(above)[1] - inkBounds(below)[3]
-      if (!(gap > 0) || gap >= C.FACING[1]) continue
+      // The layout's own gap is measured at the size the character was laid out in.
+      if (!(gap > 0) || gap >= C.FACING[1] * this.carried) continue
       const to = [box[0], box[1], box[2], box[3] + gap]
       if (stretchOf(box, to) > C.STRETCH) continue
       for (const part of below) part.target = targetFor(part, mapped(drawnBox(part), box, to))
