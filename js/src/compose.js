@@ -691,7 +691,7 @@ export class Composer {
     let slots = 0
     const number = node => node === EMPTY ? `${EMPTY}${slots++}` : Array.isArray(node) ? mapOperands(node, number) : node
     const tree = this.normalizeYan(number(this.cancelTransforms(this.parse(sequence))))
-    const rendered = this.normalizeRequestedEnclosures(tree)
+    const rendered = this.normalizeFormRuns(this.normalizeRequestedEnclosures(tree))
     // A mark that sits beside the drawing takes a margin: the character shrinks toward the opposite
     // corner, so the mark stands outside its strokes instead of over them.
     const frame = this.face.slice()
@@ -1814,6 +1814,24 @@ export class Composer {
     if (op === '⿸' && (outer === '𪧇' || keyOf(outer) === '⿱宀爿')) return { tree: ['⿱', '宀', ['⿰', '爿', inner]], innerIndex: 2 }
     if (op === '⿸' && (outer === '朕' || keyOf(outer) === '⿰月关')) return { tree: ['⿰', '月', ['⿱', '关', inner]], innerIndex: 2 }
     return null
+  }
+
+  /** A flat stack or row holding a pair the faces draw as one prepared form takes that pair as one
+   *  operand: ⿳八⿻王丷X draws 金 with its roof opened into 八 (the form ⿱八⿻王丷) over X. A
+   *  sequence that is itself a form or an encoded character keeps its own drawing. Leaf order is
+   *  unchanged, so editable leaf indices still hold. */
+  normalizeFormRuns(node) {
+    if (!Array.isArray(node)) return node
+    const kids = node.slice(1).map(child => this.normalizeFormRuns(child))
+    const op = node[0], key = keyOf(node), char = this.bySequence(key)
+    if ((op === '⿳' || op === '⿲') && kids.length === 3 && !isComponentForm(key, this.fontStyle) && !(char && !this.excluded(char))) {
+      const pair = op === '⿳' ? '⿱' : '⿰'
+      for (const at of [0, 1]) {
+        const run = [pair, kids[at], kids[at + 1]]
+        if (isComponentForm(keyOf(run), this.fontStyle)) return at ? [pair, kids[0], run] : [pair, run, kids[2]]
+      }
+    }
+    return Object.assign([op, ...kids], node.note ? { note: node.note } : {})
   }
 
   /** Normalize the rendering tree only; the source tree still owns editable leaf indices. */
