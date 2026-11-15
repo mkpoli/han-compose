@@ -72,3 +72,31 @@ describe('a glyph swept in a cell smaller than the face', () => {
     expect(swept).toHaveLength(2)
   })
 })
+
+describe('⿺ round a part with no host cut, as the whole description', () => {
+  for (const sequence of ['⿺几⿱口力', '⿺几⿰口力']) {
+    it(`sweeps 几 under the part in ${sequence}`, async () => {
+      const all = await drawn(sequence)
+      const swept = all.filter(part => part.origin === 'swept glyph 几')
+      const held = all.filter(part => !part.origin.startsWith('swept'))
+      expect(swept).toHaveLength(2)
+      expect(held).toHaveLength(2)
+      const [strokes, foot] = swept
+      // Both operands of the part stand right of the pressed strokes and over the foot.
+      for (const part of held) {
+        expect(part.box[0]).toBeGreaterThan(right(strokes) - 40)
+        expect(right(foot)).toBeGreaterThan(right(part) - 20)
+        expect(part.box[1] + part.box[3]).toBeLessThan(foot.box[1] + foot.box[3])
+      }
+    })
+  }
+  it('sweeps 几 under an empty slot', async () => {
+    const drawing = await compose(source(), '⿺几⬚', { layout: 'composed' })
+    const swept = drawing.parts.filter(part => part.origin === 'swept glyph 几')
+    expect(swept).toHaveLength(2)
+    expect(drawing.slots).toHaveLength(1)
+    const [strokes, foot] = swept, [slot] = drawing.slots
+    expect(slot.box[0]).toBeGreaterThan(right(strokes) - 40)
+    expect(right(foot)).toBeGreaterThan(right(slot) - 20)
+  })
+})
