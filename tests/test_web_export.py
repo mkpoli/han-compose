@@ -710,3 +710,24 @@ def test_a_stopped_addition_carries_on_and_packs_every_shard_it_touched(composer
     for key in keys:
         assert _record(out, key)["G"]["p"]
     assert not (out / web_export.PENDING).exists()
+
+
+def test_the_export_lists_overlay_groups_and_records_the_characters_they_draw_from(tmp_path, composer) -> None:
+    out = tmp_path / "export"
+    web_export.export(composer, out, only={"木", "口"}, log=lambda _: None)
+    place = compose.OVERLAY_GROUPS
+    shard = json.loads(gzip.decompress((out / web_export.hosts_shard(place, "口木")).read_bytes()))
+    groups = shard[web_export.hosts_key(place, "口木")]
+    assert groups and all(set(entry["gn"]) == {"木", "口"} and entry["c"]["kv"] == 1 for entry in groups)
+    # Every character a group draws from has its glyph in the export, and the components'
+    # joined names are no key: they get no record.
+    for entry in groups:
+        record = json.loads(gzip.decompress((out / web_export.record_shard(entry["h"])).read_bytes()))[entry["h"]]
+        assert max(entry["c"]["k"]) < len(record["G"]["p"])
+    key_shard = out / web_export.record_shard("口木")
+    assert not key_shard.exists() or "口木" not in json.loads(gzip.decompress(key_shard.read_bytes()))
+    manifest = json.loads((out / "manifest.json").read_text(encoding="utf8"))
+    assert manifest["constants"]["OVERLAY_GROUPS"] == place and manifest["constants"]["OVERLAY_CROSS"] == compose.OVERLAY_CROSS
+    # What the drawing takes is among what the export lists.
+    taken = {p.origin.removeprefix("instance ") for p in composer.compose("⿻[x]木口")}
+    assert taken <= {entry["h"] for entry in groups}

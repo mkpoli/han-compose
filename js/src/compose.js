@@ -2888,8 +2888,55 @@ export class Composer {
       || (1 / C.OVERLAY_INK <= this.ink(k) / Math.max(this.ink(t.written[j]), 1) && this.ink(k) / Math.max(this.ink(t.written[j]), 1) <= C.OVERLAY_INK)))
   }
 
-  /** Operands drawn across each other (⿻), where characters overlaying like operands put them. */
+  /** An overlay drawn whole in another character, where KanjiVG groups exactly its components and
+   *  draws its two operands across each other (`kanjivg_cuts.groups_like`): the top of 脊 in 鶺 for
+   *  ⿻人⿰二二, 束 in 整 for ⿻木口. The export lists such groups under `OVERLAY_GROUPS` by their
+   *  components, sorted and joined; a group whose operands do not cross is a stack or a row of
+   *  them (呆 for ⿻木口) and is passed over. The one needing the least stretch is taken, if within
+   *  `STRETCH`. Null where the export lists none.
+   *  @param {(string | any[])[]} children @param {number[]} region */
+  overlayGroup(children, region) {
+    const C = this.C
+    // Drawn part by part, an overlay keeps a piece for each operand, as `node` keeps off `instance`.
+    if (!this.hosted || this.separate || !C.OVERLAY_GROUPS || this.spelled.has(keyOf(['⿻', ...children]))) return null
+    /** @param {string | any[]} node @returns {string[]} */
+    const leaves = node => typeof node === 'string' ? [node] : node.slice(1).flatMap(leaves)
+    const sides = children.map(child => new Set(leaves(child)))
+    const parts = children.flatMap(leaves)
+    // A group is listed by components of one character each, in code point order.
+    if (parts.length < 2 || parts.some(part => [...part].length !== 1)) return null
+    const key = parts.sort((a, b) => (a.codePointAt(0) ?? 0) - (b.codePointAt(0) ?? 0)).join('')
+    // An operand's outlines are those holding its components' strokes alone; the two operands
+    // cross where the boxes of their outlines overlap by `OVERLAY_CROSS` of the smaller both ways.
+    // It cannot be told for a component both operands name, or an operand with no outline of its own.
+    const across = h => {
+      if (children.length !== 2 || [...sides[0]].some(name => sides[1].has(name))) return true
+      const contours = this.pieceOf(h).contours, boxes = []
+      for (const side of sides) {
+        const own = contours.filter((_, k) => h.gc[k].every(n => side.has(h.gn[n]))).map(contour => pointsBox(contour.light))
+        if (!own.length) return true
+        boxes.push(union(own))
+      }
+      const [a, b] = boxes
+      return [0, 1].every(axis => Math.min(a[axis + 2], b[axis + 2]) - Math.max(a[axis], b[axis])
+        >= C.OVERLAY_CROSS * Math.min(a[axis + 2] - a[axis], b[axis + 2] - b[axis]))
+    }
+    let best = null
+    for (const h of this.hostsOf(key, C.OVERLAY_GROUPS)) {
+      if (this.excluded(h.h) || !across(h)) continue
+      const stretch = stretchOf(this.cutOf(h).box, region)
+      if (!best || stretch < best[0]) best = [stretch, h]
+    }
+    if (!best || best[0] > C.STRETCH) return null
+    const piece = this.pieceOf(best[1])
+    return placed(piece, piece.box, region.slice(), this.ink(best[1].h), `instance ${best[1].h}`)
+  }
+
+  /** Operands drawn across each other (⿻): whole from a character that draws them so
+   *  (`overlayGroup`), else where characters overlaying like operands put them. */
   overlay(children, region) {
+    const whole = this.overlayGroup(children, region)
+    if (whole) return [whole]
     const C = this.C, keys = children.map(keyOf), usable = this.overlayTeachers(children)
     if (!usable.length && children.length === 2) {
       const outer = this.node(children[0], region)
