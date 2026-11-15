@@ -323,7 +323,7 @@ export const COMPONENT_FIXES = {
   // ⿸⿹丅丿丨, the G-source left part of 𡉹, 𣂘 and 𥘱 (T writes ⿸⿹丅丿丶, 示 under its top bar),
   // after SimSun-ExtB's drawing: the bar spans the cell from 6% in and the stem stands at its middle.
   // The 丿 and 丨 hang either side of it from 24% below the top, the 丿 within the left 34% and
-  // down to 7% above the foot, the 丨 centred 75% across and down to 11% above it. Both start at
+  // down to 7% above the foot, the 丨 centred 75–80% across and down to 11% above it. Both start at
   // 丅's horizontal scale, and the weight balance then evens them with the stem; the 丨 is the
   // face's own 丨 glyph.
   '⿸⿹丅丿丨': {
@@ -344,7 +344,10 @@ export const COMPONENT_FIXES = {
       const [sx] = scaleOf({ ...tee, target: teeTarget })
       const slashWidth = Math.min(widthOf(slash.source) * sx, 0.34 * width)
       const source = union(glyph.contours.map(contour => pointsBox(contour.light)))
-      const middle = x + 0.75 * width, half = widthOf(source) * sx / 2
+      // The stem keeps its stroke width in a narrow cell, so there the 丨 moves right to keep the
+      // gaps either side of it even: 75% across in the full face, 80% at 45% of its width.
+      const narrow = Math.min(1, Math.max(0, (1 - width / widthOf(composer.face)) / 0.55))
+      const middle = x + (0.75 + 0.05 * narrow) * width, half = widthOf(source) * sx / 2
       const line = placed(derived(glyph, glyph.contours, source), source,
         [middle - half, y + 0.11 * height, middle + half, top - 0.24 * height], composer.ink('丨'), 'glyph 丨')
       return [{ ...tee, target: teeTarget }, { ...slash, target: [x, y + 0.07 * height, x + slashWidth, top - 0.24 * height] }, line]

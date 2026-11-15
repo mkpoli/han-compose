@@ -221,7 +221,7 @@ describe('C073 ⿸⿹丅丿丨', () => {
     expect(left.target[2] - left.target[0]).toBeCloseTo(Math.min((588 - 220) * sx, 0.34 * width), 6)
     expect(left.target[1]).toBeCloseTo(-80 + 0.07 * height, 6)
     expect(right.origin).toBe('glyph 丨')
-    expect((right.target[0] + right.target[2]) / 2).toBeCloseTo(100 + 0.75 * width, 6)
+    expect((right.target[0] + right.target[2]) / 2).toBeCloseTo(100 + (0.75 + 0.05 * Math.min(1, (1 - width / 929) / 0.55)) * width, 6)
     expect(right.target[2] - right.target[0]).toBeCloseTo((539 - 459) * sx, 6)
     expect(right.target[1]).toBeCloseTo(-80 + 0.11 * height, 6)
     for (const p of [left, right]) expect(p.target[3]).toBeCloseTo(840 - 0.24 * height, 6)
