@@ -229,8 +229,9 @@ describe('C073 ⿸⿹丅丿丨', () => {
     expect(left.target[2]).toBeLessThan(bar.target[0] + (456 - 52) * sx)
   })
   it('leaves a drawing without the three parts alone', () => {
-    const parts = [tee(), stroke()]
-    expect(fix.apply(parts, composer, region)).toBe(parts)
+    for (const parts of [[tee(), stroke()], [tee(), slash(), stroke(), stroke()]]) expect(fix.apply(parts, composer, region)).toBe(parts)
+    const parts = [tee(), slash(), stroke()]
+    expect(fix.apply(parts, { ...composer, glyph: () => null }, region)).toBe(parts)
   })
   it('lists the four faces’ glyphs', () => {
     for (const ch of ['丅', '丿', '丨']) expect(fix.glyphs[ch]).toHaveLength(4)

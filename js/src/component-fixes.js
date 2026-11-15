@@ -323,8 +323,8 @@ export const COMPONENT_FIXES = {
   // ⿸⿹丅丿丨, the G-source left part of 𡉹, 𣂘 and 𥘱 (T writes ⿸⿹丅丿丶, 示 under its top bar),
   // as SimSun-ExtB draws it: the bar spans the cell from 6% in, the stem stands at its middle, and
   // the 丿 and 丨 hang either side of it from 18% below the top, the 丿 to 7% above the foot and the
-  // 丨, at 75–92% across, to 11% above it. Both keep the stem's stroke width; the 丨 is the face's
-  // own 丨 glyph.
+  // 丨, centred 83.5% across, to 11% above it. Both start at 丅's horizontal scale, and the weight
+  // balance then evens them with the stem; the 丨 is the face's own 丨 glyph.
   '⿸⿹丅丿丨': {
     glyphs: {
       '丅': ['78dcd9aa0146cd9317b3cb7455389db2cc8f21df17d072493358c5efb0ed98fd', 'f2668a2d4aa3d88c538ddcecd7a48f607521f1be4f5e4b53d786ff9de7d8445d',
