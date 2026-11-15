@@ -1051,7 +1051,7 @@ export class Composer {
     if (construct?.nested) {
       const hosts = new Set([construct.host, ...(construct.cuts ?? []).map(cut => cut.host)])
       if (![...hosts].some(host => this.excluded(host))) {
-        const parts = constructParts(construct, [], Object.fromEntries([...hosts].map(host => [host, this.glyphRecord(host)])), region)
+        const parts = constructParts(construct, [], Object.fromEntries([...hosts].map(host => [host, this.glyphRecord(host)])), region, atRoot)
         if (parts.length) return parts
       }
     }

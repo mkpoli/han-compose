@@ -9,6 +9,8 @@ import notoYu from './fixtures/noto-yu.json' with { type: 'json' }
 import notoZhe from './fixtures/noto-zhe.json' with { type: 'json' }
 import notoJie from './fixtures/noto-jie.json' with { type: 'json' }
 import notoQi from './fixtures/noto-qi.json' with { type: 'json' }
+// 眔 from the Kaisho export (ce3eaafda8f9-kaisho-compose-layout-v4-kaisho-f7).
+import kaishoEye from './fixtures/kaisho-eye-lower.json' with { type: 'json' }
 
 const rect = (x0, y0, x1, y1) => {
   const light = new Float64Array([x0, y0, x1, y0, x1, y1, x0, y1])
@@ -336,3 +338,28 @@ it('C061 retains the middle horizontal above the replacement closing stroke', as
   expect(middle[3] - middle[1]).toBeGreaterThan(50)
 })
 
+
+describe('C052 ⿲𰀪丨⿱丶丶 from the Kaisho export’s 眔', () => {
+  const spec = CONSTRUCTS['⿲𰀪丨⿱丶丶'], glyphs = { 眔: kaishoEye['眔'].G }
+  const span = parts => [Math.min(...parts.map(p => p.target[0])), Math.min(...parts.map(p => p.target[1])),
+    Math.max(...parts.map(p => p.target[2])), Math.max(...parts.map(p => p.target[3]))]
+  it('cuts one part per leaf: the 𰀪, the stem and the two dots', () => {
+    const parts = constructParts(spec, [], glyphs, constants.face)
+    expect(parts.map(p => p.origin)).toEqual(['construct 眔 𰀪', 'construct 眔 丨', 'construct 眔 upper 丶', 'construct 眔 lower 丶'])
+    expect(parts.map(p => p.part.contours.length)).toEqual([2, 1, 1, 1])
+    const [left, stem, upper, lower] = parts.map(p => p.target)
+    expect(left[2]).toBeLessThan(stem[0])
+    expect(upper[0]).toBeGreaterThan(stem[2])
+    expect(upper[1]).toBeGreaterThan(lower[1])
+  })
+  it('stays where 眔 sets it alone, and fills the place it is given inside a character', () => {
+    const alone = span(constructParts(spec, [], glyphs, constants.face))
+    const face = constants.face
+    expect(alone[3] - alone[1]).toBeLessThan(0.7 * (face[3] - face[1]))
+    const region = [100, -50, 900, 400]
+    span(constructParts(spec, [], glyphs, region, false)).forEach((v, i) => expect(v).toBeCloseTo(region[i], 6))
+  })
+  it('leaves another export’s 眔 to the composer', () => {
+    expect(constructParts(spec, [], { 眔: notoQi['気'].G }, constants.face)).toEqual([])
+  })
+})
