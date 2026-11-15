@@ -9,9 +9,11 @@
 import { EMPTY, leafTexts, parseTree } from './compose.js'
 import { compose, sketch } from './loader.js'
 import { onlyBundled } from './local.js'
-import { sourceFor, traitKey, traitsOf } from './source.js'
+import { exportSource, sourceFor, traitKey, traitsOf } from './source.js'
 
-const sources = new Map()
+// A source for each kind of sequence, all over one source of the export they draw from: what a
+// warming or an earlier drawing read of the export is there for the next, whatever its traits.
+const sources = new Map(), exported = new Map()
 self.onmessage = async ({ data: { id, sequence, base, separate, fontStyle, warm, preferExport, loaders } }) => {
   const traits = !warm ? traitsOf(sequence) : null
   // Whether the sequence draws from bundled outlines is part of the key: `onlyBundled` reads the
@@ -19,7 +21,11 @@ self.onmessage = async ({ data: { id, sequence, base, separate, fontStyle, warm,
   const local = !warm && !preferExport && (traits.empty || onlyBundled(sequence, separate, false, fontStyle))
   // Where the bundled files are read from is part of the key: a later `loaders` must reach its source.
   const key = `${JSON.stringify(loaders ?? {})}:${base}:${warm ? 'warm' : `${local ? 'local' : 'remote'}:${traitKey(traits)}`}:${separate}:${fontStyle}:${preferExport ? 'export' : 'any'}`
-  if (!sources.has(key)) sources.set(key, sourceFor(sequence, { base, fontStyle, separate, traits, loaders, remote: warm || preferExport }))
+  if (!sources.has(key)) {
+    const at = `${JSON.stringify(loaders ?? {})}:${base}`
+    if (!local && !exported.has(at)) exported.set(at, exportSource(base, { loaders }))
+    sources.set(key, sourceFor(sequence, { base, fontStyle, separate, traits, loaders, remote: warm || preferExport, exported: exported.get(at) }))
+  }
   let source = sources.get(key)
   try {
     await source.ready()
