@@ -376,16 +376,29 @@ def key(node: Node) -> str:
 REGIONS = re.compile(r"^(.*?)\(([A-Z0-9\[\]]+)\)$")
 
 
-def japanese_characters() -> set[str]:
-    """The ideographs BabelStone gives a sequence for Japan."""
-    out = set()
+@cache
+def _japanese() -> tuple[dict[str, str], frozenset[str]]:
+    """What `data/vocab/han-ids.tsv` says of Japan, read once for both: each ideograph's sequence as
+    BabelStone gives it for Japan, else its first, and the ideographs it gives one for Japan."""
+    sequences, characters = {}, set()
     for row in read_rows("han-ids.tsv"):
+        char, chosen = row[1], None
         for item in row[2].split():
             match = REGIONS.match(item)
-            if match and "J" in match.group(2):
-                out.add(row[1])
+            text, regions = (match.group(1), match.group(2)) if match else (item, "")
+            if "J" in regions:
+                chosen = text
+                characters.add(char)
                 break
-    return out
+            chosen = chosen or text
+        if chosen and chosen != char and "{" not in chosen and "？" not in chosen:
+            sequences[char] = chosen
+    return sequences, frozenset(characters)
+
+
+def japanese_characters() -> set[str]:
+    """The ideographs BabelStone gives a sequence for Japan."""
+    return set(_japanese()[1])
 
 
 def hand_forms() -> dict[str, str]:
@@ -417,18 +430,7 @@ def japanese_sequences() -> dict[str, str]:
     an unencoded component ({n}) or an unnameable one (？) are left out. A sequence in
     `data/vocab/han-ids-drawn.tsv` replaces the source's where its operands are not the shapes the
     glyph draws (㞙 as ⿸尸⿱毛水)."""
-    out = {}
-    for row in read_rows("han-ids.tsv"):
-        char, chosen = row[1], None
-        for item in row[2].split():
-            match = REGIONS.match(item)
-            text, regions = (match.group(1), match.group(2)) if match else (item, "")
-            if "J" in regions:
-                chosen = text
-                break
-            chosen = chosen or text
-        if chosen and chosen != char and "{" not in chosen and "？" not in chosen:
-            out[char] = chosen
+    out = dict(_japanese()[0])
     for char, sequence, _source, _note in read_rows("han-ids-drawn.tsv"):
         if sequence == char:
             out.pop(char, None)

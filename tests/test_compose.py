@@ -259,6 +259,33 @@ def test_a_character_written_differently_by_region_has_each_form_japans_first() 
     assert "主" not in forms
 
 
+def test_the_sequence_table_is_read_once_for_japans_sequences_and_characters(monkeypatch: pytest.MonkeyPatch) -> None:
+    read = []
+
+    def rows(name: str) -> list[list[str]]:
+        read.append(name)
+        if name == "han-ids.tsv":
+            return [["U+4FAE", "侮", "⿰亻每(GHTKP) ⿰亻毎(J)"], ["U+4E3B", "主", "⿱丶王(GHTJKP) ⿱亠土(X)"],
+                    ["U+3400", "㐀", "⿱⿰丨丨一"], ["U+4E00", "一", "一(GHTJKP)"], ["U+20000", "𠀀", "⿱{1}一(G)"]]
+        if name == "han-ids-drawn.tsv":
+            return [["㐀", "⿱卄一", "", ""], ["主", "主", "", ""], ["丼", "⿴井丶", "", ""]]
+        return []
+
+    monkeypatch.setattr(compose, "read_rows", rows)
+    compose._japanese.cache_clear()
+    try:
+        sequences = compose.japanese_sequences()
+        assert list(sequences.items()) == [("侮", "⿰亻毎"), ("㐀", "⿱卄一"), ("丼", "⿴井丶")]
+        assert compose.japanese_characters() == {"侮", "主", "一"}
+        # Each caller has a table of its own to change.
+        sequences.clear()
+        compose.japanese_characters().clear()
+        assert len(compose.japanese_sequences()) == 3 and len(compose.japanese_characters()) == 3
+        assert read.count("han-ids.tsv") == 1
+    finally:
+        compose._japanese.cache_clear()
+
+
 def test_a_variation_sequence_with_a_glyph_of_its_own_is_listed(composer: compose.Composer) -> None:
     selected = composer.font.selected("侮")
     assert "侮\U000E0101" in selected
