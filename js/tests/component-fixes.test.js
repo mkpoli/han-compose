@@ -205,33 +205,84 @@ describe('C080 ⿻一止', () => {
 })
 
 describe('C073 ⿸⿹丅丿丨', () => {
-  // A cell offset from the origin and narrower than the face, as the left of 𡉹 is drawn.
-  const region = [100, -80, 500, 840], width = 400, height = 920
-  const tee = () => part('glyph 丅', [52, -80, 949, 748], [100, -80, 500, 840], [[52, 672, 949, 748], [456, -80, 536, 706]])
-  const slash = () => part('glyph 丿', [220, -71, 588, 815], [600, 0, 900, 700], [[220, -71, 588, 815]])
+  const polygon = points => {
+    const light = Float64Array.from(points.flat())
+    return { ops: points.map((_, i) => ({ code: i ? 'L' : 'M' })), light, heavy: light.slice(), width: null }
+  }
+  // 丅 with an 80-wide stem under its bar's middle, 160 wide in the heavy master.
+  const tee = () => {
+    const p = part('glyph 丅', [52, -80, 949, 748], [100, -80, 500, 840], [[52, 672, 949, 748], [456, -80, 536, 706]])
+    p.part.contours[1].heavy = Float64Array.from([416, -80, 576, -80, 576, 706, 416, 706])
+    return p
+  }
+  // 丿 as the faces draw it: an upright 80-wide head on the right, a tail sweeping to the lower left.
+  const slashBox = [220, -71, 588, 815]
+  const slash = () => placed(makePart([polygon([[508, 815], [588, 815], [588, 300], [260, -71], [220, -40], [508, 330]])], slashBox), slashBox, [600, 0, 900, 700], 0, 'glyph 丿')
   const stroke = () => part('learned 介', [500, 0, 560, 300], [550, 300, 600, 500], [[500, 0, 560, 300]])
   const line = part('glyph 丨', [459, -80, 539, 839], [459, -80, 539, 839], [[459, -80, 539, 839]]).part
-  const composer = { face: [38, -81, 967, 840], glyph: ch => ch === '丨' ? line : null, ink: () => 1000 }
+  const composer = { face: [38, -81, 967, 840], glyph: ch => ch === '丨' ? line : null, ink: () => 1000, weighted: false }
   const fix = COMPONENT_FIXES['⿸⿹丅丿丨']
-  it('hangs the 丿 and the 丨 either side of the stem, as 𡉹 sets them', () => {
-    const [bar, left, right] = fix.apply([tee(), slash(), stroke()], composer, region)
+  /** The 丿's head as drawn: the ink above its turn, [left, right] in target units. */
+  const headOf = p => {
+    const xs = [], light = p.part.contours[0].light, scale = (p.target[2] - p.target[0]) / (p.source[2] - p.source[0])
+    for (let i = 0; i < light.length; i += 2) if (light[i + 1] > 400) xs.push(p.target[0] + (light[i] - p.source[0]) * scale)
+    return [Math.min(...xs), Math.max(...xs)]
+  }
+  /** The stem's middle and the strokes' width in a cell `width` wide starting at `x`. */
+  const stemIn = (x, width, weighted) => {
     const sx = (0.94 * width) / (949 - 52)
-    expect(bar.target).toEqual([100 + 0.06 * width, -80, 500, 840])
-    expect(left.target[0]).toBeCloseTo(100, 6)
-    expect(left.target[2] - left.target[0]).toBeCloseTo(Math.min((588 - 220) * sx, 0.34 * width), 6)
-    expect(left.target[1]).toBeCloseTo(-80 + 0.07 * height, 6)
+    return { sx, middle: x + 0.06 * width + (496 - 52) * sx, thick: weighted ? Math.min(80, 160 * sx) : 80 * sx }
+  }
+
+  it('hangs the 丿 and the 丨 either side of the stem at its width, in a static face', () => {
+    // A cell offset from the origin and narrower than the face, as the left of 𡉹 is drawn.
+    const region = [100, -80, 500, 840], height = 920, { middle, thick } = stemIn(100, 400, false)
+    const [bar, left, right] = fix.apply([tee(), slash(), stroke()], composer, region)
+    expect(bar.target).toEqual([124, -80, 500, 840])
     expect(right.origin).toBe('glyph 丨')
-    expect((right.target[0] + right.target[2]) / 2).toBeCloseTo(100 + (0.75 + 0.05 * Math.min(1, (1 - width / 929) / 0.55)) * width, 6)
-    expect(right.target[2] - right.target[0]).toBeCloseTo((539 - 459) * sx, 6)
+    // The three strokes are one width.
+    const head = headOf(left)
+    expect(head[1] - head[0]).toBeCloseTo(thick, 6)
+    expect(right.target[2] - right.target[0]).toBeCloseTo(thick, 6)
+    // The white either side of the stem is shared out in the rule's proportions.
+    expect(middle - thick / 2 - head[1]).toBeCloseTo(0.38 * (middle - 100 - 1.5 * thick), 6)
+    expect(right.target[0] - (middle + thick / 2)).toBeCloseTo(0.53 * (500 - middle - 1.5 * thick), 6)
+    // The tail is drawn in to the cell's left edge; the head keeps its shape.
+    expect(left.target[0]).toBeCloseTo(100, 6)
+    expect(left.source[2] - left.source[0]).toBeLessThan(588 - 220)
+    expect(Array.from(left.part.contours[0].light.slice(0, 6))).toEqual([508, 815, 588, 815, 588, 300])
+    expect(left.target[1]).toBeCloseTo(-80 + 0.07 * height, 6)
     expect(right.target[1]).toBeCloseTo(-80 + 0.11 * height, 6)
     for (const p of [left, right]) expect(p.target[3]).toBeCloseTo(840 - 0.24 * height, 6)
-    // The 丿 ends left of the stem.
-    expect(left.target[2]).toBeLessThan(bar.target[0] + (456 - 52) * sx)
   })
-  it('leaves a drawing without the three parts alone', () => {
+  it('places the strokes at the stem’s own width in a weighted face, a stroke’s 0.8 clear of the stem', () => {
+    const { sx, middle, thick } = stemIn(100, 500, true)
+    const [, left, right] = fix.apply([tee(), slash(), stroke()], { ...composer, weighted: true }, [100, -80, 600, 840])
+    expect(thick).toBe(80)
+    expect(right.target[2] - right.target[0]).toBeCloseTo(80, 6)
+    // 53% of the white would leave less than 0.8 of a stroke.
+    expect(0.53 * (600 - middle - 1.5 * thick)).toBeLessThan(0.8 * thick)
+    expect(right.target[0] - (middle + thick / 2)).toBeCloseTo(0.8 * thick, 6)
+    // The 丿 is drawn at 丅's scale, for the balance to weight, with its head's middle a stroke and the gap left of the stem's.
+    const head = headOf(left)
+    expect(head[1] - head[0]).toBeCloseTo(80 * sx, 6)
+    expect(middle - thick - (head[0] + head[1]) / 2).toBeCloseTo(0.38 * (middle - 100 - 1.5 * thick), 6)
+  })
+  it('takes the heavy master’s stem as the width where the cell is too narrow for the stem’s own', () => {
+    const { sx, middle, thick } = stemIn(100, 400, true)
+    const [, , right] = fix.apply([tee(), slash(), stroke()], { ...composer, weighted: true }, [100, -80, 500, 840])
+    expect(thick).toBeCloseTo(160 * sx, 6)
+    expect(right.target[2] - right.target[0]).toBeCloseTo(thick, 6)
+    expect(right.target[0] - (middle + thick / 2)).toBeCloseTo(0.8 * thick, 6)
+  })
+  it('leaves a drawing without the three parts, or without one stroke to read, alone', () => {
+    const region = [100, -80, 500, 840]
     for (const parts of [[tee(), stroke()], [tee(), slash(), stroke(), stroke()]]) expect(fix.apply(parts, composer, region)).toBe(parts)
     const parts = [tee(), slash(), stroke()]
     expect(fix.apply(parts, { ...composer, glyph: () => null }, region)).toBe(parts)
+    // A 丅 with two stems has no one stem to measure.
+    const forked = [part('glyph 丅', [52, -80, 949, 748], region, [[52, 672, 949, 748], [300, -80, 380, 706], [600, -80, 680, 706]]), slash(), stroke()]
+    expect(fix.apply(forked, composer, region)).toBe(forked)
   })
   it('lists the four faces’ glyphs', () => {
     for (const ch of ['丅', '丿', '丨']) expect(fix.glyphs[ch]).toHaveLength(4)
