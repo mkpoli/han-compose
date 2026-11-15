@@ -2,8 +2,9 @@
 // cuts, what is left is the character's own outlines (`Composer.remainder`).
 import { describe, expect, it } from 'bun:test'
 import { gzipSync } from 'node:zlib'
+import { Composer } from '../src/compose.js'
 import { compose, createSource } from '../src/loader.js'
-import { character, files, identityOf, records, shardOf } from './fixtures/small-export.js'
+import { character, constants, files, identityOf, records, shardOf } from './fixtures/small-export.js'
 
 /** The fixture export with `added` records and host lists for `hosts` (`[key, place, entries]`). */
 const sourceOf = (added, hosts = []) => {
@@ -97,11 +98,66 @@ describe('a part taken out of a character', () => {
 
   it('composes what is left of the description where the export has no cut of it', async () => {
     const drawn = await compose(sourceOf(base, cuts.filter(([key]) => key !== '木')), '㇯杏口', { layout: 'composed' })
-    expect(drawn.parts.map(part => part.origin)).not.toContain('host 杏')
-    expect(drawn.parts.length).toBeGreaterThan(0)
+    // 木 from its own glyph, in the upper share of the cell; nothing of 口, and no slot shown.
+    expect(drawn.parts.map(part => part.origin)).toEqual(['glyph 木'])
+    const face = span((await compose(sourceOf(base, cuts), '杏', { layout: 'composed' })).parts)
+    expect(span(drawn.parts)[3]).toBeLessThan((face[1] + face[3]) / 2 + 60)
     expect(drawn.cut).toBe('')
     expect(drawn.slots).toEqual([])
     expect(drawn.approximate).not.toContain('㇯')
+  })
+
+  it('keeps the character\'s proportion where it is an operand', async () => {
+    // Over 永 the row is wider than 杏 may be stretched: what is left stands where the glyph of 杏
+    // would, short of the row's sides.
+    const drawn = await compose(sourceOf(base, cuts), '⿱㇯杏口永', { layout: 'composed' })
+    const left = drawn.parts.find(part => part.origin === 'host 杏')
+    const [x0, , x1] = constants.face
+    expect(left.box[0]).toBeGreaterThan(x0 + 10)
+    expect(left.box[0] + left.box[2]).toBeLessThan(x1 - 10)
+  })
+
+  it('takes out a part that is itself a description', async () => {
+    const twice = { ...base, 森: { ...character('森', [[60, 500, 440, 560], [220, 420, 280, 820], [100, -40, 400, 360],
+      [560, 500, 940, 560], [720, 420, 780, 820], [600, -40, 900, 360]]), s: '⿰⿱木口⿱木三' },
+      '⿱木三': { k: '⿱木三', P: ['R'] } }
+    const right = [...cuts, ['⿱木三', 'R', [cut('森', [3, 4, 5], [560, -40, 940, 820], [60, -40, 940, 820])]]]
+    const drawn = await compose(sourceOf(twice, right), '㇯森⿱木口', { layout: 'composed' })
+    expect(drawn.parts.map(part => part.origin)).toEqual(['host 森'])
+    expect(drawn.approximate).not.toContain('㇯')
+    expect(span(drawn.parts)[0]).toBeGreaterThan(450)
+  })
+
+  it('does not draw a part from the cut of another like it', async () => {
+    // The export could not cut the first 木 of 森 and cut the second: the first is not the second.
+    const twice = { ...base, 森: { ...character('森', [[60, 500, 440, 560], [220, 420, 280, 820], [100, -40, 400, 360],
+      [560, 500, 940, 560], [720, 420, 780, 820], [600, -40, 900, 360]]), s: '⿰⿱木口⿱木三' } }
+    const whole = [60, -40, 940, 820]
+    const second = [...cuts.filter(([key, place]) => !(key === '木' && place === 'T')),
+      ['木', 'T', [cut('杏', [0, 1], UPPER), { h: '森', r: 0, c: null }, cut('森', [3, 4], [560, 420, 940, 820], whole)]]]
+    const drawn = await compose(sourceOf(twice, second), '㇯㇯森口三', { layout: 'composed' })
+    const boxes = drawn.parts.map(part => span([part]))
+    // Both 木 are drawn, one in each half, and none twice in the right half.
+    expect(boxes.filter(box => box[2] < 520)).toHaveLength(1)
+    expect(boxes.filter(box => box[0] > 480)).toHaveLength(1)
+  })
+
+  it('does not read a character the drawing excludes', async () => {
+    const drawn = await compose(sourceOf(base, cuts), '㇯杏口', { layout: 'composed', exclude: ['杏'] })
+    expect(drawn.parts.map(part => part.origin)).not.toContain('host 杏')
+    expect(drawn.approximate).toContain('㇯')
+  })
+
+  it('names no leaf for the parts of a separated drawing', async () => {
+    // What is left has no part for the leaf taken out, so a count of parts that happens to match
+    // the leaves names nothing: here three parts and three leaves, the third leaf being 口.
+    const source = sourceOf(base, cuts)
+    await compose(source, '⿰永㇯椛口', { layout: 'composed', separate: true })
+    const composer = new Composer(source.store(), { separate: true })
+    composer.leafOwners = () => ({ split: true, owners: [0, 1, 2] })
+    const parts = composer.compose('⿰永㇯椛口')
+    expect(parts).toHaveLength(3)
+    expect(parts.every(part => part.leaf === undefined)).toBe(true)
   })
 
   it('cuts the part out of a character that has no description, and says so', async () => {

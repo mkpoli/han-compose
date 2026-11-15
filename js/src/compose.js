@@ -352,6 +352,8 @@ export const UNPREDICTABLE = ['⿻', '㇯', '〾', '⿾', '⿼', '⿽', '⿴', '
  *  without walking the tree. @param {string} description */
 export const composableDescription = description => ![...description].some(char => UNPREDICTABLE.includes(char))
 const MIRROR = '⿾', ROTATE = '⿿', VARIANT = '〾', SUBTRACT = '㇯'
+/** Whether a description takes a part out somewhere. @param {any} node @returns {boolean} */
+const subtracts = node => Array.isArray(node) && (node[0] === SUBTRACT || node.slice(1).some(subtracts))
 /** The place of a part taken out of a description: an empty slot with no number, which is laid
  *  out and not drawn. */
 const GONE = `${EMPTY}-`
@@ -695,7 +697,9 @@ export class Composer {
       const ownership = this.separate ? this.leafOwners(tree) : null
       // A toned syllable draws more parts than leaves, so its drawing needs the owners even where
       // the tree was not split.
-      if (ownership && (ownership.split || out.some(p => p.origin?.startsWith('mark '))) && !out.some(p => p.cut)) {
+      // What ㇯ leaves is drawn in fewer parts than the description has leaves, or as a cut: neither
+      // has one part for each leaf.
+      if (ownership && (ownership.split || out.some(p => p.origin?.startsWith('mark '))) && !out.some(p => p.cut) && !subtracts(tree)) {
         // A toned syllable draws its marks beside it; they belong to the leaf they mark.
         const before = out.map(part => part.leaf)
         let owner = 0, current = null
@@ -2875,6 +2879,19 @@ export class Composer {
     if (!sequence || !glyph) return null
     let tree
     try { tree = this.parse(sequence) } catch { return null }
+    if (!Array.isArray(tree)) return null
+    // Where a part stands at the same place more than once (the two 𥃭 of 㒹), the export lists
+    // the character's cuts of it in reading order, a cut or none for each: every part of the
+    // description is numbered among its likes before any is taken out.
+    const order = new Map(), seen = new Map()
+    /** @param {any} at @param {string} op @param {number} index @param {string} path */
+    const number = (at, op, index, path) => {
+      const like = `${this.slot(op, index)}\t${keyOf(at)}`
+      order.set(path, seen.get(like) ?? 0)
+      seen.set(like, (seen.get(like) ?? 0) + 1)
+      if (Array.isArray(at)) at.slice(1).forEach((child, i) => number(child, at[0], i, `${path}.${i}`))
+    }
+    tree.slice(1).forEach((child, i) => number(child, tree[0], i, `${i}`))
     for (const part of taken) {
       const [next, found] = this.without(tree, keyOf(part), part)
       if (!found) return null
@@ -2882,25 +2899,23 @@ export class Composer {
     }
     // The character whole is set in the region as its glyph is; each part keeps its place in that.
     const frame = fitted(glyph.box, region ?? this.face, this.C.STRETCH)
-    const used = new Set(), out = []
-    /** @param {any} at @param {string} op @param {number} index @returns {boolean} */
-    const draw = (at, op, index) => {
+    const out = []
+    /** @param {any} at @param {string} op @param {number} index @param {string} path @returns {boolean} */
+    const draw = (at, op, index, path) => {
       if (at === null) return true
       const inner = Array.isArray(at) && at[0] === SUBTRACT
-      if (Array.isArray(at) && !inner && lacks(at)) return at.slice(1).every((child, i) => draw(child, at[0], i))
+      if (Array.isArray(at) && !inner && lacks(at)) return at.slice(1).every((child, i) => draw(child, at[0], i, `${path}.${i}`))
       let whole = at
       while (Array.isArray(whole) && whole[0] === SUBTRACT) whole = whole[1]
-      const entry = this.hostsOf(keyOf(whole), this.slot(op, index)).find(h => h.h === base && !used.has(h))
-      if (!entry) return false
-      used.add(entry)
+      const entry = this.hostsOf(keyOf(whole), this.slot(op, index), true).filter(h => h.h === base)[order.get(path)]
+      if (!entry || !this.cutOf(entry)) return false
       const piece = this.pieceOf(entry), target = mapped(piece.box, glyph.box, frame)
       if (!inner) { out.push(placed(piece, piece.box, target, this.ink(base), `host ${base}`)); return true }
       const rest = this.remainder(at, target)
       if (rest) out.push(...rest)
       return Boolean(rest)
     }
-    if (!Array.isArray(tree)) return null
-    if (tree.slice(1).every((child, i) => draw(child, tree[0], i))) return out
+    if (tree.slice(1).every((child, i) => draw(child, tree[0], i, `${i}`))) return out
     /** @param {any} at @returns {any} */
     const open = at => at === null ? GONE : Array.isArray(at) ? [at[0], ...at.slice(1).map(open)] : at
     return this.node(open(tree), region, atRoot).filter(part => !Number.isNaN(part.empty))
