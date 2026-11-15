@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'bun:test'
-import { makePart, mapped, partOf, placed, pointsBox } from '@han-compose/composer/geometry'
-import { BODY_FORMS, CONSTRUCTS, IVD_FORMS, SURROUND_CONSTRUCTS, bodyForm, constructParts, ivdParts } from '@han-compose/composer/constructs'
-import { Composer } from '@han-compose/composer/compose'
-import { hexOf } from '@han-compose/composer/sha256.js'
-import constants from '@han-compose/composer/constants.json' with { type: 'json' }
+import { makePart, mapped, partOf, placed, pointsBox } from 'han-compose/geometry'
+import { BODY_FORMS, CONSTRUCTS, IVD_FORMS, SURROUND_CONSTRUCTS, bodyForm, constructParts, ivdParts } from 'han-compose/constructs'
+import { Composer } from 'han-compose/compose'
+import { hexOf } from 'han-compose/sha256.js'
+import constants from 'han-compose/constants.json' with { type: 'json' }
 import notoCong from './fixtures/noto-cong-body.json' with { type: 'json' }
 import notoYu from './fixtures/noto-yu.json' with { type: 'json' }
 import notoZhe from './fixtures/noto-zhe.json' with { type: 'json' }
@@ -302,7 +302,7 @@ it('C061 keeps only 气’s first three strokes and closes with 乙, including b
 
 
 it('C062 joins the bundled wood to the roof without moving the top or foot', async () => {
-  const { componentParts } = await import('@han-compose/composer/component-forms')
+  const { componentParts } = await import('han-compose/component-forms')
   const [out] = componentParts('⿳𰀉冖木')
   const wood = pointsBox(out.part.contours[3].light)
   expect(wood).toEqual([37, -79, 964, 489])
@@ -315,7 +315,7 @@ it('C062 joins the bundled wood to the roof without moving the top or foot', asy
 
 
 it('C062 overlaps the roof seam while the cap seams remain one continuous contour', async () => {
-  const { componentParts } = await import('@han-compose/composer/component-forms')
+  const { componentParts } = await import('han-compose/component-forms')
   const [out] = componentParts('⿳𰀉冖木')
   const roof = out.part.contours[2].light, wood = out.part.contours[3].light
   // The two cap seams already belong to the same outline as 冖.

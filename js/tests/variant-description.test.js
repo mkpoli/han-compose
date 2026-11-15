@@ -2,17 +2,15 @@
 // names: ⿰查皮 is 皶, whose own sequence is ⿰査皮. The export has no cut for it — the operands'
 // strokes overlap — so the designed glyph is partitioned one piece per leaf.
 import { describe, expect, it } from 'bun:test'
-import { createHash } from 'node:crypto'
 import { gzipSync } from 'node:zlib'
 import { compose, createSource } from '../src/loader.js'
-import { files } from './fixtures/small-export.js'
+import { files, shardOf } from './fixtures/small-export.js'
 import gaizha from './fixtures/gaizha-glyph.json' with { type: 'json' }
 
-const hex = text => createHash('sha256').update(text).digest('hex')
 /** The small export with one more character's record: 皶, the glyph the variant description names. */
 const source = () => {
-  const name = `g/${hex('皶').slice(0, 3)}.json`
-  const body = gzipSync(JSON.stringify({ [hex('皶')]: { k: '皶', ...gaizha } }))
+  const name = shardOf('g', '皶')
+  const body = gzipSync(JSON.stringify({ 皶: gaizha }))
   return createSource(async file => {
     if (file === name) return new Uint8Array(body).buffer
     const written = files[file]

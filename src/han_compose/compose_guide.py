@@ -69,6 +69,9 @@ class Guide:
         # composition alone until a guide trained on them is available.
         if sequence and sequence[0] in ("⿼", "⿽"):
             return placed
+        # The guide has seen no subtraction: what ㇯ takes away stays where the layout put it.
+        if any(item.cut for item in placed):
+            return placed
         gain = self.ink(composer, sequence, placed) - 0.5
         if LEVEL == "part":
             return [_fitted(item, item.part.contours, gain) for item in placed]

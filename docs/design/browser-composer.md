@@ -1,7 +1,7 @@
 # The browser composer's home
 
 The browser composer was forked from this composer on 2026-10-25 and maintained in ids-input beside
-it. The two drifted: this repository writes export format 6 (`web_export.py`, `FORMAT`) and draws
+it. The two drifted: this repository wrote export format 6 (`web_export.py`, `FORMAT`) and drew
 kaisho from Kureedo Full, while the fork read both format 5 and 6 and drew in one style. The rules
 for ⿾ ⿿ 〾 ㇯, empty slots, pyramids and repeated grids existed in both languages, and only the Python
 copy was tested. The fork has moved back here, as `js/`, and ids-input imports it.
@@ -13,14 +13,14 @@ copy was tested. The fork has moved back here, as `js/`, and ids-input imports i
 | Drawing a sequence: hosts, cuts, layout, weight, guide | this repository, `src/han_compose/compose.py` |
 | Rewriting a sequence before drawing (enclosures, transforms, repeated grids, coverage, pyramids, constructs) | this repository, `Composer.compose` |
 | The drawing data and its packing | this repository, `src/han_compose/web_export.py` |
-| Reading that data, drawing in a Worker, caching | this repository, `js/` (`@han-compose/composer`) |
+| Reading that data, drawing in a Worker, caching | this repository, `js/` (`han-compose`) |
 | Text and tree, empty slots (⬚), Emoji, tokens | `js/`, beside the rules they serve |
 | ASCII operator names, editor keys | ids-input, `src/core/aliases.js` and its key handling |
 | The outline files drawn without an export | this repository, `data/` |
 | The preview component, badges, focus, document layers, export as a file | ids-input, `src/svelte/` and `src/document/` |
 
-- Only `web_export.py` shapes the export. The package reads the one format the export writes; an
-  earlier format is a failed load, not a fallback.
+- Only `web_export.py` shapes the export, and writes format 6. The package reads formats 5 and 6
+  (`FORMATS` in `js/src/loader.js`); any other format is a failed load.
 - A sequence is the contract between the two. The package parses it with its own `parseDescription`
   into `{ op, parts }` trees. The editor's tree reaches the package only as text, or as the document
   `documentView` reads for a layered preview.
