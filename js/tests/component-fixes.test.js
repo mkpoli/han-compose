@@ -153,12 +153,13 @@ describe('C080 ⿻一止', () => {
   const fix = COMPONENT_FIXES['⿻一止']
   const fromTop = y => (target[3] - y) / (target[3] - target[1])
   for (const [face, order] of Object.entries(ORDERS)) {
-    it(`crosses a third of the way down, with 止’s right bar and left stroke below it (${face} order)`, () => {
+    it(`crosses a third of the way down, with 止’s right bar and left stroke set as 正 sets them (${face} order)`, () => {
       const [bar, body] = fix.apply([line(), stop(order)])
       const at = Object.fromEntries(order.map((name, index) => [name, targetBox(body, body.part.contours[index])]))
       expect(fromTop((bar.target[1] + bar.target[3]) / 2)).toBeCloseTo(0.33, 2)
-      expect(fromTop((at.right[1] + at.right[3]) / 2)).toBeCloseTo(0.585, 2)
-      expect(fromTop(at.left[3])).toBeCloseTo(0.5, 2)
+      const intoGap = y => (bar.target[1] - y) / (bar.target[1] - at.base[3])
+      expect(intoGap((at.right[1] + at.right[3]) / 2)).toBeCloseTo(0.46, 2)
+      expect(intoGap(at.left[3])).toBeCloseTo(0.285, 2)
       expect(bar.target[3] - bar.target[1]).toBeCloseTo(34.5, 6)
       expect(at.stem[3]).toBeCloseTo(target[3], 6)
       expect(at.base[1]).toBeCloseTo(target[1], 6)

@@ -230,8 +230,9 @@ export const COMPONENT_FIXES = {
   // ⿻二丿: 二 drawn on its own has its lower line sitting lower than 龵 draws the pair under a
   // 丿 — the font lifts that line towards the upper one. The lower bar keeps its width and rises.
   // ⿻一止 as the lower part of 𡋨 and 𢓩 draws it: the 一 crosses the stem a third of the way down,
-  // leaving the head of 止 above it, and 止's right bar and left stroke sit below the crossing, the
-  // bar just past halfway down and the left stroke starting there. The four strokes of 止 are told
+  // leaving the head of 止 above it. Below the crossing, 止's right bar and left stroke sit as 正
+  // sets them between its top line and base: the bar 46% of the way down that gap, the left stroke
+  // starting 28.5% down. The four strokes of 止 are told
   // apart by shape, since the faces number them differently. A face that joins 止 into one outline
   // keeps its strokes, and the 一 crosses above its right bar instead.
   '⿻一止': {
@@ -244,9 +245,9 @@ export const COMPONENT_FIXES = {
       const across = (/** @type {number} */ down) => ({ ...bar, target: [bar.target[0], top - down * height - thickness / 2, bar.target[2], top - down * height + thickness / 2] })
       const strokes = stopStrokes(stop)
       if (!strokes) return stop.part.contours.length === 1 ? parts.map(part => part === bar ? across(0.24) : part) : parts
-      let body = lowered(stop, [strokes.short.index], centreY(strokes.short.box) - (top - 0.585 * height))
-      body = clippedAbove(body, [strokes.left.index], top - 0.5 * height)
-      const line = across(0.33)
+      const line = across(0.33), under = line.target[1], gap = under - strokes.base.box[3]
+      let body = lowered(stop, [strokes.short.index], centreY(strokes.short.box) - (under - 0.46 * gap))
+      body = clippedAbove(body, [strokes.left.index], under - 0.285 * gap)
       return parts.map(part => part === stop ? body : part === bar ? line : part)
     },
   },
