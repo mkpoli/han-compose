@@ -97,4 +97,10 @@ it('leaves the characters holding 眔’s lower half to their own glyphs', () =>
   const composer = rec => new Composer({ manifest: { constants, spelled: [] }, layout: null, rec, hosts: () => [], places: () => [] })
   expect(composer(key => key === '⿲𰀪丨⿱丶丶' ? known : null).rec('⿲𰀪丨⿱丶丶')).toBe(known)
   expect(composer(() => null).rec('⿲𰀪丨⿱丶丶')).toEqual(componentRecord('⿲𰀪丨⿱丶丶', 'sans'))
+  // Its ink and outline count, which size its neighbours, are what they are without the form: here
+  // the four leaves', each unknown to this store.
+  const exported = composer(key => key === '⿲𰀪丨⿱丶丶' ? known : null), node = exported.parse('⿲𰀪丨⿱丶丶')
+  expect(exported.ink(node)).toBe(4000)
+  expect(exported.outlines(node)).toBe(0)
+  expect(exported.identity('⿲𰀪丨⿱丶丶')).toBe(known)
 })

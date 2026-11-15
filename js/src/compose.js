@@ -498,15 +498,16 @@ export class Composer {
   arity = ch => this.arities.get(ch) ?? 0
   parse = sequence => parseTree(sequence, this.arity)
   // A key holding an empty slot has no record and no hosts: nothing is asked for it.
-  rec = key => key.includes(EMPTY) ? null
-    : isNativeForm(key, this.fontStyle) ? this.data.rec(key) ?? componentRecord(key, this.fontStyle)
-    : componentRecord(key, this.fontStyle) ?? this.data.rec(key)
+  rec = key => key.includes(EMPTY) ? null : this.formRecord(key) ?? this.data.rec(key) ?? componentRecord(key, this.fontStyle)
+  /** A component form's record, which stands in for the export's; a native form's does only where
+   *  the export records nothing. */
+  formRecord = key => isNativeForm(key, this.fontStyle) ? null : componentRecord(key, this.fontStyle)
   /** What a description's identity is found by: a key's sequence (`s`) and the character it
    *  describes (`e`). A store with an identity table answers from it; without one, and for a
    *  component form, the key's record does. */
   identity = key => {
     if (key.includes(EMPTY)) return null
-    const form = componentRecord(key, this.fontStyle)
+    const form = this.formRecord(key)
     if (form) return form
     const known = this.data.identity?.(key)
     return known === undefined ? this.data.rec(key) : known
@@ -614,7 +615,8 @@ export class Composer {
 
   /** Outline length: a glyph's, or for an excluded or glyphless character its sequence's operands'. */
   ink(node, seen = new Set()) {
-    if (componentRecord(keyOf(node), this.fontStyle)) return componentRecord(keyOf(node), this.fontStyle).ink
+    const form = this.formRecord(keyOf(node))
+    if (form) return form.ink
     if (Array.isArray(node) && node[0] === '⿸' && this.yanStackedDays(node[1], node[2]))
       return this.ink(node[1], seen) + this.ink('儿', seen) + YAN_STACK_INK
     if (typeof node !== 'string') {
@@ -632,7 +634,8 @@ export class Composer {
 
   /** Permitted outline count; zero when an operand is unknown. */
   outlines(node, seen = new Set()) {
-    if (componentRecord(keyOf(node), this.fontStyle)) return componentRecord(keyOf(node), this.fontStyle).o
+    const form = this.formRecord(keyOf(node))
+    if (form) return form.o
     if (typeof node === 'string') {
       const key = this.renderKey(node), r = this.rec(key)
       if (!this.excluded(key)) return r?.G ? r.G.p.length : 0
@@ -1937,7 +1940,7 @@ export class Composer {
   host(op, index, node, siblings, box, isPlaced = false) {
     // A component form draws from its own outlines; a cut form with a library of host cuts (`P`, its
     // places) draws, like an encoded part, from the cut closest to its place.
-    const library = typeof node === 'string' && componentRecord(node, this.fontStyle)?.P?.length
+    const library = typeof node === 'string' && this.formRecord(node)?.P?.length
     if (!library && containsComponentForm(keyOf(node), this.fontStyle)) return null
     if (this.keepsRowLayout(op, node)) return null
     // A cut of an entire repeated row can include strokes belonging to its host.
