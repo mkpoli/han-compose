@@ -295,6 +295,9 @@ def bench(chars: str = "benchmark", sample: int = 0, seed: int = 3, size: int = 
     plain = compose.Composer(composer.font, composer.sequences, hosted=False, weighted=False)
     _BENCH.update(composer=composer, plain=plain, size=size)
     web_export._load_font_caches(composer)
+    # Every fold's model read before the workers fork, so that they share them: each character is
+    # laid out by the model that never saw it.
+    composer.layout.read()
     gc.collect()
     gc.freeze()
     pool_ = mp.get_context("fork").Pool(workers, maxtasksperchild=64) if workers > 1 else None

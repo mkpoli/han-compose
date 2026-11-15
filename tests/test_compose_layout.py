@@ -38,6 +38,58 @@ def test_a_model_is_saved_and_read_back_whole(tmp_path) -> None:
     assert all(np.allclose(x, y) for x, y in zip(back.weights["0"][0], layers))
 
 
+def test_a_models_table_and_networks_are_read_when_first_asked_for(tmp_path, monkeypatch) -> None:
+    table = L.Table.of(ROWS)
+    rng = np.random.default_rng(0)
+    layers = [rng.normal(size=(5, 4)), rng.normal(size=4), rng.normal(size=(4, 8)), rng.normal(size=8)]
+    L.LayoutModel({"all": table, "0": table}, {"all": [layers], "0": [layers]}, {"a": 0}).save(tmp_path / "m.npz")
+    read, load = [], np.load
+
+    class Spied:
+        def __init__(self, path):
+            self.data = load(path)
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            self.data.close()
+
+        def __getitem__(self, name):
+            read.append(name)
+            return self.data[name]
+
+    monkeypatch.setattr(np, "load", Spied)
+    back = L.LayoutModel.load(tmp_path / "m.npz")
+    assert read == ["meta"] and set(back.tables) == set(back.weights) == {"all", "0"}
+    assert back.tables["all"].counts == table.counts and len(back.weights["all"][0]) == 4
+    assert back.tables["all"] is back.tables["all"]
+    assert {name.split(".")[0] for name in read} == {"meta", "all"}
+    with pytest.raises(KeyError):
+        back.tables["1"]
+    # Before workers fork, every model is read.
+    count = len(read)
+    back.read()
+    assert {name.split(".")[0] for name in read[count:]} == {"0"}
+    back.read()
+    assert len(read) == count + 7
+
+
+def test_a_model_file_written_after_it_was_loaded_is_refused(tmp_path) -> None:
+    import os
+
+    table = L.Table.of(ROWS)
+    layers = [np.zeros((5, 4)), np.zeros(4), np.zeros((4, 8)), np.zeros(8)]
+    path = tmp_path / "m.npz"
+    L.LayoutModel({"all": table}, {"all": [layers]}, {}).save(path)
+    back = L.LayoutModel.load(path)
+    assert back.tables["all"].counts == table.counts
+    L.LayoutModel({"all": L.Table.of(ROWS[:1])}, {"all": [layers]}, {}).save(path)
+    os.utime(path, ns=(0, path.stat().st_mtime_ns + 1))
+    with pytest.raises(ValueError, match="written after it was loaded"):
+        back.weights["all"]
+
+
 def test_gelu_is_the_tanh_form_training_uses() -> None:
     x = np.array([-3.0, -1.0, 0.0, 0.5, 2.0])
     expected = [-0.003637, -0.158808, 0.0, 0.345714, 1.954598]
