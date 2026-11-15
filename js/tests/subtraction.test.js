@@ -3,6 +3,7 @@
 import { describe, expect, it } from 'bun:test'
 import { gzipSync } from 'node:zlib'
 import { Composer } from '../src/compose.js'
+import { onlyBundled } from '../src/local.js'
 import { compose, createSource } from '../src/loader.js'
 import { character, constants, files, identityOf, records, shardOf } from './fixtures/small-export.js'
 
@@ -170,5 +171,14 @@ describe('a part taken out of a character', () => {
     const drawn = await compose(sourceOf(base, cuts), '㇯杏三', { layout: 'composed' })
     expect(drawn.cut).not.toBe('')
     expect(drawn.approximate).toContain('㇯')
+  })
+
+  it('is not drawn from bundled outlines alone', () => {
+    // Two Jurchen characters the package holds outlines of: beside each other they need no export,
+    // one taken out of the other needs the description only the export has.
+    const a = String.fromCodePoint(0x18E00), b = String.fromCodePoint(0x18E01)
+    expect(onlyBundled(`⿰${a}${b}`)).toBe(true)
+    expect(onlyBundled(`㇯${a}${b}`)).toBe(false)
+    expect(onlyBundled(`⿰${a}㇯${a}${b}`)).toBe(false)
   })
 })
