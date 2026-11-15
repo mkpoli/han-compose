@@ -33,6 +33,12 @@ INSIDE = 0.6
 #: The ideographs that name a stroke, by the stroke KanjiVG types it as (`kvg:type`); a CJK stroke
 #: character (㇏) names itself.
 STROKES = {"一": "㇐", "丨": "㇑", "丶": "㇔", "丿": "㇒", "乚": "㇟", "亅": "㇚", "𠃌": "㇆", "𠃍": "㇕", "𠃊": "㇗"}
+#: The least share of the smaller operand's extent, along each axis, by which the two operands of
+#: an overlay cross in a group that stands for it: at a half, the middle of the smaller lies inside
+#: the other. Over the overlays the sequence table writes, the groups KanjiVG makes of their
+#: components cross by under 0.3 (306, stacks and rows such as 呆 and 早) or by over 0.5 (809);
+#: the 15 between are a bar or a dot resting on the other operand (丙, 兀, 主).
+CROSS = 0.5
 #: Raster size an outline is filled at to test centreline points, and the pixels it is grown by.
 SIZE, GROW = 160, 2
 
@@ -382,26 +388,59 @@ def _leaves(node) -> list[str]:
     return [leaf for child in node[1:] for leaf in _leaves(child)]
 
 
-def _parts(group: Group) -> list[str] | None:
-    """A group's components one level down, an unnamed subgroup flattened; None when a stroke stands
+def _parts(group: Group, pieces: set[str] | None = None) -> list[str] | None:
+    """A group's components one level down, an unnamed subgroup flattened and a component drawn in
+    pieces counted once (`kvg:part`: 木 above and below the 口 of 束); None when a stroke stands
     outside any named component."""
     if group.strokes:
         return None
+    pieces = set() if pieces is None else pieces
     out = []
     for g in group.groups:
         if g.element:
-            out.append(g.element)
+            if g.part is None or g.element not in pieces:
+                out.append(g.element)
+            if g.part is not None:
+                pieces.add(g.element)
         else:
-            inner = _parts(g)
+            inner = _parts(g, pieces)
             if inner is None:
                 return None
             out.extend(inner)
     return out
 
 
+def _named(group: Group) -> list[Group]:
+    """A group's named components one level down, an unnamed subgroup flattened (`_parts`)."""
+    return [g for sub in group.groups for g in ([sub] if sub.element else _named(sub))]
+
+
+def _across(group: Group, node: tuple, glyph: C.Part, owners: list[set[int]]) -> bool:
+    """Whether a group made of an overlay's components draws its two operands across each other:
+    the boxes of their outlines overlap by `CROSS` of the smaller along both axes. A stack or a
+    row of the same components does not (呆 in 褒 for ⿻木口). True where it cannot be told: a
+    component both operands name, or an operand with no outline of its own."""
+    if len(node) != 3:
+        return True
+    first, second = (set(_leaves(operand)) for operand in node[1:])
+    if first & second:
+        return True
+    boxes = []
+    for names in (first, second):
+        strokes = {s for g in _named(group) if g.element in names for s in g.all_strokes()}
+        contours = [ct for ct, own in zip(glyph.contours, owners) if own and own <= strokes]
+        if not contours:
+            return True
+        boxes.append(C.Part(contours).box)
+    a, b = boxes
+    return all(min(a[axis + 2], b[axis + 2]) - max(a[axis], b[axis])
+               >= CROSS * min(a[axis + 2] - a[axis], b[axis + 2] - b[axis]) for axis in (0, 1))
+
+
 def groups_like(cutter: Cutter, node: tuple, exclude: set[str]) -> list[tuple[str, C.Part]]:
-    """Pieces of other characters whose KanjiVG group is made of `node`'s components (the top of
-    脊 inside 瘠 for ⿻人⿰二二), each the glyph's outlines lying wholly within that group's strokes."""
+    """Pieces of other characters whose KanjiVG group is made of `node`'s components and draws its
+    operands across each other (the top of 脊 inside 瘠 for ⿻人⿰二二), each the glyph's outlines
+    lying wholly within that group's strokes."""
     want = sorted(_leaves(node))
     if len(want) < 2:
         return []
@@ -410,7 +449,8 @@ def groups_like(cutter: Cutter, node: tuple, exclude: set[str]) -> list[tuple[st
         for char, entry in cutter.entries.items():
             for g in entry.root.walk():
                 parts = _parts(g)
-                if parts and len(parts) >= 2 and g is not entry.root:
+                # A piece of a component drawn in pieces is not that component (the lower half of 束 in 柬).
+                if parts and len(parts) >= 2 and g is not entry.root and g.part is None:
                     index.setdefault(tuple(sorted(parts)), []).append((char, g))
         cutter._by_parts = index
     out = []
@@ -422,6 +462,7 @@ def groups_like(cutter: Cutter, node: tuple, exclude: set[str]) -> list[tuple[st
             continue
         strokes = set(group.all_strokes())
         contours = [ct for ct, own in zip(glyph.contours, owners) if own and own <= strokes]
-        if contours and set().union(*[own for own in owners if own and own <= strokes]) == strokes:
+        if (contours and set().union(*[own for own in owners if own and own <= strokes]) == strokes
+                and _across(group, node, glyph, owners)):
             out.append((char, C.Part(contours)))
     return out
