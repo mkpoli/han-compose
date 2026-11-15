@@ -1,4 +1,4 @@
-const CHARS = "須攸𪧇朕彡頁亻丨攵宀爿月关氺此丙羽山攵木口永人大小工土火又水屮㗊燚叕㵘茻林矛彳亍弓𤣩王辛隹亠𧘇方𠂉匕頁𠦝𠆢鬲士冖一殳木日金水火土女子口吉隹魚牛馬羊犬貝毛手耳虫車力森晶鑫淼焱垚姦孨品嚞雥鱻犇驫羴猋贔毳掱聶蟲轟劦夾巫坐"
+const CHARS = "𲻋𦥑八須攸𪧇朕彡頁亻丨攵宀爿月关氺此丙羽山攵木口永人大小工土火又水屮㗊燚叕㵘茻林矛彳亍弓𤣩王辛隹亠𧘇方𠂉匕頁𠦝𠆢鬲士冖一殳木日金水火土女子口吉隹魚牛馬羊犬貝毛手耳虫車力森晶鑫淼焱垚姦孨品嚞雥鱻犇驫羴猋贔毳掱聶蟲轟劦夾巫坐"
 import { expect, it } from 'bun:test'
 import { Composer } from '../src/compose.js'
 import { compose, createSource, sketch } from '../src/loader.js'
@@ -18,7 +18,7 @@ const fixture = (missing = '', records = []) => {
 }
 const inkOnly = drawing => ({ ...drawing, parts: drawing.parts.map(({ leaf: _leaf, ...part }) => part) })
 
-const cases = [["⿵⿲彳⿱山一攵", "⿲彳⿱⿱山一{inner}攵"], ["⿴⿰彳亍", "⿲彳{inner}亍"], ["⿴⿰弓弓", "⿲弓{inner}弓"], ["⿴⿰𤣩王", "⿲𤣩{inner}王"], ["⿴⿰辛辛", "⿲辛{inner}辛"], ["⿴⿰隹隹", "⿲隹{inner}隹"], ["⿴⿱亠𧘇", "⿳亠{inner}𧘇"], ["⿸⿰方𠂉", "⿰方⿱𠂉{inner}"], ["⿹⿰匕頁", "⿰⿱匕{inner}頁"], ["⿸⿰𠦝𠆢", "⿰𠦝⿱𠆢{inner}"], ["⿶⿱⿰弓弓鬲", "⿱⿲弓{inner}弓鬲"], ["⿹⿰⿳士冖一殳", "⿰⿱⿳士冖一{inner}殳"]]
+const cases = [["⿵⿲彳⿱山一攵", "⿲彳⿱⿱山一{inner}攵"], ["⿴⿰彳亍", "⿲彳{inner}亍"], ["⿴⿰弓弓", "⿲弓{inner}弓"], ["⿴⿰𤣩王", "⿲𤣩{inner}王"], ["⿴⿰辛辛", "⿲辛{inner}辛"], ["⿴⿰隹隹", "⿲隹{inner}隹"], ["⿴⿱亠𧘇", "⿳亠{inner}𧘇"], ["⿸⿰方𠂉", "⿰方⿱𠂉{inner}"], ["⿹⿰匕頁", "⿰⿱匕{inner}頁"], ["⿸⿰𠦝𠆢", "⿰𠦝⿱𠆢{inner}"], ["⿶⿱⿰弓弓鬲", "⿱⿲弓{inner}弓鬲"], ["⿹⿰⿳士冖一殳", "⿰⿱⿳士冖一{inner}殳"], ["⿶⿳𦥑一八", "⿳⿴𦥑{inner}一八"], ["⿶𲻋", "⿳⿴𦥑{inner}一八"]]
 
 it('opens only supported enclosure hosts and keeps editable leaf ownership', async () => {
   const source = fixture()

@@ -7,8 +7,10 @@ import { files, shards } from './fixtures/small-export.js'
 const int16 = (/** @type {number[]} */ values) => Buffer.from(Int16Array.from(values).buffer).toString('base64')
 const block = (/** @type {number[]} */ [x0, y0, x1, y1]) => ['MLLL', int16([x0, y0, x1, y0, x1, y1, x0, y1].map(v => v * 4)), int16(Array(8).fill(0))]
 const frame = { G: { v: 1, b: [100, 0, 900, 800], p: [block([100, 0, 300, 800]), block([700, 0, 900, 800])] }, ink: 4000, nl: 2, o: 2 }
+const bar = { G: { v: 1, b: [100, 300, 900, 400], p: [block([100, 300, 900, 400])] }, ink: 1800, nl: 1, o: 1 }
+const legs = { G: { v: 1, b: [100, 0, 900, 600], p: [block([100, 0, 300, 600]), block([700, 0, 900, 600])] }, ink: 3200, nl: 2, o: 2 }
 const source = () => {
-  const input = { ...files, ...shards('g', [['𦥑', frame]]) }
+  const input = { ...files, ...shards('g', [['𦥑', frame], ['一', bar], ['八', legs]]) }
   return createSource(async name => input[name] === undefined ? null : new Uint8Array(Buffer.from(input[name])).buffer)
 }
 const right = (/** @type {{ box: number[] }} */ part) => part.box[0] + part.box[2]
@@ -27,6 +29,15 @@ describe('a frame drawn as two halves', () => {
       expect(right(held)).toBeLessThanOrEqual(other.box[0])
     })
   }
+  it('gives the halves, the bar and the legs of ⿶𲻋木 to the one leaf 𲻋', async () => {
+    const leaves = await sketch(source(), '⿶𲻋木')
+    const parts = (await compose(source(), '⿶𲻋木', { separate: true })).parts
+    const groups = groupParts(parts, leaves)
+    expect(leaves).toHaveLength(2)
+    expect(groups?.map(group => group.parts.map(i => parts[i].origin))).toEqual([
+      ['glyph 𦥑 half', 'glyph 𦥑 half', 'glyph 一', 'glyph 八'], ['glyph 木'],
+    ])
+  })
   for (const sequence of ['⿴𦥑木', '⿱⿴𦥑木口', '⿰口⿴𦥑木']) {
     it(`gives both halves to the frame's leaf in ${sequence}`, async () => {
       const leaves = await sketch(source(), sequence)

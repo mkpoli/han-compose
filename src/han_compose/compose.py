@@ -2237,6 +2237,10 @@ class Composer:
                 return ("⿰", "𠦝", ("⿱", "𠆢", inner))
             if (op, outer) == ("⿶", "𩰲"):
                 return ("⿱", ("⿲", "弓", inner, "弓"), "鬲")
+            # 𲻋 is the frame of 興 without what it holds: 𦥑 over 一 over 八 (CHISE writes 𮍫 as
+            # ⿶𲻋夕 where BabelStone writes ⿳⿴𦥑夕一八).
+            if op == "⿶" and (outer == "𲻋" or key(outer) == "⿳𦥑一八"):
+                return ("⿳", ("⿴", "𦥑", inner), "一", "八")
             if (op, outer) == ("⿹", "𣪊"):
                 return ("⿰", ("⿱", ("⿳", "士", "冖", "一"), inner), "殳")
         if not isinstance(node, tuple) or node[0] != "⿸" or len(node) != 3 or not isinstance(node[1], str):

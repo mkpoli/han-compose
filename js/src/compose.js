@@ -1823,6 +1823,9 @@ export class Composer {
     if (op === '⿴' && outer === '㗊') return { tree: ['⿳', '吅', inner, '吅'], innerIndex: 1 }
     if (op === '⿸' && outer === '倝') return { tree: ['⿰', '𠦝', ['⿱', '𠆢', inner]], innerIndex: 2 }
     if (op === '⿶' && outer === '𩰲') return { tree: ['⿱', ['⿲', '弓', inner, '弓'], '鬲'], innerIndex: 1 }
+    // 𲻋 is the frame of 興 without what it holds: 𦥑 over 一 over 八. What it encloses stands between
+    // the halves of 𦥑, above the bar (CHISE writes 𮍫 as ⿶𲻋夕 where BabelStone writes ⿳⿴𦥑夕一八).
+    if (op === '⿶' && (outer === '𲻋' || keyOf(outer) === '⿳𦥑一八')) return { tree: ['⿳', ['⿴', '𦥑', inner], '一', '八'], innerIndex: 1 }
     if (op === '⿹' && outer === '𣪊') return { tree: ['⿰', ['⿱', ['⿳', '士', '冖', '一'], inner], '殳'], innerIndex: 3 }
     return null
   }
