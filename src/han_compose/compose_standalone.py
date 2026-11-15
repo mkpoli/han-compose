@@ -142,6 +142,9 @@ def records(composer: C.Composer, workers: int = 3) -> list[dict]:
         if len(written) == 1:
             held[written] = held.get(written, 0) + len(found)
     chars = sorted(ch for ch, n in held.items() if n >= 5 and composer.font.has(ch) and ch in composer.sequences)
+    if getattr(composer, "kvg", None) is not None:
+        # KanjiVG read before the workers fork, so that they share it.
+        _ = composer.kvg.entries
     with mp.get_context("fork").Pool(workers, maxtasksperchild=60) as pool:
         return [r for r in pool.imap(_record, chars, chunksize=1) if r["inst"]]
 

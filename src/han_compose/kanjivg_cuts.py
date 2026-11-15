@@ -176,12 +176,18 @@ class Cutter:
 
     def __init__(self, composer: C.Composer, path: Path | None = None):
         self.c = composer
-        self.entries = load(str(path or kanjivg_file()))
+        self.path = path
         self._owners: dict[str, list[set[int]] | None] = {}
         self._bases_of: dict[str, set[str]] = {}
         for base, forms in composer.forms.items():
             for form, _ in forms:
                 self._bases_of.setdefault(form, set()).add(base)
+
+    @cached_property
+    def entries(self) -> dict[str, Entry]:
+        """Every kanji of the KanjiVG file, read when a cut first asks about one: a sequence that
+        names an encoded character is drawn from its glyph and cuts nothing."""
+        return load(str(self.path or kanjivg_file()))
 
     def owners(self, char: str) -> list[set[int]] | None:
         """For each outline of the glyph, the KanjiVG strokes whose centrelines run inside it; None when
