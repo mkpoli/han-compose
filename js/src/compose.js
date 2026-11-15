@@ -2421,7 +2421,25 @@ export class Composer {
         const cut = this.host(op, 0, children[0], children.slice(1), region)
         if (cut) outer = [placed(cut.piece, cut.piece.box, mapped(cut.piece.box, cut.piece.box, region), this.ink(cut.record.h), `host ${cut.record.h}`)]
       }
+      // A glyph round the lower left of another part is swept under it inside a larger description
+      // as it is at the root, from the box the layout gives the part it holds (⿺几力 under 助).
+      let held = null
+      if (op === '⿺' && this.layout?.ops.includes(op) && this.hosted && !this.partial
+        && outer.length === 1 && outer[0].origin.startsWith('glyph')) {
+        const boxes = this.predict(op, children), frame = union(boxes)
+        // Boxes the layout leaves empty place nothing, as `learned` reads them.
+        if (frame[2] > frame[0] && frame[3] > frame[1] && boxes.every(b => b[2] > b[0] && b[3] > b[1])) {
+          const box = mapped(boxes[1], frame, region)
+          const swept = sweptPart(outer[0], box[0] - C.FACING[0], C, this.tailForm(keyOf(children[0])))
+          if (swept) { outer = swept; held = box }
+        }
+      }
       let room = this.room(op, outer, region)
+      // Over a swept foot the part stands where the layout puts it, inside the opening.
+      if (held) {
+        const cut = room ? [Math.max(room[0], held[0]), Math.max(room[1], held[1]), Math.min(room[2], held[2]), Math.min(room[3], held[3])] : held
+        room = cut[0] < cut[2] && cut[1] < cut[3] ? cut : room ?? held
+      }
       if (op === '⿸' && typeof children[0] === 'string' && children[0] === '虍') {
         const [x0, y0, x1, y1] = region, w = x1 - x0, h = y1 - y0
         room = [x0 + 0.18 * w, y0 + 0.0 * h, x0 + 0.99 * w, y0 + 0.95 * h]
