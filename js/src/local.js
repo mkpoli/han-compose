@@ -24,6 +24,9 @@ export function onlyBundled(sequence, separate = false, unicode = false, fontSty
     if (part === null) return true
     const node = isNode(part) ? part : /** @type {string} */ (withoutMarks(part))
     if ((separate ? isGroupedForm : isComponentForm)(write(node), fontStyle)) { filled = true; return true }
+    // What ㇯ leaves of a character is read from the character's description and cuts, which only
+    // the export holds: its outlines alone do not draw it.
+    if (isNode(node) && node.op === '㇯') return false
     if (isNode(node)) return node.parts.every(local)
     filled = true
     return (unicode && hasUnicodeGlyph(node)) || ((unicode || fontStyle === 'sans') && hasPaletteGlyph(node)) || hasBundledGlyph('tangut', node) || hasBundledGlyph('jurchen', node) || hasBundledGlyph('bopomofo', node) || hasBundledGlyph('small-seal', node) || hasNewKorean(node) || hasBundledGlyph('shuishu', node)

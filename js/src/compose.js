@@ -352,6 +352,17 @@ export const UNPREDICTABLE = ['⿻', '㇯', '〾', '⿾', '⿼', '⿽', '⿴', '
  *  without walking the tree. @param {string} description */
 export const composableDescription = description => ![...description].some(char => UNPREDICTABLE.includes(char))
 const MIRROR = '⿾', ROTATE = '⿿', VARIANT = '〾', SUBTRACT = '㇯'
+/** Whether a description takes a part out somewhere. @param {any} node @returns {boolean} */
+const subtracts = node => Array.isArray(node) && (node[0] === SUBTRACT || node.slice(1).some(subtracts))
+/** The place of a part taken out of a description: an empty slot with no number, which is laid
+ *  out and not drawn. */
+const GONE = `${EMPTY}-`
+/** How many descriptions deep a part taken out of a character is looked for: in the character's
+ *  own, its operands', and theirs. */
+const SUBTRACT_DEPTH = 3
+/** Whether a description has a part taken out of it somewhere, in itself or in a character it
+ *  holds (`Composer.without`). @param {any} node @returns {boolean} */
+const lacks = node => node === null || (Array.isArray(node) && (node[0] === SUBTRACT || node.slice(1).some(lacks)))
 const EXTRA_ENCLOSE = { '⿼': 'RBT', '⿽': 'RB' }
 const EXTRA_INSIDE = { '⿼': [0, 0.15, 0.8, 0.85], '⿽': [0, 0.25, 0.7, 1] }
 
@@ -686,7 +697,9 @@ export class Composer {
       const ownership = this.separate ? this.leafOwners(tree) : null
       // A toned syllable draws more parts than leaves, so its drawing needs the owners even where
       // the tree was not split.
-      if (ownership && (ownership.split || out.some(p => p.origin?.startsWith('mark '))) && !out.some(p => p.cut)) {
+      // What ㇯ leaves is drawn in fewer parts than the description has leaves, or as a cut: neither
+      // has one part for each leaf.
+      if (ownership && (ownership.split || out.some(p => p.origin?.startsWith('mark '))) && !out.some(p => p.cut) && !subtracts(tree)) {
         // A toned syllable draws its marks beside it; they belong to the leaf they mark.
         const before = out.map(part => part.leaf)
         let owner = 0, current = null
@@ -2833,12 +2846,116 @@ export class Composer {
     return out
   }
 
-  /** ㇯ the second operand drawn where it lies in the first, as a cut taken out of it. */
+  /** ㇯ the first operand less the second: its own outlines where the export cut them, else what
+   *  is left of its description, else the second operand cut out of it. */
   subtracted(children, region, atRoot) {
+    const left = this.remainder([SUBTRACT, ...children], region, atRoot)
+    if (left) return left
+    // A character with no description the part can be found in: the part is laid over it and cut out.
+    this.approximate.add(SUBTRACT)
     const out = this.node(children[0], region, atRoot)
     const cut = this.node(children[1], region)
     for (const p of cut) p.cut = true
     return [...out, ...cut]
+  }
+
+  /**
+   * What is left of a character when parts are taken out of it (㇯馬灬, ㇯㇯卿𠂎卩), drawn from the
+   * character's own outlines: each part that stays is the cut the export made of it in that
+   * character, set where it lies there. A part that lies inside one of the character's operands
+   * is taken out of that operand in the same way, in the operand's place. Where the export has no
+   * cut of a part that stays, what is left of the description is composed instead, the place of
+   * each part taken out left empty. Null where the character has no description or does not hold
+   * the part.
+   * @param {any[]} node @param {number[]} region @param {boolean} [atRoot]
+   * @returns {any[] | null}
+   */
+  remainder(node, region, atRoot = false) {
+    const taken = []
+    let base = node
+    while (Array.isArray(base) && base[0] === SUBTRACT) { taken.unshift(base[2]); base = base[1] }
+    if (typeof base !== 'string' || this.excluded(base)) return null
+    const sequence = this.sequenceOf(base), glyph = this.glyph(base)
+    if (!sequence || !glyph) return null
+    let tree
+    try { tree = this.parse(sequence) } catch { return null }
+    if (!Array.isArray(tree)) return null
+    // Where a part stands at the same place more than once (the two 𥃭 of 㒹), the export lists
+    // the character's cuts of it in reading order, a cut or none for each: every part of the
+    // description is numbered among its likes before any is taken out.
+    const order = new Map(), seen = new Map()
+    /** @param {any} at @param {string} op @param {number} index @param {string} path */
+    const number = (at, op, index, path) => {
+      const like = `${this.slot(op, index)}\t${keyOf(at)}`
+      order.set(path, seen.get(like) ?? 0)
+      seen.set(like, (seen.get(like) ?? 0) + 1)
+      if (Array.isArray(at)) at.slice(1).forEach((child, i) => number(child, at[0], i, `${path}.${i}`))
+    }
+    tree.slice(1).forEach((child, i) => number(child, tree[0], i, `${i}`))
+    for (const part of taken) {
+      const [next, found] = this.without(tree, keyOf(part), part)
+      if (!found) return null
+      tree = next
+    }
+    // The character whole is set in the region as its glyph is; each part keeps its place in that.
+    const frame = fitted(glyph.box, region ?? this.face, this.C.STRETCH)
+    const out = []
+    /** @param {any} at @param {string} op @param {number} index @param {string} path @returns {boolean} */
+    const draw = (at, op, index, path) => {
+      if (at === null) return true
+      const inner = Array.isArray(at) && at[0] === SUBTRACT
+      if (Array.isArray(at) && !inner && lacks(at)) return at.slice(1).every((child, i) => draw(child, at[0], i, `${path}.${i}`))
+      let whole = at
+      while (Array.isArray(whole) && whole[0] === SUBTRACT) whole = whole[1]
+      const entry = this.hostsOf(keyOf(whole), this.slot(op, index), true).filter(h => h.h === base)[order.get(path)]
+      if (!entry || !this.cutOf(entry)) return false
+      const piece = this.pieceOf(entry), target = mapped(piece.box, glyph.box, frame)
+      if (!inner) { out.push(placed(piece, piece.box, target, this.ink(base), `host ${base}`)); return true }
+      const rest = this.remainder(at, target)
+      if (rest) out.push(...rest)
+      return Boolean(rest)
+    }
+    if (tree.slice(1).every((child, i) => draw(child, tree[0], i, `${i}`))) return out
+    /** @param {any} at @returns {any} */
+    const open = at => at === null ? GONE : Array.isArray(at) ? [at[0], ...at.slice(1).map(open)] : at
+    return this.node(open(tree), region, atRoot).filter(part => !Number.isNaN(part.empty))
+  }
+
+  /**
+   * A description with the first part written `key` taken out, as [description, whether it was
+   * found]: the part's place is left null, and a character that holds the part in its own
+   * description becomes that character less the part.
+   * @param {any} tree @param {string} key @param {any} part @returns {[any, boolean]}
+   */
+  without(tree, key, part) {
+    if (tree === null) return [tree, false]
+    if (typeof tree === 'string' || tree[0] === SUBTRACT) {
+      if (tree === key) return [null, true]
+      let whole = tree
+      while (Array.isArray(whole)) whole = whole[1]
+      return this.holds(whole, key) ? [[SUBTRACT, tree, part], true] : [tree, false]
+    }
+    if (!lacks(tree) && keyOf(tree) === key) return [null, true]
+    const out = [tree[0]]
+    let found = false
+    for (const child of tree.slice(1)) {
+      const [next, hit] = found ? [child, false] : this.without(child, key, part)
+      out.push(next)
+      found ||= hit
+    }
+    return [found ? out : tree, found]
+  }
+
+  /** Whether a character's description holds the part written `key`, in itself or in an operand's. */
+  holds(ch, key, depth = SUBTRACT_DEPTH) {
+    const sequence = depth > 0 && !this.excluded(ch) ? this.sequenceOf(ch) : null
+    if (!sequence) return false
+    let tree
+    try { tree = this.parse(sequence) } catch { return false }
+    /** @param {any} node @returns {boolean} */
+    const inside = node => keyOf(node) === key
+      || (Array.isArray(node) ? node.slice(1).some(inside) : node !== ch && this.holds(node, key, depth - 1))
+    return Array.isArray(tree) && tree.slice(1).some(inside)
   }
 
   // ---------------------------------------------------------------- fitting
