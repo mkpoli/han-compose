@@ -289,6 +289,22 @@ class Cutter:
             found[missing[0]] = rest
         return found
 
+    def less(self, char: str, taken: str) -> C.Part | None:
+        """The glyph's outlines less those of the strokes KanjiVG groups as `taken` (鹿 less 比); of
+        several such groups, the last in stroke order. None when KanjiVG names no such group in the
+        character, the glyph and KanjiVG disagree, or an outline holds strokes of both sides."""
+        entry, owners = self.entries.get(char), self.owners(char)
+        if entry is None or owners is None:
+            return None
+        glyph, want = self.c.font.glyph(char), self.names(taken)
+        every = set(entry.root.all_strokes())
+        for group in reversed([g for g in entry.root.walk() if g is not entry.root and g.element in want]):
+            gone = set(group.all_strokes())
+            if not gone or gone == every or any(own & gone and not own <= gone for own in owners):
+                continue
+            return C.Part([ct for ct, own in zip(glyph.contours, owners) if not own & gone])
+        return None
+
     def host_node(self, char: str, tree: tuple, path: tuple) -> C.Host | None:
         entry, owners = self.entries.get(char), self.owners(char)
         if entry is None or owners is None:

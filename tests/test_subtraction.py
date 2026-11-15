@@ -83,3 +83,92 @@ def test_the_bench_measures_ink_less_the_cut():
     placed = c.compose("㇯木口")
     kept = [p for p in placed if not p.cut]
     assert script._aligned_overlap(placed, kept, 64) < script._aligned_overlap(kept, kept, 64) == 1.0
+
+
+def two_part_fixture():
+    """明 drawn as two outlines, 日 on the left and 月 on the right, with its sequence."""
+    def box(x0, x1):
+        points = np.array([[x0, 0], [x1, 0], [x1, 100], [x0, 100]], dtype=float)
+        return compose.Contour([("moveTo", 1, False)] + [("lineTo", 1, False)] * 3, points, points.copy())
+    left, right = box(0, 40), box(60, 100)
+    glyphs = {"明": compose.Part([left, right]), "日": compose.Part([box(0, 100)]), "月": compose.Part([box(0, 101)])}
+    font = SimpleNamespace(glyph=glyphs.get, has=lambda ch: ch in glyphs,
+                           own=lambda ch: ch in glyphs, stem=((4, 8), (4, 8)))
+    c = compose.Composer(font, {"明": "⿰日月"}, hosted=False, weighted=False, reuse=False)
+    c.__dict__["spelled"] = set()
+    c.__dict__["atomic"] = set()
+    return c, left, right
+
+
+def test_paths_lead_to_every_node_written_as_wanted():
+    tree = compose.parse("⿰木⿱口⿰木口")
+    assert compose._paths(tree, "木") == [(0,), (1, 1, 0)]
+    assert compose._paths(tree, "⿰木口") == [(1, 1)]
+    assert compose._paths(tree, "日") == []
+
+
+def test_a_component_the_sequence_names_is_left_out_of_the_glyph():
+    c, left, right = two_part_fixture()
+    asked = []
+
+    def host(char, tree, path, strict=True):
+        asked.append((char, compose.key(tree), path))
+        return compose.Host(char, [compose.Part([left]), compose.Part([right])], (0, 0, 100, 100), 20.0, whole=True)
+    c._host_node = host
+    c.likeness = lambda part, node: 1.0
+    placed = c.compose("㇯明月")
+    assert asked[0] == ("明", "⿰日月", ())
+    assert [(p.origin, p.cut) for p in placed] == [("glyph 明", False)]
+    assert placed[0].part.contours == [left]
+    assert compose.svg_path(placed, cut=True) == ""
+    kept = c.compose("㇯明日")
+    assert kept[0].part.contours == [right]
+
+
+def test_a_glyph_that_does_not_cut_there_is_masked_instead():
+    c, _, _ = two_part_fixture()
+    c._host_node = lambda char, tree, path, strict=True: None
+    assert [(p.origin, p.cut) for p in c.compose("㇯明月")] == [("glyph 明", False), ("glyph 月", True)]
+
+
+def test_a_component_the_sequence_does_not_name_is_masked_instead():
+    c, left, right = two_part_fixture()
+    c._host_node = lambda char, tree, path, strict=True: compose.Host(char, [compose.Part([left]), compose.Part([right])], (0, 0, 100, 100), 20.0)
+    assert [(p.origin, p.cut) for p in c.compose("㇯明明")] == [("glyph 明", False), ("glyph 明", True)]
+
+
+def test_an_excluded_character_is_not_cut():
+    c, left, right = two_part_fixture()
+    c._host_node = lambda char, tree, path, strict=True: compose.Host(char, [compose.Part([left]), compose.Part([right])], (0, 0, 100, 100), 20.0)
+    c.exclude = {"明"}
+    assert c._without("明", "月") is None
+
+
+def kanjivg_cutter(owners):
+    from han_compose import kanjivg_cuts as K
+
+    def box(x0):
+        points = np.array([[x0, 0], [x0 + 10, 0], [x0 + 10, 100], [x0, 100]], dtype=float)
+        return compose.Contour([("moveTo", 1, False)] + [("lineTo", 1, False)] * 3, points, points.copy())
+    glyph = compose.Part([box(0), box(20), box(40), box(60)])
+    cutter = object.__new__(K.Cutter)
+    cutter.c = SimpleNamespace(font=SimpleNamespace(glyph=lambda ch: glyph), bases={})
+    cutter._bases_of = {}
+    root = K.Group("鹿", None, [], [K.Group("广", "tare", [0, 1]), K.Group("比", None, [2, 3])])
+    cutter.entries = {"鹿": K.Entry(root, ["M0 0"] * 4)}
+    cutter._owners = {"鹿": owners}
+    return cutter, glyph
+
+
+def test_kanjivg_names_the_strokes_to_leave_out():
+    cutter, glyph = kanjivg_cutter([{0}, {1}, {2}, {3}])
+    assert cutter.less("鹿", "比").contours == glyph.contours[:2]
+    assert cutter.less("鹿", "广").contours == glyph.contours[2:]
+    assert cutter.less("鹿", "木") is None
+    assert cutter.less("鹿", "鹿") is None
+    assert cutter.less("馬", "灬") is None
+
+
+def test_an_outline_holding_strokes_of_both_sides_is_not_cut():
+    cutter, _ = kanjivg_cutter([{0}, {1, 2}, {2}, {3}])
+    assert cutter.less("鹿", "比") is None
