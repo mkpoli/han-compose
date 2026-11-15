@@ -165,11 +165,23 @@ describe('C080 ⿻一止', () => {
       expect(at.base[1]).toBeCloseTo(target[1], 6)
     })
   }
-  it('lifts only the 一 above the right bar where the face joins 止 into one outline', () => {
-    const joined = part('glyph 止', [38, -82, 967, 840], target, [[38, -82, 967, 840]])
+  it('moves the same strokes where the face joins 止 into one outline, keeping the left stroke’s head', () => {
+    // Noto Sans CJK's 止 as one outline, with a head on the left stroke from 640 down to 600.
+    const outline = [188, 600, 188, 44, 49, 44, 49, -30, 949, -30, 949, 44, 577, 44, 577, 430, 905, 430, 905, 505,
+      577, 505, 577, 837, 499, 837, 499, 44, 265, 44, 265, 619, 210, 640]
+    const light = Float64Array.from(outline)
+    const contour = { ops: outline.filter((_, i) => i % 2 === 0).map((_, i) => ({ code: i ? 'L' : 'M' })), light, heavy: light.slice(), width: null }
+    const source = [49, -30, 949, 837], joined = placed(makePart([contour], source), source, target, 0, 'glyph 止')
     const [bar, body] = fix.apply([line(), joined])
-    expect(fromTop((bar.target[1] + bar.target[3]) / 2)).toBeCloseTo(0.24, 2)
-    expect(body).toBe(joined)
+    const sy = (target[3] - target[1]) / (source[3] - source[1])
+    const at = index => target[1] + (body.part.contours[0].light[index * 2 + 1] - source[1]) * sy
+    const intoGap = y => (bar.target[1] - y) / (bar.target[1] - at(5))
+    expect(fromTop((bar.target[1] + bar.target[3]) / 2)).toBeCloseTo(0.33, 2)
+    expect(intoGap((at(8) + at(9)) / 2)).toBeCloseTo(0.46, 2)
+    expect(intoGap(at(16))).toBeCloseTo(0.285, 2)
+    expect(at(16) - at(0)).toBeCloseTo(40 * sy, 6)
+    expect(at(12)).toBeCloseTo(target[3], 6)
+    expect(at(1)).toBeCloseTo(target[1] + 74 * sy, 6)
   })
   it('leaves an outline it cannot read alone', () => {
     const three = part('glyph 止', [38, -82, 967, 840], target, [STROKES.stem, STROKES.left, STROKES.base])

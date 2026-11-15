@@ -60,15 +60,52 @@ function wideBottom(part) {
   return boxes.length ? Math.min(...boxes.map(box => box[1])) : boxOf(part)[1]
 }
 
-/** 止's four strokes, told apart by shape: the stem (tallest), the left stroke (next tallest, left
- *  of the stem), the base (lowest of the flat two) and the short right bar. Null for any other
- *  outline, such as a face that joins them. */
-function stopStrokes(part) {
-  if (part.part.contours.length !== 4) return null
-  const boxes = part.part.contours.map((contour, index) => ({ index, box: boxIn(part, contour) }))
-  const [stem, left, ...flat] = boxes.toSorted((a, b) => heightOf(b.box) - heightOf(a.box))
-  const [base, short] = flat.toSorted((a, b) => a.box[1] - b.box[1])
-  return centreX(left.box) < centreX(stem.box) && centreX(short.box) > centreX(stem.box) ? { stem, left, base, short } : null
+/** Where a vertical line at `x` crosses a part's outlines, in its own units: the highest crossing
+ *  below `limit`, or null. */
+function topEdgeBelow(part, x, limit) {
+  let high = null
+  for (const contour of part.part.contours) {
+    const light = contour.light, n = light.length / 2
+    for (let i = 0; i < n; i++) {
+      const j = (i + 1) % n, x1 = light[i * 2], y1 = light[i * 2 + 1], x2 = light[j * 2], y2 = light[j * 2 + 1]
+      if (x1 === x2 || (x1 - x) * (x2 - x) > 0) continue
+      const y = y1 + (y2 - y1) * (x - x1) / (x2 - x1)
+      if (y < limit && (high === null || y > high)) high = y
+    }
+  }
+  return high
+}
+
+/** 止's strokes in its own units, read from the points of its outline however the face splits it
+ *  into contours: the stem's centre (its head's mean x), the base's top between the left stroke and
+ *  the stem, the right bar's span and the left stroke's top. Null for an outline without them. */
+function stopLayout(part) {
+  const points = part.part.contours.flatMap(({ light }) => Array.from({ length: light.length / 2 }, (_, i) => [light[i * 2], light[i * 2 + 1]]))
+  const [x0, y0, x1, y1] = pointsBox(points.flat()), width = x1 - x0, height = y1 - y0
+  const head = points.filter(([, y]) => y > y0 + 0.85 * height)
+  const stem = head.reduce((sum, [x]) => sum + x, 0) / head.length
+  const right = points.filter(([x, y]) => x > stem + 0.1 * width && y > y0 + 0.2 * height && y < y0 + 0.8 * height)
+  const left = points.filter(([x, y]) => x < stem - 0.1 * width && y > y0 + 0.3 * height)
+  if (!head.length || !right.length || !left.length) return null
+  const between = (Math.max(...left.map(([x]) => x)) + Math.min(...head.map(([x]) => x))) / 2
+  const baseTop = topEdgeBelow(part, between, y0 + 0.2 * height)
+  if (baseTop === null) return null
+  return { stem, width, baseTop, bar: [Math.min(...right.map(([, y]) => y)), Math.max(...right.map(([, y]) => y))], leftTop: Math.max(...left.map(([, y]) => y)) }
+}
+
+/** `part` with every point moved along y by `move(x, y, box)`, in the part's own units; `box` is
+ *  the box of the point's contour. */
+function shifted(part, move) {
+  const contours = part.part.contours.map(contour => {
+    const light = Float64Array.from(contour.light), heavy = Float64Array.from(contour.heavy ?? contour.light), box = pointsBox(contour.light)
+    for (let i = 0; i < light.length; i += 2) {
+      const dy = move(light[i], light[i + 1], box)
+      light[i + 1] += dy
+      heavy[i + 1] += dy
+    }
+    return { ...contour, light, heavy }
+  })
+  return revised(part, contours)
 }
 
 /** A part with some contours replaced; the part's box and flags stay. */
@@ -232,9 +269,9 @@ export const COMPONENT_FIXES = {
   // ⿻一止 as the lower part of 𡋨 and 𢓩 draws it: the 一 crosses the stem a third of the way down,
   // leaving the head of 止 above it. Below the crossing, 止's right bar and left stroke sit as 正
   // sets them between its top line and base: the bar 46% of the way down that gap, the left stroke
-  // starting 28.5% down. The four strokes of 止 are told
-  // apart by shape, since the faces number them differently. A face that joins 止 into one outline
-  // keeps its strokes, and the 一 crosses above its right bar instead.
+  // starting 28.5% down. The strokes are found by where the outline's points lie, so a face that
+  // joins 止 into one outline moves the same strokes. The left stroke is shortened below its head,
+  // which keeps its shape.
   '⿻一止': {
     glyphs: { '止': ['d9cf7eaf2648b8013a21bd390043e9d8f757f7af0f35af748ec96357a65ea6d0', '5c3b9c7da7f4c9120ea1966ca6f3c7ffebfe374b344fff5e3e9b4ece8440201f',
       '057fcad4bac3a40f3749acaaec39e7beff5e18d0e01deb18b074bc3e06367174', '2e7bfdb342d36055f8d4138b9b64ceaa892cc6504d62ea76c696800d6faf3221'] },
@@ -243,11 +280,19 @@ export const COMPONENT_FIXES = {
       if (!stop || !bar || heightOf(bar.target) > 0.2 * widthOf(bar.target)) return parts
       const [, y, , top] = boxOf(stop), height = top - y, thickness = heightOf(bar.target)
       const across = (/** @type {number} */ down) => ({ ...bar, target: [bar.target[0], top - down * height - thickness / 2, bar.target[2], top - down * height + thickness / 2] })
-      const strokes = stopStrokes(stop)
-      if (!strokes) return stop.part.contours.length === 1 ? parts.map(part => part === bar ? across(0.24) : part) : parts
-      const line = across(0.33), under = line.target[1], gap = under - strokes.base.box[3]
-      let body = lowered(stop, [strokes.short.index], centreY(strokes.short.box) - (under - 0.46 * gap))
-      body = clippedAbove(body, [strokes.left.index], under - 0.285 * gap)
+      const layout = stopLayout(stop)
+      if (!layout) return parts
+      const { stem, width, baseTop, leftTop } = layout, [low, high] = layout.bar, band = (high - low) / 2
+      const line = across(0.33), [, sy] = scaleOf(stop)
+      const under = stop.source[1] + (line.target[1] - stop.target[1]) / sy, gap = under - baseTop
+      const drop = (low + high) / 2 - (under - 0.46 * gap), rise = under - 0.285 * gap - leftTop
+      const neck = leftTop - 0.15 * (leftTop - baseTop), stretch = (neck + rise - baseTop) / (neck - baseTop) - 1
+      // A contour of its own moves whole; in a joined outline, the points on the stroke's side do.
+      const body = shifted(stop, (x, y, box) => {
+        if (y > low - band && y < high + band && (x > stem || box[1] > low - band && box[3] < high + band)) return -drop
+        if (y > baseTop && (x < stem - 0.1 * width || box[2] < stem)) return y >= neck ? rise : (y - baseTop) * stretch
+        return 0
+      })
       return parts.map(part => part === stop ? body : part === bar ? line : part)
     },
   },
