@@ -3,7 +3,8 @@
 // the shapes it was written for, and the guard that leaves another export's drawing alone.
 import { describe, expect, it } from 'bun:test'
 import { COMPONENT_FIXES, clippedAbove, componentFix, dotIn, narrowed, respanned, withoutContours } from 'han-compose/component-fixes'
-import { makePart, partOf, placed, pointsBox } from 'han-compose/geometry'
+import { Composer } from 'han-compose/compose'
+import { drawnContours, makePart, partOf, placed, pointsBox } from 'han-compose/geometry'
 import { hexOf } from 'han-compose/sha256'
 
 /** A placed part of rectangular contours: `boxes` in font units, drawn from `source` into `target`. */
@@ -255,25 +256,62 @@ describe('C073 ⿸⿹丅丿丨', () => {
     expect(right.target[1]).toBeCloseTo(-80 + 0.11 * height, 6)
     for (const p of [left, right]) expect(p.target[3]).toBeCloseTo(840 - 0.24 * height, 6)
   })
-  it('places the strokes at the stem’s own width in a weighted face, a stroke’s 0.8 clear of the stem', () => {
-    const { sx, middle, thick } = stemIn(100, 500, true)
-    const [, left, right] = fix.apply([tee(), slash(), stroke()], { ...composer, weighted: true }, [100, -80, 600, 840])
+  /** The parts as the sans face's balance leaves them, weighted for a drawing of `density`. */
+  const balanced = parts => {
+    Composer.prototype.balance.call({ C: { STEM_CURVE: [[85.34, -1.324], [86.93, -1.914]] }, stem0: [[80.702, 160], [82.142, 159]] }, parts)
+    return parts
+  }
+  /** A part's ink at half its height as drawn: [left, right]. */
+  const inkOf = (p, k = 0) => {
+    const points = drawnContours(p)[k], y = (p.target[1] + p.target[3]) / 2, xs = []
+    for (let i = 0; i < points.length; i += 2) {
+      const j = (i + 2) % points.length, y1 = points[i + 1], y2 = points[j + 1]
+      if (y1 !== y2 && (y1 - y) * (y2 - y) <= 0) xs.push(points[i] + (points[j] - points[i]) * (y - y1) / (y2 - y1))
+    }
+    return [Math.min(...xs), Math.max(...xs)]
+  }
+  /** 丅, 丿 and 丨 as a weighted face holds them: ink for the balance to read, and heavy masters. */
+  const weightedParts = () => {
+    const bar = { ...tee(), native: 3678 }, left = { ...slash(), native: 2123 }
+    left.part.contours[0].heavy = Float64Array.from([468, 815, 628, 815, 628, 300, 280, -71, 200, -40, 468, 330])
+    const heavyLine = part('glyph 丨', [459, -80, 539, 839], [459, -80, 539, 839], [[459, -80, 539, 839]]).part
+    heavyLine.contours[0].heavy = Float64Array.from([419, -80, 579, -80, 579, 839, 419, 839])
+    return { parts: [bar, left, stroke()], composer: { ...composer, weighted: true, glyph: ch => ch === '丨' ? heavyLine : null } }
+  }
+
+  it('places the strokes for the stem’s own width in a weighted face, a stroke’s 0.8 clear of the stem', () => {
+    const { sx, middle, thick } = stemIn(100, 500, true), { parts, composer: weighted } = weightedParts()
+    const [, left, right] = fix.apply(parts, weighted, [100, -80, 600, 840])
     expect(thick).toBe(80)
-    expect(right.target[2] - right.target[0]).toBeCloseTo(80, 6)
     // 53% of the white would leave less than 0.8 of a stroke.
     expect(0.53 * (600 - middle - 1.5 * thick)).toBeLessThan(0.8 * thick)
-    expect(right.target[0] - (middle + thick / 2)).toBeCloseTo(0.8 * thick, 6)
-    // The 丿 is drawn at 丅's scale, for the balance to weight, with its head's middle a stroke and the gap left of the stem's.
+    expect((right.target[0] + right.target[2]) / 2 - thick / 2 - (middle + thick / 2)).toBeCloseTo(0.8 * thick, 6)
+    // Both are drawn at 丅's scale for the balance to weight, the 丿's head a stroke and the gap left of the stem's middle.
     const head = headOf(left)
     expect(head[1] - head[0]).toBeCloseTo(80 * sx, 6)
+    expect(right.target[2] - right.target[0]).toBeCloseTo(80 * sx, 6)
     expect(middle - thick - (head[0] + head[1]) / 2).toBeCloseTo(0.38 * (middle - 100 - 1.5 * thick), 6)
   })
-  it('takes the heavy master’s stem as the width where the cell is too narrow for the stem’s own', () => {
-    const { sx, middle, thick } = stemIn(100, 400, true)
-    const [, , right] = fix.apply([tee(), slash(), stroke()], { ...composer, weighted: true }, [100, -80, 500, 840])
-    expect(thick).toBeCloseTo(160 * sx, 6)
-    expect(right.target[2] - right.target[0]).toBeCloseTo(thick, 6)
-    expect(right.target[0] - (middle + thick / 2)).toBeCloseTo(0.8 * thick, 6)
+  it('ends the three strokes at one width once the balance has weighted them', () => {
+    // A cell wide enough for the stem's own width, and two where the heavy master stops it short.
+    for (const width of [500, 300, 220]) {
+      const { thick } = stemIn(100, width, true), { parts, composer: weighted } = weightedParts()
+      const [bar, left, right] = balanced(fix.apply(parts, weighted, [100, -80, 100 + width, 840]))
+      const stem = inkOf(bar, 1), line = inkOf(right), stemWidth = stem[1] - stem[0]
+      if (width < 400) expect(stemWidth).toBeCloseTo(thick, 6)
+      expect(line[1] - line[0]).toBeCloseTo(stemWidth, 6)
+      const head = headOf({ ...left, part: { contours: [{ light: drawnContours(left)[0] }] }, source: left.target })
+      expect(head[1] - head[0]).toBeCloseTo(stemWidth, 0)
+      // The 丨 stands clear of the stem and inside the cell.
+      expect(line[0]).toBeGreaterThan(stem[1])
+      expect(line[1]).toBeLessThan(100 + width)
+    }
+  })
+  it('keeps the 丿 inside a cell too narrow for its tail', () => {
+    const { parts, composer: weighted } = weightedParts()
+    const [, left] = fix.apply(parts, weighted, [100, -80, 200, 840])
+    expect(left.target[0]).toBeGreaterThanOrEqual(100)
+    expect(left.target[2]).toBeGreaterThan(left.target[0])
   })
   it('leaves a drawing without the three parts, or without one stroke to read, alone', () => {
     const region = [100, -80, 500, 840]

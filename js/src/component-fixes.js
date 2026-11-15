@@ -355,14 +355,14 @@ export const COMPONENT_FIXES = {
   // ⿸⿹丅丿丨, the G-source left part of 𡉹, 𣂘 and 𥘱 (T writes ⿸⿹丅丿丶, 示 under its top bar),
   // after SimSun-ExtB's drawing: the bar spans the cell from 6% in and the stem stands at its middle.
   // The 丿 and the 丨 hang either side of the stem from 24% below the top, the 丿 down to 7% above
-  // the foot and the 丨, the face's own glyph, to 11% above it. The three strokes share one width:
-  // the stem's own in a weighted face, whose balance restores it at any scale as far as the heavy
-  // master reaches, and the stem's as the cell scales it in a static face, where the 丿 and the 丨
-  // take the scale that gives them the same. Of the white between the cell's left edge and the
-  // stem, less the 丿's stroke, 38% lies between the 丿's head and the stem, and the tail is drawn
-  // in to the rest, so the head keeps its weight. Of the white between the stem and the cell's
-  // right edge, less the 丨, 53% lies between the stem and the 丨, and no less than 0.8 of a stroke
-  // where heavy strokes fill a narrow cell.
+  // the foot and the 丨, the face's own glyph, to 11% above it. The three strokes share one width.
+  // The 丿 and the 丨 are drawn at the scale that gives them the stem's, which a static face keeps;
+  // a weighted face's balance then restores the stem's own width at any scale as far as the heavy
+  // master reaches, and weights the two as it weights the stem. Of the white between the cell's
+  // left edge and the stem, less the 丿's stroke, 38% lies between the 丿's head and the stem, and
+  // the tail is drawn in to the rest, so the head keeps its weight. Of the white between the stem
+  // and the cell's right edge, less the 丨, 53% lies between the stem and the 丨, and no less than
+  // 0.8 of a stroke where heavy strokes fill a narrow cell.
   '⿸⿹丅丿丨': {
     glyphs: {
       '丅': ['78dcd9aa0146cd9317b3cb7455389db2cc8f21df17d072493358c5efb0ed98fd', 'f2668a2d4aa3d88c538ddcecd7a48f607521f1be4f5e4b53d786ff9de7d8445d',
@@ -377,22 +377,29 @@ export const COMPONENT_FIXES = {
       const glyph = composer.glyph('丨')
       if (!tee || !slash || !stroke || parts.length !== 3 || !glyph) return parts
       const source = union(glyph.contours.map(contour => pointsBox(contour.light)))
-      const line = placed(derived(glyph, glyph.contours, source), source, source, composer.ink('丨'), 'glyph 丨')
+      // The 丿 and the 丨 carry 丅's ink, and the 丨 a box of 丅's breadth, so the balance weights
+      // them as it weights the stem and stops them at the heavy master where it stops the stem.
+      const line = { ...placed(derived(glyph, glyph.contours, source), source, source, tee.native, 'glyph 丨'), balanceBox: tee.source.slice() }
       const stem = strokeAt(tee, 0.5), head = strokeAt(slash, 0.75), own = strokeAt(line, 0.5)
       if (!stem || !head || !own) return parts
       const [x, y, right, top] = region, width = right - x, height = top - y
       const bar = { ...tee, target: [x + 0.06 * width, y, right, top] }, [sx] = scaleOf(bar)
+      // The width the strokes end at, and where the stem stands.
       const thick = composer.weighted ? Math.min(stem.width, (strokeAt(tee, 0.5, true) ?? stem).width * sx) : stem.width * sx
       const middle = bar.target[0] + (stem.middle - tee.source[0]) * sx
-      const headScale = sx * stem.width / head.width, lineScale = thick / own.width
+      const headScale = sx * stem.width / head.width, lineScale = sx * stem.width / own.width
       const headAt = middle - thick - 0.38 * Math.max(0, middle - x - 1.5 * thick)
       const slashRight = headAt + (slash.source[2] - head.middle) * headScale
-      const drawn = drawnIn(slash, head.left, (slashRight - x) / headScale)
-      const lineWidth = widthOf(source) * lineScale, white = Math.max(0, right - middle - thick / 2 - lineWidth)
-      const lineLeft = middle + thick / 2 + Math.min(white, Math.max(0.53 * white, 0.8 * thick))
+      // The head is kept whole in the master it is drawn from, the heavy one's being the wider.
+      const from = composer.weighted ? Math.min(head.left, strokeAt(slash, 0.75, true)?.left ?? head.left) : head.left
+      const drawn = drawnIn(slash, from, (slashRight - x) / headScale)
+      // The 丨's box at the width it ends at shares the white; its stroke's middle is placed from that.
+      const ended = thick / own.width, white = Math.max(0, right - middle - thick / 2 - widthOf(source) * ended)
+      const lineAt = middle + thick / 2 + Math.min(white, Math.max(0.53 * white, 0.8 * thick)) + (own.middle - source[0]) * ended
+      const lineLeft = lineAt - (own.middle - source[0]) * lineScale
       return [bar,
-        { ...drawn, target: [slashRight - widthOf(drawn.source) * headScale, y + 0.07 * height, slashRight, top - 0.24 * height] },
-        { ...line, target: [lineLeft, y + 0.11 * height, lineLeft + lineWidth, top - 0.24 * height] }]
+        { ...drawn, native: tee.native, target: [Math.max(x, slashRight - widthOf(drawn.source) * headScale), y + 0.07 * height, slashRight, top - 0.24 * height] },
+        { ...line, target: [lineLeft, y + 0.11 * height, lineLeft + widthOf(source) * lineScale, top - 0.24 * height] }]
     },
   },
   // The vertical hook projects above the bent bar, including when used inside C078.
