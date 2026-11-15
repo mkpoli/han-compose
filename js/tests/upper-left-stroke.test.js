@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'bun:test'
-import { Composer, strokeMiddle, topEdgeStart } from '../src/compose.js'
+import { Composer, near, strokeMiddle, topEdgeStart } from '../src/compose.js'
 import { commands, makePart, placed } from '../src/geometry.js'
 import { compose, createSource } from '../src/loader.js'
 import { files, shards } from './fixtures/small-export.js'
 import strokes from './fixtures/sans-strokes.json' with { type: 'json' }
 
-// 丿, 丨, 丶, 久 and 八 as the Sans export draws them, with their stroke groups (Noto Sans CJK,
+// 丿, 丨, 丶, 久, 八, 一 and 古 as the Sans export draws them, with their stroke groups (Noto Sans CJK,
 // SIL OFL 1.1); 口, 木 and 厃 are the small export's boxes. No host list names a stroke at the
 // upper left of ⿸.
 const source = () => {
@@ -20,6 +20,15 @@ const boxes = async (/** @type {string} */ sequence, /** @type {string[]} */ exc
 const span = (/** @type {{ box: number[] }[]} */ parts) => [Math.min(...parts.map(p => p.box[0])), Math.min(...parts.map(p => p.box[1])),
   Math.max(...parts.map(p => p.box[0] + p.box[2])), Math.max(...parts.map(p => p.box[1] + p.box[3]))]
 const centre = (/** @type {number[]} */ b) => [(b[0] + b[2]) / 2, (b[1] + b[3]) / 2]
+
+/** A placed outline through `points`, [x, y] pairs with y up. */
+const shape = (/** @type {number[][]} */ points) => {
+  const light = Float64Array.from(points.flat())
+  const part = makePart([{ ops: commands('M' + 'L'.repeat(points.length - 1)), light, heavy: light, width: null }])
+  return placed(part, part.box, part.box, 0, 'shape')
+}
+const rect = (/** @type {number} */ x0, /** @type {number} */ y0, /** @type {number} */ x1, /** @type {number} */ y1) =>
+  shape([[x0, y0], [x1, y0], [x1, y1], [x0, y1]])
 
 describe('a bare stroke at the upper left of ⿸', () => {
   it('runs a falling stroke through the corner of a box', async () => {
@@ -53,6 +62,40 @@ describe('a bare stroke at the upper left of ⿸', () => {
     const box = [Math.min(...under.map(p => p.target[0])), 0, 0, Math.max(...under.map(p => p.target[3]))]
     const at = strokeMiddle(fall, (fall.target[3] - (box[3] - 30)) / (fall.target[3] - fall.target[1]))
     expect(Math.abs(at - (box[0] + 40))).toBeLessThan(50)
+  })
+  it('moves the stroke to a bar that starts inside the part', async () => {
+    const data = source()
+    await compose(data, '⿸丿口', { layout: 'composed' })
+    const composer = new Composer(data.store())
+    // A leg at the lower left under a bar that starts well inside the part, as the second stroke
+    // of 久 does: the part stays and the stroke goes to the bar.
+    composer.node = (_node, room) => [rect(room[0], room[1], room[0] + 80, room[1] + 300), rect(room[0] + 400, room[3] - 80, room[2], room[3])]
+    const [fall, leg, bar] = composer.strokeEnclosure(['丿', '口'], composer.face)
+    expect(leg.target[0]).toBe(composer.face[0])
+    const at = strokeMiddle(fall, (fall.target[3] - (bar.target[3] - 40)) / (fall.target[3] - fall.target[1]))
+    expect(Math.abs(at - (bar.target[0] + 40))).toBeLessThan(40)
+  })
+  it('follows the bar of a part short of its room, the two centred together', async () => {
+    const data = source()
+    await compose(data, '⿸丿一', { layout: 'composed' })
+    const composer = new Composer(data.store())
+    const [fall, bar] = composer.strokeEnclosure(['丿', '一'], composer.face)
+    // The bar's left end lies on the stroke, not under a stroke left at the top of the cell.
+    const at = strokeMiddle(fall, (fall.target[3] - (bar.target[1] + bar.target[3]) / 2) / (fall.target[3] - fall.target[1]))
+    expect(Math.abs(at - bar.target[0])).toBeLessThan(60)
+    const [, bottom, , top] = composer.face
+    expect(Math.abs((top - fall.target[3]) - (fall.target[1] - bottom))).toBeLessThan(2)
+  })
+  it('keeps a part with no corner clear of the stroke', async () => {
+    const data = source()
+    await compose(data, '⿸丿古', { layout: 'composed' })
+    const composer = new Composer(data.store())
+    const [fall, ...under] = composer.strokeEnclosure(['丿', '古'], composer.face)
+    expect(near([fall], under, composer.face, 0.4 * composer.stem0[0][0])).toBe(false)
+    // It moved in from the left to get clear, and no further than it had to.
+    const left = Math.min(...under.map(part => part.target[0]))
+    expect(left).toBeGreaterThan(composer.face[0] + 20)
+    expect(left).toBeLessThan(composer.face[0] + 200)
   })
   it('takes the left stroke of 八 where 久 does not give its stroke', async () => {
     const { stroke } = await boxes('⿸丿口', ['久'])
@@ -173,14 +216,6 @@ describe('a bare stroke at the upper left of ⿸', () => {
 })
 
 describe('the top edge a falling stroke meets', () => {
-  /** A placed outline through `points`, [x, y] pairs with y up. */
-  const shape = (/** @type {number[][]} */ points) => {
-    const light = Float64Array.from(points.flat())
-    const part = makePart([{ ops: commands('M' + 'L'.repeat(points.length - 1)), light, heavy: light, width: null }])
-    return placed(part, part.box, part.box, 0, 'shape')
-  }
-  const rect = (/** @type {number} */ x0, /** @type {number} */ y0, /** @type {number} */ x1, /** @type {number} */ y1) =>
-    shape([[x0, y0], [x1, y0], [x1, y1], [x0, y1]])
   /** The edge's left end for parts drawn with upright strokes 80 wide and level strokes 40. */
   const edge = (/** @type {any[]} */ ...parts) => {
     const boxes = parts.map(part => part.target)
@@ -205,7 +240,7 @@ describe('the top edge a falling stroke meets', () => {
     // The serif stands higher over the bar than a bar may lie under the part's top.
     const parts = [rect(100, 560, 900, 600), shape([[820, 600], [900, 600], [870, 780]])]
     expect(edge(...parts)).toBeCloseTo(100, 0)
-    // The tick's foot goes by the bar, not by the serif's tip.
+    // The stroke meets the bar, not the serif's tip.
     expect(Math.abs(bar(...parts) - 600)).toBeLessThan(6)
   })
   it('is none for a bar a short stem stands through', () => {

@@ -172,9 +172,11 @@ const FALL_DONORS = [['久', 0], ['八', 0]]
  *  lies: the stroke runs through the left end of the part's top edge, as the first stroke of 久
  *  runs through the start of its second, and falls on down the part's left side. */
 const FALL_SIZE = [0.38, 0.5], FALL_JOINT = 0.42
-/** A part with no such corner (人, 厶, a part led by a stem): how far its cell stands in from the
- *  left, as a share of the cell's width, and how far down the stroke its top lies. */
-const FALL_OPEN = [0.08, 0.7]
+/** A part with no such corner (人, 厶, a part led by a stem): how far down the stroke its top
+ *  lies, and how it keeps clear of the stroke's foot. It moves in from the left by a share of the
+ *  cell's width at a time, a number of times at most, until its ink is this many upright strokes'
+ *  widths from the stroke's. */
+const FALL_OPEN = 0.7, FALL_STEP = [0.03, 8], FALL_CLEAR = 0.5
 /** A bar a falling stroke can meet at its left end, in the drawing's stroke widths: how far
  *  below the part's top its edge may lie, how long the edge runs from its left end, how much of
  *  that run is the corner, and how far the rest may fall and rise to the right. A brush bar rises a little; a dot or a
@@ -1570,8 +1572,12 @@ export class Composer {
     const box = union(under.map(part => part.target))
     const corner = topEdgeStart(under, box, [upright, level])
     if (!corner) {
-      const top = y1 - FALL_OPEN[1] * tall
-      return [set(x0, y1), ...this.node(inner, held([x0 + FALL_OPEN[0] * w, y0, x1, top]))]
+      const stroke = set(x0, y1), room = held([x0, y0, x1, y1 - FALL_OPEN * tall]), below = this.node(inner, room)
+      // A part short of its room stands at the room's top, under the stroke.
+      const short = below.length ? room[3] - Math.max(...below.map(part => part.target[3])) : 0
+      if (short > 0) squeeze(below, 1, short, short)
+      for (let i = 0; i < FALL_STEP[1] && near([stroke], below, region, FALL_CLEAR * upright); i++) squeeze(below, 0, FALL_STEP[0] * w, 0)
+      return centredIn([stroke, ...below], region)
     }
     // The part moves in from the left until its corner lies under the stroke's joint.
     const lead = corner[0] + upright / 2 - box[0], span = box[2] - box[0]
@@ -1581,7 +1587,9 @@ export class Composer {
       squeeze(under, 0, left - box[0], 0)
       joint = left + lead * (box[2] - left) / span
     }
-    return [set(Math.max(joint - across, x0), Math.min(corner[1] - level / 2 + FALL_JOINT * tall, y1)), ...under]
+    // The stroke follows the bar down where the part is short of its room (一, 乛).
+    const top = Math.min(corner[1] - level / 2 + FALL_JOINT * tall, y1)
+    return centredIn([set(Math.max(joint - across, x0), top), ...under], region)
   }
 
   /** The stroke this face draws by itself in one of the donors, as [donor, piece]: a donor's
@@ -3528,12 +3536,37 @@ export function strokeMiddle(part, share, size = 64) {
   return box[0] + (n ? sum / n / size : 0.5) * (box[2] - box[0])
 }
 
+/** Whether the inner parts' ink comes within `reach` of the enclosing part's. */
+export function near(outer, inner, region, reach, size = 64) {
+  if (!inner.length) return false
+  const a = fill(groupRings(outer), size, region), b = fill(groupRings(inner), size, region)
+  const across = Math.ceil(reach * size / (region[2] - region[0])), down = Math.ceil(reach * size / (region[3] - region[1]))
+  for (let r = 0; r < size; r++) {
+    for (let c = 0; c < size; c++) {
+      if (b[r * size + c] !== 1) continue
+      for (let rr = Math.max(0, r - down); rr <= Math.min(size - 1, r + down); rr++) {
+        for (let cc = Math.max(0, c - across); cc <= Math.min(size - 1, c + across); cc++) if (a[rr * size + cc] === 1) return true
+      }
+    }
+  }
+  return false
+}
+
 /** The share of the inner parts' ink lying on the enclosing part's. */
 export function collision(outer, inner, region, size = 64) {
   const a = fill(groupRings(outer), size, region), b = fill(groupRings(inner), size, region)
   let both = 0, total = 0
   for (let i = 0; i < a.length; i++) { both += a[i] & b[i]; total += b[i] }
   return both / Math.max(total, 1)
+}
+
+/** A group moved up or down until it stands as far from the top of the region as from its
+ *  bottom, as a flat glyph is centred by itself. */
+function centredIn(group, region) {
+  const low = Math.min(...group.map(p => p.target[1])), high = Math.max(...group.map(p => p.target[3]))
+  const lift = ((region[3] - high) - (low - region[1])) / 2
+  if (lift) squeeze(group, 1, lift, lift)
+  return group
 }
 
 /** A group moved in from its low and high edges along `axis`, together. */
