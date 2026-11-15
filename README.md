@@ -4,7 +4,8 @@ han-compose draws a Han character from its ideographic description sequence (IDS
 `⿰亻哥`, as font outlines. Use it to draw a character no font has, one with no code point, or a
 regional form the font does not draw. Each part comes from a character the font already draws,
 cut out of it (along KanjiVG's component groups where KanjiVG has that kanji), set where the
-font's designers put parts like it, and brought to one stroke weight. The result is an SVG path in
+font's designers put parts like it. The sans and serif styles then bring the parts to one stroke
+weight; kaisho and fangsong keep the weight each part has in its font. The result is an SVG path in
 a 1000-unit em, in a sans style from Noto Sans CJK JP, whose ideographs GenZui Sans takes unchanged;
 a serif (明朝) style from Noto Serif CJK JP; a kaisho (楷書) style from Kureedo Full, the Klee One
 design with historical kana and LXGW WenKai Light for the characters Klee lacks; or a fangsong (仿宋)
@@ -24,7 +25,8 @@ so the image is shared under CC BY-SA 3.0.
 han-compose lays out ⿰ ⿱ ⿲ ⿳, the enclosures ⿴ to ⿺ and ⿼ ⿽, the overlay ⿻, the reflection ⿾
 and the half-turn ⿿. The right-hand enclosures ⿼ and ⿽ use the enclosing outline's opening or a
 default box when no opening is found; their placement is approximate and can differ substantially
-from a designed glyph. It does not draw ㇯ or 〾, and its fonts have no Tangut.
+from a designed glyph. 〾 draws its operand as it is, and ㇯ draws its second operand where it lies
+in the first, as a cut taken out of it. Its fonts have no Tangut.
 Chữ Nôm characters are Han characters and are drawn like
 any other.
 
@@ -121,6 +123,50 @@ rclone copy out/ <remote>:<bucket>/<version>/ --exclude '.work/**'
 Fonts download to `cache/fonts/` on first use. `$HAN_COMPOSE_CACHE` points the cache elsewhere.
 `COMPOSE_GUIDE` points at a folder of `guide-*.onnx`.
 
+## Variants
+
+```sh
+uv run scripts/compose_ids.py variants 釁 --style serif --out 釁/
+```
+
+`variants` writes the forms of one character into a folder: `variants.json`, each form with its
+label, the text that selects it, its font, glyph and outline, and `variants.svg`, one sheet of them.
+`--style` is `sans` or `serif`.
+
+| Kind | Forms | Drawn from |
+|---|---|---|
+| `regional` | the character in Noto CJK's JP, KR, SC, TC and HK faces | the Regular collection of Noto Sans CJK 2.004 or Noto Serif CJK 2.002 |
+| `ivs` | each sequence the Ideographic Variation Database of 2026-08-03 registers, with its collection and identifier (`Adobe-Japan1 CID+1481`) | the first font that maps the sequence: the collection's faces, IPAmj Mincho, Jigmo |
+| `svs` | each sequence of Unicode 16.0.0's `StandardizedVariants.txt` | the same fonts |
+| `compatibility` | each compatibility ideograph Unihan 16.0.0's `kCompatibilityVariant` gives the character | the first of those fonts that maps its code point |
+
+The regional forms are Noto's own designs for each region, labelled with the face's name. They are
+not the IRG source glyphs of the Unicode code charts. `irg_sources` lists the character's
+`kIRG_*Source` values from Unihan as data, and no drawing is a source's glyph.
+
+A form whose outline an earlier form already has is kept in the JSON with `same_as`, that form's
+label. The sheet names it beneath the earlier form, and `--all` draws it as well. Outlines are
+compared exactly, in a 1000-unit em, so two fonts' drawings of one shape stay apart. A registered
+sequence no font maps is listed with `"outline": null`. `glyph` is the font's own glyph name: Noto's
+`cid` numbers count its own glyphs, not Adobe-Japan1's.
+
+Given a sequence, `variants` composes it once for each way to write its components with the
+variation sequences the style's font draws with a glyph of their own, in any style:
+
+```sh
+uv run scripts/compose_ids.py variants ⿰氵者 --out 氵者/
+```
+
+Each drawing is labelled by the components it writes with a selector (`者 Adobe-Japan1 CID+13349`),
+a component the sequence holds more than once with its place among the components (`者[5]`), and
+`parts` lists where the composer took each part from. At most 24 ways are drawn; `combinations`
+gives how many there are.
+
+The Noto collection is read from `cache/fonts/`, else from `/usr/share/fonts/opentype/noto/`, where
+Debian's `fonts-noto-cjk` installs it. It is checked against that package's digest and never
+downloaded. IPAmj Mincho, Jigmo and the data files download on first use. `docs/licensing.md` lists
+each input with its URL, digest and terms.
+
 ## Checks
 
 ```sh
@@ -139,10 +185,11 @@ uv run ruff check
 | `src/han_compose/compose_standalone.py` | the size a part takes when it stands alone |
 | `src/han_compose/kanjivg_cuts.py` | cutting a host along KanjiVG's component groups |
 | `src/han_compose/vocab.py` | the vocab tables and the cache |
+| `src/han_compose/variants.py` | a character's regional designs, variation sequences and compatibility ideographs |
 | `src/han_compose/web_export.py` | the layout and drawing data for the browser engine |
-| `scripts/compose_ids.py` | `draw`, `draw-many`, `bench`, `calibrate`, `learn`, `learn-alone`, `export-web`, `export-web-pack` |
+| `scripts/compose_ids.py` | `draw`, `draw-many`, `variants`, `bench`, `calibrate`, `learn`, `learn-alone`, `export-web`, `export-web-pack` |
 | `tests/` | tests over cutting, layout, drawn output and the web export |
-| `js/` | `@han-compose/composer`, the same composer in the browser, with its own tests |
+| `js/` | `han-compose`, the same composer in the browser, with its own tests |
 | `data/` | the vocab tables, and the outlines the engine draws a part from when no export has it |
 | `docs/design/ids-composer.md` | the method, its measurements, and what did not help |
 | `docs/design/browser-composer.md` | the browser engine, and where the editor it serves meets it |

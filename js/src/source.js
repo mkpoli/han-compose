@@ -14,6 +14,7 @@ import { hasNewKorean, newKoreanSource } from './new-korean.js'
 import { hasShuishu, shuishuSource } from './shuishu.js'
 import { hasJurchen, jurchenSource } from './jurchen.js'
 import { hasPaletteGlyph, paletteSource } from './palette.js'
+import { CUSTOM_FORMS, customFormsSource, hasCustomComponent } from './custom-forms.js'
 import { isEmpty, isNode, parseDescription as parse, splitDescription, tonesOf } from './tree.js'
 
 /**
@@ -41,6 +42,7 @@ export function traitsOf(sequence) {
     shuishu: hasShuishu(sequence),
     jurchen: hasJurchen(sequence),
     palette: [...sequence].some(hasPaletteGlyph),
+    custom: hasCustomComponent(sequence),
   }
 }
 
@@ -87,6 +89,7 @@ export function sourceFor(sequence, { base, fontStyle = 'sans', separate = false
     const sans = bundledLoader(SANS_CUTS, !local, loaders, read)
     source = overlay(paletteSource, source, 'sources/palette/outlines.json.gz', { under: fontStyle !== 'sans', style: fontStyle, ...(sans ? { sans } : {}) })
   }
+  if (traits.custom) source = overlay(customFormsSource, source, CUSTOM_FORMS, { style: fontStyle })
   return source ?? bundledSource({ load: async () => ({ records: {} }), matches: () => false })
 }
 

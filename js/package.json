@@ -1,5 +1,5 @@
 {
-  "name": "@han-compose/composer",
+  "name": "han-compose",
   "version": "0.1.0",
   "description": "Draws a Han character from its ideographic description sequence (IDS), such as ⿰亻哥, as an SVG path, from parts of characters a font already draws.",
   "license": "MIT",

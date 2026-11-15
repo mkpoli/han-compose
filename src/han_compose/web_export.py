@@ -740,6 +740,9 @@ def _draw(item: tuple[str, str]) -> tuple[dict, list]:
         try:
             placed = composer.compose(seq)
             row |= {"d": C.svg_path(placed), "origins": [p.origin for p in placed]}
+            taken = C.svg_path(placed, cut=True)
+            if taken:
+                row["cut"] = taken
         except (LookupError, ValueError) as error:
             row |= {"d": None, "error": str(error)}
     finally:

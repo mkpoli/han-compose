@@ -1,0 +1,71 @@
+import { expect, it } from 'bun:test'
+import { readFileSync } from 'node:fs'
+import { gunzipSync } from 'node:zlib'
+import { addCutForms, componentDrawing, isComponentForm } from '../src/component-forms.js'
+import { hasCustomComponent } from '../src/custom-forms.js'
+import { compose, createSource } from '../src/loader.js'
+import { traitsOf } from '../src/source.js'
+import { files } from './fixtures/small-export.js'
+
+const data = JSON.parse(gunzipSync(readFileSync(new URL('../data/custom-forms.json.gz', import.meta.url))).toString('utf8'))
+// &CDP-8958; is 冐 without ⺜ in both faces; #(-𠃍㇉) has a form written by hand.
+const ENTITY = '&CDP-8958;'
+
+it('names the sequences that call for the cut forms', () => {
+  for (const text of ['⿰木&CDP-8958;', '⿱#(丿𠃊)卩']) expect(hasCustomComponent(text)).toBe(true)
+  // A numbered component has its own forms, a chain the grammar names is a character, and an entity
+  // spelled another way is no CHISE reference: none of them asks for the file.
+  for (const text of ['⿰木口', '木', '⿱丿乚', '⿰亻{53}', '⿰亻#(H)', '⿰亻&#x4E00;']) expect(hasCustomComponent(text)).toBe(false)
+  expect(traitsOf('⿰木&CDP-8958;').custom).toBe(true)
+  expect(traitsOf('⿰木口').custom).toBe(false)
+})
+
+it('draws a component no code point names from the form cut for it', async () => {
+  expect(data.format).toBe('han-compose/custom-forms')
+  expect(data.version).toBe(2)
+  expect(isComponentForm(ENTITY, 'sans')).toBe(false)
+  const handWritten = componentDrawing('#(-𠃍㇉)', 'sans')?.d
+  addCutForms(data)
+  for (const style of ['sans', 'serif']) {
+    expect(isComponentForm(ENTITY, style)).toBe(true)
+    expect(componentDrawing(ENTITY, style)?.d).toMatch(/^M/)
+  }
+  // Kaisho and Fangsong draw only their own forms; a form written by hand is not replaced.
+  expect(isComponentForm(ENTITY, 'kaisho')).toBe(false)
+  expect(componentDrawing('#(-𠃍㇉)', 'sans')?.d).toBe(handWritten)
+  const source = createSource(async name => files[name] === undefined ? null : new Uint8Array(Buffer.from(files[name])).buffer)
+  const { parts } = await compose(source, `⿰木${ENTITY}`, { fontStyle: 'sans' })
+  expect(parts.some(part => part.origin === `${data.forms.sans[ENTITY].face}: ${ENTITY}, cut from ${data.forms.sans[ENTITY].from}`)).toBe(true)
+})
+
+it('draws what it can when the cut forms cannot be read, and asks again next time', async () => {
+  const { customFormsSource } = await import('../src/custom-forms.js')
+  let calls = 0
+  const failing = customFormsSource({ load: async () => { calls++; return {} } })
+  await failing.ready()
+  const again = customFormsSource({ load: async () => { calls++; throw new Error('offline') } })
+  await again.ready()
+  expect(calls).toBe(2)
+})
+
+it('serves each component host cuts by place, as an export serves an encoded component', async () => {
+  const { customFormsSource } = await import('../src/custom-forms.js')
+  const { createSource } = await import('../src/loader.js')
+  const { files } = await import('./fixtures/small-export.js')
+  const fallback = createSource(async name => files[name] === undefined ? null : new Uint8Array(Buffer.from(files[name])).buffer)
+  const source = customFormsSource({ fallback, load: async () => data, style: 'sans' })
+  await source.ready()
+  const store = source.store()
+  const places = store.places(ENTITY)
+  expect(places).toEqual(Object.keys(data.hosts.sans[ENTITY]))
+  const [first] = store.hosts(ENTITY, places[0])
+  // Flattened as the export's entries are: the cut's box and outlines beside the host.
+  expect(first.c).toBe(true)
+  expect(first.h).toBe(data.hosts.sans[ENTITY][places[0]][0].h)
+  expect(first.b).toHaveLength(4)
+  expect(first.p.length).toBeGreaterThan(0)
+  // The layout reads the component's usual boxes and shape from its form's record.
+  const { componentRecord } = await import('../src/component-forms.js')
+  expect(componentRecord(ENTITY, 'sans').u[places[0]][2]).toBe(data.hosts.sans[ENTITY][places[0]].length)
+  expect(componentRecord(ENTITY, 'sans').f).toHaveLength(71)
+})

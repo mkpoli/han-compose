@@ -1,4 +1,4 @@
-# @han-compose/composer
+# han-compose
 
 Draws a Han character from its ideographic description sequence (IDS), such as `⿰亻哥`, as an SVG
 path. Each part is cut from a character a font already draws and set where the font's designers
@@ -14,7 +14,7 @@ Node and Bun.
 ## Install
 
 ```sh
-npm install @han-compose/composer
+npm install han-compose
 ```
 
 ES modules with type declarations and no dependencies. Node needs 20.16 or later.
@@ -26,7 +26,7 @@ Four are public ([Exports](#exports)), and `compose` fetches only the files a se
 
 ```js
 import { writeFile } from 'node:fs/promises'
-import { compose, drawingSvg, fromUrl } from '@han-compose/composer'
+import { compose, drawingSvg, fromUrl } from 'han-compose'
 
 const source = fromUrl('https://ids-input-composer.mkpoli.workers.dev/a83fc941166b-sans-compose-layout-v4-f6+variants/')
 
@@ -108,7 +108,7 @@ before it, whose promise rejects with an `AbortError`, as does a drawing that ou
 (120 seconds).
 
 ```js
-import { composerPreview, drawingSvg } from '@han-compose/composer'
+import { composerPreview, drawingSvg } from 'han-compose'
 
 const preview = composerPreview({
   base: 'https://ids-input-composer.mkpoli.workers.dev/a83fc941166b-sans-compose-layout-v4-f6+variants/',
@@ -135,8 +135,8 @@ export](#without-an-export) are files under its `data/`: a bundled page serves t
 each file's URL.
 
 ```js
-// after copying node_modules/@han-compose/composer/data to public/composer-data
-import { composerPreview, dataUrls } from '@han-compose/composer'
+// after copying node_modules/han-compose/data to public/composer-data
+import { composerPreview, dataUrls } from 'han-compose'
 
 const preview = composerPreview({
   base,
@@ -152,8 +152,8 @@ source a sequence draws from: the package's own outlines where they cover it, th
 otherwise.
 
 ```js
-import { compose, drawingSvg } from '@han-compose/composer'
-import { sourceFor } from '@han-compose/composer/source'
+import { compose, drawingSvg } from 'han-compose'
+import { sourceFor } from 'han-compose/source'
 
 const tangut = await compose(sourceFor('𗀀', { bundled: true }), '𗀀') // no network
 const mixed = await compose(sourceFor('⿰𗀀哥', { base }), '⿰𗀀哥')      // Tangut from the package, 哥 from the export
@@ -165,7 +165,7 @@ const mixed = await compose(sourceFor('⿰𗀀哥', { base }), '⿰𗀀哥')    
 past the limits. An export that cannot be read throws the error of the read.
 
 ```js
-import { LookupError } from '@han-compose/composer'
+import { LookupError } from 'han-compose'
 
 try {
   await compose(source, '⿰亻')
@@ -180,7 +180,7 @@ limits, and with an `UnavailableError` when the export cannot be read.
 ## Reading a sequence
 
 ```js
-import { parseDescription, writeDescription, tokens } from '@han-compose/composer'
+import { parseDescription, writeDescription, tokens } from 'han-compose'
 
 parseDescription('⿰亻⿱七木')
 // { op: '⿰', parts: ['亻', { op: '⿱', parts: ['七', '木'] }] }
@@ -196,7 +196,7 @@ tokens('⿰亻⿱七木')[2]
 
 | Import | |
 |---|---|
-| `@han-compose/composer` | `compose`, `fromUrl`, `composerPreview`, `drawingSvg`, the tree and token readers, the error classes |
+| `han-compose` | `compose`, `fromUrl`, `composerPreview`, `drawingSvg`, the tree and token readers, the error classes |
 | `/source` | `sourceFor`: the source a sequence draws from |
 | `/loader` | Reading an export: `fromUrl`, `createSource`, `compose`, `sketch`, `LIMITS` |
 | `/worker` | The module the Worker runs |

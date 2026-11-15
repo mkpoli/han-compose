@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'bun:test'
-import { Composer } from '@han-compose/composer/compose'
-import { drawnContours, makePart, placed } from '@han-compose/composer/geometry'
-import { componentParts, isGroupedForm, isComponentForm } from '@han-compose/composer/component-forms'
+import { Composer } from 'han-compose/compose'
+import { drawnContours, makePart, placed } from 'han-compose/geometry'
+import { componentParts, isGroupedForm, isComponentForm } from 'han-compose/component-forms'
 
 const contour = (x0, y0, x1, y1) => {
   const light = new Float64Array([x0, y0, x1, y0, x1, y1, x0, y1])
