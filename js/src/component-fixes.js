@@ -76,18 +76,38 @@ function topEdgeBelow(part, x, limit) {
   return high
 }
 
+/** Where a horizontal line at `y` runs through a part's ink, in its own units: [left, right] spans. */
+function inkAcross(part, y) {
+  const xs = []
+  for (const contour of part.part.contours) {
+    const light = contour.light, n = light.length / 2
+    for (let i = 0; i < n; i++) {
+      const j = (i + 1) % n, x1 = light[i * 2], y1 = light[i * 2 + 1], x2 = light[j * 2], y2 = light[j * 2 + 1]
+      if (y1 === y2 || (y1 - y) * (y2 - y) > 0) continue
+      xs.push(x1 + (x2 - x1) * (y - y1) / (y2 - y1))
+    }
+  }
+  xs.sort((a, b) => a - b)
+  return Array.from({ length: Math.floor(xs.length / 2) }, (_, i) => [xs[i * 2], xs[i * 2 + 1]])
+}
+
 /** 止's strokes in its own units, read from the points of its outline however the face splits it
- *  into contours: the stem's centre (its head's mean x), the base's top between the left stroke and
- *  the stem, the right bar's span and the left stroke's top. Null for an outline without them. */
+ *  into contours: the stem's edges (the ink nearest its head, just below the head), the base's top
+ *  between the left stroke and the stem, the right bar's span and the left stroke's top. Null for
+ *  an outline without them. */
 function stopLayout(part) {
   const points = part.part.contours.flatMap(({ light }) => Array.from({ length: light.length / 2 }, (_, i) => [light[i * 2], light[i * 2 + 1]]))
   const [x0, y0, x1, y1] = pointsBox(points.flat()), width = x1 - x0, height = y1 - y0
   const head = points.filter(([, y]) => y > y0 + 0.85 * height)
-  const stem = head.reduce((sum, [x]) => sum + x, 0) / head.length
+  if (!head.length) return null
+  const headX = head.reduce((sum, [x]) => sum + x, 0) / head.length, away = ([l, r]) => Math.max(l - headX, headX - r, 0)
+  const span = inkAcross(part, y0 + 0.8 * height).sort((a, b) => away(a) - away(b))[0]
+  if (!span) return null
+  const stem = (span[0] + span[1]) / 2
   const right = points.filter(([x, y]) => x > stem + 0.1 * width && y > y0 + 0.2 * height && y < y0 + 0.8 * height)
   const left = points.filter(([x, y]) => x < stem - 0.1 * width && y > y0 + 0.3 * height)
-  if (!head.length || !right.length || !left.length) return null
-  const between = (Math.max(...left.map(([x]) => x)) + Math.min(...head.map(([x]) => x))) / 2
+  if (!right.length || !left.length) return null
+  const between = (Math.max(...left.map(([x]) => x)) + span[0]) / 2
   const baseTop = topEdgeBelow(part, between, y0 + 0.2 * height)
   if (baseTop === null) return null
   return { stem, width, baseTop, bar: [Math.min(...right.map(([, y]) => y)), Math.max(...right.map(([, y]) => y))], leftTop: Math.max(...left.map(([, y]) => y)) }

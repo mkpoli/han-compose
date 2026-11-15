@@ -143,8 +143,9 @@ describe('C049 ⿱𰀁口', () => {
 })
 
 describe('C080 ⿻一止', () => {
-  // 止's strokes in font units, in the order each face numbers them; the 一 from 吏.
-  const STROKES = { right: [544, 407, 921, 487], base: [38, -82, 967, -3], stem: [502, -43, 583, 840], left: [182, -40, 261, 609] }
+  // 止's strokes in font units, in the order each face numbers them; the 一 from 吏. The right bar
+  // starts inside the stem, as Serif's does.
+  const STROKES = { right: [520, 407, 921, 487], base: [38, -82, 967, -3], stem: [502, -43, 583, 840], left: [182, -40, 261, 609] }
   const ORDERS = { serif: ['right', 'base', 'stem', 'left'], sans: ['stem', 'left', 'right', 'base'] }
   // Drawn at half size and offset, so a mix-up of source and target units shows.
   const target = [100, 200, 564.5, 661]
@@ -169,8 +170,8 @@ describe('C080 ⿻一止', () => {
     // Noto Sans CJK's 止 as one outline, with a head on the left stroke from 640 down to 600.
     const outline = [188, 600, 188, 44, 49, 44, 49, -30, 949, -30, 949, 44, 577, 44, 577, 430, 905, 430, 905, 505,
       577, 505, 577, 837, 499, 837, 499, 44, 265, 44, 265, 619, 210, 640]
-    const light = Float64Array.from(outline)
-    const contour = { ops: outline.filter((_, i) => i % 2 === 0).map((_, i) => ({ code: i ? 'L' : 'M' })), light, heavy: light.slice(), width: null }
+    const light = Float64Array.from(outline), heavy = light.map((v, i) => i % 2 ? v - 6 : v + 4)
+    const contour = { ops: outline.filter((_, i) => i % 2 === 0).map((_, i) => ({ code: i ? 'L' : 'M' })), light, heavy, width: null }
     const source = [49, -30, 949, 837], joined = placed(makePart([contour], source), source, target, 0, 'glyph 止')
     const [bar, body] = fix.apply([line(), joined])
     const sy = (target[3] - target[1]) / (source[3] - source[1])
@@ -182,6 +183,12 @@ describe('C080 ⿻一止', () => {
     expect(at(16) - at(0)).toBeCloseTo(40 * sy, 6)
     expect(at(12)).toBeCloseTo(target[3], 6)
     expect(at(1)).toBeCloseTo(target[1] + 74 * sy, 6)
+    // The bar's joins slide down the stem's edge with it.
+    expect(at(7)).toBeCloseTo(at(8), 6)
+    expect(at(10)).toBeCloseTo(at(9), 6)
+    // The heavy master moves with the light one.
+    const moved = body.part.contours[0]
+    for (const index of [8, 16, 1]) expect(moved.heavy[index * 2 + 1] - moved.light[index * 2 + 1]).toBeCloseTo(-6, 6)
   })
   it('leaves an outline it cannot read alone', () => {
     const three = part('glyph 止', [38, -82, 967, 840], target, [STROKES.stem, STROKES.left, STROKES.base])
