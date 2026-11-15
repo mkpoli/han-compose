@@ -320,10 +320,39 @@ export const COMPONENT_FIXES = {
   // out to the face's right edge, five percent in from the left.
   // ⿱𠂉丶: the 丶 is taken from 遝, whose lower dot is a 捺, and fills the band as one. The 丶
   // glyph is reduced within the local face and lifted, as 今 and 厶 set the dot.
-  // ⿸⿹丅丿丨: the 丿 fills the left of the cell, so the opening the ⿹ leaves is the right side of
-  // 丅's vertical. 丨 stands there, its head under the bar and its foot off the cell's bottom. Every
-  // sample sets the fourth stroke right of the stem: in 𡉹 the stem runs x225–289 and the stroke
-  // x352–416.
+  // ⿸⿹丅丿丨, the G-source left part of 𡉹, 𣂘 and 𥘱 (T writes ⿸⿹丅丿丶, 示 under its top bar),
+  // after SimSun-ExtB's drawing: the bar spans the cell from 6% in and the stem stands at its middle.
+  // The 丿 and 丨 hang either side of it from 24% below the top, the 丿 within the left 34% and
+  // down to 7% above the foot, the 丨 centred 75–80% across and down to 11% above it. Both start at
+  // 丅's horizontal scale, and the weight balance then evens them with the stem; the 丨 is the
+  // face's own 丨 glyph.
+  '⿸⿹丅丿丨': {
+    glyphs: {
+      '丅': ['78dcd9aa0146cd9317b3cb7455389db2cc8f21df17d072493358c5efb0ed98fd', 'f2668a2d4aa3d88c538ddcecd7a48f607521f1be4f5e4b53d786ff9de7d8445d',
+        'c855dc3aa69a0b863c3062a014e876708b73d2b3b213773f679529340d4dcbdf', '5c45e7e1ea0d588d8d6d80706db05a36fee0b6ff51766d296d908483d81db0b8'],
+      '丿': ['be6e7c77ed22a138be59cae82446668db20e3f4a9ecd6cf3beaa3e60b9777751', '12e1853850e8835f94404d0791cbab5c3699809e4343e8e04a636126138fa7d9',
+        '28ae5a6b2a054b8427219468f99f957470444028396162ba75dfa52335a4016e', 'ea4cd61f8ca90215144de4b8b1f0e4387c61097afd0b5820c7bb204d5c75d46e'],
+      '丨': ['7a86fb1164e56134835216c1085defdbce640b035e60a788677eb53f6af77129', '9e418e5a6f65e3857fb1f5e8b976250e544ee7cdaaecde9555f6e854ca884f1c',
+        '5ee12cda66677f02028da080932fc19f68bd23c83e5d30d11cf5509060aca6ae', 'aabe4c0f157f163a2d1a12310696bebac525fadea126faa8ad176029dc6bfc37'],
+    },
+    apply(parts, composer, region = composer.face) {
+      const tee = partFrom(parts, 'glyph 丅'), slash = partFrom(parts, 'glyph 丿'), stroke = parts.find(part => part !== tee && part !== slash)
+      const glyph = composer.glyph('丨')
+      if (!tee || !slash || !stroke || parts.length !== 3 || !glyph) return parts
+      const [x, y, right, top] = region, width = right - x, height = top - y
+      const teeTarget = [x + 0.06 * width, y, right, top]
+      const [sx] = scaleOf({ ...tee, target: teeTarget })
+      const slashWidth = Math.min(widthOf(slash.source) * sx, 0.34 * width)
+      const source = union(glyph.contours.map(contour => pointsBox(contour.light)))
+      // The stem keeps its stroke width in a narrow cell, so there the 丨 moves right to keep the
+      // gaps either side of it even: 75% across in the full face, 80% at 45% of its width.
+      const narrow = Math.min(1, Math.max(0, (1 - width / widthOf(composer.face)) / 0.55))
+      const middle = x + (0.75 + 0.05 * narrow) * width, half = widthOf(source) * sx / 2
+      const line = placed(derived(glyph, glyph.contours, source), source,
+        [middle - half, y + 0.11 * height, middle + half, top - 0.24 * height], composer.ink('丨'), 'glyph 丨')
+      return [{ ...tee, target: teeTarget }, { ...slash, target: [x, y + 0.07 * height, x + slashWidth, top - 0.24 * height] }, line]
+    },
+  },
   // The vertical hook projects above the bent bar, including when used inside C078.
   // 㐧 supplies the proportions: a long projecting hook head and a diagonal
   // starting under the bar. The generic surround shrinks this body twice.

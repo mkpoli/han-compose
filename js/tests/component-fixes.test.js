@@ -204,6 +204,40 @@ describe('C080 ⿻一止', () => {
   })
 })
 
+describe('C073 ⿸⿹丅丿丨', () => {
+  // A cell offset from the origin and narrower than the face, as the left of 𡉹 is drawn.
+  const region = [100, -80, 500, 840], width = 400, height = 920
+  const tee = () => part('glyph 丅', [52, -80, 949, 748], [100, -80, 500, 840], [[52, 672, 949, 748], [456, -80, 536, 706]])
+  const slash = () => part('glyph 丿', [220, -71, 588, 815], [600, 0, 900, 700], [[220, -71, 588, 815]])
+  const stroke = () => part('learned 介', [500, 0, 560, 300], [550, 300, 600, 500], [[500, 0, 560, 300]])
+  const line = part('glyph 丨', [459, -80, 539, 839], [459, -80, 539, 839], [[459, -80, 539, 839]]).part
+  const composer = { face: [38, -81, 967, 840], glyph: ch => ch === '丨' ? line : null, ink: () => 1000 }
+  const fix = COMPONENT_FIXES['⿸⿹丅丿丨']
+  it('hangs the 丿 and the 丨 either side of the stem, as 𡉹 sets them', () => {
+    const [bar, left, right] = fix.apply([tee(), slash(), stroke()], composer, region)
+    const sx = (0.94 * width) / (949 - 52)
+    expect(bar.target).toEqual([100 + 0.06 * width, -80, 500, 840])
+    expect(left.target[0]).toBeCloseTo(100, 6)
+    expect(left.target[2] - left.target[0]).toBeCloseTo(Math.min((588 - 220) * sx, 0.34 * width), 6)
+    expect(left.target[1]).toBeCloseTo(-80 + 0.07 * height, 6)
+    expect(right.origin).toBe('glyph 丨')
+    expect((right.target[0] + right.target[2]) / 2).toBeCloseTo(100 + (0.75 + 0.05 * Math.min(1, (1 - width / 929) / 0.55)) * width, 6)
+    expect(right.target[2] - right.target[0]).toBeCloseTo((539 - 459) * sx, 6)
+    expect(right.target[1]).toBeCloseTo(-80 + 0.11 * height, 6)
+    for (const p of [left, right]) expect(p.target[3]).toBeCloseTo(840 - 0.24 * height, 6)
+    // The 丿 ends left of the stem.
+    expect(left.target[2]).toBeLessThan(bar.target[0] + (456 - 52) * sx)
+  })
+  it('leaves a drawing without the three parts alone', () => {
+    for (const parts of [[tee(), stroke()], [tee(), slash(), stroke(), stroke()]]) expect(fix.apply(parts, composer, region)).toBe(parts)
+    const parts = [tee(), slash(), stroke()]
+    expect(fix.apply(parts, { ...composer, glyph: () => null }, region)).toBe(parts)
+  })
+  it('lists the four faces’ glyphs', () => {
+    for (const ch of ['丅', '丿', '丨']) expect(fix.glyphs[ch]).toHaveLength(4)
+  })
+})
+
 describe('C070 ⿵冂丨', () => {
   it('runs the 丨 up to the frame’s top bar', () => {
     const frame = part('learned 円', [90, -81, 916, 772], [94, -60, 926, 768], [[90, -81, 916, 772]])
