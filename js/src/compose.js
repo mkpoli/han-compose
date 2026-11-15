@@ -22,7 +22,7 @@ import { EM_BOX, area, centre, count, derived, drawnBox, drawnContours, fill, fi
   placed, pointsBox, pyRound, raster, rings, scaleOf, shrunk, square, stretchOf, targetFor, union, within } from './geometry.js'
 import { ownFormsOnly, componentParts, componentPosition, componentPositionBox, componentRecord, containsComponentForm, isComponentForm, isGroupedForm, isNativeForm } from './component-forms.js'
 import { features, forward } from './layout.js'
-import { CONSTRUCTS, BODY_FORMS, IVD_FORMS, SURROUND_CONSTRUCTS, bodyForm, constructBody, constructParts, ivdParts } from './constructs.js'
+import { CONSTRUCTS, BODY_FORMS, IVD_FORMS, SURROUND_CONSTRUCTS, bodyForm, constructBody, constructHosts, constructParts, ivdParts } from './constructs.js'
 import { pyramidCells, pyramidOnBaseLayout } from './pyramid.js'
 import { pyramidRows, pyramidOnBase } from './pyramid-rows.js'
 import { hangulClusterAt, jamoClass } from './hangul.js'
@@ -758,7 +758,7 @@ export class Composer {
       // The bundled body is Noto's: a face with its own forms keeps the drawing it made. A nested
       // construct is drawn where its description is a component (`node`), not here.
       if (construct && !construct.nested && !ownFormsOnly(this.fontStyle)) {
-        const hosts = new Set([construct.host, ...(construct.cuts ?? []).map(cut => cut.host)])
+        const hosts = constructHosts(construct)
         if (![...hosts].some(host => this.excluded(host)))
           out = constructParts(construct, out, Object.fromEntries([...hosts].map(host => [host, this.glyphRecord(host)])), this.face)
       }
@@ -1110,15 +1110,19 @@ export class Composer {
   /** The parts drawing `node` in `region`, with the correction its description carries, where the
    *  component is one the font cuts wrong (`COMPONENT_FIXES`). */
   node(node, region, atRoot = false, sideBySide = false) {
+    return this.constructed(node, region, atRoot) ?? componentFix(keyOf(node), this.drawNode(node, region, atRoot, sideBySide), this, region)
+  }
+
+  /** The parts a nested construct draws `node` with in `region`: null for a description that is no
+   *  such construct, and for one left to the composer, where a glyph it is drawn from is excluded or
+   *  missing or the export draws another. */
+  constructed(node, region, atRoot = false) {
     const construct = CONSTRUCTS[keyOf(node)]
-    if (construct?.nested) {
-      const hosts = new Set([construct.host, ...(construct.cuts ?? []).map(cut => cut.host)])
-      if (![...hosts].some(host => this.excluded(host))) {
-        const parts = constructParts(construct, [], Object.fromEntries([...hosts].map(host => [host, this.glyphRecord(host)])), region, atRoot)
-        if (parts.length) return parts
-      }
-    }
-    return componentFix(keyOf(node), this.drawNode(node, region, atRoot, sideBySide), this, region)
+    if (!construct?.nested) return null
+    const hosts = constructHosts(construct)
+    if ([...hosts].some(host => this.excluded(host))) return null
+    const parts = constructParts(construct, [], Object.fromEntries([...hosts].map(host => [host, this.glyphRecord(host)])), region, atRoot)
+    return parts.length ? parts : null
   }
 
   drawNode(node, region, atRoot = false, sideBySide = false) {
@@ -2026,6 +2030,10 @@ export class Composer {
     if (this.partial || !this.layout) return null
     const anchor = children.findIndex(child => Array.isArray(child) && child[0] in this.ENCLOSE)
     if (anchor < 0) return null
+    // A construct that is drawn sets its own frame at its own proportions: a donor's row would set
+    // the row as wide as the donor drew it, a part of another character, and the row is laid out as
+    // any pair. One left to the composer keeps the donor's row.
+    if (this.constructed(children[anchor], region ?? this.face)) return null
     const lists = children.map((child, i) => this.hostsOf(keyOf(child), this.slot(op, i)))
     if (lists.some(list => !list.length)) return null
     const boxes = this.predict(op, children)
@@ -2185,8 +2193,10 @@ export class Composer {
   }
 
   // ---------------------------------------------------------------- learned layout
+  /** Both operands' boxes in the em, as the learned layout sets them. A construct that is drawn has
+   *  no character of its own, and is read as the character it is a shape of (`like`). */
   predict(op, children) {
-    const keys = children.map(child => this.renderKey(child))
+    const keys = children.map(child => (this.constructed(child, this.face) && CONSTRUCTS[keyOf(child)].like) || this.renderKey(child))
     return forward(this.layout, features(this.layout, op, keys.map(k => this.rec(k)), [this.slot(op, 0), this.slot(op, 1)]))
   }
 
