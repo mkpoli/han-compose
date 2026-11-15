@@ -2,9 +2,9 @@
 // The engine in a Web Worker, so drawing a sequence never holds up the page. It receives
 // `{ id, sequence, base, separate, fontStyle }` and answers first `{ id, sketch }` (where the layout
 // puts each part, `sketch` in `loader.js`) and then `{ id, drawn }`, or `{ id, error }`, with
-// `unavailable` when the export's manifest or layout could not be read at all. A `{ id, warm, base }`
-// message loads the manifest and layout and answers `{ id, warm }`, so the first drawing starts with
-// them. `loaders` says how to read files a page cannot fetch (`bundledFetch` in `index.js`). The page
+// `unavailable` when the export's manifest, layout or identity table could not be read at all. A
+// `{ id, warm, base }` message loads the three and answers `{ id, warm }`, so the first drawing starts
+// with them. `loaders` says how to read files a page cannot fetch (`bundledFetch` in `index.js`). The page
 // ends a worker whose answer it no longer needs (`client.js`).
 import { EMPTY, leafTexts, parseTree } from './compose.js'
 import { compose, sketch } from './loader.js'
@@ -23,6 +23,7 @@ self.onmessage = async ({ data: { id, sequence, base, separate, fontStyle, warm,
   let source = sources.get(key)
   try {
     await source.ready()
+    if (warm) await source.load(source.modelFiles())
   } catch (error) {
     // The export could not be read: the bundled outlines alone still draw what they cover.
     if (!warm && onlyBundled(sequence, false, true, fontStyle)) {
@@ -34,15 +35,26 @@ self.onmessage = async ({ data: { id, sequence, base, separate, fontStyle, warm,
     }
   }
   if (warm) { self.postMessage({ id, warm: true }); return }
-  try {
-    self.postMessage({ id, sketch: await sketch(source, sequence, { fontStyle, loaders }) })
-    const drawn = await compose(source, sequence, { separate, fontStyle, loaders })
+  /** The sketch and then the drawing of the sequence, from one source. */
+  const draw = async from => {
+    self.postMessage({ id, sketch: await sketch(from, sequence, { fontStyle, loaders }) })
+    const drawn = await compose(from, sequence, { separate, fontStyle, loaders })
     // The leaves in reading order and the leaf of each slot, so a view can place parts beside the
     // drawing without a tree of its own.
     let leaves = null
-    try { leaves = leafTexts(parseTree(sequence, arityOf(source))) } catch { /* drawn as text alone */ }
+    try { leaves = leafTexts(parseTree(sequence, arityOf(from))) } catch { /* drawn as text alone */ }
     self.postMessage({ id, drawn: { ...drawn, ...(leaves ? { leaves, slots: slotsByLeaf(leaves, drawn.slots) } : {}) } })
-  } catch (error) { self.postMessage({ id, error: String(error?.message ?? error) }) }
+  }
+  try {
+    try { await draw(source) } catch (error) {
+      // The layout or the identity table could not be read: as when the manifest cannot, the
+      // bundled outlines alone still draw what they cover.
+      if (!error?.unavailable || !onlyBundled(sequence, false, true, fontStyle)) throw error
+      const bundled = sourceFor(sequence, { base, fontStyle, separate, traits, loaders, bundled: true })
+      await bundled.ready()
+      await draw(bundled)
+    }
+  } catch (error) { self.postMessage({ id, error: String(error?.message ?? error), ...(error?.unavailable ? { unavailable: true } : {}) }) }
 }
 
 /** How many operands the export's own operators take. */

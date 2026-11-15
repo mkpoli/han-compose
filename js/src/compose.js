@@ -449,7 +449,6 @@ export class Composer {
     this.data = data
     const m = data.manifest, c = m.constants
     this.C = c
-    this.layout = data.layout
     this.exclude = new Set(exclude)
     this.spelled = new Set(m.spelled)
     this.AXIS = c.AXIS
@@ -497,6 +496,8 @@ export class Composer {
     const known = this.data.identity?.(key)
     return known === undefined ? this.data.rec(key) : known
   }
+  /** The learned layout. A store reads it when a node first asks, so a lone character is drawn without it. */
+  get layout() { return this.data.layout }
   excluded = ch => this.exclude.has(ch)
   slot = (op, i) => this.SLOTS[op] ? this.SLOTS[op][i] : `${op}${i}`
   /**
