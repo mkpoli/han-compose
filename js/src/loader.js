@@ -281,7 +281,9 @@ function extraOperators(tree, { fontStyle, separate, nativeEnclosures }) {
   const key = keyOf(tree)
   if ((separate ? isGroupedForm : isComponentForm)(key, fontStyle)) return []
   const op = nativeEnclosures.has(key) ? [] : [tree[0]]
-  return [...op, ...tree.slice(1).flatMap(child => extraOperators(child, { fontStyle, separate, nativeEnclosures }))].filter(op => APPROXIMATE.includes(op))
+  // A subtraction is approximate only where the composer says so: drawn from a character's own
+  // outlines or from what is left of its description, it is not.
+  return [...op, ...tree.slice(1).flatMap(child => extraOperators(child, { fontStyle, separate, nativeEnclosures }))].filter(op => APPROXIMATE.includes(op) && op !== '㇯')
 }
 
 /** Whether a tree holds an operator of two operands or more: such a description is laid out by the

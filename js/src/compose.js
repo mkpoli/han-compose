@@ -20,7 +20,7 @@
 // `data.identity(key)`: the key's sequence and the character it describes, without its record.
 import { EM_BOX, area, centre, count, derived, drawnBox, drawnContours, fill, fitted, grown, groupRings, makePart, mapped, partInk, partOf,
   placed, pointsBox, pyRound, raster, rings, scaleOf, shrunk, square, stretchOf, targetFor, union, within } from './geometry.js'
-import { ownFormsOnly, componentParts, componentPosition, componentPositionBox, componentRecord, containsComponentForm, isComponentForm, isGroupedForm } from './component-forms.js'
+import { ownFormsOnly, componentParts, componentPosition, componentPositionBox, componentRecord, containsComponentForm, isComponentForm, isGroupedForm, isNativeForm } from './component-forms.js'
 import { features, forward } from './layout.js'
 import { CONSTRUCTS, BODY_FORMS, IVD_FORMS, SURROUND_CONSTRUCTS, bodyForm, constructBody, constructParts, ivdParts } from './constructs.js'
 import { pyramidCells, pyramidOnBaseLayout } from './pyramid.js'
@@ -352,6 +352,17 @@ export const UNPREDICTABLE = ['⿻', '㇯', '〾', '⿾', '⿼', '⿽', '⿴', '
  *  without walking the tree. @param {string} description */
 export const composableDescription = description => ![...description].some(char => UNPREDICTABLE.includes(char))
 const MIRROR = '⿾', ROTATE = '⿿', VARIANT = '〾', SUBTRACT = '㇯'
+/** Whether a description takes a part out somewhere. @param {any} node @returns {boolean} */
+const subtracts = node => Array.isArray(node) && (node[0] === SUBTRACT || node.slice(1).some(subtracts))
+/** The place of a part taken out of a description: an empty slot with no number, which is laid
+ *  out and not drawn. */
+const GONE = `${EMPTY}-`
+/** How many descriptions deep a part taken out of a character is looked for: in the character's
+ *  own, its operands', and theirs. */
+const SUBTRACT_DEPTH = 3
+/** Whether a description has a part taken out of it somewhere, in itself or in a character it
+ *  holds (`Composer.without`). @param {any} node @returns {boolean} */
+const lacks = node => node === null || (Array.isArray(node) && (node[0] === SUBTRACT || node.slice(1).some(lacks)))
 const EXTRA_ENCLOSE = { '⿼': 'RBT', '⿽': 'RB' }
 const EXTRA_INSIDE = { '⿼': [0, 0.15, 0.8, 0.85], '⿽': [0, 0.25, 0.7, 1] }
 
@@ -504,13 +515,16 @@ export class Composer {
   arity = ch => this.arities.get(ch) ?? 0
   parse = sequence => parseTree(sequence, this.arity)
   // A key holding an empty slot has no record and no hosts: nothing is asked for it.
-  rec = key => key.includes(EMPTY) ? null : (componentRecord(key, this.fontStyle) ?? this.data.rec(key))
+  rec = key => key.includes(EMPTY) ? null : this.formRecord(key) ?? this.data.rec(key) ?? componentRecord(key, this.fontStyle)
+  /** A component form's record, which stands in for the export's; a native form's does only where
+   *  the export records nothing. */
+  formRecord = key => isNativeForm(key, this.fontStyle) ? null : componentRecord(key, this.fontStyle)
   /** What a description's identity is found by: a key's sequence (`s`) and the character it
    *  describes (`e`). A store with an identity table answers from it; without one, and for a
    *  component form, the key's record does. */
   identity = key => {
     if (key.includes(EMPTY)) return null
-    const form = componentRecord(key, this.fontStyle)
+    const form = this.formRecord(key)
     if (form) return form
     const known = this.data.identity?.(key)
     return known === undefined ? this.data.rec(key) : known
@@ -618,7 +632,8 @@ export class Composer {
 
   /** Outline length: a glyph's, or for an excluded or glyphless character its sequence's operands'. */
   ink(node, seen = new Set()) {
-    if (componentRecord(keyOf(node), this.fontStyle)) return componentRecord(keyOf(node), this.fontStyle).ink
+    const form = this.formRecord(keyOf(node))
+    if (form) return form.ink
     if (Array.isArray(node) && node[0] === '⿸' && this.yanStackedDays(node[1], node[2]))
       return this.ink(node[1], seen) + this.ink('儿', seen) + YAN_STACK_INK
     if (typeof node !== 'string') {
@@ -636,7 +651,8 @@ export class Composer {
 
   /** Permitted outline count; zero when an operand is unknown. */
   outlines(node, seen = new Set()) {
-    if (componentRecord(keyOf(node), this.fontStyle)) return componentRecord(keyOf(node), this.fontStyle).o
+    const form = this.formRecord(keyOf(node))
+    if (form) return form.o
     if (typeof node === 'string') {
       const key = this.renderKey(node), r = this.rec(key)
       if (!this.excluded(key)) return r?.G ? r.G.p.length : 0
@@ -686,7 +702,9 @@ export class Composer {
       const ownership = this.separate ? this.leafOwners(tree) : null
       // A toned syllable draws more parts than leaves, so its drawing needs the owners even where
       // the tree was not split.
-      if (ownership && (ownership.split || out.some(p => p.origin?.startsWith('mark '))) && !out.some(p => p.cut)) {
+      // What ㇯ leaves is drawn in fewer parts than the description has leaves, or as a cut: neither
+      // has one part for each leaf.
+      if (ownership && (ownership.split || out.some(p => p.origin?.startsWith('mark '))) && !out.some(p => p.cut) && !subtracts(tree)) {
         // A toned syllable draws its marks beside it; they belong to the leaf they mark.
         const before = out.map(part => part.leaf)
         let owner = 0, current = null
@@ -1061,7 +1079,7 @@ export class Composer {
     if (construct?.nested) {
       const hosts = new Set([construct.host, ...(construct.cuts ?? []).map(cut => cut.host)])
       if (![...hosts].some(host => this.excluded(host))) {
-        const parts = constructParts(construct, [], Object.fromEntries([...hosts].map(host => [host, this.glyphRecord(host)])), region)
+        const parts = constructParts(construct, [], Object.fromEntries([...hosts].map(host => [host, this.glyphRecord(host)])), region, atRoot)
         if (parts.length) return parts
       }
     }
@@ -1963,7 +1981,7 @@ export class Composer {
   host(op, index, node, siblings, box, isPlaced = false) {
     // A component form draws from its own outlines; a cut form with a library of host cuts (`P`, its
     // places) draws, like an encoded part, from the cut closest to its place.
-    const library = typeof node === 'string' && componentRecord(node, this.fontStyle)?.P?.length
+    const library = typeof node === 'string' && this.formRecord(node)?.P?.length
     if (!library && containsComponentForm(keyOf(node), this.fontStyle)) return null
     if (this.keepsRowLayout(op, node)) return null
     // A cut of an entire repeated row can include strokes belonging to its host.
@@ -2833,12 +2851,116 @@ export class Composer {
     return out
   }
 
-  /** ㇯ the second operand drawn where it lies in the first, as a cut taken out of it. */
+  /** ㇯ the first operand less the second: its own outlines where the export cut them, else what
+   *  is left of its description, else the second operand cut out of it. */
   subtracted(children, region, atRoot) {
+    const left = this.remainder([SUBTRACT, ...children], region, atRoot)
+    if (left) return left
+    // A character with no description the part can be found in: the part is laid over it and cut out.
+    this.approximate.add(SUBTRACT)
     const out = this.node(children[0], region, atRoot)
     const cut = this.node(children[1], region)
     for (const p of cut) p.cut = true
     return [...out, ...cut]
+  }
+
+  /**
+   * What is left of a character when parts are taken out of it (㇯馬灬, ㇯㇯卿𠂎卩), drawn from the
+   * character's own outlines: each part that stays is the cut the export made of it in that
+   * character, set where it lies there. A part that lies inside one of the character's operands
+   * is taken out of that operand in the same way, in the operand's place. Where the export has no
+   * cut of a part that stays, what is left of the description is composed instead, the place of
+   * each part taken out left empty. Null where the character has no description or does not hold
+   * the part.
+   * @param {any[]} node @param {number[]} region @param {boolean} [atRoot]
+   * @returns {any[] | null}
+   */
+  remainder(node, region, atRoot = false) {
+    const taken = []
+    let base = node
+    while (Array.isArray(base) && base[0] === SUBTRACT) { taken.unshift(base[2]); base = base[1] }
+    if (typeof base !== 'string' || this.excluded(base)) return null
+    const sequence = this.sequenceOf(base), glyph = this.glyph(base)
+    if (!sequence || !glyph) return null
+    let tree
+    try { tree = this.parse(sequence) } catch { return null }
+    if (!Array.isArray(tree)) return null
+    // Where a part stands at the same place more than once (the two 𥃭 of 㒹), the export lists
+    // the character's cuts of it in reading order, a cut or none for each: every part of the
+    // description is numbered among its likes before any is taken out.
+    const order = new Map(), seen = new Map()
+    /** @param {any} at @param {string} op @param {number} index @param {string} path */
+    const number = (at, op, index, path) => {
+      const like = `${this.slot(op, index)}\t${keyOf(at)}`
+      order.set(path, seen.get(like) ?? 0)
+      seen.set(like, (seen.get(like) ?? 0) + 1)
+      if (Array.isArray(at)) at.slice(1).forEach((child, i) => number(child, at[0], i, `${path}.${i}`))
+    }
+    tree.slice(1).forEach((child, i) => number(child, tree[0], i, `${i}`))
+    for (const part of taken) {
+      const [next, found] = this.without(tree, keyOf(part), part)
+      if (!found) return null
+      tree = next
+    }
+    // The character whole is set in the region as its glyph is; each part keeps its place in that.
+    const frame = fitted(glyph.box, region ?? this.face, this.C.STRETCH)
+    const out = []
+    /** @param {any} at @param {string} op @param {number} index @param {string} path @returns {boolean} */
+    const draw = (at, op, index, path) => {
+      if (at === null) return true
+      const inner = Array.isArray(at) && at[0] === SUBTRACT
+      if (Array.isArray(at) && !inner && lacks(at)) return at.slice(1).every((child, i) => draw(child, at[0], i, `${path}.${i}`))
+      let whole = at
+      while (Array.isArray(whole) && whole[0] === SUBTRACT) whole = whole[1]
+      const entry = this.hostsOf(keyOf(whole), this.slot(op, index), true).filter(h => h.h === base)[order.get(path)]
+      if (!entry || !this.cutOf(entry)) return false
+      const piece = this.pieceOf(entry), target = mapped(piece.box, glyph.box, frame)
+      if (!inner) { out.push(placed(piece, piece.box, target, this.ink(base), `host ${base}`)); return true }
+      const rest = this.remainder(at, target)
+      if (rest) out.push(...rest)
+      return Boolean(rest)
+    }
+    if (tree.slice(1).every((child, i) => draw(child, tree[0], i, `${i}`))) return out
+    /** @param {any} at @returns {any} */
+    const open = at => at === null ? GONE : Array.isArray(at) ? [at[0], ...at.slice(1).map(open)] : at
+    return this.node(open(tree), region, atRoot).filter(part => !Number.isNaN(part.empty))
+  }
+
+  /**
+   * A description with the first part written `key` taken out, as [description, whether it was
+   * found]: the part's place is left null, and a character that holds the part in its own
+   * description becomes that character less the part.
+   * @param {any} tree @param {string} key @param {any} part @returns {[any, boolean]}
+   */
+  without(tree, key, part) {
+    if (tree === null) return [tree, false]
+    if (typeof tree === 'string' || tree[0] === SUBTRACT) {
+      if (tree === key) return [null, true]
+      let whole = tree
+      while (Array.isArray(whole)) whole = whole[1]
+      return this.holds(whole, key) ? [[SUBTRACT, tree, part], true] : [tree, false]
+    }
+    if (!lacks(tree) && keyOf(tree) === key) return [null, true]
+    const out = [tree[0]]
+    let found = false
+    for (const child of tree.slice(1)) {
+      const [next, hit] = found ? [child, false] : this.without(child, key, part)
+      out.push(next)
+      found ||= hit
+    }
+    return [found ? out : tree, found]
+  }
+
+  /** Whether a character's description holds the part written `key`, in itself or in an operand's. */
+  holds(ch, key, depth = SUBTRACT_DEPTH) {
+    const sequence = depth > 0 && !this.excluded(ch) ? this.sequenceOf(ch) : null
+    if (!sequence) return false
+    let tree
+    try { tree = this.parse(sequence) } catch { return false }
+    /** @param {any} node @returns {boolean} */
+    const inside = node => keyOf(node) === key
+      || (Array.isArray(node) ? node.slice(1).some(inside) : node !== ch && this.holds(node, key, depth - 1))
+    return Array.isArray(tree) && tree.slice(1).some(inside)
   }
 
   // ---------------------------------------------------------------- fitting
@@ -3839,7 +3961,11 @@ export function sweptPart(p, edge, C, tail = null) {
   const gx = (p.target[0] + p.target[2]) / 2, gy = (p.target[1] + p.target[3]) / 2
   const at = (c, move) => {
     const map = src => { const out = new Float64Array(src.length); for (let i = 0; i < src.length; i += 2) { out[i] = (src[i] - cx) * sx + gx; out[i + 1] = (src[i + 1] - cy) * sy + gy } return move(out) }
-    return { ops: c.ops, light: map(c.light), heavy: map(c.heavy), width: c.width }
+    // The contours stand at the size they are drawn at, so the stroke widths they state are the
+    // scaled ones: `balance` reads them against a scale of one. A glyph stating none takes the
+    // width its ink calls for, as `balance` would.
+    const own = c.width ?? [0, 1].map(axis => C.STEM_CURVE[axis][0] + C.STEM_CURVE[axis][1] * p.native / 1000)
+    return { ops: c.ops, light: map(c.light), heavy: map(c.heavy), width: [own[0] * sx, own[1] * sy] }
   }
   const strokes = derived(p.part, p.part.contours.filter((_, k) => k !== sweep).map(c => at(c, q => q)))
   const box = strokes.box
