@@ -294,7 +294,10 @@ export function documentSource(document, drawing, sketch) {
     .filter(at => at.node.kind === 'component')
     .map(at => /** @type {number} */ (at.leaf))
     .sort((a, b) => a - b)
-  const inferred = raw.length === componentLeaves.length && !raw.some(part => part.cut) && raw.every(part => part.leaf === undefined)
+  // Parts in reading order stand one to a leaf, except under ㇯: what is left of a character is
+  // drawn in parts of its own, none of them the part taken out.
+  const subtracts = [...info.values()].some(at => at.node.kind === 'operator' && at.node.op === '㇯')
+  const inferred = raw.length === componentLeaves.length && !subtracts && !raw.some(part => part.cut) && raw.every(part => part.leaf === undefined)
   /** @type {{ part: DrawingPart, leaf: number }[]} */
   const assigned = []
   raw.forEach((part, index) => {

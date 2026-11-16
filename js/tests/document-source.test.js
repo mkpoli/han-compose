@@ -37,6 +37,15 @@ describe('a document source', () => {
     const [piece] = made.source.geometry(document.root.children[0]).pieces
     expect(piece.d).toBe('M0 0C0 0 2000 1000 2000 1000Z')
   })
+  it('reads parts in reading order as one to a leaf, but not what ㇯ leaves', () => {
+    const parts = [{ d: 'M0 0L1000 1000Z' }, { d: 'M0 0L1000 1000Z' }]
+    expect(documentSource(document, { d: '', parts, slots: [] }, sketch).issues).toEqual([])
+    // ㇯[1]品口 is the upper 口 of 品 and the lower right one: neither is the 口 taken out.
+    const less = { root: { ...document.root, op: '㇯', children: [component('a', '品'), component('b', '口')] } }
+    const made = documentSource(less, { d: '', parts, slots: [] }, sketch)
+    expect(made.complete).toBe(false)
+    expect(made.partsByLeaf.get(1)).toBeUndefined()
+  })
   it('lists the parts drawn for each leaf, complete or not', () => {
     const renderer = { layerFrames: () => new Map(), renderScopes: () => ({ complete: true, issues: [], leafFrames: new Map() }) }
     const a = { d: 'M0 0L500 1000Z', leaf: 0 }, b = { d: 'M500 0L1000 1000Z', leaf: 1 }, c = { d: 'M0 0L500 500Z', leaf: 0 }
