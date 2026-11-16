@@ -3136,8 +3136,10 @@ export class Composer {
     if (tree === null) return [tree, false, skip]
     if (typeof tree === 'string' || tree[0] === SUBTRACT) {
       if (tree === key) return skip === 0 ? [null, true, 0] : [tree, false, skip - 1]
+      // What an earlier take removed is no longer there to count: the part itself where it is
+      // written `key`, else the parts written `key` it holds (土 taken from 王 takes two 一).
       let whole = tree, gone = 0
-      while (Array.isArray(whole)) { if (keyOf(whole[2]) === key) gone++; whole = whole[1] }
+      while (Array.isArray(whole)) { gone += this.occurrences(whole[2], key); whole = whole[1] }
       const held = Math.max(this.count(whole, key) - gone, 0)
       return skip < held ? [subtraction(tree, part, skip), true, 0] : [tree, false, skip - held]
     }
@@ -3152,6 +3154,14 @@ export class Composer {
       skip = rest
     }
     return [found ? out : tree, found, skip]
+  }
+
+  /** How many parts written `key` a part is or holds: 1 where it is written `key`, else those its
+   *  operands or its character's description hold. @param {any} part @param {string} key @returns {number} */
+  occurrences(part, key) {
+    if (part === null) return 0
+    if (keyOf(part) === key) return 1
+    return Array.isArray(part) ? part.slice(1).reduce((n, child) => n + this.occurrences(child, key), 0) : this.count(part, key)
   }
 
   /** How many parts written `key` a character's description holds, in itself or in an operand's,

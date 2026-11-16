@@ -2,7 +2,7 @@
 // cuts, what is left is the character's own outlines (`Composer.remainder`).
 import { describe, expect, it } from 'bun:test'
 import { gzipSync } from 'node:zlib'
-import { Composer } from '../src/compose.js'
+import { Composer, keyOf, parseTree } from '../src/compose.js'
 import { onlyBundled } from '../src/local.js'
 import { compose, createSource } from '../src/loader.js'
 import { character, constants, files, identityOf, records, shardOf } from './fixtures/small-export.js'
@@ -123,6 +123,23 @@ describe('a part taken out of a character', () => {
     const first = await compose(sourceOf(base, cuts), '㇯椛木', { layout: 'composed' })
     expect(first.parts.map(part => part.origin)).toEqual(['host 椛'])
     expect(span(first.parts)[0]).toBeGreaterThan(450)
+  })
+
+  it('does not count what an earlier take removed', () => {
+    // 珏 is 王 beside 玉, and 玉 is 王 with a dot. With 土 gone from the first 王, one 一 is left
+    // there, so [1] is the top 一 of the second 王.
+    const sequences = { 王: '⿱一土', 土: '⿱十一', 十: '⿻一丨', 珏: '⿰王玉', 玉: '⿻王丶' }
+    const composer = Object.create(Composer.prototype)
+    composer.sequenceOf = ch => sequences[ch] ?? null
+    composer.excluded = () => false
+    composer.parse = text => parseTree(text, ch => '⿰⿱⿻㇯'.includes(ch) ? 2 : 0)
+    let tree = composer.parse(sequences.珏)
+    ;[tree] = composer.without(tree, '土', '土', 0)
+    const [next, found] = composer.without(tree, '一', '一', 1)
+    expect(found).toBe(true)
+    expect(keyOf(next[1])).toBe(keyOf(tree[1]))
+    // The index left over once the first 王 is passed: the first 一 inside 玉.
+    expect(keyOf(next[2])).toBe('㇯玉一')
   })
 
   it('cuts the part out where the index passes every like part', async () => {
