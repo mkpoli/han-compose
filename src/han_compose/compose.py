@@ -2263,9 +2263,13 @@ class Composer:
         """An upper part drawn into a kin's upper room, its foot lowered as far as it stands short of
         the lower part where the kin's own upper part stands: 𡗗's 人 ends above 夊 where 來's
         legs reach into it in 麥. Its proportions stay within `STRETCH`."""
-        drawn, kin = _facing(upper, lower, 1), _facing([kin_top], lower, 1)
-        if drawn is None or kin is None or drawn <= kin:
+        # Each part's own gap: a part ending lower than its neighbours is not lowered into the sweep
+        # by their median.
+        gaps = [g for p in upper if (g := _facing([p], lower, 1)) is not None]
+        kin = _facing([kin_top], lower, 1)
+        if not gaps or kin is None or min(gaps) <= kin:
             return upper
+        drawn = min(gaps)
         x0, y0, x1, y1 = (min(p.target[0] for p in upper), min(p.target[1] for p in upper),
                           max(p.target[2] for p in upper), max(p.target[3] for p in upper))
         lowered = (x0, y0 - (drawn - kin), x1, y1)

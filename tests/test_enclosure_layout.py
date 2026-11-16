@@ -624,3 +624,6 @@ def test_an_upper_part_in_a_kin_room_is_lowered_to_stand_as_close_as_the_kin_upp
     settled = c._settled(upper, place((0, 350, 500, 800)), lower)
     assert settled[0].target[3] == 800 and abs(settled[0].target[1] - 350) < 8
     assert c._settled([place((0, 340, 500, 800))], place((0, 350, 500, 800)), lower)[0].target[1] == 340
+    # Of two parts ending at different heights, the lower one stops where the kin's upper part does.
+    pair = c._settled([place((0, 400, 200, 800)), place((300, 600, 500, 800))], place((0, 350, 500, 800)), lower)
+    assert abs(pair[0].target[1] - 350) < 8
