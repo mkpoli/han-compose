@@ -561,3 +561,55 @@ def test_a_swept_foot_moves_both_masters_alike():
     # The light hook stands right of the drawn-out span and keeps its place.
     assert np.allclose(foot.light[3:6], sweep.light[3:6])
 
+
+
+def test_a_described_enclosing_part_takes_the_sweep_of_kin_kanjivg_writes_over_the_same_lower():
+    # 麦 is written over 夊 and KanjiVG names its lower group 夂: ⿱𡗗夂 round 面 is 麦's sweep, cut
+    # from 麺, with 𡗗 drawn in 龶's place.
+    group = lambda element, position=None: SimpleNamespace(element=element, position=position, groups=[])
+    entries = {"麦": SimpleNamespace(root=SimpleNamespace(groups=[group("龶", "top"), group("夂", "bottom")])), "麺": None}
+    top, lower = compose.Part([rectangle((0, 500, 400, 900))]), compose.Part([rectangle((0, 0, 1000, 500))])
+    cuts = []
+
+    def host_node(char, tree, path):
+        cuts.append((char, tree, path))
+        return compose.Host(char, [top, lower], (0, 0, 1000, 900), 0)
+
+    c = compose.Composer(SimpleNamespace(own=lambda _: True), {"麦": "⿱龶夊", "麺": "⿺麦面"})
+    c.kvg = SimpleNamespace(entries=entries, host_node=host_node)
+    host = ("麺", ("⿺", "麦", "面"), (), 0)
+    c.__dict__["_index"] = ({(compose.slot("⿺", 0), "麦"): [host] * compose.KIN_OUTER_HOSTS}, {})
+    c._ranked = lambda *args, **kwargs: []
+    c.ink = lambda _: 1.0
+    drawn = []
+    c._node = lambda node, box: drawn.append((node, box)) or []
+
+    kin = c._kin("⿺", ("⿱", "𡗗", "夂"))
+    assert kin is not None and kin[0] == "麦"
+    assert c._kin("⿸", ("⿱", "𡗗", "夂")) is None
+    placed = c._kin_outer("⿺", ("⿱", "𡗗", "夂"), kin, "面", (0, 0, 1000, 900), (500, 0, 1000, 500))
+
+    assert cuts == [("麺", ("⿺", ("⿱", "龶", "夊"), "面"), (0,))]
+    assert [p.origin for p in placed] == ["kin 麺"] and placed[0].part is lower
+    assert drawn == [("𡗗", (0, 500, 400, 900))]
+
+
+def test_an_enclosure_drawn_as_its_kin_is_laid_out_as_the_kin():
+    # ⿱𡗗夂 round 面 stands as 麥 round it: 面 low in the opening, as in 麵.
+    asked = []
+    unknown, kin_boxes = [(0, 0, 1000, 1000), (400, 300, 900, 800)], [(0, 0, 1000, 1000), (480, 60, 950, 790)]
+    square = compose.Part([rectangle((0, 0, 1000, 1000))])
+    c = compose.Composer(SimpleNamespace(own=lambda _: True, has=lambda _: True, glyph=lambda _: square, stem=((80, 80), (80, 80))), {})
+    c.layout = SimpleNamespace(predict=lambda _c, op, keys, tested: asked.append(keys) or list(kin_boxes if keys[0] == "麥" else unknown))
+    c._host = lambda *args, **kwargs: None
+    c._kin = lambda op, outer: ("麥", ("⿱", "來", "夊"), outer)
+    outer_boxes, inner_boxes = [], []
+    c._kin_outer = lambda op, outer, kin, inner, box, inner_box: outer_boxes.append(box) or [
+        compose.Placed(compose.Part([rectangle(box)]), box, box, origin="kin 麭")]
+    c._node = lambda node, box: inner_boxes.append(box) or [compose.Placed(compose.Part([rectangle(box)]), box, box, origin="glyph 面")]
+    c._room = lambda *args: None
+
+    c._learned("⿺", [("⿱", "𡗗", "夂"), "面"])
+
+    assert asked == [["⿱𡗗夂", "面"], ["麥", "面"]]
+    assert outer_boxes == [kin_boxes[0]] and inner_boxes == [kin_boxes[1]]
