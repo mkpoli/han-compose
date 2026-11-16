@@ -1537,7 +1537,9 @@ export class Composer {
         const target = fitted(upper.part.box, [room[0], room[1], Math.max(right, room[0] + (room[2] - room[0]) / 3), room[3]], C.STRETCH)
         above = [placed(upper.part, upper.part.box, target, this.ink(upper.source), `kin ${upper.source}`)]
       } else above = this.node(kin.own[1], room)
-      return [...drawn, ...this.settled(above, placed(top, top.box, room, 0, `kin ${char}`), drawn)]
+      this.settle(above, placed(top, top.box, room, 0, `kin ${char}`), drawn)
+      // A separated drawing keeps reading order, the upper operand first.
+      return this.separate ? [...above, ...drawn] : [...drawn, ...above]
     }
     return null
   }
@@ -1545,15 +1547,16 @@ export class Composer {
   /** An upper part drawn into a kin's upper room, its foot lowered as far as it stands short of the
    *  lower part where the kin's own upper part stands (`_settled`): 𡗗's 人 ends above 夊 where 來's
    *  legs reach into it in 麥. Each part's own gap counts, so a part ending lower than its
-   *  neighbours is not lowered into the sweep by their median. Its proportions stay within `STRETCH`. */
-  settled(upper, kinTop, lower) {
+   *  neighbours is not lowered into the sweep by their median. Its proportions stay within `STRETCH`.
+   *  The parts move in place, so a joint or sweep recorded on them follows. */
+  settle(upper, kinTop, lower) {
     const gaps = upper.map(p => facing([p], lower, 1)).filter(Boolean).map(g => g.median)
     const kin = facing([kinTop], lower, 1)
-    if (!gaps.length || !kin || Math.min(...gaps) <= kin.median) return upper
+    if (!gaps.length || !kin || Math.min(...gaps) <= kin.median) return
     const frame = union(upper.map(p => p.target))
     const lowered = [frame[0], frame[1] - (Math.min(...gaps) - kin.median), frame[2], frame[3]]
-    const out = upper.map(p => ({ ...p, target: mapped(p.target, frame, lowered) }))
-    return out.every((q, k) => stretchOf(upper[k].source, q.target) <= this.C.STRETCH) ? out : upper
+    const targets = upper.map(p => mapped(p.target, frame, lowered))
+    if (targets.every((target, k) => stretchOf(upper[k].source, target) <= this.C.STRETCH)) upper.forEach((p, k) => { p.target = targets[k] })
   }
 
   /** The upper part of an enclosing character written over a lower part (`_upper`), as the first

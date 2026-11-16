@@ -64,6 +64,10 @@ describe('an enclosing part no host draws in its place', () => {
     const c = new Composer(store()), region = [0, 0, 1000, 1000]
     const drawn = c.kinOuter('⿺', ['⿱', '𡗗', '夊'], c.kin('⿺', ['⿱', '𡗗', '夊']), '面', region, [550, 0, 1000, 900])
     expect(drawn.map(p => p.origin)).toEqual(['kin 麭', 'glyph 𡗗'])
+    // A separated drawing keeps reading order.
+    const separate = new Composer(store(), { separate: true })
+    expect(separate.kinOuter('⿺', ['⿱', '𡗗', '夊'], separate.kin('⿺', ['⿱', '𡗗', '夊']), '面', region, [550, 0, 1000, 900]).map(p => p.origin))
+      .toEqual(['glyph 𡗗', 'kin 麭'])
     const frame = [100, 0, 900, 800]
     expect(drawn[0].target).toEqual(mapped(SWEEP, frame, region))
     expect(drawn[0].part.kv).toBe(true)
@@ -99,16 +103,19 @@ describe('an upper part in a kin\'s room', () => {
   const lower = [at(box([0, 0, 100, 100]), [0, 0, 100, 300])]
   it('is lowered to stand as close to the sweep as the kin\'s own upper part', () => {
     const c = new Composer(store())
-    const upper = [at(box([0, 0, 100, 200]), [0, 500, 100, 700])]
-    const [settled] = c.settled(upper, at(box([0, 0, 100, 100]), [0, 420, 100, 700]), lower)
-    expect(settled.target[3]).toBe(700)
-    expect(settled.target[1]).toBeCloseTo(420, -1)
+    const upper = [at(box([0, 0, 100, 200]), [0, 500, 100, 700])], [part] = upper
+    c.settle(upper, at(box([0, 0, 100, 100]), [0, 420, 100, 700]), lower)
+    expect(upper[0]).toBe(part)
+    expect(part.target[3]).toBe(700)
+    expect(part.target[1]).toBeCloseTo(420, -1)
   })
   it('keeps its place where lowering would stretch it past STRETCH, or where it already stands as close', () => {
     const c = new Composer(store())
     const upper = [at(box([0, 0, 100, 200]), [0, 500, 100, 700])]
-    expect(c.settled(upper, at(box([0, 0, 100, 100]), [0, 320, 100, 700]), lower)).toBe(upper)
-    expect(c.settled(upper, at(box([0, 0, 100, 100]), [0, 560, 100, 700]), lower)).toBe(upper)
+    c.settle(upper, at(box([0, 0, 100, 100]), [0, 320, 100, 700]), lower)
+    expect(upper[0].target).toEqual([0, 500, 100, 700])
+    c.settle(upper, at(box([0, 0, 100, 100]), [0, 560, 100, 700]), lower)
+    expect(upper[0].target).toEqual([0, 500, 100, 700])
   })
 })
 
