@@ -2162,29 +2162,53 @@ class Composer:
                 out.setdefault(tree[2], []).append((char, tree))
         return out
 
-    def _kin_outer(self, op: str, outer: Node, inner: Node, box: Box, inner_box: Box) -> list[Placed] | None:
-        """An enclosing part no character draws in that place, from one written over the same lower
-        part that many do: 足 round 羽 in 䟳 as 走's sweep, cut from a host, under 口 in 土's place.
-        None when the outer is written otherwise or has no such kin."""
-        if not isinstance(outer, str) or outer not in self.sequences:
+    @cached_property
+    def _by_named_lower(self) -> dict[str, list[tuple[str, Node]]]:
+        """lower part as KanjiVG names it → the characters of `_by_lower` written over another: 麦,
+        written over 夊, whose lower group KanjiVG names 夂."""
+        out: dict[str, list[tuple[str, Node]]] = {}
+        for written, kin in self._by_lower.items():
+            for char, tree in kin:
+                entry = self.kvg.entries.get(char)
+                groups = entry.root.groups if entry is not None else []
+                if len(groups) == 2 and groups[1].position == "bottom" and groups[1].element not in (None, written):
+                    out.setdefault(groups[1].element, []).append((char, tree))
+        return out
+
+    def _kin(self, op: str, outer: Node) -> tuple[str, tuple, tuple] | None:
+        """The kin an enclosing part no character draws in that place is drawn as: a character
+        written over the same lower part that many hold there (走 for 足, 麥 for ⿱𡗗夂), with the
+        kin's tree and the outer's own. None when the outer is written otherwise or has no such kin."""
+        if isinstance(outer, str):
+            if outer not in self.sequences:
+                return None
+            try:
+                own = parse(self.sequences[outer])
+            except ValueError:
+                return None
+        elif op == "⿺":
+            # A described outer only round a part held beside its upper part, over its sweep, where
+            # a stack leaves that part no room; under ⿸ (⿱丷厂) the stack already holds it.
+            own = outer
+        else:
             return None
-        try:
-            own = parse(self.sequences[outer])
-        except ValueError:
-            return None
-        if not (isinstance(own, tuple) and own[0] == "⿱" and isinstance(own[2], str)):
+        if not (isinstance(own, tuple) and own[0] == "⿱" and isinstance(own[2], str)) or self.kvg is None:
             return None
         hosts, _ = self._index
         place, best = slot(op, 0), None
-        for other, tree in self._by_lower.get(own[2], []):
+        for other, tree in self._by_lower.get(own[2], []) + self._by_named_lower.get(own[2], []):
             count = sum(1 for e in hosts.get((place, other), []) if e[0] not in self.exclude)
             if other != outer and count >= KIN_OUTER_HOSTS and (best is None or count > best[0]):
                 best = (count, other, tree)
-        if best is None:
-            return None
-        _, other, tree = best
-        if self.kvg is None:
-            return None
+        return None if best is None else (best[1], best[2], own)
+
+    def _kin_outer(self, op: str, outer: Node, kin: tuple[str, tuple, tuple], inner: Node, box: Box,
+                   inner_box: Box) -> list[Placed] | None:
+        """An enclosing part drawn as its kin's (`_kin`): 足 round 羽 in 䟳 as 走's sweep, cut from a
+        host, under 口 in 土's place; ⿱𡗗夂 round 面 as 麥's sweep, under 𡗗 in 來's place."""
+        other, tree, own = kin
+        hosts, _ = self._index
+        place = slot(op, 0)
         entries = {e[0]: e for e in hosts.get((place, other), []) if e[0] not in self.exclude}
         # The kin cut along KanjiVG's groups of its own two parts (走 into 土 and 龰), whose outlines
         # interlock too closely for a geometric cut: so only from characters KanjiVG draws, the
@@ -2201,7 +2225,7 @@ class Composer:
             native = self.ink(char)
             placed = [Placed(lower, lower.box, mapped(lower.box, frame, box), native=native, origin=f"kin {char}")]
             room = mapped(top.box, frame, box)
-            upper = self._upper(outer, own)
+            upper = self._upper(outer, own) if isinstance(outer, str) else None
             if upper is not None:
                 # In the kin's upper part's room, short of the enclosed part's box by the gap
                 # neighbours keep, its proportions kept within `STRETCH`.
@@ -3131,17 +3155,11 @@ class Composer:
         _fit_under_cover(op, children, groups)
         return [p for group in groups for p in group]
 
-    def _learned(self, op: str, children: list[Node], region: Box | None = None) -> list[Placed] | None:
-        """Two operands in the boxes the learned layout gives them, each cut from the host that fits
-        its box best, or drawn into it. A whole character's boxes stand in the em; a nested node's
-        are those of a whole character laid out alike, carried into its region. An enclosed part cut
-        from a host stays in its predicted box: fitting it into the opening afterwards scored worse
-        (0.562 against 0.601 on 238 jōyō enclosures). One drawn on its own is drawn into the room
-        its enclosing part leaves and fitted there, since nothing placed it beside that part.
-        None when a linear layout would deform a hosted operand beyond STRETCH, or when the network
-        gives an operand no extent (a thin 丨 beside a tall ⿳工臣口 came out −5 units wide)."""
+    def _learned_boxes(self, op: str, keys: list[str], region: Box | None) -> list[Box] | None:
+        """The boxes the learned layout gives a node's two operands (`_learned`), carried into
+        `region` when nested; None when one has no extent."""
         tested = next(iter(self.exclude)) if len(self.exclude) == 1 else None
-        boxes = self.layout.predict(self, op, [key(c) for c in children], tested)
+        boxes = self.layout.predict(self, op, keys, tested)
         if region is not None:
             frame = (min(b[0] for b in boxes), min(b[1] for b in boxes), max(b[2] for b in boxes), max(b[3] for b in boxes))
             boxes = [mapped(b, frame, region) for b in boxes]
@@ -3157,10 +3175,25 @@ class Composer:
                         max(boxes[0][2], boxes[1][2]), max(boxes[0][3], boxes[1][3]))
         if any(b[2] <= b[0] or b[3] <= b[1] for b in boxes):
             return None
+        return boxes
+
+    def _learned(self, op: str, children: list[Node], region: Box | None = None) -> list[Placed] | None:
+        """Two operands in the boxes the learned layout gives them, each cut from the host that fits
+        its box best, or drawn into it. A whole character's boxes stand in the em; a nested node's
+        are those of a whole character laid out alike, carried into its region. An enclosed part cut
+        from a host stays in its predicted box: fitting it into the opening afterwards scored worse
+        (0.562 against 0.601 on 238 jōyō enclosures). One drawn on its own is drawn into the room
+        its enclosing part leaves and fitted there, since nothing placed it beside that part.
+        None when a linear layout would deform a hosted operand beyond STRETCH, or when the network
+        gives an operand no extent (a thin 丨 beside a tall ⿳工臣口 came out −5 units wide)."""
+        boxes = self._learned_boxes(op, [key(c) for c in children], region)
+        if boxes is None:
+            return None
         groups = []
         outer_hosted = False
         inner_fitted = False
-        for i, (child, box) in enumerate(zip(children, boxes)):
+        for i, child in enumerate(children):
+            box = boxes[i]
             # Under a cover, a child whose own glyph fits the box is drawn from it: a host cut can
             # meet the cover's bar through a turning stroke and leave a wedge (定's 𤴓 cut from 是).
             if (i == 1 and op == "⿱" and isinstance(children[0], str) and children[0] in COVER_ROOTS
@@ -3189,8 +3222,18 @@ class Composer:
                                     and isinstance(child, str) and child not in self.exclude and len(groups[1]) == 1
                                     and groups[1][0].part is self.font.glyph(child))
                 else:
-                    kin = self._kin_outer(op, child, children[1], box, boxes[1]) if op in ENCLOSE and i == 0 else None
-                    groups.append(kin or self._node(child, box))
+                    kin = self._kin(op, child) if op in ENCLOSE and i == 0 else None
+                    placed = None
+                    if kin is not None and isinstance(child, str):
+                        placed = self._kin_outer(op, child, kin, children[1], box, boxes[1])
+                    elif kin is not None:
+                        # A description the layout never saw stands where the kin's character puts
+                        # both parts: 面 low in 麥's opening, as in 麵, for ⿱𡗗夂 round it.
+                        as_kin = self._learned_boxes(op, [kin[0], key(children[1])], region)
+                        placed = as_kin and self._kin_outer(op, child, kin, children[1], as_kin[0], as_kin[1])
+                        if placed:
+                            boxes = as_kin
+                    groups.append(placed or self._node(child, box))
                 continue
             drawn, k = part
             source = drawn.pieces[k]

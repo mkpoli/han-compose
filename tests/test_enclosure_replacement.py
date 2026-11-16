@@ -29,7 +29,8 @@ def learned(monkeypatch, *, outer=True, bare=True, nested=False, collision=0, re
     c = NS(exclude={'匠'}, face=(0,0,100,100), font=font, reuse=True, standalone=True,
         layout=NS(predict=lambda *args:[(0,0,100,100),(25,25,75,75)]),
         _host=select, _node=node, _room=lambda *args:(25,25,75,75) if refit else None,
-        _kin_outer=lambda *args:None, _stretch=C.Composer._stretch, ink=lambda ch:1)
+        _kin=lambda *args:None, _stretch=C.Composer._stretch, ink=lambda ch:1)
+    c._learned_boxes = lambda *args: C.Composer._learned_boxes(c, *args)
     if excluded:
         c.exclude.add('斤')
         font.glyph=lambda ch:pytest.fail('Excluded glyph identity must not be read')
@@ -113,6 +114,7 @@ def real_geometry(opening=(49,49,51,51), predicted=(120,20,140,40)):
          _host=lambda op,i,*args,**kwargs:(host,0) if i==0 else None,
          _node=lambda child,box:[C.Placed(inner,inner.box,box,origin='glyph '+child)],
          _room=lambda *args:opening,_stretch=C.Composer._stretch,ink=lambda ch:1)
+    c._learned_boxes=lambda *args:C.Composer._learned_boxes(c,*args)
     return c,outer,inner
 
 
