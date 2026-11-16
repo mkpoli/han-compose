@@ -1,0 +1,53 @@
+name: File report
+# The endpoint hands each report to this action, so the issue is opened by the repository's own bot
+# and the report names the reporter. The endpoint finds the issue by the mark its body carries.
+on:
+  repository_dispatch:
+    types: [report]
+permissions: {}
+jobs:
+  # The dialog waits on this job, so it installs nothing: the step runs on Bun alone.
+  file:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+    outputs:
+      number: ${{ steps.file.outputs.number }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: workers/reports
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+      - name: File the report
+        id: file
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bun workers/reports/intake/file.js
+  # The workshop's drawing is photographed from its share link and added to the issue once it exists.
+  # A report from the rare compendium carries its own drawing, so the endpoint sets no `drawing`.
+  draw:
+    needs: file
+    if: github.event.client_payload.drawing
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+      # Only `playwright-core` is needed, so the package scripts that build the composer data stay off.
+      - run: bun install --frozen-lockfile --ignore-scripts
+      - name: Install Chromium
+        run: bunx playwright-core install --with-deps --only-shell chromium
+      - name: Add the drawing
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE: ${{ needs.file.outputs.number }}
+        run: bun workers/reports/intake/draw.js

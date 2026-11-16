@@ -1,0 +1,30 @@
+name: Reports
+on:
+  push:
+    branches: [main]
+    paths: ['workers/reports/**', '.github/workflows/reports.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: reports
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      REPORTS_GITHUB_TOKEN: ${{ secrets.REPORTS_GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      # The two secrets a maintainer has to add once: CLOUDFLARE_API_TOKEN to deploy, and a
+      # fine-grained GITHUB_TOKEN for the Worker to file with. Both are needed before anything is
+      # published, since a deploy without the token answers `502` to every report.
+      - name: Deploy the report intake
+        if: env.CLOUDFLARE_API_TOKEN != '' && env.REPORTS_GITHUB_TOKEN != ''
+        working-directory: workers/reports
+        run: |
+          printf '%s' "$REPORTS_GITHUB_TOKEN" | bunx wrangler@4.158.0 secret put GITHUB_TOKEN
+          bunx wrangler@4.158.0 deploy

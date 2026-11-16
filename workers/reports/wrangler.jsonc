@@ -1,0 +1,28 @@
+{
+  // The anonymous composition report intake for https://ids.mkpo.li and https://rare.glyphatlas.org. GITHUB_TOKEN, and the optional
+  // TURNSTILE_SECRET, are secrets: set them with `bunx wrangler secret put <name>`.
+  "name": "ids-reports",
+  "main": "src/index.js",
+  "compatibility_date": "2026-10-30",
+  "workers_dev": true,
+  "preview_urls": true,
+  // The endpoint keeps a host of its own for `curl` and for a page served from elsewhere; the
+  // workshop itself posts to /api/report on its origin, which the hosting worker hands here.
+  "routes": [
+    {
+      "pattern": "report.ids.mkpo.li",
+      "custom_domain": true
+    }
+  ],
+  "observability": { "enabled": true },
+  "kv_namespaces": [
+    {
+      "binding": "REPORTS",
+      "id": "890a1389b87f4ef9915a7774605c7de5"
+    }
+  ],
+  "vars": {
+    "REPO": "mkpoli/han-compose",
+    "SITE_ORIGINS": "https://ids.mkpo.li,https://rare.glyphatlas.org"
+  }
+}
