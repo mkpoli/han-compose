@@ -176,3 +176,11 @@ def test_a_fallback_piece_is_not_held_to_the_stroke_count_of_the_variable_font()
     for contour in piece.contours:
         contour.fallback = True
     assert c._counted(piece, "⿰", 0, "火")
+
+
+def test_a_clean_stretch_between_two_outlines_is_found_whatever_the_rounding_of_its_marks():
+    # Between 80% of the first outline (34.4) and 20% of the second (35.0) a cut crosses neither,
+    # though both marks round to a share that counts as crossing.
+    first, second = rectangle(0, 0, 43, 100), rectangle(22, 0, 87, 100)
+    found = [identities(parts) for _, _, parts in compose._linear_partitions(compose.Part([first, second]), 0, 2)]
+    assert found == [identities([compose.Part([first]), compose.Part([second])])]

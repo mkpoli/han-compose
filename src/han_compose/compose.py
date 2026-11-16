@@ -674,7 +674,7 @@ class Contour:
     width: tuple[float, float] | None = _Weighed(None)
     #: Works out `heavy` and `width` for every contour of the glyph, where they were left for later.
     weigh: Callable[[], None] | None = field(default=None, repr=False, compare=False)
-    #: Whether the contour is a fallback font's, of another design than the style's own font.
+    #: Whether the contour is a fallback font's, whose strokes may be joined into outlines otherwise than the style's own font joins them.
     fallback: bool = False
 
     @property
@@ -1040,8 +1040,12 @@ def _linear_partitions(part: Part, axis: int, pieces: int) -> Iterator[tuple[tup
         place between them that crosses fewest: every cut there parts the units alike (火's right
         dot in ⿰火默 lies 79.7% left of the midpoint, and wholly enough left of a cut 4 units over)."""
         middle = (low + high) / 2
-        stops = {middle} | {a + share * (b - a) for a, b in spans for share in (1 - SIDED, SIDED)}
-        return min([middle, *(x for x in stops if low < x < high)], key=lambda x: (cost(x)[0], x != middle, cost(x)[1], abs(x - middle)))
+        # The crossings change only where a cut meets an outline's `SIDED` marks: one cut inside each
+        # stretch between them stands for the stretch, clear of the marks' rounding.
+        marks = sorted({low, high} | {x for a, b in spans for share in (1 - SIDED, SIDED)
+                                      if low < (x := a + share * max(b - a, 1)) < high})
+        inside = [(marks[k] + marks[k + 1]) / 2 for k in range(len(marks) - 1)]
+        return min([middle, *inside], key=lambda x: (cost(x)[0], x != middle, cost(x)[1], abs(x - middle)))
 
     cuts = [placed(centres[k], centres[k + 1]) for k in range(len(centres) - 1)]
 
