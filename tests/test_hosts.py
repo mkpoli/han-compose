@@ -135,16 +135,20 @@ def test_the_real_sequences_are_searched_as_they_are_indexed(monkeypatch):
     assert_same_as_whole(c, sample, [written for _, written in keys[::997]], ["⿲", "⿳", "⿼"])
 
 
-def test_a_cut_listed_wrong_in_the_style_gives_no_piece():
-    # Zhuque's 鰨 draws 魚's last dot and 𦐇 as one outline: its cut of ⿰魚𦐇 is listed wrong.
+
+def test_a_host_listed_wrong_in_the_style_gives_no_cut_at_any_depth_or_spelling():
+    # Zhuque's 鮐 (⿰魚台) draws 魚's last dot and 台 as one outline: no cut of it is right, as
+    # written, with 台 written out (⿰魚⿱厶口), inside 台, or for ㇯.
     from types import SimpleNamespace
 
     from han_compose import compose
 
     asked = []
-    c = compose.Composer(SimpleNamespace(style=SimpleNamespace(name="fangsong")), {})
-    c.kvg = SimpleNamespace(host_node=lambda *args: asked.append(args))
-    assert ("鰨", "⿰魚𦐇") in c.wrong_cuts
-    assert c._cut_host("鰨", ("⿰", "魚", "𦐇"), (), True) is None and asked == []
-    other = compose.Composer(SimpleNamespace(style=SimpleNamespace(name="sans")), {})
-    assert ("鰨", "⿰魚𦐇") not in other.wrong_cuts
+    font = SimpleNamespace(style=SimpleNamespace(name="fangsong"), glyph=lambda ch: compose.Part([]), own=lambda ch: True)
+    c = compose.Composer(font, {"鮐": "⿰魚台", "台": "⿱厶口"})
+    c.kvg = SimpleNamespace(host_node=lambda *args: asked.append(args), less=lambda *args: asked.append(args))
+    for tree, path in ((("⿰", "魚", "台"), ()), (("⿰", "魚", ("⿱", "厶", "口")), ()), (("⿰", "魚", ("⿱", "厶", "口")), (1,))):
+        assert c._host_node("鮐", tree, path) is None
+    assert c._without("鮐", "魚") is None and asked == []
+    other = compose.Composer(SimpleNamespace(style=SimpleNamespace(name="sans")), {"鮐": "⿰魚台"})
+    assert not other.wrong_cut("鮐", ("⿰", "魚", "台"))

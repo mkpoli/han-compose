@@ -2420,16 +2420,38 @@ class Composer:
         return self._memo(self._hosts, (char, key(tree), path, strict), lambda: self._cut_host(char, tree, path, strict))
 
     @cached_property
-    def wrong_cuts(self) -> frozenset[tuple[str, str]]:
-        """The (host, node) cuts `data/vocab/han-wrong-cuts.tsv` lists as wrong in this style's font."""
+    def wrong_cuts(self) -> dict[str, frozenset[str]]:
+        """host → the nodes `data/vocab/han-wrong-cuts.tsv` lists its cut of as wrong in this style's font."""
         style = getattr(getattr(self.font, "style", None), "name", None)
-        return frozenset((char, node) for name, char, node, _ in read_rows("han-wrong-cuts.tsv") if name == style)
+        out: dict[str, set[str]] = {}
+        for name, char, node, *_ in read_rows("han-wrong-cuts.tsv"):
+            if name == style:
+                out.setdefault(char, set()).add(node)
+        return {char: frozenset(nodes) for char, nodes in out.items()}
+
+    def wrong_cut(self, char: str, tree: Node | None = None, path: tuple = ()) -> bool:
+        """Whether a cut of `char` along `tree` down `path` passes through a node the table lists:
+        a listed sequence of the character itself spoils every cut of it, however its operands are
+        written out (鮐 cut as ⿰魚⿱厶口) and however deep, and every ㇯ taken out of it."""
+        listed = self.wrong_cuts.get(char)
+        if not listed:
+            return False
+        if self.sequences.get(char) in listed:
+            return True
+        if tree is None:
+            return False
+        node = tree
+        for step in (None, *path):
+            if step is not None:
+                if not isinstance(node, tuple):
+                    return False
+                node = node[1 + step]
+            if key(node) in listed:
+                return True
+        return False
 
     def _cut_host(self, char: str, tree: tuple, path: tuple, strict: bool) -> Host | None:
-        node = tree
-        for step in path:
-            node = node[1 + step] if isinstance(node, tuple) else node
-        if (char, key(node)) in self.wrong_cuts:
+        if self.wrong_cut(char, tree, path):
             # A cut checked and found wrong in this font (Zhuque's 鰨 draws 魚's last dot and 𦐇 as one
             # outline): the host gives no piece of the node.
             return None
@@ -3751,7 +3773,7 @@ class Composer:
         sequence does not name it is cut along the group KanjiVG names so (鹿 less 比). None when
         the character is excluded or has no glyph, or neither names `taken` in a way the glyph cuts."""
         glyph = self.font.glyph(char)
-        if glyph is None or char in self.exclude:
+        if glyph is None or char in self.exclude or self.wrong_cut(char):
             return None
         best = None
         for tree, path in self._named(char, key(taken)):
