@@ -2196,6 +2196,17 @@ class Composer:
                     out.setdefault(groups[1].element, []).append((char, tree))
         return out
 
+    def _kin_candidates(self, lower: str) -> list[tuple[str, Node]]:
+        """The characters `_kin` weighs for an enclosing part over `lower`, in its order, with their trees."""
+        return self._by_lower.get(lower, []) + self._by_named_lower.get(lower, [])
+
+    def _kin_cut(self, entry: tuple, tree: Node) -> Host | None:
+        """A kin's node in one of its hosts (an index entry) cut along KanjiVG into its two parts, the
+        kin written `tree`; None where KanjiVG does not cut it so."""
+        char, host_tree, path, i = entry
+        cut = self.kvg.host_node(char, _replaced(host_tree, path + (i,), tree), path + (i,))
+        return cut if cut is not None and len(cut.pieces) == 2 else None
+
     def _kin(self, op: str, outer: Node) -> tuple[str, tuple, tuple] | None:
         """The kin an enclosing part no character draws in that place is drawn as: a character
         written over the same lower part that many hold there (走 for 足, 麥 for ⿱𡗗夂), with the
@@ -2217,7 +2228,7 @@ class Composer:
             return None
         hosts, _ = self._index
         place, best = slot(op, 0), None
-        for other, tree in self._by_lower.get(own[2], []) + self._by_named_lower.get(own[2], []):
+        for other, tree in self._kin_candidates(own[2]):
             count = sum(1 for e in hosts.get((place, other), []) if e[0] not in self.exclude)
             if other != outer and count >= KIN_OUTER_HOSTS and (best is None or count > best[0]):
                 best = (count, other, tree)
@@ -2237,9 +2248,8 @@ class Composer:
         ranked = [found.char for _, found, _ in self._ranked(op, 0, other, [inner], box, placed=True)]
         chars = list(dict.fromkeys(ranked + list(entries)))
         for char in [ch for ch in chars if ch in self.kvg.entries and self.font.own(ch)][:KIN_TRIED]:
-            char, host_tree, path, i = entries[char]
-            cut = self.kvg.host_node(char, _replaced(host_tree, path + (i,), tree), path + (i,))
-            if cut is None or len(cut.pieces) != 2:
+            cut = self._kin_cut(entries[char], tree)
+            if cut is None:
                 continue
             top, lower = cut.pieces
             frame = Part(top.contours + lower.contours).box

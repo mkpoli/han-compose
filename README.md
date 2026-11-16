@@ -121,6 +121,16 @@ Records also hold every variation sequence the style's main font draws with a gl
 each character's selectors. `export-web OUT --add variants` writes them into a finished folder the
 same way, and the folder's version gains `+variants`.
 
+`kin.json` holds what drawing an enclosing part as its kin's reads beyond the host lists (麥's sweep
+for ⿱𡗗夂 round 面): the kins of each lower part by place with their host counts, each kin's hosts
+with its node cut along KanjiVG into an upper and a lower piece, and the upper parts cut from
+characters holding an enclosing part on the left, each piece as indices of its host glyph's
+contours. The export writes it from the host lists the folder holds. `export-web OUT --add kin`
+writes it into a finished folder made before it, after the same checks of fonts, layout and
+KanjiVG, and after checking that every host list it reads lists the hosts the composer's index
+lists, in its order; it needs no `.work/`. `export-web-pack` publishes it, and the folder's version
+gains `+kin`.
+
 `.work/` must never be uploaded: each of its files would be one more object written. Exclude it
 when copying the folder out:
 

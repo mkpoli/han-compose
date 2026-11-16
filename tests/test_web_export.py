@@ -369,7 +369,8 @@ def test_parity_sets_are_written_apart_and_only_the_injected_one_joins_the_expor
     for row in injected["rows"] + held["rows"]:
         assert len(row["face"]) == 4 and row["c"] in row["x"]
     assert manifest["files"]["parity"]["held_out"]["hosts_injected"] is False
-    assert set(manifest["not_exported"]) >= {"_template", "_transplant", "_kin_outer", "_upper", "_overlays(None)"}
+    assert set(manifest["not_exported"]) >= {"_template", "_transplant", "_overlays(None)"}
+    assert not {"_kin_outer", "_upper"} & set(manifest["not_exported"])
     stats = manifest["files"]["parity"]["held_out"]["stats"]
     assert "hosts_in_export" in stats and "hosts_same_piece" in stats and stats["hosts_same_piece"] <= stats["hosts_in_export"]
 
@@ -747,3 +748,104 @@ def test_a_characters_record_lists_what_kanjivg_lets_subtraction_take_out(compos
     # What the drawing takes out is what the record lists.
     drawn = composer.compose("㇯兵丶")
     assert [p.origin for p in drawn] == ["glyph 兵"] and drawn[0].part.contours == kept
+
+
+
+#: 支 (⿱十又) round 羽 in 翅, the one kin over 又 in ⿺'s enclosing place, with few hosts to cut.
+KIN = ("⿺0", "支")
+
+
+def _finished(composer: compose.Composer, out: Path, pairs: set[tuple[str, str]]) -> dict:
+    """A finished folder holding only the host lists of `pairs` (each entry its host and rank), as
+    `add_kin` and `pack` read one; its manifest."""
+    out.mkdir()
+    (out / ".export").write_text(json.dumps(web_export._inputs(composer)))
+    shards: dict[str, dict] = {}
+    for place, operand in pairs:
+        entries = [{"h": e[0], "r": k} for k, e in enumerate(composer._index[0][(place, operand)])]
+        shards.setdefault(web_export.hosts_shard(place, operand), {})[web_export.hosts_key(place, operand)] = entries
+    for path, lists in shards.items():
+        (out / path).parent.mkdir(parents=True, exist_ok=True)
+        (out / path).write_bytes(gzip.compress(web_export._dump(lists)))
+    (out / "g").mkdir()
+    (out / web_export.IDENTITY).write_bytes(web_export._dump(web_export.identity({}, {}, set())))
+    manifest = {"format": web_export.FORMAT, "version": f"0-sans-compose-layout-v4-f{web_export.FORMAT}", "style": "sans",
+                "files": {"records": {"bytes": 0, "entries": 0}, "hosts": {}},
+                "licences": {"cuts": {"note": ""}, "sources": [{"fields": ["hand"], "licence": "CC BY-SA 3.0"}]}}
+    (out / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False))
+    (out / ".complete").write_text(manifest["version"])
+    return manifest
+
+
+def test_the_kin_table_lists_the_kins_of_the_host_lists_held_and_their_cuts(composer: compose.Composer) -> None:
+    lower = web_export.kin_lower(composer, lambda place, operand: (place, operand) == KIN)
+    count = len(composer._index[0][KIN])
+    assert lower == {"⿺0": {"又": [["支", count]]}} and count >= compose.KIN_OUTER_HOSTS
+    table = web_export.kin_table(composer, lower, log=lambda _: None)
+    assert (table["KIN_OUTER_HOSTS"], table["KIN_TRIED"]) == (compose.KIN_OUTER_HOSTS, compose.KIN_TRIED)
+    cuts = table["cuts"]["⿺0\t支"]
+    # Every host KanjiVG and the variable font draw, its 支 cut along KanjiVG into 十 and 又.
+    assert cuts and all(h in composer.kvg.entries and composer.font.own(h) for h in cuts)
+    entry = {e[0]: e for e in composer._index[0][KIN]}["翅"]
+    cut = composer._kin_cut(entry, compose.parse(composer.sequences["支"]))
+    at = {id(c): k for k, c in enumerate(composer.font.glyph("翅").contours)}
+    assert cuts["翅"] == [[at[id(c)] for c in piece.contours] for piece in cut.pieces]
+    # The upper part of each enclosing character over 又 that some host cuts.
+    for char, (source, indices) in table["upper"].items():
+        part, found = composer._upper(char, compose.parse(composer.sequences[char]))
+        contours = composer.font.glyph(source).contours
+        assert found == source and [id(contours[k]) for k in indices] == [id(c) for c in part.contours]
+
+
+def test_the_kin_table_is_added_to_a_folder_exported_without_it(composer: compose.Composer, tmp_path: Path) -> None:
+    out, root = tmp_path / "out", _clean_root(tmp_path)
+    manifest = _finished(composer, out, {KIN})
+    before = _files(out)
+    assert web_export.add_kin(composer, out, root=root, dry_run=True, log=lambda _: None) == {"kins": 1, "probe": 1}
+    assert _files(out) == before
+    assert web_export.add_kin(composer, out, root=root, log=lambda _: None) == {"kins": 1, "probe": 1}
+    assert not (out / ".complete").exists() and not (out / web_export.KIN).exists()
+    # A stopped run carries on from the table it wrote.
+    assert web_export.add_kin(composer, out, root=root, log=lambda _: None)["kins"] == 1
+    changed: list[str] = []
+    packed = web_export.pack(out, root=root, log=lambda _: None, changed=changed)
+    assert changed == [] and not (out / web_export.PENDING).exists()
+    lower = web_export.kin_lower(composer, lambda place, operand: (place, operand) == KIN)
+    data = web_export._dump(web_export.kin_table(composer, lower, log=lambda _: None))
+    assert (out / web_export.KIN).read_bytes() == data
+    assert packed["files"]["kin"] == {"path": web_export.KIN, "bytes": len(data), "gzip": len(gzip.compress(data, 9, mtime=0)),
+                                      "kins": 1, "outers": len(json.loads(data)["upper"])}
+    assert packed["paths"]["kin"] == web_export.PATHS["kin"] and packed["version"] == manifest["version"] + "+kin"
+    assert packed["added"] == [{"set": "kin", "commit": web_export._version(root)[0], "keys": 1, "probe": 1, "shards": 0}]
+    # The pieces are KanjiVG's, credited as its cuts are.
+    assert packed["licences"]["sources"][0]["fields"] == ["hand", web_export.KIN] and "kin.json" in packed["licences"]["cuts"]["note"]
+    after = _files(out)
+    assert {k for k in before.keys() | after.keys() if before.get(k) != after.get(k) and not k.startswith(".")} == {"manifest.json", web_export.KIN}
+    # A folder holding its table is left as it is.
+    (out / ".complete").write_text(packed["version"])
+    assert web_export.add_kin(composer, out, root=root, log=lambda _: None)["kins"] == 0
+
+
+def test_the_kin_table_is_added_only_over_the_host_lists_of_the_index(composer: compose.Composer, tmp_path: Path) -> None:
+    out, root = tmp_path / "out", _clean_root(tmp_path)
+    _finished(composer, out, {KIN})
+    shard = out / web_export.hosts_shard(*KIN)
+    lists = json.loads(gzip.decompress(shard.read_bytes()))
+    lists[web_export.hosts_key(*KIN)].reverse()
+    shard.write_bytes(gzip.compress(web_export._dump(lists)))
+    with pytest.raises(web_export.AddError, match="host list of 支"):
+        web_export.add_kin(composer, out, root=root, log=lambda _: None)
+    with pytest.raises(web_export.AddError, match="clean"):
+        web_export.add_kin(composer, out, root=tmp_path / "not-a-checkout", log=lambda _: None)
+    assert not (out / web_export.PENDING).exists()
+
+
+def test_a_full_pack_publishes_the_kin_table_the_export_wrote(composer: compose.Composer, tmp_path: Path) -> None:
+    out = tmp_path / "out"
+    _finished(composer, out, set())
+    for folder in ("g", "p"):
+        (out / web_export.WORK / folder).mkdir(parents=True)
+    (out / web_export.WORK / web_export.KIN).write_bytes(b'{"cuts":{},"upper":{}}')
+    packed = web_export.pack(out, log=lambda _: None)
+    assert (out / web_export.KIN).read_bytes() == b'{"cuts":{},"upper":{}}'
+    assert packed["files"]["kin"]["kins"] == 0 and packed["paths"]["kin"] == web_export.PATHS["kin"]
