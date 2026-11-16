@@ -1414,8 +1414,9 @@ def add_kin(composer: C.Composer, out: Path, root: Path | None = None, dry_run: 
         return {"kins": len(kins), "probe": len(kins)}
     pending = pending or {"shards": {}, "added": {"set": "kin", "commit": commit, "keys": len(kins), "probe": len(kins)},
                           **{k: manifest["files"]["records"][k] for k in ("bytes", "entries")}}
-    (out / ".complete").unlink(missing_ok=True)
+    # The pending addition first: a run stopped between the two still finds the folder addable.
     _replace(out / PENDING, _dump(pending))
+    (out / ".complete").unlink(missing_ok=True)
     if not (out / WORK / KIN).exists():
         _replace(out / WORK / KIN, _dump(kin_table(composer, lower, log)))
     return {"kins": len(kins), "probe": len(kins)}
