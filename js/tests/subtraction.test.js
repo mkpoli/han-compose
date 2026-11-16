@@ -97,6 +97,40 @@ describe('a part taken out of a character', () => {
     expect(second[0]).toBeGreaterThan(first[2])
   })
 
+  it('takes the like part its index names, counted in reading order', async () => {
+    const twice = { ...base, 森: { ...character('森', [[60, 500, 440, 560], [220, 420, 280, 820], [100, -40, 400, 360],
+      [560, 500, 940, 560], [720, 420, 780, 820], [600, -40, 900, 360]]), s: '⿰⿱木口⿱木三' } }
+    const whole = [60, -40, 940, 820]
+    const both = [...cuts, ['木', 'T', [cut('杏', [0, 1], UPPER), cut('森', [0, 1], [60, 420, 440, 820], whole), cut('森', [3, 4], [560, 420, 940, 820], whole)]]]
+      .filter(([key, place], i, all) => !(key === '木' && place === 'T' && i < all.length - 1))
+    const left = span((await compose(sourceOf(twice, both), '㇯[1]㇯㇯森口三木', { layout: 'composed' })).parts)
+    const right = span((await compose(sourceOf(twice, both), '㇯㇯㇯森口三木', { layout: 'composed' })).parts)
+    expect(left[2]).toBeLessThan(500)
+    expect(right[0]).toBeGreaterThan(500)
+    // [0] is the index left unwritten.
+    expect(span((await compose(sourceOf(twice, both), '㇯[0]㇯㇯森口三木', { layout: 'composed' })).parts)).toEqual(right)
+  })
+
+  it('counts the like parts inside an operand, and takes the one there', async () => {
+    // 椛 is 木 beside 杏, and 杏 is 木 over 口: [1] is the 木 of 杏, so 口 stays under it.
+    const drawn = await compose(sourceOf(base, cuts), '㇯[1]椛木', { layout: 'composed' })
+    expect(drawn.parts.map(part => part.origin)).toEqual(['host 椛', 'host 杏'])
+    expect(drawn.approximate).not.toContain('㇯')
+    const [beside, below] = drawn.parts.map(part => span([part]))
+    expect(below[0]).toBeGreaterThan(beside[2])
+    expect(below[1]).toBeGreaterThan(beside[1] + 200)
+    // Unindexed, the 木 beside goes and 杏 stays whole.
+    const first = await compose(sourceOf(base, cuts), '㇯椛木', { layout: 'composed' })
+    expect(first.parts.map(part => part.origin)).toEqual(['host 椛'])
+    expect(span(first.parts)[0]).toBeGreaterThan(450)
+  })
+
+  it('cuts the part out where the index passes every like part', async () => {
+    const drawn = await compose(sourceOf(base, cuts), '㇯[2]椛木', { layout: 'composed' })
+    expect(drawn.cut).not.toBe('')
+    expect(drawn.approximate).toContain('㇯')
+  })
+
   it('composes what is left of the description where the export has no cut of it', async () => {
     const drawn = await compose(sourceOf(base, cuts.filter(([key]) => key !== '木')), '㇯杏口', { layout: 'composed' })
     // 木 from its own glyph, in the upper share of the cell; nothing of 口, and no slot shown.

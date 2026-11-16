@@ -366,6 +366,12 @@ const SUBTRACT_DEPTH = 3
 /** Whether a description has a part taken out of it somewhere, in itself or in a character it
  *  holds (`Composer.without`). @param {any} node @returns {boolean} */
 const lacks = node => node === null || (Array.isArray(node) && (node[0] === SUBTRACT || node.slice(1).some(lacks)))
+/** Which of the parts written like its second operand ㇯ takes, from 0 in reading order: the index
+ *  in brackets after it (㇯[1]王一 takes the middle 一), 0 where none is written, NaN for a note
+ *  that is no index. @param {any[]} node @returns {number} */
+const takenIndex = node => !node.note ? 0 : /^\d+$/.test(node.note) ? Number(node.note) : NaN
+/** `[SUBTRACT, from, part]` taking the part at `index`. @param {any} from @param {any} part @param {number} index */
+const subtraction = (from, part, index) => Object.assign([SUBTRACT, from, part], index ? { note: String(index) } : {})
 const EXTRA_ENCLOSE = { '⿼': 'RBT', '⿽': 'RB' }
 const EXTRA_INSIDE = { '⿼': [0, 0.15, 0.8, 0.85], '⿽': [0, 0.25, 0.7, 1] }
 
@@ -1243,7 +1249,7 @@ export class Composer {
     if (op === '⿱' && children.length === 2 && children.every(isHangulSyllable)) return this.hangulBlock(children, region)
     if (op === MIRROR || op === ROTATE) return this.flipped(op, children[0], region, atRoot)
     if (op === VARIANT) return this.node(children[0], region, atRoot)
-    if (op === SUBTRACT) return this.subtracted(children, region, atRoot)
+    if (op === SUBTRACT) return this.subtracted(node, region, atRoot)
     if (!(op in this.AXIS) && !(op in this.ENCLOSE) && op !== '⿻') throw new LookupError(`${op} is not laid out.`)
     if (op === '⿻') return this.overlay(children, region)
     // A ⿵ whose outer operand is a roof (入 over 一, as in 兪's top) has no opening for the inner
@@ -3036,10 +3042,11 @@ export class Composer {
   }
 
   /** ㇯ the first operand less the second: its own outlines where the export cut them, else the
-   *  glyph without what KanjiVG names so (`less`), else what is left of its description, else the
-   *  second operand cut out of it. */
-  subtracted(children, region, atRoot) {
-    const left = this.remainder([SUBTRACT, ...children], region, atRoot) ?? this.less(children, region)
+   *  glyph without what KanjiVG names so (`less`, which knows no index), else what is left of its
+   *  description, else the second operand cut out of it. */
+  subtracted(node, region, atRoot) {
+    const children = node.slice(1)
+    const left = this.remainder(node, region, atRoot) ?? (takenIndex(node) === 0 ? this.less(children, region) : null)
     if (left) return left
     // A character with no description the part can be found in: the part is laid over it and cut out.
     this.approximate.add(SUBTRACT)
@@ -3050,7 +3057,7 @@ export class Composer {
   }
 
   /**
-   * What is left of a character when parts are taken out of it (㇯馬灬, ㇯㇯卿𠂎卩), drawn from the
+   * What is left of a character when parts are taken out of it (㇯馬灬, ㇯㇯卿𠂎卩, ㇯[1]王一), drawn from the
    * character's own outlines: each part that stays is the cut the export made of it in that
    * character, set where it lies there. A part that lies inside one of the character's operands
    * is taken out of that operand in the same way, in the operand's place. Where the export has no
@@ -3064,8 +3071,8 @@ export class Composer {
   remainder(node, region, atRoot = false) {
     const taken = []
     let base = node
-    while (Array.isArray(base) && base[0] === SUBTRACT) { taken.unshift(base[2]); base = base[1] }
-    if (typeof base !== 'string' || this.excluded(base)) return null
+    while (Array.isArray(base) && base[0] === SUBTRACT) { taken.unshift([base[2], takenIndex(base)]); base = base[1] }
+    if (typeof base !== 'string' || this.excluded(base) || taken.some(([, index]) => Number.isNaN(index))) return null
     const sequence = this.sequenceOf(base), glyph = this.glyph(base)
     if (!sequence || !glyph) return null
     let tree
@@ -3083,8 +3090,8 @@ export class Composer {
       if (Array.isArray(at)) at.slice(1).forEach((child, i) => number(child, at[0], i, `${path}.${i}`))
     }
     tree.slice(1).forEach((child, i) => number(child, tree[0], i, `${i}`))
-    for (const part of taken) {
-      const [next, found] = this.without(tree, keyOf(part), part)
+    for (const [part, index] of taken) {
+      const [next, found] = this.without(tree, keyOf(part), part, index)
       if (!found) return null
       tree = next
     }
@@ -3109,48 +3116,56 @@ export class Composer {
     if (tree.slice(1).every((child, i) => draw(child, tree[0], i, `${i}`))) return out
     // The character's own glyph without what KanjiVG names so comes before a drawing of what is
     // left of its description, as `Composer._without` has it.
-    const named = taken.length === 1 ? this.less([base, taken[0]], region ?? this.face) : null
+    const named = taken.length === 1 && taken[0][1] === 0 ? this.less([base, taken[0][0]], region ?? this.face) : null
     if (named) return named
     /** @param {any} at @returns {any} */
-    const open = at => at === null ? GONE : Array.isArray(at) ? [at[0], ...at.slice(1).map(open)] : at
+    const open = at => at === null ? GONE : Array.isArray(at) ? mapOperands(at, open) : at
     return this.node(open(tree), region, atRoot).filter(part => !Number.isNaN(part.empty))
   }
 
   /**
-   * A description with the first part written `key` taken out, as [description, whether it was
-   * found]: the part's place is left null, and a character that holds the part in its own
-   * description becomes that character less the part.
-   * @param {any} tree @param {string} key @param {any} part @returns {[any, boolean]}
+   * A description with a part written `key` taken out, as [description, whether it was found, how
+   * many more to pass]: the parts written `key` are counted in reading order, into the characters
+   * that hold one, and the one `skip` of them passes is taken. Its place is left null, and a
+   * character that holds it in its own description becomes that character less the part, the
+   * index counted inside it.
+   * @param {any} tree @param {string} key @param {any} part @param {number} [skip]
+   * @returns {[any, boolean, number]}
    */
-  without(tree, key, part) {
-    if (tree === null) return [tree, false]
+  without(tree, key, part, skip = 0) {
+    if (tree === null) return [tree, false, skip]
     if (typeof tree === 'string' || tree[0] === SUBTRACT) {
-      if (tree === key) return [null, true]
-      let whole = tree
-      while (Array.isArray(whole)) whole = whole[1]
-      return this.holds(whole, key) ? [[SUBTRACT, tree, part], true] : [tree, false]
+      if (tree === key) return skip === 0 ? [null, true, 0] : [tree, false, skip - 1]
+      let whole = tree, gone = 0
+      while (Array.isArray(whole)) { if (keyOf(whole[2]) === key) gone++; whole = whole[1] }
+      const held = Math.max(this.count(whole, key) - gone, 0)
+      return skip < held ? [subtraction(tree, part, skip), true, 0] : [tree, false, skip - held]
     }
-    if (!lacks(tree) && keyOf(tree) === key) return [null, true]
-    const out = [tree[0]]
+    if (!lacks(tree) && keyOf(tree) === key) return skip === 0 ? [null, true, 0] : [tree, false, skip - 1]
+    const out = Object.assign([tree[0]], tree.note ? { note: tree.note } : {})
     let found = false
     for (const child of tree.slice(1)) {
-      const [next, hit] = found ? [child, false] : this.without(child, key, part)
+      if (found) { out.push(child); continue }
+      const [next, hit, rest] = this.without(child, key, part, skip)
       out.push(next)
-      found ||= hit
+      found = hit
+      skip = rest
     }
-    return [found ? out : tree, found]
+    return [found ? out : tree, found, skip]
   }
 
-  /** Whether a character's description holds the part written `key`, in itself or in an operand's. */
-  holds(ch, key, depth = SUBTRACT_DEPTH) {
+  /** How many parts written `key` a character's description holds, in itself or in an operand's,
+   *  a part that is `key` counted once and not looked into. */
+  count(ch, key, depth = SUBTRACT_DEPTH) {
     const sequence = depth > 0 && !this.excluded(ch) ? this.sequenceOf(ch) : null
-    if (!sequence) return false
+    if (!sequence) return 0
     let tree
-    try { tree = this.parse(sequence) } catch { return false }
-    /** @param {any} node @returns {boolean} */
-    const inside = node => keyOf(node) === key
-      || (Array.isArray(node) ? node.slice(1).some(inside) : node !== ch && this.holds(node, key, depth - 1))
-    return Array.isArray(tree) && tree.slice(1).some(inside)
+    try { tree = this.parse(sequence) } catch { return 0 }
+    /** @param {any} node @returns {number} */
+    const inside = node => keyOf(node) === key ? 1
+      : Array.isArray(node) ? node.slice(1).reduce((n, child) => n + inside(child), 0)
+        : node !== ch ? this.count(node, key, depth - 1) : 0
+    return Array.isArray(tree) ? tree.slice(1).reduce((n, child) => n + inside(child), 0) : 0
   }
 
   // ---------------------------------------------------------------- fitting

@@ -268,8 +268,9 @@ function keysOf(tree, out = [], separate = false, fontStyle = 'sans', root = tru
   return out
 }
 
-// The operators `sequence` writes with a zi.tools modifier, which the layout does not apply.
-const MODIFIER = /([\u2FF4-\u2FF7\u2FFB\u2FFC\u31EF])\[[0-9:,._xabcdlr|-]+\]/gu
+// The operators `sequence` writes with a zi.tools modifier, which the layout does not apply. ㇯'s
+// index is applied: the composer says itself where its subtraction is approximate.
+const MODIFIER = /([\u2FF4-\u2FF7\u2FFB\u2FFC])\[[0-9:,._xabcdlr|-]+\]/gu
 /** @param {string} sequence */
 function modifiedOperators(sequence) {
   return [...sequence.matchAll(MODIFIER)].map(match => match[1])
