@@ -589,7 +589,7 @@ def test_a_described_enclosing_part_takes_the_sweep_of_kin_kanjivg_writes_over_t
     assert c._kin("⿸", ("⿱", "𡗗", "夂")) is None
     placed = c._kin_outer("⿺", ("⿱", "𡗗", "夂"), kin, "面", (0, 0, 1000, 900), (500, 0, 1000, 500))
 
-    assert cuts == [("麺", ("⿺", ("⿱", "龶", "夊"), "面"), (0,))]
+    assert cuts == [("麺", ("⿺", "麦", "面"), ()), ("麺", ("⿺", ("⿱", "龶", "夊"), "面"), (0,))]
     assert [p.origin for p in placed] == ["kin 麺"] and placed[0].part is lower
     assert drawn == [("𡗗", (0, 500, 400, 900))]
 
@@ -613,3 +613,18 @@ def test_an_enclosure_drawn_as_its_kin_is_laid_out_as_the_kin():
 
     assert asked == [["⿱𡗗夂", "面"], ["麥", "面"]]
     assert outer_boxes == [kin_boxes[0]] and inner_boxes == [kin_boxes[1]]
+
+
+def test_a_kin_host_whose_outer_does_not_cut_clean_from_what_it_holds_is_passed_over():
+    # Zhuque's 麩 draws the sweep's tail and 夫 as one outline: its 麥 cut leaves the tail out.
+    group = lambda element, position=None: SimpleNamespace(element=element, position=position, groups=[])
+    entries = {"麦": SimpleNamespace(root=SimpleNamespace(groups=[group("龶", "top"), group("夂", "bottom")])), "麺": None}
+    asked = []
+    c = compose.Composer(SimpleNamespace(own=lambda _: True), {"麦": "⿱龶夊", "麺": "⿺麦面"})
+    c.kvg = SimpleNamespace(entries=entries, host_node=lambda char, tree, path: asked.append(path))
+    host = ("麺", ("⿺", "麦", "面"), (), 0)
+    c.__dict__["_index"] = ({(compose.slot("⿺", 0), "麦"): [host] * compose.KIN_OUTER_HOSTS}, {})
+    c._ranked = lambda *args, **kwargs: []
+    kin = c._kin("⿺", ("⿱", "𡗗", "夂"))
+    assert c._kin_outer("⿺", ("⿱", "𡗗", "夂"), kin, "面", (0, 0, 1000, 900), (500, 0, 1000, 500)) is None
+    assert asked == [()]

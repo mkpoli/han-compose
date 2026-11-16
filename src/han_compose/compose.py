@@ -2238,6 +2238,10 @@ class Composer:
         chars = list(dict.fromkeys(ranked + list(entries)))
         for char in [ch for ch in chars if ch in self.kvg.entries and self.font.own(ch)][:KIN_TRIED]:
             char, host_tree, path, i = entries[char]
+            if self.kvg.host_node(char, host_tree, path) is None:
+                # An outline holding strokes of the kin and of what it holds (Zhuque's 麩 draws the
+                # sweep's tail and 夫 as one) leaves the kin's cut without it.
+                continue
             cut = self.kvg.host_node(char, _replaced(host_tree, path + (i,), tree), path + (i,))
             if cut is None or len(cut.pieces) != 2:
                 continue
