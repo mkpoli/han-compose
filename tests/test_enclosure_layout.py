@@ -578,7 +578,7 @@ def test_a_described_enclosing_part_takes_the_sweep_of_kin_kanjivg_writes_over_t
     c = compose.Composer(SimpleNamespace(own=lambda _: True), {"麦": "⿱龶夊", "麺": "⿺麦面"})
     c.kvg = SimpleNamespace(entries=entries, host_node=host_node)
     host = ("麺", ("⿺", "麦", "面"), (), 0)
-    c.__dict__["_index"] = ({(compose.slot("⿺", 0), "麦"): [host] * compose.KIN_OUTER_HOSTS}, {})
+    c.__dict__["_index"] = ({(compose.slot(op, 0), "麦"): [host] * compose.KIN_OUTER_HOSTS for op in "⿺⿸"}, {})
     c._ranked = lambda *args, **kwargs: []
     c.ink = lambda _: 1.0
     drawn = []

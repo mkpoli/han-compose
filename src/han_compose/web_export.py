@@ -870,7 +870,7 @@ def _parity_file(version: str, kind: str, rows: list, stats: dict) -> bytes:
 NOT_EXPORTED = {
     "_template": "teachers: a drawn character with a node of the same operator whose operands are most like the target's, cut into them; used where the learned layout does not apply (three operands, nested nodes other than ⿰ ⿱) and before shares",
     "_transplant": "a whole ⿰ ⿲ ⿱ ⿳ character assembled from each operand's host pieces at the gaps their own hosts keep, tried at the root after the learned layout",
-    "_kin_outer": "an enclosing part taken from a kin enclosing part's hosts cut along KanjiVG (KIN_TRIED, KIN_OUTER_HOSTS)",
+    "_kin_outer": "an enclosing part taken from a kin enclosing part's hosts cut along KanjiVG (KIN_TRIED, KIN_OUTER_HOSTS); a described ⿺ outer drawn so lays both operands out as the kin character",
     "_upper": "the upper part of an enclosing operand as hosts holding it on the left draw it, cut along KanjiVG",
     "_overlays(None)": "the any-overlay fallback: the first OVERLAY_ANY two-operand overlays averaged when no overlay shares an operand; overlay teachers (_overlay) too",
     "_alone, _instances": "a character taken whole from where others hold it, placed by the standalone model: used only when the character itself is excluded, which a typed sequence never is",
