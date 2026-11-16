@@ -2253,11 +2253,24 @@ class Composer:
                 part, source = upper
                 right = min(room[2], inner_box[0] - FACING[0]) if op in "⿺⿸" else room[2]
                 target = fitted(part.box, (room[0], room[1], max(right, room[0] + (room[2] - room[0]) / 3), room[3]))
-                placed.append(Placed(part, part.box, target, native=self.ink(source), origin=f"kin {source}"))
+                upper_parts = [Placed(part, part.box, target, native=self.ink(source), origin=f"kin {source}")]
             else:
-                placed += self._node(own[1], room)
-            return placed
+                upper_parts = self._node(own[1], room)
+            return placed + self._settled(upper_parts, Placed(top, top.box, room), placed)
         return None
+
+    def _settled(self, upper: list[Placed], kin_top: Placed, lower: list[Placed]) -> list[Placed]:
+        """An upper part drawn into a kin's upper room, its foot lowered as far as it stands short of
+        the lower part where the kin's own upper part stands: 𡗗's 人 ends above 夊 where 來's
+        legs reach into it in 麥. Its proportions stay within `STRETCH`."""
+        drawn, kin = _facing(upper, lower, 1), _facing([kin_top], lower, 1)
+        if drawn is None or kin is None or drawn <= kin:
+            return upper
+        x0, y0, x1, y1 = (min(p.target[0] for p in upper), min(p.target[1] for p in upper),
+                          max(p.target[2] for p in upper), max(p.target[3] for p in upper))
+        lowered = (x0, y0 - (drawn - kin), x1, y1)
+        out = [replace(p, target=mapped(p.target, (x0, y0, x1, y1), lowered)) for p in upper]
+        return out if all(self._stretch(p.source, q.target) <= STRETCH for p, q in zip(upper, out)) else upper
 
     def _upper(self, outer: str, own: tuple) -> tuple[Part, str] | None:
         """The upper part of `outer` (written `own`, ⿱ over its lower part) as characters holding
