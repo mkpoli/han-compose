@@ -35,6 +35,7 @@ export function bundledSource({ load, matches, fallback = null, under = false, a
         rec: key => answers(key, remote) ? records[keyOf(key)] ?? null : remote?.rec(key) ?? null,
         hosts: (key, place) => answers(key, remote) ? [] : remote?.hosts(key, place) ?? [],
         places: key => answers(key, remote) ? [] : remote?.places(key) ?? [],
+        kin: () => remote?.kin?.() ?? null,
       }
     },
   }
