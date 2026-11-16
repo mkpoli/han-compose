@@ -129,6 +129,134 @@ describe('C072 ⿵𦉪丅', () => {
     expect(out.target).toEqual(frame.target)
   })
 })
+
+describe('⿵𦉪十', () => {
+  const contourBox = c => {
+    const xs = [], ys = []
+    for (let i = 0; i < c.light.length; i += 2) { xs.push(c.light[i]); ys.push(c.light[i + 1]) }
+    return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)]
+  }
+  const drawnBoxOf = (p, k = 0) => {
+    const pts = drawnContours(p)[k], xs = [], ys = []
+    for (let i = 0; i < pts.length; i += 2) { xs.push(pts[i]); ys.push(pts[i + 1]) }
+    return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)]
+  }
+  const polygon = (points, heavy = points) => ({
+    ops: points.map((_, i) => ({ code: i ? 'L' : 'M' })),
+    light: Float64Array.from(points.flat()),
+    heavy: Float64Array.from(heavy.flat()),
+    width: null,
+  })
+  const withHeavy = (p, box) => {
+    p.part.contours.forEach((c, i) => {
+      const heavy = box(i, c)
+      if (heavy) c.heavy = Float64Array.from(heavy.length === 4 ? [heavy[0], heavy[1], heavy[2], heavy[1], heavy[2], heavy[3], heavy[0], heavy[3]] : heavy.flat())
+    })
+    return p
+  }
+  // 9-contour Sans-like 鬲 ([3,4,5,8] form 𦉪) and 2-contour 十 ([bar, stem]), with heavy masters.
+  // Contour 8 shapes 丿’s curved tail on the left ([183,146]) so clearance over 十’s bar is tested accurately.
+  const sansGe = () => {
+    const base = part('glyph 鬲', [75, -82, 927, 787], [75, -82, 927, 787], [
+      [75, 720, 927, 787], [293, 84, 719, 139], [466, -71, 535, 116],
+      [109, -81, 864, 386], [677, -82, 900, 386], [545, 178, 817, 346],
+      [282, 505, 728, 602], [211, 450, 803, 658], [183, 146, 438, 352],
+    ])
+    base.part.contours[8] = polygon(
+      [[371, 352], [438, 352], [433, 220], [235, 146], [183, 146], [337, 240]],
+      [[350, 342], [472, 342], [450, 210], [250, 116], [210, 116], [320, 230]])
+    return withHeavy(base, (i, c) => i === 5 ? [514, 150, 810, 329] : i === 8 ? null : contourBox(c))
+  }
+  const sansTen = () => withHeavy(part('glyph 十', [55, -80, 952, 839], [55, -80, 952, 839],
+    [[55, 389, 952, 466], [461, -80, 542, 839]]),
+    i => i === 0 ? [45, 350, 964, 502] : [422, -95, 582, 855])
+  // 10-contour Serif-like 鬲 ([3,4,8,9] form 𦉪) and 2-contour 十 ([stem, bar]).
+  const serifGe = () => part('glyph 鬲', [79, -81, 936, 829], [79, -81, 936, 829], [
+    [285, 138, 738, 213], [466, -65, 530, 168], [79, 740, 936, 829],
+    [672, -82, 918, 432], [125, -79, 846, 424], [242, 429, 718, 692],
+    [677, 438, 797, 701], [279, 484, 717, 512], [539, 228, 783, 391], [205, 176, 446, 388],
+  ]).part
+  const serifTen = () => part('glyph 十', [44, -76, 958, 834], [44, -76, 958, 834],
+    [[464, -76, 571, 834], [44, 443, 959, 541]]).part
+
+  const fix = COMPONENT_FIXES['⿵𦉪十']
+  const composerOf = (ge, ten, ink = ch => ch === '鬲' ? 7000 : 3700) => ({
+    glyph: ch => ch === '鬲' ? ge : ch === '十' ? ten : null,
+    ink,
+  })
+
+  it('places separate 十 strokes cleanly inside 鬲’s 𦉪 frame at the root, clearing the thinned inner strokes', () => {
+    const ge = sansGe().part, ten = sansTen().part
+    const frame = part('glyph 𦉪', [95, 157, 906, 611], [72, -20, 931, 746], [[95, 157, 906, 611]])
+    const out = fix.apply([frame], composerOf(ge, ten))
+    expect(out).toHaveLength(3)
+    const [shell, bar, stem] = out
+    expect(shell.origin).toBe('body 鬲')
+    shell.target.forEach((v, i) => expect(v).toBeCloseTo(frame.target[i], 6))
+    expect(shell.part.contours).toHaveLength(4)
+    expect([bar.origin, stem.origin]).toEqual(['glyph 十', 'glyph 十'])
+    expect(bar.part.contours).toEqual([ten.contours[0]])
+    expect(stem.part.contours).toEqual([ten.contours[1]])
+    // Inner 乚 (index 2) and 丿 (index 3) narrow by 0.88 about their centres, widening the channel.
+    expect(contourBox(shell.part.contours[3])[2]).toBeLessThan(contourBox(ge.contours[8])[2])
+    expect(contourBox(shell.part.contours[2])[0]).toBeGreaterThan(contourBox(ge.contours[5])[0])
+    // Bar sits cleanly below 丿 and 乚; stem rises symmetrically between them.
+    const slash = drawnBoxOf(shell, 3), hook = drawnBoxOf(shell, 2)
+    const barBox = drawnBoxOf(bar), stemBox = drawnBoxOf(stem)
+    expect(barBox[3]).toBeLessThan(slash[1])
+    expect(barBox[3]).toBeLessThan(hook[1])
+    expect(stemBox[0]).toBeGreaterThan(slash[2])
+    expect(stemBox[2]).toBeLessThan(hook[0])
+    expect(stemBox[3]).toBeGreaterThan(barBox[3])
+    expect(stemBox[1]).toBeLessThan(barBox[1])
+  })
+
+  it('supports Serif’s 10-contour 鬲 and swapped 十 stroke order', () => {
+    const ge = serifGe(), ten = serifTen()
+    const frame = part('glyph 𦉪', [106, 168, 936, 603], [76, 15, 926, 729], [[106, 168, 936, 603]])
+    const [shell, bar, stem] = fix.apply([frame], composerOf(ge, ten))
+    shell.target.forEach((v, i) => expect(v).toBeCloseTo(frame.target[i], 6))
+    expect(bar.part.contours).toEqual([ten.contours[1]])
+    expect(stem.part.contours).toEqual([ten.contours[0]])
+    const slash = drawnBoxOf(shell, 3), hook = drawnBoxOf(shell, 2)
+    const barBox = drawnBoxOf(bar), stemBox = drawnBoxOf(stem)
+    expect(barBox[3]).toBeLessThan(slash[1])
+    expect(stemBox[0]).toBeGreaterThan(slash[2])
+    expect(stemBox[2]).toBeLessThan(hook[0])
+  })
+
+  it('keeps both 十 strokes balanced and clear in a compressed nested stack such as ⿳羔口⿵𦉪十', () => {
+    const ge = sansGe().part, ten = sansTen().part
+    const frame = part('glyph 𦉪', [95, 157, 906, 611], [111, -82, 894, 188], [[95, 157, 906, 611]])
+    const parts = fix.apply([frame], composerOf(ge, ten))
+    // Balance with realistic upper sibling ink density (~6000 total ink, as in ⿳羔口⿵𦉪十).
+    Composer.prototype.balance.call({ C: { STEM_CURVE: [[85.34, -1.324], [86.93, -1.914]] }, stem0: [[80.702, 160], [82.142, 159]] }, parts)
+    const [shell, bar, stem] = parts
+    const slash = drawnBoxOf(shell, 3), hook = drawnBoxOf(shell, 2)
+    const barBox = drawnBoxOf(bar), stemBox = drawnBoxOf(stem)
+    expect(barBox[3] - barBox[1]).toBeGreaterThan(45)
+    expect(stemBox[2] - stemBox[0]).toBeGreaterThan(50)
+    expect(barBox[3]).toBeLessThan(hook[1])
+    expect(stemBox[0]).toBeGreaterThan(slash[2])
+    expect(stemBox[2]).toBeLessThan(hook[0])
+  })
+
+  it('lists both faces’ 鬲 and 十 digests and leaves missing, unsupported, or unmatched glyphs alone', () => {
+    expect(fix.glyphs['鬲']).toHaveLength(2)
+    expect(fix.glyphs['十']).toHaveLength(2)
+    const frame = part('glyph 𦉪', [0, 0, 800, 800], [100, 0, 900, 800], [[0, 0, 800, 800]])
+    expect(fix.apply([frame], composerOf(null, sansTen().part))).toEqual([frame])
+    expect(fix.apply([frame], composerOf(sansGe().part, null))).toEqual([frame])
+    const kaishoGe = part('glyph 鬲', [0, 0, 800, 800], [0, 0, 800, 800], Array.from({ length: 5 }, () => [0, 0, 800, 450])).part
+    expect(fix.apply([frame], composerOf(kaishoGe, sansTen().part))).toEqual([frame])
+    const oneStrokeTen = part('glyph 十', [0, 0, 800, 800], [0, 0, 800, 800], [[0, 0, 800, 800]]).part
+    expect(fix.apply([frame], composerOf(sansGe().part, oneStrokeTen))).toEqual([frame])
+    const other = [[0, 0]]
+    expect(fix.glyphs['十']).not.toContain(hexOf(JSON.stringify(other)))
+    const parts = [frame]
+    expect(componentFix('⿵𦉪十', parts, { glyphRecord: ch => ch === '十' ? { p: other } : null })).toBe(parts)
+  })
+})
 describe('C049 ⿱𰀁口', () => {
   it('gives the 口 the width and height 亮 sets, with 𰀁’s stem meeting its top', () => {
     const top = part('learned 𤆖', [72, 198, 940, 834], [66, 284, 935, 842], [[72, 198, 940, 834]])

@@ -432,6 +432,42 @@ export const COMPONENT_FIXES = {
       return [placed(derived(glyph, contours, source), source, target, composer.ink('鬲'), 'body 鬲')]
     },
   },
+  // 鬲 supplies the complete 𦉪 frame (matching ⿵𦉪丅), with its inner 丿 and 乚 thinned
+  // horizontally to open a central channel between them. 十’s horizontal and vertical strokes sit as
+  // separate placed pieces so the balance weights both strokes even in compressed stacks like ⿳羔口⿵𦉪十.
+  '⿵𦉪十': {
+    glyphs: {
+      '鬲': [
+        '77e24fb157b9a4fff77f27a1a31f1fb9b9ca21bc332dd18809015d3f0214a9a6',
+        'f2cce4e4b895cb546341399693139fdbb7478ff5c02f2c9c565a3817099bbc91',
+      ],
+      '十': [
+        'ce6ceba94c9cff059884ae9f408b550499c7fd68870f52d4b58249bc654f8c48',
+        '8ba0401e9267ccab67dd66212c1cb4d456dec0c706ea12d995a7ec7493512d3f',
+      ],
+    },
+    apply(parts, composer) {
+      const faces = {
+        9: { frame: [3, 4, 5, 8], narrow: 0.88, bar: 0, stem: 1, barBox: [290, 52, 716, 108], stemBox: [457, -71, 526, 265] },
+        10: { frame: [3, 4, 8, 9], narrow: 0.85, bar: 1, stem: 0, barBox: [282, 58, 742, 146], stemBox: [450, -65, 544, 285] },
+      }
+      const frame = partFrom(parts, 'glyph 𦉪'), body = composer.glyph('鬲'), cross = composer.glyph('十')
+      const face = body && faces[body.contours.length]
+      if (!frame || !face || !cross || cross.contours.length < 2) return parts
+      const contours = face.frame.map(index => body.contours[index])
+      const source = union(contours.map(contour => pointsBox(contour.light)))
+      const target = boxOf(frame)
+      // indices [2, 3] in `face.frame` are 乚 and 丿 in both Sans and Serif.
+      const shell = narrowed(
+        placed(derived(body, contours, source), source, target, composer.ink('鬲'), 'body 鬲'),
+        [2, 3], face.narrow)
+      const stroke = (index, box) => {
+        const contour = cross.contours[index], strokeBox = pointsBox(contour.light)
+        return placed(derived(cross, [contour], strokeBox), strokeBox, mapped(box, source, target), composer.ink('十'), 'glyph 十')
+      }
+      return [shell, stroke(face.bar, face.barBox), stroke(face.stem, face.stemBox)]
+    },
+  },
   // ⿰𠄠𠄠: the pair is set as one cell each, and the two 𠄠 meet with only a sliver between
   // them. 臼 sets its inner bars at 0.12 of the face apart; the pair keeps that distance, taking it
   // from their inner ends so the outer edges stay where the layout put them.
