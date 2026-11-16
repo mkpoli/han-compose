@@ -98,6 +98,7 @@ export function unicodeSource({ fallback = null, load = readShard } = {}) {
         },
         hosts: (key, place) => remote?.hosts(key, place) ?? [],
         places: key => remote?.places(key) ?? [],
+        kin: () => remote?.kin?.() ?? null,
       }
     },
   }

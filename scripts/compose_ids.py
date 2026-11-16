@@ -365,18 +365,23 @@ def export_web(out: Path, parity: int = 0, held_out: int = 0, workers: int = 1, 
     (`web_export.letters`) into the finished export in `out`, for `export-web-pack` to rebuild only
     the shards they fall in; `--add variants` does the same for every variation sequence the main
     font draws with a glyph of its own (`web_export.variants`), and `export-web-pack` lists them in
-    `variants.json`. `--dry-run` reports how many keys and shards that is and writes nothing."""
+    `variants.json`. `--add kin` writes the kin table (`web_export.add_kin`), which
+    `export-web-pack` publishes as `kin.json`. `--dry-run` reports how many keys and shards that is
+    and writes nothing."""
     from han_compose import web_export
 
     composer = _composer(style)
     _require_layout(composer, style)
     if add:
         sets = {"letters": web_export.letters, "variants": web_export.variants}
-        if add not in sets:
-            raise typer.BadParameter(f"--add takes letters or variants, not {add}.")
+        if add not in (*sets, "kin"):
+            raise typer.BadParameter(f"--add takes letters, variants or kin, not {add}.")
+        log = lambda line: print(line, flush=True)
         try:
-            result = web_export.add(composer, out, sets[add](composer.font), add, dry_run=dry_run,
-                                    log=lambda line: print(line, flush=True))
+            if add == "kin":
+                print(json.dumps(web_export.add_kin(composer, out, dry_run=dry_run, log=log)))
+                return
+            result = web_export.add(composer, out, sets[add](composer.font), add, dry_run=dry_run, log=log)
         except web_export.AddError as error:
             typer.echo(str(error), err=True)
             raise typer.Exit(1) from error

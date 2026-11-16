@@ -17,7 +17,8 @@
 // every host entry of it there, cut or not, and `data.places(key)` the places it is held in; each
 // answers empty for a key the export lacks or whose file is not loaded yet (which the caller loads
 // before drawing again). A store that holds the export's identity table also answers
-// `data.identity(key)`: the key's sequence and the character it describes, without its record.
+// `data.identity(key)`: the key's sequence and the character it describes, without its record; one
+// over an export with a kin table answers `data.kin()` with it (`kin`, `kinOuter`).
 import { EM_BOX, area, centre, count, derived, drawnBox, drawnContours, fill, fitted, grown, groupRings, makePart, mapped, partInk, partOf,
   placed, pointsBox, pyRound, raster, rings, scaleOf, shrunk, square, stretchOf, targetFor, union, within } from './geometry.js'
 import { ownFormsOnly, componentParts, componentPosition, componentPositionBox, componentRecord, containsComponentForm, isComponentForm, isGroupedForm, isNativeForm } from './component-forms.js'
@@ -495,7 +496,7 @@ const DESIGNED_CUTS = {
 
 export class Composer {
   /**
-   * `data`: `{ manifest, layout, rec(key), hosts(key, place), places(key), identity?(key) }`; `exclude`: characters nothing is taken from (a
+   * `data`: `{ manifest, layout, rec(key), hosts(key, place), places(key), identity?(key), kin?() }`; `exclude`: characters nothing is taken from (a
    * character redrawn to test, with its twins); `face`: the box a whole character fills, when those
    * characters change it (the manifest's is the median of `FULL` with none excluded); `separate`:
    * draw operands as individual pieces where possible, including cuts from a matching whole glyph,
@@ -1475,6 +1476,99 @@ export class Composer {
     return { record: { h: char }, piece }
   }
 
+  /** The kin an enclosing part is drawn as (`_kin`): of the characters written over the same lower
+   *  part that many hold in that place (走 for 足, 麥 for ⿱𡗗夂), the one with most hosts there, as
+   *  `{ char, own }` with the outer's own tree; null when the outer is written otherwise, has no such
+   *  kin, or the export has no kin table (`data.kin`). */
+  kin(op, outer) {
+    let own
+    if (typeof outer === 'string') {
+      const sequence = this.sequenceOf(outer)
+      if (!sequence) return null
+      try { own = this.parse(sequence) } catch { return null }
+    } else if (op === '⿺') {
+      // A described outer only round a part held beside its upper part, over its sweep, where a
+      // stack leaves that part no room; under ⿸ (⿱丷厂) the stack already holds it.
+      own = outer
+    } else return null
+    if (!(Array.isArray(own) && own[0] === '⿱' && typeof own[2] === 'string')) return null
+    // A pass still loading host lists finds no host for parts that have them: the table is asked
+    // for once they are read.
+    if (this.partial) return null
+    const table = this.data.kin?.()
+    if (!table) return null
+    const place = this.slot(op, 0)
+    let best = null
+    for (const [char, held] of table.lower[place]?.[own[2]] ?? []) {
+      // A drawing that excludes hosts counts the kin's hosts again without them.
+      const count = this.exclude.size ? this.hostsOf(char, place, true).filter(h => !this.excluded(h.h)).length : held
+      if (char !== outer && count >= table.KIN_OUTER_HOSTS && (!best || count > best.count)) best = { count, char }
+    }
+    return best && { char: best.char, own }
+  }
+
+  /** An enclosing part drawn as its kin's (`_kin_outer`): 足 round 羽 in 䟳 as 走's sweep, cut from a
+   *  host, under 口 in 土's place; ⿱𡗗夂 round 面 as 麥's sweep, under 𡗗 in 來's place. Null when
+   *  no host cuts. */
+  kinOuter(op, outer, kin, inner, box, innerBox) {
+    const C = this.C, table = this.data.kin(), place = this.slot(op, 0)
+    const cuts = table.cuts[`${place}\t${kin.char}`] ?? {}
+    // The kin cut along KanjiVG's groups of its own two parts (走 into 土 and 龰), whose outlines
+    // interlock too closely for a geometric cut: so only from characters KanjiVG draws (those the
+    // table cuts), the best ranked first.
+    const ranked = this.ranked(op, 0, kin.char, [inner], box, true).map(([, found]) => found.record.h)
+    const listed = this.hostsOf(kin.char, place, true).map(h => h.h).filter(h => !this.excluded(h))
+    const chars = [...new Set([...ranked, ...listed])].filter(h => Object.hasOwn(cuts, h)).slice(0, table.KIN_TRIED)
+    for (const char of chars) {
+      if (!cuts[char]) continue
+      const glyph = this.glyph(char)
+      // A host whose record is still loading is tried once it is read.
+      if (!glyph) { if (this.partial) return null; continue }
+      const [top, lower] = cuts[char].map(indices => kanjivgCut(derived(glyph, indices.map(k => glyph.contours[k]))))
+      const frame = union([top.box, lower.box])
+      const drawn = [placed(lower, lower.box, mapped(lower.box, frame, box), this.ink(char), `kin ${char}`)]
+      const room = mapped(top.box, frame, box)
+      const upper = typeof outer === 'string' ? this.upperOf(outer) : null
+      let above
+      if (upper) {
+        // In the kin's upper part's room, short of the enclosed part's box by the gap neighbours
+        // keep, its proportions kept within `STRETCH`.
+        const right = op === '⿺' || op === '⿸' ? Math.min(room[2], innerBox[0] - C.FACING[0]) : room[2]
+        const target = fitted(upper.part.box, [room[0], room[1], Math.max(right, room[0] + (room[2] - room[0]) / 3), room[3]], C.STRETCH)
+        above = [placed(upper.part, upper.part.box, target, this.ink(upper.source), `kin ${upper.source}`)]
+      } else above = this.node(kin.own[1], room)
+      this.settle(above, placed(top, top.box, room, 0, `kin ${char}`), drawn)
+      // A separated drawing keeps reading order, the upper operand first.
+      return this.separate ? [...above, ...drawn] : [...drawn, ...above]
+    }
+    return null
+  }
+
+  /** An upper part drawn into a kin's upper room, its foot lowered as far as it stands short of the
+   *  lower part where the kin's own upper part stands (`_settled`): 𡗗's 人 ends above 夊 where 來's
+   *  legs reach into it in 麥. Each part's own gap counts, so a part ending lower than its
+   *  neighbours is not lowered into the sweep by their median. Its proportions stay within `STRETCH`.
+   *  The parts move in place, so a joint or sweep recorded on them follows. */
+  settle(upper, kinTop, lower) {
+    const gaps = upper.map(p => facing([p], lower, 1)).filter(Boolean).map(g => g.median)
+    const kin = facing([kinTop], lower, 1)
+    if (!gaps.length || !kin || Math.min(...gaps) <= kin.median) return
+    const frame = union(upper.map(p => p.target))
+    const lowered = [frame[0], frame[1] - (Math.min(...gaps) - kin.median), frame[2], frame[3]]
+    const targets = upper.map(p => mapped(p.target, frame, lowered))
+    if (targets.every((target, k) => stretchOf(upper[k].source, target) <= this.C.STRETCH)) upper.forEach((p, k) => { p.target = targets[k] })
+  }
+
+  /** The upper part of an enclosing character written over a lower part (`_upper`), as the first
+   *  character holding it on the left draws it, narrow as it stands over a sweep (⻊'s 口), cut along
+   *  KanjiVG: `{ part, source }`, or null. */
+  upperOf(outer) {
+    const found = this.data.kin?.()?.upper[outer]
+    if (!found || this.excluded(found[0])) return null
+    const glyph = this.glyph(found[0])
+    return glyph && { part: kanjivgCut(derived(glyph, found[1].map(k => glyph.contours[k]))), source: found[0] }
+  }
+
   /** Seat the inner group where the designed character sets its own: ⿺爪口's 口 in 巴's place in
    *  爬, so the inner part keeps clear of the sweep. */
   seatInDesignedFrame(groups) {
@@ -2286,11 +2380,23 @@ export class Composer {
       && this.frameHalves(this.glyph(children[0]), children[0], this.face) !== null
   }
 
+  /** The boxes the learned layout gives a node's operands (`_learned_boxes`), carried into `region`
+   *  when nested; null when one has no extent. */
+  learnedBoxes(op, children, region) {
+    const C = this.C
+    let boxes = this.predict(op, children)
+    if (region) { const frame = union(boxes); boxes = boxes.map(b => mapped(b, frame, region)) }
+    if (op in this.ENCLOSE && !region && area(boxes[0]) < C.ENCLOSING_LEAST * area(this.face)) boxes[0] = this.face.slice()
+    if (C.COVERING.includes(op)) boxes[0] = union(boxes)
+    return boxes.some(b => b[2] <= b[0] || b[3] <= b[1]) ? null : boxes
+  }
+
   learned(op, children, region, ownParts = false) {
     const split = this.splitFrame(op, children, region ?? this.face)
     if (split) return split
     const C = this.C, stem = this.stem0[0][0], frameOf = region ?? this.face
-    let boxes = this.predict(op, children)
+    let boxes = this.learnedBoxes(op, children, region)
+    if (!boxes) return null
     // The network can give a rare nested stack a band its strokes do not fill: when the top of a
     // pair takes more than half the height while holding under 40% of the pair's ink, the plain ink
     // shares place the pair (⿱㇒𭕄 over 𠙻).
@@ -2299,16 +2405,12 @@ export class Composer {
       const ink = this.ink(children[0]), other = this.ink(children[1])
       if (span > 0 && (boxes[0][3] - boxes[0][1]) / span > LEARNED_TOP && ink < LEARNED_INK * (ink + other)) return null
     }
-    if (region) { const frame = union(boxes); boxes = boxes.map(b => mapped(b, frame, region)) }
     // 𭰲 (⿰氵⿵冂并) keeps about a fifth of a stem between the water and the frame; a described
     // ⿰氵⿵冂… tends to close it to nothing.
     if (op === '⿰' && children[0] === '氵' && Array.isArray(children[1]) && children[1][0] === '⿵') {
       const gap = 0.02 * (this.face[2] - this.face[0]), b = boxes[1]
       if (b[2] - b[0] > gap * 4) { b[0] = b[0] + gap; b[2] = Math.min(b[2] + gap, this.face[2]) }
     }
-    if (op in this.ENCLOSE && !region && area(boxes[0]) < C.ENCLOSING_LEAST * area(this.face)) boxes[0] = this.face.slice()
-    if (C.COVERING.includes(op)) boxes[0] = union(boxes)
-    if (boxes.some(b => b[2] <= b[0] || b[3] <= b[1])) return null
     // 王 as the left part of a compound body takes its combining form and a narrow column.
     const wangLeft = !region && op === '⿰' && children[0] === '王'
     if (wangLeft) {
@@ -2324,6 +2426,8 @@ export class Composer {
     // of three's, and fill them as its operands do.
     const narrow = op in this.AXIS && this.narrowRow(children)
     const groups = []
+    // Whether the enclosing part is drawn as its kin's.
+    let kinned = false
     for (let i = 0; i < children.length; i++) {
       const child = children[i]
       // A repeated glyph takes one cell per operand, whichever path draws it.
@@ -2356,6 +2460,25 @@ export class Composer {
         continue
       }
       let part = this.host(op, i, child, [...children.slice(0, i), ...children.slice(i + 1)], box, region === null)
+      if (op in this.ENCLOSE && i === 0 && (!part || (typeof child === 'string' && this.own(child)
+        && stretchOf(part.piece.box, box) > C.ENCLOSING_STRETCH))) {
+        // An enclosing part no host draws in its place, or every host squeezes, is drawn as its kin's.
+        const kin = this.kin(op, child)
+        let drawn = null
+        if (kin && typeof child === 'string') drawn = this.kinOuter(op, child, kin, children[1], box, boxes[1])
+        else if (kin) {
+          // A description the layout never saw stands where the kin's character puts both parts: 面
+          // low in 麥's opening, as in 麵, for ⿱𡗗夂 round it.
+          const asKin = this.learnedBoxes(op, [kin.char, children[1]], region)
+          drawn = asKin && this.kinOuter(op, child, kin, children[1], asKin[0], asKin[1])
+          if (drawn) boxes = asKin
+        }
+        if (drawn) {
+          groups.push(drawn)
+          kinned = true
+          continue
+        }
+      }
       // An operand with no host cut is drawn from its own glyph, which keeps the part inside its box.
       // A repeated component still has its cuts (⿱丑丑 takes both halves from 峱), so the glyph is
       // the fallback and never replaces a cut the export provides. A glyph the box would deform
@@ -2385,7 +2508,7 @@ export class Composer {
       if (!part) {
         // A part with no host cut (a description, an empty slot) is set over a swept foot by
         // `shares`: where it will sweep the outer glyph, answer nothing and `node` hands it the pair.
-        if (op === '⿺' && i === 1 && this.sweptUnder(children, this.enclosing(op, children, frameOf), frameOf)) return null
+        if (op === '⿺' && i === 1 && !kinned && this.sweptUnder(children, this.enclosing(op, children, frameOf), frameOf)) return null
         if (op in this.ENCLOSE && i === 1) {
           // An inner the opening cannot hold is drawn into the opening itself, so it cannot
           // overflow the frame. A grid drawn whole can still have one row smaller than the other
@@ -4059,6 +4182,12 @@ function squeeze(group, axis, low, high) {
     t[axis + 2] = newLo + (p.target[axis + 2] - lo) * scale
     p.target = t
   }
+}
+
+/** `piece` marked as cut along KanjiVG's groups, which a drawing using it credits. */
+function kanjivgCut(piece) {
+  if (!piece.kv) Object.defineProperty(piece, 'kv', { value: true, enumerable: false })
+  return piece
 }
 
 /** The median gap between two groups along their facing edges, and the nearest gap, in font units

@@ -75,6 +75,7 @@ export function customFormsSource({ fallback = null, load = () => pageLoader(CUS
           return lists.get(id)
         },
         places: key => hosts[key] ? Object.keys(hosts[key]) : remote?.places(key) ?? [],
+        kin: () => remote?.kin?.() ?? null,
       }
     },
   }

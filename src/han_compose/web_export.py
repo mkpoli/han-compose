@@ -15,7 +15,9 @@
 - `p/<hhh>.json`: the host lists of the (place, operand)s whose SHA-256 of place + TAB + operand
   starts with `hhh`, by place + TAB + operand: the pieces host characters give that operand there,
   every host `Composer._ranked`, `_instance` and the kin and facing places may weigh, each cut by the
-  composer (along KanjiVG's groups where it can).
+  composer (along KanjiVG's groups where it can);
+- `kin.json`: for an enclosing part no host draws in its place, the kins `Composer._kin` weighs and
+  their hosts' cuts along KanjiVG, and the upper parts `_upper` cuts (`kin_table`).
 
 A record shard is named by the hash's first four hex digits (65,536 shards, a few records each) and
 a host-list shard by its first three (4,096). Every file under `g/` and `p/` is gzip-compressed
@@ -70,6 +72,8 @@ IDENTITY = "identity.json"
 WORK = ".work"
 #: The variation sequences the folder holds records for, by base character.
 VARIANTS = "variants.json"
+#: The kin table (`kin_table`): what drawing an enclosing part as its kin's reads beyond the host lists.
+KIN = "kin.json"
 #: Outline coordinates are stored as int16 in units of 1 / `QUANT` font unit.
 QUANT = 4
 #: Layout weights: int8 with a scale per output column when its boxes stay within `INT8_TOLERANCE`
@@ -80,6 +84,10 @@ INT8_TOLERANCE = 1.0
 CHECK_SAMPLE = 400
 
 KANJIVG_NOTICE = "KanjiVG, Copyright (C) 2009-2013 Ulrich Apel, CC BY-SA 3.0, https://kanjivg.tagaini.net/"
+#: What the manifest says of the cuts read from KanjiVG.
+CUTS_NOTE = ("A host-list entry whose cut has kv 1 (p/ hosts[].c.kv) is cut along KanjiVG's component groups, as is every piece "
+             "kin.json names, and a drawing that uses one adapts KanjiVG's data: it is shared alike under CC BY-SA 3.0 with this "
+             "notice. The hand forms (hand) are read from KanjiVG's stroke types and carry the same licence.")
 
 
 def key_hash(key: str) -> str:
@@ -444,6 +452,96 @@ def groups_for(composer: C.Composer, key: str) -> list[dict]:
                         "gn": [g.element for g in K._named(group)], "gc": cut[1],
                         "c": {"b": _r(piece.box), "k": cut[0], "kv": 1}})
     return records
+
+
+# ------------------------------------------------------------------ kin
+def _indices(composer: C.Composer, char: str, part: C.Part) -> list[int] | None:
+    """The indices of `char`'s glyph contours `part` keeps, or None should it hold one the glyph does not."""
+    at = {id(c): k for k, c in enumerate(composer.font.glyph(char).contours)}
+    found = [at.get(id(c)) for c in part.contours]
+    return None if None in found else found
+
+
+def kin_lower(composer: C.Composer, held=None) -> dict[str, dict[str, list[list]]]:
+    """`Composer._kin`'s candidates, by enclosing place and lower part: the characters written over
+    that part (`_by_lower`, then `_by_named_lower`, the order `_kin` weighs them in), each with its
+    count of hosts in the place, those with at least `KIN_OUTER_HOSTS`. `held(place, operand)`
+    answers whether the folder holds that host list; a kin without one is left out."""
+    index, _ = composer._index
+    out: dict[str, dict[str, list[list]]] = {}
+    for place in sorted({C.slot(op, 0) for op in C.ENCLOSE}):
+        for lower in sorted(set(composer._by_lower) | set(composer._by_named_lower)):
+            found = [[other, n] for other, _ in composer._kin_candidates(lower)
+                     if (n := len(index.get((place, other), []))) >= C.KIN_OUTER_HOSTS and (held is None or held(place, other))]
+            if found:
+                out.setdefault(place, {})[lower] = found
+    return out
+
+
+def kin_table(composer: C.Composer, lower: dict[str, dict[str, list[list]]], log=print) -> dict:
+    """What a port reads to draw an enclosing part as its kin's (`Composer._kin_outer`), `KIN`:
+    `lower` (`kin_lower`); `cuts`, by place + TAB + kin, every host the kin's host list there names
+    that KanjiVG and the variable font draw, with the kin's node cut along KanjiVG into its upper and
+    lower piece as `[upper, lower]` indices of the host glyph's contours, or null where it does not
+    cut so (the list's last entry of a host, as `_kin_outer` takes it); `upper`, by enclosing
+    character written over a lower part with a kin, the part `_upper` takes for its upper part as
+    `[source character, contour indices]`, absent where none cuts; and the constants they are read
+    with."""
+    index, _ = composer._index
+    trees = {other: tree for kin in (composer._by_lower, composer._by_named_lower) for found in kin.values() for other, tree in found}
+    cuts: dict[str, dict[str, list | None]] = {}
+    for place, by_lower in sorted(lower.items()):
+        for other in sorted({other for found in by_lower.values() for other, _ in found}):
+            entries = {e[0]: e for e in index[(place, other)]}
+            table = {}
+            for char, entry in sorted(entries.items()):
+                if char not in composer.kvg.entries or not composer.font.own(char):
+                    continue
+                cut = composer._kin_cut(entry, trees[other])
+                pieces = [_indices(composer, char, p) for p in cut.pieces] if cut is not None else None
+                table[char] = None if pieces is None or None in pieces else pieces
+            cuts[hosts_key(place, other)] = table
+            log(f"kin {place} {other}: {sum(v is not None for v in table.values())}/{len(table)} hosts cut")
+    upper: dict[str, list] = {}
+    lowers: dict[str, set[str]] = {}
+    for by_lower in lower.values():
+        for y, found in by_lower.items():
+            lowers.setdefault(y, set()).update(other for other, _ in found)
+    for char, seq in sorted(composer.sequences.items()):
+        try:
+            own = C.parse(seq)
+        except ValueError:
+            continue
+        if not (isinstance(own, tuple) and own[0] == "⿱" and isinstance(own[2], str) and lowers.get(own[2], set()) - {char}):
+            continue
+        found = composer._upper(char, own)
+        if found is not None:
+            part, source = found
+            indices = _indices(composer, source, part)
+            if indices is not None:
+                upper[char] = [source, indices]
+    return {"lower": lower, "cuts": cuts, "upper": upper,
+            "KIN_OUTER_HOSTS": C.KIN_OUTER_HOSTS, "KIN_TRIED": C.KIN_TRIED}
+
+
+def _publish_kin(out: Path, manifest: dict) -> None:
+    """Copy the kin table a run left under `.work/` (`KIN`) to the folder's root and name it in the
+    manifest, with KanjiVG credited for it."""
+    work = out / WORK / KIN
+    if not work.exists():
+        return
+    data = work.read_bytes()
+    _replace(out / KIN, data)
+    table = json.loads(data)
+    manifest["files"]["kin"] = {"path": KIN, "bytes": len(data), "gzip": len(gzip.compress(data, 9, mtime=0)),
+                                "kins": len(table["cuts"]), "outers": len(table["upper"])}
+    manifest.setdefault("paths", {})["kin"] = PATHS["kin"]
+    licences = manifest.get("licences", {})
+    if "cuts" in licences:
+        licences["cuts"]["note"] = CUTS_NOTE
+    for source in licences.get("sources", []):
+        if source.get("licence") == "CC BY-SA 3.0" and KIN not in source["fields"]:
+            source["fields"].append(KIN)
 
 
 def _alternatives(composer: C.Composer, char: str, places: Iterable[str]) -> dict[str, list[str]]:
@@ -871,8 +969,6 @@ def _parity_file(version: str, kind: str, rows: list, stats: dict) -> bytes:
 NOT_EXPORTED = {
     "_template": "teachers: a drawn character with a node of the same operator whose operands are most like the target's, cut into them; used where the learned layout does not apply (three operands, nested nodes other than ⿰ ⿱) and before shares",
     "_transplant": "a whole ⿰ ⿲ ⿱ ⿳ character assembled from each operand's host pieces at the gaps their own hosts keep, tried at the root after the learned layout",
-    "_kin_outer": "an enclosing part taken from a kin enclosing part's hosts cut along KanjiVG (KIN_TRIED, KIN_OUTER_HOSTS); a described ⿺ outer drawn so lays both operands out as the kin character",
-    "_upper": "the upper part of an enclosing operand as hosts holding it on the left draw it, cut along KanjiVG",
     "_overlays(None)": "the any-overlay fallback: the first OVERLAY_ANY two-operand overlays averaged when no overlay shares an operand; overlay teachers (_overlay) too",
     "_alone, _instances": "a character taken whole from where others hold it, placed by the standalone model: used only when the character itself is excluded, which a typed sequence never is",
     "twins": "characters the font draws alike: only an excluded character's twins matter, listed per parity row in x",
@@ -911,6 +1007,7 @@ PATHS = {
     "missing": "a key or (place, operand) absent from its shard, or whose shard is absent, has no record or no host the composer cuts cleanly",
     "work": ".work/g/{hh}/{sha256}.json and .work/p/{hh}/{sha256}.json are the per-key files the export's workers write and pack builds the shards and identity.json from: a record with its key (k), a host list as {place, operand, hosts}. .work/ must never be uploaded: each of its files is one more object written (rclone copy --exclude '.work/**')",
     "variants": "variants.json: {character: its variation selectors}, the variation sequences the main font draws with a glyph of its own, one for each glyph (the first ideographic selector where several draw it), each with a record under the character and its selector; a sequence left out for sharing a glyph has its record too. Absent where the font has none",
+    "kin": "kin.json: {lower, cuts, upper, KIN_OUTER_HOSTS, KIN_TRIED}, for an enclosing part no host draws in its place, drawn as a kin's: a character written over the same lower part (Composer._kin, _kin_outer). lower: {place: {lower part: [[kin, its host count there], …]}}, the kins with at least KIN_OUTER_HOSTS hosts, in the order they are weighed; the most hosts wins, the first of equals, the enclosing character itself never. cuts: {place + TAB + kin: {host: [upper, lower] | null}}, every host of the kin's list there that KanjiVG and the variable font draw, its kin node cut along KanjiVG into two pieces as indices of the host glyph's contours, null where it does not cut so. A port tries the hosts in the order it ranks the list for the enclosed part (then the list's own order), those cuts names, at most KIN_TRIED, and takes the first that cuts. upper: {enclosing character: [source, contour indices]}, its upper part as the first character holding it on the left draws it, cut along KanjiVG; drawn in the kin's upper piece's room, else the upper operand is drawn there. A drawing excluding a host recounts its kins from the host lists; one excluding an upper part's source draws the upper operand instead. Absent from a folder exported before it: export-web --add kin writes it",
     "added": "manifest added lists records written into a finished folder afterwards (export-web --add): the set, the commit that wrote them, how many, how many of the folder's records it redrew and matched first (probe), and how many shards changed. The folder's version gains +<set>, since files are served immutable by URL and new bytes need a new name",
     "rerun": ".export names the version, the layout, font and KanjiVG hashes, the key set and the parity sizes that wrote the folder; a rerun with the same, from a known clean commit, keeps the .work/ files and writes only the missing ones, then packs every shard afresh; anything else starts afresh. .complete is written last, after manifest.json and the shards",
 }
@@ -974,7 +1071,7 @@ def _export(composer: C.Composer, out: Path, joyo: list[str] | None = None, pari
         for folder in (WORK, "g", "p"):
             if (out / folder).exists():
                 shutil.rmtree(out / folder)
-        for name in ("manifest.json", "layout.json", IDENTITY, "parity.json", "parity-held-out.json", "OFL.txt", "CC0.txt", "MIT-hfhchan-ids.txt"):
+        for name in ("manifest.json", "layout.json", IDENTITY, KIN, "parity.json", "parity-held-out.json", "OFL.txt", "CC0.txt", "MIT-hfhchan-ids.txt"):
             (out / name).unlink(missing_ok=True)
     for name, wanted in (("parity.json", parity), ("parity-held-out.json", held_out)):
         if not wanted:
@@ -1031,6 +1128,9 @@ def _export(composer: C.Composer, out: Path, joyo: list[str] | None = None, pari
     if pool:
         pool.close()
         pool.join()
+    # The kin table, from the host lists the folder holds; a rerun keeps the one written.
+    if composer.kvg is not None and not (out / WORK / KIN).exists():
+        _replace(out / WORK / KIN, _dump(kin_table(composer, kin_lower(composer, lambda place, operand: (place, operand) in lists), log)))
 
     # Records: every operand the index holds, every character a sequence describes, every
     # positional form, the parity drawings' leaves, every sequence the font draws, every variation
@@ -1123,7 +1223,7 @@ def _export(composer: C.Composer, out: Path, joyo: list[str] | None = None, pari
             "outlines": {"licence": " and ".join(sorted({f["licence"] for f in fonts})), "texts": texts,
                          "note": OUTLINE_NOTES[style.name], "fonts": fonts},
             "cuts": {"licence": "CC BY-SA 3.0", "attribution": KANJIVG_NOTICE, "url": "https://creativecommons.org/licenses/by-sa/3.0/",
-                     "note": "A host-list entry whose cut has kv 1 (p/ hosts[].c.kv) is cut along KanjiVG's component groups, and a drawing that uses one adapts KanjiVG's data: it is shared alike under CC BY-SA 3.0 with this notice. The hand forms (hand) are read from KanjiVG's stroke types and carry the same licence."},
+                     "note": CUTS_NOTE},
             "sources": [
                 {"fields": ["s", "e"], "name": "BabelStone IDS (IDS.TXT, file date 2025-06-27)", "author": "Andrew West (魏安)",
                  "url": "https://www.babelstone.co.uk/CJK/IDS.TXT", "licence": "public domain: its header states IDS sequences are facts not eligible for copyright and waives any claim to the file's format"},
@@ -1186,28 +1286,8 @@ def add(composer: C.Composer, out: Path, keys: Iterable[str], name: str, root: P
     `{"keys", "new", "shards", "probe"}`: the keys asked for, those written, the shards they
     fall in, and how many characters the probe redrew."""
     global _OUT
-    from .vocab import ROOT
 
-    commit, dirty = _version(root or ROOT)
-    if dirty or commit == "unknown":
-        raise AddError("records are added only from a known, clean commit")
-    marker, manifest_path = out / ".export", out / "manifest.json"
-    pending = json.loads((out / PENDING).read_text(encoding="utf-8")) if (out / PENDING).exists() else None
-    if pending is None and not (out / ".complete").exists() or not marker.exists() or not manifest_path.exists():
-        raise AddError(f"{out} is not a finished export")
-    if pending is not None and (pending["added"]["set"], pending["added"]["commit"]) != (name, commit):
-        raise AddError(f"{out / PENDING} holds {pending['added']['set']} from {pending['added']['commit']}: run export-web-pack first")
-    stamp = json.loads(marker.read_text(encoding="utf-8"))
-    inputs = _inputs(composer)
-    for field, value in inputs.items():
-        if stamp.get(field) != value:
-            raise AddError(f"{field} differs from the folder's: {stamp.get(field)} against {value}")
-    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    if manifest.get("format") != FORMAT:
-        raise AddError(f"the folder is format {manifest.get('format')}: export-web-pack brings it to {FORMAT} first")
-    if manifest.get("style") != composer.font.style.name:
-        raise AddError(f"the folder is the {manifest.get('style')} style, the composer {composer.font.style.name}")
-
+    commit, manifest, pending = _addable(composer, out, name, root)
     index, _ = composer._index
     places = sorted({p for p, _ in index})
     table = composer.layout.tables["all"]
@@ -1263,6 +1343,83 @@ def add(composer: C.Composer, out: Path, keys: Iterable[str], name: str, root: P
         if (k + 1) % 2000 == 0:
             log(f"added {k + 1}/{len(new)}")
     return {"keys": len(wanted), "new": len(new), "shards": shards, "probe": len(probe)}
+
+
+def _addable(composer: C.Composer, out: Path, name: str, root: Path | None) -> tuple[str, dict, dict | None]:
+    """The checks before anything is added to the finished export in `out` (`add`, `add_kin`): a
+    known, clean commit, a finished folder or one whose `PENDING` addition is this set from this
+    commit, the folder's fonts, layout and KanjiVG, its format and style. Returns the commit, the
+    manifest and the pending addition, if any."""
+    from .vocab import ROOT
+
+    commit, dirty = _version(root or ROOT)
+    if dirty or commit == "unknown":
+        raise AddError("records are added only from a known, clean commit")
+    marker, manifest_path = out / ".export", out / "manifest.json"
+    pending = json.loads((out / PENDING).read_text(encoding="utf-8")) if (out / PENDING).exists() else None
+    if pending is None and not (out / ".complete").exists() or not marker.exists() or not manifest_path.exists():
+        raise AddError(f"{out} is not a finished export")
+    if pending is not None and (pending["added"]["set"], pending["added"]["commit"]) != (name, commit):
+        raise AddError(f"{out / PENDING} holds {pending['added']['set']} from {pending['added']['commit']}: run export-web-pack first")
+    stamp = json.loads(marker.read_text(encoding="utf-8"))
+    inputs = _inputs(composer)
+    for field, value in inputs.items():
+        if stamp.get(field) != value:
+            raise AddError(f"{field} differs from the folder's: {stamp.get(field)} against {value}")
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if manifest.get("format") != FORMAT:
+        raise AddError(f"the folder is format {manifest.get('format')}: export-web-pack brings it to {FORMAT} first")
+    if manifest.get("style") != composer.font.style.name:
+        raise AddError(f"the folder is the {manifest.get('style')} style, the composer {composer.font.style.name}")
+    return commit, manifest, pending
+
+
+def _folder_hosts(out: Path):
+    """The host lists the folder's `p/` shards hold, by (place, operand): None where it holds none."""
+    shards: dict[str, dict] = {}
+
+    def read(place: str, operand: str) -> list | None:
+        path = hosts_shard(place, operand)
+        if path not in shards:
+            shards[path] = json.loads(gzip.decompress((out / path).read_bytes())) if (out / path).exists() else {}
+        return shards[path].get(hosts_key(place, operand))
+    return read
+
+
+def add_kin(composer: C.Composer, out: Path, root: Path | None = None, dry_run: bool = False, log=print) -> dict:
+    """Write the kin table (`KIN`) into a finished export made without it, as `add` writes records:
+    under the checks of `_addable`, with `PENDING` written first, the table to `.work/`, and
+    `export-web-pack` publishing it, adding it to the manifest's `added` and giving the version
+    `+kin`; a stopped run carries on from the table it wrote. The table names hosts by their place
+    in the folder's host lists and contours by their index in its glyphs: the probe is every host
+    list it reads, which must list the hosts the composer's index lists, in its order, else
+    `AddError`. Needs no `.work/` of the folder. `dry_run` checks everything and writes nothing.
+    A folder that holds its table is left as it is. Returns `{"kins", "probe"}`: the kins the table
+    cuts and the host lists the probe compared."""
+    commit, manifest, pending = _addable(composer, out, "kin", root)
+    if pending is None and "kin" in manifest["files"]:
+        log("the folder holds its kin table")
+        return {"kins": 0, "probe": 0}
+    if composer.kvg is None:
+        raise AddError("the kin table is cut along KanjiVG, and the composer has no KanjiVG")
+    index, _ = composer._index
+    lists = _folder_hosts(out)
+    lower = kin_lower(composer, lambda place, operand: lists(place, operand) is not None)
+    kins = sorted({(place, other) for place, by_lower in lower.items() for found in by_lower.values() for other, _ in found})
+    for place, other in kins:
+        if [(h["h"], h["r"]) for h in lists(place, other)] != [(e[0], k) for k, e in enumerate(index[(place, other)])]:
+            raise AddError(f"the folder's host list of {other} in {place} is not the index's: this commit does not write the lists it holds")
+    log(f"{len(kins)} kins, their host lists as the folder holds them")
+    if dry_run:
+        return {"kins": len(kins), "probe": len(kins)}
+    pending = pending or {"shards": {}, "added": {"set": "kin", "commit": commit, "keys": len(kins), "probe": len(kins)},
+                          **{k: manifest["files"]["records"][k] for k in ("bytes", "entries")}}
+    # The pending addition first: a run stopped between the two still finds the folder addable.
+    _replace(out / PENDING, _dump(pending))
+    (out / ".complete").unlink(missing_ok=True)
+    if not (out / WORK / KIN).exists():
+        _replace(out / WORK / KIN, _dump(kin_table(composer, lower, log)))
+    return {"kins": len(kins), "probe": len(kins)}
 
 
 def _write_manifest(out: Path, manifest: dict) -> None:
@@ -1334,13 +1491,18 @@ def pack(out: Path, root: Path | None = None, log=print, changed: list[str] | No
     manifest = json.loads((out / "manifest.json").read_text(encoding="utf-8"))
     commit, dirty = _version(root or ROOT)
     version = re.sub(r"-f\d+(?=(\+[\w-]+)*$)", f"-f{FORMAT}", manifest["version"])
-    # A work folder that was never moved, or was moved elsewhere, would otherwise pack as empty.
+    # A work folder that was never moved, or was moved elsewhere, would otherwise pack as empty. An
+    # addition rebuilds only the record shards it lists, and none for the kin table.
+    pending = json.loads((out / PENDING).read_text(encoding="utf-8")) if (out / PENDING).exists() else None
+    rebuilt = ("g", "p") if pending is None else ("g",) if pending["shards"] else ()
     for folder, kind in (("g", "records"), ("p", "hosts")):
         summary = manifest["files"].get(kind, {})
         expected = summary.get("entries", summary.get("files"))
-        if expected and not (out / WORK / folder).is_dir():
+        if folder in rebuilt and expected and not (out / WORK / folder).is_dir():
             raise WorkFileError(f"{out / WORK / folder} is missing, but the manifest records {expected}")
-    if (out / PENDING).exists():
+    if pending is not None:
+        if pending["added"]["set"] == "kin" and not (out / WORK / KIN).exists():
+            raise WorkFileError(f"{out / WORK / KIN} is missing: run export-web --add kin again")
         return _pack_pending(out, manifest, log, changed if changed is not None else [])
     described: dict[str, str] = {}
     sequences: dict[str, str] = {}
@@ -1370,6 +1532,7 @@ def pack(out: Path, root: Path | None = None, log=print, changed: list[str] | No
         manifest["files"][kind] = {**manifest["files"].get(kind, {}), **_summary(sizes),
                                    "entries": sum(len(v) for v in files.values())}
     manifest["files"]["identity"] = _write_identity(out, sequences, described, plain)
+    _publish_kin(out, manifest)
     _stamp_version(out, version)
     manifest["format"] = FORMAT
     manifest["version"] = version
@@ -1504,6 +1667,7 @@ def _pack_pending(out: Path, manifest: dict, log, changed: list[str]) -> dict:
     manifest["files"]["identity"] = _write_identity(out, sequences, described, plain)
     # A stopped addition packs the records it wrote: only those are listed.
     _write_variants(out, manifest, [key for key in pending.get("variants", []) if (out / record_work(key)).exists()])
+    _publish_kin(out, manifest)
     entry = {**pending["added"], "shards": len(changed)}
     if manifest.get("added", [None])[-1] != entry:
         manifest.setdefault("added", []).append(entry)

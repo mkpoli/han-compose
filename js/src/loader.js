@@ -57,6 +57,11 @@ export async function unpack(buffer) {
 // `wh` for the whole character, the gap `g` and `kv` for a KanjiVG cut, read here onto the entry. A
 // cut marked `pc` was made only under a parity row's exclusion.
 //
+// The kin table (`kin.json`) loads when a drawing first takes an enclosing part from its kin's
+// hosts: the kins of each lower part by place, their hosts' cuts along KanjiVG and the upper parts
+// cut from characters holding the enclosing part on the left, each piece as contour indices into its
+// host's glyph. An export written before it has none.
+//
 // Two files load when a description first needs them. The identity table (`identity.json`) holds
 // every character's sequence and the character each sequence describes, as the records do (`s`,
 // `e`): a description holding an operator reads it, and with it read, finding what the description
@@ -180,6 +185,9 @@ export function createSource(read, { concurrency = 32 } = {}) {
           return lists.get(id)
         },
         places: key => held(file(recordFile(key)), key)?.P ?? [],
+        // The kin table, read when an enclosing part no host draws asks for it; null for an export
+        // without one, which draws that part as before.
+        kin: () => model().kin ? file(model().kin.path) : null,
         // A key's sequence and the character it describes (`{ e, s }`, either or neither), or null
         // for a key with no record, from the identity table. Until the table is read a single
         // character's record answers (undefined here), so a lone character is drawn without it; a
