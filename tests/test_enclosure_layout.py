@@ -613,3 +613,17 @@ def test_an_enclosure_drawn_as_its_kin_is_laid_out_as_the_kin():
 
     assert asked == [["⿱𡗗夂", "面"], ["麥", "面"]]
     assert outer_boxes == [kin_boxes[0]] and inner_boxes == [kin_boxes[1]]
+
+
+def test_an_upper_part_in_a_kin_room_is_lowered_to_stand_as_close_as_the_kin_upper():
+    # 𡗗's 人 ends 100 units above the sweep where 來's legs come within 50 of it in 麥.
+    c = compose.Composer(SimpleNamespace(own=lambda _: True), {})
+    place = lambda box: compose.Placed(compose.Part([rectangle(box)]), box, box)
+    lower = [place((0, -100, 600, 300))]
+    upper = [place((0, 400, 500, 800))]
+    settled = c._settled(upper, place((0, 350, 500, 800)), lower)
+    assert settled[0].target[3] == 800 and abs(settled[0].target[1] - 350) < 8
+    assert c._settled([place((0, 340, 500, 800))], place((0, 350, 500, 800)), lower)[0].target[1] == 340
+    # Of two parts ending at different heights, the lower one stops where the kin's upper part does.
+    pair = c._settled([place((0, 400, 200, 800)), place((300, 600, 500, 800))], place((0, 350, 500, 800)), lower)
+    assert abs(pair[0].target[1] - 350) < 8
