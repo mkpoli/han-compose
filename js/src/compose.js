@@ -1492,6 +1492,9 @@ export class Composer {
       own = outer
     } else return null
     if (!(Array.isArray(own) && own[0] === '⿱' && typeof own[2] === 'string')) return null
+    // A pass still loading host lists finds no host for parts that have them: the table is asked
+    // for once they are read.
+    if (this.partial) return null
     const table = this.data.kin?.()
     if (!table) return null
     const place = this.slot(op, 0)
@@ -1517,8 +1520,10 @@ export class Composer {
     const listed = this.hostsOf(kin.char, place, true).map(h => h.h).filter(h => !this.excluded(h))
     const chars = [...new Set([...ranked, ...listed])].filter(h => Object.hasOwn(cuts, h)).slice(0, table.KIN_TRIED)
     for (const char of chars) {
-      const glyph = cuts[char] && this.glyph(char)
-      if (!glyph) continue
+      if (!cuts[char]) continue
+      const glyph = this.glyph(char)
+      // A host whose record is still loading is tried once it is read.
+      if (!glyph) { if (this.partial) return null; continue }
       const [top, lower] = cuts[char].map(indices => kanjivgCut(derived(glyph, indices.map(k => glyph.contours[k]))))
       const frame = union([top.box, lower.box])
       const drawn = [placed(lower, lower.box, mapped(lower.box, frame, box), this.ink(char), `kin ${char}`)]
