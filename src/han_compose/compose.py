@@ -1028,11 +1028,20 @@ def _linear_partitions(part: Part, axis: int, pieces: int) -> Iterator[tuple[tup
         return
     spans = [_span(u, axis) for u in units]
     centres = sorted({(a + b) / 2 for a, b in spans})
-    cuts = [(centres[k] + centres[k + 1]) / 2 for k in range(len(centres) - 1)]
 
     def cost(cut: float) -> tuple[int, float]:
         through = [(cut - a) / max(b - a, 1) for a, b in spans if a < cut < b]
         return sum(1 for share in through if 1 - SIDED < share < SIDED), sum(min(s, 1 - s) for s in through)
+
+    def placed(low: float, high: float) -> float:
+        """The midpoint of two neighbouring centres, or, where it passes through an outline, the
+        place between them that crosses fewest: every cut there parts the units alike (火's right
+        dot in ⿰火默 lies 79.7% left of the midpoint, and wholly enough left of a cut 4 units over)."""
+        middle = (low + high) / 2
+        stops = {middle} | {a + share * (b - a) for a, b in spans for share in (1 - SIDED, SIDED)}
+        return min([middle, *(x for x in stops if low < x < high)], key=lambda x: (cost(x)[0], x != middle, cost(x)[1], abs(x - middle)))
+
+    cuts = [placed(centres[k], centres[k + 1]) for k in range(len(centres) - 1)]
 
     def total(chosen: tuple[float, ...]) -> tuple[int, float]:
         costs = [cost(c) for c in chosen]

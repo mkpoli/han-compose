@@ -151,3 +151,14 @@ def test_overlay_fallback_remains_available(monkeypatch):
     monkeypatch.setattr(c, "_matched", matched)
     assert c._cut(whole, node, strict=False)[0] is expected
     assert calls == [(whole, node)]
+
+
+def test_a_cut_beside_the_midpoint_clears_an_outline_the_midpoint_passes_through():
+    # 𰟵 (⿰火默) in Plangothic: the midpoint between 火's right dot and 灬's first dot leaves 79.7%
+    # of that 火 dot on its left, short of SIDED; a cut a few units left leaves 80% or more.
+    fire = [rectangle(38, 0, 324, 900), rectangle(228, 400, 339, 600)]
+    ink = [rectangle(305, 0, 394, 150), rectangle(328, 200, 668, 900)]
+    whole = compose.Part(fire + ink)
+    found = [identities(parts) for _, _, parts in compose._linear_partitions(whole, 0, 2)]
+    assert identities([compose.Part(fire), compose.Part(ink)]) in found
+
