@@ -151,3 +151,41 @@ def test_overlay_fallback_remains_available(monkeypatch):
     monkeypatch.setattr(c, "_matched", matched)
     assert c._cut(whole, node, strict=False)[0] is expected
     assert calls == [(whole, node)]
+
+
+def test_a_cut_beside_the_midpoint_clears_an_outline_the_midpoint_passes_through():
+    # 𰟵 (⿰火默) in Plangothic: the midpoint between 火's right dot and 灬's first dot leaves 79.7%
+    # of that 火 dot on its left, short of SIDED; a cut a few units left leaves 80% or more.
+    fire = [rectangle(38, 0, 324, 900), rectangle(228, 400, 339, 600)]
+    ink = [rectangle(305, 0, 394, 150), rectangle(328, 200, 668, 900)]
+    whole = compose.Part(fire + ink)
+    expected = identities([compose.Part(fire), compose.Part(ink)])
+    # A glyph of the style's own font keeps the midpoint.
+    assert expected not in [identities(parts) for _, _, parts in compose._linear_partitions(whole, 0, 2)]
+    for contour in whole.contours:
+        contour.kindred = True
+    assert expected in [identities(parts) for _, _, parts in compose._linear_partitions(whole, 0, 2)]
+
+
+def test_a_kindred_fallback_piece_is_not_held_to_the_stroke_count_of_the_variable_font():
+    # Plangothic draws 火 on the left in three outlines where Noto's hosts have four.
+    piece = compose.Part([rectangle(0, 0, 10, 10), rectangle(20, 0, 30, 10), rectangle(40, 0, 50, 10)])
+    for contour in piece.contours:
+        contour._width = (80.0, 80.0)
+    c = composer({})
+    c._own_outlines = lambda node: 3
+    c._like_fellows = lambda *args: True
+    c.strokes = lambda place, node: Counter({4: 60})
+    assert not c._counted(piece, "⿰", 0, "火")
+    for contour in piece.contours:
+        contour.kindred = True
+    assert c._counted(piece, "⿰", 0, "火")
+
+
+def test_a_clean_stretch_between_two_outlines_is_found_whatever_the_rounding_of_its_marks():
+    # Between 80% of the first outline (34.4) and 20% of the second (35.0) a cut crosses neither,
+    # though both marks round to a share that counts as crossing.
+    first, second = rectangle(0, 0, 43, 100), rectangle(22, 0, 87, 100)
+    first.kindred = second.kindred = True
+    found = [identities(parts) for _, _, parts in compose._linear_partitions(compose.Part([first, second]), 0, 2)]
+    assert found == [identities([compose.Part([first]), compose.Part([second])])]

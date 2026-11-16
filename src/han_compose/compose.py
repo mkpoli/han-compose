@@ -674,6 +674,9 @@ class Contour:
     width: tuple[float, float] | None = _Weighed(None)
     #: Works out `heavy` and `width` for every contour of the glyph, where they were left for later.
     weigh: Callable[[], None] | None = field(default=None, repr=False, compare=False)
+    #: Whether the contour is a kindred fallback's (`Style.kindred`): drawn in the variable font's
+    #: design, its strokes joined into outlines as that fallback joins them.
+    kindred: bool = False
 
     @property
     def measured(self) -> bool:
@@ -843,7 +846,7 @@ class Font:
                         scale = fallback.scale
                         pen = DecomposingRecordingPen(fallback.glyphs)
                         fallback.glyphs[fallback.cmap[ord(char)]].draw(pen)
-                        contours = [Contour(ops, p * scale if scale != 1 else p, LATER, LATER) for ops, p in _contours(pen)]
+                        contours = [Contour(ops, p * scale if scale != 1 else p, LATER, LATER, kindred=self.style.kindred) for ops, p in _contours(pen)]
                         self._later(contours, lambda contours=contours: self._grown_heavy(contours))
                         part = Part(contours) if contours else None
                         break
@@ -1028,11 +1031,29 @@ def _linear_partitions(part: Part, axis: int, pieces: int) -> Iterator[tuple[tup
         return
     spans = [_span(u, axis) for u in units]
     centres = sorted({(a + b) / 2 for a, b in spans})
-    cuts = [(centres[k] + centres[k + 1]) / 2 for k in range(len(centres) - 1)]
 
     def cost(cut: float) -> tuple[int, float]:
         through = [(cut - a) / max(b - a, 1) for a, b in spans if a < cut < b]
         return sum(1 for share in through if 1 - SIDED < share < SIDED), sum(min(s, 1 - s) for s in through)
+
+    def placed(low: float, high: float) -> float:
+        """The midpoint of two neighbouring centres; in a kindred fallback's glyph, where the midpoint
+        passes through an outline, the place between them that crosses fewest: every cut there
+        parts the units alike (火's right dot in Plangothic's 𰟵, ⿰火默, lies 79.7% left of the
+        midpoint, and wholly enough left of a cut 4 units over). The style's own fonts keep the
+        midpoint: their hosts were chosen and their layout learned with it, and a cut beside it can
+        give a joined dot away (魚's in Kureedo's 鰖)."""
+        middle = (low + high) / 2
+        if not part.contours[0].kindred:
+            return middle
+        # The crossings change only where a cut meets an outline's `SIDED` marks: one cut inside each
+        # stretch between them stands for the stretch, clear of the marks' rounding.
+        marks = sorted({low, high} | {x for a, b in spans for share in (1 - SIDED, SIDED)
+                                      if low < (x := a + share * max(b - a, 1)) < high})
+        inside = [(marks[k] + marks[k + 1]) / 2 for k in range(len(marks) - 1)]
+        return min([middle, *inside], key=lambda x: (cost(x)[0], x != middle, cost(x)[1], abs(x - middle)))
+
+    cuts = [placed(centres[k], centres[k + 1]) for k in range(len(centres) - 1)]
 
     def total(chosen: tuple[float, ...]) -> tuple[int, float]:
         costs = [cost(c) for c in chosen]
@@ -2309,6 +2330,12 @@ class Composer:
         if piece.contours and not piece.contours[0].measured and len(piece.contours) == expected:
             # Drawn with its operand's own strokes, whatever most hosts there draw (巳 left of 攵 in
             # 攺, where most hosts nest a smaller 巳 atop another part, as in 巽).
+            return True
+        if piece.contours and piece.contours[0].kindred:
+            # A kindred fallback joins strokes as its designer chose (Plangothic draws the left 火 of
+            # 𰟵 in three outlines, where hosts in the variable font have four): the count others
+            # take says nothing of its pieces. A fallback of another design (Jigmo beside Noto Serif)
+            # keeps the test, so that the style's own hosts stay ahead of it.
             return True
         counts = self.strokes(slot(op, index), node)
         if sum(counts.values()) < STROKE_EVIDENCE:
