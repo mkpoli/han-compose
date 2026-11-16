@@ -1,0 +1,18 @@
+# Host cuts that are wrong in a style's font: the composer takes no cut of the node from that host.
+# Each row was checked on the rendered cut; the note says what the cut gets wrong.
+style	char	node	note
+kaisho	䳩	⿰要鳥	鳥's first 灬 dot lies under 要 and is cut with it
+fangsong	魴	⿰魚方	魚's last dot is one outline with 方 and is cut with it
+fangsong	鮐	⿰魚台	魚's last dot is one outline with 台 and is cut with it
+fangsong	鮫	⿰魚交	魚's last dot is one outline with 交 and is cut with it
+fangsong	鯀	⿰魚系	魚's last dot is one outline with 系 and is cut with it
+fangsong	鯁	⿰魚更	魚's last dot is one outline with 更 and is cut with it
+fangsong	鯧	⿰魚昌	魚's last dot is one outline with 昌 and is cut with it
+fangsong	鯨	⿰魚京	魚's last dot is one outline with 京 and is cut with it
+fangsong	鰣	⿰魚時	魚's last dot is one outline with 時 and is cut with it
+fangsong	鰨	⿰魚𦐇	魚's last dot is one outline with 𦐇 and is cut with it
+fangsong	鰯	⿰魚弱	魚's last dot is one outline with 弱 and is cut with it
+fangsong	鰳	⿰魚勒	魚's last dot is one outline with 勒 and is cut with it
+fangsong	鱝	⿰魚賁	魚's last dot is one outline with 賁 and is cut with it
+fangsong	鱧	⿰魚豊	魚's last dot is one outline with 豊 and is cut with it
+fangsong	鱺	⿰魚麗	魚's last dot is one outline with 麗 and is cut with it

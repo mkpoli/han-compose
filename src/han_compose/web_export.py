@@ -466,7 +466,8 @@ def char_record(composer: C.Composer, char: str, places: list[str], table: L.Tab
         if groups:
             out["G"]["sg"] = groups
         # ㇯ takes KanjiVG's word only for a glyph of the variable font (`Composer._without`).
-        gone = composer.kvg.taken(char) if composer.kvg is not None and composer.font.own(char) else None
+        gone = (composer.kvg.taken(char) if composer.kvg is not None and composer.font.own(char)
+                and not composer.wrong_cut(char) else None)
         if gone:
             out["G"]["ls"] = gone
     if char in composer.sequences:
