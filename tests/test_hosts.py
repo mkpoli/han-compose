@@ -133,3 +133,18 @@ def test_the_real_sequences_are_searched_as_they_are_indexed(monkeypatch):
     few = [key for key in keys if len(whole[key]) < compose.EXPAND_FEW]
     sample = keys[::401] + few[::601] + sorted(keys, key=lambda key: -len(whole[key]))[:12]
     assert_same_as_whole(c, sample, [written for _, written in keys[::997]], ["⿲", "⿳", "⿼"])
+
+
+def test_a_cut_listed_wrong_in_the_style_gives_no_piece():
+    # Zhuque's 鰨 draws 魚's last dot and 𦐇 as one outline: its cut of ⿰魚𦐇 is listed wrong.
+    from types import SimpleNamespace
+
+    from han_compose import compose
+
+    asked = []
+    c = compose.Composer(SimpleNamespace(style=SimpleNamespace(name="fangsong")), {})
+    c.kvg = SimpleNamespace(host_node=lambda *args: asked.append(args))
+    assert ("鰨", "⿰魚𦐇") in c.wrong_cuts
+    assert c._cut_host("鰨", ("⿰", "魚", "𦐇"), (), True) is None and asked == []
+    other = compose.Composer(SimpleNamespace(style=SimpleNamespace(name="sans")), {})
+    assert ("鰨", "⿰魚𦐇") not in other.wrong_cuts

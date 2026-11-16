@@ -2419,7 +2419,20 @@ class Composer:
         component groups when a cutter is set and it can (`kanjivg_cuts`), else by geometry."""
         return self._memo(self._hosts, (char, key(tree), path, strict), lambda: self._cut_host(char, tree, path, strict))
 
+    @cached_property
+    def wrong_cuts(self) -> frozenset[tuple[str, str]]:
+        """The (host, node) cuts `data/vocab/han-wrong-cuts.tsv` lists as wrong in this style's font."""
+        style = getattr(getattr(self.font, "style", None), "name", None)
+        return frozenset((char, node) for name, char, node, _ in read_rows("han-wrong-cuts.tsv") if name == style)
+
     def _cut_host(self, char: str, tree: tuple, path: tuple, strict: bool) -> Host | None:
+        node = tree
+        for step in path:
+            node = node[1 + step] if isinstance(node, tuple) else node
+        if (char, key(node)) in self.wrong_cuts:
+            # A cut checked and found wrong in this font (Zhuque's 鰨 draws 魚's last dot and 𦐇 as one
+            # outline): the host gives no piece of the node.
+            return None
         if self.kvg is not None:
             found = self.kvg.host_node(char, tree, path)
             node = tree
