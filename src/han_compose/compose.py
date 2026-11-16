@@ -674,6 +674,8 @@ class Contour:
     width: tuple[float, float] | None = _Weighed(None)
     #: Works out `heavy` and `width` for every contour of the glyph, where they were left for later.
     weigh: Callable[[], None] | None = field(default=None, repr=False, compare=False)
+    #: Whether the contour is a fallback font's, of another design than the style's own font.
+    fallback: bool = False
 
     @property
     def measured(self) -> bool:
@@ -843,7 +845,7 @@ class Font:
                         scale = fallback.scale
                         pen = DecomposingRecordingPen(fallback.glyphs)
                         fallback.glyphs[fallback.cmap[ord(char)]].draw(pen)
-                        contours = [Contour(ops, p * scale if scale != 1 else p, LATER, LATER) for ops, p in _contours(pen)]
+                        contours = [Contour(ops, p * scale if scale != 1 else p, LATER, LATER, fallback=True) for ops, p in _contours(pen)]
                         self._later(contours, lambda contours=contours: self._grown_heavy(contours))
                         part = Part(contours) if contours else None
                         break
@@ -2294,6 +2296,11 @@ class Composer:
         if piece.contours and not piece.contours[0].measured and len(piece.contours) == expected:
             # Drawn with its operand's own strokes, whatever most hosts there draw (巳 left of 攵 in
             # 攺, where most hosts nest a smaller 巳 atop another part, as in 巽).
+            return True
+        if piece.contours and piece.contours[0].fallback:
+            # A fallback font joins strokes as its designer chose (Plangothic draws the left 火 of
+            # 𰟵 in three outlines, where hosts in the variable font have four): the count others
+            # take says nothing of its pieces.
             return True
         counts = self.strokes(slot(op, index), node)
         if sum(counts.values()) < STROKE_EVIDENCE:

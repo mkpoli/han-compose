@@ -162,3 +162,17 @@ def test_a_cut_beside_the_midpoint_clears_an_outline_the_midpoint_passes_through
     found = [identities(parts) for _, _, parts in compose._linear_partitions(whole, 0, 2)]
     assert identities([compose.Part(fire), compose.Part(ink)]) in found
 
+
+def test_a_fallback_piece_is_not_held_to_the_stroke_count_of_the_variable_font():
+    # Plangothic draws 火 on the left in three outlines where Noto's hosts have four.
+    piece = compose.Part([rectangle(0, 0, 10, 10), rectangle(20, 0, 30, 10), rectangle(40, 0, 50, 10)])
+    for contour in piece.contours:
+        contour._width = (80.0, 80.0)
+    c = composer({})
+    c._own_outlines = lambda node: 3
+    c._like_fellows = lambda *args: True
+    c.strokes = lambda place, node: Counter({4: 60})
+    assert not c._counted(piece, "⿰", 0, "火")
+    for contour in piece.contours:
+        contour.fallback = True
+    assert c._counted(piece, "⿰", 0, "火")
