@@ -805,6 +805,13 @@ def test_the_kin_table_is_added_to_a_folder_exported_without_it(composer: compos
     assert _files(out) == before
     assert web_export.add_kin(composer, out, root=root, log=lambda _: None) == {"kins": 1, "probe": 1}
     assert not (out / ".complete").exists() and not (out / web_export.KIN).exists()
+    # A run stopped before its table is written does not pack.
+    table = (out / web_export.WORK / web_export.KIN).read_bytes()
+    (out / web_export.WORK / web_export.KIN).unlink()
+    with pytest.raises(web_export.WorkFileError, match="add kin again"):
+        web_export.pack(out, root=root, log=lambda _: None)
+    assert (out / web_export.PENDING).exists()
+    (out / web_export.WORK / web_export.KIN).write_bytes(table)
     # A stopped run carries on from the table it wrote.
     assert web_export.add_kin(composer, out, root=root, log=lambda _: None)["kins"] == 1
     changed: list[str] = []

@@ -503,7 +503,10 @@ def kin_table(composer: C.Composer, lower: dict[str, dict[str, list[list]]], log
             cuts[hosts_key(place, other)] = table
             log(f"kin {place} {other}: {sum(v is not None for v in table.values())}/{len(table)} hosts cut")
     upper: dict[str, list] = {}
-    lowers = {y: {other for other, _ in found} for by_lower in lower.values() for y, found in by_lower.items()}
+    lowers: dict[str, set[str]] = {}
+    for by_lower in lower.values():
+        for y, found in by_lower.items():
+            lowers.setdefault(y, set()).update(other for other, _ in found)
     for char, seq in sorted(composer.sequences.items()):
         try:
             own = C.parse(seq)
@@ -1497,6 +1500,8 @@ def pack(out: Path, root: Path | None = None, log=print, changed: list[str] | No
         if folder in rebuilt and expected and not (out / WORK / folder).is_dir():
             raise WorkFileError(f"{out / WORK / folder} is missing, but the manifest records {expected}")
     if pending is not None:
+        if pending["added"]["set"] == "kin" and not (out / WORK / KIN).exists():
+            raise WorkFileError(f"{out / WORK / KIN} is missing: run export-web --add kin again")
         return _pack_pending(out, manifest, log, changed if changed is not None else [])
     described: dict[str, str] = {}
     sequences: dict[str, str] = {}
