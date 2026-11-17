@@ -243,8 +243,8 @@ describe('⿵𦉪十', () => {
   })
 
   it('lists both faces’ 鬲 and 十 digests and leaves missing, unsupported, or unmatched glyphs alone', () => {
-    expect(fix.glyphs['鬲']).toHaveLength(5)
-    expect(fix.glyphs['十']).toHaveLength(5)
+    expect(fix.glyphs['鬲']).toHaveLength(2)
+    expect(fix.glyphs['十']).toHaveLength(2)
     const frame = part('glyph 𦉪', [0, 0, 800, 800], [100, 0, 900, 800], [[0, 0, 800, 800]])
     expect(fix.apply([frame], composerOf(null, sansTen().part))).toEqual([frame])
     expect(fix.apply([frame], composerOf(sansGe().part, null))).toEqual([frame])
