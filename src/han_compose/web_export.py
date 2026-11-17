@@ -221,7 +221,7 @@ def constants(composer: C.Composer) -> dict:
     and 一 across y."""
     out = {}
     for name in dir(C):
-        if not name.isupper() or name.startswith("_") or name.endswith(("_URL", "_SHA256", "_FILE")) or name in ("STYLES", "DEFAULT_STYLE", "OFL"):
+        if not name.isupper() or name.startswith("_") or name.endswith(("_URL", "_SHA256", "_FILE")) or name in ("STYLES", "DEFAULT_STYLE", "OFL", "OGL"):
             continue
         value = getattr(C, name)
         if isinstance(value, (frozenset, set)):
