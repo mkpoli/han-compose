@@ -21,7 +21,7 @@
 // over an export with a kin table answers `data.kin()` with it (`kin`, `kinOuter`).
 import { EM_BOX, area, centre, count, derived, drawnBox, drawnContours, fill, fitted, grown, groupRings, makePart, mapped, partInk, partOf,
   placed, pointsBox, pyRound, raster, rings, scaleOf, shrunk, square, stretchOf, targetFor, union, within } from './geometry.js'
-import { ownFormsOnly, componentParts, componentPosition, componentPositionBox, componentRecord, containsComponentForm, containsForcedForm, isComponentForm, isGroupedForm, isNativeForm } from './component-forms.js'
+import { ownFormsOnly, componentParts, componentPosition, componentPositionBox, componentRecord, containsComponentForm, containsForcedForm, isComponentForm, isGroupedForm, isNativeForm, sequenceOverride } from './component-forms.js'
 import { features, forward } from './layout.js'
 import { CONSTRUCTS, BODY_FORMS, IVD_FORMS, SURROUND_CONSTRUCTS, bodyForm, constructBody, constructHosts, constructParts, ivdParts } from './constructs.js'
 import { pyramidCells, pyramidOnBaseLayout } from './pyramid.js'
@@ -695,7 +695,7 @@ export class Composer {
   bySequence(key) {
     try { return this.resolution(this.parse(key)).encoded } catch { return null }
   }
-  sequenceOf(ch) { return this.rec(ch)?.s ?? null }
+  sequenceOf(ch) { return sequenceOverride(ch) ?? this.rec(ch)?.s ?? null }
   atomic(ch) { return this.rec(ch)?.at === 1 }
 
   /** Outline length: a glyph's, or for an excluded or glyphless character its sequence's operands'. */

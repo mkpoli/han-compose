@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 import data from '../src/component-forms.json'
-import { componentDrawing, componentParts, componentRecord, containsComponentForm, containsForcedForm, isComponentForm, isGroupedForm, isNativeForm } from '../src/component-forms.js'
+import { componentDrawing, componentParts, componentRecord, containsComponentForm, containsForcedForm, isComponentForm, isGroupedForm, isNativeForm, sequenceOverride } from '../src/component-forms.js'
 import { Composer } from '../src/compose.js'
 import { windingOf } from '../src/geometry.js'
 import { onlyBundled } from '../src/local.js'
@@ -232,4 +232,10 @@ it('uses the form under a cover before the child glyph shortcut', async () => {
   const source = createSource(async name => input[name] === undefined ? null : new Uint8Array(Buffer.from(input[name])).buffer)
   const drawn = await compose(source, '⿱宀苟', { fontStyle: 'regular' })
   expect(drawn.origins).toContain('TW-Kai: 艹')
+})
+
+it('uses checked descriptions for the numbered components 華 and 茰', () => {
+  expect(sequenceOverride('華')).toBe('⿱艹⿱一卅')
+  expect(sequenceOverride('茰')).toBe('⿱艹臾')
+  expect(sequenceOverride('菜')).toBeNull()
 })

@@ -16,6 +16,7 @@ const data = {
   sources: { ...generated.sources, ...overrides.sources },
   donors: { ...generated.donors, ...overrides.donors },
   force: { ...generated.force, ...overrides.force },
+  sequences: { ...generated.sequences, ...overrides.sequences },
 }
 const formOf = groups => {
   const parts = groups.map(group => makePart(group.map(([ops, points]) => ({ ops: commands(ops), light: points, heavy: points }))))
@@ -50,6 +51,8 @@ export const isNativeForm = (text, style = 'sans') => forms(style)?.get(text)?.n
 /** Whether `text` holds a component whose form replaces the encoded character's own outline. */
 export const containsForcedForm = (text, style = 'sans') =>
   (data.force?.[style] ?? []).some(form => text.includes(form))
+/** A hand-checked description for a character whose export sequence names a component the export cannot draw. */
+export const sequenceOverride = text => data.sequences?.[text] ?? null
 export function componentRecord(text, style = 'sans') {
   const form = forms(style)?.get(text)
   // A cut form carries what the layout reads of its component: usual boxes by place and shape features.
