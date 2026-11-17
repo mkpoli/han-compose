@@ -425,10 +425,12 @@ export const COMPONENT_FIXES = {
       '鬲': [
         '77e24fb157b9a4fff77f27a1a31f1fb9b9ca21bc332dd18809015d3f0214a9a6',
         'f2cce4e4b895cb546341399693139fdbb7478ff5c02f2c9c565a3817099bbc91',
+        'de5606e4968f68067080c0219e1634cc3622f007c35c8936df34e55186b7f88f',
       ],
       '十': [
         'ce6ceba94c9cff059884ae9f408b550499c7fd68870f52d4b58249bc654f8c48',
         '8ba0401e9267ccab67dd66212c1cb4d456dec0c706ea12d995a7ec7493512d3f',
+        'ebfb2d357226098f7d3a9b935c7bebbadc5d33eff8def385a7af697e5b356e5c',
       ],
     },
     apply(parts, composer) {
@@ -439,6 +441,19 @@ export const COMPONENT_FIXES = {
         10: { frame: [3, 4, 8, 9], bar: 1, geBar: 0, geStem: 1, barBox: [270, 96, 754, 166], stemBox: [452, -65, 537, 300], rise: 0.12 },
       }
       const frame = partFrom(parts, 'glyph 𦉪'), body = composer.glyph('鬲'), cross = composer.glyph('十')
+      // Zhuque's frame is 鬲's lower part, and its 十 is one outline: set the whole glyph in the
+      // frame, its bar under the inner strokes and its stem on the frame's middle.
+      const learned = parts.find(part => /鬲/.test(part.origin)) ?? null
+      if (learned && cross && cross.contours.length < 2) {
+        const ten = partFrom(parts, 'glyph 十'), t = boxOf(learned)
+        if (ten) {
+          const c = cross.box, width = 0.52 * (t[2] - t[0]), scale = width / Math.max(c[2] - c[0], 1)
+          const height = (c[3] - c[1]) * scale, bar = c[1] + 0.45 * (c[3] - c[1])
+          const want = t[1] + 0.42 * (t[3] - t[1])
+          const x0 = (t[0] + t[2]) / 2 - width / 2, y0 = want - (bar - c[1]) * scale
+          return parts.map(part => part === ten ? placed(cross, c, [x0, y0, x0 + width, y0 + height], composer.ink('十'), 'glyph 十') : part)
+        }
+      }
       const face = body && faces[body.contours.length]
       if (!frame || !face || !cross || cross.contours.length < 2) return parts
       const bar = cross.contours[face.bar], stem = cross.contours[1 - face.bar]
