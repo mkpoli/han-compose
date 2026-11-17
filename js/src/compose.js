@@ -496,6 +496,10 @@ const DESIGNED_CUTS = {
   𦉪: ['鬲', {
     de5606e4968f68067080c0219e1634cc3622f007c35c8936df34e55186b7f88f: [0],
   }],
+  // The two legs under 穴 stand in for the 𦉪 frame's own, which Zhuque joins to the frame.
+  儿: ['穴', {
+    daf8841ce859bc308a9905eb927f6e5eb32cd7ba31967fed7fce847b95374e45: [0, 1],
+  }],
 }
 
 export class Composer {
