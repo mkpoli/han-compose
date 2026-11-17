@@ -625,7 +625,14 @@ export class Composer {
     return this.node(base, region)
   }
 
-  glyphRecord(ch) { const record = this.rec(ch); const glyph = record?.G; if (glyph && record.sg && !glyph.sg) glyph.sg = record.sg; return glyph ?? null }
+  glyphRecord(ch) {
+    const record = this.rec(ch), glyph = record?.G
+    // A Fangsong drawing takes no outline another face drew: a record its own font lacks (v 0)
+    // stays missing rather than standing in as a Mincho.
+    if (glyph && this.fontStyle === 'fangsong' && glyph.v === 0) return null
+    if (glyph && record.sg && !glyph.sg) glyph.sg = record.sg
+    return glyph ?? null
+  }
   glyph(ch) { const g = this.glyphRecord(ch); return g ? partOf(g) : null }
   /** The glyph a whole character is drawn with: a body the font drew as another shape is replaced
    *  by `BODY_FORMS` where the export carries the glyph that cut was made for. A cut of the glyph
