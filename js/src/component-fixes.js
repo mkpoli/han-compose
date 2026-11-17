@@ -4,8 +4,15 @@
 // description it corrects, the SHA-256 outlines of the glyphs it was read against, and the parts it
 // changes; an export drawing other outlines keeps the font's cut. The parts are plain placed pieces,
 // so the corrections work wherever the description is drawn, at any depth.
-import { derived, mapped, partOf, placed, pointsBox, union } from './geometry.js'
+import { derived, makePart, mapped, partOf, placed, pointsBox, union } from './geometry.js'
 import { hexOf } from './sha256.js'
+
+const FANGSONG_FRAME = {
+  ops: [['M', 1], ['L', 1], ['L', 1], ['C', 3], ['C', 3], ['L', 1], ['C', 3], ['C', 3], ['C', 3], ['L', 1], ['L', 1], ['L', 1], ['C', 3], ['C', 3], ['L', 1], ['C', 3], ['C', 3], ['L', 1], ['C', 3], ['C', 3], ['L', 1], ['C', 3], ['L', 1], ['C', 3], ['C', 3], ['L', 1], ['L', 1], ['L', 1], ['L', 1], ['L', 1], ['C', 3], ['C', 3], ['L', 1], ['C', 3], ['C', 3], ['C', 3], ['L', 1], ['L', 1], ['C', 3], ['C', 3], ['C', 3], ['C', 3], ['L', 1]],
+  light: Float64Array.from([371.60, 101.90, 374.00, 105.90, 377.20, 110.70, 419.47, 92.63, 451.43, 80.13, 473.10, 73.20, 477.30, 75.87, 479.40, 79.33, 479.40, 83.60, 482.60, 101.90, 486.80, 123.17, 489.43, 139.10, 490.50, 149.70, 495.77, 197.03, 499.20, 233.17, 500.80, 258.10, 502.40, 272.43, 503.20, 286.77, 503.20, 301.10, 504.80, 329.80, 504.80, 334.60, 351.80, 326.70, 304.00, 323.00, 254.77, 322.05, 206.40, 319.10, 123.20, 314.03, 77.37, 310.70, 68.90, 309.10, 68.10, 251.70, 68.10, 220.37, 68.63, 173.37, 69.70, 110.70, 70.77, 68.17, 71.30, 36.53, 71.30, 15.80, 64.20, 11.10, 56.80, 15.83, 49.13, 22.07, 41.20, 29.80, 33.27, 37.47, 25.60, 45.03, 18.20, 52.50, 23.70, 73.20, 27.43, 86.47, 29.30, 100.57, 29.30, 115.50, 27.70, 170.40, 26.63, 220.40, 25.57, 257.60, 24.50, 282.00, 22.97, 317.07, 15.33, 347.10, 1.60, 372.10, 0.00, 376.10, 7.10, 380.80, 58.60, 341.80, 233.00, 351.40, 350.20, 359.30, 375.60, 360.90, 411.80, 364.37, 458.80, 369.70, 468.33, 370.23, 477.33, 373.17, 485.80, 378.50, 507.20, 392.00, 525.13, 380.87, 547.30, 364.93, 573.70, 344.20, 572.63, 340.47, 571.60, 338.07, 570.60, 337.00, 558.93, 326.40, 551.80, 309.93, 549.20, 287.60, 534.10, 166.50, 524.60, 87.60, 520.40, 56.20, 509.30, 29.63, 491.30, 7.90, 489.17, 4.70, 487.20, 2.70, 485.40, 1.90, 483.53, 1.10, 480.50, 0.70, 476.30, 0.70, 446.17, 37.37, 411.27, 71.10, 371.60, 101.90, 371.60, 101.90]),
+}
+FANGSONG_FRAME.heavy = FANGSONG_FRAME.light.slice()
+FANGSONG_FRAME.width = null
 
 /** The scale a placed part is drawn at, along x and y. */
 const scaleOf = part => [(part.target[2] - part.target[0]) / Math.max(part.source[2] - part.source[0], 1),
@@ -447,11 +454,14 @@ export const COMPONENT_FIXES = {
       if (learned && cross && cross.contours.length < 2) {
         const ten = partFrom(parts, 'glyph 十'), t = boxOf(learned)
         if (ten) {
+          // The face's own lower frame, cut clean of the ¥: a traced outline in a 574 by 392 box.
+          const from = [0, 0, 574, 392]
+          const clean = placed(makePart([FANGSONG_FRAME], from), from, t, composer.ink('鬲'), 'designed 鬲')
           const c = cross.box, width = 0.52 * (t[2] - t[0]), scale = width / Math.max(c[2] - c[0], 1)
           const height = (c[3] - c[1]) * scale, bar = c[1] + 0.45 * (c[3] - c[1])
           const want = t[1] + 0.42 * (t[3] - t[1])
           const x0 = (t[0] + t[2]) / 2 - width / 2, y0 = want - (bar - c[1]) * scale
-          return parts.map(part => part === ten ? placed(cross, c, [x0, y0, x0 + width, y0 + height], composer.ink('十'), 'glyph 十') : part)
+          return parts.map(part => part === ten ? placed(cross, c, [x0, y0, x0 + width, y0 + height], composer.ink('十'), 'glyph 十') : part === learned ? clean : part)
         }
       }
       const face = body && faces[body.contours.length]
