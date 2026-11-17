@@ -445,13 +445,6 @@ export const COMPONENT_FIXES = {
       // frame, its bar under the inner strokes and its stem on the frame's middle.
       const learned = parts.find(part => /鬲/.test(part.origin)) ?? null
       if (learned && cross && cross.contours.length < 2) {
-        // Zhuque joins the frame's own legs to the frame; 穴's two legs stand in their space.
-        const cave = composer.glyph('穴')
-        if (cave) {
-          const legs = derived(cave, [0, 1].map(i => cave.contours[i]), union([0, 1].map(i => pointsBox(cave.contours[i].light))))
-          const t = boxOf(learned), w = t[2] - t[0], h = t[3] - t[1]
-          parts.push(placed(legs, legs.box, [t[0] + 0.08 * w, t[1] + 0.02 * h, t[2] - 0.08 * w, t[1] + 0.55 * h], composer.ink('穴'), 'designed 穴'))
-        }
         const ten = partFrom(parts, 'glyph 十'), t = boxOf(learned)
         if (ten) {
           const c = cross.box, width = 0.52 * (t[2] - t[0]), scale = width / Math.max(c[2] - c[0], 1)
