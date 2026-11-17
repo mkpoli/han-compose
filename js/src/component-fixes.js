@@ -425,10 +425,16 @@ export const COMPONENT_FIXES = {
       '鬲': [
         '77e24fb157b9a4fff77f27a1a31f1fb9b9ca21bc332dd18809015d3f0214a9a6',
         'f2cce4e4b895cb546341399693139fdbb7478ff5c02f2c9c565a3817099bbc91',
+        '6aceaee1f1f374c069a8ec8ea0689b46ecbae0d035ef137e6183c486dedf9310',
+        'de5606e4968f68067080c0219e1634cc3622f007c35c8936df34e55186b7f88f',
+        '34c251f59334a1df4fe395aca9131e4b77cf3bf349417a8c58180ebf488cfd2e',
       ],
       '十': [
         'ce6ceba94c9cff059884ae9f408b550499c7fd68870f52d4b58249bc654f8c48',
         '8ba0401e9267ccab67dd66212c1cb4d456dec0c706ea12d995a7ec7493512d3f',
+        '9e08077059bd53942eeea0cac5093aa57af5219e9230e9b1125ba376d5a93b06',
+        'ebfb2d357226098f7d3a9b935c7bebbadc5d33eff8def385a7af697e5b356e5c',
+        '0b14b79b7a3e5edda08ab22dbfe5aceddd8e6bee2d2d420ec2b6d27ba0b51e3d',
       ],
     },
     apply(parts, composer) {
@@ -439,6 +445,17 @@ export const COMPONENT_FIXES = {
         10: { frame: [3, 4, 8, 9], bar: 1, geBar: 0, geStem: 1, barBox: [270, 96, 754, 166], stemBox: [452, -65, 537, 300], rise: 0.12 },
       }
       const frame = partFrom(parts, 'glyph 𦉪'), body = composer.glyph('鬲'), cross = composer.glyph('十')
+      // A face that draws 十 as one outline: set the whole glyph in the frame, its bar under the
+      // inner strokes, scaled to the width the pair below it takes.
+      const ten = partFrom(parts, 'glyph 十')
+      if (frame && cross && cross.contours.length < 2 && ten) {
+        const c = cross.box, t = boxOf(frame)
+        const width = 0.55 * (t[2] - t[0]), scale = width / Math.max(c[2] - c[0], 1), height = (c[3] - c[1]) * scale
+        const bar = c[1] + 0.45 * (c[3] - c[1]), want = t[1] + 0.36 * (t[3] - t[1])
+        const x0 = (t[0] + t[2]) / 2 - width / 2, y0 = want - (bar - c[1]) * scale
+        const target = [x0, y0, x0 + width, y0 + height]
+        return parts.map(part => part === ten ? placed(cross, c, target, composer.ink('十'), 'glyph 十') : part)
+      }
       const face = body && faces[body.contours.length]
       if (!frame || !face || !cross || cross.contours.length < 2) return parts
       const bar = cross.contours[face.bar], stem = cross.contours[1 - face.bar]
