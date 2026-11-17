@@ -196,12 +196,12 @@ it('forces the 艹 form on every face and every encoded character that names it'
 
 it('redraws an encoded 菜 from its IDS with the form', async () => {
   const grass = character('艹', [[100, 620, 480, 800], [520, 620, 900, 800]])
-  const cai = { ...character('采', [[100, 0, 900, 520]]), s: '⿱艹采' }
+  const cai = character('采', [[100, 0, 900, 520]])
   const char = { ...character('菜', [[100, 0, 900, 900]]), s: '⿱艹采' }
   const input = { ...files, ...shards('g', Object.entries({ ...records, 艹: grass, 采: cai, 菜: char })) }
   const source = createSource(async name => input[name] === undefined ? null : new Uint8Array(Buffer.from(input[name])).buffer)
   const drawn = await compose(source, '菜', { fontStyle: 'regular' })
-  expect(drawn.origins).toContain('TW-Kai: 艹')
+  expect(drawn.origins.filter(origin => origin === 'TW-Kai: 艹')).toHaveLength(1)
 })
 
 it('uses the form in a three-band stack', async () => {
@@ -212,5 +212,24 @@ it('uses the form in a three-band stack', async () => {
   const input = { ...files, ...shards('g', Object.entries({ ...records, 艹: grass, 口: mouth, 一: one, 𦴯: char })) }
   const source = createSource(async name => input[name] === undefined ? null : new Uint8Array(Buffer.from(input[name])).buffer)
   const drawn = await compose(source, '𦴯', { fontStyle: 'regular' })
+  expect(drawn.origins).toContain('TW-Kai: 艹')
+})
+
+it('keeps a forced terminal glyph with no sequence drawable', async () => {
+  const grass = character('艹', [[100, 620, 480, 800], [520, 620, 900, 800]])
+  const input = { ...files, ...shards('g', Object.entries({ ...records, 艹: grass })) }
+  const source = createSource(async name => input[name] === undefined ? null : new Uint8Array(Buffer.from(input[name])).buffer)
+  const drawn = await compose(source, '艹', { fontStyle: 'sans' })
+  expect(drawn.origins).toEqual(['glyph 艹'])
+})
+
+it('uses the form under a cover before the child glyph shortcut', async () => {
+  const grass = character('艹', [[100, 620, 480, 800], [520, 620, 900, 800]])
+  const roof = character('宀', [[100, 700, 900, 800], [100, 0, 180, 800], [820, 0, 900, 800]])
+  const gou = { ...character('苟', [[100, 0, 900, 900]]), s: '⿱艹句' }
+  const ju = character('句', [[100, 0, 900, 700]])
+  const input = { ...files, ...shards('g', Object.entries({ ...records, 艹: grass, 宀: roof, 苟: gou, 句: ju })) }
+  const source = createSource(async name => input[name] === undefined ? null : new Uint8Array(Buffer.from(input[name])).buffer)
+  const drawn = await compose(source, '⿱宀苟', { fontStyle: 'regular' })
   expect(drawn.origins).toContain('TW-Kai: 艹')
 })

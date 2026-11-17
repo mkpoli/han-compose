@@ -1308,7 +1308,7 @@ export class Composer {
       }
       let squeezed = glyph !== null && stretchOf(glyph.box, region) > C.STRETCH
       if (tree && (this.stroked(tree) || this.atomic(encoded))) squeezed = false
-      if (glyph && !this.forced(encoded) && !(squeezed && tree)) {
+      if (glyph && (!this.forced(encoded) || !tree) && !(squeezed && tree)) {
         if (sideBySide && encoded === '\u{F2A9}' && this.fontStyle === 'sans') {
           // The native cut from 葭 already has its contextual proportions.
           const context = partOf(numberedFiveContext.G)
@@ -2276,6 +2276,9 @@ export class Composer {
 
   /** The drawn part closest to what `node` needs at `index` of `op` inside `box`, as [record, piece]. */
   host(op, index, node, siblings, box, isPlaced = false) {
+    // A forced operand is drawn from its own IDS, not replaced by a host's cut. A direct 艹 is
+    // exempt: its form is placed by the caller, or the face's own cut is the connected component.
+    if (!(typeof node === 'string' && node === '艹') && this.forced(node)) return null
     // The face's own cut of a component it does not draw stands ahead of a cut of another shape.
     if (node === '䒑') {
       const designed = this.designedCut(node)
@@ -2550,6 +2553,12 @@ export class Composer {
         groups.push(this.node(child, box, false, true))
         continue
       }
+      // A component with a form of its own is drawn from it wherever it stands, before any host cut.
+      const declared = typeof child === 'string'
+        ? componentParts(child, box, this.fontStyle, false)
+        : null
+      if (declared) { groups.push(declared); continue }
+      if (typeof child === 'string' && child !== '艹' && this.forced(child)) { groups.push(this.node(child, box)); continue }
       // Under a cover, a child whose own glyph fits the box is drawn from it: a host cut can meet
       // the cover's bar through a turning stroke and leave a wedge (定's 𤴓 cut from 是).
       if (i === 1 && op === '⿱' && typeof children[0] === 'string' && COVERS.has(children[0])
@@ -2569,12 +2578,6 @@ export class Composer {
         this.fit(groups[0], groups[1], frameOf, stem, C, { room: opening })
         continue
       }
-      // A component with a form of its own is drawn from it wherever it stands, before any host cut.
-      const declared = typeof child === 'string'
-        ? componentParts(child, box, this.fontStyle, false)
-        : null
-      if (declared) { groups.push(declared); continue }
-      if (typeof child === 'string' && child !== '艹' && this.forced(child)) { groups.push(this.node(child, box)); continue }
       let part = this.host(op, i, child, [...children.slice(0, i), ...children.slice(i + 1)], box, region === null)
       if (op in this.ENCLOSE && i === 0 && (!part || (typeof child === 'string' && this.own(child)
         && stretchOf(part.piece.box, box) > C.ENCLOSING_STRETCH))) {
