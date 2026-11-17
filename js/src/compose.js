@@ -1367,8 +1367,10 @@ export class Composer {
         ?? [region[0] + x0 * w, region[1] + y0 * h, region[0] + x1 * w, region[1] + y1 * h]
       return [...cutFrame, ...this.node(children[1], room)]
     }
-    // Native compound forms have no trained layout features; fit their actual outlines.
-    if (this.hosted && this.layout && (!hasRepetition || ownFormsOnly(this.fontStyle)) && children.length === 2 && this.hasHosts(op, children) && (atRoot ? this.layout.ops.includes(op) : op === '⿰' || op === '⿱')) {
+    // Native compound forms have no trained layout features; fit their actual outlines. A nested row
+    // that holds an unreadable linear compound has no learned box to follow: the crossed shares place it.
+    const unreadableRow = !atRoot && op === '⿰' && children.some(child => this.unknownAligned(child, 0))
+    if (this.hosted && this.layout && (!hasRepetition || ownFormsOnly(this.fontStyle)) && !unreadableRow && children.length === 2 && this.hasHosts(op, children) && (atRoot ? this.layout.ops.includes(op) : op === '⿰' || op === '⿱')) {
       // A description nothing in the export spells as one character has nothing to integrate a host
       // cut with, so each operand is drawn from its own glyph.
       const learned = this.learned(op, children, atRoot ? null : region, !this.bySequence(keyOf(node)))
