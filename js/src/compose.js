@@ -215,6 +215,10 @@ const SPLIT_FRAMES = new Set(['𦥑'])
 
 /** The axis a host place runs along: 0 for a side, 1 for a band, null for an enclosure's inside. */
 const PLACE_AXIS = { L: 0, C: 0, R: 0, T: 1, M: 1, B: 1 }
+
+/** The most of its grown heavy master a static part takes: three quarters of the outline's 20-unit
+ *  growth keeps thin counters open, where the full growth closes them into hairlines. */
+const STATIC_WEIGHT = 0.75
 /** A short stack in a tall column of a ⿲ keeps to the top of its column, leaving the rest empty:
  *  山 over 一 in ⿲彳⿱山一攵 stands as 微 and 徵 set it, with 攵 filling the lower right. A stack is
  *  short when each part stays under this share of the column's height at the column's width, and
@@ -524,8 +528,11 @@ export class Composer {
     // merged with its neighbour's). The export's own manifest says how many bytes of host lists it
     // carries.
     this.hosted = m.files?.hosts?.bytes !== 0
-    // A static face keeps its own stroke weights; a variable export weights its parts.
+    // A static face keeps its own stroke weights; a variable export weights its parts. Its export
+    // grows a heavy master on every side (`STATIC_GROW`), which can lift a thin part to the weight
+    // of the parts drawn at their own size.
     this.weighted = m.weighted ?? m.heavy !== 400
+    this.staticFace = m.weighted === false
     this.stem0 = c.stem
     this.arities = new Map([...c.BINARY.map(op => [op, 2]), ...c.TERNARY.map(op => [op, 3]), ...c.UNARY.map(op => [op, 1])])
     this.crossingCache = new Map()
@@ -831,6 +838,7 @@ export class Composer {
         this.balance(out)
         this.settleSweeps()
       }
+      if (!this.partial && this.staticFace) this.staticBalance(out)
       this.settleJoints()
       const construct = CONSTRUCTS[sequence]
       // The bundled body is Noto's: a face with its own forms keeps the drawing it made. A nested
@@ -1008,6 +1016,7 @@ export class Composer {
     }
     walk(numbered, [0, 0, 1, 1], 0)
     if (!this.partial && this.weighted) this.balance(out)
+    else if (!this.partial && this.staticFace) this.staticBalance(out)
     return out
   }
 
@@ -3909,7 +3918,45 @@ export class Composer {
   }
 
   // ---------------------------------------------------------------- weight
-  /** Each part's strokes brought to the width the whole character's density calls for (`_balance`). */
+  /** A static face has one weight; a part shrunk into a compound keeps its own and thins. The
+   *  export's grown heavy master can lift such a part to the stroke the parts at their own size
+   *  draw, so only thinner parts take a weight and none is thinned below the face's 400. */
+  staticBalance(group) {
+    const C = this.C, stem = this.stem0
+    const ratio = [0, 1].map(axis => stem[axis][1] / stem[axis][0] - 1)
+    const widths = group.map(p => {
+      const scale = scaleOf(p), measured = p.part.contours[0]?.width
+      return [0, 1].map(axis => scale[axis] * (measured ? measured[axis] : C.STEM_CURVE[axis][0]))
+    })
+    // A face whose contours wind the other way grows its synthetic heavy master inward; a negative
+    // weight then takes the part outward, past the light master.
+    const directions = group.map(p => {
+      const ink = w => {
+        const was = p.weight
+        p.weight = [w, w]
+        const mask = raster([p], 32)
+        p.weight = was
+        return mask.reduce((sum, value) => sum + value, 0)
+      }
+      return ink(1) >= ink(0) ? 1 : -1
+    })
+    const aim = [0, 1].map(axis => {
+      const values = widths.map(w => w[axis]).sort((a, b) => a - b)
+      return values[Math.round((values.length - 1) * 0.75)] ?? 0
+    })
+    this.stroke = aim
+    for (const [i, p] of group.entries()) {
+      if (p.empty !== undefined || p.fixed) continue
+      p.weight = [0, 1].map(axis => {
+        const current = widths[i][axis]
+        if (!(current > 0) || current >= aim[axis] || ratio[axis] <= 0) return 0
+        const limit = directions[i] > 0 ? STATIC_WEIGHT : STATIC_WEIGHT / 2
+        const lift = Math.min(limit, p.weightLimit?.[axis] ?? 1, (aim[axis] / current - 1) / ratio[axis])
+        return directions[i] * lift
+      })
+    }
+  }
+
   balance(group) {
     const C = this.C, stem = this.stem0
     const curve = (density, axis) => C.STEM_CURVE[axis][0] + C.STEM_CURVE[axis][1] * density / 1000
