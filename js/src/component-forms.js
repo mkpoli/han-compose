@@ -29,7 +29,7 @@ const positions = Object.fromEntries(Object.entries(data.positions ?? {}).map(([
     wound(makePart(group.map(([ops, points]) => ({ ops: commands(ops), light: points, heavy: points }))))]))]))
 const editorialForms = new Map(Object.entries(data.editorial ?? {}).flatMap(([id, entry]) => entry.forms.map(text => [text, id])))
 /** Faces whose bundled forms come only from their own font: Noto's must not stand in for them. @param {string} style */
-export const ownFormsOnly = style => style === 'kaisho' || style === 'fangsong'
+export const ownFormsOnly = style => style === 'regular' || style === 'pen-writing' || style === 'fangsong'
 const forms = style => styles[style] ?? (ownFormsOnly(style) ? null : styles.sans)
 export const containsComponentForm = (text, style = 'sans') => [...(forms(style)?.entries() ?? [])].some(([key, form]) => !form.native && text.includes(key))
 export const isGroupedForm = (text, style = 'sans') => (forms(style)?.get(text)?.parts.length ?? 0) > 1
@@ -44,7 +44,7 @@ export function componentRecord(text, style = 'sans') {
 /**
  * Forms cut from characters for components no code point names (a zi.tools stroke chain, a CHISE
  * entity), by their own text, loaded with `custom-forms.json.gz` once a sequence names one. A form
- * written above stays where both have one; Kaisho and Fangsong take none, having no cut of their own.
+ * written above stays where both have one; TW-Kai, Wen Kai and Fangsong take none, having no cut of their own.
  * @param {{ forms?: Record<string, Record<string, { g: any[], from: string, face: string, record?: object }>> }} data
  */
 export function addCutForms(data) {
@@ -66,7 +66,7 @@ export function componentParts(text, region = constants.face, style = 'sans', at
   // complete native glyphs retain their designed proportions and side bearings.
   // Nested forms use the description's contextual row/column allocation.
   const target = atRoot ? mapped(frame, constants.face, region) : region
-  const font = style === 'kaisho' ? 'Kureedo' : style === 'fangsong' ? 'Zhuque Fangsong' : `Noto ${style === 'serif' ? 'Serif' : 'Sans'} CJK`
+  const font = style === 'regular' ? 'TW-Kai' : style === 'pen-writing' ? 'Kureedo' : style === 'fangsong' ? 'Zhuque Fangsong' : `Noto ${style === 'serif' ? 'Serif' : 'Sans'} CJK`
   const editorial = editorialForms.get(text)
   const origin = form.origin ?? (editorial ? `${editorial} editorial (${font}): ${text}`
     : text === '⿰冫⿱丿丶' || text === '⿰冫⿾冫' ? 'four-dot repetition' : `${font}: ${text}`)
@@ -87,7 +87,7 @@ export function componentPosition(name, target, style = 'sans', designHeight = n
   let part = positions[style]?.get(name)
   const originalInk = part && partInk(part)
   if (part && name === '儿:under-bar' && designHeight !== null) part = weightedLegs(part, style, designHeight)
-  return part ? { ...placed(part, part.box, target, originalInk, style === 'kaisho' ? `Kureedo ${name}` : `Noto ${style} ${name}`), fixed: true, inkLength: originalInk } : null
+  return part ? { ...placed(part, part.box, target, originalInk, style === 'pen-writing' ? `Kureedo ${name}` : `Noto ${style} ${name}`), fixed: true, inkLength: originalInk } : null
 }
 
 /** Add weight above the original strokes, retaining the native outer edges and tapered sweep. */

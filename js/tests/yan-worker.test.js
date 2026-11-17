@@ -12,7 +12,7 @@ it('requests the Kaisho export for native Noto enclosure combinations', async ()
     await import('../src/worker.js')
     for (const sequence of ['⿸⿳亠㐅厂彡', '⿸⿱文厂生']) {
       messages.length = 0
-      await globalThis.self.onmessage({ data: { id: 1, sequence, base: 'https://example.test/', fontStyle: 'kaisho' } })
+      await globalThis.self.onmessage({ data: { id: 1, sequence, base: 'https://example.test/', fontStyle: 'pen-writing' } })
       expect(messages.at(-1)).toMatchObject({ id: 1, unavailable: true })
     }
     expect(requested.some(url => url.endsWith('/manifest.json'))).toBe(true)

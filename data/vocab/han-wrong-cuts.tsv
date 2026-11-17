@@ -1,7 +1,7 @@
 # Host cuts that are wrong in a style's font: the composer takes no cut of the node from that host.
 # Each row was checked on the rendered cut; the note says what the cut gets wrong.
 style	char	node	note
-kaisho	䳩	⿰要鳥	鳥's first 灬 dot lies under 要 and is cut with it
+pen-writing	䳩	⿰要鳥	鳥's first 灬 dot lies under 要 and is cut with it
 fangsong	魴	⿰魚方	魚's last dot is one outline with 方 and is cut with it
 fangsong	鮐	⿰魚台	魚's last dot is one outline with 台 and is cut with it
 fangsong	鮫	⿰魚交	魚's last dot is one outline with 交 and is cut with it

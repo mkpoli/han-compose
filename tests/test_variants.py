@@ -271,7 +271,7 @@ def test_the_command_writes_the_forms_and_one_sheet(sans: variants.Fonts, tmp_pa
     sheet = ET.fromstring((tmp_path / "variants.svg").read_text(encoding="utf-8"))
     assert len(sheet.findall("{http://www.w3.org/2000/svg}path")) == summary["distinct"] == 10
     with pytest.raises(typer.BadParameter):
-        compose_ids.variants("釁", out=tmp_path, style="kaisho", every=False)
+        compose_ids.variants("釁", out=tmp_path, style="pen-writing", every=False)
 
 
 def test_the_command_composes_a_sequence_once_for_each_form_of_者(tmp_path: Path, capsys) -> None:

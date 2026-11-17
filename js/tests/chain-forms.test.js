@@ -18,7 +18,7 @@ it('draws a stroke chain from the outline cut out of its host', () => {
 })
 
 it('keeps a Noto cut out of the faces that draw only their own', () => {
-  for (const style of ['kaisho', 'fangsong']) expect(isComponentForm(CHAIN, style)).toBe(false)
+  for (const style of ['pen-writing', 'fangsong']) expect(isComponentForm(CHAIN, style)).toBe(false)
 })
 
 it('fits an enclosed part into the room a cut form leaves', async () => {

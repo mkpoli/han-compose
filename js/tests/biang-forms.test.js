@@ -42,6 +42,6 @@ for (const fontStyle of ['sans', 'serif']) {
 }
 
 it('does not substitute Noto biang outlines for Kaisho', () => {
-  expect(isGroupedForm(ids, 'kaisho')).toBe(false)
-  expect(componentParts(ids, undefined, 'kaisho')).toBeNull()
+  expect(isGroupedForm(ids, 'pen-writing')).toBe(false)
+  expect(componentParts(ids, undefined, 'pen-writing')).toBeNull()
 })

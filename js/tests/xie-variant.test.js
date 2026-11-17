@@ -35,7 +35,7 @@ function components(mask, size) {
   return count
 }
 
-for (const fontStyle of ['sans', 'serif', 'kaisho']) {
+for (const fontStyle of ['sans', 'serif', 'pen-writing']) {
   it(`draws JYN00003 and its connected body offline in ${fontStyle}`, async () => {
     for (const [text, leaves] of [[full, 7], [binary, 7], [body, 6]]) {
       expect(onlyBundled(text, false, false, fontStyle)).toBe(true)
@@ -85,7 +85,7 @@ for (const fontStyle of ['sans', 'serif', 'kaisho']) {
     // The hook turns left locally; it must never become a full-width bottom bar.
     const [stem, enclosure, baseline, middleBar, hook] = parts
     expect(enclosure.source[2] - stem.source[0]).toBeGreaterThan(440)
-    if (fontStyle === 'kaisho') expect(components(raster([stem, hook], 512), 512)).toBe(1) // foot joins the hook
+    if (fontStyle === 'pen-writing') expect(components(raster([stem, hook], 512), 512)).toBe(1) // foot joins the hook
     expect(stem.source[2] - stem.source[0]).toBeLessThan(55)
     expect(baseline.source[3]).toBeLessThan(middleBar.source[1])
     expect(baseline.source[0]).toBeGreaterThan(stem.source[2]) // no bar across the left gap
@@ -111,7 +111,7 @@ for (const fontStyle of ['sans', 'serif', 'kaisho']) {
 }
 
 it('matches native Kaisho upright weight and a restrained frame slant', () => {
-  const [upright, frame, lower, upper] = componentParts(body, undefined, 'kaisho')
+  const [upright, frame, lower, upper] = componentParts(body, undefined, 'pen-writing')
   const uprightMask = raster([upright], 1000), frameMask = raster([frame], 1000)
   const runsAt = (mask, y) => {
     const runs = []
@@ -145,7 +145,7 @@ it('matches native Kaisho upright weight and a restrained frame slant', () => {
 })
 
 it('seats the Kaisho feet inside the hook bar and keeps native dot scale', () => {
-  const [stem, frame, , , hook, dots] = componentParts(body, undefined, 'kaisho')
+  const [stem, frame, , , hook, dots] = componentParts(body, undefined, 'pen-writing')
   const runsAt = (part, x) => {
     const mask = raster([part], 1000), runs = []
     let start = -1
@@ -161,7 +161,7 @@ it('seats the Kaisho feet inside the hook bar and keeps native dot scale', () =>
     expect(foot[1]).toBeGreaterThanOrEqual(bar[1] - 2)
     expect(foot[1]).toBeLessThanOrEqual(bar[0] + 2)
   }
-  const roof = componentParts(full, undefined, 'kaisho')[0]
+  const roof = componentParts(full, undefined, 'pen-writing')[0]
   const roofBottom = runsAt(roof, 290)[0][1]
   expect(runsAt(stem, 290)[0][0]).toBeLessThanOrEqual(roofBottom - 10)
   expect(hook.source[1]).toBeLessThan(-60) // native 寫 depth, not the high cut
@@ -180,5 +180,5 @@ it('seats the Kaisho feet inside the hook bar and keeps native dot scale', () =>
 })
 
 it('uses distinct font-derived faces', async () => {
-  expect(new Set(['sans', 'serif', 'kaisho'].map(style => componentDrawing(full, style).d)).size).toBe(3)
+  expect(new Set(['sans', 'serif', 'pen-writing'].map(style => componentDrawing(full, style).d)).size).toBe(3)
 })
