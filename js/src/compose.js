@@ -499,6 +499,10 @@ const DESIGNED_CUTS = {
   氵: ['𭰲', {
     '345749510c894ac303898cacbbd71bc35880cb6179990632d00b1ffe463f2d71': [0, 1, 2],
   }],
+  // Zhuque Fangsong draws no 䒑; 前 holds the face's own, its bar and two dots as contour 0 and 3.
+  䒑: ['前', {
+    '56b0a45b06ac33ea462799b1ba3cc806f464d5a09236012da3ed1616e523aef2': [0, 3],
+  }],
 }
 
 export class Composer {
@@ -2253,6 +2257,11 @@ export class Composer {
 
   /** The drawn part closest to what `node` needs at `index` of `op` inside `box`, as [record, piece]. */
   host(op, index, node, siblings, box, isPlaced = false) {
+    // The face's own cut of a component it does not draw stands ahead of a cut of another shape.
+    if (node === '䒑') {
+      const designed = this.designedCut(node)
+      if (designed) return designed
+    }
     // The designed ⿺爪 (爬) is the only cut with the enclosure's posture.
     if (op === '⿺' && index === 0 && node === '爪') {
       const designed = this.enclosureForm(op, node)
