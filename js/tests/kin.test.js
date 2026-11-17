@@ -91,6 +91,19 @@ describe('an enclosing part no host draws in its place', () => {
       .toEqual(['kin 麭', 'glyph 𡗗'])
   })
 
+  it('asks a described outer\'s kin before the host cut that leaves the held part a pocket', () => {
+    const c = new Composer(store()), asked = []
+    c.kin = (op, outer) => { asked.push(['kin', op, outer]); return { char: '麥', own: outer } }
+    c.learnedBoxes = () => [[0, 0, 1000, 1000], [480, 60, 950, 790]]
+    c.kinOuter = (op, outer, kin, inner, frame, innerBox) => { asked.push(['kinOuter', kin.char, innerBox]); return [at(box([0, 0, 1000, 500]), [0, 0, 1000, 500])] }
+    c.node = (child, frame) => { asked.push(['node', child, frame]); return [at(box([0, 0, 10, 10]), frame)] }
+    const drawn = c.learned('⿺', [['⿱', '𡗗', '夂'], '面'], [0, 0, 1000, 1000])
+    expect(asked[0]).toEqual(['kin', '⿺', ['⿱', '𡗗', '夂']])
+    expect(asked[1]).toEqual(['kinOuter', '麥', [480, 60, 950, 790]])
+    expect(asked[2]).toEqual(['node', '面', [480, 60, 950, 790]])
+    expect(drawn.map(p => p.origin)).toEqual(['part', 'part'])
+  })
+
   it('is not drawn from a host whose kin KanjiVG does not cut', () => {
     const kin = table()
     kin.cuts[`${PLACE}\t麥`].麭 = null

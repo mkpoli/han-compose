@@ -2465,6 +2465,17 @@ export class Composer {
   }
 
   learned(op, children, region, ownParts = false) {
+    // A described ⿺ enclosing part is drawn from its own host cut, and the layout fits the held
+    // part into the opening that cut leaves. Where the export has a kin table, the kin's character
+    // places both parts as the font draws them (⿱𡗗夂 round 面 as 麥 round it).
+    if (op === '⿺' && Array.isArray(children[0])) {
+      const kin = this.kin(op, children[0])
+      if (kin) {
+        const boxes = this.learnedBoxes(op, [kin.char, children[1]], region)
+        const outer = boxes && this.kinOuter(op, children[0], kin, children[1], boxes[0], boxes[1])
+        if (outer) return [...outer, ...this.node(children[1], boxes[1])]
+      }
+    }
     const split = this.splitFrame(op, children, region ?? this.face)
     if (split) return split
     const C = this.C, stem = this.stem0[0][0], frameOf = region ?? this.face
