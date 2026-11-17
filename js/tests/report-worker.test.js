@@ -778,11 +778,11 @@ describe('the action', () => {
     const inFace = (/** @type {unknown} */ face) => payload({ report: { ...payload().report, context: JSON.stringify({ face }) } })
     // One stub for the four runs: each new one would keep the one before as the fetch to restore.
     stub = stubGitHub()
-    for (const face of ['serif', 'klee', 'comic', 7]) {
+    for (const face of ['serif', 'pen-writing', 'comic', 7]) {
       await drawReport(inFace(face), run, 9, async (_page, chosen) => { faces.push(chosen); return PNG })
     }
     // A face the font switch does not offer is not handed to the page.
-    expect(faces).toEqual(['serif', 'klee', null, null])
+    expect(faces).toEqual(['serif', 'pen-writing', null, null])
   })
   it('says so in the issue when the drawing cannot be taken', async () => {
     stub = stubGitHub()
