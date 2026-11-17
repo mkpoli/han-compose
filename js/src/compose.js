@@ -2806,6 +2806,34 @@ export class Composer {
         }
       }
     }
+    // A three-band stack over a compound foot, its middle an enclosed box: the bands follow the
+    // reference, and each part takes the font's cut of it from a character that draws it in that
+    // place — the top 羔 from a stack over it, the middle 口 from under a cover — rather than the
+    // standalone glyph, which is drawn for a character of its own.
+    if (axis === 1 && children.length === 3 && ENCLOSED_MIDDLE.has(children[1]) && Array.isArray(children[2]) && !this.partial) {
+      const bands = stackBands(region)
+      // The Serif foot carries its ink a little above its band; close the band to the 口 so no
+      // white seam stands between them.
+      if (this.fontStyle === 'serif') bands.foot[3] = region[1] + 0.47 * (region[3] - region[1])
+      const parts = []
+      const goals = [bands.top, bands.mouth, bands.foot]
+      for (const [i, child] of children.entries()) {
+        const box = goals[i]
+        const cut = this.host(op, i, child, [...children.slice(0, i), ...children.slice(i + 1)], box)
+        if (cut) {
+          const source = this.pieceFor(child, cut.piece)
+          // The cut's ink fills the band, not its own padded box, so the band leaves no gap.
+          const ink = union(source.contours.map(contour => pointsBox(contour.light)))
+          parts.push(placed(source, ink, box, this.ink(cut.record.h), `host ${cut.record.h}`))
+          continue
+        }
+        const group = this.row(child, box, this.narrowRow(children), false, this.beside.has(children))
+        const from = union(group.map(drawnBox))
+        for (const part of group) part.target = targetFor(part, mapped(drawnBox(part), from, box))
+        parts.push(...group)
+      }
+      return this.flatten(parts)
+    }
     const [power, middle] = C.SHARES[`${op},${children.length}`] ?? [0.5, 1.0]
     const other = children[1]
     const compactYan = op === '⿰' && children[0] === '朱' && Array.isArray(other) && other[0] === '⿸'
@@ -3867,6 +3895,18 @@ export class Composer {
 }
 
 // -------------------------------------------------------------------- free functions
+/** The three bands a three-band stack over a compound foot takes, after the dictionary glyph's 羔
+ *  over 口 over 𦉪十: the top 0.61 of the region wide and 0.38 of its height, the mouth 0.26 and
+ *  0.15, the foot the same width and the rest. A gap stands between the top and the mouth. */
+export function stackBands(region) {
+  const [x0, y0, x1, y1] = region, width = x1 - x0, height = y1 - y0, middle = (x0 + x1) / 2
+  return {
+    top: [middle - 0.32 * width, y0 + 0.62 * height, middle + 0.32 * width, y1],
+    mouth: [middle - 0.15 * width, y0 + 0.47 * height, middle + 0.15 * width, y0 + 0.62 * height],
+    foot: [middle - 0.32 * width, y0, middle + 0.32 * width, y0 + 0.43 * height],
+  }
+}
+
 /** The box a group of placed parts is drawn in. */
 function bounds(group) {
   const boxes = group.map(drawnBox)
@@ -3902,7 +3942,7 @@ function covered(boxes) {
 
 /** The middle band of a three-band stack, narrowed to `MIDDLE_ACROSS` of the region when it is an
  *  enclosed box; bars and covers own the full width the way the font draws them. */
-function narrowMiddleBand(child, groups, region) {
+export function narrowMiddleBand(child, groups, region) {
   if (!ENCLOSED_MIDDLE.has(child)) return
   const group = groups[1]
   if (!group?.length) return

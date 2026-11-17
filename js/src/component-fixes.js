@@ -435,8 +435,8 @@ export const COMPONENT_FIXES = {
       // The frame, the 丅 bar and stem 鬲 draws, and the 十 contour that is the bar: Sans orders 十
       // as bar then stem, Serif as stem then bar.
       const faces = {
-        9: { frame: [3, 4, 5, 8], bar: 0, geBar: 1, geStem: 2 },
-        10: { frame: [3, 4, 8, 9], bar: 1, geBar: 0, geStem: 1 },
+        9: { frame: [3, 4, 5, 8], bar: 0, geBar: 1, geStem: 2, barBox: [286, 34, 720, 90] },
+        10: { frame: [3, 4, 8, 9], bar: 1, geBar: 0, geStem: 1, barBox: [270, 96, 754, 166], stemBox: [452, -65, 537, 300], rise: 0.12 },
       }
       const frame = partFrom(parts, 'glyph 𦉪'), body = composer.glyph('鬲'), cross = composer.glyph('十')
       const face = body && faces[body.contours.length]
@@ -452,7 +452,9 @@ export const COMPONENT_FIXES = {
       const geStem = pointsBox(body.contours[face.geStem].light)
       const top = Math.max(...contours.map(contour => pointsBox(contour.light)[3]))
       // 十's vertical runs a little over half way up the room above the bar, under the frame's top.
-      const stemTop = geBar[3] + 0.65 * (top - geBar[3])
+      const stemTop = geBar[3] + (face.rise ?? 0.18) * (top - geBar[3])
+      const stemTarget = face.stemBox ?? [geStem[0], geStem[1], geStem[2], stemTop]
+      if (face.stemBox) stemTarget[3] = stemTop
       const stroke = (contour, box) => {
         const from = pointsBox(contour.light)
         const out = placed(derived(cross, [contour], from), from, mapped(box, source, target), composer.ink('十'), 'glyph 十')
@@ -462,7 +464,7 @@ export const COMPONENT_FIXES = {
         return out
       }
       return [placed(derived(body, contours, source), source, target, composer.ink('鬲'), 'body 鬲'),
-        stroke(bar, geBar), stroke(stem, [geStem[0], geStem[1], geStem[2], stemTop])]
+        stroke(bar, face.barBox), stroke(stem, stemTarget)]
     },
   },
   // ⿰𠄠𠄠: the pair is set as one cell each, and the two 𠄠 meet with only a sliver between

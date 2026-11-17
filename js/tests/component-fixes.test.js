@@ -183,7 +183,7 @@ describe('⿵𦉪十', () => {
     ink,
   })
 
-  it('puts 十’s bar and stem in 鬲’s own 丅 cross inside its 𦉪 frame', () => {
+  it('sets 十’s bar clear below the inner strokes of 鬲’s 𦉪 frame', () => {
     const ge = sansGe().part, ten = sansTen().part
     const frame = part('glyph 𦉪', [95, 157, 906, 611], [72, -20, 931, 746], [[95, 157, 906, 611]])
     const out = fix.apply([frame], composerOf(ge, ten))
@@ -200,9 +200,12 @@ describe('⿵𦉪十', () => {
     // between 丿 and 乚.
     const frameBox = [109, -82, 900, 386]
     const barBox = drawnBoxOf(bar), stemBox = drawnBoxOf(stem)
-    const wantBar = mapped([293, 84, 719, 139], frameBox, frame.target)
+    const wantBar = mapped([286, 34, 720, 90], frameBox, frame.target)
     wantBar.forEach((v, i) => expect(barBox[i]).toBeCloseTo(v, 6))
     const slash = drawnBoxOf(shell, 3), hook = drawnBoxOf(shell, 2)
+    // The bar stands below both inner strokes, clear of their feet.
+    expect(barBox[3]).toBeLessThan(slash[1])
+    expect(barBox[3]).toBeLessThan(hook[1])
     expect(stemBox[0]).toBeGreaterThan(slash[2])
     expect(stemBox[2]).toBeLessThan(hook[0])
     expect(stemBox[1]).toBeCloseTo(mapped([466, -71, 535, 116], frameBox, frame.target)[1], 6)
