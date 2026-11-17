@@ -1,19 +1,21 @@
 // @ts-nocheck
 // Shape-specific font-derived forms. Keep the caller's IDS; encoded counterparts can vary by region.
 import generated from './component-forms.json' with { type: 'json' }
-import regular from './component-forms-regular.json' with { type: 'json' }
+import overrides from './component-forms-overrides.json' with { type: 'json' }
 import numbered from '../data/numbered-forms.json' with { type: 'json' }
 import { joinedComponentForm } from './constructs.js'
 import constants from './constants.json' with { type: 'json' }
 import { WINDING, commands, derived, makePart, mapped, partInk, placed, svgPath, union, windingOf, wound } from './geometry.js'
 
-// Regular Kai's forms are cut by hand from TW-Kai, outside the generated Noto and brush forms.
+// Forms cut by hand from TW-Kai and the components every face draws from them, outside the
+// generated Noto and brush forms.
 const data = {
   ...generated,
-  forms: { ...generated.forms, ...regular.forms },
-  native: { ...generated.native, ...regular.native },
-  sources: { ...generated.sources, ...regular.sources },
-  donors: { ...generated.donors, ...regular.donors },
+  forms: { ...generated.forms, ...overrides.forms },
+  native: { ...generated.native, ...overrides.native },
+  sources: { ...generated.sources, ...overrides.sources },
+  donors: { ...generated.donors, ...overrides.donors },
+  force: { ...generated.force, ...overrides.force },
 }
 const formOf = groups => {
   const parts = groups.map(group => makePart(group.map(([ops, points]) => ({ ops: commands(ops), light: points, heavy: points }))))
@@ -45,6 +47,9 @@ export const isGroupedForm = (text, style = 'sans') => (forms(style)?.get(text)?
 export const isComponentForm = (text, style = 'sans') => forms(style)?.has(text) ?? false
 /** Whether `text` has a native form in `style`: one that keeps what the export knows of it. */
 export const isNativeForm = (text, style = 'sans') => forms(style)?.get(text)?.native ?? false
+/** Whether `text` holds a component whose form replaces the encoded character's own outline. */
+export const containsForcedForm = (text, style = 'sans') =>
+  (data.force?.[style] ?? []).some(form => text.includes(form))
 export function componentRecord(text, style = 'sans') {
   const form = forms(style)?.get(text)
   // A cut form carries what the layout reads of its component: usual boxes by place and shape features.

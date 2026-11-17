@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 import data from '../src/component-forms.json'
-import { componentDrawing, componentParts, componentRecord, containsComponentForm, isComponentForm, isGroupedForm, isNativeForm } from '../src/component-forms.js'
+import { componentDrawing, componentParts, componentRecord, containsComponentForm, containsForcedForm, isComponentForm, isGroupedForm, isNativeForm } from '../src/component-forms.js'
 import { Composer } from '../src/compose.js'
 import { windingOf } from '../src/geometry.js'
 import { onlyBundled } from '../src/local.js'
@@ -180,4 +180,26 @@ it('still draws the split 十十 spelling in every face', async () => {
     expect(drawn.parts).toHaveLength(2)
     expect(drawn.parts.every(part => part.origin === 'glyph 十')).toBe(true)
   }
+})
+
+it('forces the 艹 form on every face and every encoded character that names it', () => {
+  for (const style of ['sans', 'serif', 'regular', 'fangsong', 'pen-writing']) {
+    expect(containsForcedForm('⿱艹采', style)).toBe(true)
+    expect(containsForcedForm('華', style)).toBe(false)
+  }
+  const records = { 菜: { s: '⿱艹采' }, 敬: { s: '⿰苟攵' }, 苟: { s: '⿱艹句' } }
+  const composer = new Composer({ manifest: { constants, spelled: [] }, layout: null,
+    rec: key => records[key] ?? null, hosts: () => [], places: () => [] }, { fontStyle: 'regular' })
+  expect(composer.forced('菜')).toBe(true)
+  expect(composer.forced('木')).toBe(false)
+})
+
+it('redraws an encoded 菜 from its IDS with the form', async () => {
+  const grass = character('艹', [[100, 620, 480, 800], [520, 620, 900, 800]])
+  const cai = { ...character('采', [[100, 0, 900, 520]]), s: '⿱艹采' }
+  const char = { ...character('菜', [[100, 0, 900, 900]]), s: '⿱艹采' }
+  const input = { ...files, ...shards('g', Object.entries({ ...records, 艹: grass, 采: cai, 菜: char })) }
+  const source = createSource(async name => input[name] === undefined ? null : new Uint8Array(Buffer.from(input[name])).buffer)
+  const drawn = await compose(source, '菜', { fontStyle: 'regular' })
+  expect(drawn.origins).toContain('TW-Kai: 艹')
 })
