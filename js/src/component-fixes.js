@@ -4,7 +4,7 @@
 // description it corrects, the SHA-256 outlines of the glyphs it was read against, and the parts it
 // changes; an export drawing other outlines keeps the font's cut. The parts are plain placed pieces,
 // so the corrections work wherever the description is drawn, at any depth.
-import { derived, mapped, partOf, placed, pointsBox, union } from './geometry.js'
+import { derived, fitted, mapped, partOf, placed, pointsBox, union } from './geometry.js'
 import { hexOf } from './sha256.js'
 
 /** The scale a placed part is drawn at, along x and y. */
@@ -285,6 +285,20 @@ export const COMPONENT_FIXES = {
   // 卝's terminals must clear 干's first bar, as the right side of 哶 does.
   // A whole 鰥 cut stretches the left strokes and carries a sweeping lower stroke.
   // Keep 遝’s left strokes and stem, and replace both right strokes with compact 丶 glyphs.
+  // ⿱呼乙: the four hosted faces cut the left 口 out of 呼 and stretch it over a tall band;
+  // the mouth comes out tall and open. The whole 口 glyph, fitted square in the cut's left place,
+  // gives the designed mouth while 乎 keeps its cut.
+  '⿱呼乙': {
+    glyphs: {},
+    apply(parts, composer) {
+      if (parts.length < 3) return parts
+      const glyph = composer.glyph('口')
+      if (!glyph) return parts
+      const left = parts[0]
+      const mouth = placed(glyph, glyph.box, fitted(glyph.box, left.target, 1), composer.ink('口'), 'glyph 口')
+      return [mouth, ...parts.slice(1)]
+    },
+  },
   // ⿻日丿: the 丿 comes from 屮, where it stands as tall as the glyph; over 日 it runs out above
   // the top horizontal. It is cut off at the underside of that bar.
   '⿻日丿': {

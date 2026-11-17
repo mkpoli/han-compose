@@ -63,6 +63,24 @@ describe('a composition fix', () => {
 })
 
 
+describe('C... ⿱呼乙', () => {
+  it('draws a square 口 in the left cut and keeps 乎 and 乙', () => {
+    const left = part('host 呼', [0, 0, 1000, 1000], [78, 42, 478, 545], [[78, 42, 478, 545]])
+    const right = part('host 呼', [0, 0, 1000, 1000], [513, 42, 943, 545], [[513, 42, 943, 545]])
+    const bottom = part('learned 乴', [0, 0, 1000, 1000], [143, 575, 931, 936], [[143, 575, 931, 936]])
+    const glyph = part('glyph 口', [0, 0, 1000, 1000], [0, 0, 1000, 1000], [[0, 0, 1000, 1000]])
+    glyph.part.box = [0, 0, 1000, 1000]
+    const composer = { glyph: () => glyph.part, ink: () => 1000 }
+    const fixed = componentFix('⿱呼乙', [left, right, bottom], composer)
+    expect(fixed).toHaveLength(3)
+    expect(fixed[0].origin).toBe('glyph 口')
+    expect(fixed[0].target[2] - fixed[0].target[0]).toBeCloseTo(400, 0)
+    expect(fixed[0].target[3] - fixed[0].target[1]).toBeCloseTo(400, 0)
+    expect(fixed[1]).toBe(right)
+    expect(fixed[2]).toBe(bottom)
+  })
+})
+
 describe('C087 ⿻日丿', () => {
   it('keeps 丿 under 日’s top bar', () => {
     const frame = part('overlay 甲', [126, 178, 877, 777], [38, 173, 967, 757],
