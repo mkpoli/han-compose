@@ -185,22 +185,6 @@ export function clippedAbove(part, indices, yTarget) {
   return revised(part, contours)
 }
 
-/** `part` with the named contours' width changed about their centre, along x. */
-export function narrowed(part, indices, factor) {
-  const [sx] = scaleOf(part)
-  const contours = part.part.contours.slice()
-  for (const index of indices) {
-    const contour = contours[index], box = pointsBox(contour.light), middle = (box[0] + box[2]) / 2
-    const light = Float64Array.from(contour.light), heavy = Float64Array.from(contour.heavy ?? contour.light)
-    for (let i = 0; i < light.length; i += 2) {
-      light[i] = middle + (light[i] - middle) * factor
-      heavy[i] = middle + (heavy[i] - middle) * factor
-    }
-    contours[index] = { ...contour, light, heavy }
-  }
-  return revised(part, contours)
-}
-
 /** `part` with the named contours lowered by `drop` in the target, along y, keeping their columns;
  *  a negative `drop` raises them. */
 export function lowered(part, indices, drop) {
@@ -430,6 +414,55 @@ export const COMPONENT_FIXES = {
       const source = union(contours.map(contour => pointsBox(contour.light)))
       const target = boxOf(frame)
       return [placed(derived(glyph, contours, source), source, target, composer.ink('鬲'), 'body 鬲')]
+    },
+  },
+  // 鬲 supplies the complete 𦉪 frame with its inner 丿 and 乚, as for ⿵𦉪丅. 十 stands in 鬲’s own
+  // 丅 cross: its bar joins the two inner strokes’ feet the way the font draws them, and its vertical
+  // runs on above the bar, between 丿 and 乚, as 十’s stem does. The strokes keep the frame’s
+  // proportions and its weight, so a frame fitted into a narrow or compressed cell stays in scale.
+  '⿵𦉪十': {
+    glyphs: {
+      '鬲': [
+        '77e24fb157b9a4fff77f27a1a31f1fb9b9ca21bc332dd18809015d3f0214a9a6',
+        'f2cce4e4b895cb546341399693139fdbb7478ff5c02f2c9c565a3817099bbc91',
+      ],
+      '十': [
+        'ce6ceba94c9cff059884ae9f408b550499c7fd68870f52d4b58249bc654f8c48',
+        '8ba0401e9267ccab67dd66212c1cb4d456dec0c706ea12d995a7ec7493512d3f',
+      ],
+    },
+    apply(parts, composer) {
+      // The frame, the 丅 bar and stem 鬲 draws, and the 十 contour that is the bar: Sans orders 十
+      // as bar then stem, Serif as stem then bar.
+      const faces = {
+        9: { frame: [3, 4, 5, 8], bar: 0, geBar: 1, geStem: 2 },
+        10: { frame: [3, 4, 8, 9], bar: 1, geBar: 0, geStem: 1 },
+      }
+      const frame = partFrom(parts, 'glyph 𦉪'), body = composer.glyph('鬲'), cross = composer.glyph('十')
+      const face = body && faces[body.contours.length]
+      if (!frame || !face || !cross || cross.contours.length < 2) return parts
+      const bar = cross.contours[face.bar], stem = cross.contours[1 - face.bar]
+      const barSource = pointsBox(bar.light), stemSource = pointsBox(stem.light)
+      // An export of another face would pass the digests with the two strokes swapped.
+      if (widthOf(barSource) <= heightOf(barSource) || heightOf(stemSource) <= widthOf(stemSource)) return parts
+      const contours = face.frame.map(index => body.contours[index])
+      const source = union(contours.map(contour => pointsBox(contour.light)))
+      const target = boxOf(frame)
+      const geBar = pointsBox(body.contours[face.geBar].light)
+      const geStem = pointsBox(body.contours[face.geStem].light)
+      const top = Math.max(...contours.map(contour => pointsBox(contour.light)[3]))
+      // 十's vertical runs a little over half way up the room above the bar, under the frame's top.
+      const stemTop = geBar[3] + 0.65 * (top - geBar[3])
+      const stroke = (contour, box) => {
+        const from = pointsBox(contour.light)
+        const out = placed(derived(cross, [contour], from), from, mapped(box, source, target), composer.ink('十'), 'glyph 十')
+        // The bar and stem are the frame's own strokes: they keep its weight rather than taking one
+        // of their own, so they stay in scale when the frame is fitted into a small cell.
+        out.fixed = true
+        return out
+      }
+      return [placed(derived(body, contours, source), source, target, composer.ink('鬲'), 'body 鬲'),
+        stroke(bar, geBar), stroke(stem, [geStem[0], geStem[1], geStem[2], stemTop])]
     },
   },
   // ⿰𠄠𠄠: the pair is set as one cell each, and the two 𠄠 meet with only a sliver between

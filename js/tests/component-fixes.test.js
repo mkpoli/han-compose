@@ -2,9 +2,9 @@
 // and tied to the outlines it was read against, so these tests exercise the correction itself on
 // the shapes it was written for, and the guard that leaves another export's drawing alone.
 import { describe, expect, it } from 'bun:test'
-import { COMPONENT_FIXES, clippedAbove, componentFix, dotIn, narrowed, respanned, withoutContours } from 'han-compose/component-fixes'
+import { COMPONENT_FIXES, clippedAbove, componentFix, dotIn, respanned, withoutContours } from 'han-compose/component-fixes'
 import { Composer } from 'han-compose/compose'
-import { drawnContours, makePart, partOf, placed, pointsBox } from 'han-compose/geometry'
+import { drawnContours, makePart, mapped, partOf, placed, pointsBox } from 'han-compose/geometry'
 import { hexOf } from 'han-compose/sha256'
 
 /** A placed part of rectangular contours: `boxes` in font units, drawn from `source` into `target`. */
@@ -23,7 +23,6 @@ const targetBox = (p, contour) => {
   const sx = (t[2] - t[0]) / Math.max(s[2] - s[0], 1), sy = (t[3] - t[1]) / Math.max(s[3] - s[1], 1)
   return [t[0] + (b[0] - s[0]) * sx, t[1] + (b[1] - s[1]) * sy, t[0] + (b[2] - s[0]) * sx, t[1] + (b[3] - s[1]) * sy]
 }
-const widths = p => p.part.contours.map(c => box(c)[2] - box(c)[0])
 
 /** A composer whose 丶 is a rectangle glyph and whose face is the usual one. */
 function dotComposer() {
@@ -40,7 +39,6 @@ describe('a stroke correction', () => {
 
   it('shortens a bar about its centre and moves another to a span', () => {
     const bar = part('x', [0, 0, 1000, 1000], [0, 0, 1000, 1000], [[100, 200, 900, 280], [100, 700, 900, 780]])
-    expect(widths(narrowed(bar, [0], 0.5))[0]).toBeCloseTo(400, 6)
     expect(box(respanned(bar, [0], 200, 1000).part.contours[0])[0]).toBeCloseTo(200, 6)
     expect(box(respanned(bar, [0], 200, 1000).part.contours[0])[2]).toBeCloseTo(1000, 6)
   })
@@ -127,6 +125,139 @@ describe('C072 ⿵𦉪丅', () => {
     expect(out.part.contours).toEqual([1, 2, 3, 4, 5, 8].map(i => glyph.contours[i]))
     expect((out.target[2] - out.target[0]) / (out.target[3] - out.target[1])).toBeCloseTo(1)
     expect(out.target).toEqual(frame.target)
+  })
+})
+
+describe('⿵𦉪十', () => {
+  const contourBox = c => {
+    const xs = [], ys = []
+    for (let i = 0; i < c.light.length; i += 2) { xs.push(c.light[i]); ys.push(c.light[i + 1]) }
+    return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)]
+  }
+  const drawnBoxOf = (p, k = 0) => {
+    const pts = drawnContours(p)[k], xs = [], ys = []
+    for (let i = 0; i < pts.length; i += 2) { xs.push(pts[i]); ys.push(pts[i + 1]) }
+    return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)]
+  }
+  const polygon = (points, heavy = points) => ({
+    ops: points.map((_, i) => ({ code: i ? 'L' : 'M' })),
+    light: Float64Array.from(points.flat()),
+    heavy: Float64Array.from(heavy.flat()),
+    width: null,
+  })
+  const withHeavy = (p, box) => {
+    p.part.contours.forEach((c, i) => {
+      const heavy = box(i, c)
+      if (heavy) c.heavy = Float64Array.from(heavy.length === 4 ? [heavy[0], heavy[1], heavy[2], heavy[1], heavy[2], heavy[3], heavy[0], heavy[3]] : heavy.flat())
+    })
+    return p
+  }
+  // 9-contour Sans-like 鬲 ([3,4,5,8] form 𦉪) and 2-contour 十 ([bar, stem]), with heavy masters.
+  // Contour 8 shapes 丿’s curved tail on the left ([183,146]) so clearance over 十’s bar is tested accurately.
+  const sansGe = () => {
+    const base = part('glyph 鬲', [75, -82, 927, 787], [75, -82, 927, 787], [
+      [75, 720, 927, 787], [293, 84, 719, 139], [466, -71, 535, 116],
+      [109, -81, 864, 386], [677, -82, 900, 386], [545, 178, 817, 346],
+      [282, 505, 728, 602], [211, 450, 803, 658], [183, 146, 438, 352],
+    ])
+    base.part.contours[8] = polygon(
+      [[371, 352], [438, 352], [433, 220], [235, 146], [183, 146], [337, 240]],
+      [[350, 342], [472, 342], [450, 210], [250, 116], [210, 116], [320, 230]])
+    return withHeavy(base, (i, c) => i === 5 ? [514, 150, 810, 329] : i === 8 ? null : contourBox(c))
+  }
+  const sansTen = () => withHeavy(part('glyph 十', [55, -80, 952, 839], [55, -80, 952, 839],
+    [[55, 389, 952, 466], [461, -80, 542, 839]]),
+    i => i === 0 ? [45, 350, 964, 502] : [422, -95, 582, 855])
+  // 10-contour Serif-like 鬲 ([3,4,8,9] form 𦉪) and 2-contour 十 ([stem, bar]).
+  const serifGe = () => part('glyph 鬲', [79, -81, 936, 829], [79, -81, 936, 829], [
+    [285, 138, 738, 213], [466, -65, 530, 168], [79, 740, 936, 829],
+    [672, -82, 918, 432], [125, -79, 846, 424], [242, 429, 718, 692],
+    [677, 438, 797, 701], [279, 484, 717, 512], [539, 228, 783, 391], [205, 176, 446, 388],
+  ]).part
+  const serifTen = () => part('glyph 十', [44, -76, 958, 834], [44, -76, 958, 834],
+    [[464, -76, 571, 834], [44, 443, 959, 541]]).part
+
+  const fix = COMPONENT_FIXES['⿵𦉪十']
+  const composerOf = (ge, ten, ink = ch => ch === '鬲' ? 7000 : 3700) => ({
+    glyph: ch => ch === '鬲' ? ge : ch === '十' ? ten : null,
+    ink,
+  })
+
+  it('puts 十’s bar and stem in 鬲’s own 丅 cross inside its 𦉪 frame', () => {
+    const ge = sansGe().part, ten = sansTen().part
+    const frame = part('glyph 𦉪', [95, 157, 906, 611], [72, -20, 931, 746], [[95, 157, 906, 611]])
+    const out = fix.apply([frame], composerOf(ge, ten))
+    expect(out).toHaveLength(3)
+    const [shell, bar, stem] = out
+    expect(shell.origin).toBe('body 鬲')
+    shell.target.forEach((v, i) => expect(v).toBeCloseTo(frame.target[i], 6))
+    expect(shell.part.contours).toEqual([3, 4, 5, 8].map(i => ge.contours[i]))
+    expect([bar.origin, stem.origin]).toEqual(['glyph 十', 'glyph 十'])
+    expect(bar.part.contours).toEqual([ten.contours[0]])
+    expect(stem.part.contours).toEqual([ten.contours[1]])
+    expect([bar.fixed, stem.fixed]).toEqual([true, true])
+    // The bar stands where 鬲 draws its 丅 bar; the stem starts in the same place and runs up
+    // between 丿 and 乚.
+    const frameBox = [109, -82, 900, 386]
+    const barBox = drawnBoxOf(bar), stemBox = drawnBoxOf(stem)
+    const wantBar = mapped([293, 84, 719, 139], frameBox, frame.target)
+    wantBar.forEach((v, i) => expect(barBox[i]).toBeCloseTo(v, 6))
+    const slash = drawnBoxOf(shell, 3), hook = drawnBoxOf(shell, 2)
+    expect(stemBox[0]).toBeGreaterThan(slash[2])
+    expect(stemBox[2]).toBeLessThan(hook[0])
+    expect(stemBox[1]).toBeCloseTo(mapped([466, -71, 535, 116], frameBox, frame.target)[1], 6)
+    expect(stemBox[3]).toBeGreaterThan(barBox[3])
+    expect(stemBox[3]).toBeLessThan(Math.max(...[3, 4, 5, 8].map(i => mapped(box(ge.contours[i]), frameBox, frame.target)[3])))
+  })
+
+  it('supports Serif’s 10-contour 鬲 and swapped 十 stroke order', () => {
+    const ge = serifGe(), ten = serifTen()
+    const frame = part('glyph 𦉪', [106, 168, 936, 603], [76, 15, 926, 729], [[106, 168, 936, 603]])
+    const [shell, bar, stem] = fix.apply([frame], composerOf(ge, ten))
+    shell.target.forEach((v, i) => expect(v).toBeCloseTo(frame.target[i], 6))
+    expect(shell.part.contours).toEqual([3, 4, 8, 9].map(i => ge.contours[i]))
+    expect(bar.part.contours).toEqual([ten.contours[1]])
+    expect(stem.part.contours).toEqual([ten.contours[0]])
+    const slash = drawnBoxOf(shell, 3), hook = drawnBoxOf(shell, 2)
+    const stemBox = drawnBoxOf(stem)
+    expect(stemBox[0]).toBeGreaterThan(slash[2])
+    expect(stemBox[2]).toBeLessThan(hook[0])
+    expect(stemBox[3]).toBeLessThan(Math.max(...[3, 4, 8, 9].map(i => mapped(box(ge.contours[i]), [125, -82, 918, 432], frame.target)[3])))
+  })
+
+  it('keeps the frame’s scale in a narrow cell and never rebalances the strokes', () => {
+    const ge = sansGe().part, ten = sansTen().part
+    const root = part('glyph 𦉪', [95, 157, 906, 611], [72, -20, 931, 746], [[95, 157, 906, 611]])
+    const narrow = part('glyph 𦉪', [95, 157, 906, 611], [430, -80, 530, 100], [[95, 157, 906, 611]])
+    const [rootShell, rootBar] = fix.apply([root], composerOf(ge, ten))
+    const parts = fix.apply([narrow], composerOf(ge, ten))
+    const [shell, bar] = parts
+    const ratio = (barBox, shellBox) => (barBox[3] - barBox[1]) / (shellBox[3] - shellBox[1])
+    expect(ratio(drawnBoxOf(bar), shell.target)).toBeCloseTo(ratio(drawnBoxOf(rootBar), rootShell.target), 6)
+    const before = parts.map(p => p.target.slice())
+    Composer.prototype.balance.call({ C: { STEM_CURVE: [[85.34, -1.324], [86.93, -1.914]] }, stem0: [[80.702, 160], [82.142, 159]] }, parts)
+    parts.forEach((p, i) => expect(p.target).toEqual(before[i]))
+  })
+
+  it('lists both faces’ 鬲 and 十 digests and leaves missing, unsupported, or unmatched glyphs alone', () => {
+    expect(fix.glyphs['鬲']).toHaveLength(2)
+    expect(fix.glyphs['十']).toHaveLength(2)
+    const frame = part('glyph 𦉪', [0, 0, 800, 800], [100, 0, 900, 800], [[0, 0, 800, 800]])
+    expect(fix.apply([frame], composerOf(null, sansTen().part))).toEqual([frame])
+    expect(fix.apply([frame], composerOf(sansGe().part, null))).toEqual([frame])
+    const kaishoGe = part('glyph 鬲', [0, 0, 800, 800], [0, 0, 800, 800], Array.from({ length: 5 }, () => [0, 0, 800, 450])).part
+    expect(fix.apply([frame], composerOf(kaishoGe, sansTen().part))).toEqual([frame])
+    const oneStrokeTen = part('glyph 十', [0, 0, 800, 800], [0, 0, 800, 800], [[0, 0, 800, 800]]).part
+    expect(fix.apply([frame], composerOf(sansGe().part, oneStrokeTen))).toEqual([frame])
+    // A 9-contour 鬲 paired with Serif-ordered 十 strokes passes both digests, but its first
+    // contour is the tall stem, so the pairing guard leaves the drawing alone.
+    const swapped = withHeavy(part('glyph 十', [55, -80, 952, 839], [55, -80, 952, 839],
+      [[461, -80, 542, 839], [55, 389, 952, 466]]), () => null)
+    expect(fix.apply([frame], composerOf(sansGe().part, swapped.part))).toEqual([frame])
+    const other = [[0, 0]]
+    expect(fix.glyphs['十']).not.toContain(hexOf(JSON.stringify(other)))
+    const parts = [frame]
+    expect(componentFix('⿵𦉪十', parts, { glyphRecord: ch => ch === '十' ? { p: other } : null })).toBe(parts)
   })
 })
 describe('C049 ⿱𰀁口', () => {
