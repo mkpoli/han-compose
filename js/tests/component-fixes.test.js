@@ -511,3 +511,14 @@ it('C049 sets two equal bars and a stem that reaches the mouth', () => {
 
 
 
+
+describe('C219 ⿲木十木', () => {
+  it('gives the middle 十 the gap the two 木 leave', () => {
+    const left = part('host 椵', [0, 0, 1000, 1000], [38, 40, 352, 962], [[38, 40, 352, 962]])
+    const middle = part('glyph 十', [0, 0, 1000, 1000], [397, 40, 606, 962], [[397, 40, 606, 962]])
+    const right = part('host 楙', [0, 0, 1000, 1000], [653, 40, 967, 962], [[653, 40, 967, 962]])
+    const [, fixed] = componentFix('⿲木十木', [left, middle, right], { glyphRecord: () => null })
+    expect(fixed.target[2] - fixed.target[0]).toBeCloseTo((653 - 352) * 0.9, 6)
+    expect((fixed.target[0] + fixed.target[2]) / 2).toBeCloseTo((352 + 653) / 2, 6)
+  })
+})

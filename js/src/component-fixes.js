@@ -545,6 +545,21 @@ export const COMPONENT_FIXES = {
   // 監 supplies either a single right-hand cut or two separate strokes. Split the cut before
   // sizing the pair, so 臣 stays compact and the lower 一 spans the right column.
 
+  // The three columns of ⿲木十木 share by ink, leaving the middle 十 a sliver. The middle takes
+  // 90% of the gap the two 木 leave, centered; a designer's row of three gives it that room.
+  '⿲木十木': {
+    glyphs: {},
+    apply(parts) {
+      if (parts.length !== 3) return parts
+      const [left, middle, right] = parts
+      const lo = left.target[2], hi = right.target[0]
+      if (!(hi > lo)) return parts
+      const width = Math.max(middle.target[2] - middle.target[0], (hi - lo) * 0.9)
+      const cx = (lo + hi) / 2
+      middle.target = [cx - width / 2, middle.target[1], cx + width / 2, middle.target[3]]
+      return parts
+    },
+  },
 }
 
 /** Whether `composer`'s glyphs are the outlines a correction was read against. */
