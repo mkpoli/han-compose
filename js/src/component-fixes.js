@@ -457,11 +457,16 @@ export const COMPONENT_FIXES = {
           // The face's own lower frame, cut clean of the ¥: a traced outline in a 574 by 392 box.
           const from = [0, 0, 574, 392]
           const clean = placed(makePart([FANGSONG_FRAME], from), from, t, composer.ink('鬲'), 'designed 鬲')
-          const c = cross.box, width = 0.52 * (t[2] - t[0]), scale = width / Math.max(c[2] - c[0], 1)
+          // 穴's two legs stand under the frame's top bar, the 儿 the face draws in its 𦉪.
+          const cave = composer.glyph('穴')
+          const legs = cave ? placed(derived(cave, [0, 1].map(i => cave.contours[i]), union([0, 1].map(i => pointsBox(cave.contours[i].light)))),
+            union([0, 1].map(i => pointsBox(cave.contours[i].light))), [t[0] + 0.08 * (t[2] - t[0]), t[1] + 0.08 * (t[3] - t[1]), t[2] - 0.08 * (t[2] - t[0]), t[1] + 0.52 * (t[3] - t[1])], composer.ink('穴'), 'designed 穴') : null
+          const c = cross.box, width = 0.50 * (t[2] - t[0]), scale = width / Math.max(c[2] - c[0], 1)
           const height = (c[3] - c[1]) * scale, bar = c[1] + 0.45 * (c[3] - c[1])
-          const want = t[1] + 0.42 * (t[3] - t[1])
+          const want = t[1] + 0.16 * (t[3] - t[1])
           const x0 = (t[0] + t[2]) / 2 - width / 2, y0 = want - (bar - c[1]) * scale
-          return parts.map(part => part === ten ? placed(cross, c, [x0, y0, x0 + width, y0 + height], composer.ink('十'), 'glyph 十') : part === learned ? clean : part)
+          const out = parts.map(part => part === ten ? placed(cross, c, [x0, y0, x0 + width, y0 + height], composer.ink('十'), 'glyph 十') : part === learned ? clean : part)
+          return legs ? [...out, legs] : out
         }
       }
       const face = body && faces[body.contours.length]
