@@ -669,7 +669,10 @@ export class Composer {
     if (!record || !glyph?.contours?.length) return null
     const boxes = glyph.contours.map(c => pointsBox(c.light))
     let cut = record.ls?.['艹'] ?? []
-    if (!cut.length) cut = boxes.map((b, i) => b[3] >= 0.55 * this.C.EM && b[1] >= 0.4 * this.C.EM ? i : -1).filter(i => i >= 0)
+    if (!cut.length) {
+      const top = Math.max(...boxes.map(b => b[3]))
+      cut = boxes.map((b, i) => b[3] >= top - 0.1 * this.C.EM && b[1] >= 0.4 * this.C.EM ? i : -1).filter(i => i >= 0)
+    }
     if (!cut.length) return null
     const keep = boxes.map((_, i) => i).filter(i => !cut.includes(i))
     if (!keep.length) return null
