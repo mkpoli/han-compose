@@ -21,7 +21,7 @@
 // over an export with a kin table answers `data.kin()` with it (`kin`, `kinOuter`).
 import { EM_BOX, area, centre, count, derived, drawnBox, drawnContours, fill, fitted, grown, groupRings, makePart, mapped, partInk, partOf,
   placed, pointsBox, pyRound, raster, rings, scaleOf, shrunk, square, stretchOf, targetFor, union, within } from './geometry.js'
-import { ownFormsOnly, componentParts, componentPosition, componentPositionBox, componentRecord, containsComponentForm, containsForcedForm, isComponentForm, isGroupedForm, isNativeForm, sequenceOverride } from './component-forms.js'
+import { ownFormsOnly, componentParts, componentPosition, componentPositionBox, componentRecord, containsComponentForm, containsForcedForm, isComponentForm, isForcedCharacter, isGroupedForm, isNativeForm } from './component-forms.js'
 import { features, forward } from './layout.js'
 import { CONSTRUCTS, BODY_FORMS, IVD_FORMS, SURROUND_CONSTRUCTS, bodyForm, constructBody, constructHosts, constructParts, ivdParts } from './constructs.js'
 import { pyramidCells, pyramidOnBaseLayout } from './pyramid.js'
@@ -584,6 +584,7 @@ export class Composer {
   excluded = ch => this.exclude.has(ch)
   /** Whether a node holds a component whose form must replace its encoded outline, at any depth. */
   forced = (node, seen = new Set()) => {
+    if (typeof node === 'string' && isForcedCharacter(node, this.fontStyle)) return true
     const cacheable = seen.size === 0, key = keyOf(node)
     if (cacheable && this._forced.has(key)) return this._forced.get(key)
     let result = containsForcedForm(key, this.fontStyle)
@@ -660,6 +661,23 @@ export class Composer {
   }
 
   glyphRecord(ch) { const record = this.rec(ch); const glyph = record?.G; if (glyph && record.sg && !glyph.sg) glyph.sg = record.sg; return glyph ?? null }
+
+  /** A forced component replaced in the native glyph: the glyph without the component's outlines,
+   *  and the form placed where they were. The rest of the glyph keeps its own design and weight. */
+  replaceGlyph(glyph, char, region) {
+    const record = this.glyphRecord(char)
+    if (!record || !glyph?.contours?.length) return null
+    const boxes = glyph.contours.map(c => pointsBox(c.light))
+    let cut = record.ls?.['艹'] ?? []
+    if (!cut.length) cut = boxes.map((b, i) => b[3] >= 0.55 * this.C.EM && b[1] >= 0.4 * this.C.EM ? i : -1).filter(i => i >= 0)
+    if (!cut.length) return null
+    const keep = boxes.map((_, i) => i).filter(i => !cut.includes(i))
+    if (!keep.length) return null
+    const form = componentParts('艹', mapped(union(cut.map(i => boxes[i])), glyph.box, region), this.fontStyle, false)
+    if (!form) return null
+    const kept = derived(glyph, keep.map(i => glyph.contours[i]))
+    return [placed(kept, kept.box, mapped(kept.box, glyph.box, region), this.ink(char), `glyph ${char} kept`), ...form]
+  }
   glyph(ch) { const g = this.glyphRecord(ch); return g ? partOf(g) : null }
   /** The glyph a whole character is drawn with: a body the font drew as another shape is replaced
    *  by `BODY_FORMS` where the export carries the glyph that cut was made for. A cut of the glyph
@@ -695,7 +713,7 @@ export class Composer {
   bySequence(key) {
     try { return this.resolution(this.parse(key)).encoded } catch { return null }
   }
-  sequenceOf(ch) { return sequenceOverride(ch) ?? this.rec(ch)?.s ?? null }
+  sequenceOf(ch) { return this.rec(ch)?.s ?? null }
   atomic(ch) { return this.rec(ch)?.at === 1 }
 
   /** Outline length: a glyph's, or for an excluded or glyphless character its sequence's operands'. */
@@ -1308,6 +1326,10 @@ export class Composer {
       }
       let squeezed = glyph !== null && stretchOf(glyph.box, region) > C.STRETCH
       if (tree && (this.stroked(tree) || this.atomic(encoded))) squeezed = false
+      if (glyph && this.forced(encoded)) {
+        const replaced = this.replaceGlyph(glyph, encoded, region)
+        if (replaced) return replaced
+      }
       if (glyph && (!this.forced(encoded) || !tree) && !(squeezed && tree)) {
         if (sideBySide && encoded === '\u{F2A9}' && this.fontStyle === 'sans') {
           // The native cut from 葭 already has its contextual proportions.
