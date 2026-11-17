@@ -203,3 +203,14 @@ it('redraws an encoded 菜 from its IDS with the form', async () => {
   const drawn = await compose(source, '菜', { fontStyle: 'regular' })
   expect(drawn.origins).toContain('TW-Kai: 艹')
 })
+
+it('uses the form in a three-band stack', async () => {
+  const grass = character('艹', [[100, 620, 480, 800], [520, 620, 900, 800]])
+  const mouth = character('口', [[100, 0, 900, 200]])
+  const one = character('一', [[100, 0, 900, 100]])
+  const char = { ...character('𦴯', [[100, 0, 900, 900]]), s: '⿳艹口一' }
+  const input = { ...files, ...shards('g', Object.entries({ ...records, 艹: grass, 口: mouth, 一: one, 𦴯: char })) }
+  const source = createSource(async name => input[name] === undefined ? null : new Uint8Array(Buffer.from(input[name])).buffer)
+  const drawn = await compose(source, '𦴯', { fontStyle: 'regular' })
+  expect(drawn.origins).toContain('TW-Kai: 艹')
+})

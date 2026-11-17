@@ -2986,6 +2986,8 @@ export class Composer {
       // ⿲彳⿱山一攵), leaving the rest empty for the column beside it to fill.
       const top = op === '⿲' && axis === 0 ? this.shortStackBox(child, box) : null
       const target = top ?? box
+      const declared = typeof child === 'string' ? componentParts(child, target, this.fontStyle, false) : null
+      if (declared) { groups.push(declared); return }
       const part = contextualFive ? null : this.host(op, i, child, [...children.slice(0, i), ...children.slice(i + 1)], target)
       // A cut of 丑 carries the font's bar out past its right vertical, as its own glyph does; and a
       // part from a host cut fills its cell as a glyph does in a row of three: a cell is no designed
