@@ -69,6 +69,9 @@ const isHangulSyllable = part => {
   return Boolean(rest && (hangulLetters(rest) || isJamoRun(rest)))
 }
 
+/** Whether `part` is one Bopomofo letter. @param {string | any[]} part */
+const isBopomofoLetter = part => typeof part === 'string' && /^[\u3105-\u312F\u31A0-\u31BF]$/u.test(part)
+
 /** Whether `text` is one run of conjoining jamo that forms a syllable. @param {string} text */
 const isJamoRun = text => {
   const chars = [...text]
@@ -1332,6 +1335,7 @@ export class Composer {
     // Two syllables in one block close up as the manuscript sets them; an ideograph's two operands
     // would halve the face and leave the pair standing apart.
     if (op === '⿱' && children.length === 2 && children.every(isHangulSyllable)) return this.hangulBlock(children, region)
+    if ((op === '⿱' || op === '⿳') && children.every(isBopomofoLetter)) return this.bopomofoBlock(children, region)
     if (op === MIRROR || op === ROTATE) return this.flipped(op, children[0], region, atRoot)
     if (op === VARIANT) return this.node(children[0], region, atRoot)
     if (op === SUBTRACT) return this.subtracted(node, region, atRoot)
@@ -1394,6 +1398,20 @@ export class Composer {
       if (moved) return moved
     }
     return this.shares(op, children, region, atRoot)
+  }
+
+  /** The letters of one Bopomofo syllable stacked in the block, centered and separated by a small
+   *  gap. The letters come from the bundled Bopomofo outlines; without this a three-letter spelling
+   *  shares by ink and the ㄙ, ㄨ and ㄥ fill the cell unevenly.
+   *  @param {(string | any[])[]} children @param {number[]} region */
+  bopomofoBlock(children, region) {
+    const [x0, y0, x1, y1] = region, width = x1 - x0, height = y1 - y0
+    const slot = height / children.length, tall = slot * 0.88
+    const wide = width * 0.60, cx = (x0 + x1) / 2
+    return children.flatMap((child, i) => {
+      const top = y1 - (slot - tall) / 2 - i * slot
+      return this.node(child, [cx - wide / 2, top - tall, cx + wide / 2, top])
+    })
   }
 
   /** Two syllables in one block, set at the split the manuscript's blocks keep: the upper takes
