@@ -1,11 +1,20 @@
 // @ts-nocheck
 // Shape-specific font-derived forms. Keep the caller's IDS; encoded counterparts can vary by region.
-import data from './component-forms.json' with { type: 'json' }
+import generated from './component-forms.json' with { type: 'json' }
+import regular from './component-forms-regular.json' with { type: 'json' }
 import numbered from '../data/numbered-forms.json' with { type: 'json' }
 import { joinedComponentForm } from './constructs.js'
 import constants from './constants.json' with { type: 'json' }
 import { WINDING, commands, derived, makePart, mapped, partInk, placed, svgPath, union, windingOf, wound } from './geometry.js'
 
+// Regular Kai's forms are cut by hand from TW-Kai, outside the generated Noto and brush forms.
+const data = {
+  ...generated,
+  forms: { ...generated.forms, ...regular.forms },
+  native: { ...generated.native, ...regular.native },
+  sources: { ...generated.sources, ...regular.sources },
+  donors: { ...generated.donors, ...regular.donors },
+}
 const formOf = groups => {
   const parts = groups.map(group => makePart(group.map(([ops, points]) => ({ ops: commands(ops), light: points, heavy: points }))))
   // A form's groups were cut from one glyph: its outermost contour winds them all alike, and a

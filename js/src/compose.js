@@ -2541,6 +2541,11 @@ export class Composer {
         this.fit(groups[0], groups[1], frameOf, stem, C, { room: opening })
         continue
       }
+      // A component with a form of its own is drawn from it wherever it stands, before any host cut.
+      const declared = typeof child === 'string'
+        ? componentParts(child, box, this.fontStyle, false)
+        : null
+      if (declared) { groups.push(declared); continue }
       let part = this.host(op, i, child, [...children.slice(0, i), ...children.slice(i + 1)], box, region === null)
       if (op in this.ENCLOSE && i === 0 && (!part || (typeof child === 'string' && this.own(child)
         && stretchOf(part.piece.box, box) > C.ENCLOSING_STRETCH))) {
