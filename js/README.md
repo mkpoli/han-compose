@@ -22,7 +22,7 @@ ES modules with type declarations and no dependencies. Node needs 20.16 or later
 ## Draw a sequence
 
 The composer reads an *export*: a folder of static files holding one font style's parts and layout.
-Four are public ([Exports](#exports)), and `compose` fetches only the files a sequence needs.
+Five are public ([Exports](#exports)), and `compose` fetches only the files a sequence needs.
 
 ```js
 import { writeFile } from 'node:fs/promises'
@@ -50,7 +50,7 @@ One source serves any number of sequences and keeps what it has loaded.
 const EXPORTS = {
   sans: 'https://ids-input-composer.mkpoli.workers.dev/a83fc941166b-sans-compose-layout-v4-f7+variants/',
   serif: 'https://ids-input-composer.mkpoli.workers.dev/8156f838798c-serif-compose-layout-v4-serif-f7+variants/',
-  regular: 'https://ids-input-composer.mkpoli.workers.dev/c084b179a8da-regular-compose-layout-v4-regular-f7/',
+  regular: 'https://ids-input-composer.mkpoli.workers.dev/f87b0f71228e-regular-compose-layout-v4-regular-f7/',
   'pen-writing': 'https://ids-input-composer.mkpoli.workers.dev/ce3eaafda8f9-kaisho-compose-layout-v4-kaisho-f7/',
   fangsong: 'https://ids-input-composer.mkpoli.workers.dev/9f797e2322d2-fangsong-compose-layout-v4-fangsong-f7/',
 }
