@@ -1,12 +1,14 @@
-"""Draw a character Unicode lacks from its Ideographic Description Sequence, in one of four styles.
+"""Draw a character Unicode lacks from its Ideographic Description Sequence, in one of five styles.
 
 `sans` draws in GenZui Sans, which takes its ideographs unchanged from Noto Sans JP at weight 400,
 which in turn draws them as Noto Sans CJK JP does. The composer reads Noto Sans CJK JP, the variable
 font that draws 30,289 ideographs to Noto Sans JP's 13,742 with the same outlines, so each outline is
 known at weight 400 and at the style's heavy weight with the same points. `serif` reads Noto Serif
-CJK JP, the variable Source Han Serif, the same way. `kaisho` reads Kureedo, the Klee One design
-extended with historical kana, at one static weight, with GenZui Sans drawing characters Kureedo
-lacks. `fangsong` reads Zhuque Fangsong the same way, with Jigmo (`STYLES`). Every layout and every part comes
+CJK JP, the variable Source Han Serif, the same way. `regular` reads TW-Kai, the CNS 11643 Kai, at
+one static weight, with its Extension B and G faces drawing what the BMP face lacks. `pen-writing`
+reads Kureedo, the Klee One design extended with historical kana, at one static weight, with GenZui
+Sans drawing characters Kureedo lacks. `fangsong` reads Zhuque Fangsong the same way, with Jigmo
+(`STYLES`). Every layout and every part comes
 from a character a type designer drew; a sequence (⿰亻哥) is drawn in three steps:
 
 1. Teacher. For each node, the drawn character with a node of the same operator whose operands are
@@ -88,7 +90,8 @@ class Style:
     out of the layout's examples, and a glyph of theirs takes the stroke widths its family's 丨 and
     一 have against the variable font's, thinned with density as the variable font thins: a Mincho's
     thin horizontals are lost among the short runs of ink between them (𡉵 measured 65 units across
-    y, its horizontals 20)."""
+    y, its horizontals 20). A face whose typographic ascent sits below the composer's leaves its
+    glyphs low; `y_shift` lifts them after scaling."""
 
     name: str
     font: Source
@@ -101,9 +104,14 @@ class Style:
     weighted: bool = True
     #: Whether hosts come only from the main font, so a fallback never supplies a piece.
     own_hosts: bool = False
+    #: How far up the style's glyphs move to meet the composer's em, in 1000-unit units.
+    y_shift: float = 0.0
 
 
 OFL = "SIL OFL 1.1"
+#: The licence Taiwan's open data platform applies by default; its Exhibit asks for the provider,
+#: the release and its version, and the licence's address where a work derived from the data is used.
+OGL = "Open Government Data License 1.0"
 #: Plangothic P1 and P2 draw the CJK extensions in the Source Han Sans design Noto Sans CJK shares:
 #: the source of components Noto lacks (𦒱, 𡉵). Pinned as `scripts/build_vi_hani.py` pins them.
 PLANGOTHIC_URL = "https://github.com/Fitzgerald-Porthmouth-Koenigsegg/Plangothic-Project/releases/download/V2.9.5795"
@@ -116,6 +124,19 @@ _JIGMO = tuple(Source(f"Jigmo-20250912-{name}", JIGMO_URL, sha, "CC0 1.0", membe
               for name, sha in (("Jigmo2.ttf", "5da3582efe77e22073b86b3b86b556d7111148a76b957cfb53318a91da2efff0"),
                                 ("Jigmo3.ttf", "815b18c1c670103723fe743090559208fdea47dc587ecb057a5a4721ee8dfeff"),
                                 ("Jigmo.ttf", "c8f295b9bd8f9f117a76b3a454aaaa1bb5b4babc18e254978c6deb88464e40cf")))
+#: TW-Kai, the CNS 11643 Kai: the BMP face and the Extension B and G faces that draw what it lacks.
+#: The open data set offers either Taiwan's Open Government Data License 1.0 or the OFL 1.1; the
+#: export takes the OGL, and its Exhibit's release line joins the copyright the name table carries.
+TW_KAI_URL = "https://www.cns11643.gov.tw/opendata/Fonts_Kai.zip"
+TW_KAI_SHA256 = "c602f1518f496252184ffd38f3cc8dc0a2d50fef4815e9340edda71dd501920f"
+_TW_KAI_ALSO = ("數位發展部 (Ministry of Digital Affairs), CNS11643中文標準交換碼全字庫, fonts version 11510.1, "
+                "https://www.cns11643.gov.tw")
+_TW_KAI_MAIN = Source("TW-Kai.ttf", TW_KAI_URL, "9b502e5197d52a946552bef100b9a3d601befcf896fb2b64f28f862314bea337", OGL,
+                      member="TW-Kai.ttf", archive_sha256=TW_KAI_SHA256, also=_TW_KAI_ALSO)
+_TW_KAI_EXT = (Source("TW-Kai-Ext-B.ttf", TW_KAI_URL, "c6782c10a9a19426e3f4c51f1b2d3079a74a91a2d604a44bffc5819014ac1735", OGL,
+                      member="TW-Kai-Ext-B.ttf", archive_sha256=TW_KAI_SHA256, also=_TW_KAI_ALSO),
+               Source("TW-Kai-Ext-G.ttf", TW_KAI_URL, "9464ed6341d40fe8c5dfa0ec07224359915c5f6d0b64a14456734cacebe19414", OGL,
+                      member="TW-Kai-Ext-G.ttf", archive_sha256=TW_KAI_SHA256, also=_TW_KAI_ALSO))
 
 STYLES = {
     # Noto Sans CJK JP 2.004: GenZui Sans takes its ideographs unchanged from Noto Sans JP, which
@@ -146,26 +167,6 @@ STYLES = {
         synthetic_y=True,
         kindred=False,
     ),
-    # Kureedo 0.5.0 Full: Klee One's kaisho and historical kana, with every public code point LXGW
-    # WenKai Light 1.530 has and Klee lacks. It is a static font, so 400 is also the heavy master;
-    # GenZui Sans draws ideographs neither carries.
-    "kaisho": Style(
-        "kaisho",
-        Source("KureedoFull-Regular.ttf",
-               "https://github.com/mkpoli/kureedo/releases/download/v0.5.0/KureedoFull-Regular.zip",
-               "737f04de3b2b222664b5386628b0a15b009c7dd69086a1050dac0e507117c5d6", OFL,
-               member="KureedoFull-Regular.ttf",
-               archive_sha256="d3c100319c1263abc0b7bbcbeb51be42d1a15ea97c90a00bf15ed71043aaec75"),
-        (Source("GenZuiSans-Regular.ttf",
-                "https://github.com/mkpoli/GenZui/releases/download/sans-v0.105/GenZuiSans-Regular.ttf",
-                "121871ee522380b1f591fc6871850416cb74e075a534438eb5180b43094ebe0f", OFL),),
-        # Kureedo's stems measured at 400; the static font has no weight axis to thin them.
-        ((70.0, 0.0), (70.0, 0.0)),
-        heavy=400,
-        kindred=False,
-        weighted=False,
-        own_hosts=True,
-    ),
     # Zhuque Fangsong 0.212 (technical preview), recut from the 1932 南宋 type. It is a static font, so
     # 400 is also the heavy master; Jigmo draws the ideographs it lacks, in the nearest pinned design.
     "fangsong": Style(
@@ -183,7 +184,42 @@ STYLES = {
         kindred=False,
         weighted=False,
         own_hosts=True,
+    ),    # TW-Kai (CNS 11643 Kai, fonts version 11510.1): a static brush face whose Extension B and G
+    # faces draw the ideographs the BMP face lacks, in the same design.
+    "regular": Style(
+        "regular",
+        _TW_KAI_MAIN,
+        _TW_KAI_EXT,
+        # Fitted on 1,500 of its ideographs (`calibrate`).
+        ((60.87, -1.34), (53.83, -1.756)),
+        heavy=400,
+        kindred=True,
+        weighted=False,
+        own_hosts=True,
+        # TW-Kai's typographic ascent is 820 on its 1024-unit em: 880 - 820 * 1000 / 1024.
+        y_shift=79.2,
     ),
+    # Kureedo 0.5.0 Full: Klee One's kaisho and historical kana, with every public code point LXGW
+    # WenKai Light 1.530 has and Klee lacks. It is a static font, so 400 is also the heavy master;
+    # GenZui Sans draws ideographs neither carries.
+    "pen-writing": Style(
+        "pen-writing",
+        Source("KureedoFull-Regular.ttf",
+               "https://github.com/mkpoli/kureedo/releases/download/v0.5.0/KureedoFull-Regular.zip",
+               "737f04de3b2b222664b5386628b0a15b009c7dd69086a1050dac0e507117c5d6", OFL,
+               member="KureedoFull-Regular.ttf",
+               archive_sha256="d3c100319c1263abc0b7bbcbeb51be42d1a15ea97c90a00bf15ed71043aaec75"),
+        (Source("GenZuiSans-Regular.ttf",
+                "https://github.com/mkpoli/GenZui/releases/download/sans-v0.105/GenZuiSans-Regular.ttf",
+                "121871ee522380b1f591fc6871850416cb74e075a534438eb5180b43094ebe0f", OFL),),
+        # Kureedo's stems measured at 400; the static font has no weight axis to thin them.
+        ((70.0, 0.0), (70.0, 0.0)),
+        heavy=400,
+        kindred=False,
+        weighted=False,
+        own_hosts=True,
+    ),
+
 }
 DEFAULT_STYLE = "sans"
 EM = 1000
@@ -732,7 +768,7 @@ class Fallback:
         self.path, self.opener = path, os.getpid()
         self.font = TTFont(path)
         self.cmap = self.font.getBestCmap()
-        #: What brings its em to the main font's (Jigmo draws on 1,024 units).
+        #: What brings its em to the composer's 1000-unit em (Jigmo draws on 1,024 units).
         self.scale = em / self.font["head"].unitsPerEm
 
     @cached_property
@@ -750,8 +786,12 @@ class Font:
     def __init__(self, path: Path, fallbacks: list[Path] = (), style: str = DEFAULT_STYLE):
         self.style = STYLES[style]
         self.font = TTFont(path)
-        self.fallbacks = [Fallback(f, self.font["head"].unitsPerEm) for f in fallbacks]
+        self.fallbacks = [Fallback(f, EM) for f in fallbacks]
         self.cmap = self.font.getBestCmap()
+        #: What brings the main font's em to the composer's 1000-unit em (TW-Kai draws on 1,024).
+        self.scale = EM / self.font["head"].unitsPerEm
+        #: The style's vertical correction, applied to every glyph after scaling.
+        self.shift = np.array([0.0, self.style.y_shift])
         self.static = "fvar" not in self.font
         # Ideographic variation sequences: (base, selector) → glyph name, None for the base's own glyph.
         self.variants = {(base, selector): name for table in self.font["cmap"].tables if table.format == 14
@@ -804,7 +844,8 @@ class Font:
         for glyphs in (self.light, self.heavy):
             pen = DecomposingRecordingPen(glyphs)
             glyphs[name].draw(pen)
-            flat = [Contour(ops, p, p) for ops, p in _contours(pen)]
+            scale = self.scale
+            flat = [Contour(ops, p * scale, p * scale) for ops, p in _contours(pen)]
             out.append(_across(_rings(flat, [c.light for c in flat], steps=8), axis))
         return out[0], out[1]
 
@@ -846,14 +887,16 @@ class Font:
                         scale = fallback.scale
                         pen = DecomposingRecordingPen(fallback.glyphs)
                         fallback.glyphs[fallback.cmap[ord(char)]].draw(pen)
-                        contours = [Contour(ops, p * scale if scale != 1 else p, LATER, LATER, kindred=self.style.kindred) for ops, p in _contours(pen)]
+                        contours = [Contour(ops, p * scale + self.shift, LATER, LATER, kindred=self.style.kindred) for ops, p in _contours(pen)]
                         self._later(contours, lambda contours=contours: self._grown_heavy(contours))
                         part = Part(contours) if contours else None
                         break
             if name is not None:
                 light = DecomposingRecordingPen(self.light)
                 self.light[name].draw(light)
-                contours = [Contour(ops, p, LATER, LATER if self.static else None) for ops, p in _contours(light)]
+                scale = self.scale
+                contours = [Contour(ops, p * scale + self.shift, LATER, LATER if self.static else None)
+                            for ops, p in _contours(light)]
                 self._later(contours, lambda contours=contours: self._own_heavy(name, contours))
                 part = Part(contours) if contours else None
             self._parts[char] = part

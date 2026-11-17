@@ -181,13 +181,13 @@ describe('the KRM ⿱⺊冖 top', () => {
     expect(c.groupedStack(['⿳', '⺊', '冖', '人'])).toEqual(['⿱', ['⿱', '⺊', '冖'], '人'])
     expect(c.groupedStack(['⿳', '卜', '冖', '人'])).toEqual(['⿱', ['⿱', '⺊', '冖'], '人'])
     expect(isComponentForm('⿱⺊冖', 'sans')).toBe(true)
-    expect(isComponentForm('⿱⺊冖', 'kaisho')).toBe(true)
-    c.fontStyle = 'kaisho'
+    expect(isComponentForm('⿱⺊冖', 'pen-writing')).toBe(true)
+    c.fontStyle = 'pen-writing'
     expect(c.groupedStack(['⿳', '⺊', '冖', '人'])).toEqual(['⿱', ['⿱', '⺊', '冖'], '人'])
   })
 })
 
-for (const style of ['sans', 'serif', 'kaisho']) {
+for (const style of ['sans', 'serif', 'pen-writing']) {
   it(`keeps the ${style} manuscript top joined with a rightward bar in separate view`, () => {
     expect(isGroupedForm('⿱⺊冖', style)).toBe(true)
     const [top, roof] = componentParts('⿱⺊冖', undefined, style)
@@ -196,8 +196,8 @@ for (const style of ['sans', 'serif', 'kaisho']) {
     // The bar projects to the right; the centred stem reaches the roof seam.
     expect(Math.min(...xs)).toBeGreaterThanOrEqual(450)
     expect(Math.max(...xs)).toBeGreaterThanOrEqual(900)
-    expect(top.part.box[1]).toBe({ sans: 562, serif: 543, kaisho: 460 }[style])
+    expect(top.part.box[1]).toBe({ sans: 562, serif: 543, 'pen-writing': 460 }[style])
     expect(roof.part.box[3]).toBeGreaterThanOrEqual(top.part.box[1])
-    expect(top.origin).toContain(style === 'kaisho' ? 'Kureedo' : `Noto ${style === 'sans' ? 'Sans' : 'Serif'} CJK`)
+    expect(top.origin).toContain(style === 'pen-writing' ? 'Kureedo' : `Noto ${style === 'sans' ? 'Sans' : 'Serif'} CJK`)
   })
 }

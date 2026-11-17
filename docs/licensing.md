@@ -17,7 +17,15 @@ committed.
   Sans design Noto Sans CJK shares, so they are the source of components Noto lacks. A part taken
   from here is thinned and thickened synthetically to match the main font's weight.
 
-`kaisho`:
+`regular`:
+
+- **TW-Kai** (數位發展部 (Ministry of Digital Affairs), CNS11643中文標準交換碼全字庫, fonts version
+  11510.1), static, 1,024 units to the em, brought to 1,000, read at its one weight. Its BMP face
+  and its Extension B and G faces draw the ideographs. The data set offers either the **Open
+  Government Data License 1.0** (the licence taken here, whose Exhibit asks for the provider, the
+  release and its version) or the SIL OFL 1.1.
+
+`pen-writing`:
 
 - **Kureedo Full 0.5.0** (the Klee Project Authors, mkpoli and LXGW, SIL OFL 1.1), static. Klee One's
   kaisho with the historical kana, and LXGW WenKai Light 1.530 for the public code points Klee lacks;
@@ -138,7 +146,7 @@ ships the licence texts beside it.
   contour indices (`c.k`), is outline data of the style's fonts. A `sans` export's are Noto Sans CJK
   JP's (© 2014-2021 Adobe (http://www.adobe.com/), with Reserved Font Name 'Source') or Plangothic P1
   and P2's (Copyright (c) 2024 by Fitzgerald P. Köeingsegg; no Reserved Font Name), under the
-  **SIL OFL 1.1**. A `kaisho` export's are Kureedo Full's and GenZui Sans's, under the **SIL OFL 1.1**. A `fangsong` export's are Zhuque Fangsong's, under the **SIL OFL 1.1**, or Jigmo's, under **CC0 1.0**. A `serif` export's are Noto Serif CJK JP's (© 2017-2024 Adobe (http://www.adobe.com/); no
+  **SIL OFL 1.1**. A `regular` export's are TW-Kai's, under the **Open Government Data License 1.0**, whose full text is `OGL.txt`. A `pen-writing` export's are Kureedo Full's and GenZui Sans's, under the **SIL OFL 1.1**. A `fangsong` export's are Zhuque Fangsong's, under the **SIL OFL 1.1**, or Jigmo's, under **CC0 1.0**. A `serif` export's are Noto Serif CJK JP's (© 2017-2024 Adobe (http://www.adobe.com/); no
   Reserved Font Name), under the **SIL OFL 1.1**, or Jigmo's, under **CC0 1.0**. `OFL.txt` holds the
   OFL's full text after each OFL font's copyright line, read from the font's `name` table (the text
   is `data/licences/OFL-1.1.txt`, as Noto CJK ships it); a serif export also ships `CC0.txt`

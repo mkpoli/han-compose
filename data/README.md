@@ -102,7 +102,7 @@ font versions, so the palette's `glyph` column is tied to that version. Built by
 The 69 numbered components with no IDS fragment have two faces. `numbered-forms.json` holds their
 component forms: the Sans forms are cut from the host characters' Noto Sans CJK JP 2.004 and Plangothic
 V2.9.5795 glyphs, using the component's BabelStone PUA glyph as the shape to match; the Serif and
-Kaisho forms are the PUA glyph itself. 60 have a clean host cut. The other 9 (`{23}`, `{27}`,
+Wen Kai forms are the PUA glyph itself. 60 have a clean host cut. The other 9 (`{23}`, `{27}`,
 `{65}`, `{79}`, `{90}`, `{92}`, `{103}`, `{111}`, `{118}`) have no clean cut and use the PUA
 glyph in Sans too; the file lists them in `fallback`.
 `numbered-sans-outlines.json.gz` carries the same 69 Sans outlines for the palette source, so a
@@ -836,7 +836,7 @@ are placed within a font-specific opening based on the native 產 proportions;
 the 产 opening is shorter to leave space below its lower crossbar. These are atomic native previews;
 adjustment mode uses operand outlines when available. Native compound previews use
 outline-based layout rather than extrapolating the learned glyph layout model;
-Kaisho keeps its export layout. Source aliases remain
+Wen Kai keeps its export layout. Source aliases remain
 searchable and visible in tooltips, without changing the inserted IDS.
 When 儿 begins the enclosed vertical stack, its native 元-derived legs meet the
 enclosure bar; their stroke weight is adjusted continuously as the available

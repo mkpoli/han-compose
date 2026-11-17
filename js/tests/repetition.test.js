@@ -241,8 +241,8 @@ it('uses the native traditional whole glyphs, including the 文 alias', async ()
     expect(excluded.origins.some(origin => origin.includes(text))).toBe(false)
     expect(excluded.parts.length).toBeGreaterThan(1)
     if (inner === '生') expect(excluded.origins.some(origin => origin.includes('Noto'))).toBe(false)
-    expect(onlyBundled(text, false, false, 'kaisho')).toBe(false)
-    expect(onlyBundled(alias, false, true, 'kaisho')).toBe(false)
+    expect(onlyBundled(text, false, false, 'pen-writing')).toBe(false)
+    expect(onlyBundled(alias, false, true, 'pen-writing')).toBe(false)
   }
 })
 
@@ -431,7 +431,7 @@ it('reports subtraction as approximate when its native form is unavailable or se
     const data = store(), rec = data.rec
     return { ...data, rec: key => rec(['鹿', '比'].includes(key) ? '木' : key) }
   }
-  for (const options of [{ fontStyle: 'kaisho' }, { fontStyle: 'sans', separate: true }]) {
+  for (const options of [{ fontStyle: 'pen-writing' }, { fontStyle: 'sans', separate: true }]) {
     const drawing = await compose(source, '㇯鹿比', options)
     expect(drawing.cut).not.toBe('')
     expect(drawing.approximate).toContain('㇯')
@@ -466,7 +466,7 @@ it('joins the shallow sweep to the hook in both source spellings and preserves t
       expect(nested.d).not.toMatch(/NaN|Infinity/)
     }
   }
-  expect(componentDrawing('⿱丿乚','kaisho')).toBeNull()
+  expect(componentDrawing('⿱丿乚','pen-writing')).toBeNull()
 })
 
 it('draws the Gongche three-sweep component locally in both styles with two editable leaves', async () => {

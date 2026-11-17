@@ -20,7 +20,7 @@ const source = async () => {
   return source
 }
 
-for (const fontStyle of ['sans', 'serif', 'kaisho']) {
+for (const fontStyle of ['sans', 'serif', 'pen-writing']) {
   it(`${fontStyle} reuses the KRM top with the same outline in separate view`, async () => {
     const src = await source()
     for (const text of ['⿱⺊冖', '⿳⺊冖人', '⿱⿱⺊冖人', '⿰木⿳⺊冖人']) {
@@ -37,7 +37,7 @@ for (const fontStyle of ['sans', 'serif', 'kaisho']) {
   })
 }
 
-for (const fontStyle of ['sans', 'serif', 'kaisho']) {
+for (const fontStyle of ['sans', 'serif', 'pen-writing']) {
   it(`${fontStyle} tucks the part below close under the KRM top's bar`, async () => {
     const { parts } = await compose(await source(), '⿳⺊冖人', { fontStyle, separate: true })
     const [stem, roof, body] = parts
@@ -53,13 +53,13 @@ for (const fontStyle of ['sans', 'serif', 'kaisho']) {
 
 it('records Kureedo donors for the Kaisho editorial top', () => {
   const witness = data.editorial['KRM-07097330']
-  expect(witness.donors.kaisho).toEqual(['上', '冖'])
+  expect(witness.donors['pen-writing']).toEqual(['上', '冖'])
   expect(witness.reference).toContain('KRM K07097330')
   expect(witness.gloss).toContain('K07097330: 俗')
-  expect(witness.kaisho).toContain('Kureedo')
-  expect(data.forms.kaisho['⿱⺊冖']).not.toEqual(data.forms.sans['⿱⺊冖'])
-  expect(data.forms.kaisho['⿱⺊冖']).not.toEqual(data.forms.serif['⿱⺊冖'])
-  const parts = componentParts('⿱⺊冖', undefined, 'kaisho')
+  expect(witness['pen-writing']).toContain('Kureedo')
+  expect(data.forms['pen-writing']['⿱⺊冖']).not.toEqual(data.forms.sans['⿱⺊冖'])
+  expect(data.forms['pen-writing']['⿱⺊冖']).not.toEqual(data.forms.serif['⿱⺊冖'])
+  const parts = componentParts('⿱⺊冖', undefined, 'pen-writing')
   expect(parts).toHaveLength(2)
   for (const part of parts) expect(part.origin).toContain('KRM-07097330 editorial (Kureedo)')
 })

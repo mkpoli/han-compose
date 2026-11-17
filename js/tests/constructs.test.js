@@ -168,7 +168,7 @@ describe('a variation sequence form', () => {
 
   it('fills a nested region, and keeps the composer drawing elsewhere', () => {
     expect(ivdParts(spec, '⿻者丶', notoZhe.sans, 'sans', [0, 0, 500, 500], false)[0].target).toEqual([0, 0, 500, 500])
-    expect(ivdParts(spec, '⿻者丶', notoZhe.sans, 'kaisho', constants.face, true)).toBeNull()
+    expect(ivdParts(spec, '⿻者丶', notoZhe.sans, 'pen-writing', constants.face, true)).toBeNull()
     const other = { ...notoZhe.sans, p: notoZhe.sans.p.slice(1) }
     expect(ivdParts(spec, '⿻者丶', other, 'sans', constants.face, true)).toBeNull()
   })

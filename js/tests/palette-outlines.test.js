@@ -66,10 +66,10 @@ describe('the palette under an export', () => {
     expect(source.store().rec('江')).toBe(record)
   })
   it('stays local for every face when the export cannot be read', () => {
-    for (const face of ['sans', 'serif', 'fangsong', 'kaisho']) expect(onlyBundled('江', false, true, face)).toBe(true)
+    for (const face of ['sans', 'serif', 'fangsong', 'pen-writing']) expect(onlyBundled('江', false, true, face)).toBe(true)
   })
   it('needs an export only where the face has its own glyphs', () => {
     expect(onlyBundled('江', false, false, 'sans')).toBe(true)
-    for (const face of ['serif', 'fangsong', 'kaisho']) expect(onlyBundled('江', false, false, face)).toBe(false)
+    for (const face of ['serif', 'fangsong', 'pen-writing']) expect(onlyBundled('江', false, false, face)).toBe(false)
   })
 })
