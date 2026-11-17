@@ -492,6 +492,10 @@ const DESIGNED_CUTS = {
   氵: ['𭰲', {
     '345749510c894ac303898cacbbd71bc35880cb6179990632d00b1ffe463f2d71': [0, 1, 2],
   }],
+  // Zhuque draws 鬲's lower frame as one outline; its own 𦉪 is not in the face.
+  𦉪: ['鬲', {
+    de5606e4968f68067080c0219e1634cc3622f007c35c8936df34e55186b7f88f: [0],
+  }],
 }
 
 export class Composer {
@@ -1224,7 +1228,12 @@ export class Composer {
         }
         return [this.place(glyph, region, this.ink(encoded), `glyph ${encoded}`)]
       }
-      if (!tree) throw new LookupError(`No glyph or sequence draws ${encoded}.`)
+      if (!tree) {
+        // A character the face does not draw may still be a designed cut of one it does.
+        const designed = this.designedCut(encoded)
+        if (designed) return [this.place(designed.piece, region, this.ink(encoded), `designed ${designed.record.h}`)]
+        throw new LookupError(`No glyph or sequence draws ${encoded}.`)
+      }
       if (!glyph) this.missingGlyphs.add(encoded)
       this.expanding.add(encoded)
       try { return this.node(tree, region, atRoot) } catch (error) {
