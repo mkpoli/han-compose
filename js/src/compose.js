@@ -3896,8 +3896,8 @@ export class Composer {
 
 // -------------------------------------------------------------------- free functions
 /** The three bands a three-band stack over a compound foot takes, after the dictionary glyph's 羔
- *  over 口 over 𦉪十: the top 0.61 of the region wide and 0.38 of its height, the mouth 0.26 and
- *  0.15, the foot the same width and the rest. A gap stands between the top and the mouth. */
+ *  over 口 over 𦉪十: the top 0.64 of the region wide and 0.38 of its height, the mouth 0.30 and
+ *  0.15 meeting the top, the foot the same width and the rest. */
 export function stackBands(region) {
   const [x0, y0, x1, y1] = region, width = x1 - x0, height = y1 - y0, middle = (x0 + x1) / 2
   return {
