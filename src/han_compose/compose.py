@@ -90,7 +90,8 @@ class Style:
     out of the layout's examples, and a glyph of theirs takes the stroke widths its family's 丨 and
     一 have against the variable font's, thinned with density as the variable font thins: a Mincho's
     thin horizontals are lost among the short runs of ink between them (𡉵 measured 65 units across
-    y, its horizontals 20)."""
+    y, its horizontals 20). A face whose typographic ascent sits below the composer's leaves its
+    glyphs low; `y_shift` lifts them after scaling."""
 
     name: str
     font: Source
