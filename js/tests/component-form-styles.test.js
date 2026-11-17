@@ -4,8 +4,8 @@ import { componentDrawing, componentParts, componentRecord, containsComponentFor
 import { Composer } from '../src/compose.js'
 import { windingOf } from '../src/geometry.js'
 import { onlyBundled } from '../src/local.js'
-import { compose } from '../src/loader.js'
-import { constants } from './fixtures/small-export.js'
+import { compose, createSource } from '../src/loader.js'
+import { character, constants, files, records, shards } from './fixtures/small-export.js'
 
 it('does not use Noto-only forms for Fangsong', () => {
   for (const text of ['⿱丿乚', '⿰氵氵', '㇯馬灬']) {
@@ -142,4 +142,42 @@ it('leaves the characters holding 眔’s lower half to their own glyphs', () =>
   expect(exported.ink(node)).toBe(4000)
   expect(exported.outlines(node)).toBe(0)
   expect(exported.identity('⿲𰀪丨⿱丶丶')).toBe(known)
+})
+
+// Cut from TW-Kai's 荣: the connected 艹 its simplified characters write, while its traditional
+// characters write two 十. The form draws; the export's split 艹 record still lays it out.
+it('draws 艹 connected in Regular Kai as a drawing-only form', () => {
+  expect(isComponentForm('艹', 'regular')).toBe(true)
+  // The form is a drawing only: the layout still reads the split 艹 record the export carries.
+  expect(isNativeForm('艹', 'regular')).toBe(true)
+  // A native form leaves the layout the export's own record: the split 艹's ink and outline count.
+  const record = { ink: 2729.9, o: 2 }
+  const composer = new Composer({ manifest: { constants, spelled: [] }, layout: null,
+    rec: key => key === '艹' ? record : null, hosts: () => [], places: () => [] }, { fontStyle: 'regular' })
+  expect(composer.rec('艹')).toBe(record)
+  const parts = componentParts('艹', undefined, 'regular')
+  expect(parts).toHaveLength(1)
+  expect(parts[0].part.contours).toHaveLength(1)
+  expect(parts[0].origin).toBe('TW-Kai: 艹')
+  for (const style of ['sans', 'serif', 'fangsong', 'pen-writing']) expect(isComponentForm('艹', style)).toBe(false)
+})
+
+it('draws a stacked operand from its form before a host cut', async () => {
+  const grass = character('艹', [[100, 620, 480, 800], [520, 620, 900, 800]])
+  const half = character('半', [[100, 0, 900, 520]])
+  const input = { ...files, ...shards('g', Object.entries({ ...records, 艹: grass, 半: half })) }
+  const source = createSource(async name => input[name] === undefined ? null : new Uint8Array(Buffer.from(input[name])).buffer)
+  const drawn = await compose(source, '⿱艹半', { fontStyle: 'regular' })
+  expect(drawn.parts.some(part => part.origin === 'TW-Kai: 艹')).toBe(true)
+})
+
+it('still draws the split 十十 spelling in every face', async () => {
+  const ten = character('十', [[100, 0, 480, 800], [520, 0, 900, 800]])
+  const input = { ...files, ...shards('g', Object.entries({ ...records, 十: ten })) }
+  const source = () => createSource(async name => input[name] === undefined ? null : new Uint8Array(Buffer.from(input[name])).buffer)
+  for (const fontStyle of ['sans', 'serif', 'regular', 'fangsong', 'pen-writing']) {
+    const drawn = await compose(source(), '⿰十十', { fontStyle })
+    expect(drawn.parts).toHaveLength(2)
+    expect(drawn.parts.every(part => part.origin === 'glyph 十')).toBe(true)
+  }
 })
