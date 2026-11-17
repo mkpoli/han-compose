@@ -63,6 +63,20 @@ describe('a composition fix', () => {
 })
 
 
+describe('C... ⿱一心', () => {
+  it('sets the top 一 to the face’s own bar height', () => {
+    const top = part('host 亍', [0, 0, 1000, 1000], [100, 80, 900, 416], [[100, 80, 900, 416]])
+    const bottom = part('host 芯', [0, 0, 1000, 1000], [100, 451, 900, 936], [[100, 451, 900, 936]])
+    const bar = part('glyph 一', [0, 0, 1000, 1000], [100, 0, 900, 100], [[100, 0, 900, 100]])
+    bar.part.box = [100, 0, 900, 100]
+    const composer = { fontStyle: 'regular', glyph: () => bar.part }
+    const [fixed] = componentFix('⿱一心', [top, bottom], composer)
+    expect(fixed.target[3] - fixed.target[1]).toBeCloseTo(100, 6)
+    expect(fixed.target[3]).toBeCloseTo(416, 6)
+    expect(fixed.fixed).toBe(true)
+  })
+})
+
 describe('C087 ⿻日丿', () => {
   it('keeps 丿 under 日’s top bar', () => {
     const frame = part('overlay 甲', [126, 178, 877, 777], [38, 173, 967, 757],

@@ -285,6 +285,24 @@ export const COMPONENT_FIXES = {
   // 卝's terminals must clear 干's first bar, as the right side of 哶 does.
   // A whole 鰥 cut stretches the left strokes and carries a sweeping lower stroke.
   // Keep 遝’s left strokes and stem, and replace both right strokes with compact 丶 glyphs.
+  // ⿱一心: the top 一 is cut from a host whose bar fills a tall teacher band. In the two static
+  // Kai faces it comes out much thicker than 心's strokes. The face's own 一 gives the bar its
+  // height at the band's width; the bar sits at the bottom of its band, above 心.
+  '⿱一心': {
+    glyphs: {},
+    apply(parts, composer) {
+      if ((composer.fontStyle !== 'regular' && composer.fontStyle !== 'pen-writing') || parts.length < 2) return parts
+      const bar = composer.glyph('一'), top = parts[0]
+      if (!bar) return parts
+      const ownWidth = bar.box[2] - bar.box[0], ownHeight = bar.box[3] - bar.box[1]
+      const width = top.target[2] - top.target[0]
+      if (!(ownWidth > 0 && width > 0)) return parts
+      const height = ownHeight * width / ownWidth
+      top.target = [top.target[0], top.target[3] - height, top.target[2], top.target[3]]
+      top.fixed = true
+      return parts
+    },
+  },
   // ⿻日丿: the 丿 comes from 屮, where it stands as tall as the glyph; over 日 it runs out above
   // the top horizontal. It is cut off at the underside of that bar.
   '⿻日丿': {
