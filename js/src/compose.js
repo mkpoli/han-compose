@@ -212,6 +212,9 @@ const SIDE_STROKE = [0, 0.2, 0.4, 1], SIDE_BODY = [0.44, 0, 1, 0.7]
 /** Frames a font sets as a left half and a right half: the halves stand at the sides of the cell
  *  and the enclosed part sits between them (𦥑 in ⿴𦥑囟, read as ⿲). */
 const SPLIT_FRAMES = new Set(['𦥑'])
+
+/** The axis a host place runs along: 0 for a side, 1 for a band, null for an enclosure's inside. */
+const PLACE_AXIS = { L: 0, C: 0, R: 0, T: 1, M: 1, B: 1 }
 /** A short stack in a tall column of a ⿲ keeps to the top of its column, leaving the rest empty:
  *  山 over 一 in ⿲彳⿱山一攵 stands as 微 and 徵 set it, with 攵 filling the lower right. A stack is
  *  short when each part stays under this share of the column's height at the column's width, and
@@ -525,6 +528,7 @@ export class Composer {
     this.weighted = m.weighted ?? m.heavy !== 400
     this.stem0 = c.stem
     this.arities = new Map([...c.BINARY.map(op => [op, 2]), ...c.TERNARY.map(op => [op, 3]), ...c.UNARY.map(op => [op, 1])])
+    this.crossingCache = new Map()
     this.expanding = new Set()
     // The pairs written as operands of a row along their own axis, by their node and by their
     // operand list (`narrowRow`).
@@ -699,6 +703,64 @@ export class Composer {
     if (!this.excluded(key) && record?.G) return record.G.p.length
     const counts = node.slice(1).map(n => this.outlines(n, seen))
     return counts.every(Boolean) ? counts.reduce((a, b) => a + b, 0) : 0
+  }
+
+  /** Whether a compound operand has no permitted glyph encoding. */
+  unknown(node) {
+    if (!Array.isArray(node)) return false
+    // A prepared form is readable even where no encoded character names it.
+    if (this.formRecord(keyOf(node))) return false
+    const encoded = this.bySequence(keyOf(node))
+    return !encoded || this.excluded(encoded) || !this.glyph(encoded)
+  }
+
+  /** An unreadable linear compound, optionally expanding along a particular axis. */
+  unknownAligned(node, axis = null) {
+    return Array.isArray(node) && Object.hasOwn(this.AXIS, node[0])
+      && (axis === null || this.AXIS[node[0]] === axis) && this.unknown(node)
+  }
+
+  /** The most strokes a line along `axis` crosses in an operand: down a column for a stack, along a
+   *  row for a row, counted on its glyph at 64 px. A sequence with no glyph to read adds its
+   *  operands' along that axis, and takes the most of operands side by side across it; an enclosed
+   *  or overlaid part adds to its enclosing one. Unknown analyses count as 永. */
+  crossings(node, axis, seen = new Set()) {
+    if (Array.isArray(node)) {
+      const encoded = this.bySequence(keyOf(node))
+      if (encoded && !this.excluded(encoded) && this.glyph(encoded)) return this.crossings(encoded, axis, seen)
+      const counts = node.slice(1).map(child => this.crossings(child, axis, seen))
+      const along = Object.hasOwn(this.AXIS, node[0]) ? this.AXIS[node[0]] === axis : true
+      return along ? counts.reduce((a, b) => a + b, 0) : Math.max(...counts)
+    }
+    if (!this.excluded(node)) {
+      const key = `${this.renderKey(node)}|${axis}`
+      if (!this.crossingCache.has(key)) {
+        const glyph = this.glyph(node)
+        if (glyph) this.crossingCache.set(key, strokeCrossings(glyph, axis))
+      }
+      if (this.crossingCache.has(key)) return this.crossingCache.get(key)
+    }
+    const sequence = this.sequenceOf(node)
+    if (sequence && !seen.has(node)) {
+      try { return this.crossings(this.parse(sequence), axis, new Set([...seen, node])) } catch { /* unreadable: as unknown */ }
+    }
+    const always = this.excluded('永') ? null : this.glyph('永')
+    return always ? strokeCrossings(always, axis) : 1
+  }
+
+  /** The shares of a row or stack: `SHARES_OLD` at the root and wherever its operands are readable,
+   *  the crossed shares of `SHARES` for a nested unreadable linear compound. An export from before
+   *  the crossed shares keeps the old pair in `SHARES`. */
+  sharesOf(op, children, axis, atRoot) {
+    const C = this.C, count = children.length
+    const pair = C.SHARES?.[`${op},${count}`]
+    const nested = !atRoot && !this.partial && children.some(child => this.unknownAligned(child))
+    if (nested && pair?.length >= 4) {
+      const [power, crossed, middle, gap] = pair
+      return { power, crossed, middle, gap }
+    }
+    const old = C.SHARES_OLD?.[`${op},${count}`] ?? (pair?.length === 2 ? pair : null) ?? [0.5, 1.0]
+    return { power: old[0], crossed: 0, middle: old[1], gap: 0.04 }
   }
 
   /** Whether a sequence names a bare stroke among its operands. */
@@ -1077,7 +1139,16 @@ export class Composer {
    *  a piece, which the composer weighs before finding it cannot cut them. */
   hostsOf(written, place, uncut = false) {
     if (written.includes(EMPTY)) return []
-    const list = this.data.hosts(written, place)
+    let list = this.data.hosts(written, place)
+    // A face that cannot draw the component itself takes one of its other places' cuts before any
+    // fallback glyph: Zhuque Fangsong's 善 holds 䒑 in its middle but the export cannot cut it clean,
+    // while its 立 holds one at the bottom that it can.
+    if (ownFormsOnly(this.fontStyle) && !this.own(written) && !list.some(h => this.cutOf(h))) {
+      const axis = PLACE_AXIS[place]
+      for (const other of this.data.places(written)) {
+        if (other !== place && PLACE_AXIS[other] === axis) list = list.concat(this.data.hosts(written, other))
+      }
+    }
     return uncut ? list : list.filter(h => this.cutOf(h))
   }
 
@@ -1296,8 +1367,10 @@ export class Composer {
         ?? [region[0] + x0 * w, region[1] + y0 * h, region[0] + x1 * w, region[1] + y1 * h]
       return [...cutFrame, ...this.node(children[1], room)]
     }
-    // Native compound forms have no trained layout features; fit their actual outlines.
-    if (this.hosted && this.layout && (!hasRepetition || ownFormsOnly(this.fontStyle)) && children.length === 2 && this.hasHosts(op, children) && (atRoot ? this.layout.ops.includes(op) : op === '⿰' || op === '⿱')) {
+    // Native compound forms have no trained layout features; fit their actual outlines. A nested row
+    // that holds an unreadable linear compound has no learned box to follow: the crossed shares place it.
+    const unreadableRow = !atRoot && op === '⿰' && children.some(child => this.unknownAligned(child, 0))
+    if (this.hosted && this.layout && (!hasRepetition || ownFormsOnly(this.fontStyle)) && !unreadableRow && children.length === 2 && this.hasHosts(op, children) && (atRoot ? this.layout.ops.includes(op) : op === '⿰' || op === '⿱')) {
       // A description nothing in the export spells as one character has nothing to integrate a host
       // cut with, so each operand is drawn from its own glyph.
       const learned = this.learned(op, children, atRoot ? null : region, !this.bySequence(keyOf(node)))
@@ -2806,7 +2879,7 @@ export class Composer {
         }
       }
     }
-    const [power, middle] = C.SHARES[`${op},${children.length}`] ?? [0.5, 1.0]
+    const share = this.sharesOf(op, children, axis, atRoot)
     const other = children[1]
     const compactYan = op === '⿰' && children[0] === '朱' && Array.isArray(other) && other[0] === '⿸'
       && yanSources.has(keyOf(other[1])) && !this.separate && !ownFormsOnly(this.fontStyle)
@@ -2815,8 +2888,9 @@ export class Composer {
     // ink asks for than with 0.75 of it: at 0.75 the 六 of ⿳山六廾 was 217 units high. Bars and
     // covers (一, 冖, 丷) still take the compression.
     const wholeMiddles = children.map((child, k) => op === '⿳' && k > 0 && k < children.length - 1 && this.middleWhole(child))
-    const weights = children.map((child, k) => this.ink(child) ** power
-      * (k > 0 && k < children.length - 1 && !wholeMiddles[k] ? middle : 1))
+    const weights = children.map((child, k) => this.ink(child) ** share.power
+      * (share.crossed ? this.crossings(child, axis) ** share.crossed : 1)
+      * (k > 0 && k < children.length - 1 && !wholeMiddles[k] ? share.middle : 1))
     if (axis === 1 && children.length === 3) {
       const total = weights.reduce((a, b) => a + b, 0)
       // A single component over a cover is the roof of one unit: past its third the bottom takes
@@ -2839,7 +2913,7 @@ export class Composer {
     }
     // A three-band stack is a vertical chain: each band is drawn on to the one below it (丅 on 口 on
     // 丄). A pair keeps a row's gap unless the learned boxes above place it.
-    const gap = compactYan ? 0.01 : axis === 1 && children.length > 2 ? 0 : 0.04
+    const gap = compactYan ? 0.01 : axis === 1 && children.length > 2 ? 0 : share.gap
     const fit = (1 - gap * (children.length - 1)) / weights.reduce((a, b) => a + b, 0)
     const lo = region[axis], span = region[axis + 2] - region[axis]
     const groups = []
@@ -4679,3 +4753,20 @@ function insideRing(ring, outer) {
 }
 
 export { raster }
+
+/** The most ink runs a line along `axis` crosses on `part` drawn in the em at 64 px. */
+function strokeCrossings(part, axis) {
+  const size = 64
+  const mask = raster([placed(part, part.box, part.box, 0, 'glyph')], size)
+  let most = 1
+  for (let line = 0; line < size; line++) {
+    let runs = 0, ink = 0
+    for (let step = 0; step < size; step++) {
+      const at = axis === 1 ? mask[step * size + line] : mask[line * size + step]
+      if (at && !ink) runs++
+      ink = at
+    }
+    if (runs > most) most = runs
+  }
+  return most
+}
