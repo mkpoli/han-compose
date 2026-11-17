@@ -259,6 +259,39 @@ export function dotIn(composer, band) {
  * The corrections, by description. `glyphs` ties each to the outlines it was read against.
  * A correction that cannot find the parts it names leaves the drawing as it is.
  */
+/** `part` with its widest bar sheared level about the bar's centre: a brush 䒑 rises to the right,
+ *  where the design sets the component level. */
+function levelledBar(part) {
+  const contours = part.part.contours
+  if (!contours.length) return part
+  const boxes = contours.map(contour => pointsBox(contour.light))
+  let bar = 0
+  for (let i = 1; i < contours.length; i++) if (widthOf(boxes[i]) > widthOf(boxes[bar])) bar = i
+  const [x0, , x1] = boxes[bar], contour = contours[bar], span = x1 - x0
+  if (!(span > 0)) return part
+  const edge = x => {
+    let sum = 0, count = 0
+    for (let i = 0; i < contour.light.length; i += 2) {
+      if (Math.abs(contour.light[i] - x) > span * 0.08) continue
+      sum += contour.light[i + 1]; count++
+    }
+    return count ? sum / count : null
+  }
+  const y0 = edge(x0), y1 = edge(x1)
+  if (y0 === null || y1 === null) return part
+  const slope = (y1 - y0) / span
+  if (Math.abs(slope) < 0.02) return part
+  const centre = (x0 + x1) / 2
+  return revised(part, contours.map(item => {
+    const light = Float64Array.from(item.light), heavy = Float64Array.from(item.heavy ?? item.light)
+    for (let i = 0; i < light.length; i += 2) {
+      const drop = slope * (item.light[i] - centre)
+      light[i + 1] -= drop; heavy[i + 1] -= drop
+    }
+    return { ...item, light, heavy }
+  }))
+}
+
 export const COMPONENT_FIXES = {
   // 𠷃 (BabelStone: ⿰口⿳穴𠆢又) has a broad, shallow 又. Its component's
   // proportions also occur in 𥔉. Keep both inner parts within 穴's outer span.
@@ -545,6 +578,14 @@ export const COMPONENT_FIXES = {
   // 監 supplies either a single right-hand cut or two separate strokes. Split the cut before
   // sizing the pair, so 臣 stays compact and the lower 一 spans the right column.
 
+  // ⿴弜⿳羔䒑夫: the 䒑 comes from 立's last rising 一 (or a face's own rising 䒑), so the bar tilts
+  // under a level 羔 and 夫. The component is set level; the dots ride with it.
+  '⿴弜⿳羔䒑夫': {
+    glyphs: {},
+    apply(parts) {
+      return parts.map(part => part.origin === 'glyph 䒑' || part.origin === 'host 立' ? { ...levelledBar(part), fixed: true } : part)
+    },
+  },
 }
 
 /** Whether `composer`'s glyphs are the outlines a correction was read against. */
