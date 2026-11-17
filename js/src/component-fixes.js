@@ -545,6 +545,19 @@ export const COMPONENT_FIXES = {
   // 監 supplies either a single right-hand cut or two separate strokes. Split the cut before
   // sizing the pair, so 臣 stays compact and the lower 一 spans the right column.
 
+  // ⿱呼乙: the 乙 takes the whole lower band and reads larger than 呼 in four faces. The
+  // standalone 乙 in Regular Kai sits at about 52% of 呼's width; keep that share in every face.
+  '⿱呼乙': {
+    glyphs: {},
+    apply(parts) {
+      if (parts.length < 2) return parts
+      const bottom = parts[parts.length - 1]
+      const top = union(parts.slice(0, -1).map(part => part.target))
+      const width = (top[2] - top[0]) * 0.52, cx = (top[0] + top[2]) / 2
+      bottom.target = [cx - width / 2, bottom.target[1], cx + width / 2, bottom.target[3]]
+      return parts
+    },
+  },
 }
 
 /** Whether `composer`'s glyphs are the outlines a correction was read against. */

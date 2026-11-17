@@ -511,3 +511,13 @@ it('C049 sets two equal bars and a stem that reaches the mouth', () => {
 
 
 
+
+describe('C... ⿱呼乙', () => {
+  it('narrows 乙 to the share Regular Kai gives it under 呼', () => {
+    const top = part('glyph 呼', [0, 0, 1000, 1000], [100, 520, 900, 900], [[100, 520, 900, 900]])
+    const bottom = part('learned 乴', [0, 0, 1000, 1000], [100, 100, 900, 500], [[100, 100, 900, 500]])
+    const [, fixed] = componentFix('⿱呼乙', [top, bottom], { glyphRecord: () => null })
+    expect(fixed.target[2] - fixed.target[0]).toBeCloseTo(800 * 0.52, 6)
+    expect((fixed.target[0] + fixed.target[2]) / 2).toBeCloseTo(500, 6)
+  })
+})
