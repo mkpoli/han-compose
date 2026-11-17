@@ -21,7 +21,7 @@
 // over an export with a kin table answers `data.kin()` with it (`kin`, `kinOuter`).
 import { EM_BOX, area, centre, count, derived, drawnBox, drawnContours, fill, fitted, grown, groupRings, makePart, mapped, partInk, partOf,
   placed, pointsBox, pyRound, raster, rings, scaleOf, shrunk, square, stretchOf, targetFor, union, within } from './geometry.js'
-import { ownFormsOnly, componentParts, componentPosition, componentPositionBox, componentRecord, containsComponentForm, isComponentForm, isGroupedForm, isNativeForm } from './component-forms.js'
+import { ownFormsOnly, componentParts, componentPosition, componentPositionBox, componentRecord, containsComponentForm, containsForcedForm, isComponentForm, isGroupedForm, isNativeForm } from './component-forms.js'
 import { features, forward } from './layout.js'
 import { CONSTRUCTS, BODY_FORMS, IVD_FORMS, SURROUND_CONSTRUCTS, bodyForm, constructBody, constructHosts, constructParts, ivdParts } from './constructs.js'
 import { pyramidCells, pyramidOnBaseLayout } from './pyramid.js'
@@ -510,6 +510,7 @@ export class Composer {
     const m = data.manifest, c = m.constants
     this.C = c
     this.exclude = new Set(exclude)
+    this._forced = new Map()
     this.spelled = new Set(m.spelled)
     this.AXIS = c.AXIS
     this.ENCLOSE = { ...c.ENCLOSE, ...EXTRA_ENCLOSE }
@@ -570,6 +571,24 @@ export class Composer {
   /** The learned layout. A store reads it when a node first asks, so a lone character is drawn without it. */
   get layout() { return this.data.layout }
   excluded = ch => this.exclude.has(ch)
+  /** Whether a node holds a component whose form must replace its encoded outline, at any depth. */
+  forced = (node, seen = new Set()) => {
+    const cacheable = seen.size === 0, key = keyOf(node)
+    if (cacheable && this._forced.has(key)) return this._forced.get(key)
+    let result = containsForcedForm(key, this.fontStyle)
+    if (!result) {
+      if (typeof node === 'string') {
+        if (!seen.has(node)) {
+          const sequence = this.sequenceOf(node)
+          if (sequence) {
+            try { result = this.forced(this.parse(sequence), new Set([...seen, node])) } catch { result = false }
+          }
+        }
+      } else result = node.slice(1).some(child => this.forced(child, seen))
+    }
+    if (cacheable) this._forced.set(key, result)
+    return result
+  }
   slot = (op, i) => this.SLOTS[op] ? this.SLOTS[op][i] : `${op}${i}`
   /**
    * The pyramid a node draws as, remembered for this drawing. A two-layer pyramid of one part keeps
@@ -1276,7 +1295,7 @@ export class Composer {
       }
       let squeezed = glyph !== null && stretchOf(glyph.box, region) > C.STRETCH
       if (tree && (this.stroked(tree) || this.atomic(encoded))) squeezed = false
-      if (glyph && !(squeezed && tree)) {
+      if (glyph && !this.forced(encoded) && !(squeezed && tree)) {
         if (sideBySide && encoded === '\u{F2A9}' && this.fontStyle === 'sans') {
           // The native cut from 葭 already has its contextual proportions.
           const context = partOf(numberedFiveContext.G)
@@ -1302,7 +1321,7 @@ export class Composer {
       return [this.place(glyph, region, this.ink(node), `glyph ${node}`)]
     }
     const coverHead = Array.isArray(node) && typeof node[1] === 'string' && this.isCover(node[1])
-    const found = this.separate || hasRepetition || isRepeatedRow(node) || this.spelled.has(keyOf(node)) || coverHead ? null : this.instance(node, region)
+    const found = this.separate || hasRepetition || isRepeatedRow(node) || this.spelled.has(keyOf(node)) || coverHead || this.forced(node) ? null : this.instance(node, region)
     if (found) return [found]
     const stacked = this.pyramidWithBase(node)
     if (stacked) return this.baseParts(stacked, region)
@@ -2537,6 +2556,7 @@ export class Composer {
         ? componentParts(child, box, this.fontStyle, false)
         : null
       if (declared) { groups.push(declared); continue }
+      if (typeof child === 'string' && child !== '艹' && this.forced(child)) { groups.push(this.node(child, box)); continue }
       let part = this.host(op, i, child, [...children.slice(0, i), ...children.slice(i + 1)], box, region === null)
       if (op in this.ENCLOSE && i === 0 && (!part || (typeof child === 'string' && this.own(child)
         && stretchOf(part.piece.box, box) > C.ENCLOSING_STRETCH))) {
