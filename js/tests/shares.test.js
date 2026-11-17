@@ -58,3 +58,29 @@ it('reads an export that keeps the old pair in SHARES', async () => {
   const [left, top, middle, bottom] = out.parts
   expect(Math.max(top.box[2], middle.box[2], bottom.box[2])).toBeGreaterThan(left.box[2])
 })
+
+// A face that draws neither 䒑 nor a cut of it in the middle: Jigmo's 䒑 stands in, in a Mincho the
+// face never asked for. The cut of 䒑 out of 立's lower band is the face's own.
+const facing = {
+  羔: character('羔', [[100, 600, 900, 700]]),
+  夫: character('夫', [[100, 0, 900, 100]]),
+  善: character('善', [[100, 0, 900, 900]]),
+  立: character('立', [[100, 600, 900, 900], [100, 0, 900, 300]]),
+}
+facing.䒑 = { ...character('䒑', [[100, 0, 300, 300], [700, 0, 900, 300]]), P: ['B', 'M'] }
+facing.䒑.G.v = 0
+const facingFiles = {
+  ...files,
+  'identity.json': identityOf(Object.entries({ ...records, ...facing })),
+  ...shards('g', Object.entries(facing)),
+  ...shards('p', [
+    ['M\t䒑', [{ h: '善', i: 1, op: '⿳', ok: ['羊', '口'], v: 1, c: null }]],
+    ['B\t䒑', [{ h: '立', i: 1, op: '⿱', ok: ['亠'], v: 1, c: { k: [1], b: [100, 0, 900, 300], fr: [0, 0, 1000, 1000] } }]],
+  ]),
+}
+
+it('cuts a component the face does not draw from the same axis of another place', async () => {
+  const out = await compose(sourceOf(facingFiles), '⿳羔䒑夫', { separate: true, fontStyle: 'fangsong' })
+  expect(out.origins).toContain('host 立')
+  expect(out.origins).not.toContain('glyph 䒑')
+})

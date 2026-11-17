@@ -212,6 +212,9 @@ const SIDE_STROKE = [0, 0.2, 0.4, 1], SIDE_BODY = [0.44, 0, 1, 0.7]
 /** Frames a font sets as a left half and a right half: the halves stand at the sides of the cell
  *  and the enclosed part sits between them (𦥑 in ⿴𦥑囟, read as ⿲). */
 const SPLIT_FRAMES = new Set(['𦥑'])
+
+/** The axis a host place runs along: 0 for a side, 1 for a band, null for an enclosure's inside. */
+const PLACE_AXIS = { L: 0, C: 0, R: 0, T: 1, M: 1, B: 1 }
 /** A short stack in a tall column of a ⿲ keeps to the top of its column, leaving the rest empty:
  *  山 over 一 in ⿲彳⿱山一攵 stands as 微 and 徵 set it, with 攵 filling the lower right. A stack is
  *  short when each part stays under this share of the column's height at the column's width, and
@@ -1136,7 +1139,16 @@ export class Composer {
    *  a piece, which the composer weighs before finding it cannot cut them. */
   hostsOf(written, place, uncut = false) {
     if (written.includes(EMPTY)) return []
-    const list = this.data.hosts(written, place)
+    let list = this.data.hosts(written, place)
+    // A face that cannot draw the component itself takes one of its other places' cuts before any
+    // fallback glyph: Zhuque Fangsong's 善 holds 䒑 in its middle but the export cannot cut it clean,
+    // while its 立 holds one at the bottom that it can.
+    if (ownFormsOnly(this.fontStyle) && !this.own(written) && !list.some(h => this.cutOf(h))) {
+      const axis = PLACE_AXIS[place]
+      for (const other of this.data.places(written)) {
+        if (other !== place && PLACE_AXIS[other] === axis) list = list.concat(this.data.hosts(written, other))
+      }
+    }
     return uncut ? list : list.filter(h => this.cutOf(h))
   }
 
