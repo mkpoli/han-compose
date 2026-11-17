@@ -511,3 +511,22 @@ it('C049 sets two equal bars and a stem that reaches the mouth', () => {
 
 
 
+
+describe('R+06EA ⿴弜⿳羔䒑夫', () => {
+  it('sets the 䒑 bar level and keeps the face’s own weight', () => {
+    const ops = [{ code: 'M' }, { code: 'L' }, { code: 'L' }, { code: 'L' }]
+    const light = Float64Array.from([100, 300, 900, 400, 900, 480, 100, 380])
+    const bar = { ops, light, heavy: light.slice(), width: null }
+    const dot = { ops, light: Float64Array.from([400, 600, 480, 640, 460, 720, 380, 680]), heavy: Float64Array.from([400, 600, 480, 640, 460, 720, 380, 680]), width: null }
+    const cao = placed(makePart([bar, dot], [0, 0, 1000, 1000]), [0, 0, 1000, 1000], [0, 0, 1000, 1000], 0, 'glyph 䒑')
+    const [fixed] = componentFix('⿴弜⿳羔䒑夫', [cao], { glyphRecord: () => null })
+    expect(fixed.fixed).toBe(true)
+    const points = fixed.part.contours[0].light
+    const at = x => {
+      const ys = []
+      for (let i = 0; i < points.length; i += 2) if (points[i] === x) ys.push(points[i + 1])
+      return ys.reduce((a, b) => a + b, 0) / ys.length
+    }
+    expect(at(100)).toBeCloseTo(at(900), 6)
+  })
+})
