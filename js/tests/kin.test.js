@@ -91,6 +91,50 @@ describe('an enclosing part no host draws in its place', () => {
       .toEqual(['kin 麭', 'glyph 𡗗'])
   })
 
+  it('takes the listed cut whose split stands nearest the middle when none is ranked', () => {
+    const split = { ...table() }
+    split.cuts[`${PLACE}\t麥`] = { 麩: [[0], [1]], 麪: [[0], [1]], 麭: [[0], [1]] }
+    const splitRecords = {
+      麩: character('麩', [[0, 750, 1000, 900], [0, 0, 1000, 900]]),
+      麪: character('麪', [[0, 500, 1000, 900], [0, 0, 1000, 900]]),
+      麭: character('麭', [[0, 450, 1000, 900], [0, 0, 1000, 900]]),
+      麥: records.麥, 𡗗: records['𡗗'], 面: records.面,
+    }
+    const c = new Composer({ ...store({ kin: split }), rec: key => splitRecords[key] ?? null })
+    c.ranked = () => []
+    const drawn = c.kinOuter('⿺', ['⿱', '𡗗', '夂'], c.kin('⿺', ['⿱', '𡗗', '夊']), '面', [0, 0, 1000, 900], [500, 0, 1000, 500])
+    // 麩's upper box is 150 high in a 900-unit frame; 麪's 400 and 麭's 450 stand either side of it.
+    expect(drawn[0].origin).toBe('kin 麪')
+  })
+
+  it('takes the even split when two cuts tie on the midpoint', () => {
+    const two = { ...table() }
+    two.cuts[`${PLACE}\t麥`] = { 麩: [[0], [1]], 麪: [[0], [1]] }
+    const twoRecords = {
+      麩: character('麩', [[0, 180, 1000, 900], [0, 0, 1000, 100]]),
+      麪: character('麪', [[0, 360, 1000, 900], [0, 0, 1000, 100]]),
+      麥: records.麥, 𡗗: records['𡗗'], 面: records.面,
+    }
+    const c = new Composer({ ...store({ kin: two }), rec: key => twoRecords[key] ?? null })
+    c.ranked = () => []
+    const drawn = c.kinOuter('⿺', ['⿱', '𡗗', '夂'], c.kin('⿺', ['⿱', '𡗗', '夊']), '面', [0, 0, 1000, 900], [500, 0, 1000, 500])
+    expect(drawn[0].origin).toBe('kin 麪')
+  })
+
+  it('keeps the upper room clear of the enclosed part when the cut spans only the outer half', () => {
+    const half = { ...table() }
+    half.cuts[`${PLACE}\t麥`] = { 麩: [[0], [1]] }
+    const halfRecords = {
+      麩: character('麩', [[0, 500, 500, 900], [0, 0, 500, 500]]),
+      麥: records.麥, 𡗗: records['𡗗'], 面: records.面,
+    }
+    const c = new Composer({ ...store({ kin: half }), rec: key => halfRecords[key] ?? null })
+    const drawn = c.kinOuter('⿺', ['⿱', '𡗗', '夂'], c.kin('⿺', ['⿱', '𡗗', '夊']), '面', [0, 0, 1000, 900], [500, 0, 1000, 500])
+    // The cut's own upper piece (來) is placed, not the operand's glyph, which this face draws as a different form.
+    expect(drawn.map(p => p.origin)).toEqual(['kin 麩', 'kin 麩 upper'])
+    expect(drawn[1].target[2]).toBeLessThanOrEqual(500 - constants.FACING[0] + 1e-6)
+  })
+
   it('is not drawn from a host whose kin KanjiVG does not cut', () => {
     const kin = table()
     kin.cuts[`${PLACE}\t麥`].麭 = null

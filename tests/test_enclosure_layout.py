@@ -627,3 +627,74 @@ def test_an_upper_part_in_a_kin_room_is_lowered_to_stand_as_close_as_the_kin_upp
     # Of two parts ending at different heights, the lower one stops where the kin's upper part does.
     pair = c._settled([place((0, 400, 200, 800)), place((300, 600, 500, 800))], place((0, 350, 500, 800)), lower)
     assert abs(pair[0].target[1] - 350) < 8
+
+
+def test_a_listed_kin_cut_whose_split_stands_off_the_middle_yields_to_one_near_it():
+    # Zhuque's 麩 keeps 來's legs in the sweep: its upper box is 150 high in a 900-unit frame,
+    # where 麪 and 麭 split it near the middle. The export lists them unranked.
+    c = compose.Composer(SimpleNamespace(own=lambda _: True), {})
+    c.kvg = SimpleNamespace(entries={ch: None for ch in ("麩", "麪", "麭")})
+    c.font = SimpleNamespace(own=lambda _: True)
+    c._ranked = lambda *args, **kwargs: []
+    c.ink = lambda _: 1.0
+    part = lambda box: compose.Part([rectangle(box)])
+    hosts = {
+        "麩": compose.Host("麩", [part((0, 750, 1000, 900)), part((0, 0, 1000, 900))], (0, 0, 1000, 900), 0),
+        "麪": compose.Host("麪", [part((0, 500, 1000, 900)), part((0, 0, 1000, 400))], (0, 0, 1000, 900), 0),
+        "麭": compose.Host("麭", [part((0, 450, 1000, 900)), part((0, 0, 1000, 450))], (0, 0, 1000, 900), 0),
+    }
+    c._kin_cut = lambda entry, tree: hosts[entry[0]]
+    c.__dict__["_index"] = ({(compose.slot("⿺", 0), "麥"): [(ch, ("⿺", "麥", "夫"), (), 0) for ch in hosts] * compose.KIN_OUTER_HOSTS}, {})
+    c._node = lambda node, box: []
+
+    placed = c._kin_outer("⿺", ("⿱", "𡗗", "夂"), ("麥", ("⿱", "來", "夊"), ("⿱", "𡗗", "夂")), "面",
+                          (0, 0, 1000, 900), (500, 0, 1000, 500))
+
+    assert [p.origin for p in placed] == ["kin 麪"]
+
+
+def test_a_narrow_kin_cut_leaves_the_upper_room_for_the_enclosed_part():
+    # A cut holding only the outer's left half is carried across the enclosing box, but the upper
+    # part stops short of the enclosed part's box: 面 keeps the right side instead of shrinking.
+    c = compose.Composer(SimpleNamespace(own=lambda _: True), {})
+    c.kvg = SimpleNamespace(entries={"麩": None})
+    c.font = SimpleNamespace(own=lambda _: True)
+    c._ranked = lambda *args, **kwargs: []
+    c.ink = lambda _: 1.0
+    part = lambda box: compose.Part([rectangle(box)])
+    c._kin_cut = lambda entry, tree: compose.Host("麩", [part((0, 500, 500, 900)), part((0, 0, 500, 500))], (0, 0, 500, 900), 0)
+    c.__dict__["_index"] = ({(compose.slot("⿺", 0), "麥"): [("麩", ("⿺", "麥", "夫"), (), 0)] * compose.KIN_OUTER_HOSTS}, {})
+    drawn = []
+    c._node = lambda node, box: drawn.append((node, box)) or []
+
+    placed = c._kin_outer("⿺", ("⿱", "𡗗", "夂"), ("麥", ("⿱", "來", "夊"), ("⿱", "𡗗", "夂")), "面",
+                          (0, 0, 1000, 900), (500, 0, 1000, 500))
+
+    # The cut's own upper piece (來) is placed, not the operand's glyph, which this face draws
+    # as a different form (Zhuque's 𡗗 is 丰).
+    assert [p.origin for p in placed] == ["kin 麩", "kin 麩 upper"]
+    assert placed[1].target == (0, 500, 428, 900)
+    assert drawn == []
+
+
+def test_two_listed_kin_cuts_tie_on_the_midpoint_and_take_the_even_split():
+    # With two cuts each is as far from their midpoint; the one nearer an even upper/lower split
+    # is the safer choice (麪's 0.67 over 麩's 0.69).
+    c = compose.Composer(SimpleNamespace(own=lambda _: True), {})
+    c.kvg = SimpleNamespace(entries={ch: None for ch in ("麩", "麪")})
+    c.font = SimpleNamespace(own=lambda _: True)
+    c._ranked = lambda *args, **kwargs: []
+    c.ink = lambda _: 1.0
+    part = lambda box: compose.Part([rectangle(box)])
+    hosts = {
+        "麩": compose.Host("麩", [part((0, 180, 1000, 900)), part((0, 0, 1000, 100))], (0, 0, 1000, 900), 0),
+        "麪": compose.Host("麪", [part((0, 360, 1000, 900)), part((0, 0, 1000, 100))], (0, 0, 1000, 900), 0),
+    }
+    c._kin_cut = lambda entry, tree: hosts[entry[0]]
+    c.__dict__["_index"] = ({(compose.slot("⿺", 0), "麥"): [(ch, ("⿺", "麥", "夫"), (), 0) for ch in hosts] * compose.KIN_OUTER_HOSTS}, {})
+    c._node = lambda node, box: []
+
+    placed = c._kin_outer("⿺", ("⿱", "𡗗", "夂"), ("麥", ("⿱", "來", "夊"), ("⿱", "𡗗", "夂")), "面",
+                          (0, 0, 1000, 900), (500, 0, 1000, 500))
+
+    assert [p.origin for p in placed] == ["kin 麪"]

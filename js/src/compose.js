@@ -1623,29 +1623,58 @@ export class Composer {
     const ranked = this.ranked(op, 0, kin.char, [inner], box, true).map(([, found]) => found.record.h)
     const listed = this.hostsOf(kin.char, place, true).map(h => h.h).filter(h => !this.excluded(h))
     const chars = [...new Set([...ranked, ...listed])].filter(h => Object.hasOwn(cuts, h)).slice(0, table.KIN_TRIED)
+    const candidates = []
+    let unread = false
     for (const char of chars) {
       if (!cuts[char]) continue
       const glyph = this.glyph(char)
       // A host whose record is still loading is tried once it is read.
-      if (!glyph) { if (this.partial) return null; continue }
+      if (!glyph) { if (this.partial) unread = true; continue }
       const [top, lower] = cuts[char].map(indices => kanjivgCut(derived(glyph, indices.map(k => glyph.contours[k]))))
-      const frame = union([top.box, lower.box])
-      const drawn = [placed(lower, lower.box, mapped(lower.box, frame, box), this.ink(char), `kin ${char}`)]
-      const room = mapped(top.box, frame, box)
-      const upper = typeof outer === 'string' ? this.upperOf(outer) : null
-      let above
-      if (upper) {
-        // In the kin's upper part's room, short of the enclosed part's box by the gap neighbours
-        // keep, its proportions kept within `STRETCH`.
-        const right = op === '⿺' || op === '⿸' ? Math.min(room[2], innerBox[0] - C.FACING[0]) : room[2]
-        const target = fitted(upper.part.box, [room[0], room[1], Math.max(right, room[0] + (room[2] - room[0]) / 3), room[3]], C.STRETCH)
-        above = [placed(upper.part, upper.part.box, target, this.ink(upper.source), `kin ${upper.source}`)]
-      } else above = this.node(kin.own[1], room)
-      this.settle(above, placed(top, top.box, room, 0, `kin ${char}`), drawn)
-      // A separated drawing keeps reading order, the upper operand first.
-      return this.separate ? [...above, ...drawn] : [...drawn, ...above]
+      candidates.push({ char, top, lower, frame: union([top.box, lower.box]) })
     }
-    return null
+    if (!candidates.length) return null
+    // A ranked host is the one the place scores best. The export's list is otherwise unranked, and
+    // a cut splitting the kin at the wrong height leaves the upper operand too little room
+    // (Zhuque's 麩 keeps 來's legs in the sweep): take the split nearest the middle of those listed.
+    let chosen = candidates.find(c => ranked.includes(c.char))
+    if (!chosen && unread) return null
+    if (!chosen) {
+      const shares = candidates.map(c => (c.top.box[3] - c.top.box[1]) / Math.max(c.frame[3] - c.frame[1], 1)).sort((a, b) => a - b)
+      const middle = shares.length % 2 ? shares[(shares.length - 1) / 2] : (shares[shares.length / 2 - 1] + shares[shares.length / 2]) / 2
+      let nearest = Infinity, even = Infinity
+      for (const c of candidates) {
+        const share = (c.top.box[3] - c.top.box[1]) / Math.max(c.frame[3] - c.frame[1], 1)
+        const distance = Math.abs(share - middle), fromMiddle = Math.abs(share - 0.5)
+        if (distance < nearest || (distance === nearest && fromMiddle < even)) { chosen = c; nearest = distance; even = fromMiddle }
+      }
+    }
+    const { char, top, lower, frame } = chosen
+    const drawn = [placed(lower, lower.box, mapped(lower.box, frame, box), this.ink(char), `kin ${char}`)]
+    const room = mapped(top.box, frame, box)
+    // A cut holding only the outer's left half (Zhuque's 麩 keeps no room for 面) is carried across
+    // the enclosing box as it stands, and the upper part keeps clear of the enclosed part's box; a
+    // cut spanning the box already leaves that room.
+    const narrow = (frame[2] - frame[0]) < (table.KIN_NARROW ?? C.KIN_NARROW ?? 0.8) * (box[2] - box[0])
+    const right = op === '⿺' || op === '⿸' ? Math.min(room[2], innerBox[0] - C.FACING[0]) : room[2]
+    const upper = typeof outer === 'string' ? this.upperOf(outer) : null
+    // An enclosing character's own upper part always stands narrow over its sweep; a described one
+    // keeps the cut's width unless the cut spans only part of the box.
+    const left = upper || narrow ? Math.max(right, room[0] + (room[2] - room[0]) / 3) : room[2]
+    let above
+    if (upper) {
+      // In the kin's upper part's room, short of the enclosed part's box by the gap neighbours
+      // keep, its proportions kept within `STRETCH`.
+      const target = fitted(upper.part.box, [room[0], room[1], left, room[3]], C.STRETCH)
+      above = [placed(upper.part, upper.part.box, target, this.ink(upper.source), `kin ${upper.source}`)]
+    } else if (narrow) {
+      // A narrow cut holds only part of the outer, and the described upper may be a form of its
+      // own in this face (Zhuque's 𡗗 is 丰): place the kin's upper piece instead.
+      above = [placed(top, top.box, [room[0], room[1], left, room[3]], this.ink(char), `kin ${char} upper`)]
+    } else above = this.node(kin.own[1], [room[0], room[1], left, room[3]])
+    this.settle(above, placed(top, top.box, room, 0, `kin ${char}`), drawn)
+    // A separated drawing keeps reading order, the upper operand first.
+    return this.separate ? [...above, ...drawn] : [...drawn, ...above]
   }
 
   /** An upper part drawn into a kin's upper room, its foot lowered as far as it stands short of the

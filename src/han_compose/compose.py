@@ -252,6 +252,8 @@ ENCLOSING_LEAST = 0.5
 ENCLOSING_STRETCH = 1.4
 #: How far an atomic character taken from another may change its proportions in its own box.
 ALONE_STRETCH = 1.6
+#: How much of the enclosing box a kin cut must span before its upper room needs no narrowing.
+KIN_NARROW = 0.8
 #: How far a learned box may change the proportions of a part a character draws at its top level
 #: before the part keeps that character's extent across the axis it is split along: 弓 beside 丨 in
 #: 引 stands as tall as in 弘, where the network shortened it.
@@ -2290,27 +2292,55 @@ class Composer:
         # best ranked first (the best ranked are often rarer than it covers).
         ranked = [found.char for _, found, _ in self._ranked(op, 0, other, [inner], box, placed=True)]
         chars = list(dict.fromkeys(ranked + list(entries)))
+        candidates = []
         for char in [ch for ch in chars if ch in self.kvg.entries and self.font.own(ch)][:KIN_TRIED]:
             cut = self._kin_cut(entries[char], tree)
             if cut is None:
                 continue
             top, lower = cut.pieces
             frame = Part(top.contours + lower.contours).box
-            native = self.ink(char)
-            placed = [Placed(lower, lower.box, mapped(lower.box, frame, box), native=native, origin=f"kin {char}")]
-            room = mapped(top.box, frame, box)
-            upper = self._upper(outer, own) if isinstance(outer, str) else None
-            if upper is not None:
-                # In the kin's upper part's room, short of the enclosed part's box by the gap
-                # neighbours keep, its proportions kept within `STRETCH`.
-                part, source = upper
-                right = min(room[2], inner_box[0] - FACING[0]) if op in "⿺⿸" else room[2]
-                target = fitted(part.box, (room[0], room[1], max(right, room[0] + (room[2] - room[0]) / 3), room[3]))
-                upper_parts = [Placed(part, part.box, target, native=self.ink(source), origin=f"kin {source}")]
-            else:
-                upper_parts = self._node(own[1], room)
-            return placed + self._settled(upper_parts, Placed(top, top.box, room), placed)
-        return None
+            candidates.append((char, cut, top, lower, frame))
+        if not candidates:
+            return None
+        # A ranked host is the one the place scores best. The export's list is otherwise unranked,
+        # and a cut splitting the kin at the wrong height leaves the upper operand too little room
+        # (Zhuque's 麩 keeps 來's legs in the sweep): take the split nearest the middle of those
+        # listed.
+        chosen = next((c for c in candidates if c[0] in ranked), None)
+        if chosen is None:
+            shares = sorted((c[2].box[3] - c[2].box[1]) / max(c[4][3] - c[4][1], 1) for c in candidates)
+            middle = shares[len(shares) // 2] if len(shares) % 2 else (shares[len(shares) // 2 - 1] + shares[len(shares) // 2]) / 2
+            # With two listed cuts each stands as far from their midpoint; the one nearer an even
+            # split is the safer of the two (麪's 0.670 over 麩's 0.686).
+            chosen = min(candidates, key=lambda c: (abs((c[2].box[3] - c[2].box[1]) / max(c[4][3] - c[4][1], 1) - middle),
+                                                    abs((c[2].box[3] - c[2].box[1]) / max(c[4][3] - c[4][1], 1) - 0.5)))
+        char, cut, top, lower, frame = chosen
+        native = self.ink(char)
+        placed = [Placed(lower, lower.box, mapped(lower.box, frame, box), native=native, origin=f"kin {char}")]
+        room = mapped(top.box, frame, box)
+        # A cut holding only the outer's left half (Zhuque's 麩 keeps no room for 面) is carried
+        # across the enclosing box as it stands, and the upper part keeps clear of the enclosed
+        # part's box; a cut spanning the box already leaves that room.
+        narrow = (frame[2] - frame[0]) < KIN_NARROW * (box[2] - box[0])
+        right = min(room[2], inner_box[0] - FACING[0]) if op in "⿺⿸" else room[2]
+        upper = self._upper(outer, own) if isinstance(outer, str) else None
+        # An enclosing character's own upper part always stands narrow over its sweep; a described
+        # one keeps the cut's width unless the cut spans only part of the box.
+        left = max(right, room[0] + (room[2] - room[0]) / 3) if upper is not None or narrow else room[2]
+        if upper is not None:
+            # In the kin's upper part's room, short of the enclosed part's box by the gap neighbours
+            # keep, its proportions kept within `STRETCH`.
+            part, source = upper
+            target = fitted(part.box, (room[0], room[1], left, room[3]))
+            upper_parts = [Placed(part, part.box, target, native=self.ink(source), origin=f"kin {source}")]
+        elif narrow:
+            # A narrow cut holds only part of the outer, and the described upper may be a form of
+            # its own in this face (Zhuque's 𡗗 is 丰): place the kin's upper piece (來 over 夊 in
+            # 麥) instead.
+            upper_parts = [Placed(top, top.box, (room[0], room[1], left, room[3]), native=self.ink(char), origin=f"kin {char} upper")]
+        else:
+            upper_parts = self._node(own[1], (room[0], room[1], left, room[3]))
+        return placed + self._settled(upper_parts, Placed(top, top.box, room), placed)
 
     def _settled(self, upper: list[Placed], kin_top: Placed, lower: list[Placed]) -> list[Placed]:
         """An upper part drawn into a kin's upper room, its foot lowered as far as it stands short of
