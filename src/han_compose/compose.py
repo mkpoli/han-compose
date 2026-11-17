@@ -103,6 +103,8 @@ class Style:
     weighted: bool = True
     #: Whether hosts come only from the main font, so a fallback never supplies a piece.
     own_hosts: bool = False
+    #: How far up the style's glyphs move to meet the composer's em, in 1000-unit units.
+    y_shift: float = 0.0
 
 
 OFL = "SIL OFL 1.1"
@@ -164,7 +166,24 @@ STYLES = {
         synthetic_y=True,
         kindred=False,
     ),
-    # TW-Kai (CNS 11643 Kai, fonts version 11510.1): a static brush face whose Extension B and G
+    # Zhuque Fangsong 0.212 (technical preview), recut from the 1932 南宋 type. It is a static font, so
+    # 400 is also the heavy master; Jigmo draws the ideographs it lacks, in the nearest pinned design.
+    "fangsong": Style(
+        "fangsong",
+        Source("ZhuqueFangsong-v0.212-Regular.ttf",
+               "https://github.com/TrionesType/zhuque/releases/download/v0.212/ZhuqueFangsong-v0.212.zip",
+               "558c62730844fe54ba220146ed62f859d4e2880188d92d985f8921c6e3743bc4", OFL,
+               member="ZhuqueFangsong-Regular.ttf",
+               archive_sha256="bb8b661a7643d2296a72d9d10530a00949419c4e527fb61783f73c2ba1a8c062",
+               also="Its Latin, Cyrillic and Greek glyphs: Copyright 2011 The Alegreya Project Authors (https://github.com/huertatipografica/Alegreya)"),
+        _JIGMO,
+        # Fitted on 1,500 of its ideographs (`calibrate`).
+        ((57.51, 0.271), (39.61, -1.297)),
+        heavy=400,
+        kindred=False,
+        weighted=False,
+        own_hosts=True,
+    ),    # TW-Kai (CNS 11643 Kai, fonts version 11510.1): a static brush face whose Extension B and G
     # faces draw the ideographs the BMP face lacks, in the same design.
     "regular": Style(
         "regular",
@@ -176,6 +195,8 @@ STYLES = {
         kindred=True,
         weighted=False,
         own_hosts=True,
+        # TW-Kai's typographic ascent is 820 on its 1024-unit em: 880 - 820 * 1000 / 1024.
+        y_shift=79.2,
     ),
     # Kureedo 0.5.0 Full: Klee One's kaisho and historical kana, with every public code point LXGW
     # WenKai Light 1.530 has and Klee lacks. It is a static font, so 400 is also the heavy master;
@@ -197,24 +218,7 @@ STYLES = {
         weighted=False,
         own_hosts=True,
     ),
-    # Zhuque Fangsong 0.212 (technical preview), recut from the 1932 南宋 type. It is a static font, so
-    # 400 is also the heavy master; Jigmo draws the ideographs it lacks, in the nearest pinned design.
-    "fangsong": Style(
-        "fangsong",
-        Source("ZhuqueFangsong-v0.212-Regular.ttf",
-               "https://github.com/TrionesType/zhuque/releases/download/v0.212/ZhuqueFangsong-v0.212.zip",
-               "558c62730844fe54ba220146ed62f859d4e2880188d92d985f8921c6e3743bc4", OFL,
-               member="ZhuqueFangsong-Regular.ttf",
-               archive_sha256="bb8b661a7643d2296a72d9d10530a00949419c4e527fb61783f73c2ba1a8c062",
-               also="Its Latin, Cyrillic and Greek glyphs: Copyright 2011 The Alegreya Project Authors (https://github.com/huertatipografica/Alegreya)"),
-        _JIGMO,
-        # Fitted on 1,500 of its ideographs (`calibrate`).
-        ((57.51, 0.271), (39.61, -1.297)),
-        heavy=400,
-        kindred=False,
-        weighted=False,
-        own_hosts=True,
-    ),
+
 }
 DEFAULT_STYLE = "sans"
 EM = 1000
@@ -785,6 +789,8 @@ class Font:
         self.cmap = self.font.getBestCmap()
         #: What brings the main font's em to the composer's 1000-unit em (TW-Kai draws on 1,024).
         self.scale = EM / self.font["head"].unitsPerEm
+        #: The style's vertical correction, applied to every glyph after scaling.
+        self.shift = np.array([0.0, self.style.y_shift])
         self.static = "fvar" not in self.font
         # Ideographic variation sequences: (base, selector) → glyph name, None for the base's own glyph.
         self.variants = {(base, selector): name for table in self.font["cmap"].tables if table.format == 14
@@ -880,7 +886,7 @@ class Font:
                         scale = fallback.scale
                         pen = DecomposingRecordingPen(fallback.glyphs)
                         fallback.glyphs[fallback.cmap[ord(char)]].draw(pen)
-                        contours = [Contour(ops, p * scale if scale != 1 else p, LATER, LATER, kindred=self.style.kindred) for ops, p in _contours(pen)]
+                        contours = [Contour(ops, p * scale + self.shift, LATER, LATER, kindred=self.style.kindred) for ops, p in _contours(pen)]
                         self._later(contours, lambda contours=contours: self._grown_heavy(contours))
                         part = Part(contours) if contours else None
                         break
@@ -888,7 +894,7 @@ class Font:
                 light = DecomposingRecordingPen(self.light)
                 self.light[name].draw(light)
                 scale = self.scale
-                contours = [Contour(ops, p * scale if scale != 1 else p, LATER, LATER if self.static else None)
+                contours = [Contour(ops, p * scale + self.shift, LATER, LATER if self.static else None)
                             for ops, p in _contours(light)]
                 self._later(contours, lambda contours=contours: self._own_heavy(name, contours))
                 part = Part(contours) if contours else None

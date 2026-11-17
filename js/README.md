@@ -42,17 +42,17 @@ One source serves any number of sequences and keeps what it has loaded.
 |---|---|---|
 | Sans | `'sans'` | Noto Sans CJK JP, Plangothic |
 | Serif (明朝) | `'serif'` | Noto Serif CJK JP, Jigmo |
+| Fangsong (仿宋) | `'fangsong'` | Zhuque Fangsong, Jigmo |
 | Regular Kai (正楷) | `'regular'` | TW-Kai, TW-Kai Ext-B, TW-Kai Ext-G |
 | Wen Kai (文楷) | `'pen-writing'` | Kureedo Full, GenZui Sans |
-| Fangsong (仿宋) | `'fangsong'` | Zhuque Fangsong, Jigmo |
 
 ```js
 const EXPORTS = {
   sans: 'https://ids-input-composer.mkpoli.workers.dev/a83fc941166b-sans-compose-layout-v4-f7+variants/',
   serif: 'https://ids-input-composer.mkpoli.workers.dev/8156f838798c-serif-compose-layout-v4-serif-f7+variants/',
+  fangsong: 'https://ids-input-composer.mkpoli.workers.dev/9f797e2322d2-fangsong-compose-layout-v4-fangsong-f7/',
   regular: 'https://ids-input-composer.mkpoli.workers.dev/f87b0f71228e-regular-compose-layout-v4-regular-f7/',
   'pen-writing': 'https://ids-input-composer.mkpoli.workers.dev/ce3eaafda8f9-kaisho-compose-layout-v4-kaisho-f7/',
-  fangsong: 'https://ids-input-composer.mkpoli.workers.dev/9f797e2322d2-fangsong-compose-layout-v4-fangsong-f7/',
 }
 
 // `fontStyle` names the export's style. It defaults to 'sans'.

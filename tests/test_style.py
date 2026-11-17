@@ -31,6 +31,10 @@ def test_every_style_pins_each_of_its_fonts_by_sha256_and_licence() -> None:
     assert compose.STYLES["serif"].font.file != compose.STYLES["sans"].font.file
 
 
+def test_styles_are_listed_in_the_switch_order() -> None:
+    assert list(compose.STYLES) == ["sans", "serif", "fangsong", "regular", "pen-writing"]
+
+
 def test_only_fallbacks_of_the_main_fonts_design_teach_the_layout() -> None:
     from types import SimpleNamespace
 
@@ -336,6 +340,7 @@ def test_fangsong_keeps_its_hosts_in_zhuque_and_takes_the_rest_from_jigmo() -> N
 def test_regular_reads_tw_kai_and_its_extension_faces() -> None:
     style = compose.STYLES["regular"]
     assert style.heavy == 400 and style.weighted is False and style.kindred and style.own_hosts
+    assert style.y_shift > 0
     assert [source.member for source in (style.font, *style.fallbacks)] == ["TW-Kai.ttf", "TW-Kai-Ext-B.ttf", "TW-Kai-Ext-G.ttf"]
     assert style.font.licence == compose.OGL and "cns11643.gov.tw" in style.font.also
     assert compose_layout.layout_file("regular") == "compose-layout-v4-regular.npz"
