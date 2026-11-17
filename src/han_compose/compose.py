@@ -123,8 +123,7 @@ _JIGMO = tuple(Source(f"Jigmo-20250912-{name}", JIGMO_URL, sha, "CC0 1.0", membe
                                 ("Jigmo.ttf", "c8f295b9bd8f9f117a76b3a454aaaa1bb5b4babc18e254978c6deb88464e40cf")))
 #: TW-Kai, the CNS 11643 Kai: the BMP face and the Extension B and G faces that draw what it lacks.
 #: The open data set offers either Taiwan's Open Government Data License 1.0 or the OFL 1.1; the
-#: licence taken here is the one whose attribution the set itself names (and whose copyright line
-#: the fonts do not carry).
+#: export takes the OGL, and its Exhibit's release line joins the copyright the name table carries.
 TW_KAI_URL = "https://www.cns11643.gov.tw/opendata/Fonts_Kai.zip"
 TW_KAI_SHA256 = "c602f1518f496252184ffd38f3cc8dc0a2d50fef4815e9340edda71dd501920f"
 _TW_KAI_ALSO = ("數位發展部 (Ministry of Digital Affairs), CNS11643中文標準交換碼全字庫, fonts version 11510.1, "
