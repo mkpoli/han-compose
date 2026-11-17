@@ -2,9 +2,9 @@
 // and tied to the outlines it was read against, so these tests exercise the correction itself on
 // the shapes it was written for, and the guard that leaves another export's drawing alone.
 import { describe, expect, it } from 'bun:test'
-import { COMPONENT_FIXES, clippedAbove, componentFix, dotIn, narrowed, respanned, withoutContours } from 'han-compose/component-fixes'
+import { COMPONENT_FIXES, clippedAbove, componentFix, dotIn, respanned, withoutContours } from 'han-compose/component-fixes'
 import { Composer } from 'han-compose/compose'
-import { drawnContours, makePart, partOf, placed, pointsBox } from 'han-compose/geometry'
+import { drawnContours, makePart, mapped, partOf, placed, pointsBox } from 'han-compose/geometry'
 import { hexOf } from 'han-compose/sha256'
 
 /** A placed part of rectangular contours: `boxes` in font units, drawn from `source` into `target`. */
@@ -23,7 +23,6 @@ const targetBox = (p, contour) => {
   const sx = (t[2] - t[0]) / Math.max(s[2] - s[0], 1), sy = (t[3] - t[1]) / Math.max(s[3] - s[1], 1)
   return [t[0] + (b[0] - s[0]) * sx, t[1] + (b[1] - s[1]) * sy, t[0] + (b[2] - s[0]) * sx, t[1] + (b[3] - s[1]) * sy]
 }
-const widths = p => p.part.contours.map(c => box(c)[2] - box(c)[0])
 
 /** A composer whose 丶 is a rectangle glyph and whose face is the usual one. */
 function dotComposer() {
@@ -40,7 +39,6 @@ describe('a stroke correction', () => {
 
   it('shortens a bar about its centre and moves another to a span', () => {
     const bar = part('x', [0, 0, 1000, 1000], [0, 0, 1000, 1000], [[100, 200, 900, 280], [100, 700, 900, 780]])
-    expect(widths(narrowed(bar, [0], 0.5))[0]).toBeCloseTo(400, 6)
     expect(box(respanned(bar, [0], 200, 1000).part.contours[0])[0]).toBeCloseTo(200, 6)
     expect(box(respanned(bar, [0], 200, 1000).part.contours[0])[2]).toBeCloseTo(1000, 6)
   })
@@ -185,7 +183,7 @@ describe('⿵𦉪十', () => {
     ink,
   })
 
-  it('places separate 十 strokes cleanly inside 鬲’s 𦉪 frame at the root, clearing the thinned inner strokes', () => {
+  it('puts 十’s bar and stem in 鬲’s own 丅 cross inside its 𦉪 frame', () => {
     const ge = sansGe().part, ten = sansTen().part
     const frame = part('glyph 𦉪', [95, 157, 906, 611], [72, -20, 931, 746], [[95, 157, 906, 611]])
     const out = fix.apply([frame], composerOf(ge, ten))
@@ -193,22 +191,23 @@ describe('⿵𦉪十', () => {
     const [shell, bar, stem] = out
     expect(shell.origin).toBe('body 鬲')
     shell.target.forEach((v, i) => expect(v).toBeCloseTo(frame.target[i], 6))
-    expect(shell.part.contours).toHaveLength(4)
+    expect(shell.part.contours).toEqual([3, 4, 5, 8].map(i => ge.contours[i]))
     expect([bar.origin, stem.origin]).toEqual(['glyph 十', 'glyph 十'])
     expect(bar.part.contours).toEqual([ten.contours[0]])
     expect(stem.part.contours).toEqual([ten.contours[1]])
-    // Inner 乚 (index 2) and 丿 (index 3) narrow by 0.88 about their centres, widening the channel.
-    expect(contourBox(shell.part.contours[3])[2]).toBeLessThan(contourBox(ge.contours[8])[2])
-    expect(contourBox(shell.part.contours[2])[0]).toBeGreaterThan(contourBox(ge.contours[5])[0])
-    // Bar sits cleanly below 丿 and 乚; stem rises symmetrically between them.
-    const slash = drawnBoxOf(shell, 3), hook = drawnBoxOf(shell, 2)
+    expect([bar.fixed, stem.fixed]).toEqual([true, true])
+    // The bar stands where 鬲 draws its 丅 bar; the stem starts in the same place and runs up
+    // between 丿 and 乚.
+    const frameBox = [109, -82, 900, 386]
     const barBox = drawnBoxOf(bar), stemBox = drawnBoxOf(stem)
-    expect(barBox[3]).toBeLessThan(slash[1])
-    expect(barBox[3]).toBeLessThan(hook[1])
+    const wantBar = mapped([293, 84, 719, 139], frameBox, frame.target)
+    wantBar.forEach((v, i) => expect(barBox[i]).toBeCloseTo(v, 6))
+    const slash = drawnBoxOf(shell, 3), hook = drawnBoxOf(shell, 2)
     expect(stemBox[0]).toBeGreaterThan(slash[2])
     expect(stemBox[2]).toBeLessThan(hook[0])
+    expect(stemBox[1]).toBeCloseTo(mapped([466, -71, 535, 116], frameBox, frame.target)[1], 6)
     expect(stemBox[3]).toBeGreaterThan(barBox[3])
-    expect(stemBox[1]).toBeLessThan(barBox[1])
+    expect(stemBox[3]).toBeLessThan(Math.max(...[3, 4, 5, 8].map(i => mapped(box(ge.contours[i]), frameBox, frame.target)[3])))
   })
 
   it('supports Serif’s 10-contour 鬲 and swapped 十 stroke order', () => {
@@ -216,29 +215,28 @@ describe('⿵𦉪十', () => {
     const frame = part('glyph 𦉪', [106, 168, 936, 603], [76, 15, 926, 729], [[106, 168, 936, 603]])
     const [shell, bar, stem] = fix.apply([frame], composerOf(ge, ten))
     shell.target.forEach((v, i) => expect(v).toBeCloseTo(frame.target[i], 6))
+    expect(shell.part.contours).toEqual([3, 4, 8, 9].map(i => ge.contours[i]))
     expect(bar.part.contours).toEqual([ten.contours[1]])
     expect(stem.part.contours).toEqual([ten.contours[0]])
     const slash = drawnBoxOf(shell, 3), hook = drawnBoxOf(shell, 2)
-    const barBox = drawnBoxOf(bar), stemBox = drawnBoxOf(stem)
-    expect(barBox[3]).toBeLessThan(slash[1])
+    const stemBox = drawnBoxOf(stem)
     expect(stemBox[0]).toBeGreaterThan(slash[2])
     expect(stemBox[2]).toBeLessThan(hook[0])
+    expect(stemBox[3]).toBeLessThan(Math.max(...[3, 4, 8, 9].map(i => mapped(box(ge.contours[i]), [125, -82, 918, 432], frame.target)[3])))
   })
 
-  it('keeps both 十 strokes balanced and clear in a compressed nested stack such as ⿳羔口⿵𦉪十', () => {
+  it('keeps the frame’s scale in a narrow cell and never rebalances the strokes', () => {
     const ge = sansGe().part, ten = sansTen().part
-    const frame = part('glyph 𦉪', [95, 157, 906, 611], [111, -82, 894, 188], [[95, 157, 906, 611]])
-    const parts = fix.apply([frame], composerOf(ge, ten))
-    // Balance with realistic upper sibling ink density (~6000 total ink, as in ⿳羔口⿵𦉪十).
+    const root = part('glyph 𦉪', [95, 157, 906, 611], [72, -20, 931, 746], [[95, 157, 906, 611]])
+    const narrow = part('glyph 𦉪', [95, 157, 906, 611], [430, -80, 530, 100], [[95, 157, 906, 611]])
+    const [rootShell, rootBar] = fix.apply([root], composerOf(ge, ten))
+    const parts = fix.apply([narrow], composerOf(ge, ten))
+    const [shell, bar] = parts
+    const ratio = (barBox, shellBox) => (barBox[3] - barBox[1]) / (shellBox[3] - shellBox[1])
+    expect(ratio(drawnBoxOf(bar), shell.target)).toBeCloseTo(ratio(drawnBoxOf(rootBar), rootShell.target), 6)
+    const before = parts.map(p => p.target.slice())
     Composer.prototype.balance.call({ C: { STEM_CURVE: [[85.34, -1.324], [86.93, -1.914]] }, stem0: [[80.702, 160], [82.142, 159]] }, parts)
-    const [shell, bar, stem] = parts
-    const slash = drawnBoxOf(shell, 3), hook = drawnBoxOf(shell, 2)
-    const barBox = drawnBoxOf(bar), stemBox = drawnBoxOf(stem)
-    expect(barBox[3] - barBox[1]).toBeGreaterThan(45)
-    expect(stemBox[2] - stemBox[0]).toBeGreaterThan(50)
-    expect(barBox[3]).toBeLessThan(hook[1])
-    expect(stemBox[0]).toBeGreaterThan(slash[2])
-    expect(stemBox[2]).toBeLessThan(hook[0])
+    parts.forEach((p, i) => expect(p.target).toEqual(before[i]))
   })
 
   it('lists both faces’ 鬲 and 十 digests and leaves missing, unsupported, or unmatched glyphs alone', () => {
@@ -251,6 +249,11 @@ describe('⿵𦉪十', () => {
     expect(fix.apply([frame], composerOf(kaishoGe, sansTen().part))).toEqual([frame])
     const oneStrokeTen = part('glyph 十', [0, 0, 800, 800], [0, 0, 800, 800], [[0, 0, 800, 800]]).part
     expect(fix.apply([frame], composerOf(sansGe().part, oneStrokeTen))).toEqual([frame])
+    // A 9-contour 鬲 paired with Serif-ordered 十 strokes passes both digests, but its first
+    // contour is the tall stem, so the pairing guard leaves the drawing alone.
+    const swapped = withHeavy(part('glyph 十', [55, -80, 952, 839], [55, -80, 952, 839],
+      [[461, -80, 542, 839], [55, 389, 952, 466]]), () => null)
+    expect(fix.apply([frame], composerOf(sansGe().part, swapped.part))).toEqual([frame])
     const other = [[0, 0]]
     expect(fix.glyphs['十']).not.toContain(hexOf(JSON.stringify(other)))
     const parts = [frame]
