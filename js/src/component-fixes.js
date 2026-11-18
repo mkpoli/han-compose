@@ -279,7 +279,7 @@ export const COMPONENT_FIXES = {
     glyphs: {},
     apply(parts, composer) {
       const [left, turned, shell] = parts
-      if (composer.fontStyle !== 'pen-writing' || parts.length !== 3 || left.origin !== 'host 虤' ||
+      if (composer.fontStyle !== 'pen-writing' || parts.length !== 3 || !['host 虤', 'learned 虤'].includes(left.origin) ||
           turned.origin !== 'glyph 虎' || !turned.flips?.length) return parts
       // Both tigers occupy the same band. Rotate the same left-hand cut to preserve its stroke weight.
       return [left, { ...turned, part: left.part, source: left.source, native: left.native,
