@@ -36,6 +36,7 @@ import { customAt, splitToneMarks, toneMarksAt } from './tree.js'
 import { hexOf } from './sha256.js'
 import componentConstants from './constants.json' with { type: 'json' }
 import numberedFiveContext from '../data/numbered-five-context.json' with { type: 'json' }
+import wheatFaceCuts from '../data/wheat-face-cuts.json' with { type: 'json' }
 import pyramidCatalog from './pyramid-glyphs.json' with { type: 'json' }
 import { createRenderNormalizer } from './normalization.js'
 
@@ -503,6 +504,11 @@ function unflippedOperand(node) {
   while (Array.isArray(node) && (node[0] === MIRROR || node[0] === ROTATE)) node = node[1]
   return node
 }
+
+const WHEAT_FACE = '⿺⿱𡗗夂面'
+const wheatHosts = [...new Set(Object.values(wheatFaceCuts).flat().map(cut => cut.host))]
+/** Donor records needed by both the drawing and its leaf boxes, including a nested enclosure. */
+export const wheatFaceHosts = sequence => sequence.includes(WHEAT_FACE) ? wheatHosts : []
 
 /** Characters whose glyphs the tree's designed cuts are read from; the loader preloads them. */
 export const designedSources = (tree, style = 'sans') => {
@@ -1204,8 +1210,9 @@ export class Composer {
         return
       }
       const repeated = isGroupedForm(keyOf(node), this.fontStyle) ? componentParts(keyOf(node), region, this.fontStyle, atRoot) : null
-      if (repeated) {
-        for (const part of repeated) out.push({ index: out.length, box: part.target, empty: false })
+      const designed = repeated ?? this.wheatFaceParts(node, region)
+      if (designed) {
+        for (const part of designed) out.push({ index: out.length, box: part.target, empty: false })
         return
       }
       if (!Array.isArray(node)) { out.push({ index: out.length, box: region, empty: node === EMPTY }); return }
@@ -1439,7 +1446,23 @@ export class Composer {
     return { frame, room: mapped(room, bounds, region) }
   }
 
+  /** Three native cuts for the described wheat enclosure. 麺 supplies the frame and right-hand 面,
+   *  榛 the narrow 𡗗. The sweep is 处’s in Zhuque and 麵’s in TW-Kai. */
+  wheatFaceParts(node, region) {
+    if (node[0] !== '⿺' || keyOf(node) !== WHEAT_FACE || this.excluded('麺')) return null
+    const frame = this.glyphRecord('麺')
+    if (!frame) return null
+    const digest = hexOf(JSON.stringify(frame.p))
+    const cuts = Object.values(wheatFaceCuts).find(cuts => cuts.some(cut => cut.host === '麺' && cut.digest === digest))
+    if (!cuts || cuts.some(cut => this.excluded(cut.host))) return null
+    const records = Object.fromEntries(cuts.map(cut => [cut.host, this.glyphRecord(cut.host)]))
+    const parts = constructParts({ host: '麺', cuts }, [], records, region)
+    return parts.length ? parts : null
+  }
+
   drawNode(node, region, atRoot = false, sideBySide = false) {
+    const wheat = this.wheatFaceParts(node, region)
+    if (wheat) return wheat
     const wood = this.woodFrame(node, region)
     if (wood) return [wood.frame, ...this.node(node[2], wood.room)]
     if (isEmpty(node)) return [this.placeholder(node, region)]
@@ -1882,29 +1905,54 @@ export class Composer {
     const ranked = this.ranked(op, 0, kin.char, [inner], box, true).map(([, found]) => found.record.h)
     const listed = this.hostsOf(kin.char, place, true).map(h => h.h).filter(h => !this.excluded(h))
     const chars = [...new Set([...ranked, ...listed])].filter(h => Object.hasOwn(cuts, h)).slice(0, table.KIN_TRIED)
+    const candidates = []
+    let unread = false
     for (const char of chars) {
       if (!cuts[char]) continue
       const glyph = this.glyph(char)
       // A host whose record is still loading is tried once it is read.
-      if (!glyph) { if (this.partial) return null; continue }
+      if (!glyph) { if (this.partial) unread = true; continue }
       const [top, lower] = cuts[char].map(indices => kanjivgCut(derived(glyph, indices.map(k => glyph.contours[k]))))
-      const frame = union([top.box, lower.box])
-      const drawn = [placed(lower, lower.box, mapped(lower.box, frame, box), this.ink(char), `kin ${char}`)]
-      const room = mapped(top.box, frame, box)
-      const upper = typeof outer === 'string' ? this.upperOf(outer) : null
-      let above
-      if (upper) {
-        // In the kin's upper part's room, short of the enclosed part's box by the gap neighbours
-        // keep, its proportions kept within `STRETCH`.
-        const right = op === '⿺' || op === '⿸' ? Math.min(room[2], innerBox[0] - C.FACING[0]) : room[2]
-        const target = fitted(upper.part.box, [room[0], room[1], Math.max(right, room[0] + (room[2] - room[0]) / 3), room[3]], C.STRETCH)
-        above = [placed(upper.part, upper.part.box, target, this.ink(upper.source), `kin ${upper.source}`)]
-      } else above = this.node(kin.own[1], room)
-      this.settle(above, placed(top, top.box, room, 0, `kin ${char}`), drawn)
-      // A separated drawing keeps reading order, the upper operand first.
-      return this.separate ? [...above, ...drawn] : [...drawn, ...above]
+      candidates.push({ char, top, lower, frame: union([top.box, lower.box]) })
     }
-    return null
+    if (!candidates.length) return null
+    // A ranked host is the one the place scores best. The export's list is otherwise unranked, and
+    // a cut splitting the kin at the wrong height leaves the upper operand too little room
+    // (Zhuque's 麩 keeps 來's legs in the sweep): take the split nearest the middle of those listed.
+    let chosen = candidates.find(c => ranked.includes(c.char))
+    if (!chosen && unread) return null
+    if (!chosen) {
+      const shares = candidates.map(c => (c.top.box[3] - c.top.box[1]) / Math.max(c.frame[3] - c.frame[1], 1)).sort((a, b) => a - b)
+      const middle = shares.length % 2 ? shares[(shares.length - 1) / 2] : (shares[shares.length / 2 - 1] + shares[shares.length / 2]) / 2
+      let nearest = Infinity, even = Infinity
+      for (const c of candidates) {
+        const share = (c.top.box[3] - c.top.box[1]) / Math.max(c.frame[3] - c.frame[1], 1)
+        const distance = Math.abs(share - middle), fromMiddle = Math.abs(share - 0.5)
+        if (distance < nearest || (distance === nearest && fromMiddle < even)) { chosen = c; nearest = distance; even = fromMiddle }
+      }
+    }
+    const { char, top, lower, frame } = chosen
+    const drawn = [placed(lower, lower.box, mapped(lower.box, frame, box), this.ink(char), `kin ${char}`)]
+    const room = mapped(top.box, frame, box)
+    // A cut holding only the outer's left half (Zhuque's 麩 keeps no room for 面) is carried across
+    // the enclosing box as it stands, and the upper part keeps clear of the enclosed part's box; a
+    // cut spanning the box already leaves that room.
+    const narrow = (frame[2] - frame[0]) < (table.KIN_NARROW ?? C.KIN_NARROW ?? 0.8) * (box[2] - box[0])
+    const right = op === '⿺' || op === '⿸' ? Math.min(room[2], innerBox[0] - C.FACING[0]) : room[2]
+    const upper = typeof outer === 'string' ? this.upperOf(outer) : null
+    // An enclosing character's own upper part always stands narrow over its sweep; a described one
+    // keeps the cut's width unless the cut spans only part of the box.
+    const left = upper || narrow ? Math.max(right, room[0] + (room[2] - room[0]) / 3) : room[2]
+    let above
+    if (upper) {
+      // In the kin's upper part's room, short of the enclosed part's box by the gap neighbours
+      // keep, its proportions kept within `STRETCH`.
+      const target = fitted(upper.part.box, [room[0], room[1], left, room[3]], C.STRETCH)
+      above = [placed(upper.part, upper.part.box, target, this.ink(upper.source), `kin ${upper.source}`)]
+    } else above = this.node(kin.own[1], [room[0], room[1], left, room[3]])
+    this.settle(above, placed(top, top.box, room, 0, `kin ${char}`), drawn)
+    // A separated drawing keeps reading order, the upper operand first.
+    return this.separate ? [...above, ...drawn] : [...drawn, ...above]
   }
 
   /** An upper part drawn into a kin's upper room, its foot lowered as far as it stands short of the

@@ -782,7 +782,7 @@ def test_the_kin_table_lists_the_kins_of_the_host_lists_held_and_their_cuts(comp
     count = len(composer._index[0][KIN])
     assert lower == {"⿺0": {"又": [["支", count]]}} and count >= compose.KIN_OUTER_HOSTS
     table = web_export.kin_table(composer, lower, log=lambda _: None)
-    assert (table["KIN_OUTER_HOSTS"], table["KIN_TRIED"]) == (compose.KIN_OUTER_HOSTS, compose.KIN_TRIED)
+    assert (table["KIN_OUTER_HOSTS"], table["KIN_TRIED"], table["KIN_NARROW"]) == (compose.KIN_OUTER_HOSTS, compose.KIN_TRIED, compose.KIN_NARROW)
     cuts = table["cuts"]["⿺0\t支"]
     # Every host KanjiVG and the variable font draw, its 支 cut along KanjiVG into 十 and 又.
     assert cuts and all(h in composer.kvg.entries and composer.font.own(h) for h in cuts)

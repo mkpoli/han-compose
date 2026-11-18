@@ -1,0 +1,12 @@
+{
+  "fangsong": [
+    {"host": "榛", "label": "榛 𡗗", "contours": [0], "digest": "266d887078470d34cc4f1bff9ce7f128743a813257c088392a70650dadb41396", "box": [49, 249, 487, 803]},
+    {"host": "处", "label": "处 夂", "contours": [0, 2], "digest": "9f0a3965c175b4ecde5b44b6626b47f2f9241831bc1fbf350e15ba8ce2a3cdd9", "box": [46, -94, 895, 334]},
+    {"host": "麺", "label": "麺 面", "contours": [1, 2, 3, 4, 5, 6], "digest": "fa8463c18556cfbca15404a195d804be8d3b271187eeeb784cc07fec412e2318", "box": [518, 111, 933, 784]}
+  ],
+  "regular": [
+    {"host": "榛", "label": "榛 𡗗", "contours": [2], "digest": "9f52a08f73b217e6961f09361a4668ab6edbe045252bd223586d973124302cc8", "box": [101, 240, 509, 777]},
+    {"host": "麵", "label": "麵 夂", "contours": [0, 1], "digest": "ed53c4ad4f73b97a25d65ff588dec58dbb4d494673542185ed4861f8cc04f8ed", "box": [109, -71, 968, 335]},
+    {"host": "麺", "label": "麺 面", "contours": [2, 3, 4, 5, 6, 7], "digest": "655ed0bec42b1c870f5aca1904e828ea25751147bc98c192b0f726184cb26bc1", "box": [509, 76, 945, 736]}
+  ]
+}
