@@ -332,6 +332,8 @@ describe('爪 lower-left frames', () => {
         expect(mouth.box[2] * mouth.box[3]).toBeGreaterThan(0.24 * frame.box[2] * frame.box[3])
         expect(mouth.box[1] + mouth.box[3]).toBeGreaterThan(frame.box[1] + 0.70 * frame.box[3])
       }
+      const composer = new Composer(src.store(), { fontStyle })
+      expect(composer.enclosureForm('⿺', '爪', '罒')).toBeNull()
       const { parts } = await compose(src, '⿺爪' + inner, { fontStyle, separate: true })
       expect(parts.map(p => p.origin)).toEqual([`glyph ${donor}`, `glyph ${donor}`])
       expect(parts[0].d.match(/M/g)).toHaveLength(count)
