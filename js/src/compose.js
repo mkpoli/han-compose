@@ -2947,6 +2947,10 @@ export class Composer {
         if (own && (i > 0 || stretchOf(own.box, box) <= C.STRETCH)) {
           const group = [this.place(own, box, this.ink(child), `glyph ${child}`)]
           groups.push(narrow ? this.fillCell(child, group, box, this.beside.has(children)) : group)
+          // The lower turn of む holds the inner glyph. The learned box can cross the kana.
+          if (i === 1 && op === '⿶' && children[0] === 'む') {
+            this.fit(groups[0], group, frameOf, stem, C, { room: box, anchor: centre(opening ?? box) })
+          }
           continue
         }
       }
