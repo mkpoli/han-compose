@@ -46,11 +46,11 @@ import { createRenderNormalizer } from './normalization.js'
 const muKoForms = {
   'serif': {
     mu: '61a3791122f4c12a90500eed5411ac265b29796959125ed78e284b1e2b4000f5',
-    outer: [49, -67, 959, 791], inner: [358, 35, 684, 383], innerWeight: 0,
+    outer: [49, -67, 959, 791], inner: [354, 8, 680, 444], innerWeight: 0,
   },
   'fangsong': {
     mu: '6e654b5aed230233d55a82ad25efce39c428628781862df36520b5baabe08374',
-    outer: [55, -101, 964, 765], inner: [470, 4, 876, 508], innerWeight: 0.75,
+    outer: [55, -101, 964, 765], inner: [468, -1, 866, 493], innerWeight: 0.75,
   },
   'regular': {
     mu: '97b12e46364b540b26258ab4bf714920ad6649658f3ac26cce19511179cdab2a',
