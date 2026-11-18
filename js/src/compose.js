@@ -2982,7 +2982,9 @@ export class Composer {
     // standalone glyph, which is drawn for a character of its own.
     if (axis === 1 && children.length === 3 && ENCLOSED_MIDDLE.has(children[1]) && Array.isArray(children[2]) && !this.partial) {
       const gaoMouth = children[0] === '羔' && children[1] === '口' && keyOf(children[2]) === '⿵𦉪十'
-      const bands = gaoMouth ? gaoMouthBands(region, this.data.manifest.style ?? this.fontStyle) : stackBands(region)
+      const exportStyle = this.data.manifest.style ?? this.fontStyle
+      const style = exportStyle === 'kaisho' ? 'pen-writing' : exportStyle
+      const bands = gaoMouth ? gaoMouthBands(region, style) : stackBands(region)
       // The Serif foot carries its ink a little above its band; close the band to the 口 so no
       // white seam stands between them.
       if (!gaoMouth && this.fontStyle === 'serif') bands.foot[3] = region[1] + 0.47 * (region[3] - region[1])
@@ -2991,7 +2993,7 @@ export class Composer {
       for (const [i, child] of children.entries()) {
         const box = goals[i]
         if (gaoMouth && i === 2) {
-          const foot = this.gaoMouthFoot(box)
+          const foot = this.gaoMouthFoot(box, style)
           if (foot) { parts.push(foot); continue }
         }
         const mouth = gaoMouth && i === 1 && this.fontStyle === 'fangsong' && !this.excluded('口') ? this.designedCut(child, GAO_MOUTH_CUTS) : null
@@ -3011,7 +3013,7 @@ export class Composer {
         parts.push(group)
       }
       const stack = this.flatten(parts)
-      if (gaoMouth && !this.separate) balanceGaoMouth(stack, this.data.manifest.style)
+      if (gaoMouth && atRoot && !this.separate) balanceGaoMouth(stack, style)
       return stack
     }
     const share = this.sharesOf(op, children, axis, atRoot)
@@ -3677,7 +3679,7 @@ export class Composer {
 
   /** The shallow 𦉪十 under 羔口. In the single-outline faces the frame's two legs
    *  share the lintel and the 十 occupies the full opening below. */
-  gaoMouthFoot(box) {
+  gaoMouthFoot(box, style) {
     if (this.separate || ['sans', 'serif'].includes(this.fontStyle) || this.excluded('𦉪')) return null
     const joined = !this.excluded('冂') && !this.excluded('儿') && this.designedCut('𦉪', GAO_MOUTH_CUTS)
     // 裔 supplies the roof and both legs in one contour in Kureedo and TW-Kai.
@@ -3696,7 +3698,7 @@ export class Composer {
       else if (!joined) cut = this.designedCut(ch, GAO_MOUTH_CUTS)
       let source = cut?.piece ?? this.glyph(ch)
       if (!source) return null
-      if (joined && ch === '𦉪' && this.data.manifest.style === 'kaisho') source = fitGaoUprights(source, target)
+      if (joined && ch === '𦉪' && style === 'pen-writing') source = fitGaoUprights(source, target)
       const ink = source.box
       const host = cut?.record.h ?? ch
       parts.push(placed(source, ink, target, this.ink(host), cut ? `host ${host}` : `glyph ${ch}`))
@@ -4176,7 +4178,7 @@ function balanceGaoMouth(parts, style) {
   const frame = parts.find(part => part.branch[0] === 2 && part.branch[1] === 0)
   let weights
   // In this Kureedo export the second outline is lighter. Moving away from it adds ink.
-  if (style === 'kaisho' && frame?.origin === 'host 裔') weights = [-0.14, -0.48, -0.10, -0.64]
+  if (style === 'pen-writing' && frame?.origin === 'host 裔') weights = [-0.14, -0.48, -0.10, -0.64]
   else if (style === 'regular' && frame?.origin === 'host 裔') weights = [0, 0.40, -0.09, [0.76, 0.53]]
   else if (style === 'fangsong' && frame?.origin === 'glyph 冂') weights = [0.21, 0.73, 0.12, 0.76]
   else return
