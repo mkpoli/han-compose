@@ -21,7 +21,7 @@ import { grassShape } from './variants.js'
 // `data.identity(key)`: the key's sequence and the character it describes, without its record; one
 // over an export with a kin table answers `data.kin()` with it (`kin`, `kinOuter`).
 import { EM_BOX, area, centre, count, derived, drawnBox, drawnContours, joinedDrawing, fill, fitted, grown, groupRings, makePart, mapped, partInk, partOf,
-  placed, pointsBox, pyRound, raster, rings, scaleOf, shrunk, square, stretchOf, targetFor, union, within } from './geometry.js'
+  placed, pointsBox, pyRound, raster, rings, scaleOf, shrunk, square, stretchOf, targetFor, union, windingOf, within } from './geometry.js'
 import { grassPairs, connectedGrass, contextualGrass } from './grass-forms.js'
 import { ownFormsOnly, componentParts, componentPosition, componentPositionBox, componentRecord, containsComponentForm, hasForcedForms, containsForcedForm, isComponentForm, isForcedCharacter, isGroupedForm, isNativeForm } from './component-forms.js'
 import { features, forward } from './layout.js'
@@ -468,6 +468,19 @@ const ENCLOSURE_TAILS = {
 
 const ENCLOSURE_FORMS = {
   '⿺': {
+    // 𮇇 is ⿺米日. Keep both upper dots and the stroke below 日.
+    米: ['𮇇', {
+      'fbd4d23f4115d3e27d2f7d40a37c2617d42efd2a2bd8d309a76671c3c7056097': [0, 1, 2],
+      'dba389255ed37438a7dff7a7e52946fe55aa0b89dd950ef675a6054382718855': [0, 4, 5],
+    }],
+    // 趄 is ⿺走且. The remaining contours describe the opening above 走.
+    走: ['趄', {
+      '057bf627c3fffe82172d911eef372cf496e403eb9c5c1e6a372b6c3233c02d15': [4, 5, 6, 7, 8, 9, 10],
+      '92a8251d91e02aad289ae77efcef545ad68814bc3a52f604026847e56f16807b': [0, 1, 6, 7, 8, 9, 10],
+      '14381857d034572ecd0b8bd718a9dc6342e753589f850d2a2eeb8b1eb09dbd83': [0],
+      'f52d243fdd29c63c3fc1e492f1ecbcc5bc4f3b699041d731bae079f7f971789b': [0],
+      '4ec639d5ab237c1a3e16d3bb6b6899c3b313f9baf108640f0e9c43d57ed2a9a3': [0],
+    }],
     // 尅 supplies the narrow 克 and the long hooked leg beneath 寸.
     克: ['尅', {
       'ae84ef672359ae6623803e35731ecc3e67ff219d45927bc13358728a70289272': [0, 2, 3, 4, 5, 8],
@@ -499,8 +512,60 @@ const KE_BAI = ['兡', {
   [SERIF_BAI_HASH]: [6, 7, 8, 9, 10, 11, 12],
   'f33b6640f3595ae1504ba85316b5d6973ce90728ce0485ed483f7fc7426246af': [0, 1],
 }]
-const enclosureEntry = (op, outer, style) => op === '⿺' && outer === '克' && (style === 'serif' || style === 'regular')
-  ? KE_BAI : ENCLOSURE_FORMS[op]?.[outer]
+const RICE_DOTS = ['米', {
+  // Left dot, right dot in Zhuque Fangsong, TW-Kai and Kureedo.
+  '1ec0927d4db7c3caf7c5f412f948f5ce9593c68ef20caf889cec12298c751427': [1, 2],
+  '8fbccf83460cc3c74c1f22434f2bc416355805fb0bf63514df1316fb081dd6cf': [1, 2],
+  'c18496a92711cf9afa9354af46782e82d7634ecec3c5a63342644546e396f1bd': [2, 1],
+}]
+// The four brush 米 strokes use single outlines without a weight master.
+// Offset each stroke about its own centreline, including its Bézier controls.
+function strengthenRiceStroke(contour, radius) {
+  const points = contour.light, n = points.length
+  const winding = windingOf([points])
+  const outline = points.slice()
+  for (let i = 0; i < n; i += 2) {
+    let before = (i + n - 2) % n, after = (i + 2) % n
+    // A closed stroke can repeat its initial point at the end.
+    while (before !== i && points[before] === points[i] && points[before + 1] === points[i + 1]) before = (before + n - 2) % n
+    while (after !== i && points[after] === points[i] && points[after + 1] === points[i + 1]) after = (after + 2) % n
+    const ax = points[i] - points[before], ay = points[i + 1] - points[before + 1]
+    const bx = points[after] - points[i], by = points[after + 1] - points[i + 1]
+    const a = Math.hypot(ax, ay) || 1, b = Math.hypot(bx, by) || 1
+    const nx = ay / a + by / b, ny = -ax / a - bx / b
+    const length = Math.hypot(nx, ny) || 1
+    // A short segment at a brush tip can fold if moved past its neighbour.
+    const distance = winding * Math.min(radius, a / 2, b / 2)
+    outline[i] += distance * nx / length
+    outline[i + 1] += distance * ny / length
+  }
+  return { ...contour, light: outline, heavy: outline }
+}
+const lowerLeftFrames = new Set(['克', '米', '走'])
+/** Rectangular counters in the openings of 𮇇 and 趄, in frame-relative
+ * coordinates. The brush 米 has a higher diagonal foot than the Noto cut. */
+function counterBox(outer, inner, nested, style) {
+  const brush = ownFormsOnly(style)
+  if (outer === '米') {
+    if (inner === '罒') return brush ? [0.43, 0.455, 0.985, 0.795] : [0.43, 0.375, 0.99, 0.715]
+    if (inner === '口' && !brush) return [0.57, 0.30, 0.99, 0.84]
+    if (inner === '口' && (style === 'fangsong' || style === 'regular')) return [0.535, 0.42, 0.985, 0.905]
+    if (inner === '日' && style === 'fangsong') return [0.58, 0.365, 0.95, 0.950]
+    if (inner === '日' && brush) return [0.515, 0.43, 0.985, 0.975]
+  }
+  if (outer === '走') {
+    if (inner === '呂' && style === 'serif') return [0.44, 0.17, 0.985, 0.95]
+    if (inner === '呂') return [style === 'fangsong' ? 0.55 : 0.49, 0.20, 0.985, 0.94]
+    if (inner === '口' && nested && brush) return [0.55, 0.31, 0.985, 0.79]
+  }
+  return null
+}
+
+const enclosureEntry = (op, outer, style) => {
+  if (op === '⿺' && outer === '克' && (style === 'serif' || style === 'regular')) return KE_BAI
+  if (op === '⿺' && outer === '米' && ownFormsOnly(style)) return RICE_DOTS
+  return ENCLOSURE_FORMS[op]?.[outer]
+}
 
 function unflippedOperand(node) {
   while (Array.isArray(node) && (node[0] === MIRROR || node[0] === ROTATE)) node = node[1]
@@ -528,6 +593,11 @@ export const designedSources = (tree, style = 'sans') => {
     }
     const frame = enclosureEntry(op, children[0], style)
     if (frame) out.add(frame[0])
+    const inner = unflippedOperand(children[1])
+    if (op === '⿺' && counterBox(children[0], inner, true, style)) {
+      out.add(inner)
+      if (style === 'fangsong' && inner === '罒') out.add('罡')
+    }
     if (frame === KE_BAI && style === 'regular' && unflippedOperand(children[1]) === '口') out.add('加')
     for (const [key, [char]] of Object.entries(DESIGNED_CUTS)) if (children.includes(key)) out.add(char)
     children.forEach(visit)
@@ -1134,7 +1204,12 @@ export class Composer {
         // split the two apart stand the frame away from what it holds (𠕲's 冂 above its rows).
         if (typeof kids[0] === 'string' && !isEmpty(kids[0])) {
           const region = target(box)
-          const enclosure = this.woodFrame(node, region) ?? this.keFrame(node, region)
+          const counters = this.counterInFrame(node, region, depth > 0)
+          if (counters) {
+            counters.forEach((p, i) => emitCell(p, kids[i]))
+            return
+          }
+          const enclosure = this.woodFrame(node, region) ?? this.lowerLeftFrame(node, region)
           let outer = enclosure?.frame, room = enclosure?.room
           if (room && enclosureEntry(op, kids[0], this.fontStyle) === KE_BAI) room = this.baiSeat(kids[1], room) ?? room
           if (!outer) {
@@ -1236,7 +1311,12 @@ export class Composer {
         return
       }
       if (!Array.isArray(node)) { out.push({ index: out.length, box: region, empty: node === EMPTY }); return }
-      const frame = this.woodFrame(node, region) ?? this.keFrame(node, region)
+      const counters = this.counterInFrame(node, region, !atRoot)
+      if (counters) {
+        for (const p of counters) out.push({ index: out.length, box: p.target, empty: false })
+        return
+      }
+      const frame = this.woodFrame(node, region) ?? this.lowerLeftFrame(node, region)
       if (frame) {
         out.push({ index: out.length, box: frame.frame.target, empty: false })
         walk(node[2], frame.room, false)
@@ -1442,13 +1522,93 @@ export class Composer {
     return placed(mouth, tightBox(mouth), target, this.ink('加'), 'host 加')
   }
 
-  /** Fit the donor's 克 before placing a cell in its opening. */
-  keFrame(node, region) {
-    if (!Array.isArray(node) || node[0] !== '⿺' || node[1] !== '克') return null
-    const cut = this.enclosureForm('⿺', '克')
+  counterInFrame(node, region, nested) {
+    if (!Array.isArray(node) || node[0] !== '⿺') return null
+    const outer = node[1], inner = unflippedOperand(node[2])
+    const box = counterBox(outer, inner, nested, this.fontStyle)
+    if (!box || this.excluded(inner)) return null
+    const enclosure = this.lowerLeftFrame(node, region)
+    if (!enclosure) return null
+    let glyph = this.glyph(inner), donor = inner
+    if (this.fontStyle === 'fangsong' && inner === '罒') {
+      const record = !this.excluded('罡') && this.glyphRecord('罡')
+      if (!record || hexOf(JSON.stringify(record.p)) !== 'b157761ed58dfbf011bdac2d0925357da36a92cc25dcb90b2d31bef39a54db47') return null
+      const source = partOf(record)
+      glyph = derived(source, source.contours.slice(1, 5))
+      donor = '罡'
+    }
+    if (!glyph) return null
+    const frame = enclosure.frame
+    if (inner === '呂' && this.fontStyle === 'serif') {
+      // Pull the upright inward. Let the displacement fall away along
+      // the foot so its final stroke still reaches under the right edge.
+      const [left, , right] = frame.source
+      const width = right - left
+      const narrow = points => points.map((v, i) => {
+        if (i % 2) return v
+        const x = (v - left) / width
+        const share = Math.max(0, Math.min(x / 0.56, (1 - x) / 0.44))
+        return v - 0.15 * width * share
+      })
+      frame.part = derived(frame.part, frame.part.contours.map(c => ({
+        ...c, light: narrow(c.light), heavy: narrow(c.heavy),
+      })), frame.source)
+    }
+    const target = mapped(box, [0, 0, 1, 1], frame.target)
+    if (inner === '罒') {
+      // Slide the net past the crossbar. When space runs short, scale 米
+      // uniformly about the net's midline and preserve the net's height.
+      const flipped = node[2] !== inner
+      const clearance = {
+        sans: flipped ? 0.105 : 0.075,
+        serif: 0.115,
+        fangsong: 0.095,
+        regular: 0,
+        'pen-writing': flipped ? 0.065 : 0.025,
+      }
+      const shift = (clearance[this.fontStyle] ?? 0.115) * (frame.target[2] - frame.target[0])
+      const left = frame.target[0], right = Math.max(frame.target[2], target[2] + shift)
+      const scale = Math.min(1, (region[2] - region[0]) / (right - left))
+      const start = Math.max(region[0], Math.min(left, region[2] - (right - left) * scale))
+      const mid = (target[1] + target[3]) / 2
+      for (const i of [0, 2]) {
+        frame.target[i] = start + (frame.target[i] - left) * scale
+        target[i] = start + (target[i] + shift - left) * scale
+      }
+      for (const i of [1, 3]) frame.target[i] = mid + (frame.target[i] - mid) * scale
+      const radius = this.fontStyle === 'fangsong' ? 4 : this.fontStyle === 'pen-writing' ? 2 : 0
+      if (radius && nested && region[2] - region[0] < region[3] - region[1]) {
+        frame.part = derived(frame.part, frame.part.contours.map(c => strengthenRiceStroke(c, radius)), frame.source)
+      }
+    }
+    // The wider bottom mouth of 呂 faces the crossbar when rotated.
+    if (inner === '呂' && node[2] !== inner) target[0] += 0.045 * (frame.target[2] - frame.target[0])
+    const counter = placed(glyph, tightBox(glyph), target, this.ink(donor), donor === inner ? `glyph ${inner}` : `host ${donor}`)
+    for (let operand = node[2]; operand !== inner; operand = operand[1]) {
+      counter.flips ??= []
+      counter.flips.push({ x: true, y: operand[0] === ROTATE, about: centre(target) })
+    }
+    if (this.fontStyle === 'pen-writing' && (outer === '米' || inner === '口')) {
+      // Kureedo's synthetic heavy master grows inward. Moving in the opposite
+      // direction adds ink to the uprights and the strokes between them.
+      counter.weight = [-0.32, -0.32]
+      counter.fixed = true
+    } else if (this.fontStyle === 'fangsong' && inner === '日') {
+      // Fitting 日 by width thins its uprights more than its crossbars.
+      // Match the upright weight of a 日 scaled uniformly to this height.
+      counter.weight = [0.85, 0]
+      counter.fixed = true
+    }
+    return [frame, counter]
+  }
+
+  /** Place the enclosing strokes and map their opening into the same cell. */
+  lowerLeftFrame(node, region) {
+    if (!Array.isArray(node) || node[0] !== '⿺' || !lowerLeftFrames.has(node[1])) return null
+    const cut = this.enclosureForm('⿺', node[1])
     if (!cut?.piece.held) return null
     const { piece } = cut
-    const frame = this.place(piece, region, this.ink(cut.record.h), 'cells 克')
+    const frame = this.place(piece, region, this.ink(cut.record.h), `host ${cut.record.h}`)
     return { frame, room: mapped(piece.held, frame.source, frame.target) }
   }
 
@@ -1510,6 +1670,8 @@ export class Composer {
   drawNode(node, region, atRoot = false, sideBySide = false) {
     const reference = this.referenceParts(node, region)
     if (reference) return reference
+    const counters = this.counterInFrame(node, region, !atRoot)
+    if (counters) return counters
     const wheat = this.wheatFaceParts(node, region)
     if (wheat) return wheat
     const wood = this.woodFrame(node, region)
@@ -1856,6 +2018,24 @@ export class Composer {
     return [...body, ...marks]
   }
 
+  /** The brush exports have no 𮇇. The two upper strokes of their own 米
+   * sit on either side of the tall stem of their enclosing 木. */
+  brushRiceFrame(rice, [left, right]) {
+    if (this.excluded('木')) return null
+    const [, wood] = componentParts('⿰氵⿺木罒', undefined, this.fontStyle)
+    const dot = (index, target) => {
+      const c = rice.contours[index]
+      const stroke = placed(derived(rice, [c]), pointsBox(c.light), target, 0, '米')
+      const [points] = drawnContours(stroke)
+      return { ops: c.ops, light: points, heavy: points }
+    }
+    // Coordinates in the 木 outline, before the entire frame is fitted.
+    const dots = [dot(left, [218, 554, 333, 695]), dot(right, [426, 561, 529, 728])]
+    const piece = derived(wood.part, [...wood.part.contours, ...dots])
+    piece.held = [542, 260, 924, 724]
+    return { record: { h: '米' }, piece: this.clearLowerLeftRoom(piece, '米') }
+  }
+
   /** A designed enclosing form of a whole operand, where the export has no cut of it: 电 as ⿺'s
    *  enclosing part from 𫌷. Answers a host-like `{ record, piece }`, or null. */
   enclosureForm(op, node) {
@@ -1866,6 +2046,7 @@ export class Composer {
     const digest = hexOf(JSON.stringify(record.p)), indices = cuts[digest]
     if (!indices) return null
     const glyph = partOf(record)
+    if (entry === RICE_DOTS) return this.brushRiceFrame(glyph, indices)
     let contours = indices.map(i => glyph.contours[i])
     if (digest === SERIF_BAI_HASH) {
       // Bring the upright of 克 inward, tapering the displacement to zero
@@ -1898,17 +2079,24 @@ export class Composer {
       piece.held = digest === SERIF_BAI_HASH
         ? [body[0] - 48, body[1] + 85, body[2] - 7, body[3]]
         : shrunk(body, 0.92)
-    } else if (node === '克' && piece.held) {
-      const frame = placed(piece, piece.box, piece.box, 0, 'host 尅')
-      const opening = this.roomFromInk(op, [frame], piece.box)
-      if (opening) {
-        const [l, b, r, t] = piece.held
-        const clear = [Math.max(l, opening[0]), Math.max(b, opening[1]), Math.min(r, opening[2]), Math.min(t, opening[3])]
-        // Leave clearance for the stroke-weight pass in a narrow nested cell.
-        if (clear[0] < clear[2] && clear[1] < clear[3]) piece.held = shrunk(clear, 0.90)
+    } else if (lowerLeftFrames.has(node) && piece.held) this.clearLowerLeftRoom(piece, char)
+    return { record: { h: char }, piece }
+  }
+
+  /** Intersect a donor's interior with the ink-free space above its foot.
+   * A rectangular replacement fills corners the original inner glyph left open. */
+  clearLowerLeftRoom(piece, char) {
+    const frame = placed(piece, piece.box, piece.box, 0, `host ${char}`)
+    const opening = this.roomFromInk('⿺', [frame], piece.box)
+    if (opening) {
+      const [l, b, r, t] = piece.held
+      const clear = [Math.max(l, opening[0]), Math.max(b, opening[1]), Math.min(r, opening[2]), Math.min(t, opening[3])]
+      if (clear[0] < clear[2] && clear[1] < clear[3]) {
+        piece.held = shrunk(clear, 0.90)
+        if (char !== '尅') piece.held[0] += (piece.held[2] - piece.held[0]) * 0.055
       }
     }
-    return { record: { h: char }, piece }
+    return piece
   }
 
   /** The kin an enclosing part is drawn as (`_kin`): of the characters written over the same lower
@@ -2037,9 +2225,12 @@ export class Composer {
     if (!frame || !groups[1]?.length) return
     const room = mapped(frame.part.held, frame.source, frame.target)
     const box = union(groups[1].map(drawnBox))
-    const ownSeat = enclosureEntry(op, children[0], this.fontStyle) === KE_BAI && this.baiSeat(children[1], room)
+    const inner = unflippedOperand(children[1])
+    const own = (children[0] === '米' || children[0] === '走') && typeof inner === 'string' && !isEmpty(inner) && !this.excluded(inner) && this.glyph(inner)
+    const ownSeat = own ? fitted(tightBox(own), room, 1.15)
+      : enclosureEntry(op, children[0], this.fontStyle) === KE_BAI && this.baiSeat(children[1], room)
     const seat = ownSeat || fitted(box, room, this.C.STRETCH)
-    const mouth = ownSeat && groups[1].length === 1 && this.baiMouth(children[1], groups[1][0].target)
+    const mouth = children[0] === '克' && ownSeat && groups[1].length === 1 && this.baiMouth(children[1], groups[1][0].target)
     if (mouth) {
       Object.assign(groups[1][0], mouth)
       // Keep 克 at its native weight when balancing the borrowed mouth.
@@ -2067,7 +2258,11 @@ export class Composer {
 
   /** Preserve the font's designed shape while retaining one adjustable piece per leaf. */
   enclosureParts(node, region) {
-    const entry = ENCLOSURE_CUTS[keyOf(node)]
+    const key = keyOf(node)
+    // In a separated 𮇇 or 趄, the inner leaf is the complement of the
+    // enclosing cut. Keep both pieces in their original glyph coordinates.
+    const split = this.separate && (key === '⿺米日' || key === '⿺走且') && !this.excluded(node[1]) && !this.excluded(node[2])
+    const entry = split ? ENCLOSURE_FORMS['⿺'][node[1]] : ENCLOSURE_CUTS[key]
     // Expansion adapts a squeezed character to its region; do not replace it with that same glyph.
     if (!entry || this.expanding.size || this.excluded(entry[0])) return null
     const [char, cuts] = entry, record = this.glyphRecord(char)
@@ -2077,7 +2272,8 @@ export class Composer {
     this.nativeEnclosures.add(keyOf(node))
     const glyph = partOf(record), target = fitted(glyph.box, region, this.C.STRETCH)
     if (!this.separate) return [placed(glyph, glyph.box, target, this.ink(char), `glyph ${char}`)]
-    return indices.map(group => {
+    const groups = split ? [indices, glyph.contours.map((_, i) => i).filter(i => !indices.includes(i))] : indices
+    return groups.map(group => {
       const part = derived(glyph, group.map(i => glyph.contours[i]))
       return { ...placed(part, part.box, mapped(part.box, glyph.box, target), this.ink(char), `glyph ${char}`), balanceBox: glyph.box }
     })
@@ -2654,7 +2850,7 @@ export class Composer {
       if (designed) return designed
     }
     // Use the enclosing posture drawn in 爬 or 尅 before borrowing a generic host.
-    if (op === '⿺' && index === 0 && (node === '爪' || node === '克')) {
+    if (op === '⿺' && index === 0 && (node === '爪' || lowerLeftFrames.has(node))) {
       const designed = this.enclosureForm(op, node)
       if (designed) return designed
     }
@@ -3256,7 +3452,7 @@ export class Composer {
       const inner = this.node(children[1], hu ? huRoom : room)
       if (!hu) this.fit(outer, inner, region, this.stem0[0][0], C,
         fallback && op === '⿽' ? { room, bounds: room } : undefined)
-      if (children[0] === '克' && outer[0]?.part.held) this.seatInDesignedFrame(op, children, [outer, inner])
+      if (lowerLeftFrames.has(children[0]) && outer[0]?.part.held) this.seatInDesignedFrame(op, children, [outer, inner])
       if (held) this.sweeps.push([outer, inner])
       return [...outer, ...inner]
     }
