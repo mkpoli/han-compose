@@ -54,7 +54,7 @@ from ._raster import fill
 from ._raster import ring as _ring
 from .vocab import BINARY, ROOT, TERNARY, UNARY, read_rows
 
-_WHEAT_FACE_CUTS = json.loads((ROOT / "data" / "wheat-face-cuts.json").read_text(encoding="utf-8"))
+_WHEAT_FACE_CUTS = json.loads(Path(__file__).with_name("wheat-face-cuts.json").read_text(encoding="utf-8"))
 
 # Generated from the pinned BabelStone IDS catalog; see docs/pyramid-glyphs.md.
 _PYRAMID_GLYPHS = {
