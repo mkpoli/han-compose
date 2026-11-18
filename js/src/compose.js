@@ -1,4 +1,5 @@
 // @ts-nocheck: a port of han-compose's Python, kept line for line; its types are the arrays it reads.
+import fangsongFoot from './fangsong-foot.json' with { type: 'json' }
 import { grassShape } from './variants.js'
 // A port of han-compose's composer (`compose.py`, `Composer.compose`) over its web export: a sequence
 // drawn from parts other characters' designers drew. The export carries what the composer reads
@@ -517,6 +518,9 @@ export const designedSources = (tree, style = 'sans') => {
   const visit = node => {
     if (!Array.isArray(node)) return
     const [op, ...children] = node
+    if (op === '⿳' && style === 'fangsong' && keyOf(node) === '⿳五⿲矢口隹龰') {
+      for (const char of '五矢口隹龰足') out.add(char)
+    }
     const frame = enclosureEntry(op, children[0], style)
     if (frame) out.add(frame[0])
     if (frame === KE_BAI && style === 'regular' && unflippedOperand(children[1]) === '口') out.add('加')
@@ -1002,6 +1006,7 @@ export class Composer {
     // Cell scaffolds already have a complete layout; searching every repeated subtree adds no evidence.
     if (this.pyramid(tree) || this.pyramidWithBase(tree)) return false
     const key = keyOf(tree)
+    if (this.fontStyle === 'fangsong' && key.includes('⿳五⿲矢口隹龰')) return false
     if (this.bySequence(key) || this.spelled.has(key)) return false
     if (isGroupedForm(key, this.fontStyle) || isComponentForm(key, this.fontStyle)) return false
     let leaves = 0, supported = true
@@ -1221,7 +1226,7 @@ export class Composer {
         return
       }
       const repeated = isGroupedForm(keyOf(node), this.fontStyle) ? componentParts(keyOf(node), region, this.fontStyle, atRoot) : null
-      const designed = repeated ?? this.wheatFaceParts(node, region)
+      const designed = repeated ?? this.sharedMouthInscription(node, region) ?? this.wheatFaceParts(node, region)
       if (designed) {
         for (const part of designed) out.push({ index: out.length, box: part.target, empty: false })
         return
@@ -1471,7 +1476,27 @@ export class Composer {
     return parts.length ? parts : null
   }
 
+  sharedMouthInscription(node, region) {
+    if (!Array.isArray(node) || node[0] !== '⿳' || this.fontStyle !== 'fangsong' || keyOf(node) !== '⿳五⿲矢口隹龰') return null
+    const cells = [
+      ['五', [0.33,0.71,0.69,0.98]], ['矢', [0.02,0.29,0.35,0.72]], ['口', [0.37,0.42,0.64,0.68]],
+      ['隹', [0.66,0.37,0.985,0.72]], ['龰', [0.18,0.015,0.95,0.405]],
+    ]
+    if (cells.some(([ch]) => this.excluded(ch))) return null
+    const parts = []
+    for (const [ch, box] of cells) {
+      let glyph = this.glyph(ch)
+      const useFoot = !glyph && ch === '龰' && !this.excluded('足')
+      if (useFoot) glyph = partOf(fangsongFoot)
+      if (!glyph) return null
+      parts.push({ ...placed(glyph, glyph.box, mapped(box, [0,0,1,1], region), partInk(glyph), useFoot ? 'host 足' : `glyph ${ch}`), fixed: true })
+    }
+    return parts
+  }
+
   drawNode(node, region, atRoot = false, sideBySide = false) {
+    const inscription = this.sharedMouthInscription(node, region)
+    if (inscription) return inscription
     const wheat = this.wheatFaceParts(node, region)
     if (wheat) return wheat
     const wood = this.woodFrame(node, region)
