@@ -520,6 +520,7 @@ export const designedSources = (tree, style = 'sans') => {
     if (!Array.isArray(node)) return
     const [op, ...children] = node
     for (const cell of specimenFor(node, style, keyOf) ?? []) for (const [ch] of cell) out.add(ch)
+    if (op === '⿺' && keyOf(node) === '⿺辶⿳穴⿰月⿰⿲⿱幺長⿱言馬⿱幺長刂心' && style === 'pen-writing') out.add('𰻞')
     const frame = enclosureEntry(op, children[0], style)
     if (frame) out.add(frame[0])
     if (frame === KE_BAI && style === 'regular' && unflippedOperand(children[1]) === '口') out.add('加')
