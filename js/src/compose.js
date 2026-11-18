@@ -1507,7 +1507,7 @@ export class Composer {
     if (!cuts) return null
     return node.slice(1).map(ch => {
       const part = partOf(cuts[ch])
-      return { ...placed(part, part.box, mapped(part.box, atRoot ? this.face : cuts.box, region),
+      return { ...placed(part, part.box, mapped(part.box, atRoot ? this.C.face : cuts.box, region),
         partInk(part), `龍 ${ch}`), fixed: true }
     })
   }
