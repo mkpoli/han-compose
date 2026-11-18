@@ -275,6 +275,17 @@ export function dotIn(composer, band) {
  * A correction that cannot find the parts it names leaves the drawing as it is.
  */
 export const COMPONENT_FIXES = {
+  '⿱⿰虎⿿虎貝': {
+    glyphs: {},
+    apply(parts, composer) {
+      const [left, turned, shell] = parts
+      if (composer.fontStyle !== 'pen-writing' || parts.length !== 3 || left.origin !== 'host 虤' ||
+          turned.origin !== 'glyph 虎' || !turned.flips?.length) return parts
+      // Both tigers occupy the same band. Rotate the same left-hand cut to preserve its stroke weight.
+      return [left, { ...turned, part: left.part, source: left.source, native: left.native,
+        origin: left.origin, weight: left.weight }, shell]
+    },
+  },
   // 𠷃 (BabelStone: ⿰口⿳穴𠆢又) has a broad, shallow 又. Its component's
   // proportions also occur in 𥔉. Keep both inner parts within 穴's outer span.
 
