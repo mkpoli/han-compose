@@ -517,6 +517,9 @@ export const designedSources = (tree, style = 'sans') => {
   const visit = node => {
     if (!Array.isArray(node)) return
     const [op, ...children] = node
+    if (op === '⿳' && ['fangsong', 'regular', 'pen-writing'].includes(style) && keyOf(node) === '⿳龷由⿳八⿻王丷⿱田⿵冂山') {
+      for (const char of '龷由八王丷田冂山共半') out.add(char)
+    }
     const frame = enclosureEntry(op, children[0], style)
     if (frame) out.add(frame[0])
     if (frame === KE_BAI && style === 'regular' && unflippedOperand(children[1]) === '口') out.add('加')
@@ -1002,6 +1005,7 @@ export class Composer {
     // Cell scaffolds already have a complete layout; searching every repeated subtree adds no evidence.
     if (this.pyramid(tree) || this.pyramidWithBase(tree)) return false
     const key = keyOf(tree)
+    if (['fangsong', 'regular', 'pen-writing'].includes(this.fontStyle) && key.includes('⿳龷由⿳八⿻王丷⿱田⿵冂山')) return false
     if (this.bySequence(key) || this.spelled.has(key)) return false
     if (isGroupedForm(key, this.fontStyle) || isComponentForm(key, this.fontStyle)) return false
     let leaves = 0, supported = true
@@ -1221,7 +1225,7 @@ export class Composer {
         return
       }
       const repeated = isGroupedForm(keyOf(node), this.fontStyle) ? componentParts(keyOf(node), region, this.fontStyle, atRoot) : null
-      const designed = repeated ?? this.wheatFaceParts(node, region)
+      const designed = repeated ?? this.goldInscription(node, region) ?? this.wheatFaceParts(node, region)
       if (designed) {
         for (const part of designed) out.push({ index: out.length, box: part.target, empty: false })
         return
@@ -1471,7 +1475,36 @@ export class Composer {
     return parts.length ? parts : null
   }
 
+  goldInscription(node, region) {
+    if (!Array.isArray(node) || node[0] !== '⿳' || !['fangsong', 'regular', 'pen-writing'].includes(this.fontStyle) || keyOf(node) !== '⿳龷由⿳八⿻王丷⿱田⿵冂山') return null
+    const cells = [
+      ['龷', [0.19,0.77,0.81,0.985]], ['由', [0.32,0.595,0.68,0.765]], ['八', [0.03,0.38,0.97,0.625]],
+      ['王', [0.31,0.385,0.69,0.59]], ['丷', [0.37,0.412,0.63,0.478]], ['田', [0.29,0.195,0.71,0.365]],
+      ['冂', [0.23,0.015,0.77,0.18]], ['山', [0.32,0.031,0.68,0.13]],
+    ]
+    if (cells.some(([ch]) => this.excluded(ch))) return null
+    const parts = []
+    for (const [ch, box] of cells) {
+      let glyph = this.glyph(ch), origin = `glyph ${ch}`
+      if (!glyph && this.fontStyle === 'fangsong') {
+        // 共 carries the upper lattice and 半 carries two separate dots in Zhuque.
+        const cut = ch === '龷' ? ['共', [0,3], '3883c79f19f181226a6c5eb1a6a4118bf6bab849ba50428f02457c2c0660a0a5'] : ch === '丷' ? ['半', [1,2], '6afa742d24faf14d90417e7fcab34a3bc6f11f1894ba6d23c456ce1751870612'] : null
+        const record = cut && !this.excluded(cut[0]) && this.glyphRecord(cut[0])
+        if (record && hexOf(JSON.stringify(record.p)) === cut[2]) {
+          const donor = partOf(record)
+          glyph = derived(donor, cut[1].map(i => donor.contours[i]))
+          origin = `host ${cut[0]}`
+        }
+      }
+      if (!glyph) return null
+      parts.push({ ...placed(glyph, glyph.box, mapped(box, [0,0,1,1], region), partInk(glyph), origin), fixed: true })
+    }
+    return parts
+  }
+
   drawNode(node, region, atRoot = false, sideBySide = false) {
+    const inscription = this.goldInscription(node, region)
+    if (inscription) return inscription
     const wheat = this.wheatFaceParts(node, region)
     if (wheat) return wheat
     const wood = this.woodFrame(node, region)
