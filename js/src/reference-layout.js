@@ -5,7 +5,14 @@ import { mapped } from './geometry.js'
 // 亽 has a short, centered dot below its open roof (TW-Kai U+4EBD).
 /** @type {Record<string, Record<string, { encoded: string, cells: [string, number[]][] }>>} */
 const layouts = {
+  "pen-writing": {
+    '⿳宀𭕄木': { encoded: '𫳍', cells: [['宀', [66, 597, 941, 853]], ['𭕄', [206, 418, 798, 581]], ['木', [62, -81, 943, 380]]] },
+  },
+  regular: {
+    '⿳宀𭕄木': { encoded: '𫳍', cells: [['宀', [66, 597, 941, 853]], ['𭕄', [206, 418, 798, 581]], ['木', [62, -81, 943, 380]]] },
+  },
   fangsong: {
+    '⿳宀𭕄木': { encoded: '𫳍', cells: [['宀', [66, 597, 941, 853]], ['𭕄', [206, 418, 798, 581]], ['木', [62, -81, 943, 380]]] },
     '⿱𠆢丶': { encoded: '亽', cells: [['人', [62, 265, 964, 793]], ['丶', [397, 135, 551, 298]]] },
   },
 }

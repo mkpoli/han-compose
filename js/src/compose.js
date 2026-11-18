@@ -523,6 +523,7 @@ export const designedSources = (tree, style = 'sans') => {
       if (entry.encoded) out.add(entry.encoded)
       for (const [char] of entry.cells) out.add(char)
     }
+    if (keyOf(node) === '⿳宀𭕄木' && style !== 'pen-writing') out.add(style === 'fangsong' ? '脳' : '巣')
     const frame = enclosureEntry(op, children[0], style)
     if (frame) out.add(frame[0])
     if (frame === KE_BAI && style === 'regular' && unflippedOperand(children[1]) === '口') out.add('加')
@@ -1486,9 +1487,19 @@ export class Composer {
     const parts = []
     for (const [i, [source]] of cells.entries()) {
       if (this.excluded(source)) return null
-      const glyph = this.glyph(source)
+      let glyph = this.glyph(source), origin = `glyph ${source}`
+      if (!glyph && source === '𭕄') {
+        const [host, digest, indices] = this.fontStyle === 'fangsong'
+          ? ['脳', 'f937dce6dd7e1605c22ec245ba082ea03c4aa15bf225553056332c8f0fb934e5', [3, 4, 5]] : ['巣', '6f947f2ce7bf188981c71dbe42c21792117c0d979527cf84c4af737e36243386', [5, 6, 7]]
+        const record = !this.excluded(host) && this.glyphRecord(host)
+        if (record && hexOf(JSON.stringify(record.p)) === digest) {
+          const native = partOf(record)
+          glyph = derived(native, indices.map(i => native.contours[i]))
+          origin = `host ${host}`
+        }
+      }
       if (!glyph) return null
-      parts.push({ ...placed(glyph, glyph.box, boxes[i], partInk(glyph), `glyph ${source}`), fixed: true })
+      parts.push({ ...placed(glyph, glyph.box, boxes[i], partInk(glyph), origin), fixed: true })
     }
     return parts
   }
