@@ -275,6 +275,19 @@ export function dotIn(composer, band) {
  * A correction that cannot find the parts it names leaves the drawing as it is.
  */
 export const COMPONENT_FIXES = {
+  '⿱龹幸': {
+    glyphs: {},
+    apply(parts, composer) {
+      if (parts.length !== 2 || !['serif', 'pen-writing'].includes(composer.fontStyle) || composer.excluded('幸')) return parts
+      const xing = composer.glyph('幸')
+      if (!xing) return parts
+      const [top, bottom] = parts, frame = union([top.target, bottom.target])
+      // The crown of 幸 fits between the splayed legs of 龹, below its two horizontals.
+      const upper = mapped([.055, .54, .945, 1], [0, 0, 1, 1], frame)
+      const lower = mapped([.12, 0, .88, .57], [0, 0, 1, 1], frame)
+      return [{ ...top, target: upper }, placed(xing, xing.box, lower, composer.ink('幸'), 'glyph 幸')]
+    },
+  },
   // 𠷃 (BabelStone: ⿰口⿳穴𠆢又) has a broad, shallow 又. Its component's
   // proportions also occur in 𥔉. Keep both inner parts within 穴's outer span.
 
