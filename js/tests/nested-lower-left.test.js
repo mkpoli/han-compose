@@ -2,18 +2,18 @@ import { describe, expect, it } from 'bun:test'
 import { Composer, near, sweptPart } from '../src/compose.js'
 import { partOf, placed } from '../src/geometry.js'
 import { compose, createSource } from '../src/loader.js'
-import { constants, files, layout, shards } from './fixtures/small-export.js'
+import { constants, files, layout, records, shards } from './fixtures/small-export.js'
 import parts from './fixtures/sans-lower-left.json' with { type: 'json' }
 
 // 几 and 力 as the Sans export draws them (Noto Sans CJK, SIL OFL 1.1); 口 is the small export's
 // box. The layout's weights are zero and its bias gives the second operand the right of the cell,
 // as the font sets 日 in 旭.
 const bias = Buffer.from(new Float32Array([0, 0, 1, 1, 0.45, 0, 1, 1]).buffer).toString('base64')
-const source = () => {
+const source = (extra = {}) => {
   const input = {
     ...files,
     'layout.json': JSON.stringify({ ...layout, seeds: [[layout.seeds[0][0], bias]] }),
-    ...shards('g', Object.entries(parts)),
+    ...shards('g', Object.entries({ ...parts, ...extra })),
   }
   return createSource(async name => input[name] === undefined ? null : new Uint8Array(Buffer.from(input[name])).buffer)
 }
@@ -135,4 +135,31 @@ describe('⿺ round a part with no host cut, as the whole description', () => {
     expect(slot.box[0]).toBeGreaterThan(right(strokes) - 40)
     expect(right(foot)).toBeGreaterThan(right(slot) - 20)
   })
+})
+
+describe('the enclosing form of 木', () => {
+  for (const layout of ['composed', 'cells']) {
+    it(`holds another operand over its final stroke in ${layout} layout`, async () => {
+      const options = { layout, separate: true }
+      const result = await compose(source(), '⿺木口', options)
+      expect(result.parts[0].origin).toBe(layout === 'cells' ? 'cells 木' : 'enclosing 木')
+      expect(result.parts).toHaveLength(2)
+      const [wood, inside] = result.parts.map(part => part.box)
+      expect(inside[0]).toBeGreaterThan(wood[0] + wood[2] / 3)
+      expect(inside[1] + inside[3]).toBeLessThan(wood[1] + wood[3])
+      const empty = await compose(source(), '⿺木⬚', options)
+      expect(empty.slots).toHaveLength(1)
+    })
+  }
+})
+
+it('keeps the encoded 术 and the dot spelling on their ordinary rendering paths', async () => {
+  const extra = { 术: { ...records.木, s: '⿺木丶' }, 丶: records.永, '⿺木丶': { e: '术' } }
+  const src = source(extra)
+  const ordinary = await compose(src, '术')
+  const spelled = await compose(src, '⿺木丶')
+  expect(ordinary.d).toBe(spelled.d)
+  expect(spelled.parts[0].origin).toBe('glyph 术')
+  const separate = await compose(src, '⿺木丶', { separate: true })
+  expect(separate.parts.some(p => p.origin === 'enclosing 木')).toBe(false)
 })
