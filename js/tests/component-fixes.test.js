@@ -62,6 +62,66 @@ describe('a composition fix', () => {
   })
 })
 
+describe('⿱呼乙', () => {
+  const left = part('host 呼', [0, 200, 320, 800], [0, 400, 460, 1000], [[0, 200, 320, 800]])
+  const right = part('host 呼', [300, 0, 1000, 1000], [500, 400, 1000, 1000], [[300, 0, 1000, 1000]])
+  const bottom = part('learned 乴', [0, 0, 800, 420], [100, 0, 900, 420], [[0, 0, 800, 420]])
+  const mouth = part('glyph 口', [0, 0, 100, 100], [0, 0, 100, 100], [[0, 0, 100, 100]])
+  const composer = { glyph: ch => ch === '口' ? mouth.part : null, ink: () => 1000, excluded: () => false }
+
+  it('recovers 呼’s width shares and leaves a gap beside 口 and above 乙', () => {
+    const fixed = componentFix('⿱呼乙', [left, right, bottom], composer)
+    expect(fixed[0].origin).toBe('glyph 口')
+    expect(fixed[0].target).toEqual([0, 600, 260, 860])
+    expect(fixed[1].target).toEqual([300, 460, 1000, 1000])
+    expect(fixed[1].part).toBe(right.part)
+    expect(fixed[2]).toBe(bottom)
+  })
+
+  it('fits the three Serif parts into the selected bands above the wide base', () => {
+    const serif = { ...composer, fontStyle: 'serif', glyphRecord: () => null }
+    const [lip, hu, yi] = componentFix('⿱呼乙', [left, right, bottom], serif)
+    expect(lip.target).toEqual([168, 580, 388, 910])
+    expect(hu.target).toEqual([412, 410, 852, 1000])
+    expect(yi.target).toEqual([172, 0, 852, 370])
+  })
+
+  it('preserves the host cuts when standalone 口 is excluded', () => {
+    const layout = [left, right, bottom]
+    expect(componentFix('⿱呼乙', layout, { ...composer, excluded: ch => ch === '口' })).toBe(layout)
+  })
+
+  it('leaves the weight pass in control of other mouth outlines', () => {
+    for (const fontStyle of ['sans', 'serif', 'fangsong', 'pen-writing']) {
+      const other = { ...composer, fontStyle, glyphRecord: () => ({ p: [] }) }
+      const [lip] = componentFix('⿱呼乙', [left, right, bottom], other)
+      expect(lip.fixed).toBeUndefined()
+      expect(lip.weight).toEqual([0, 0])
+    }
+  })
+
+  it('raises the foot of whole 呼 clear of 乙 in Regular Kai', () => {
+    const hu = { ...left, origin: 'glyph 呼' }
+    const [raised, yi] = componentFix('⿱呼乙', [hu, bottom], { fontStyle: 'regular', glyphRecord: () => null })
+    expect(raised.target).toEqual([0, 470, 460, 1000])
+    expect(yi).toBe(bottom)
+  })
+
+  it('narrows WenKai’s 乎 around the row centre and carries 口 with it', () => {
+    const [lip, hu] = componentFix('⿱呼乙', [left, right, bottom], {
+      ...composer, fontStyle: 'pen-writing', glyphRecord: () => null,
+    })
+    expect(hu.target[2] - hu.target[0]).toBeCloseTo(540 * 0.7 * 1.25)
+    expect(hu.target[0] - lip.target[2]).toBeCloseTo(40)
+    expect(lip.target[0] + hu.target[2]).toBeCloseTo(1000)
+  })
+
+  it('keeps whole-glyph and unrelated layouts intact', () => {
+    for (const layout of [[mouth, bottom], [mouth, right, bottom], [left, mouth, bottom]]) {
+      expect(componentFix('⿱呼乙', layout, composer)).toBe(layout)
+    }
+  })
+})
 
 describe('⿱一心', () => {
   it('lowers Regular Kai’s 一 within its band at its own bar height', () => {
@@ -206,7 +266,7 @@ describe('⿵𦉪十', () => {
     ink,
   })
 
-  it('puts 十’s bar and stem in 鬲’s own 丅 cross inside its 𦉪 frame', () => {
+  it('sets 十’s bar clear below the inner strokes of 鬲’s 𦉪 frame', () => {
     const ge = sansGe().part, ten = sansTen().part
     const frame = part('glyph 𦉪', [95, 157, 906, 611], [72, -20, 931, 746], [[95, 157, 906, 611]])
     const out = fix.apply([frame], composerOf(ge, ten))
@@ -223,9 +283,12 @@ describe('⿵𦉪十', () => {
     // between 丿 and 乚.
     const frameBox = [109, -82, 900, 386]
     const barBox = drawnBoxOf(bar), stemBox = drawnBoxOf(stem)
-    const wantBar = mapped([293, 84, 719, 139], frameBox, frame.target)
+    const wantBar = mapped([286, 34, 720, 90], frameBox, frame.target)
     wantBar.forEach((v, i) => expect(barBox[i]).toBeCloseTo(v, 6))
     const slash = drawnBoxOf(shell, 3), hook = drawnBoxOf(shell, 2)
+    // The bar stands below both inner strokes, clear of their feet.
+    expect(barBox[3]).toBeLessThan(slash[1])
+    expect(barBox[3]).toBeLessThan(hook[1])
     expect(stemBox[0]).toBeGreaterThan(slash[2])
     expect(stemBox[2]).toBeLessThan(hook[0])
     expect(stemBox[1]).toBeCloseTo(mapped([466, -71, 535, 116], frameBox, frame.target)[1], 6)
@@ -263,8 +326,8 @@ describe('⿵𦉪十', () => {
   })
 
   it('lists both faces’ 鬲 and 十 digests and leaves missing, unsupported, or unmatched glyphs alone', () => {
-    expect(fix.glyphs['鬲']).toHaveLength(2)
-    expect(fix.glyphs['十']).toHaveLength(2)
+    expect(fix.glyphs['鬲']).toHaveLength(3)
+    expect(fix.glyphs['十']).toHaveLength(3)
     const frame = part('glyph 𦉪', [0, 0, 800, 800], [100, 0, 900, 800], [[0, 0, 800, 800]])
     expect(fix.apply([frame], composerOf(null, sansTen().part))).toEqual([frame])
     expect(fix.apply([frame], composerOf(sansGe().part, null))).toEqual([frame])

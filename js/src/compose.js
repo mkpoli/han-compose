@@ -21,7 +21,8 @@
 // over an export with a kin table answers `data.kin()` with it (`kin`, `kinOuter`).
 import { EM_BOX, area, centre, count, derived, drawnBox, drawnContours, fill, fitted, grown, groupRings, makePart, mapped, partInk, partOf,
   placed, pointsBox, pyRound, raster, rings, scaleOf, shrunk, square, stretchOf, targetFor, union, within } from './geometry.js'
-import { ownFormsOnly, componentParts, componentPosition, componentPositionBox, componentRecord, containsComponentForm, isComponentForm, isGroupedForm, isNativeForm } from './component-forms.js'
+import { grassPairs, connectedGrass, contextualGrass } from './grass-forms.js'
+import { ownFormsOnly, componentParts, componentPosition, componentPositionBox, componentRecord, containsComponentForm, hasForcedForms, containsForcedForm, isComponentForm, isForcedCharacter, isGroupedForm, isNativeForm } from './component-forms.js'
 import { features, forward } from './layout.js'
 import { CONSTRUCTS, BODY_FORMS, IVD_FORMS, SURROUND_CONSTRUCTS, bodyForm, constructBody, constructHosts, constructParts, ivdParts } from './constructs.js'
 import { pyramidCells, pyramidOnBaseLayout } from './pyramid.js'
@@ -528,6 +529,24 @@ const DESIGNED_CUTS = {
   䒑: ['前', {
     '56b0a45b06ac33ea462799b1ba3cc806f464d5a09236012da3ed1616e523aef2': [0, 3],
   }],
+  // Zhuque draws 鬲's lower frame as one outline; its own 𦉪 is not in the face.
+  𦉪: ['鬲', {
+    de5606e4968f68067080c0219e1634cc3622f007c35c8936df34e55186b7f88f: [0],
+  }],
+}
+
+// Cuts used in 羔口's middle and lower bands, indexed against each donor's outlines.
+const GAO_MOUTH_CUTS = {
+  𦉪: ['裔', {
+    '3618847597c0f20438df7a89dd8ffb72617473b2db94c7bf02abac85e8121f84': [1],
+    '1a918e990221329aae91fad36e07fcd7616a2e145d6f205ed31706058ff9b2ed': [2],
+  }],
+  儿: ['兜', {
+    '219141863bb84ba5be1f99375cd22675f346c6ab5ced16cc96eb7a7ddfe0d638': [0, 2],
+  }],
+  口: ['品', {
+    '16f56cdc0f1b178350d0f1a4ac73b0e0ce036d00413a11f7759c39673aa4a976': [0, 5],
+  }],
 }
 
 export class Composer {
@@ -543,6 +562,7 @@ export class Composer {
     const m = data.manifest, c = m.constants
     this.C = c
     this.exclude = new Set(exclude)
+    this._forced = new Map()
     this.spelled = new Set(m.spelled)
     this.AXIS = c.AXIS
     this.ENCLOSE = { ...c.ENCLOSE, ...EXTRA_ENCLOSE }
@@ -606,6 +626,26 @@ export class Composer {
   /** The learned layout. A store reads it when a node first asks, so a lone character is drawn without it. */
   get layout() { return this.data.layout }
   excluded = ch => this.exclude.has(ch)
+  /** Whether a node holds a component whose form must replace its encoded outline, at any depth. */
+  forced = (node, seen = new Set()) => {
+    if (!hasForcedForms(this.fontStyle)) return false
+    if (typeof node === 'string' && isForcedCharacter(node, this.fontStyle)) return true
+    const cacheable = seen.size === 0, key = keyOf(node)
+    if (cacheable && this._forced.has(key)) return this._forced.get(key)
+    let result = containsForcedForm(key, this.fontStyle)
+    if (!result) {
+      if (typeof node === 'string') {
+        if (!seen.has(node)) {
+          const sequence = this.identity(node)?.s
+          if (sequence) {
+            try { result = this.forced(this.parse(sequence), new Set([...seen, node])) } catch { result = false }
+          }
+        }
+      } else result = node.slice(1).some(child => this.forced(child, seen))
+    }
+    if (cacheable) this._forced.set(key, result)
+    return result
+  }
   slot = (op, i) => this.SLOTS[op] ? this.SLOTS[op][i] : `${op}${i}`
   /**
    * The pyramid a node draws as, remembered for this drawing. A two-layer pyramid of one part keeps
@@ -665,7 +705,59 @@ export class Composer {
     return this.node(base, region)
   }
 
-  glyphRecord(ch) { const record = this.rec(ch); const glyph = record?.G; if (glyph && record.sg && !glyph.sg) glyph.sg = record.sg; return glyph ?? null }
+  glyphRecord(ch) {
+    const record = this.rec(ch), glyph = record?.G
+    // A Fangsong drawing takes no outline another face drew: a record its own font lacks (v 0)
+    // stays missing rather than standing in as a Mincho.
+    if (glyph && this.fontStyle === 'fangsong' && glyph.v === 0) return null
+    if (glyph && record.sg && !glyph.sg) glyph.sg = record.sg
+    return glyph ?? null
+  }
+
+  /** A forced component replaced in the native glyph: the glyph without the component's outlines,
+   *  and the form placed where they were. The rest of the glyph keeps its own design and weight. */
+  replaceGlyph(native, char, tree = null) {
+    const glyph = native.part
+    const groups = grassPairs(glyph, this.glyphRecord(char).ls?.['艹'])
+    if (!groups.length) return [native]
+    const checked = contextualGrass(char, groups)
+    const matches = checked ?? []
+    const visit = (node, box, seen) => {
+      if (node === '艹' || isForcedCharacter(node, this.fontStyle)) {
+        // Compare only outlines in this operand's region. In 菙 the two crosses in
+        // 垂 resemble 艹 more closely than the actual grass head does.
+        const match = groups.find(group => {
+          const x = (group.box[0] + group.box[2]) / 2, y = (group.box[1] + group.box[3]) / 2
+          return !matches.includes(group) && x >= box[0] && x <= box[2] && y >= box[1] && y <= box[3]
+        })
+        if (match) matches.push(match)
+        return
+      }
+      if (Array.isArray(node)) {
+        const axis = this.AXIS[node[0]], count = node.length - 1
+        for (let i = 0; i < count; i++) {
+          const child = box.slice()
+          if (axis !== undefined) {
+            const span = (box[axis + 2] - box[axis]) / count
+            const step = axis === 1 ? count - i - 1 : i
+            child[axis] = box[axis] + span * step
+            child[axis + 2] = child[axis] + span
+          }
+          visit(node[i + 1], child, seen)
+        }
+      } else if (typeof node === 'string' && !seen.has(node) && this.forced(node)) {
+        const sequence = this.identity(node)?.s
+        if (sequence) visit(this.parse(sequence), box, new Set([...seen, node]))
+      }
+    }
+    if (!checked) visit(isForcedCharacter(char, this.fontStyle) ? char : tree ?? char, tightBox(glyph), new Set())
+    if (!matches.length) return [native]
+    const cut = new Set(matches.flatMap(group => group.indices))
+    const keep = glyph.contours.filter((_, i) => !cut.has(i))
+    const forms = matches.map(group => connectedGrass(group.box, native.source, native.target, checked ? char : undefined))
+    if (!keep.length) return forms
+    return [{ ...native, part: derived(glyph, keep, glyph.box), fixed: true, origin: `glyph ${char} kept` }, ...forms]
+  }
   glyph(ch) { const g = this.glyphRecord(ch); return g ? partOf(g) : null }
   /** The glyph a whole character is drawn with: a body the font drew as another shape is replaced
    *  by `BODY_FORMS` where the export carries the glyph that cut was made for. A cut of the glyph
@@ -961,6 +1053,14 @@ export class Composer {
         return b
       })
     }
+    const emitCell = (part, key) => {
+      const parts = this.forced(key) ? this.replaceGlyph(part, key) : [part]
+      if (leafIndices) {
+        for (const drawn of parts) drawn.leaf = leaf
+        leaf++
+      }
+      out.push(...parts)
+    }
     const walk = (node, box, depth) => {
       if (isEmpty(node)) {
         const part = this.placeholder(node, inset(target(box)))
@@ -985,8 +1085,7 @@ export class Composer {
         // narrow cell still keeps the glyph's proportions instead of turning it into a sliver.
         const cell = inset(target(box)), inkBox = tightBox(glyph)
         const part = placed(glyph, inkBox, fitted(inkBox, cell, Math.max(this.C.STRETCH, CELL_STRETCH)), this.ink(node), `cells ${node}`)
-        if (leafIndices) part.leaf = leaf++
-        out.push(part)
+        emitCell(part, node)
         return
       }
       const op = node[0], kids = node.slice(1)
@@ -1022,13 +1121,11 @@ export class Composer {
           }
           if (room) {
             if (enclosure) outer.origin = `cells ${kids[0]}`
-            if (leafIndices) outer.leaf = leaf++
-            out.push(outer)
             const mouth = enclosure && kids[0] === '克' && kids[1] === '口' && this.baiMouth(kids[1], inset(room))
+            if (mouth) outer.weightLimit = [0, 0]
+            emitCell(outer, kids[0])
             if (mouth) {
-              outer.weightLimit = [0, 0]
-              if (leafIndices) mouth.leaf = leaf++
-              out.push(mouth)
+              emitCell(mouth, kids[1])
               return
             }
             walk(kids[1], [(room[0] - f[0]) / width, 1 - (room[3] - f[1]) / height,
@@ -1408,6 +1505,9 @@ export class Composer {
       }
       let squeezed = glyph !== null && stretchOf(glyph.box, region) > C.STRETCH
       if (tree && (this.stroked(tree) || this.atomic(encoded))) squeezed = false
+      if (glyph && this.forced(encoded)) {
+        return this.replaceGlyph(this.place(glyph, region, this.ink(encoded), `glyph ${encoded}`), encoded, tree)
+      }
       if (glyph && !(squeezed && tree)) {
         if (sideBySide && encoded === '\u{F2A9}' && this.fontStyle === 'sans') {
           // The native cut from 葭 already has its contextual proportions.
@@ -1420,7 +1520,12 @@ export class Composer {
         }
         return [this.place(glyph, region, this.ink(encoded), `glyph ${encoded}`)]
       }
-      if (!tree) throw new LookupError(`No glyph or sequence draws ${encoded}.`)
+      if (!tree) {
+        // A character the face does not draw may still be a designed cut of one it does.
+        const designed = this.designedCut(encoded)
+        if (designed) return [this.place(designed.piece, region, this.ink(encoded), `designed ${designed.record.h}`)]
+        throw new LookupError(`No glyph or sequence draws ${encoded}.`)
+      }
       if (!glyph) this.missingGlyphs.add(encoded)
       this.expanding.add(encoded)
       try { return this.node(tree, region, atRoot) } catch (error) {
@@ -1434,7 +1539,7 @@ export class Composer {
       return [this.place(glyph, region, this.ink(node), `glyph ${node}`)]
     }
     const coverHead = Array.isArray(node) && typeof node[1] === 'string' && this.isCover(node[1])
-    const found = this.separate || hasRepetition || isRepeatedRow(node) || this.spelled.has(keyOf(node)) || coverHead ? null : this.instance(node, region)
+    const found = this.separate || hasRepetition || isRepeatedRow(node) || this.spelled.has(keyOf(node)) || coverHead || this.forced(node) ? null : this.instance(node, region)
     if (found) return [found]
     const stacked = this.pyramidWithBase(node)
     if (stacked) return this.baseParts(stacked, region)
@@ -1509,7 +1614,7 @@ export class Composer {
       const learned = this.learned(op, children, atRoot ? null : region, !this.bySequence(keyOf(node)))
       if (learned) return learned
     }
-    if (!this.separate && !hasRepetition && atRoot && op in this.AXIS && !this.rowHoldsEnclosure(node)) {
+    if (!this.separate && !hasRepetition && atRoot && op in this.AXIS && !this.rowHoldsEnclosure(node) && !this.forced(node)) {
       const moved = this.transplant(op, children)
       if (moved) return moved
     }
@@ -2443,6 +2548,9 @@ export class Composer {
 
   /** The drawn part closest to what `node` needs at `index` of `op` inside `box`, as [record, piece]. */
   host(op, index, node, siblings, box, isPlaced = false) {
+    // A forced operand is drawn from its own IDS, not replaced by a host's cut. A direct 艹 is
+    // exempt: its form is placed by the caller, or the face's own cut is the connected component.
+    if (!(typeof node === 'string' && node === '艹') && this.forced(node)) return null
     // The face's own cut of a component it does not draw stands ahead of a cut of another shape.
     if (node === '䒑') {
       const designed = this.designedCut(node)
@@ -2470,9 +2578,9 @@ export class Composer {
   }
 
   /** A designed left form from a character's glyph, for a component whose host cuts the export lacks. */
-  designedCut(node) {
-    const entry = typeof node === 'string' ? DESIGNED_CUTS[node] : null
-    if (!entry) return null
+  designedCut(node, cutsByPart = DESIGNED_CUTS) {
+    const entry = typeof node === 'string' ? cutsByPart[node] : null
+    if (!entry || this.excluded(entry[0])) return null
     const [char, cuts] = entry, record = this.glyphRecord(char)
     if (!record) return null
     const indices = cuts[hexOf(JSON.stringify(record.p))]
@@ -2602,7 +2710,7 @@ export class Composer {
    */
   gridTree(node) {
     if (typeof node !== 'string') return null
-    const sequence = this.sequenceOf(node)
+    const sequence = this.identity(node)?.s
     if (!sequence) return null
     let tree
     try { tree = this.parse(sequence) } catch { return null }
@@ -2717,6 +2825,12 @@ export class Composer {
         groups.push(this.node(child, box, false, true))
         continue
       }
+      // A component with a form of its own is drawn from it wherever it stands, before any host cut.
+      const declared = typeof child === 'string'
+        ? componentParts(child, box, this.fontStyle, false)
+        : null
+      if (declared) { groups.push(declared); continue }
+      if (typeof child === 'string' && child !== '艹' && this.forced(child)) { groups.push(this.node(child, box)); continue }
       // Under a cover, a child whose own glyph fits the box is drawn from it: a host cut can meet
       // the cover's bar through a turning stroke and leave a wedge (定's 𤴓 cut from 是).
       if (i === 1 && op === '⿱' && typeof children[0] === 'string' && COVERS.has(children[0])
@@ -2736,11 +2850,6 @@ export class Composer {
         this.fit(groups[0], groups[1], frameOf, stem, C, { room: opening })
         continue
       }
-      // A component with a form of its own is drawn from it wherever it stands, before any host cut.
-      const declared = typeof child === 'string'
-        ? componentParts(child, box, this.fontStyle, false)
-        : null
-      if (declared) { groups.push(declared); continue }
       let part = this.host(op, i, child, [...children.slice(0, i), ...children.slice(i + 1)], box, region === null)
       if (op in this.ENCLOSE && i === 0 && (!part || (typeof child === 'string' && this.own(child)
         && stretchOf(part.piece.box, box) > C.ENCLOSING_STRETCH))) {
@@ -3089,6 +3198,48 @@ export class Composer {
         }
       }
     }
+    // A three-band stack over a compound foot, its middle an enclosed box: the bands follow the
+    // reference, and each part takes the font's cut of it from a character that draws it in that
+    // place — the top 羔 from a stack over it, the middle 口 from under a cover — rather than the
+    // standalone glyph, which is drawn for a character of its own.
+    if (axis === 1 && children.length === 3 && ENCLOSED_MIDDLE.has(children[1]) && Array.isArray(children[2]) && !this.partial && !this.isCover(children[0])) {
+      const gaoMouth = children[0] === '羔' && children[1] === '口' && keyOf(children[2]) === '⿵𦉪十'
+      const exportStyle = this.data.manifest.style ?? this.fontStyle
+      const style = exportStyle === 'kaisho' ? 'pen-writing' : exportStyle
+      const bands = gaoMouth ? gaoMouthBands(region, style) : stackBands(region)
+      // The Serif foot carries its ink a little above its band; close the band to the 口 so no
+      // white seam stands between them.
+      if (!gaoMouth && this.fontStyle === 'serif') bands.foot[3] = region[1] + 0.47 * (region[3] - region[1])
+      const parts = []
+      const goals = [bands.top, bands.mouth, bands.foot]
+      for (const [i, child] of children.entries()) {
+        const box = goals[i]
+        if (gaoMouth && i === 2) {
+          const foot = this.gaoMouthFoot(box, style)
+          if (foot) { parts.push(foot); continue }
+        }
+        const mouth = gaoMouth && i === 1 && this.fontStyle === 'fangsong' && !this.excluded('口') ? this.designedCut(child, GAO_MOUTH_CUTS) : null
+        const cut = mouth ?? this.host(op, i, child, [...children.slice(0, i), ...children.slice(i + 1)], box)
+        if (cut) {
+          const source = this.pieceFor(child, cut.piece)
+          // The cut's ink fills the band, not its own padded box, so the band leaves no gap.
+          const ink = union(source.contours.map(contour => pointsBox(contour.light)))
+          const target = gaoMouth ? box : fitted(ink, box, C.STRETCH)
+          const part = placed(source, ink, target, this.ink(cut.record.h), `host ${cut.record.h}`)
+          if (gaoMouth && i < 2) part.weightLimit = [0.45, 0.30]
+          parts.push(part)
+          continue
+        }
+        const group = this.row(child, box, this.narrowRow(children), false, this.beside.has(children))
+        const from = union(group.map(drawnBox))
+        const target = gaoMouth ? box : fitted(from, box, C.STRETCH)
+        for (const part of group) part.target = targetFor(part, mapped(drawnBox(part), from, target))
+        parts.push(group)
+      }
+      const stack = this.flatten(parts)
+      if (gaoMouth && atRoot && !this.separate) balanceGaoMouth(stack, style)
+      return stack
+    }
     const share = this.sharesOf(op, children, axis, atRoot)
     const other = children[1]
     const compactYan = op === '⿰' && children[0] === '朱' && Array.isArray(other) && other[0] === '⿸'
@@ -3153,6 +3304,8 @@ export class Composer {
       // ⿲彳⿱山一攵), leaving the rest empty for the column beside it to fill.
       const top = op === '⿲' && axis === 0 ? this.shortStackBox(child, box) : null
       const target = top ?? box
+      const declared = typeof child === 'string' ? componentParts(child, target, this.fontStyle, false) : null
+      if (declared) { groups.push(declared); return }
       const part = contextualFive ? null : this.host(op, i, child, [...children.slice(0, i), ...children.slice(i + 1)], target)
       // A cut of 丑 carries the font's bar out past its right vertical, as its own glyph does; and a
       // part from a host cut fills its cell as a glyph does in a row of three: a cell is no designed
@@ -3244,7 +3397,7 @@ export class Composer {
       if (glyph && covered(group.filter(part => !part.cut).map(part => part.target)) < CELL_FILLED * area(box)) {
         const whole = placed(glyph, glyph.box, fitted(glyph.box, box, this.C.ROW_STRETCH), this.ink(child), `glyph ${child}`)
         if (glyph.fixed) whole.fixed = true
-        return [whole]
+        return this.forced(child) ? this.replaceGlyph(whole, child) : [whole]
       }
     }
     return group
@@ -3755,6 +3908,35 @@ export class Composer {
     }
   }
 
+  /** The shallow 𦉪十 under 羔口. In the single-outline faces the frame's two legs
+   *  share the lintel and the 十 occupies the full opening below. */
+  gaoMouthFoot(box, style) {
+    if (this.separate || ['sans', 'serif'].includes(this.fontStyle) || this.excluded('𦉪')) return null
+    const joined = !this.excluded('冂') && !this.excluded('儿') && this.designedCut('𦉪', GAO_MOUTH_CUTS)
+    // 裔 supplies the roof and both legs in one contour in Kureedo and TW-Kai.
+    // Fangsong uses its own 冂 and the short lower strokes of 兜.
+    const pieces = joined ? [['𦉪', [0, 0, 1, 1]]] : [
+      ['冂', [0, 0, 1, 1]],
+      ['儿', [0.16, 0.56, 0.82, this.fontStyle === 'fangsong' ? 0.915 : 0.928]],
+    ]
+    pieces.push(['十', [0.23, 0, 0.76, 0.61]])
+    const parts = []
+    for (const [ch, slot] of pieces) {
+      if (this.excluded(ch)) return null
+      const target = mapped(slot, [0, 0, 1, 1], box)
+      let cut = joined
+      if (ch === '十') cut = this.host('⿱', 1, ch, ['儿'], target)
+      else if (!joined) cut = this.designedCut(ch, GAO_MOUTH_CUTS)
+      let source = cut?.piece ?? this.glyph(ch)
+      if (!source) return null
+      if (joined && ch === '𦉪' && style === 'pen-writing') source = fitGaoUprights(source, target)
+      const ink = source.box
+      const host = cut?.record.h ?? ch
+      parts.push(placed(source, ink, target, this.ink(host), cut ? `host ${host}` : `glyph ${ch}`))
+    }
+    return this.flatten([parts.slice(0, -1), parts.at(-1)])
+  }
+
   /** The parts of each operand, flattened, each part remembering the operand it came from in
    *  `branch`: the index within this node first, then the indices of the nodes below it. A caller
    *  that needs a node's own operands reads `branch[0]` before this runs on the node above. */
@@ -4194,6 +4376,64 @@ export class Composer {
 }
 
 // -------------------------------------------------------------------- free functions
+/** The three bands a three-band stack over a compound foot takes, after the dictionary glyph's 羔
+ *  over 口 over 𦉪十: the top 0.64 of the region wide and 0.38 of its height, the mouth 0.30 and
+ *  0.15 meeting the top, the foot the same width and the rest. */
+export function stackBands(region) {
+  const [x0, y0, x1, y1] = region, width = x1 - x0, height = y1 - y0, middle = (x0 + x1) / 2
+  return {
+    top: [middle - 0.32 * width, y0 + 0.62 * height, middle + 0.32 * width, y1],
+    mouth: [middle - 0.15 * width, y0 + 0.47 * height, middle + 0.15 * width, y0 + 0.62 * height],
+    foot: [middle - 0.32 * width, y0, middle + 0.32 * width, y0 + 0.43 * height],
+  }
+}
+
+/** Fit the joined 裔 frame with a mirrored Möbius map. Both walls and the centre
+ *  stay in place. At each wall the horizontal scale becomes the geometric mean
+ *  of the x and y scales, leaving more of the widening to the open interior. */
+function fitGaoUprights(piece, target) {
+  const [sx, sy] = scaleOf({ source: piece.box, target })
+  if (!(sx > sy && sy > 0)) return piece
+  const half = (piece.box[2] - piece.box[0]) / 2, middle = piece.box[0] + half
+  const ratio = Math.sqrt(sx / sy)
+  const warp = points => points.map((value, i) => {
+    if (i % 2) return value
+    const u = (value - middle) / half
+    return middle + half * Math.sign(u) * footMap(Math.abs(u), ratio)
+  })
+  return derived(piece, piece.contours.map(c => ({ ...c, light: warp(c.light), heavy: warp(c.heavy) })), piece.box)
+}
+
+// Calibrated against the em-square ink coverage of 羹, 羸, 簋, 營, 膏 and 薑.
+function balanceGaoMouth(parts, style) {
+  const frame = parts.find(part => part.branch[0] === 2 && part.branch[1] === 0)
+  let weights
+  // In this Kureedo export the second outline is lighter. Moving away from it adds ink.
+  if (style === 'pen-writing' && frame?.origin === 'host 裔') weights = [-0.14, -0.48, -0.10, -0.64]
+  else if (style === 'regular' && frame?.origin === 'host 裔') weights = [0, 0.40, -0.09, [0.76, 0.53]]
+  else if (style === 'fangsong' && frame?.origin === 'glyph 冂') weights = [0.21, 0.73, 0.12, 0.76]
+  else return
+  for (const part of parts) {
+    const [band, inner] = part.branch
+    const weight = style === 'fangsong' && part.origin === 'host 兜' && band === 2
+      ? 0.45 : weights[band === 2 && inner === 1 ? 3 : band]
+    part.weight = Array.isArray(weight) ? weight.slice() : [weight, weight]
+    part.fixed = true
+  }
+}
+
+/** Ink bounds of 羔, 口 and the enclosing foot in the five-face reference. */
+function gaoMouthBands(region, style) {
+  const mouthLift = style === 'sans' ? 0.011 : style === 'regular' ? 0.014 : 0
+  const footTop = { sans: 0.37, serif: 0.379, regular: 0.403 }[style] ?? 0.386
+  const band = box => mapped(box, [0, 0, 1, 1], region)
+  return {
+    top: band([0.10, 0.53, 0.90, 1]),
+    mouth: band(style === 'serif' ? [0.345, 0.393, 0.655, 0.542] : [0.35, 0.395 + mouthLift, 0.65, 0.525 + mouthLift]),
+    foot: band([0.11, 0, 0.89, footTop]),
+  }
+}
+
 /** The box a group of placed parts is drawn in. */
 function bounds(group) {
   const boxes = group.map(drawnBox)
@@ -4229,7 +4469,7 @@ function covered(boxes) {
 
 /** The middle band of a three-band stack, narrowed to `MIDDLE_ACROSS` of the region when it is an
  *  enclosed box; bars and covers own the full width the way the font draws them. */
-function narrowMiddleBand(child, groups, region) {
+export function narrowMiddleBand(child, groups, region) {
   if (!ENCLOSED_MIDDLE.has(child)) return
   const group = groups[1]
   if (!group?.length) return
