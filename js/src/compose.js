@@ -699,7 +699,6 @@ export const designedSources = (tree, style = 'sans') => {
       out.add('む')
       if (style !== 'serif') out.add('子')
     }
-    if (keyOf(node) === '⿳宀𭕄木' && style !== 'pen-writing') out.add(style === 'fangsong' ? '脳' : '巣')
     const frame = enclosureEntry(op, children[0], style)
     if (frame) out.add(frame[0])
     const inner = unflippedOperand(children[1])
