@@ -71,15 +71,21 @@ function corners(ring, line) {
   )
 }
 
-/** @param {number[][]} ring */
+/** The centre of the outline's length, which does not move when an edge gains vertices.
+ * @param {number[][]} ring */
 function centre(ring) {
   let x = 0,
-    y = 0
+    y = 0,
+    total = 0
   for (let i = 0; i < ring.length - 1; i++) {
-    x += ring[i][0]
-    y += ring[i][1]
+    const a = ring[i],
+      b = ring[i + 1],
+      length = Math.hypot(b[0] - a[0], b[1] - a[1])
+    x += (length * (a[0] + b[0])) / 2
+    y += (length * (a[1] + b[1])) / 2
+    total += length
   }
-  return [x / (ring.length - 1), y / (ring.length - 1)]
+  return total ? [x / total, y / total] : ring[0].slice(0, 2)
 }
 
 /** Resample closed rings of several faces to a common point list. Corners that the
@@ -222,14 +228,18 @@ export function alignRings(rings) {
       if (total[i][j] === total[i - 1][j - 1] + cost) {
         const corner = base[i - 1],
           v = theirs[j - 1].v
-        pairs.push([corner.u, v + Math.round(landing(corner.u) - v), cost])
+        pairs.push([corner.u, lands[0] + wrapped(v - lands[0]), cost])
         i--
         j--
       } else if (total[i][j] === total[i - 1][j] + skip) i--
       else j--
     }
     pairs.reverse()
-    for (let k = pairs.length - 1; k > 0; k--) if (pairs[k][1] <= pairs[k - 1][1] + 1e-4) pairs.splice(k, 1)
+    // Keep the anchors that advance along the face.
+    for (let k = 1; k < pairs.length;) {
+      if (pairs[k][1] <= pairs[k - 1][1] + 1e-4) pairs.splice(k, 1)
+      else k++
+    }
     while (pairs.length > 1 && pairs[pairs.length - 1][1] >= pairs[0][1] + 1 - 1e-4) pairs.pop()
     // Between two anchors, corners left over on both sides pair up in order when
     // each side has as many, turning the same way.
@@ -330,7 +340,11 @@ export function alignRings(rings) {
         stops.push(wrapped(lookup(knots, low + wrapped(c.s / lines[f].length - low), 1)))
       for (const [u] of knots) if (u >= 0 && u <= 1) stops.push(u)
     })
-    const sorted = stops.sort((a, b) => a - b).filter((u, i, all) => !i || u - all[i - 1] > 1e-5)
+    /** @type {number[]} */
+    const sorted = []
+    for (const u of stops.sort((a, b) => a - b))
+      if (!sorted.length || (u - sorted[sorted.length - 1] > 1e-5 && u < 1 - 1e-5)) sorted.push(u)
+    sorted.push(1)
     const out = rings.map(() => /** @type {number[][]} */ ([]))
     for (let k = 0; k + 1 < sorted.length; k++) {
       const spans = rings.map((_, f) => [lookup(maps[f], sorted[k], 0), lookup(maps[f], sorted[k + 1], 0)])
@@ -351,9 +365,19 @@ export function alignRings(rings) {
   const pairs = matches.map((list, f) => (list.length || !f ? list : rotated(f)))
   for (let attempt = 0; ; attempt++) {
     const out = build(pairs.map(knotted))
-    const folded = rings.findIndex(
-      (_, f) => f && crosses(out[0].map((p, i) => [(p[0] + out[f][i][0]) / 2, (p[1] + out[f][i][1]) / 2]))
-    )
+    const halfway = (/** @type {number} */ f) =>
+      out[0].map((p, i) => [(p[0] + out[f][i][0]) / 2, (p[1] + out[f][i][1]) / 2])
+    let folded = rings.findIndex((_, f) => f && crosses(halfway(f)))
+    // Three or more faces can also fold where each pair alone does not.
+    if (folded < 0 && rings.length > 2) {
+      const even = out[0].map((_, i) =>
+        [0, 1].map((k) => out.reduce((sum, face) => sum + face[i][k], 0) / out.length)
+      )
+      if (crosses(even)) {
+        const costliest = pairs.map((list) => Math.max(0, ...list.map((pair) => pair[2])))
+        folded = costliest.indexOf(Math.max(...costliest.slice(1)), 1)
+      }
+    }
     if (folded < 0) return out
     if (attempt > 12 || pairs[folded].length < 2) {
       if (pairs[folded].length === 1 && pairs[folded][0][2] === 0) return null

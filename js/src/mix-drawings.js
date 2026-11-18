@@ -132,11 +132,22 @@ function prepareInk(paths, strokes) {
     present.map((k) => strokes?.[k]),
     present.map((k) => (pathSubpaths(paths[k]) === shapes[k].length ? shapes[k].length : -1))
   )
-  const regions = units
-    ? units.flatMap((unit) =>
-        regionsOf(unit.map((contours, f) => inkPolygons(contours.map((c) => registered[f][c]))))
-      )
-    : regionsOf(registered.map(inkPolygons))
+  // Faces that number their strokes differently would blend one stroke into another.
+  const middle = (/** @type {number[][]} */ rings) => {
+    const box = union(rings.map(pointsBox))
+    return [(box[0] + box[2]) / 2, (box[1] + box[3]) / 2]
+  }
+  const alike =
+    units?.every((unit) => {
+      const centres = unit.map((contours, f) => middle(contours.map((c) => registered[f][c])))
+      return centres.every((c) => Math.hypot(c[0] - centres[0][0], c[1] - centres[0][1]) < 0.3 * side)
+    }) ?? false
+  const regions =
+    units && alike
+      ? units.flatMap((unit) =>
+          regionsOf(unit.map((contours, f) => inkPolygons(contours.map((c) => registered[f][c]))))
+        )
+      : regionsOf(registered.map(inkPolygons))
   // Regions without a contour correspondence share one distance field, which keeps
   // their strokes registered to each other.
   const matched = regions.map((region) => prepareCorrespondence(region))
@@ -292,7 +303,7 @@ function prepareFields(shapes, side) {
 function drawInk(paths, shares, weight, strokes) {
   const same = paths.every((path) => path === paths[0])
   if (same && weight === 1) return paths[0]
-  const key = JSON.stringify(paths)
+  const key = JSON.stringify(strokes?.some(Boolean) ? [paths, strokes] : paths)
   let render = outlines.get(key)
   if (render) outlines.delete(key)
   else render = prepareInk(paths, strokes)

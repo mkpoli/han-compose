@@ -308,3 +308,58 @@ it('blends each labelled stroke on its own when two strokes overlap', () => {
   // The blend is the cross of half-way bars with square inner corners, to within the outline's pixels.
   expect(differing).toBeLessThan(120)
 })
+
+it('pairs the same corners however finely one face draws an edge', () => {
+  const closed = (points) => [...points, points[0]]
+  // An L-shaped stroke: a top bar and a left stem, as one contour.
+  const elbow = (thick, reach, drop) =>
+    closed([
+      [20, 20],
+      [reach, 20],
+      [reach, 20 + thick],
+      [20 + thick, 20 + thick],
+      [20 + thick, drop],
+      [20, drop]
+    ])
+  const plain = elbow(12, 200, 230)
+  const other = elbow(8, 190, 236)
+  // The same outline with its foot drawn as many short segments.
+  const [a, b, c, d, e, f, g] = other
+  const foot = Array.from({ length: 40 }, (_, i) => [e[0] - ((e[0] - f[0]) * (i + 1)) / 41, e[1]])
+  const dense = [a, b, c, d, e, ...foot, f, g]
+  for (const face of [other, dense]) {
+    const [first, second] = alignRings([plain, face])
+    const half = first.map((p, i) => [(p[0] + second[i][0]) / 2, (p[1] + second[i][1]) / 2])
+    // The inner elbows meet: halfway there is a point at their mean.
+    expect(half.some((p) => Math.hypot(p[0] - 30, p[1] - 30) < 1e-6)).toBe(true)
+    // The stem's inner edge stays vertical.
+    const inner = half.filter((p) => p[1] > 40 && p[1] < 220 && p[0] > 25)
+    expect(inner.length).toBeGreaterThan(20)
+    expect(inner.every((p) => Math.abs(p[0] - 30) < 1e-6)).toBe(true)
+  }
+})
+
+it('falls back to islands when two faces number their strokes differently', () => {
+  const bar = (x, y, right, bottom) => `M${x} ${y}L${right} ${y}L${right} ${bottom}L${x} ${bottom}Z`
+  const face = (h, v, ids) => ({
+    d: h + v,
+    parts: [
+      {
+        leaf: 0,
+        origin: 'glyph 二',
+        box: [100, 100, 800, 800],
+        d: h + v,
+        strokes: ids.map((id, i) => [id, [i]])
+      }
+    ]
+  })
+  // Two bars far apart; the second face numbers them the other way round.
+  const one = face(bar(100, 100, 900, 160), bar(100, 840, 900, 900), [1, 2])
+  const two = face(bar(100, 110, 900, 150), bar(100, 850, 900, 890), [2, 1])
+  const mixed = mixDrawings([one, two], [0.5, 0.5], 1)
+  const expected = pathMask(bar(100, 105, 900, 155) + bar(100, 845, 900, 895), 200)
+  const actual = pathMask(mixed.d, 200)
+  let differing = 0
+  for (let i = 0; i < expected.length; i++) differing += expected[i] !== actual[i]
+  expect(differing).toBeLessThan(120)
+})
