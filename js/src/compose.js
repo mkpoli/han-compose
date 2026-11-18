@@ -20,7 +20,7 @@
 // `data.identity(key)`: the key's sequence and the character it describes, without its record; one
 // over an export with a kin table answers `data.kin()` with it (`kin`, `kinOuter`).
 import { EM_BOX, area, centre, count, derived, drawnBox, drawnContours, fill, fitted, grown, groupRings, makePart, mapped, partInk, partOf,
-  placed, pointsBox, pyRound, raster, rings, scaleOf, shrunk, square, stretchOf, targetFor, union, within } from './geometry.js'
+  placed, pointsBox, pyRound, raster, rings, scaleOf, shrunk, square, stretchOf, targetFor, union, windingOf, within } from './geometry.js'
 import { grassPairs, connectedGrass, contextualGrass } from './grass-forms.js'
 import { ownFormsOnly, componentParts, componentPosition, componentPositionBox, componentRecord, containsComponentForm, hasForcedForms, containsForcedForm, isComponentForm, isForcedCharacter, isGroupedForm, isNativeForm } from './component-forms.js'
 import { features, forward } from './layout.js'
@@ -516,6 +516,29 @@ const RICE_DOTS = ['米', {
   '8fbccf83460cc3c74c1f22434f2bc416355805fb0bf63514df1316fb081dd6cf': [1, 2],
   'c18496a92711cf9afa9354af46782e82d7634ecec3c5a63342644546e396f1bd': [2, 1],
 }]
+// The four brush 米 strokes use single outlines without a weight master.
+// Offset each stroke about its own centreline, including its Bézier controls.
+function strengthenRiceStroke(contour, radius) {
+  const points = contour.light, n = points.length
+  const winding = windingOf([points])
+  const outline = points.slice()
+  for (let i = 0; i < n; i += 2) {
+    let before = (i + n - 2) % n, after = (i + 2) % n
+    // A closed stroke can repeat its initial point at the end.
+    while (before !== i && points[before] === points[i] && points[before + 1] === points[i + 1]) before = (before + n - 2) % n
+    while (after !== i && points[after] === points[i] && points[after + 1] === points[i + 1]) after = (after + 2) % n
+    const ax = points[i] - points[before], ay = points[i + 1] - points[before + 1]
+    const bx = points[after] - points[i], by = points[after + 1] - points[i + 1]
+    const a = Math.hypot(ax, ay) || 1, b = Math.hypot(bx, by) || 1
+    const nx = ay / a + by / b, ny = -ax / a - bx / b
+    const length = Math.hypot(nx, ny) || 1
+    // A short segment at a brush tip can fold if moved past its neighbour.
+    const distance = winding * Math.min(radius, a / 2, b / 2)
+    outline[i] += distance * nx / length
+    outline[i + 1] += distance * ny / length
+  }
+  return { ...contour, light: outline, heavy: outline }
+}
 const lowerLeftFrames = new Set(['克', '米', '走'])
 /** Rectangular counters in the openings of 𮇇 and 趄, in frame-relative
  * coordinates. The brush 米 has a higher diagonal foot than the Noto cut. */
@@ -1533,6 +1556,10 @@ export class Composer {
         target[i] = start + (target[i] + shift - left) * scale
       }
       for (const i of [1, 3]) frame.target[i] = mid + (frame.target[i] - mid) * scale
+      const radius = this.fontStyle === 'fangsong' ? 4 : this.fontStyle === 'pen-writing' ? 2 : 0
+      if (radius && nested && region[2] - region[0] < region[3] - region[1]) {
+        frame.part = derived(frame.part, frame.part.contours.map(c => strengthenRiceStroke(c, radius)), frame.source)
+      }
     }
     // The wider bottom mouth of 呂 faces the crossbar when rotated.
     if (inner === '呂' && node[2] !== inner) target[0] += 0.045 * (frame.target[2] - frame.target[0])
@@ -1547,7 +1574,7 @@ export class Composer {
       counter.weight = [-0.32, -0.32]
       counter.fixed = true
     } else if (this.fontStyle === 'fangsong' && inner === '日') {
-      counter.weight = [-0.18, -0.18]
+      // Keep the native weight of 日 when fitting it to the tall opening.
       counter.fixed = true
     }
     return [frame, counter]
