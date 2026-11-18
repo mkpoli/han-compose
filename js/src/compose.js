@@ -38,8 +38,31 @@ import { hexOf } from './sha256.js'
 import componentConstants from './constants.json' with { type: 'json' }
 import numberedFiveContext from '../data/numbered-five-context.json' with { type: 'json' }
 import wheatFaceCuts from '../data/wheat-face-cuts.json' with { type: 'json' }
+import alternateNe from './genzui-alternate-ne.json' with { type: 'json' }
 import pyramidCatalog from './pyramid-glyphs.json' with { type: 'json' }
 import { createRenderNormalizer } from './normalization.js'
+
+// Positions in each source font’s em. Match the outline of む before using its opening.
+const muKoForms = {
+  'serif': {
+    mu: '61a3791122f4c12a90500eed5411ac265b29796959125ed78e284b1e2b4000f5',
+    outer: [49, -67, 959, 791], inner: [358, 35, 684, 383], innerWeight: 0,
+  },
+  'fangsong': {
+    mu: '6e654b5aed230233d55a82ad25efce39c428628781862df36520b5baabe08374',
+    outer: [55, -101, 964, 765], inner: [470, 4, 876, 508], innerWeight: 0.75,
+  },
+  'regular': {
+    mu: '97b12e46364b540b26258ab4bf714920ad6649658f3ac26cce19511179cdab2a',
+    outer: [73, -52, 872, 772], inner: [293, 42, 609, 412], innerWeight: 0.75,
+  },
+  'pen-writing': {
+    mu: 'dcb934a7b5b56b3b072091c98f1eb2bada60516aebbf2ba191a55893fe8fda44',
+    outer: [71, -73, 938, 755], inner: [354, 116, 835, 619], innerWeight: -0.375,
+  },
+}
+
+const isMuKo = node => node[0] === '⿶' && node[1] === 'む' && node[2] === '子' && !node.note
 
 const pyramidGlyphs = new Map(pyramidCatalog.entries.flatMap(({ char, part, sequence, pair }) =>
   [sequence, `⿱${part}${pair}`, `⿱${part}⿰${part}${part}`].map(ids => [ids, char])))
@@ -517,6 +540,10 @@ export const designedSources = (tree, style = 'sans') => {
   const visit = node => {
     if (!Array.isArray(node)) return
     const [op, ...children] = node
+    if (muKoForms[style] && isMuKo(node)) {
+      out.add('む')
+      if (style !== 'serif') out.add('子')
+    }
     const frame = enclosureEntry(op, children[0], style)
     if (frame) out.add(frame[0])
     if (frame === KE_BAI && style === 'regular' && unflippedOperand(children[1]) === '口') out.add('加')
@@ -1221,7 +1248,7 @@ export class Composer {
         return
       }
       const repeated = isGroupedForm(keyOf(node), this.fontStyle) ? componentParts(keyOf(node), region, this.fontStyle, atRoot) : null
-      const designed = repeated ?? this.wheatFaceParts(node, region)
+      const designed = repeated ?? this.muKoParts(node, region) ?? this.wheatFaceParts(node, region)
       if (designed) {
         for (const part of designed) out.push({ index: out.length, box: part.target, empty: false })
         return
@@ -1471,7 +1498,29 @@ export class Composer {
     return parts.length ? parts : null
   }
 
+  /** Fit the two editable operands in the opening of the face's own む. */
+  muKoParts(node, region) {
+    if (!isMuKo(node) || this.excluded('む') || this.excluded('子')) return null
+    const form = muKoForms[this.fontStyle]
+    if (!form) return null
+    const record = this.glyphRecord('む')
+    if (!record || hexOf(JSON.stringify(record.p)) !== form.mu) return null
+    const serif = this.fontStyle === 'serif'
+    if (serif && this.excluded('𛄧')) return null
+    const child = serif ? partOf(alternateNe) : this.glyph('子')
+    if (!child) return null
+    const outer = partOf(record)
+    const frame = mapped(form.outer, this.C.face, region), room = mapped(form.inner, this.C.face, region)
+    const weight = [form.innerWeight, form.innerWeight]
+    return [
+      { ...placed(outer, outer.box, frame, partInk(outer), 'glyph む'), fixed: true },
+      { ...placed(child, child.box, room, partInk(child), serif ? '𛄧 for 子' : 'glyph 子', weight), fixed: true },
+    ]
+  }
+
   drawNode(node, region, atRoot = false, sideBySide = false) {
+    const kana = this.muKoParts(node, region)
+    if (kana) return kana
     const wheat = this.wheatFaceParts(node, region)
     if (wheat) return wheat
     const wood = this.woodFrame(node, region)
