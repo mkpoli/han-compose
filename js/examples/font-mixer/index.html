@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Han Compose · Font mixer</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+    :root {
+      color: #171c2a;
+      background: #f7f8fb;
+      font:
+        16px/1.45 system-ui,
+        sans-serif;
+      accent-color: #3e44ba;
+    }
+    body {
+      max-width: 68rem;
+      margin: auto;
+      padding: clamp(1rem, 4vw, 3.5rem);
+    }
+    header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      border-bottom: 1px solid #b7bdca;
+      margin-bottom: 2rem;
+      padding-bottom: 0.8rem;
+    }
+    h1 {
+      font:
+        500 clamp(2.2rem, 6vw, 4rem)/1 Georgia,
+        serif;
+      margin: 0;
+    }
+    header span {
+      font-weight: 600;
+    }
+    main {
+      display: grid;
+      grid-template-columns: minmax(0, 1.4fr) minmax(15rem, 1fr);
+      gap: clamp(1.3rem, 4vw, 3rem);
+    }
+    #proof {
+      background-color: white;
+      background-image:
+        linear-gradient(to right, transparent 49.8%, #e4e5ec 50%, transparent 50.2%),
+        linear-gradient(transparent 49.8%, #e4e5ec 50%, transparent 50.2%);
+      border: 1px solid #b7bdca;
+      aspect-ratio: 1;
+      display: grid;
+      place-items: center;
+    }
+    #faces {
+      display: grid;
+      grid-template-columns: 6.2rem 1fr 3rem;
+      align-items: center;
+      gap: 0.55rem 0.7rem;
+    }
+    #faces input {
+      min-width: 0;
+      margin: 0;
+    }
+    #faces output {
+      text-align: right;
+    }
+    #pad {
+      margin: auto;
+      max-width: 21rem;
+    }
+    #pad svg {
+      display: block;
+      width: 100%;
+      height: 12.5rem;
+      touch-action: none;
+      cursor: crosshair;
+    }
+    #proof svg {
+      width: 90%;
+      height: 90%;
+    }
+    label {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 0.5rem;
+      font-weight: 550;
+    }
+    output {
+      font:
+        normal 0.9rem ui-monospace,
+        monospace;
+    }
+    input[type="range"] {
+      width: 100%;
+      margin: 0.45rem 0 1rem;
+    }
+    input[type="text"] {
+      width: 100%;
+      font-size: 1.45rem;
+      padding: 0.55rem 0.75rem;
+      border: 1px solid #aeb3c0;
+      border-radius: 0.3rem;
+      margin: 0.4rem 0 1.6rem;
+    }
+    fieldset {
+      margin: 0;
+      padding: 0;
+      border: 0;
+    }
+    legend {
+      font-weight: 650;
+      margin-bottom: 1rem;
+    }
+    hr {
+      border: 0;
+      border-top: 1px solid #c8ccda;
+      margin: 1rem 0;
+    }
+    button {
+      border: 1px solid #acb0c4;
+      border-radius: 0.3rem;
+      padding: 0.55rem 1rem;
+      background: white;
+      color: inherit;
+      cursor: pointer;
+    }
+    #status {
+      min-height: 1.5rem;
+      color: #464b66;
+      margin: 0.5rem 0;
+    }
+    @media (max-width: 620px) {
+      main {
+        grid-template-columns: 1fr;
+      }
+      header {
+        margin-bottom: 1rem;
+      }
+      #proof {
+        max-height: 44vh;
+        width: auto;
+      }
+    }
+  </style>
+  <header>
+    <h1>Font mixer</h1>
+    <span>Han Compose</span>
+  </header>
+  <main>
+    <section aria-label="Character preview">
+      <div id="proof"></div>
+      <p id="status" role="status"></p>
+    </section>
+    <section aria-label="Mixer controls">
+      <label for="ids">Ideographic description</label
+      ><input id="ids" type="text" value="⿰木口" spellcheck="false" />
+      <fieldset>
+        <legend>Face proportions</legend>
+        <div id="pad"></div>
+        <div id="faces"></div>
+      </fieldset>
+      <hr />
+      <label for="weight">Stroke weight <output id="weight-value" for="weight">100%</output></label
+      ><input type="range" id="weight" min="65" max="150" value="100" />
+      <button type="button" id="save" disabled>Save SVG</button>
+    </section>
+  </main>
+  <script type="module" src="./src/app.js"></script>
+</html>

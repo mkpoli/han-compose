@@ -17,7 +17,7 @@ Node and Bun.
 npm install han-compose
 ```
 
-ES modules with type declarations and no dependencies. Node needs 20.16 or later.
+ES modules with type declarations. The font mixer uses d3-contour to trace outlines. Node needs 20.16 or later.
 
 ## Draw a sequence
 
@@ -62,6 +62,27 @@ const drawing = await compose(fromUrl(EXPORTS.serif), '⿰亻哥', { fontStyle: 
 An export's files never change under its URL. `export-web` in the
 [repository](https://github.com/mkpoli/han-compose#run) writes an export from the fonts, to serve
 from any static host.
+
+## Five-face mixing
+
+Supply the export URLs once. An editor can then change the face proportions and stroke weight on each preview request.
+
+```js
+import { composerPreview } from 'han-compose'
+
+const preview = composerPreview({ base: EXPORTS.sans, faceBases: EXPORTS, separate: true })
+const mix = {
+  shares: { sans: 3, serif: 2, fangsong: 1, regular: 2, 'pen-writing': 2 },
+  weight: 1.15,
+}
+const drawing = await preview('⿰木口', { mix })
+```
+
+The shares are relative and at least one must be positive. Only faces with a positive share are read. Weight ranges from 0.65 to 1.50 and defaults to 1. A single pole at neutral weight returns its original drawing. The same mix works with local sources using `composeMixed(sources, sequence, mix, { separate: true })`, where `sources` maps the style names to `createSource` or `fromUrl` results.
+
+For intermediate settings the mixer registers the outlines of corresponding operands. It matches the boundaries of a connected component and its counter when possible. Other outlines interpolate on a 256-sample distance grid. Stroke weight adjusts the ink using its local thickness. Differences in stroke structure can soften fine details. When sources cannot separate the same operands, the result has a whole-glyph outline and no editable parts. Any KanjiVG attribution requirement from an active face carries through to the mix.
+
+The [interactive font mixer](examples/font-mixer/) has a five-pole pad, independent face controls, a stroke-weight slider and SVG export.
 
 ## The drawing
 
