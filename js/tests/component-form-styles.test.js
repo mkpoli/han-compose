@@ -432,3 +432,19 @@ it('draws the cut Fangsong dot components as leaves inside an IDS', async () => 
     expect(drawn.origins).toContain('Zhuque Fangsong: ' + ch)
   }
 })
+
+it('keeps the Zhuque roof or bar in alternate heads of 学, 覚 and 兴', async () => {
+  const source = createSource(async name => files[name] === undefined ? null : new Uint8Array(Buffer.from(files[name])).buffer)
+  for (const template of ['⿱⿱@冖子', '⿱⿱@冖見', '⿳@一八']) {
+    const paths = []
+    for (const shape of ['小', '𡭔', '⺌', '𭕄']) {
+      const ids = template.replace('@', shape)
+      const result = await compose(source, ids, { fontStyle: 'fangsong' })
+      expect(result.origins).toEqual(['Zhuque Fangsong: ' + ids])
+      paths.push(result.d)
+    }
+    expect(new Set(paths).size).toBe(4)
+    expect(componentDrawing(template.replace('@', '⺍'), 'fangsong').d).toBe(paths[3])
+  }
+  expect(componentDrawing('尙', 'fangsong').d).toBe(componentDrawing('⿱𡭔冋', 'fangsong').d)
+})

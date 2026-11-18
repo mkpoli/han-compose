@@ -7,8 +7,8 @@ from pathlib import Path
 
 import pathops
 from fontTools.pens.recordingPen import RecordingPen
-
 from fontTools.pens.transformPen import TransformPen
+
 from build_grass_comparison import FONTS, Face, TTFont, bounds, fit
 from han_compose.compose import EM, STYLES
 
@@ -225,6 +225,59 @@ def forms(face, char, style):
     return [encode(composer(left + right + body, face, style)), encode(composer(pair + body, face, style))]
 
 
+def translate(contours, dx):
+    result = []
+    for contour in contours:
+        pen = RecordingPen()
+        contour.replay(TransformPen(pen, (1, 0, 0, 1, dx, 0)))
+        result.append(pen)
+    return result
+
+
+def close_roof(contour, entry, exit_):
+    """Bridge the two points where the right dot meets the native roof or bar."""
+    commands = contour.value
+    pen = RecordingPen()
+    if entry > exit_:
+        pen.moveTo(commands[exit_][1][-1])
+        pen.value.extend(commands[exit_ + 1:entry + 1])
+        pen.closePath()
+    else:
+        pen.value.extend(commands[:entry + 1])
+        pen.lineTo(commands[exit_][1][-1])
+        pen.value.extend(commands[exit_ + 1:])
+    return pen
+
+
+def fangsong_heads(face, tip, shang, inward):
+    straight = tip[1:4]
+    # 尔 supplies a detached hooked upright and the two strokes that flank it.
+    heads = {"小": face.contours("尔")[:3], "𡭔": straight, "⺌": inward}
+    outward_shang = shang[:3] + fit([tip[1]], (181, 511, 361, 707)) + fit([tip[3]], (556, 518, 774, 705))
+    encoded = {"尙": encode(outward_shang)}
+    ids = {"⿱𡭔冋": encoded["尙"], "⿱&GW-u21b54-03;冋": encoded["尙"]}
+    for key in ("⿱⺌冋", "⿱&GW-u2e8c-03;冋"):
+        ids[key] = encode(shang)
+    hosts = [
+        ("学", "⿱⿱{}冖子", 1, (2, 3), (33, 5), (237, 594, 783, 808)),
+        ("覚", "⿱⿱{}冖見", 2, (3, 4), (9, 22), (232, 607, 773, 811)),
+        ("兴", "⿳{}一八", 0, (3, 4), (7, 19), (189, 352, 807, 754)),
+    ]
+    for char, template, joined, dots, seam, box in hosts:
+        native = face.contours(char)
+        body = [close_roof(contour, *seam) if i == joined else contour
+                for i, contour in enumerate(native) if i not in dots]
+        for shape, head in heads.items():
+            drawn = encode(body + fit(head, box))
+            ids[template.format(shape)] = drawn
+            reference = {"𡭔": "&GW-u21b54-03;", "⺌": "&GW-u2e8c-03;"}.get(shape)
+            if reference:
+                ids[template.format(reference)] = drawn
+        for shape in ("𭕄", "⺍", "⿲丶丶㇒"):
+            ids[template.format(shape)] = encode(native)
+    return encoded, ids
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("font_dir", type=Path)
@@ -241,8 +294,8 @@ def main():
                 # Keep the native 倘 body, including the centre upright and 亻.
                 host = face.contours("倘")
                 donor = face.contours("倞")
-                dots_at_top = (fit([donor[1]], (394, 491, 525, 653))
-                               + fit([donor[3]], (666, 495, 857, 680)))
+                dots_at_top = (fit([donor[1]], (402, 491, 533, 653))
+                               + fit([donor[3]], (674, 495, 865, 680)))
                 ids[style] = {"⿰亻⿱&GW-u21b54-03;冋": encode(host[:4] + dots_at_top)}
                 half = face.contours("半")
                 tip = face.contours("尖")
@@ -251,10 +304,14 @@ def main():
                 # The final falling stroke of 学 joins its cover. Fit the detached
                 # right stroke of 半 beside the two native dots.
                 three = encode(study[2:4] + fit([half[2]], (590, 550, 801, 798)))
+                inward = translate(shang[3:5], 12) + fit([tip[2]], (447, 472, 541, 808))
+                encoded, head_ids = fangsong_heads(face, tip, shang, inward)
+                ids[style].update(head_ids)
                 components[style] = {
+                    **encoded,
                     "丷": encode(half[1:3]),
                     "𡭔": encode(tip[1:4]),
-                    "⺌": encode(shang[3:5] + fit([tip[2]], (447, 472, 541, 808))),
+                    "⺌": encode(inward),
                     "𭕄": three, "⺍": three,
                 }
     result = {"dots": dots, "components": components, "ids": ids}
