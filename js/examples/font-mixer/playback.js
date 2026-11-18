@@ -39,6 +39,7 @@ export function createPlayback({ draw, paint, stateChanged, failed }) {
     frameRequest = requestAnimationFrame(tick)
   }
   function resume() {
+    if (state !== 'paused') return
     started = performance.now()
     stateIs('playing')
     frameRequest = requestAnimationFrame(tick)
@@ -60,18 +61,17 @@ export function createPlayback({ draw, paint, stateChanged, failed }) {
       for (let i = 0; i <= steps; i++) {
         const t = (1 - Math.cos((Math.PI * i) / steps)) / 2
         const mix = { [from]: 1 - t, [to]: t }
-        const svg = await draw(mix, controller.signal)
+        const image = await draw(mix, controller.signal)
         if (mine !== generation) return
-        frames.push({ svg, mix })
-        if (i === 0) {
-          paint(frames[0])
-          last = 0
-        }
-        if (i % 10 === 0) stateChanged('preparing', Math.round((i / steps) * 100))
+        frames.push({ image, mix })
       }
       controller = undefined
-      if (document.hidden) stateIs('paused')
-      else resume()
+      // Keep the previous manual mix visible until all frames are ready. Cancelling
+      // preparation therefore leaves the editor in exactly the state it started in.
+      paint(frames[0])
+      last = 0
+      stateIs('paused')
+      if (!document.hidden) resume()
     } catch (error) {
       if (mine !== generation) return
       stop()

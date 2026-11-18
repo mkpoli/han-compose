@@ -76,7 +76,6 @@ for (const [label, sequence] of examples) {
 }
 
 let preview,
-  svg = '',
   frame = 0,
   pending = null,
   running = null,
@@ -140,9 +139,7 @@ async function render() {
   try {
     const drawn = await preview(request.sequence, { signal: controller.signal, mix: request.mix })
     if (controller.signal.aborted) return
-    svg = drawingSvg(drawn)
-    const root = new DOMParser().parseFromString(svg, 'image/svg+xml').documentElement
-    get('proof').replaceChildren(document.importNode(root, true))
+    get('proof').replaceChildren(svgNode(drawn))
     visibleSequence = request.sequence
     get('status').textContent = drawn.missing?.length ? 'Missing glyphs: ' + drawn.missing.join(' ') : ''
     get('save').disabled = request.version !== revision
@@ -162,29 +159,31 @@ for (const style of FONT_STYLES) {
 }
 get('from').value = 'serif'
 get('to').value = 'fangsong'
+function svgNode(drawing) {
+  const node = new DOMParser().parseFromString(drawingSvg(drawing), 'image/svg+xml').documentElement
+  return document.importNode(node, true)
+}
 let recordedSequence, recordedWeight
 const playback = createPlayback({
   draw: async (shares, signal) => {
     const drawn = await preview(recordedSequence, { signal, mix: { shares, weight: recordedWeight } })
     if (drawn.missing?.length) throw new Error('Missing glyphs: ' + drawn.missing.join(' '))
-    return drawingSvg(drawn)
+    return svgNode(drawn)
   },
   paint: (frame) => {
-    svg = frame.svg
-    get('proof').replaceChildren(
-      document.importNode(new DOMParser().parseFromString(svg, 'image/svg+xml').documentElement, true)
-    )
+    get('proof').replaceChildren(frame.image)
     visibleSequence = recordedSequence
     for (const style of FONT_STYLES) shares[style] = (frame.mix[style] ?? 0) * 100
     updateControls()
     get('save').disabled = false
   },
-  stateChanged: (state, progress = 0) => {
-    get('status').textContent = state === 'preparing' ? 'Preparing frames… ' + progress + '%' : ''
+  stateChanged: (state) => {
+    get('status').textContent = state === 'preparing' ? 'Preparing frames…' : ''
     updatePlayButton()
   },
   failed: (error) => {
     get('status').textContent = error.message
+    get('save').disabled = !get('proof').firstElementChild
   }
 })
 get('play').onclick = () => {
@@ -205,11 +204,18 @@ get('play').onclick = () => {
   get('save').disabled = true
   playback.start(get('from').value, get('to').value, Number(get('duration').value))
 }
-for (const id of ['from', 'to', 'duration']) get(id).onchange = schedule
+for (const id of ['from', 'to', 'duration'])
+  get(id).onchange = () => {
+    if (playback.state !== 'idle') {
+      playback.stop()
+      schedule()
+    } else updatePlayButton()
+  }
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) playback.pause()
 })
 get('save').onclick = () => {
+  const svg = new XMLSerializer().serializeToString(get('proof').firstElementChild)
   const url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }))
   const a = document.createElement('a')
   a.download = 'han-compose-mix.svg'
