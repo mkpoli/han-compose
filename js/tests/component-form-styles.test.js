@@ -395,3 +395,16 @@ it('draws each registered half or flesh-top form as one leaf in every face', () 
     }
   }
 })
+
+it('uses the Fangsong 八 donor in composed and cell layouts while preserving the explicit reference', () => {
+  const source = { manifest: { constants, spelled: [] }, layout: null,
+    rec: () => null, hosts: () => [], places: () => [] }
+  for (const separate of [false, true]) {
+    const composer = new Composer(source, { fontStyle: 'fangsong', separate })
+    const tree = composer.parse('⿰八肖\u{E0101}')
+    expect(composer.node(tree, composer.face).map(part => part.origin))
+      .toEqual(['Zhuque Fangsong: 八', 'Zhuque Fangsong: 肖\u{E0101}'])
+    expect(composer.cellLayout(tree).map(part => part.leaf)).toEqual([0, 1])
+  }
+  expect(isComponentForm('&GW-u516b-03;', 'fangsong')).toBe(false)
+})

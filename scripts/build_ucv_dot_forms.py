@@ -20,7 +20,7 @@ def encode(contours):
     return result
 
 
-def forms(face, char):
+def forms(face, char, style):
     tables = [table for table in face.font["cmap"].tables if table.format == 14]
     if tables:
         names = [dict(tables[0].uvsDict.get(selector, [])) for selector in (0xE0100, 0xE0101)]
@@ -39,6 +39,19 @@ def forms(face, char):
     points.sort(key=lambda xy: xy[1])
     n = max(1, len(points) // 4)
     inward = sum(x for x, _ in points[-n:]) < sum(x for x, _ in points[:n])
+    if style == "fangsong":
+        # 谷 has a spreading pair above 口. Leave a gap around 半’s upright.
+        # 尖 already has the three-stroke 小 head required above 肖’s body.
+        if char == "半":
+            donor = face.contours("谷")
+            outward = (fit([donor[3]], (179, 478, 386, 689))
+                       + fit([donor[4]], (558, 493, 778, 678)))
+        else:
+            donor = face.contours("尖")
+            outward = fit([donor[1], donor[3]], (182, 553, 783, 752))
+        if not inward:
+            raise ValueError(f"Unexpected native Zhuque {char} dot direction")
+        return [encode(left + right) + body, encode(outward) + body]
     native = encode(left + right)
     swapped = encode(fit(right, bounds(left)) + fit(left, bounds(right)))
     return [(native if inward else swapped) + body, (swapped if inward else native) + body]
@@ -49,11 +62,17 @@ def main():
     parser.add_argument("font_dir", type=Path)
     parser.add_argument("output", type=Path)
     args = parser.parse_args()
-    result = {}
+    dots = {}
+    eight = None
     for style, filename in {**FONTS, "regular": "TW-Kai.ttf"}.items():
         with TTFont(args.font_dir / filename) as font:
             face = Face(font)
-            result[style] = {char: forms(face, char) for char in "半肖"}
+            dots[style] = {char: forms(face, char, style) for char in "半肖"}
+            if style == "fangsong":
+                # The two strokes above 兮 have level starts and a full sweeping foot.
+                cap = face.contours("兮")[1:3]
+                eight = encode(fit(cap, (65, -38, 932, 715)))
+    result = {"dots": dots, "fangsongEight": eight}
     args.output.write_text(json.dumps(result, ensure_ascii=False, separators=(",", ":")) + "\n")
 
 
