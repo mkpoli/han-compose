@@ -59,15 +59,19 @@ def main():
     parser.add_argument("output", type=Path)
     args = parser.parse_args()
     dots = {}
-    eight = None
+    eight = {}
     for style, filename in {**FONTS, "regular": "TW-Kai.ttf"}.items():
         with TTFont(args.font_dir / filename) as font:
             face = Face(font)
             dots[style] = {char: forms(face, char, style) for char in "半肖"}
             if style == "fangsong":
                 donor = face.contours("叭")
-                eight = encode(fit([donor[3], donor[0]], (83, -25, 916, 718)))
-    result = {"dots": dots, "fangsongEight": eight}
+                eight[style] = encode(fit([donor[3], donor[0]], (83, -25, 916, 718)))
+            elif style == "regular":
+                # 兮 supplies a paired 撇 and 捺 with a shorter gap between their starts.
+                donor = face.contours("兮")
+                eight[style] = encode(fit([donor[0], donor[2]], (72, -46, 936, 706)))
+    result = {"dots": dots, "eight": eight}
     args.output.write_text(json.dumps(result, ensure_ascii=False, separators=(",", ":")) + "\n")
 
 

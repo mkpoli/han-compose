@@ -47,7 +47,9 @@ for (const [style, characters] of Object.entries(dotForms.dots)) {
     })
   }
 }
-styles.fangsong.set('八', { ...formOf([dotForms.fangsongEight]), atomic: true })
+for (const [style, contours] of Object.entries(dotForms.eight)) {
+  styles[style].set('八', { ...formOf([contours]), atomic: true })
+}
 // The manuscript's water, enclosing 木 and net. Both descriptions share the same outlines.
 for (const [style, groups] of Object.entries(muNet)) {
   const form = formOf(groups)
