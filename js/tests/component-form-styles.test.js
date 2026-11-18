@@ -4,11 +4,41 @@ import chui from './fixtures/kai-chui.json'
 import splitGrass from './fixtures/kai-grass.json'
 import data from '../src/component-forms.json'
 import { componentDrawing, componentParts, componentRecord, containsComponentForm, containsForcedForm, isComponentForm, isGroupedForm, isForcedCharacter, isNativeForm } from '../src/component-forms.js'
-import { Composer } from '../src/compose.js'
+import { Composer, parseTree } from '../src/compose.js'
 import { raster, windingOf } from '../src/geometry.js'
 import { onlyBundled } from '../src/local.js'
 import { compose, createSource } from '../src/loader.js'
 import { character, constants, files, records, shards } from './fixtures/small-export.js'
+
+it('keeps the four-stroke grass radical in one editable layer in each face', () => {
+  const paths = new Set()
+  for (const style of ['regular', 'sans', 'serif', 'fangsong', 'pen-writing']) {
+    const parts = componentParts('⺿', undefined, style)
+    expect(parts).toHaveLength(1)
+    const contours = parts[0].part.contours
+    const xs = contours.map(c => Array.from(c.light).filter((_, i) => i % 2 === 0))
+    expect(xs.some(x => Math.max(...x) < 500)).toBe(true)
+    expect(xs.some(x => Math.min(...x) > 500)).toBe(true)
+    expect(xs.every(x => Math.max(...x) < 500 || Math.min(...x) > 500)).toBe(true)
+    const composer = new Composer({ manifest: { constants, spelled: [] }, layout: null,
+      rec: () => null, hosts: () => [], places: () => [] }, { fontStyle: style })
+    const cells = composer.cellLayout(['⿰', '⺿', '⺿'])
+    expect(cells.map(cell => cell.leaf)).toEqual([0, 1])
+    paths.add(componentDrawing('⺿', style).d)
+  }
+  expect(paths.size).toBe(5)
+})
+
+it('keeps the two inward Fangsong uprights close above 早', () => {
+  const [head] = componentParts('⻀', undefined, 'fangsong')
+  const [left, right] = head.part.contours.map(contour => {
+    const xs = Array.from(contour.light).filter((_, i) => i % 2 === 0)
+    return [Math.min(...xs), Math.max(...xs)]
+  }).sort((a, b) => a[0] - b[0])
+  const gap = (right[0] - left[1]) / (right[1] - left[0])
+  expect(gap).toBeGreaterThan(0)
+  expect(gap).toBeLessThan(0.15)
+})
 
 it('does not use Noto-only forms for Fangsong', () => {
   for (const text of ['⿱丿乚', '⿰氵氵', '㇯馬灬']) {
@@ -330,4 +360,19 @@ it('keeps the intersecting uprights and draws both heads of 𦴐', () => {
       expect(outside).toBe(0)
     }
   }
+})
+
+it('renders registered grass selectors while keeping the source token intact', () => {
+  const composer = new Composer({ manifest: { constants, spelled: [] }, layout: null,
+    rec: () => null, hosts: () => [], places: () => [] }, { fontStyle: 'regular' })
+  for (const [shape, spellings] of [
+    ['艹', ['艹\u{E0100}', '艹\u{E0105}', '⺾']],
+    ['⺿', ['艹\u{E0102}', '艹\u{E0104}', '艹\uFE01', '艹']],
+    ['⻀', ['艹\u{E0101}', '艹\u{E0103}', '艹\uFE00', '艹']],
+  ]) for (const text of spellings) {
+    expect(composer.parse('⿱' + text + '早')).toEqual(['⿱', shape, '早'])
+    expect(parseTree(text, () => 0)).toBe(text)
+  }
+  expect(composer.parse('草\u{E0102}')).toBe('草\u{E0102}')
+  expect(composer.parse('艹\u{E0106}')).toBe('艹\u{E0106}')
 })
