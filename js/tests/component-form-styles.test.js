@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'bun:test'
+import splitGrass from './fixtures/kai-grass.json'
 import data from '../src/component-forms.json'
 import { componentDrawing, componentParts, componentRecord, containsComponentForm, containsForcedForm, isComponentForm, isGroupedForm, isForcedCharacter, isNativeForm } from '../src/component-forms.js'
 import { Composer } from '../src/compose.js'
@@ -144,7 +145,7 @@ it('leaves the characters holding 眔’s lower half to their own glyphs', () =>
   expect(exported.identity('⿲𰀪丨⿱丶丶')).toBe(known)
 })
 
-// Cut from TW-Kai's 荣: the connected 艹 its simplified characters write, while its traditional
+// Cut from TW-Kai's 艺: the connected 艹 its simplified characters write, while its traditional
 // characters write two 十. The form draws; the export's split 艹 record still lays it out.
 it('draws 艹 connected in Regular Kai as a drawing-only form', () => {
   expect(isComponentForm('艹', 'regular')).toBe(true)
@@ -201,6 +202,7 @@ it('redraws an encoded 菜 from its IDS with the form', async () => {
   const grass = character('艹', [[100, 620, 480, 800], [520, 620, 900, 800]])
   const cai = character('采', [[100, 0, 900, 520]])
   const char = { ...character('菜', [[100, 620, 480, 800], [520, 620, 900, 800], [100, 0, 900, 520]]), s: '⿱艹采' }
+  char.G.p = [...splitGrass, char.G.p.at(-1)]
   const input = { ...files, ...shards('g', Object.entries({ ...records, 艹: grass, 采: cai, 菜: char })) }
   const source = createSource(async name => input[name] === undefined ? null : new Uint8Array(Buffer.from(input[name])).buffer)
   const drawn = await compose(source, '菜', { fontStyle: 'regular' })
@@ -213,6 +215,7 @@ it('uses the form in a three-band stack', async () => {
   const mouth = character('口', [[100, 0, 900, 200]])
   const one = character('一', [[100, 0, 900, 100]])
   const char = { ...character('𦴯', [[100, 0, 900, 900]]), s: '⿳艹口一' }
+  char.G.p = [...splitGrass, char.G.p.at(-1)]
   const input = { ...files, ...shards('g', Object.entries({ ...records, 艹: grass, 口: mouth, 一: one, 𦴯: char })) }
   const source = createSource(async name => input[name] === undefined ? null : new Uint8Array(Buffer.from(input[name])).buffer)
   const drawn = await compose(source, '𦴯', { fontStyle: 'regular' })
@@ -232,8 +235,26 @@ it('uses the form under a cover before the child glyph shortcut', async () => {
   const roof = character('宀', [[100, 700, 900, 800], [100, 0, 180, 800], [820, 0, 900, 800]])
   const gou = { ...character('苟', [[100, 0, 900, 900]]), s: '⿱艹句' }
   const ju = character('句', [[100, 0, 900, 700]])
+  gou.G.p = [...splitGrass, gou.G.p.at(-1)]
   const input = { ...files, ...shards('g', Object.entries({ ...records, 艹: grass, 宀: roof, 苟: gou, 句: ju })) }
   const source = createSource(async name => input[name] === undefined ? null : new Uint8Array(Buffer.from(input[name])).buffer)
   const drawn = await compose(source, '⿱宀苟', { fontStyle: 'regular' })
   expect(drawn.origins).toContain('TW-Kai: 艹')
+})
+
+it('retains native contours outside each of two split grass heads', async () => {
+  const stack = character('𧁖', [[0, 0, 1000, 880]])
+  const lowerHead = splitGrass.map(([ops, light, delta]) => {
+    const points = Buffer.from(light, 'base64')
+    for (let i = 2; i < points.length; i += 4) points.writeInt16LE(points.readInt16LE(i) - 1200, i)
+    return [ops, points.toString('base64'), delta]
+  })
+  stack.G.p.push(...splitGrass, ...lowerHead)
+  stack.s = '⿳艹艹田'
+  const input = { ...files, ...shards('g', [['𧁖', stack]]) }
+  const source = createSource(async name => input[name] === undefined ? null : new Uint8Array(Buffer.from(input[name])).buffer)
+  const drawing = await compose(source, '𧁖', { fontStyle: 'regular' })
+  expect(drawing.parts.filter(p => p.origin === 'TW-Kai: 艹')).toHaveLength(2)
+  const kept = drawing.parts.find(p => p.origin === 'glyph 𧁖 kept')
+  expect(kept.d.match(/M/g)).toHaveLength(1)
 })

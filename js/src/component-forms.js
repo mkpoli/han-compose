@@ -49,6 +49,7 @@ export const isComponentForm = (text, style = 'sans') => forms(style)?.has(text)
 /** Whether `text` has a native form in `style`: one that keeps what the export knows of it. */
 export const isNativeForm = (text, style = 'sans') => forms(style)?.get(text)?.native ?? false
 /** Whether `text` holds a component whose form replaces the encoded character's own outline. */
+export const hasForcedForms = style => Boolean(data.force?.[style]?.length || data.replace?.[style]?.length)
 export const containsForcedForm = (text, style = 'sans') =>
   (data.force?.[style] ?? []).some(form => text.includes(form))
 /** A character whose own glyph is kept, with only a component replaced. */

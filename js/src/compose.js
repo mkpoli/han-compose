@@ -21,7 +21,8 @@
 // over an export with a kin table answers `data.kin()` with it (`kin`, `kinOuter`).
 import { EM_BOX, area, centre, count, derived, drawnBox, drawnContours, fill, fitted, grown, groupRings, makePart, mapped, partInk, partOf,
   placed, pointsBox, pyRound, raster, rings, scaleOf, shrunk, square, stretchOf, targetFor, union, within } from './geometry.js'
-import { ownFormsOnly, componentParts, componentPosition, componentPositionBox, componentRecord, containsComponentForm, containsForcedForm, isComponentForm, isForcedCharacter, isGroupedForm, isNativeForm } from './component-forms.js'
+import { grassPairs, connectedGrass } from './grass-forms.js'
+import { ownFormsOnly, componentParts, componentPosition, componentPositionBox, componentRecord, containsComponentForm, hasForcedForms, containsForcedForm, isComponentForm, isForcedCharacter, isGroupedForm, isNativeForm } from './component-forms.js'
 import { features, forward } from './layout.js'
 import { CONSTRUCTS, BODY_FORMS, IVD_FORMS, SURROUND_CONSTRUCTS, bodyForm, constructBody, constructHosts, constructParts, ivdParts } from './constructs.js'
 import { pyramidCells, pyramidOnBaseLayout } from './pyramid.js'
@@ -584,6 +585,7 @@ export class Composer {
   excluded = ch => this.exclude.has(ch)
   /** Whether a node holds a component whose form must replace its encoded outline, at any depth. */
   forced = (node, seen = new Set()) => {
+    if (!hasForcedForms(this.fontStyle)) return false
     if (typeof node === 'string' && isForcedCharacter(node, this.fontStyle)) return true
     const cacheable = seen.size === 0, key = keyOf(node)
     if (cacheable && this._forced.has(key)) return this._forced.get(key)
@@ -591,7 +593,7 @@ export class Composer {
     if (!result) {
       if (typeof node === 'string') {
         if (!seen.has(node)) {
-          const sequence = this.sequenceOf(node)
+          const sequence = this.identity(node)?.s
           if (sequence) {
             try { result = this.forced(this.parse(sequence), new Set([...seen, node])) } catch { result = false }
           }
@@ -664,22 +666,29 @@ export class Composer {
 
   /** A forced component replaced in the native glyph: the glyph without the component's outlines,
    *  and the form placed where they were. The rest of the glyph keeps its own design and weight. */
-  replaceGlyph(glyph, char, region) {
+  replaceGlyph(glyph, char, region, tree) {
     const record = this.glyphRecord(char)
-    if (!record || !glyph?.contours?.length) return null
-    const boxes = glyph.contours.map(c => pointsBox(c.light))
-    let cut = record.ls?.['艹'] ?? []
-    if (!cut.length) {
-      const top = Math.max(...boxes.map(b => b[3]))
-      cut = boxes.map((b, i) => b[3] >= top - 0.1 * this.C.EM && b[1] >= 0.4 * this.C.EM ? i : -1).filter(i => i >= 0)
-    }
-    if (!cut.length) return null
-    const keep = boxes.map((_, i) => i).filter(i => !cut.includes(i))
-    if (!keep.length) return null
-    const form = componentParts('艹', mapped(union(cut.map(i => boxes[i])), glyph.box, region), this.fontStyle, false)
-    if (!form) return null
-    const kept = derived(glyph, keep.map(i => glyph.contours[i]))
-    return [placed(kept, kept.box, mapped(kept.box, glyph.box, region), this.ink(char), `glyph ${char} kept`), ...form]
+    const native = { ...this.place(glyph, region, this.ink(char), `glyph ${char}`), fixed: true }
+    const groups = grassPairs(glyph, record.ls?.['艹'])
+    if (!groups.length) return [native]
+    const count = this.grassCount(tree ?? char)
+    if (!count) return [native]
+    const matches = groups.slice(0, count)
+    const cut = new Set(matches.flatMap(group => group.indices))
+    const keep = glyph.contours.filter((_, i) => !cut.has(i))
+    const forms = matches.map(group => connectedGrass(group.box, native.source, native.target))
+    if (!keep.length) return forms
+    const kept = derived(glyph, keep, glyph.box)
+    return [{ ...native, part: kept, origin: `glyph ${char} kept` }, ...forms]
+  }
+
+  grassCount(node, seen = new Set()) {
+    if (Array.isArray(node)) return node.slice(1).reduce((n, child) => n + this.grassCount(child, seen), 0)
+    if (node === '艹' || isForcedCharacter(node, this.fontStyle)) return 1
+    if (typeof node !== 'string' || seen.has(node) || !this.forced(node)) return 0
+    const sequence = this.identity(node)?.s
+    if (!sequence) return 0
+    try { return this.grassCount(this.parse(sequence), new Set([...seen, node])) } catch { return 0 }
   }
   glyph(ch) { const g = this.glyphRecord(ch); return g ? partOf(g) : null }
   /** The glyph a whole character is drawn with: a body the font drew as another shape is replaced
@@ -1330,10 +1339,9 @@ export class Composer {
       let squeezed = glyph !== null && stretchOf(glyph.box, region) > C.STRETCH
       if (tree && (this.stroked(tree) || this.atomic(encoded))) squeezed = false
       if (glyph && this.forced(encoded)) {
-        const replaced = this.replaceGlyph(glyph, encoded, region)
-        if (replaced) return replaced
+        return this.replaceGlyph(glyph, encoded, region, isForcedCharacter(encoded, this.fontStyle) ? encoded : tree)
       }
-      if (glyph && (!this.forced(encoded) || !tree) && !(squeezed && tree)) {
+      if (glyph && !(squeezed && tree)) {
         if (sideBySide && encoded === '\u{F2A9}' && this.fontStyle === 'sans') {
           // The native cut from 葭 already has its contextual proportions.
           const context = partOf(numberedFiveContext.G)
@@ -2463,7 +2471,7 @@ export class Composer {
    */
   gridTree(node) {
     if (typeof node !== 'string') return null
-    const sequence = this.sequenceOf(node)
+    const sequence = this.identity(node)?.s
     if (!sequence) return null
     let tree
     try { tree = this.parse(sequence) } catch { return null }
