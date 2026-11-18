@@ -380,6 +380,22 @@ export const COMPONENT_FIXES = {
   // Kai faces it comes out much thicker than 心's strokes. The face's own 一 gives the bar its
   // height at the band's width. Regular Kai lowers it into the spare space above 心.
   // Fangsong’s learned 芯 overlaps the 亘 band, so lower the peak while holding the baseline.
+  '⿰生意': {
+    glyphs: {},
+    apply(parts, composer) {
+      if (parts.length !== 2 || !['regular', 'pen-writing'].includes(composer.fontStyle)) return parts
+      let [sheng, yi] = parts
+      if (composer.fontStyle === 'regular' && !composer.excluded('甥') &&
+          matches({ glyphs: { '甥': '8db2f5156d8bd3fbc122c207d283f5cd1372a975944f82539c440174e6852fce' } }, composer)) {
+        const donor = composer.glyph('甥'), left = derived(donor, [donor.contours[0]])
+        sheng = placed(left, left.box, sheng.target, composer.ink('甥'), 'host 甥')
+      }
+      // The raised foot of left-hand 生 tucks beside 意. Keep both columns near the same baseline.
+      const frame = union(parts.map(part => part.target))
+      return [{ ...sheng, target: mapped([0, .035, .43, .965], [0, 0, 1, 1], frame) },
+        { ...yi, target: mapped([.438, 0, 1, 1], [0, 0, 1, 1], frame) }]
+    },
+  },
   '⿱一心': {
     glyphs: {},
     apply(parts, composer) {
