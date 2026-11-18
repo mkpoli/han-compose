@@ -27,7 +27,8 @@ export function createPlayback({ draw, kind = () => '', paint, stateChanged, pro
     done = 0,
     elapsed = 0,
     started = 0,
-    last = -1
+    last = -1,
+    held = false
   function stateIs(value) {
     state = value
     stateChanged(value)
@@ -43,6 +44,7 @@ export function createPlayback({ draw, kind = () => '', paint, stateChanged, pro
     halt()
     mixes = []
     images = []
+    held = false
     stateIs('idle')
   }
   function show(index) {
@@ -66,17 +68,20 @@ export function createPlayback({ draw, kind = () => '', paint, stateChanged, pro
     frameRequest = requestAnimationFrame(tick)
   }
   function resume() {
+    // Playback that is still preparing starts as soon as it can.
+    if (state === 'preparing') held = false
     if (state !== 'paused') return
     started = performance.now()
     stateIs('playing')
     frameRequest = requestAnimationFrame(tick)
   }
   function pause() {
+    if (state === 'preparing') held = true
     if (state !== 'playing') return
     cancelAnimationFrame(frameRequest)
     stateIs('paused')
   }
-  async function prepare(from, held = false) {
+  async function prepare(from) {
     const mine = generation,
       count = mixes.length
     const signal = (controller = new AbortController()).signal
@@ -135,6 +140,7 @@ export function createPlayback({ draw, kind = () => '', paint, stateChanged, pro
         show(from)
         stateIs('paused')
         if (!held && !document.hidden) resume()
+        held = false
       }
       controller = undefined
       prepared()
@@ -158,9 +164,9 @@ export function createPlayback({ draw, kind = () => '', paint, stateChanged, pro
       show(index)
       return
     }
-    const held = state === 'paused'
+    held = state === 'paused' || (state === 'preparing' && held)
     halt()
-    return prepare(index, held)
+    return prepare(index)
   }
   return {
     start,

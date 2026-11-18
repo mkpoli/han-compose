@@ -112,11 +112,27 @@
     #progress {
       position: absolute;
       inset: auto 0 0;
-      border-radius: 0;
-      background: transparent;
+      block-size: 16px;
+      cursor: ew-resize;
     }
-    #progress::after {
-      transition: none;
+    #progress::-webkit-slider-runnable-track {
+      border-radius: 0;
+      margin-block-start: 12px;
+    }
+    #progress::-moz-range-track,
+    #progress::-moz-range-progress {
+      border-radius: 0;
+      transform: translateY(6px);
+    }
+    #progress::-webkit-slider-thumb {
+      inline-size: 12px;
+      block-size: 12px;
+      margin-block-start: -4px;
+    }
+    #progress::-moz-range-thumb {
+      inline-size: 12px;
+      block-size: 12px;
+      transform: translateY(6px);
     }
     .transport {
       display: flex;
@@ -300,7 +316,7 @@
         <div id="proof">
           <div id="glyph"></div>
           <p id="status" role="status"></p>
-          <div id="progress" class="ui-progress" hidden></div>
+          <input type="range" id="progress" class="ui-range" min="0" max="1" step="any" value="0" aria-label="Tour position" hidden />
         </div>
       </div>
       <div class="transport">

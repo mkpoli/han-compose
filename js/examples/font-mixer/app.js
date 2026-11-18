@@ -227,9 +227,14 @@ function showPhase(phase) {
   pad.route(phase ? route.frames.slice(phase.start - 1, phase.end).map(weightsOf) : [])
   if (phase) get('phases').querySelector(`[value=${phase.name}]`).checked = true
 }
+let scrubbing = false,
+  scrubbed = false
 function showProgress(fraction) {
-  get('progress').hidden = fraction === undefined
-  get('progress').style.setProperty('--ui-progress', (fraction ?? 0) * 100 + '%')
+  const bar = get('progress')
+  bar.hidden = fraction === undefined
+  if (scrubbing) return
+  bar.value = fraction ?? 0
+  bar.style.setProperty('--fill', (fraction ?? 0) * 100 + '%')
 }
 const playback = createPlayback({
   kind: (mix) => Object.values(mix).filter(Boolean).length,
@@ -288,6 +293,24 @@ get('play').onclick = () => {
   route = tour(FONT_STYLES, get('pace').valueAsNumber)
   playback.start(route.frames, phaseStart() - 1)
 }
+// Dragging the bar holds playback and moves through the tour; releasing it carries on.
+get('progress').onpointerdown = () => {
+  scrubbing = true
+  scrubbed = playback.state === 'playing' || playback.state === 'preparing'
+  playback.pause()
+}
+get('progress').oninput = () => {
+  const bar = get('progress')
+  bar.style.setProperty('--fill', bar.valueAsNumber * 100 + '%')
+  if (route.frames.length) playback.seek(Math.round(bar.valueAsNumber * (route.frames.length - 1)))
+}
+get('progress').onchange =
+  get('progress').onpointerup =
+  get('progress').onpointercancel =
+    () => {
+      if (scrubbing && scrubbed) playback.resume()
+      scrubbing = false
+    }
 get('phases').onchange = () => {
   if (playback.state !== 'idle') playback.seek(phaseStart() - 1)
 }
