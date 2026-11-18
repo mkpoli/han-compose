@@ -1494,7 +1494,7 @@ export class Composer {
       const learned = this.learned(op, children, atRoot ? null : region, !this.bySequence(keyOf(node)))
       if (learned) return learned
     }
-    if (!this.separate && !hasRepetition && atRoot && op in this.AXIS && !this.rowHoldsEnclosure(node)) {
+    if (!this.separate && !hasRepetition && atRoot && op in this.AXIS && !this.rowHoldsEnclosure(node) && !this.forced(node)) {
       const moved = this.transplant(op, children)
       if (moved) return moved
     }
