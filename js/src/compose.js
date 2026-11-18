@@ -1400,6 +1400,10 @@ export class Composer {
         if (other !== place && PLACE_AXIS[other] === axis) list = list.concat(this.data.hosts(written, other))
       }
     }
+    // Older Zhuque exports index 練 and 煉 by their Japanese descriptions. Their right cut is 柬.
+    if (written === '東' && (this.data.manifest?.style ?? this.fontStyle) === 'fangsong') {
+      list = list.filter(h => h.h !== '練' && h.h !== '煉')
+    }
     return uncut ? list : list.filter(h => this.cutOf(h))
   }
 
