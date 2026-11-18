@@ -288,3 +288,12 @@ it('selects the upper grass in 菙 while retaining both crosses in 垂 in compos
     if (layout === 'cells') expect(drawing.parts.every(p => p.leaf === 0)).toBe(true)
   }
 })
+
+it('retains the connected grass when a narrow pair restores the full glyph', () => {
+  const composer = new Composer({ manifest: { constants, spelled: [] }, layout: null,
+    rec: key => key === '菙' ? { G: chui, s: '⿱艹垂' } : null, hosts: () => [], places: () => [] }, { fontStyle: 'regular' })
+  const narrow = composer.node('菙', [0, 0, 40, 100])
+  const filled = composer.fillCell('菙', narrow, [0, 0, 250, 900], true)
+  expect(filled.map(p => p.origin)).toEqual(['glyph 菙 kept', 'TW-Kai: 艹'])
+  expect(filled[0].target[2]).toBeGreaterThan(narrow[0].target[2])
+})
