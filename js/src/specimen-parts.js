@@ -3,6 +3,15 @@ import { joinedDrawing, mapped, partInk, placed } from './geometry.js'
 
 // Measured ink boxes in a 1000-unit em. Each row belongs to one leaf of the written IDS.
 const specimens = {
+  // JYN00001
+  '⿹⿺㇉一卄': {
+    styles: ['serif', 'fangsong', 'pen-writing'],
+    cells: [
+      [['㇉', [337, -65, 927, 802]]],
+      [['一', [418, 603, 757, 718]]],
+      [['一', [38, 122, 605, 210]], ['丨', [274, 35, 348, 318]], ['丨', [461, 7, 533, 310]]],
+    ],
+  },
   // JYN00003
   '⿳宀⿰丨⿴⿻冂一一⿹𠃌灬': {
     styles: ['fangsong', 'regular'],
@@ -37,7 +46,11 @@ export function specimenParts(composer, node, region, keyOf) {
       if (composer.excluded(ch)) return null
       const glyph = composer.glyph(ch)
       if (!glyph) return null
-      pieces.push({ ...placed(glyph, glyph.box, mapped(box, [0, -120, 1000, 880], region),
+      // The Serif hook returns farther right than the two brush hooks in the specimen.
+      // Extend the right post of 卄 until its foot meets that return.
+      const target = composer.fontStyle === 'serif' && ch === '丨' && cell.length === 3 && pieces.length === 2
+        ? [box[0] + 132, box[1] - 45, box[2] + 132, box[3]] : box
+      pieces.push({ ...placed(glyph, glyph.box, mapped(target, [0, -120, 1000, 880], region),
         partInk(glyph), `glyph ${ch}`), fixed: true })
     }
     out.push(pieces.length === 1 ? pieces[0] : joinedDrawing(pieces, `components ${cell.map(([ch]) => ch).join('')}`))
