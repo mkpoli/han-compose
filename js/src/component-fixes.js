@@ -275,6 +275,16 @@ export function dotIn(composer, band) {
  * A correction that cannot find the parts it names leaves the drawing as it is.
  */
 export const COMPONENT_FIXES = {
+  // The Bouyei form has a small oval centred within the square enclosure.
+  '⿴囗〇': {
+    glyphs: {},
+    apply(parts, composer) {
+      if (parts.length !== 2 || composer.fontStyle !== 'fangsong') return parts
+      const [frame, zero] = parts, [l, b, r, t] = frame.target
+      const room = [l + .33 * (r - l), b + .29 * (t - b), r - .33 * (r - l), t - .29 * (t - b)]
+      return [frame, { ...zero, target: room }]
+    },
+  },
   // 𠷃 (BabelStone: ⿰口⿳穴𠆢又) has a broad, shallow 又. Its component's
   // proportions also occur in 𥔉. Keep both inner parts within 穴's outer span.
 
