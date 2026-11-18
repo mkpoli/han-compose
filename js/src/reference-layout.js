@@ -6,6 +6,7 @@ import { mapped } from './geometry.js'
 /** @type {Record<string, Record<string, { encoded: string, cells: [string, number[]][] }>>} */
 const layouts = {
   fangsong: {
+    '⿼叉丶': { encoded: '㕚', cells: [['叉', [92, 51, 918, 690]], ['丶', [190, 282, 295, 398]]] },
     '⿱𠆢丶': { encoded: '亽', cells: [['人', [62, 265, 964, 793]], ['丶', [397, 135, 551, 298]]] },
   },
 }
