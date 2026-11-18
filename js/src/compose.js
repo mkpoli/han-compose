@@ -1,4 +1,5 @@
 // @ts-nocheck: a port of han-compose's Python, kept line for line; its types are the arrays it reads.
+import cuanForms from './cuan-forms.json' with { type: 'json' }
 import { grassShape } from './variants.js'
 // A port of han-compose's composer (`compose.py`, `Composer.compose`) over its web export: a sequence
 // drawn from parts other characters' designers drew. The export carries what the composer reads
@@ -516,6 +517,7 @@ export const designedSources = (tree, style = 'sans') => {
   const out = new Set()
   const visit = node => {
     if (!Array.isArray(node)) return
+    if (Object.hasOwn(cuanForms, style) && keyOf(node) === '⿱⿱⿴𦥑同冖𤍾') out.add('爨')
     const [op, ...children] = node
     const frame = enclosureEntry(op, children[0], style)
     if (frame) out.add(frame[0])
@@ -1221,7 +1223,7 @@ export class Composer {
         return
       }
       const repeated = isGroupedForm(keyOf(node), this.fontStyle) ? componentParts(keyOf(node), region, this.fontStyle, atRoot) : null
-      const designed = repeated ?? this.wheatFaceParts(node, region)
+      const designed = repeated ?? this.cuanParts(node, region, atRoot) ?? this.wheatFaceParts(node, region)
       if (designed) {
         for (const part of designed) out.push({ index: out.length, box: part.target, empty: false })
         return
@@ -1471,7 +1473,24 @@ export class Composer {
     return parts.length ? parts : null
   }
 
+  /** The two hands, 同, the cover and the lower body as drawn in the face's own 爨. */
+  cuanParts(node, region, atRoot) {
+    if (!Array.isArray(node) || node[0] !== '⿱' || node[2] !== '𤍾' ||
+        keyOf(node[1]) !== '⿱⿴𦥑同冖' || !Object.hasOwn(cuanForms, this.fontStyle) ||
+        ['爨', '𦥑', '同', '冖', '𤍾'].some(ch => this.excluded(ch))) return null
+    const form = cuanForms[this.fontStyle], record = this.glyphRecord('爨')
+    if (!record || hexOf(JSON.stringify(record.p)) !== form.digest) return null
+    const frame = atRoot ? this.C.face : record.b
+    return form.groups.map((g, i) => {
+      const part = partOf(g)
+      return { ...placed(part, part.box, mapped(part.box, frame, region), partInk(part),
+        '爨 ' + ['𦥑', '同', '冖', '𤍾'][i]), fixed: true }
+    })
+  }
+
   drawNode(node, region, atRoot = false, sideBySide = false) {
+    const cuan = this.cuanParts(node, region, atRoot)
+    if (cuan) return cuan
     const wheat = this.wheatFaceParts(node, region)
     if (wheat) return wheat
     const wood = this.woodFrame(node, region)
