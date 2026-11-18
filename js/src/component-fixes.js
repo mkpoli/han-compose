@@ -275,6 +275,19 @@ export function dotIn(composer, band) {
  * A correction that cannot find the parts it names leaves the drawing as it is.
  */
 export const COMPONENT_FIXES = {
+  '⿰𛂦方': {
+    glyphs: {},
+    apply(parts, composer, region) {
+      if (!['fangsong', 'regular'].includes(composer.fontStyle) || parts.length !== 2 ||
+          composer.excluded('𛂦') || composer.excluded('方')) return parts
+      // Encoded 𭤪 gives the kana and 方 adjacent, full-height columns.
+      const kana = composer.glyph('𛂦'), side = composer.glyph('方')
+      if (!kana || !side) return parts
+      const cell = box => mapped(box, [0, 0, 1000, 1000], region)
+      return [placed(kana, kana.box, cell([28, 38, 475, 960]), composer.ink('𛂦'), 'glyph 𛂦'),
+        placed(side, side.box, cell([512, 24, 968, 960]), composer.ink('方'), 'glyph 方')]
+    },
+  },
   // 𠷃 (BabelStone: ⿰口⿳穴𠆢又) has a broad, shallow 又. Its component's
   // proportions also occur in 𥔉. Keep both inner parts within 穴's outer span.
 
