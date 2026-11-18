@@ -3,6 +3,15 @@ import { joinedDrawing, mapped, partInk, placed } from './geometry.js'
 
 // Measured ink boxes in a 1000-unit em. Each row belongs to one leaf of the written IDS.
 const specimens = {
+  // 園
+  '⿴囗⿱エン': {
+    styles: ['regular'],
+    cells: [
+      [['囗', [113, -71, 900, 801]]],
+      [['エ', [253, 395, 753, 636]]],
+      [['ン', [261, 87, 740, 347]]],
+    ],
+  },
   // JYN00003
   '⿳宀⿰丨⿴⿻冂一一⿹𠃌灬': {
     styles: ['fangsong', 'regular'],
