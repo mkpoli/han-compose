@@ -1574,7 +1574,9 @@ export class Composer {
       counter.weight = [-0.32, -0.32]
       counter.fixed = true
     } else if (this.fontStyle === 'fangsong' && inner === '日') {
-      // Keep the native weight of 日 when fitting it to the tall opening.
+      // Fitting 日 by width thins its uprights more than its crossbars.
+      // Match the upright weight of a 日 scaled uniformly to this height.
+      counter.weight = [0.85, 0]
       counter.fixed = true
     }
     return [frame, counter]
