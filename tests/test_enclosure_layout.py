@@ -695,3 +695,20 @@ def test_two_listed_kin_cuts_tie_on_the_midpoint_and_take_the_even_split():
                           (0, 0, 1000, 900), (500, 0, 1000, 500))
 
     assert [p.origin for p in placed] == ["kin 麪"]
+
+
+@pytest.mark.parametrize(("style", "sweep"), [("fangsong", "处"), ("regular", "麵")])
+def test_wheat_face_cuts_from_native_fonts(style, sweep):
+    from han_compose.vocab import cache_root
+
+    path = cache_root() / "fonts" / compose.STYLES[style].font.file
+    if not path.exists():
+        pytest.skip("native font is not cached")
+    font = compose.Font(path, style=style)
+    composer = compose.Composer(font, {}, weighted=False)
+    region = (0, 0, 1000, 1000)
+    pieces = composer._node(compose.parse("⿺⿱𡗗夂面"), region)
+    assert [p.origin for p in pieces] == ["construct 榛 𡗗", f"construct {sweep} 夂", "construct 麺 面"]
+    assert pieces[2].target[3] - pieces[2].target[1] > 700
+    composer.exclude.add("榛")
+    assert composer._wheat_face(region) == []

@@ -197,6 +197,13 @@ describe('the kin table', () => {
 
 describe('the wheat enclosure in Zhuque Fangsong and TW-Kai', () => {
   for (const [style, donors] of Object.entries(wheatFaces)) {
+    it(`falls back when a ${style} donor is excluded or its outline changes`, () => {
+      const node = ['⿺', ['⿱', '𡗗', '夂'], '面']
+      const data = { ...store(), rec: key => donors[key] ?? records[key] ?? null }
+      const changed = { ...data, rec: key => key === '榛' ? records.面 : data.rec(key) }
+      expect(new Composer(data, { exclude: ['榛'] }).wheatFaceParts(node, constants.face)).toBeNull()
+      expect(new Composer(changed).wheatFaceParts(node, constants.face)).toBeNull()
+    })
     it(`draws and sketches the same three leaves from a cold ${style} export`, async () => {
       const held = { ...files, ...shards('g', Object.entries(donors)) }
       const source = () => createSource(async name => {

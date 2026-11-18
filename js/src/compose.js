@@ -1364,7 +1364,7 @@ export class Composer {
     const frame = this.glyphRecord('麺')
     if (!frame) return null
     const digest = hexOf(JSON.stringify(frame.p))
-    const cuts = Object.values(wheatFaceCuts).find(cuts => cuts[2].digest === digest)
+    const cuts = Object.values(wheatFaceCuts).find(cuts => cuts.some(cut => cut.host === '麺' && cut.digest === digest))
     if (!cuts || cuts.some(cut => this.excluded(cut.host))) return null
     const records = Object.fromEntries(cuts.map(cut => [cut.host, this.glyphRecord(cut.host)]))
     const parts = constructParts({ host: '麺', cuts }, [], records, region)
