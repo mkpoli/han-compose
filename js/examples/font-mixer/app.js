@@ -247,7 +247,7 @@ const playback = createPlayback({
     visibleSequence = recordedSequence
     for (const style of FONT_STYLES) shares[style] = (frame.mix[style] ?? 0) * 100
     updateControls()
-    showPhase(route.phases.findLast((phase) => index >= phase.start) ?? route.phases[0])
+    showPhase(route.phases.findLast((phase) => index >= phase.start - 1) ?? route.phases[0])
     showProgress(index / route.frames.length)
     get('save').disabled = false
   },

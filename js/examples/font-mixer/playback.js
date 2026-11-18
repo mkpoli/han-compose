@@ -52,8 +52,9 @@ export function createPlayback({ draw, kind = () => '', paint, stateChanged, pro
   }
   function tick(time) {
     if (state !== 'playing') return
-    elapsed += time - started
-    started = time
+    // A frame's timestamp can precede the moment playback resumed.
+    elapsed += Math.max(0, time - started)
+    started = Math.max(started, time)
     const count = mixes.length
     let index = Math.floor(elapsed / interval) % count
     // The playhead waits on a frame that is still being prepared.
@@ -75,7 +76,7 @@ export function createPlayback({ draw, kind = () => '', paint, stateChanged, pro
     cancelAnimationFrame(frameRequest)
     stateIs('paused')
   }
-  async function prepare(from) {
+  async function prepare(from, held = false) {
     const mine = generation,
       count = mixes.length
     const signal = (controller = new AbortController()).signal
@@ -133,7 +134,7 @@ export function createPlayback({ draw, kind = () => '', paint, stateChanged, pro
         // preparation therefore leaves the editor in exactly the state it started in.
         show(from)
         stateIs('paused')
-        if (!document.hidden) resume()
+        if (!held && !document.hidden) resume()
       }
       controller = undefined
       prepared()
@@ -157,8 +158,9 @@ export function createPlayback({ draw, kind = () => '', paint, stateChanged, pro
       show(index)
       return
     }
+    const held = state === 'paused'
     halt()
-    return prepare(index)
+    return prepare(index, held)
   }
   return {
     start,

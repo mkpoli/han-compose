@@ -90,6 +90,9 @@ it('plays prepared frames in order from any frame and drops a cancelled run befo
     step(1)
     step(1)
     expect(painted).toEqual([2, 3, 3, 4, 0, 1])
+    // A frame stamped before the resume neither rewinds nor skips the playhead.
+    tick(now - 500)
+    expect(painted).toEqual([2, 3, 3, 4, 0, 1])
     playback.seek(5)
     expect(painted.at(-1)).toBe(4)
     playback.pause()
