@@ -31,7 +31,7 @@ import { pyramidRows, pyramidOnBase } from './pyramid-rows.js'
 import { hangulClusterAt, jamoClass } from './hangul.js'
 import { hangulLetters } from './hangul-ids.js'
 import { toConjoiningJamo } from './hangul.js'
-import { componentFix } from './component-fixes.js'
+import { componentFix, kuRows } from './component-fixes.js'
 import { isOutbound, markFace, markParts } from './marks.js'
 import { customAt, splitToneMarks, toneMarksAt } from './tree.js'
 import { hexOf } from './sha256.js'
@@ -1207,6 +1207,13 @@ export class Composer {
     if (partitioned) return partitioned
     const out = []
     const walk = (node, region, atRoot) => {
+      if (Array.isArray(node) && node[0] === '⿸' && keyOf(node) === '⿸庫𠮟' &&
+          ['fangsong', 'regular', 'pen-writing'].includes(this.fontStyle)) {
+        const [cover, car, foot] = kuRows(region)
+        out.push({ index: out.length, box: union([cover, car]), empty: false })
+        out.push({ index: out.length, box: foot, empty: false })
+        return
+      }
       const pyramid = this.pyramid(node)
       if (pyramid) {
         // One box per leaf of the repeated cell, in the cell the pyramid gives it.
