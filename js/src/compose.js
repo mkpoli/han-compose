@@ -579,7 +579,9 @@ function fitNotoClawInterior(parts, tree, style, cells = false) {
     } else if (tree[2] === '呂') {
       const [l, b, r, t] = inner.target, w = r - l, h = t - b
       const shift = cells && style === 'serif' ? w * 0.04 : 0
-      inner.target = [l + w * 0.052 + shift, b + h * 0.066, r + w * 0.073 + shift, t + h * 0.14]
+      const drop = style === 'serif' ? h * (cells ? 0.025 : 0.055) : 0
+      inner.target = [l + w * 0.052 + shift, b + h * 0.066 - drop, r + w * 0.073 + shift, t + h * 0.14 - drop]
+      if (style === 'sans') inner.weight = inner.weight.map(value => value - 0.25)
     }
   } else if (tree[0] === '⿰' && tree[1] === '氵' && keyOf(tree[2]) === '⿺爪日' && parts.length === 3) {
     const inner = parts[2], [l, b, r, t] = inner.target
@@ -591,8 +593,7 @@ function fitNotoClawInterior(parts, tree, style, cells = false) {
 }
 
 const lowerLeftFrames = new Set(['克', '米', '走'])
-const brushClaw = (outer, inner, style) =>
-  outer === '爪' && ownFormsOnly(style) && unflippedOperand(inner) !== '罒'
+const brushClaw = (outer, style) => outer === '爪' && ownFormsOnly(style)
 /** Rectangular counters in the openings of 𮇇 and 趄, in frame-relative
  * coordinates. The brush 米 has a higher diagonal foot than the Noto cut. */
 function counterBox(outer, inner, nested, style) {
@@ -604,7 +605,7 @@ function counterBox(outer, inner, nested, style) {
     if (inner === '日' && style === 'fangsong') return [0.58, 0.365, 0.95, 0.950]
     if (inner === '日' && brush) return [0.515, 0.43, 0.985, 0.975]
   }
-  if (brushClaw(outer, inner, style)) {
+  if (brushClaw(outer, style)) {
     // Sized against 巴 in 爬 and 包 in TW-Kai 爮. Keep the proportions
     // of a tall 日 or 呂 and the wider aspect of 罒.
     if (style === 'regular') {
@@ -612,10 +613,13 @@ function counterBox(outer, inner, nested, style) {
       const inset = nested ? 0.045 : 0
       if (inner === '口') return [0.52 + inset, 0.25, 0.995, 0.87]
       if (inner === '日') return nested ? [0.615, 0.35, 1.105, 1.06] : [0.53, 0.245, 0.995, 0.935]
+      if (inner === '罒') return [0.50 + inset, 0.305, 0.995, 0.83]
       if (inner === '呂') return [0.535 + inset, 0.245, 1.015, 1.02]
     }
     if (inner === '口') return [0.54, 0.265, 0.992, 0.82]
     if (inner === '日') return nested ? [0.577, 0.34, 1.04, 1.045] : [0.54, 0.255, 0.995, 0.90]
+    if (inner === '罒') return [0.515, 0.315, 0.995, 0.795]
+    if (inner === '呂' && style === 'pen-writing') return [0.56, 0.28, 0.995, 0.98]
     if (inner === '呂') return [0.54, 0.24, 1.015, 1.02]
   }
   if (outer === '走') {
@@ -1669,8 +1673,8 @@ export class Composer {
 
   /** Place the enclosing strokes and map their opening into the same cell. */
   lowerLeftFrame(node, region) {
-    if (!Array.isArray(node) || node[0] !== '⿺' || !(lowerLeftFrames.has(node[1]) || brushClaw(node[1], node[2], this.fontStyle))) return null
-    const cut = this.enclosureForm('⿺', node[1], node[2])
+    if (!Array.isArray(node) || node[0] !== '⿺' || !(lowerLeftFrames.has(node[1]) || brushClaw(node[1], this.fontStyle))) return null
+    const cut = this.enclosureForm('⿺', node[1])
     if (!cut?.piece.held) return null
     const { piece } = cut
     const frame = this.place(piece, region, this.ink(cut.record.h), `host ${cut.record.h}`)
@@ -2074,8 +2078,7 @@ export class Composer {
 
   /** A designed enclosing form of a whole operand, where the export has no cut of it: 电 as ⿺'s
    *  enclosing part from 𫌷. Answers a host-like `{ record, piece }`, or null. */
-  enclosureForm(op, node, inner = null) {
-    if (node === '爪' && ownFormsOnly(this.fontStyle) && !brushClaw(node, inner, this.fontStyle)) return null
+  enclosureForm(op, node) {
     const entry = typeof node === 'string' ? enclosureEntry(op, node, this.fontStyle) : null
     if (!entry || this.excluded(node)) return null
     const [char, cuts] = entry, record = this.glyphRecord(char)
@@ -2116,7 +2119,7 @@ export class Composer {
       piece.held = digest === SERIF_BAI_HASH
         ? [body[0] - 48, body[1] + 85, body[2] - 7, body[3]]
         : shrunk(body, 0.92)
-    } else if ((lowerLeftFrames.has(node) || brushClaw(node, inner, this.fontStyle)) && piece.held) this.clearLowerLeftRoom(piece, char)
+    } else if ((lowerLeftFrames.has(node) || brushClaw(node, this.fontStyle)) && piece.held) this.clearLowerLeftRoom(piece, char)
     return { record: { h: char }, piece }
   }
 
@@ -2891,7 +2894,7 @@ export class Composer {
     }
     // Use the enclosing posture drawn in 爬 or 尅 before borrowing a generic host.
     if (op === '⿺' && index === 0 && (node === '爪' || lowerLeftFrames.has(node))) {
-      const designed = this.enclosureForm(op, node, siblings[0])
+      const designed = this.enclosureForm(op, node)
       if (designed) return designed
     }
     // A component form draws from its own outlines; a cut form with a library of host cuts (`P`, its
@@ -3228,7 +3231,7 @@ export class Composer {
         && stretchOf(part.piece.box, box) > C.ENCLOSING_STRETCH) part = null
       // A grid whose whole glyph overflows the opening keeps its rows equal only when its
       // description is drawn: the host cut carries the font's smaller row.
-      if (!part && op in this.ENCLOSE && i === 0) part = this.enclosureForm(op, child, children[1])
+      if (!part && op in this.ENCLOSE && i === 0) part = this.enclosureForm(op, child)
       if (!part) {
         // A part with no host cut (a description, an empty slot) is set over a swept foot by
         // `shares`: where it will sweep the outer glyph, answer nothing and `node` hands it the pair.
@@ -3430,7 +3433,7 @@ export class Composer {
    *  its own drawing otherwise. */
   enclosing(op, children, region) {
     const outer = this.node(children[0], region)
-    const designed = this.enclosureForm(op, children[0], children[1])
+    const designed = this.enclosureForm(op, children[0])
     return designed
       ? [placed(designed.piece, designed.piece.box, fitted(designed.piece.box, region, this.C.STRETCH), this.ink(designed.record.h), `host ${designed.record.h}`)]
       : outer
@@ -3492,7 +3495,7 @@ export class Composer {
       const inner = this.node(children[1], hu ? huRoom : room)
       if (!hu) this.fit(outer, inner, region, this.stem0[0][0], C,
         fallback && op === '⿽' ? { room, bounds: room } : undefined)
-      if ((lowerLeftFrames.has(children[0]) || brushClaw(children[0], children[1], this.fontStyle)) && outer[0]?.part.held) this.seatInDesignedFrame(op, children, [outer, inner])
+      if ((lowerLeftFrames.has(children[0]) || brushClaw(children[0], this.fontStyle)) && outer[0]?.part.held) this.seatInDesignedFrame(op, children, [outer, inner])
       if (held) this.sweeps.push([outer, inner])
       return [...outer, ...inner]
     }
