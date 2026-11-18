@@ -4,7 +4,7 @@
 // description it corrects, the SHA-256 outlines of the glyphs it was read against, and the parts it
 // changes; an export drawing other outlines keeps the font's cut. The parts are plain placed pieces,
 // so the corrections work wherever the description is drawn, at any depth.
-import { derived, fitted, makePart, mapped, partOf, placed, pointsBox, union } from './geometry.js'
+import { derived, drawnContours, fitted, makePart, mapped, partOf, placed, pointsBox, union } from './geometry.js'
 import { hexOf } from './sha256.js'
 
 // Interpolation factors for the hosted 口 outlines when fitted beside 乎.
@@ -270,12 +270,54 @@ export function dotIn(composer, band) {
   return placed(glyph, glyph.box, target, composer.ink('丶'), 'dot 丶')
 }
 
-const incomeColumnBounds = [[0.10,0.55,0.415,0.925], [0.035,0.045,0.45,0.50],
-  [0.49,0.53,0.98,0.975], [0.505,0.025,0.945,0.485]]
+// The second inscription in UHK's photograph of four red fai chun. Bounds are in reading
+// order of the input: 日, 斗, 進 (including its full-width sweep), 金.
+const incomeColumnBounds = [[0.23, 0.63, 0.50, 0.93], [0.52, 0.58, 0.84, 1],
+  [0.01, 0.01, 0.995, 0.61], [0.49, 0.20, 0.965, 0.56]]
+const incomeWalkingCuts = {
+  '71725e7ea8835fcac7b7bcf6c758d4765ca7beaedc079611643afec8fe19d240': [0, 5],
+  '7c54ea0b029807c873f2897a651afe9321e566f1c944fe9dd0cbb456757f4571': [1, 3],
+}
+const inIncome = (box, region) => mapped(box, [0, 0, 1, 1], region)
 
-export function incomeBoxes(key, style, region) {
-  if (key !== '⿰⿱日斗⿱進金' || !['regular', 'pen-writing'].includes(style)) return null
-  return incomeColumnBounds.map(box => mapped(box, [0, 0, 1, 1], region))
+function incomeDonor(composer) {
+  if (['進', '辶', '⻌', '隹'].some(ch => composer.excluded(ch))) return null
+  const record = composer.glyphRecord('進')
+  const walk = record && incomeWalkingCuts[hexOf(JSON.stringify(record.p))]
+  return walk ? { record, walk } : null
+}
+
+export function incomeBoxes(key, composer, region) {
+  if (key !== '⿰⿱日斗⿱進金' || !['regular', 'pen-writing'].includes(composer.fontStyle)) return null
+  const boxes = incomeColumnBounds.map(box => inIncome(box, region))
+  if (!incomeDonor(composer)) boxes[2] = inIncome([0.025, 0.035, 0.505, 0.60], region)
+  return boxes
+}
+
+function incomeWalk(composer, region) {
+  const donor = incomeDonor(composer)
+  if (!donor) return null
+  const { record, walk } = donor
+  const native = partOf(record), contours = []
+  for (const [indices, box] of [[walk, incomeColumnBounds[2]], [
+    native.contours.map((_, i) => i).filter(i => !walk.includes(i)), [0.22, 0.20, 0.495, 0.59],
+  ]]) {
+    const cut = derived(native, indices.map(i => native.contours[i]))
+    const piece = placed(cut, cut.box, inIncome(box, region), composer.ink('進'), '進')
+    drawnContours(piece).forEach((light, i) => {
+      if (indices === walk) {
+        // Narrow the rising strokes beside 隹; the trailing foot still runs under both columns.
+        const [left, , right] = piece.target, width = right - left
+        for (let at = 0; at < light.length; at += 2) {
+          const x = (light[at] - left) / width
+          light[at] = left + width * (x < 0.46 ? x * 0.57 : 0.2622 + (x - 0.46) * (1 - 0.2622) / 0.54)
+        }
+      }
+      contours.push({ ...cut.contours[i], light, heavy: light })
+    })
+  }
+  const part = derived(native, contours)
+  return { ...placed(part, part.box, part.box, composer.ink('進'), 'glyph 進'), fixed: true }
 }
 
 /**
@@ -286,10 +328,13 @@ export const COMPONENT_FIXES = {
   '⿰⿱日斗⿱進金': {
     glyphs: {},
     apply(parts, composer, region) {
-      // Each column keeps its written reading order. Give 進 space for the walking stroke above 金.
-      const boxes = incomeBoxes('⿰⿱日斗⿱進金', composer.fontStyle, region)
+      const boxes = incomeBoxes('⿰⿱日斗⿱進金', composer, region)
       if (!boxes || parts.length !== boxes.length) return parts
-      return parts.map((part, i) => ({ ...part, target: boxes[i] }))
+      const walking = incomeWalk(composer, region)
+      return parts.map((part, i) => {
+        if (i === 2 && walking) return walking
+        return { ...part, target: boxes[i] }
+      })
     },
   },
   // 𠷃 (BabelStone: ⿰口⿳穴𠆢又) has a broad, shallow 又. Its component's

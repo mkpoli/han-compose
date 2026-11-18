@@ -517,6 +517,7 @@ export const designedSources = (tree, style = 'sans') => {
   const visit = node => {
     if (!Array.isArray(node)) return
     const [op, ...children] = node
+    if (op === '⿰' && ['regular', 'pen-writing'].includes(style) && keyOf(node) === '⿰⿱日斗⿱進金') out.add('進')
     const frame = enclosureEntry(op, children[0], style)
     if (frame) out.add(frame[0])
     if (frame === KE_BAI && style === 'regular' && unflippedOperand(children[1]) === '口') out.add('加')
@@ -1209,7 +1210,7 @@ export class Composer {
     const out = []
     const walk = (node, region, atRoot) => {
       if (Array.isArray(node) && node[0] === '⿰') {
-        const boxes = incomeBoxes(keyOf(node), this.fontStyle, region)
+        const boxes = incomeBoxes(keyOf(node), this, region)
         if (boxes) {
           for (const box of boxes) out.push({ index: out.length, box, empty: false })
           return
