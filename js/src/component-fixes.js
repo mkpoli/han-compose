@@ -275,6 +275,19 @@ export function dotIn(composer, band) {
  * A correction that cannot find the parts it names leaves the drawing as it is.
  */
 export const COMPONENT_FIXES = {
+  '⿰虍刂': {
+    glyphs: { 劇: 'd186c04b225953fc06125546977b0af5ee1deeab23c8844ff4ba89b0963a00a0' },
+    apply(parts, composer, region) {
+      if (composer.fontStyle !== 'regular' || ['劇', '虍', '刂'].some(ch => composer.excluded(ch))) return parts
+      // This abbreviation of 劇 omits 豕. Both remaining groups are disjoint in TW-Kai.
+      const glyph = composer.glyph('劇')
+      return [[0], [2, 3]].map((indices, i) => {
+        const part = derived(glyph, indices.map(n => glyph.contours[n]))
+        return { ...placed(part, part.box, mapped(part.box, composer.C.face, region), composer.ink('劇'),
+          i ? '劇 刂' : '劇 虍'), fixed: true }
+      })
+    },
+  },
   // 𠷃 (BabelStone: ⿰口⿳穴𠆢又) has a broad, shallow 又. Its component's
   // proportions also occur in 𥔉. Keep both inner parts within 穴's outer span.
 
