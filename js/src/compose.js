@@ -490,9 +490,10 @@ const ENCLOSURE_FORMS = {
       '656184795d653a390844e1bfd99e8efddfb5c36be68d683d9d8986984f150a85': [0, 1, 2, 3, 4],
       '2fa6f7b8e09a68c6173dafe84d5b96d5b4c36dc9a7e6b77703d9ed9f13ff525a': [0, 3, 4, 6, 7],
     }],
-    // 爬 (⿺爪巴) draws the designed ⿺爪 in Noto Sans CJK JP and Noto Serif CJK JP; a described ⿺爪…
-    // has no host cut with that posture.
+    // The enclosing strokes of 爬, separate from 巴 in both Noto faces, Fangsong and Kureedo.
     爪: ['爬', {
+      '62ea1c7cd18e715ba4735256be0aa9976af23b6b55e3a199d7599a3c9bb41c45': [0, 1],
+      '2ca01891409144b604d72e766169bbe62662498cfaf2d8b36074e9bc21f58cc6': [0, 2],
       '631556d7281ca84d39388d047c9dfbada101ae2cda66713c29263f7b9d9b5df6': [0, 1, 2, 3],
       '009071aeb3455d8806aca0e9a6152e47751512ff5ace34d924e91d6bcee89c6e': [0, 1, 7, 8],
     }],
@@ -540,7 +541,70 @@ function strengthenRiceStroke(contour, radius) {
   }
   return { ...contour, light: outline, heavy: outline }
 }
+// In TW-Kai the last stroke of 爪 joins 巴 in 爬. 爮 keeps it separate from 包.
+const KAI_CLAW = ['爮', {
+  '2cbb04cd3b0444f9ee4d4862eaa1c5f80347fe40d16c655710c88f99353ca0e2': [3, 4, 5],
+}]
+/** Bring the claw's uprights closer together for a rectangular lower-left
+ * corner. The sweep still reaches the donor's original endpoint. */
+function clawAroundCounter(frame, style) {
+  const [left, , right] = frame.source, width = right - left
+  const squeeze = style === 'regular' ? 0.25 : style === 'pen-writing' ? 0.13 : 0.19
+  const narrow = points => points.map((v, i) => {
+    if (i % 2) return v
+    const x = (v - left) / width
+    return v - width * squeeze * Math.max(0, Math.min(x, (1 - x) * 1.65))
+  })
+  return derived(frame.part, frame.part.contours.map(c => {
+    const [l, , r] = pointsBox(c.light)
+    if (r - l < width * 0.22) {
+      // Move a separate upright as a unit, preserving its stroke weight.
+      const shift = Math.min(l - left, ((l + r) / 2 - left) * squeeze)
+      const move = points => points.map((v, i) => i % 2 ? v : v - shift)
+      return { ...c, light: move(c.light), heavy: move(c.heavy) }
+    }
+    return { ...c, light: narrow(c.light), heavy: narrow(c.heavy) }
+  }), frame.source)
+}
+
+// Fit only the inner after balancing. Earlier changes to the learned layout
+// also change the weight and width of Noto's claw.
+function fitClawInterior(parts, tree, style, cells = false) {
+  if (!Array.isArray(tree)) return
+  const noto = style === 'sans' || style === 'serif'
+  if (noto && tree[0] === '⿺' && tree[1] === '爪' && parts.length === 2) {
+    const [frame, inner] = parts
+    if (!cells && (tree[2] === '口' || tree[2] === '日')) {
+      const seat = tree[2] === '口' ? [0.575, 0.29, 1.005, 0.835] : [0.58, 0.28, 1.015, 0.925]
+      inner.target = mapped(seat, [0, 0, 1, 1], frame.target)
+    } else if (tree[2] === '呂') {
+      const [l, b, r, t] = inner.target, w = r - l, h = t - b
+      const shift = cells && style === 'serif' ? w * 0.04 : 0
+      const drop = style === 'serif' ? h * (cells ? 0.025 : 0.055) : 0
+      inner.target = [l + w * 0.052 + shift, b + h * 0.066 - drop, r + w * 0.073 + shift, t + h * 0.14 - drop]
+      if (style === 'sans') inner.weight = inner.weight.map(value => value - 0.25)
+    }
+  } else if (tree[0] === '⿰' && tree[1] === '氵' && keyOf(tree[2]) === '⿺爪日' && parts.length === 3) {
+    const inner = parts[2], [l, b, r, t] = inner.target
+    const height = t - b
+    if (!noto) {
+      if (!ownFormsOnly(style) || !parts[1].part.held) return
+      const fraction = style === 'regular' ? (cells ? 0.014 : 0.047)
+        : style === 'fangsong' ? 0.048 : 0.095
+      inner.target = [l, b - height * fraction, r, t - height * fraction]
+      return
+    }
+    const pad = height * (style === 'sans' ? 0.04 : 0.025)
+    const shift = (r - l) * (style === 'sans' ? 0.046 : 0.032)
+    // In composed text the bottom of 日 already approaches the sweep.
+    const bottomShift = height * (cells ? -0.09 : style === 'sans' ? -0.008 : 0.005)
+    const topShift = cells ? bottomShift : -height * 0.065
+    inner.target = [l + shift, b - pad + bottomShift, r + shift, t + pad + topShift]
+  }
+}
+
 const lowerLeftFrames = new Set(['克', '米', '走'])
+const brushClaw = (outer, style) => outer === '爪' && ownFormsOnly(style)
 /** Rectangular counters in the openings of 𮇇 and 趄, in frame-relative
  * coordinates. The brush 米 has a higher diagonal foot than the Noto cut. */
 function counterBox(outer, inner, nested, style) {
@@ -552,6 +616,24 @@ function counterBox(outer, inner, nested, style) {
     if (inner === '日' && style === 'fangsong') return [0.58, 0.365, 0.95, 0.950]
     if (inner === '日' && brush) return [0.515, 0.43, 0.985, 0.975]
   }
+  if (brushClaw(outer, style)) {
+    // Sized against 巴 in 爬 and 包 in TW-Kai 爮. Keep the proportions
+    // of a tall 日 or 呂 and the wider aspect of 罒.
+    if (style === 'regular') {
+      // 包 in 爮 occupies a wider and taller opening than 巴 in 爬.
+      const inset = nested ? 0.045 : 0
+      if (inner === '口') return [0.52 + inset, 0.25, 0.995, 0.87]
+      if (inner === '日') return nested ? [0.615, 0.35, 1.105, 1.06] : [0.53, 0.245, 0.995, 0.935]
+      if (inner === '罒') return [0.50 + inset, 0.305, 0.995, 0.83]
+      if (inner === '呂') return [0.535 + inset, 0.245, 1.015, 1.02]
+    }
+    if (inner === '口') return [0.54, 0.265, 0.992, 0.82]
+    if (inner === '日') return nested ? [0.577, 0.34, 1.04, 1.045] : [0.54, 0.255, 0.995, 0.90]
+    if (inner === '罒' && style === 'pen-writing' && !nested) return [0.515, 0.255, 0.995, 0.735]
+    if (inner === '罒') return [0.515, 0.315, 0.995, 0.795]
+    if (inner === '呂' && style === 'pen-writing') return [0.56, 0.28, 0.995, 0.98]
+    if (inner === '呂') return [0.54, 0.24, 1.015, 1.02]
+  }
   if (outer === '走') {
     if (inner === '呂' && style === 'serif') return [0.44, 0.17, 0.985, 0.95]
     if (inner === '呂') return [style === 'fangsong' ? 0.55 : 0.49, 0.20, 0.985, 0.94]
@@ -562,6 +644,7 @@ function counterBox(outer, inner, nested, style) {
 
 const enclosureEntry = (op, outer, style) => {
   if (op === '⿺' && outer === '克' && (style === 'serif' || style === 'regular')) return KE_BAI
+  if (op === '⿺' && outer === '爪' && style === 'regular') return KAI_CLAW
   if (op === '⿺' && outer === '米' && ownFormsOnly(style)) return RICE_DOTS
   return ENCLOSURE_FORMS[op]?.[outer]
 }
@@ -1057,6 +1140,7 @@ export class Composer {
         const w = (sx1 - sx0) * scale, h = (sy1 - sy0) * scale
         part.target = [cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2]
       }
+      fitClawInterior(out, tree, this.fontStyle)
       // Loose marks annotate the whole drawing; they take no part in its layout or weight.
       if (marks) out.push(...markParts(this, marks, frame, face))
       return out
@@ -1247,6 +1331,7 @@ export class Composer {
     walk(numbered, [0, 0, 1, 1], 0)
     if (!this.partial && this.weighted) this.balance(out)
     else if (!this.partial && this.staticFace) this.staticBalance(out)
+    fitClawInterior(out, tree, this.fontStyle, true)
     return out
   }
 
@@ -1534,7 +1619,12 @@ export class Composer {
     }
     if (!glyph) return null
     const frame = enclosure.frame
-    if (inner === '呂' && this.fontStyle === 'serif') {
+    if (outer === '爪') {
+      if (!(nested && inner === '日')) frame.part = clawAroundCounter(frame, this.fontStyle)
+      // Automatic emboldening in narrow columns can join the two uprights.
+      frame.weightLimit = [0.16, this.fontStyle === 'fangsong' ? 0.16 : 1]
+    }
+    if (outer === '走' && inner === '呂' && this.fontStyle === 'serif') {
       // Pull the upright inward. Let the displacement fall away along
       // the foot so its final stroke still reaches under the right edge.
       const [left, , right] = frame.source
@@ -1550,7 +1640,7 @@ export class Composer {
       })), frame.source)
     }
     const target = mapped(box, [0, 0, 1, 1], frame.target)
-    if (inner === '罒') {
+    if (outer === '米' && inner === '罒') {
       // Slide the net past the crossbar. When space runs short, scale 米
       // uniformly about the net's midline and preserve the net's height.
       const flipped = node[2] !== inner
@@ -1588,7 +1678,7 @@ export class Composer {
       // direction adds ink to the uprights and the strokes between them.
       counter.weight = [-0.32, -0.32]
       counter.fixed = true
-    } else if (this.fontStyle === 'fangsong' && inner === '日') {
+    } else if (this.fontStyle === 'fangsong' && outer === '米' && inner === '日') {
       // Fitting 日 by width thins its uprights more than its crossbars.
       // Match the upright weight of a 日 scaled uniformly to this height.
       counter.weight = [0.85, 0]
@@ -1599,7 +1689,7 @@ export class Composer {
 
   /** Place the enclosing strokes and map their opening into the same cell. */
   lowerLeftFrame(node, region) {
-    if (!Array.isArray(node) || node[0] !== '⿺' || !lowerLeftFrames.has(node[1])) return null
+    if (!Array.isArray(node) || node[0] !== '⿺' || !(lowerLeftFrames.has(node[1]) || brushClaw(node[1], this.fontStyle))) return null
     const cut = this.enclosureForm('⿺', node[1])
     if (!cut?.piece.held) return null
     const { piece } = cut
@@ -2045,7 +2135,7 @@ export class Composer {
       piece.held = digest === SERIF_BAI_HASH
         ? [body[0] - 48, body[1] + 85, body[2] - 7, body[3]]
         : shrunk(body, 0.92)
-    } else if (lowerLeftFrames.has(node) && piece.held) this.clearLowerLeftRoom(piece, char)
+    } else if ((lowerLeftFrames.has(node) || brushClaw(node, this.fontStyle)) && piece.held) this.clearLowerLeftRoom(piece, char)
     return { record: { h: char }, piece }
   }
 
@@ -2225,10 +2315,13 @@ export class Composer {
   /** Preserve the font's designed shape while retaining one adjustable piece per leaf. */
   enclosureParts(node, region) {
     const key = keyOf(node)
-    // In a separated 𮇇 or 趄, the inner leaf is the complement of the
-    // enclosing cut. Keep both pieces in their original glyph coordinates.
-    const split = this.separate && (key === '⿺米日' || key === '⿺走且') && !this.excluded(node[1]) && !this.excluded(node[2])
-    const entry = split ? ENCLOSURE_FORMS['⿺'][node[1]] : ENCLOSURE_CUTS[key]
+    // Where the description matches the donor itself, the other contours
+    // are the complete inner leaf in its original position.
+    const claw = this.fontStyle === 'regular' ? '⿺爪包' : '⿺爪巴'
+    const split = this.separate && (key === '⿺米日' || key === '⿺走且' || (key === claw && ownFormsOnly(this.fontStyle))) &&
+      !this.excluded(node[1]) && !this.excluded(node[2])
+    const entry = split && key === claw ? enclosureEntry('⿺', '爪', this.fontStyle)
+      : split ? ENCLOSURE_FORMS['⿺'][node[1]] : ENCLOSURE_CUTS[key]
     // Expansion adapts a squeezed character to its region; do not replace it with that same glyph.
     if (!entry || this.expanding.size || this.excluded(entry[0])) return null
     const [char, cuts] = entry, record = this.glyphRecord(char)
@@ -3418,7 +3511,7 @@ export class Composer {
       const inner = this.node(children[1], hu ? huRoom : room)
       if (!hu) this.fit(outer, inner, region, this.stem0[0][0], C,
         fallback && op === '⿽' ? { room, bounds: room } : undefined)
-      if (lowerLeftFrames.has(children[0]) && outer[0]?.part.held) this.seatInDesignedFrame(op, children, [outer, inner])
+      if ((lowerLeftFrames.has(children[0]) || brushClaw(children[0], this.fontStyle)) && outer[0]?.part.held) this.seatInDesignedFrame(op, children, [outer, inner])
       if (held) this.sweeps.push([outer, inner])
       return [...outer, ...inner]
     }
