@@ -67,7 +67,8 @@ export const traitKey = traits => Object.entries(traits).map(([name, on]) => `${
  */
 export function sourceFor(sequence, { base, fontStyle = 'sans', separate = false, bundled = false, remote = false, loaders = {}, traits = null, exported = null, fetch: get, read } = {}) {
   traits = traits ?? traitsOf(sequence ?? '')
-  const local = !remote && (bundled || traits.empty || onlyBundled(sequence, separate, false, fontStyle))
+  const nativeBopomofo = fontStyle === 'fangsong' && traits.bopomofo && (base || exported)
+  const local = !remote && (bundled || traits.empty || (!nativeBopomofo && onlyBundled(sequence, separate, false, fontStyle)))
   /** The source of one script or palette, over `fallback`, reading its file by path or URL. A kind
    *  that reads one file asks for it by no name and gets `path`; the Unicode fallback asks for the
    *  shard it needs, so the name a kind passes is the file that is read. A host that lists none of
@@ -81,7 +82,7 @@ export function sourceFor(sequence, { base, fontStyle = 'sans', separate = false
   // Bundled alone, a leaf may be one only the Unicode outlines hold; they load only what is asked for.
   if (local && (traits.loose || bundled)) source = overlay(unicodeSource, source, UNICODE)
   if (traits.tangut) source = overlay(tangutSource, source, 'sources/tangut/outlines.json.gz')
-  if (traits.bopomofo) source = overlay(bopomofoSource, source, 'sources/bopomofo/outlines.json.gz')
+  if (traits.bopomofo) source = overlay(bopomofoSource, source, 'sources/bopomofo/outlines.json.gz', { style: fontStyle })
   if (traits.seal) source = overlay(smallSealSource, source, 'sources/small-seal/outlines.json.gz')
   if (traits.newKorean) source = overlay(newKoreanSource, source, 'sources/new-korean/outlines.json.gz')
   if (traits.shuishu) source = overlay(shuishuSource, source, 'sources/shuishu/outlines.json.gz')
