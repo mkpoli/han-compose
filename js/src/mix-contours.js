@@ -20,7 +20,8 @@ function sample(ring, n) {
  * @param {number[][]} ref @param {number[][]} points */
 function correspondence(ref, points) {
   const n = ref.length
-  const cost = (/** @type {number[]} */ a, /** @type {number[]} */ b) => (a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2
+  const cost = (/** @type {number[]} */ a, /** @type {number[]} */ b) =>
+    (a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2
   let start = 0,
     best = Infinity
   for (let offset = 0; offset < n; offset++) {
@@ -76,23 +77,25 @@ function sampleCount(ring) {
   return Math.max(12, Math.min(512, Math.ceil(perimeter / 1.4)))
 }
 
+/** @param {number[][]} ring */
+function ringBox(ring) {
+  let x = Infinity,
+    y = Infinity,
+    right = -Infinity,
+    bottom = -Infinity
+  for (const [px, py] of ring) {
+    x = Math.min(x, px)
+    y = Math.min(y, py)
+    right = Math.max(right, px)
+    bottom = Math.max(bottom, py)
+  }
+  return [x, y, right, bottom]
+}
+
 /** Pair islands (or counters) by the distance between their bounding boxes.
  * @template T @param {T[][]} faces @param {(item:T)=>number[][]} ringOf */
 export function matchRegions(faces, ringOf) {
-  const bounds = (/** @type {T} */ item) => {
-    const r = ringOf(item)
-    let x = Infinity,
-      y = Infinity,
-      right = -Infinity,
-      bottom = -Infinity
-    for (const [px, py] of r) {
-      x = Math.min(x, px)
-      y = Math.min(y, py)
-      right = Math.max(right, px)
-      bottom = Math.max(bottom, py)
-    }
-    return [x, y, right, bottom]
-  }
+  const bounds = (/** @type {T} */ item) => ringBox(ringOf(item))
   const refs = faces[0].map(bounds)
   if (faces.some((f) => f.length !== refs.length)) return null
   return faces.map((face) => {
@@ -112,6 +115,68 @@ export function matchRegions(faces, ringOf) {
       }
     return ordered
   })
+}
+
+/** Group islands across faces whose island counts differ. Islands whose boxes mostly
+ * overlap within `reach` share a group, so a stroke that one face joins to its
+ * neighbour takes only those islands out of contour matching. Every group holds at
+ * least one island of every face.
+ * @template T @param {T[][]} faces @param {(item:T)=>number[][]} ringOf @param {number} reach
+ * @returns {T[][][]} */
+export function groupRegions(faces, ringOf, reach) {
+  const nodes = faces.flatMap((face, f) =>
+    face.map((item) => {
+      const [x, y, right, bottom] = ringBox(ringOf(item))
+      return { f, item, box: [x - reach, y - reach, right + reach, bottom + reach] }
+    })
+  )
+  const parent = nodes.map((_, i) => i)
+  const root = (/** @type {number} */ i) => {
+    while (parent[i] !== i) i = parent[i] = parent[parent[i]]
+    return i
+  }
+  const area = (/** @type {number[]} */ b) => Math.max(0, b[2] - b[0]) * Math.max(0, b[3] - b[1])
+  for (let a = 0; a < nodes.length; a++)
+    for (let b = a + 1; b < nodes.length; b++) {
+      if (nodes[a].f === nodes[b].f) continue
+      const p = nodes[a].box,
+        q = nodes[b].box
+      const shared = area([
+        Math.max(p[0], q[0]),
+        Math.max(p[1], q[1]),
+        Math.min(p[2], q[2]),
+        Math.min(p[3], q[3])
+      ])
+      if (shared > 0.5 * Math.min(area(p), area(q))) parent[root(a)] = root(b)
+    }
+  /** @type {Map<number, typeof nodes>} */
+  const byRoot = new Map()
+  nodes.forEach((node, i) => byRoot.set(root(i), [...(byRoot.get(root(i)) ?? []), node]))
+  const groups = [...byRoot.values()]
+  const centre = (/** @type {typeof nodes} */ group) => {
+    const xs = group.flatMap((n) => [n.box[0], n.box[2]]),
+      ys = group.flatMap((n) => [n.box[1], n.box[3]])
+    return [(Math.min(...xs) + Math.max(...xs)) / 2, (Math.min(...ys) + Math.max(...ys)) / 2]
+  }
+  // An island with no counterpart in some face joins the nearest group.
+  for (;;) {
+    const lone = groups.findIndex((group) => faces.some((_, f) => !group.some((n) => n.f === f)))
+    if (lone < 0 || groups.length === 1) break
+    const [group] = groups.splice(lone, 1)
+    const from = centre(group)
+    let nearest = 0,
+      best = Infinity
+    groups.forEach((other, i) => {
+      const to = centre(other),
+        distance = Math.hypot(to[0] - from[0], to[1] - from[1])
+      if (distance < best) {
+        best = distance
+        nearest = i
+      }
+    })
+    groups[nearest].push(...group)
+  }
+  return groups.map((group) => faces.map((_, f) => group.filter((n) => n.f === f).map((n) => n.item)))
 }
 
 /** Compute correspondences and local stroke widths once, independently of the controls.

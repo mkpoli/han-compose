@@ -1,6 +1,6 @@
 // @ts-check
 import { contours } from 'd3-contour'
-import { matchRegions, prepareCorrespondence, prepareWeight } from './mix-contours.js'
+import { groupRegions, matchRegions, prepareCorrespondence, prepareWeight } from './mix-contours.js'
 import { inkPolygons, outlinePath, limitDisplacement } from './mix-outline.js'
 import { STROKE } from './slot-placeholder.js'
 import { ASCENT, fill, pathRings, pointsBox, union } from './geometry.js'
@@ -67,7 +67,14 @@ function prepareInk(paths) {
   )
   const polygons = registered.map(inkPolygons)
   const matched = matchRegions(polygons, (p) => p[0])
-  const regions = matched?.[0].length ? matched[0].map((_, i) => matched.map((p) => [p[i]])) : [polygons]
+  // Faces that split the ink into different numbers of islands still match the
+  // islands they share; only the groups that differ fall back to distance fields.
+  const grouped = matched ? [] : groupRegions(polygons, (p) => p[0], 0.06 * side)
+  const regions = matched?.[0].length
+    ? matched[0].map((_, i) => matched.map((p) => [p[i]]))
+    : grouped.length
+      ? grouped
+      : [polygons]
   const blenders = regions.map(
     (region) =>
       prepareCorrespondence(region) ??
@@ -134,7 +141,8 @@ function prepareFields(shapes, side) {
     const coverage = new Float32Array(side * side)
     for (let y = 0; y < hi; y++)
       for (let x = 0; x < hi; x++)
-        coverage[Math.floor(y / samples) * side + Math.floor(x / samples)] += up[y * hi + x] / (samples * samples)
+        coverage[Math.floor(y / samples) * side + Math.floor(x / samples)] +=
+          up[y * hi + x] / (samples * samples)
     const field = signedDistance(
       Uint8Array.from(coverage, (v) => Number(v >= 0.5)),
       side
