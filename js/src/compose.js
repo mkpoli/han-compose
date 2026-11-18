@@ -1737,7 +1737,12 @@ export class Composer {
     if (!frame || !groups[1]?.length) return
     const room = mapped(frame.part.held, frame.source, frame.target)
     const box = union(groups[1].map(p => p.target)), seat = fitted(box, room, this.C.STRETCH)
-    for (const p of groups[1]) p.target = mapped(p.target, box, seat)
+    for (const p of groups[1]) {
+      p.target = mapped(p.target, box, seat)
+      if (p.flips) p.flips = p.flips.map(flip => ({
+        ...flip, about: mapped([...flip.about, ...flip.about], box, seat).slice(0, 2),
+      }))
+    }
   }
 
   /** The designed tail of `node`'s pressed enclosure, or null where the face draws none. */

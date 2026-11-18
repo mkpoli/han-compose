@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 import { Composer, near, sweptPart } from '../src/compose.js'
-import { partOf, placed } from '../src/geometry.js'
+import { partOf, placed, pathRings, pointsBox } from '../src/geometry.js'
 import { compose, createSource } from '../src/loader.js'
 import { constants, files, layout, records, shards } from './fixtures/small-export.js'
 // Noto Sans CJK JP 2.004, SIL OFL 1.1. The enclosing 克 and its 口 counter come from 尅.
@@ -183,6 +183,19 @@ describe('克 enclosing another component', () => {
     const [frame, inside, neighbour] = parts
     expect(neighbour.box[0]).toBeGreaterThan(right(inside))
     expect(neighbour.box[0]).toBeGreaterThan(frame.box[0] + frame.box[2] / 2)
+  })
+
+  it('carries the reflection pivot when seating a mirrored operand', async () => {
+    const options = { separate: true }
+    const plain = await compose(source(extra), '⿺克口', options)
+    const mirror = await compose(source(extra), '⿺克⿾口', options)
+    // 口 in this fixture is symmetric. Reflection keeps its ink in the same box.
+    const ink = p => {
+      const points = pathRings(p.d).flat()
+      return pointsBox(points)
+    }
+    const expected = ink(plain.parts[1])
+    ink(mirror.parts[1]).forEach((edge, i) => expect(Math.abs(edge - expected[i])).toBeLessThan(1))
   })
 
 })
