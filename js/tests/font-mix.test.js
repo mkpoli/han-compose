@@ -1,6 +1,7 @@
 import { expect, it } from 'bun:test'
 import { activeFaces, composeMixed, FONT_STYLES } from '../src/font-mix.js'
 import { mixDrawings } from '../src/mix-drawings.js'
+import { limitDisplacement } from '../src/mix-outline.js'
 import { count, pathMask } from '../src/geometry.js'
 import { compose } from '../src/loader.js'
 import { files } from './fixtures/small-export.js'
@@ -198,4 +199,11 @@ it('retains the original serif tips when the weight leaves neutral', () => {
   for (const weight of [0.999999, 1.000001]) {
     expect(pathMask(mixDrawings([{ d }], [1], weight).d, 256)).toEqual(pathMask(d, 256))
   }
+})
+
+it('leaves a drawing alone when a wide band cannot resolve its small boundary', () => {
+  const small = 'M100 100L108 100L108 108L100 108Z'
+  const drawing = 'M90 90L130 90L130 130L90 130Z'
+  expect(limitDisplacement(drawing, small, 700)).toBe(drawing)
+  expect(limitDisplacement(drawing, small, 5)).not.toBe('')
 })

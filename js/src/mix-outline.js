@@ -195,11 +195,10 @@ export function limitDisplacement(drawing, boundary, radius) {
   // detailed outline by a large radius otherwise costs seconds in overlap resolution.
   const slack = Math.max(0.1, radius / 64) * scale
   const offset = new clipper.ClipperOffset(2, slack)
-  offset.AddPaths(
-    clipper.Clipper.CleanPolygons(edge, slack),
-    clipper.JoinType.jtRound,
-    clipper.EndType.etClosedPolygon
-  )
+  // A piece smaller than the slack cleans away to nothing; the band cannot bound it.
+  const coarse = clipper.Clipper.CleanPolygons(edge, slack).filter((/** @type {unknown[]} */ r) => r.length > 2)
+  if (!coarse.length) return drawing
+  offset.AddPaths(coarse, clipper.JoinType.jtRound, clipper.EndType.etClosedPolygon)
   /** @type {clipper.Paths} */
   const inside = []
   /** @type {clipper.Paths} */
