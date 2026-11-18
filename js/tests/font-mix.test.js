@@ -127,19 +127,57 @@ it('keeps the flank of a slanted stem straight as its weight changes', () => {
 })
 
 it('converges to either original outline as the other face enters the mix', () => {
-  const serif = {d:'M40 210L330 226L425 166L495 222L840 210L961 155L930 256L470 258L446 900L380 910L377 260L50 266Z'}
-  const fangsong = {d:'M60 240Q370 230 520 186L909 148L954 157L922 193L532 224L490 870L450 909L472 234L70 262Z'}
-  for(const [source,other] of [[serif,fangsong],[fangsong,serif]]) {
-    const actual=mixDrawings([source,other],[.999999,.000001],1)
-    expect(pathMask(actual.d,192)).toEqual(pathMask(source.d,192))
+  const serif = {
+    d: 'M40 210L330 226L425 166L495 222L840 210L961 155L930 256L470 258L446 900L380 910L377 260L50 266Z'
+  }
+  const fangsong = { d: 'M60 240Q370 230 520 186L909 148L954 157L922 193L532 224L490 870L450 909L472 234L70 262Z' }
+  for (const [source, other] of [
+    [serif, fangsong],
+    [fangsong, serif]
+  ]) {
+    const actual = mixDrawings([source, other], [0.999999, 0.000001], 1)
+    expect(pathMask(actual.d, 192)).toEqual(pathMask(source.d, 192))
   }
 })
 
 it('keeps a two-face path stable when a trace share changes the number of islands', () => {
-  const left={d:'M40 80L380 120L210 910L115 860Z'}
-  const right={d:'M110 170L405 190L250 908L208 820Z'}
-  const extra={d:'M110 210L301 225L146 510ZM360 670L410 705L221 960Z'}
-  const pair=mixDrawings([left,right],[.5,.5],1)
-  const near=mixDrawings([extra,left,right],[.000002,.499999,.499999],1)
-  expect(pathMask(near.d,192)).toEqual(pathMask(pair.d,192))
+  const left = { d: 'M40 80L380 120L210 910L115 860Z' }
+  const right = { d: 'M110 170L405 190L250 908L208 820Z' }
+  const extra = { d: 'M110 210L301 225L146 510ZM360 670L410 705L221 960Z' }
+  const pair = mixDrawings([left, right], [0.5, 0.5], 1)
+  const near = mixDrawings([extra, left, right], [0.000002, 0.499999, 0.499999], 1)
+  expect(pathMask(near.d, 192)).toEqual(pathMask(pair.d, 192))
+})
+
+it('approaches the operand-wise blend when the disappearing face has no parts', () => {
+  const source = (boxes) => {
+    const parts = boxes.map(([x, y, w, h], leaf) => ({
+      leaf,
+      box: [x, y, w, h],
+      origin: 'fixture',
+      d: `M${x} ${y}L${x + w} ${y}L${x + w} ${y + h}L${x} ${y + h}Z`
+    }))
+    return { d: parts.map((p) => p.d).join(''), parts }
+  }
+  const a = source([
+    [20, 80, 210, 720],
+    [700, 180, 160, 500]
+  ])
+  const b = source([
+    [40, 230, 320, 440],
+    [460, 100, 300, 710]
+  ])
+  const flat = { d: 'M200 100L800 200L570 800Z' }
+  const edge = mixDrawings([a, b], [0.5, 0.5], 1)
+  const almost = mixDrawings([a, b, flat], [0.4999995, 0.4999995, 0.000001], 1)
+  expect(pathMask(almost.d, 160)).toEqual(pathMask(edge.d, 160))
+})
+
+it('brings in an initially absent subtraction in proportion to its share', () => {
+  const base = { d: 'M10 10L990 10L990 990L10 990Z' }
+  const other = { ...base, cut: 'M250 250L750 250L750 750L250 750Z' }
+  const ink = (share) => count(pathMask(mixDrawings([base, other], [1 - share, share], 1).cut, 192))
+  expect(ink(0.0001)).toBeLessThan(5)
+  expect(ink(0.25)).toBeGreaterThan(1500)
+  expect(ink(0.25)).toBeLessThan(3000)
 })

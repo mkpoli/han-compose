@@ -176,10 +176,22 @@ export function prepareWeight(rings) {
     )
     return [...filtered, filtered[0]]
   })
-  const prepared = withWidths(
-    smooth,
-    smooth.map((r) => r.length - 1)
-  )
+  const normals = weightVectors(smooth)
+  const prepared = rings.map((ring, r) => {
+    const lengths = ring.slice(1).map(([x, y], i) => Math.hypot(x - ring[i][0], y - ring[i][1]))
+    const length = lengths.reduce((a, b) => a + b, 0),
+      vectors = normals[r]
+    let distance = 0
+    return ring.slice(0, -1).map(([x, y], i) => {
+      const at = length ? (distance / length) * vectors.length : 0
+      const lo = Math.floor(at),
+        fraction = at - lo
+      const a = vectors[lo % vectors.length],
+        b = vectors[(lo + 1) % vectors.length]
+      distance += lengths[i]
+      return [x, y, a[0] + fraction * (b[0] - a[0]), a[1] + fraction * (b[1] - a[1])]
+    })
+  })
   return (/** @type {number} */ weight) =>
     prepared.map((r) => {
       const pts = r.map(([x, y, dx, dy]) => [x + dx * (weight - 1), y + dy * (weight - 1)])
