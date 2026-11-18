@@ -63,6 +63,29 @@ describe('a composition fix', () => {
 })
 
 
+describe('⿱一心', () => {
+  it('lowers Regular Kai’s 一 within its band at its own bar height', () => {
+    const top = part('host 亍', [0, 0, 1000, 1000], [100, 544, 900, 880], [[100, 544, 900, 880]])
+    const bottom = part('host 芯', [0, 0, 1000, 1000], [100, 0, 900, 510], [[100, 0, 900, 510]])
+    const bar = part('glyph 一', [0, 0, 1000, 1000], [100, 0, 900, 100], [[100, 0, 900, 100]])
+    bar.part.box = [100, 0, 900, 100]
+    const composer = { fontStyle: 'regular', glyph: () => bar.part }
+    const [fixed] = componentFix('⿱一心', [top, bottom], composer)
+    expect(fixed.target[3] - fixed.target[1]).toBeCloseTo(100, 6)
+    expect(fixed.target[3]).toBeCloseTo(880 - 0.65 * 236, 6)
+    expect(fixed.fixed).toBe(true)
+  })
+
+  it('fits the Fangsong 心 below 一 while keeping its baseline and width', () => {
+    const top = part('learned 亘', [0, 0, 800, 150], [100, 600, 900, 750], [[0, 0, 800, 150]])
+    const heart = part('learned 芯', [0, 0, 800, 550], [80, 0, 920, 640], [[0, 0, 800, 550]])
+    const fixed = componentFix('⿱一心', [top, heart], { fontStyle: 'fangsong' })
+    expect(fixed[0]).toBe(top)
+    expect(fixed[1].target).toEqual([80, 0, 920, 540])
+    expect(fixed[1].part).toBe(heart.part)
+  })
+})
+
 describe('C087 ⿻日丿', () => {
   it('keeps 丿 under 日’s top bar', () => {
     const frame = part('overlay 甲', [126, 178, 877, 777], [38, 173, 967, 757],
@@ -183,7 +206,7 @@ describe('⿵𦉪十', () => {
     ink,
   })
 
-  it('puts 十’s bar and stem in 鬲’s own 丅 cross inside its 𦉪 frame', () => {
+  it('sets 十’s bar clear below the inner strokes of 鬲’s 𦉪 frame', () => {
     const ge = sansGe().part, ten = sansTen().part
     const frame = part('glyph 𦉪', [95, 157, 906, 611], [72, -20, 931, 746], [[95, 157, 906, 611]])
     const out = fix.apply([frame], composerOf(ge, ten))
@@ -200,9 +223,12 @@ describe('⿵𦉪十', () => {
     // between 丿 and 乚.
     const frameBox = [109, -82, 900, 386]
     const barBox = drawnBoxOf(bar), stemBox = drawnBoxOf(stem)
-    const wantBar = mapped([293, 84, 719, 139], frameBox, frame.target)
+    const wantBar = mapped([286, 34, 720, 90], frameBox, frame.target)
     wantBar.forEach((v, i) => expect(barBox[i]).toBeCloseTo(v, 6))
     const slash = drawnBoxOf(shell, 3), hook = drawnBoxOf(shell, 2)
+    // The bar stands below both inner strokes, clear of their feet.
+    expect(barBox[3]).toBeLessThan(slash[1])
+    expect(barBox[3]).toBeLessThan(hook[1])
     expect(stemBox[0]).toBeGreaterThan(slash[2])
     expect(stemBox[2]).toBeLessThan(hook[0])
     expect(stemBox[1]).toBeCloseTo(mapped([466, -71, 535, 116], frameBox, frame.target)[1], 6)
@@ -240,8 +266,8 @@ describe('⿵𦉪十', () => {
   })
 
   it('lists both faces’ 鬲 and 十 digests and leaves missing, unsupported, or unmatched glyphs alone', () => {
-    expect(fix.glyphs['鬲']).toHaveLength(2)
-    expect(fix.glyphs['十']).toHaveLength(2)
+    expect(fix.glyphs['鬲']).toHaveLength(3)
+    expect(fix.glyphs['十']).toHaveLength(3)
     const frame = part('glyph 𦉪', [0, 0, 800, 800], [100, 0, 900, 800], [[0, 0, 800, 800]])
     expect(fix.apply([frame], composerOf(null, sansTen().part))).toEqual([frame])
     expect(fix.apply([frame], composerOf(sansGe().part, null))).toEqual([frame])
@@ -511,3 +537,14 @@ it('C049 sets two equal bars and a stem that reaches the mouth', () => {
 
 
 
+
+describe('C219 ⿲木十木', () => {
+  it('gives the middle 十 the gap the two 木 leave', () => {
+    const left = part('host 椵', [0, 0, 1000, 1000], [38, 40, 352, 962], [[38, 40, 352, 962]])
+    const middle = part('glyph 十', [0, 0, 1000, 1000], [397, 40, 606, 962], [[397, 40, 606, 962]])
+    const right = part('host 楙', [0, 0, 1000, 1000], [653, 40, 967, 962], [[653, 40, 967, 962]])
+    const [, fixed] = componentFix('⿲木十木', [left, middle, right], { glyphRecord: () => null })
+    expect(fixed.target[2] - fixed.target[0]).toBeCloseTo((653 - 352) * 0.9, 6)
+    expect((fixed.target[0] + fixed.target[2]) / 2).toBeCloseTo((352 + 653) / 2, 6)
+  })
+})

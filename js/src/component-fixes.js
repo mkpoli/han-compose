@@ -4,8 +4,15 @@
 // description it corrects, the SHA-256 outlines of the glyphs it was read against, and the parts it
 // changes; an export drawing other outlines keeps the font's cut. The parts are plain placed pieces,
 // so the corrections work wherever the description is drawn, at any depth.
-import { derived, mapped, partOf, placed, pointsBox, union } from './geometry.js'
+import { derived, makePart, mapped, partOf, placed, pointsBox, union } from './geometry.js'
 import { hexOf } from './sha256.js'
+
+const FANGSONG_FRAME = {
+  ops: [['M', 1], ['L', 1], ['L', 1], ['C', 3], ['C', 3], ['L', 1], ['C', 3], ['C', 3], ['C', 3], ['L', 1], ['L', 1], ['L', 1], ['C', 3], ['C', 3], ['L', 1], ['C', 3], ['C', 3], ['L', 1], ['C', 3], ['C', 3], ['L', 1], ['C', 3], ['L', 1], ['C', 3], ['C', 3], ['L', 1], ['L', 1], ['L', 1], ['L', 1], ['L', 1], ['C', 3], ['C', 3], ['L', 1], ['C', 3], ['C', 3], ['C', 3], ['L', 1], ['L', 1], ['C', 3], ['C', 3], ['C', 3], ['C', 3], ['L', 1]],
+  light: Float64Array.from([371.60, 101.90, 374.00, 105.90, 377.20, 110.70, 419.47, 92.63, 451.43, 80.13, 473.10, 73.20, 477.30, 75.87, 479.40, 79.33, 479.40, 83.60, 482.60, 101.90, 486.80, 123.17, 489.43, 139.10, 490.50, 149.70, 495.77, 197.03, 499.20, 233.17, 500.80, 258.10, 502.40, 272.43, 503.20, 286.77, 503.20, 301.10, 504.80, 329.80, 504.80, 334.60, 351.80, 326.70, 304.00, 323.00, 254.77, 322.05, 206.40, 319.10, 123.20, 314.03, 77.37, 310.70, 68.90, 309.10, 68.10, 251.70, 68.10, 220.37, 68.63, 173.37, 69.70, 110.70, 70.77, 68.17, 71.30, 36.53, 71.30, 15.80, 64.20, 11.10, 56.80, 15.83, 49.13, 22.07, 41.20, 29.80, 33.27, 37.47, 25.60, 45.03, 18.20, 52.50, 23.70, 73.20, 27.43, 86.47, 29.30, 100.57, 29.30, 115.50, 27.70, 170.40, 26.63, 220.40, 25.57, 257.60, 24.50, 282.00, 22.97, 317.07, 15.33, 347.10, 1.60, 372.10, 0.00, 376.10, 7.10, 380.80, 58.60, 341.80, 233.00, 351.40, 350.20, 359.30, 375.60, 360.90, 411.80, 364.37, 458.80, 369.70, 468.33, 370.23, 477.33, 373.17, 485.80, 378.50, 507.20, 392.00, 525.13, 380.87, 547.30, 364.93, 573.70, 344.20, 572.63, 340.47, 571.60, 338.07, 570.60, 337.00, 558.93, 326.40, 551.80, 309.93, 549.20, 287.60, 534.10, 166.50, 524.60, 87.60, 520.40, 56.20, 509.30, 29.63, 491.30, 7.90, 489.17, 4.70, 487.20, 2.70, 485.40, 1.90, 483.53, 1.10, 480.50, 0.70, 476.30, 0.70, 446.17, 37.37, 411.27, 71.10, 371.60, 101.90, 371.60, 101.90]),
+}
+FANGSONG_FRAME.heavy = FANGSONG_FRAME.light.slice()
+FANGSONG_FRAME.width = null
 
 /** The scale a placed part is drawn at, along x and y. */
 const scaleOf = part => [(part.target[2] - part.target[0]) / Math.max(part.source[2] - part.source[0], 1),
@@ -285,6 +292,33 @@ export const COMPONENT_FIXES = {
   // 卝's terminals must clear 干's first bar, as the right side of 哶 does.
   // A whole 鰥 cut stretches the left strokes and carries a sweeping lower stroke.
   // Keep 遝’s left strokes and stem, and replace both right strokes with compact 丶 glyphs.
+  // ⿱一心: the top 一 is cut from a host whose bar fills a tall teacher band. In the two static
+  // Kai faces it comes out much thicker than 心's strokes. The face's own 一 gives the bar its
+  // height at the band's width. Regular Kai lowers it into the spare space above 心.
+  // Fangsong’s learned 芯 overlaps the 亘 band, so lower the peak while holding the baseline.
+  '⿱一心': {
+    glyphs: {},
+    apply(parts, composer) {
+      if (parts.length !== 2) return parts
+      const [top, heart] = parts
+      if (composer.fontStyle === 'fangsong' && top.origin === 'learned 亘' && heart.origin === 'learned 芯') {
+        const [x, base, end, peak] = heart.target
+        const ceiling = top.target[1] - 0.08 * (top.target[3] - base)
+        if (ceiling >= peak || ceiling <= base) return parts
+        return [top, { ...heart, target: [x, base, end, ceiling] }]
+      }
+      if (composer.fontStyle !== 'regular' && composer.fontStyle !== 'pen-writing') return parts
+      const bar = composer.glyph('一')
+      if (!bar) return parts
+      const ownWidth = bar.box[2] - bar.box[0], ownHeight = bar.box[3] - bar.box[1]
+      const width = top.target[2] - top.target[0]
+      if (!(ownWidth > 0 && width > 0)) return parts
+      const height = ownHeight * width / ownWidth
+      const spare = Math.max(0, heightOf(top.target) - height)
+      const peak = top.target[3] - (composer.fontStyle === 'regular' ? 0.65 * spare : 0)
+      return [{ ...top, target: [top.target[0], peak - height, top.target[2], peak], fixed: true }, heart]
+    },
+  },
   // ⿻日丿: the 丿 comes from 屮, where it stands as tall as the glyph; over 日 it runs out above
   // the top horizontal. It is cut off at the underside of that bar.
   '⿻日丿': {
@@ -425,20 +459,43 @@ export const COMPONENT_FIXES = {
       '鬲': [
         '77e24fb157b9a4fff77f27a1a31f1fb9b9ca21bc332dd18809015d3f0214a9a6',
         'f2cce4e4b895cb546341399693139fdbb7478ff5c02f2c9c565a3817099bbc91',
+        'de5606e4968f68067080c0219e1634cc3622f007c35c8936df34e55186b7f88f',
       ],
       '十': [
         'ce6ceba94c9cff059884ae9f408b550499c7fd68870f52d4b58249bc654f8c48',
         '8ba0401e9267ccab67dd66212c1cb4d456dec0c706ea12d995a7ec7493512d3f',
+        'ebfb2d357226098f7d3a9b935c7bebbadc5d33eff8def385a7af697e5b356e5c',
       ],
     },
     apply(parts, composer) {
       // The frame, the 丅 bar and stem 鬲 draws, and the 十 contour that is the bar: Sans orders 十
       // as bar then stem, Serif as stem then bar.
       const faces = {
-        9: { frame: [3, 4, 5, 8], bar: 0, geBar: 1, geStem: 2 },
-        10: { frame: [3, 4, 8, 9], bar: 1, geBar: 0, geStem: 1 },
+        9: { frame: [3, 4, 5, 8], bar: 0, geBar: 1, geStem: 2, barBox: [286, 34, 720, 90] },
+        10: { frame: [3, 4, 8, 9], bar: 1, geBar: 0, geStem: 1, barBox: [270, 96, 754, 166], stemBox: [452, -65, 537, 300], rise: 0.12 },
       }
       const frame = partFrom(parts, 'glyph 𦉪'), body = composer.glyph('鬲'), cross = composer.glyph('十')
+      // Zhuque's frame is 鬲's lower part, and its 十 is one outline: set the whole glyph in the
+      // frame, its bar under the inner strokes and its stem on the frame's middle.
+      const learned = parts.find(part => /鬲/.test(part.origin)) ?? null
+      if (learned && cross && cross.contours.length < 2) {
+        const ten = partFrom(parts, 'glyph 十'), t = boxOf(learned)
+        if (ten) {
+          // The face's own lower frame, cut clean of the ¥: a traced outline in a 574 by 392 box.
+          const from = [0, 0, 574, 392]
+          const clean = placed(makePart([FANGSONG_FRAME], from), from, t, composer.ink('鬲'), 'designed 鬲')
+          // 穴's two legs stand under the frame's top bar, the 儿 the face draws in its 𦉪.
+          const cave = composer.glyph('穴')
+          const legs = cave ? placed(derived(cave, [0, 1].map(i => cave.contours[i]), union([0, 1].map(i => pointsBox(cave.contours[i].light)))),
+            union([0, 1].map(i => pointsBox(cave.contours[i].light))), [t[0] + 0.08 * (t[2] - t[0]), t[1] + 0.08 * (t[3] - t[1]), t[2] - 0.08 * (t[2] - t[0]), t[1] + 0.52 * (t[3] - t[1])], composer.ink('穴'), 'designed 穴') : null
+          const c = cross.box, width = 0.50 * (t[2] - t[0]), scale = width / Math.max(c[2] - c[0], 1)
+          const height = (c[3] - c[1]) * scale, bar = c[1] + 0.45 * (c[3] - c[1])
+          const want = t[1] + 0.16 * (t[3] - t[1])
+          const x0 = (t[0] + t[2]) / 2 - width / 2, y0 = want - (bar - c[1]) * scale
+          const out = parts.map(part => part === ten ? placed(cross, c, [x0, y0, x0 + width, y0 + height], composer.ink('十'), 'glyph 十') : part === learned ? clean : part)
+          return legs ? [...out, legs] : out
+        }
+      }
       const face = body && faces[body.contours.length]
       if (!frame || !face || !cross || cross.contours.length < 2) return parts
       const bar = cross.contours[face.bar], stem = cross.contours[1 - face.bar]
@@ -452,7 +509,9 @@ export const COMPONENT_FIXES = {
       const geStem = pointsBox(body.contours[face.geStem].light)
       const top = Math.max(...contours.map(contour => pointsBox(contour.light)[3]))
       // 十's vertical runs a little over half way up the room above the bar, under the frame's top.
-      const stemTop = geBar[3] + 0.65 * (top - geBar[3])
+      const stemTop = geBar[3] + (face.rise ?? 0.18) * (top - geBar[3])
+      const stemTarget = face.stemBox ?? [geStem[0], geStem[1], geStem[2], stemTop]
+      if (face.stemBox) stemTarget[3] = stemTop
       const stroke = (contour, box) => {
         const from = pointsBox(contour.light)
         const out = placed(derived(cross, [contour], from), from, mapped(box, source, target), composer.ink('十'), 'glyph 十')
@@ -462,7 +521,7 @@ export const COMPONENT_FIXES = {
         return out
       }
       return [placed(derived(body, contours, source), source, target, composer.ink('鬲'), 'body 鬲'),
-        stroke(bar, geBar), stroke(stem, [geStem[0], geStem[1], geStem[2], stemTop])]
+        stroke(bar, face.barBox), stroke(stem, stemTarget)]
     },
   },
   // ⿰𠄠𠄠: the pair is set as one cell each, and the two 𠄠 meet with only a sliver between
@@ -545,6 +604,21 @@ export const COMPONENT_FIXES = {
   // 監 supplies either a single right-hand cut or two separate strokes. Split the cut before
   // sizing the pair, so 臣 stays compact and the lower 一 spans the right column.
 
+  // The three columns of ⿲木十木 share by ink, leaving the middle 十 a sliver. The middle takes
+  // 90% of the gap the two 木 leave, centered; a designer's row of three gives it that room.
+  '⿲木十木': {
+    glyphs: {},
+    apply(parts) {
+      if (parts.length !== 3) return parts
+      const [left, middle, right] = parts
+      const lo = left.target[2], hi = right.target[0]
+      if (!(hi > lo)) return parts
+      const width = Math.max(middle.target[2] - middle.target[0], (hi - lo) * 0.9)
+      const cx = (lo + hi) / 2
+      middle.target = [cx - width / 2, middle.target[1], cx + width / 2, middle.target[3]]
+      return parts
+    },
+  },
 }
 
 /** Whether `composer`'s glyphs are the outlines a correction was read against. */
