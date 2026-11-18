@@ -272,6 +272,26 @@ def generate(font_dir):
     return result
 
 
+def fangsong_inward(face):
+    """Keep the upper bars of 悲's 非 and raise its two native brush feet."""
+    left, right = face.contours("悲")[4:6]
+    if (left.value[23] != ("lineTo", ((390, 580),)) or
+            right.value[23] != ("lineTo", ((606, 586),))):
+        raise ValueError("Unexpected Zhuque 悲 outlines")
+
+    def lifted(ops, dx, dy):
+        return [(op, tuple((x + dx, y + dy) for x, y in pts)) for op, pts in ops]
+
+    # The feet meet the uprights just below the retained bars. Each half
+    # stays on its original axis, with the same intervening white space.
+    a, b = RecordingPen(), RecordingPen()
+    a.value = (lifted(left.value[:5], 2, 200) + left.value[23:36]
+               + lifted(left.value[36:], 2, 200))
+    b.value = (lifted(right.value[:3], 0, 190) + right.value[4:24]
+               + lifted(right.value[49:], 3, 190))
+    return [a, b]
+
+
 def component_forms(font_dir, inward=False):
     """One contextual four-stroke radical per face, in the composer's contour format."""
     forms = {}
@@ -280,16 +300,12 @@ def component_forms(font_dir, inward=False):
             face = Face(font)
             if inward:
                 if style == "fangsong":
-                    # The two outer arms of 羋 form the inward-upright radical.
-                    head = face.contours("羋")[1::2]
-                    if [bounds([c]) for c in head] != [(83, 414, 376, 762), (594, 424, 916, 796)]:
-                        raise ValueError("Unexpected Zhuque 羋 outlines")
+                    head = fangsong_inward(face)
                 elif style == "regular":
-                    # TW-Kai's standalone ⻀ has upright stems and a triangular
-                    # terminal. 雈 carries the slanted brush form above 隹.
-                    head = face.contours("雈")[:2]
-                    if [bounds([c]) for c in head] != [(211, 496, 467, 727), (594, 494, 865, 768)]:
-                        raise ValueError("Unexpected TW-Kai 雈 outlines")
+                    # 雚 supplies the compact inward-facing brush strokes above 吅.
+                    head = face.contours("雚")[:2]
+                    if [bounds([c]) for c in head] != [(227, 517, 476, 721), (607, 519, 865, 758)]:
+                        raise ValueError("Unexpected TW-Kai 雚 outlines")
                 else:
                     head = face.contours("⻀")
             elif style == "fangsong":

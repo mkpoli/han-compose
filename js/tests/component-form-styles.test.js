@@ -29,6 +29,17 @@ it('keeps the four-stroke grass radical in one editable layer in each face', () 
   expect(paths.size).toBe(5)
 })
 
+it('keeps the two inward Fangsong uprights close above 早', () => {
+  const [head] = componentParts('⻀', undefined, 'fangsong')
+  const [left, right] = head.part.contours.map(contour => {
+    const xs = Array.from(contour.light).filter((_, i) => i % 2 === 0)
+    return [Math.min(...xs), Math.max(...xs)]
+  }).sort((a, b) => a[0] - b[0])
+  const gap = (right[0] - left[1]) / (right[1] - left[0])
+  expect(gap).toBeGreaterThan(0)
+  expect(gap).toBeLessThan(0.15)
+})
+
 it('does not use Noto-only forms for Fangsong', () => {
   for (const text of ['⿱丿乚', '⿰氵氵', '㇯馬灬']) {
     expect(isComponentForm(text, 'sans')).toBe(true)
