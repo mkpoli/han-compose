@@ -498,6 +498,11 @@ const KE_BAI = ['兡', {
 const enclosureEntry = (op, outer, style) => op === '⿺' && outer === '克' && (style === 'serif' || style === 'regular')
   ? KE_BAI : ENCLOSURE_FORMS[op]?.[outer]
 
+function unflippedOperand(node) {
+  while (Array.isArray(node) && (node[0] === MIRROR || node[0] === ROTATE)) node = node[1]
+  return node
+}
+
 /** Characters whose glyphs the tree's designed cuts are read from; the loader preloads them. */
 export const designedSources = (tree, style = 'sans') => {
   const out = new Set()
@@ -506,6 +511,7 @@ export const designedSources = (tree, style = 'sans') => {
     const [op, ...children] = node
     const frame = enclosureEntry(op, children[0], style)
     if (frame) out.add(frame[0])
+    if (frame === KE_BAI && style === 'regular' && unflippedOperand(children[1]) === '口') out.add('咬')
     for (const [key, [char]] of Object.entries(DESIGNED_CUTS)) if (children.includes(key)) out.add(char)
     children.forEach(visit)
   }
@@ -1018,6 +1024,13 @@ export class Composer {
             if (enclosure) outer.origin = `cells ${kids[0]}`
             if (leafIndices) outer.leaf = leaf++
             out.push(outer)
+            const mouth = enclosure && kids[0] === '克' && kids[1] === '口' && this.baiMouth(kids[1], inset(room))
+            if (mouth) {
+              outer.weightLimit = [0, 0]
+              if (leafIndices) mouth.leaf = leaf++
+              out.push(mouth)
+              return
+            }
             walk(kids[1], [(room[0] - f[0]) / width, 1 - (room[3] - f[1]) / height,
               (room[2] - f[0]) / width, 1 - (room[1] - f[1]) / height], depth + 1)
             return
@@ -1258,7 +1271,16 @@ export class Composer {
   /** A narrow borrowed cut of 口 or 日 may have been stretched already. Use
    * the leaf's native proportions when fitting it in the space taken by 百. */
   baiSeat(inner, room) {
-    while (Array.isArray(inner) && (inner[0] === MIRROR || inner[0] === ROTATE)) inner = inner[1]
+    inner = unflippedOperand(inner)
+    const width = room[2] - room[0], height = room[3] - room[1]
+    const narrow = Math.max(0, Math.min(1, (0.72 - width / height) / 0.18))
+    if ((inner === '呂' && !this.excluded(inner)) || keyOf(inner) === '⿱口口') {
+      // The two counters can extend above the rectangular body of 百.
+      const kai = this.fontStyle === 'regular'
+      return [room[0] + width * (kai ? 0 : 0.07 + narrow * 0.09), room[1] + height * (kai ? narrow * 0.16 : 0),
+        room[2] + width * (kai ? 0.045 : 0),
+        room[3] + height * (kai ? 0.25 : 0.40)]
+    }
     if (typeof inner !== 'string' || isEmpty(inner) || this.excluded(inner)) return null
     const own = this.glyph(inner)
     if (!own) return null
@@ -1266,19 +1288,30 @@ export class Composer {
     if (this.fontStyle === 'serif' && (inner === '口' || inner === '日')) {
       // Use the space beside the crossbar as well as the opening above the
       // foot. 日 has a middle horizontal and needs the taller of the two seats.
-      const height = room[3] - room[1]
-      const width = room[2] - room[0]
       // Nested cells retain stroke weight as they narrow. Their crossbar
       // needs a larger share of the opening to clear the left upright.
-      const leftInset = Math.max(width * 0.012, Math.min(width * 0.14, (430 - width) * 0.20))
+      const leftInset = Math.max(width * 0.030, Math.min(width * 0.14, (430 - width) * 0.20))
       return [room[0] + leftInset, room[1] - height * (inner === '日' ? 0.13 : 0.09),
-        room[2] - width * 0.035, room[3] + height * (inner === '日' ? 0.48 : 0.385)]
+        room[2] - width * 0.035, room[3] + height * (inner === '日' ? 0.245 : 0.175)]
     }
     if (this.fontStyle === 'regular' && inner === '口') {
-      // A flatter mouth with the upper edge held in place above the foot.
-      seat[1] += (seat[3] - seat[1]) * 0.14
+      return [seat[0], room[1] + height * 0.10, seat[2], room[3] - height * 0.04]
+    }
+    if (this.fontStyle === 'regular' && inner === '日') {
+      // As 克 narrows in a column, fitting 日 by width would also shorten it.
+      if (narrow) return [room[0], room[1] + height * 0.14 * narrow, room[2] + width * 0.035 * narrow,
+        room[3] + height * 0.20 * narrow]
     }
     return seat
+  }
+
+  /** TW-Kai's 口 in 咬 has an upright aspect ratio of 1.18 in the font. */
+  baiMouth(inner, target) {
+    if (this.fontStyle !== 'regular' || unflippedOperand(inner) !== '口' || this.excluded('口') || this.excluded('咬')) return null
+    const record = this.glyphRecord('咬')
+    if (!record || hexOf(JSON.stringify(record.p)) !== '459e64e99a135c8019a187ac36cc354c37db47a842b2473f2f2a0b7cb3bbce9c') return null
+    const glyph = partOf(record), mouth = derived(glyph, glyph.contours.slice(0, 2))
+    return placed(mouth, tightBox(mouth), target, this.ink('咬'), 'host 咬')
   }
 
   /** Fit the donor's 克 before placing a cell in its opening. */
@@ -1800,6 +1833,12 @@ export class Composer {
     const box = union(groups[1].map(p => p.target))
     const ownSeat = enclosureEntry(op, children[0], this.fontStyle) === KE_BAI && this.baiSeat(children[1], room)
     const seat = ownSeat || fitted(box, room, this.C.STRETCH)
+    const mouth = ownSeat && groups[1].length === 1 && this.baiMouth(children[1], groups[1][0].target)
+    if (mouth) {
+      Object.assign(groups[1][0], mouth)
+      // Enlarging the small 口 from 咬 would otherwise embolden 克 as well.
+      frame.weightLimit = [0, 0]
+    }
     for (const p of groups[1]) {
       p.target = mapped(p.target, box, seat)
       if (p.flips) p.flips = p.flips.map(flip => ({

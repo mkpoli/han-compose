@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import { Composer, near, sweptPart } from '../src/compose.js'
+import { Composer, designedSources, near, sweptPart } from '../src/compose.js'
 import { partOf, placed, pathRings, pointsBox } from '../src/geometry.js'
 import { compose, createSource, sketch } from '../src/loader.js'
 import { constants, files, layout, records, shards } from './fixtures/small-export.js'
@@ -211,8 +211,28 @@ it('preserves the tall Serif mouth above the hook, including its reflection', as
     expect(parts[0].origin).toContain('兡')
     const [l, b, r, t] = pointsBox(pathRings(parts[1].d).flat())
     expect(r - l).toBeGreaterThan(390)
-    expect(t - b).toBeGreaterThan(625)
-    expect(t - b).toBeLessThan(720)
+    expect(t - b).toBeGreaterThan(535)
+    expect(t - b).toBeLessThan(625)
   }
   expect(await sketch(src, '⿺克口', options)).toEqual(cold)
+})
+
+it('preloads the tall 口 donor only for a TW-Kai 克 mouth', () => {
+  for (const inner of ['口', ['⿾', '口']]) {
+    expect(designedSources(['⿺', '克', inner], 'regular')).toContain('咬')
+    expect(designedSources(['⿺', '克', inner], 'serif')).not.toContain('咬')
+  }
+  expect(designedSources(['⿺', '克', '日'], 'regular')).not.toContain('咬')
+})
+
+it('gives both stacked mouths more height than a single mouth in Serif', async () => {
+  const src = source({ 克: records.木, 兡: { G: baiDonor, ink: 5000 }, 呂: records.口 })
+  const options = { fontStyle: 'serif', separate: true }
+  const height = async inner => {
+    const { parts } = await compose(src, '⿺克' + inner, options)
+    const [, bottom, , top] = pointsBox(parts.slice(1).flatMap(p => pathRings(p.d).flat()))
+    return top - bottom
+  }
+  const mouth = await height('口')
+  for (const inner of ['呂', '⿱口口']) expect(await height(inner)).toBeGreaterThan(mouth + 30)
 })
