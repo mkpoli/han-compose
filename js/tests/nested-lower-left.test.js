@@ -274,6 +274,17 @@ describe('米 and 走 lower-left frames', () => {
     }
   })
 
+  it('draws the Fangsong net from the four contours above 正 in 罡', async () => {
+    const src = source({ 米: { G: frameDonors.brushRice, ink: 5000 }, 罡: { G: frameDonors.brushNet, ink: 5000 } })
+    for (const layout of ['composed', 'cells']) {
+      const { parts } = await compose(src, '⿺米罒', { fontStyle: 'fangsong', layout, separate: true })
+      expect(parts).toHaveLength(2)
+      expect(parts[1].origin).toBe('host 罡')
+      expect(parts[1].d.match(/M/g)).toHaveLength(4)
+      expect(parts[1].box[2]).toBeGreaterThan(parts[1].box[3])
+    }
+  })
+
   it('keeps the two Fangsong 米 dots together with the enclosing 木, respecting donor exclusion', async () => {
     const src = source({ 米: { G: frameDonors.brushRice, ink: 5000 } })
     const options = { fontStyle: 'fangsong', separate: true }

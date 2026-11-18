@@ -517,6 +517,22 @@ const RICE_DOTS = ['米', {
   'c18496a92711cf9afa9354af46782e82d7634ecec3c5a63342644546e396f1bd': [2, 1],
 }]
 const lowerLeftFrames = new Set(['克', '米', '走'])
+/** Rectangular counters in the openings of 𮇇 and 趄, in frame-relative
+ * coordinates. The brush 米 has a higher diagonal foot than the Noto cut. */
+function counterBox(outer, inner, nested, style) {
+  const brush = ownFormsOnly(style)
+  if (outer === '米') {
+    if (inner === '罒') return brush ? [0.55, 0.42, 0.985, 0.73] : [0.57, 0.35, 0.99, 0.65]
+    if (inner === '口' && !brush) return [0.57, 0.30, 0.99, 0.84]
+    if (inner === '日' && brush) return [0.515, 0.43, 0.985, 0.975]
+  }
+  if (outer === '走') {
+    if (inner === '呂') return [style === 'serif' || style === 'fangsong' ? 0.55 : 0.49, 0.20, 0.985, 0.94]
+    if (inner === '口' && nested && brush) return [0.55, 0.31, 0.985, 0.79]
+  }
+  return null
+}
+
 const enclosureEntry = (op, outer, style) => {
   if (op === '⿺' && outer === '克' && (style === 'serif' || style === 'regular')) return KE_BAI
   if (op === '⿺' && outer === '米' && ownFormsOnly(style)) return RICE_DOTS
@@ -541,6 +557,11 @@ export const designedSources = (tree, style = 'sans') => {
     const [op, ...children] = node
     const frame = enclosureEntry(op, children[0], style)
     if (frame) out.add(frame[0])
+    const inner = unflippedOperand(children[1])
+    if (op === '⿺' && counterBox(children[0], inner, true, style)) {
+      out.add(inner)
+      if (style === 'fangsong' && inner === '罒') out.add('罡')
+    }
     if (frame === KE_BAI && style === 'regular' && unflippedOperand(children[1]) === '口') out.add('加')
     for (const [key, [char]] of Object.entries(DESIGNED_CUTS)) if (children.includes(key)) out.add(char)
     children.forEach(visit)
@@ -1137,6 +1158,11 @@ export class Composer {
         // split the two apart stand the frame away from what it holds (𠕲's 冂 above its rows).
         if (typeof kids[0] === 'string' && !isEmpty(kids[0])) {
           const region = target(box)
+          const counters = this.counterInFrame(node, region, depth > 0)
+          if (counters) {
+            counters.forEach((p, i) => emitCell(p, kids[i]))
+            return
+          }
           const enclosure = this.woodFrame(node, region) ?? this.lowerLeftFrame(node, region)
           let outer = enclosure?.frame, room = enclosure?.room
           if (room && enclosureEntry(op, kids[0], this.fontStyle) === KE_BAI) room = this.baiSeat(kids[1], room) ?? room
@@ -1239,6 +1265,11 @@ export class Composer {
         return
       }
       if (!Array.isArray(node)) { out.push({ index: out.length, box: region, empty: node === EMPTY }); return }
+      const counters = this.counterInFrame(node, region, !atRoot)
+      if (counters) {
+        for (const p of counters) out.push({ index: out.length, box: p.target, empty: false })
+        return
+      }
       const frame = this.woodFrame(node, region) ?? this.lowerLeftFrame(node, region)
       if (frame) {
         out.push({ index: out.length, box: frame.frame.target, empty: false })
@@ -1445,13 +1476,47 @@ export class Composer {
     return placed(mouth, tightBox(mouth), target, this.ink('加'), 'host 加')
   }
 
+  counterInFrame(node, region, nested) {
+    if (!Array.isArray(node) || node[0] !== '⿺') return null
+    const outer = node[1], inner = unflippedOperand(node[2])
+    const box = counterBox(outer, inner, nested, this.fontStyle)
+    if (!box || this.excluded(inner)) return null
+    const enclosure = this.lowerLeftFrame(node, region)
+    if (!enclosure) return null
+    let glyph = this.glyph(inner), donor = inner
+    if (this.fontStyle === 'fangsong' && inner === '罒') {
+      const record = !this.excluded('罡') && this.glyphRecord('罡')
+      if (!record || hexOf(JSON.stringify(record.p)) !== 'b157761ed58dfbf011bdac2d0925357da36a92cc25dcb90b2d31bef39a54db47') return null
+      const source = partOf(record)
+      glyph = derived(source, source.contours.slice(1, 5))
+      donor = '罡'
+    }
+    if (!glyph) return null
+    const frame = enclosure.frame
+    const target = mapped(box, [0, 0, 1, 1], frame.target)
+    // The wider bottom mouth of 呂 faces the crossbar when rotated.
+    if (inner === '呂' && node[2] !== inner) target[0] += 0.045 * (frame.target[2] - frame.target[0])
+    const counter = placed(glyph, tightBox(glyph), target, this.ink(donor), donor === inner ? `glyph ${inner}` : `host ${donor}`)
+    for (let operand = node[2]; operand !== inner; operand = operand[1]) {
+      counter.flips ??= []
+      counter.flips.push({ x: true, y: operand[0] === ROTATE, about: centre(target) })
+    }
+    if (this.fontStyle === 'pen-writing' && outer === '米') {
+      // Kureedo's synthetic heavy master grows inward. Moving in the opposite
+      // direction adds ink to the frame and the middle strokes of 日 and 罒.
+      counter.weight = [-0.32, -0.32]
+      counter.fixed = true
+    }
+    return [frame, counter]
+  }
+
   /** Place the enclosing strokes and map their opening into the same cell. */
   lowerLeftFrame(node, region) {
     if (!Array.isArray(node) || node[0] !== '⿺' || !lowerLeftFrames.has(node[1])) return null
     const cut = this.enclosureForm('⿺', node[1])
     if (!cut?.piece.held) return null
     const { piece } = cut
-    const frame = this.place(piece, region, this.ink(cut.record.h), `cells ${node[1]}`)
+    const frame = this.place(piece, region, this.ink(cut.record.h), `host ${cut.record.h}`)
     return { frame, room: mapped(piece.held, frame.source, frame.target) }
   }
 
@@ -1484,6 +1549,8 @@ export class Composer {
   }
 
   drawNode(node, region, atRoot = false, sideBySide = false) {
+    const counters = this.counterInFrame(node, region, !atRoot)
+    if (counters) return counters
     const wheat = this.wheatFaceParts(node, region)
     if (wheat) return wheat
     const wood = this.woodFrame(node, region)
