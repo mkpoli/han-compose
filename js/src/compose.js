@@ -3182,7 +3182,7 @@ export class Composer {
       if (glyph && covered(group.filter(part => !part.cut).map(part => part.target)) < CELL_FILLED * area(box)) {
         const whole = placed(glyph, glyph.box, fitted(glyph.box, box, this.C.ROW_STRETCH), this.ink(child), `glyph ${child}`)
         if (glyph.fixed) whole.fixed = true
-        return [whole]
+        return this.forced(child) ? this.replaceGlyph(whole, child) : [whole]
       }
     }
     return group
