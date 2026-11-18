@@ -41,31 +41,33 @@ const position = mixPad(get('pad'), FONT_STYLES, names, (weights) => {
   schedule()
 })
 const examples = [
-  '⿰木口',
-  '⿱山石',
-  '⿴囗木',
-  '⿲木火木',
-  '⿱水⿰水水',
-  '⿰氵青',
-  '⿰日月',
-  '⿰女子',
-  '⿰言寺',
-  '⿱雨田',
-  '⿱艹早',
-  '⿱秋心',
-  '⿵門口',
-  '⿴囗或',
-  '⿸广木',
-  '⿺辶首',
-  '⿱口⿰口口',
-  '⿰木⿱日木'
+  ['⿰木口', '⿰木口'],
+  ['岩', '⿱山石'],
+  ['困', '⿴囗木'],
+  ['⿲木火木', '⿲木火木'],
+  ['淼', '⿱水⿰水水'],
+  ['清', '⿰氵青'],
+  ['明', '⿰日月'],
+  ['好', '⿰女子'],
+  ['詩', '⿰言寺'],
+  ['雷', '⿱雨田'],
+  ['草', '⿱艹早'],
+  ['愁', '⿱秋心'],
+  ['問', '⿵門口'],
+  ['國', '⿴囗或'],
+  ['床', '⿸广木'],
+  ['道', '⿺辶首'],
+  ['品', '⿱口⿰口口'],
+  ['棵', '⿰木果']
 ]
-for (const sequence of examples) {
+for (const [label, sequence] of examples) {
   const button = document.createElement('button')
   button.type = 'button'
   button.className = 'ui-button'
   button.dataset.size = 'sm'
-  button.textContent = sequence
+  button.textContent = label
+  button.title = sequence
+  button.dataset.sequence = sequence
   button.onclick = () => {
     get('ids').value = sequence
     schedule()
@@ -113,7 +115,7 @@ function schedule() {
     version = ++revision
   const weight = get('weight').valueAsNumber
   for (const button of get('examples').children)
-    button.setAttribute('aria-pressed', String(button.textContent === sequence))
+    button.setAttribute('aria-pressed', String(button.dataset.sequence === sequence))
   get('save').disabled = true
   pending = sequence ? { sequence, version, mix: { shares: { ...shares }, weight: weight / 100 } } : null
   if (running && running.sequence !== sequence) running.controller.abort()
