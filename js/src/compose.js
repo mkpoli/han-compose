@@ -2980,7 +2980,7 @@ export class Composer {
     // reference, and each part takes the font's cut of it from a character that draws it in that
     // place — the top 羔 from a stack over it, the middle 口 from under a cover — rather than the
     // standalone glyph, which is drawn for a character of its own.
-    if (axis === 1 && children.length === 3 && ENCLOSED_MIDDLE.has(children[1]) && Array.isArray(children[2]) && !this.partial) {
+    if (axis === 1 && children.length === 3 && ENCLOSED_MIDDLE.has(children[1]) && Array.isArray(children[2]) && !this.partial && !this.isCover(children[0])) {
       const gaoMouth = children[0] === '羔' && children[1] === '口' && keyOf(children[2]) === '⿵𦉪十'
       const exportStyle = this.data.manifest.style ?? this.fontStyle
       const style = exportStyle === 'kaisho' ? 'pen-writing' : exportStyle
@@ -3002,14 +3002,16 @@ export class Composer {
           const source = this.pieceFor(child, cut.piece)
           // The cut's ink fills the band, not its own padded box, so the band leaves no gap.
           const ink = union(source.contours.map(contour => pointsBox(contour.light)))
-          const part = placed(source, ink, box, this.ink(cut.record.h), `host ${cut.record.h}`)
+          const target = gaoMouth ? box : fitted(ink, box, C.STRETCH)
+          const part = placed(source, ink, target, this.ink(cut.record.h), `host ${cut.record.h}`)
           if (gaoMouth && i < 2) part.weightLimit = [0.45, 0.30]
           parts.push(part)
           continue
         }
         const group = this.row(child, box, this.narrowRow(children), false, this.beside.has(children))
         const from = union(group.map(drawnBox))
-        for (const part of group) part.target = targetFor(part, mapped(drawnBox(part), from, box))
+        const target = gaoMouth ? box : fitted(from, box, C.STRETCH)
+        for (const part of group) part.target = targetFor(part, mapped(drawnBox(part), from, target))
         parts.push(group)
       }
       const stack = this.flatten(parts)

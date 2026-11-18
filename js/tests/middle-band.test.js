@@ -1,6 +1,8 @@
 // A three-band stack's middle band, when it is an enclosed box such as 口 or 日, and the bands a
 // stack over a compound foot takes from the dictionary glyph 羔 over 口 over 𦉪十.
 import { expect, it } from 'bun:test'
+import { compose, createSource } from '../src/loader.js'
+import { character, files, records, shards } from './fixtures/small-export.js'
 import { narrowMiddleBand, stackBands } from '../src/compose.js'
 import { makePart, placed } from '../src/geometry.js'
 
@@ -40,4 +42,18 @@ it('sets a stack over a compound foot to the dictionary’s bands', () => {
   // The mouth meets the top band and clears the foot.
   expect(top[1]).toBeGreaterThanOrEqual(mouth[3])
   expect(mouth[1]).toBeGreaterThanOrEqual(foot[3])
+})
+
+it('keeps a fallback bar shallow and lets a cover overlap the middle mouth', async () => {
+  const glyphs = {
+    ...records,
+    一: character('一', [[50, 350, 950, 410]]),
+    宀: character('宀', [[50, 500, 950, 580], [50, 350, 110, 560], [880, 340, 950, 560]]),
+  }
+  const data = { ...files, ...shards('g', Object.entries(glyphs)) }
+  const source = createSource(async name => data[name] ? new Blob([data[name]]).arrayBuffer() : null)
+  const bar = (await compose(source, '⿳一口⿰木木')).parts[0].box
+  expect(bar[2] / bar[3]).toBeGreaterThan(10)
+  const [roof, mouth] = (await compose(source, '⿳宀口⿰木木')).parts
+  expect(mouth.box[1]).toBeLessThan(roof.box[1] + roof.box[3])
 })
