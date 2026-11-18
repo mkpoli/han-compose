@@ -1,5 +1,6 @@
 import { expect, it } from 'bun:test'
-import { activeFaces, composeMixed, FONT_STYLES, mixDrawings } from '../src/font-mix.js'
+import { activeFaces, composeMixed, FONT_STYLES } from '../src/font-mix.js'
+import { mixDrawings } from '../src/mix-drawings.js'
 import { count, pathMask } from '../src/geometry.js'
 import { compose } from '../src/loader.js'
 import { files } from './fixtures/small-export.js'
@@ -170,7 +171,17 @@ it('approaches the operand-wise blend when the disappearing face has no parts', 
   const flat = { d: 'M200 100L800 200L570 800Z' }
   const edge = mixDrawings([a, b], [0.5, 0.5], 1)
   const almost = mixDrawings([a, b, flat], [0.4999995, 0.4999995, 0.000001], 1)
-  expect(pathMask(almost.d, 160)).toEqual(pathMask(edge.d, 160))
+  let previous = pathMask(edge.d, 480)
+  expect(pathMask(almost.d, 480)).toEqual(previous)
+  // Exercise the entire transition from per-operand to whole-glyph mixing.
+  for (let step = 1; step <= 90; step++) {
+    const share = step / 500
+    const rest = (1 - share) / 2
+    const mask = pathMask(mixDrawings([a, b, flat], [rest, rest, share], 1).d, 480)
+    const changed = mask.reduce((sum, pixel, i) => sum + Math.abs(pixel - previous[i]), 0)
+    expect(changed / count(previous)).toBeLessThan(0.035)
+    previous = mask
+  }
 })
 
 it('brings in an initially absent subtraction in proportion to its share', () => {
@@ -180,4 +191,11 @@ it('brings in an initially absent subtraction in proportion to its share', () =>
   expect(ink(0.0001)).toBeLessThan(5)
   expect(ink(0.25)).toBeGreaterThan(1500)
   expect(ink(0.25)).toBeLessThan(3000)
+})
+
+it('retains the original serif tips when the weight leaves neutral', () => {
+  const d = 'M80 175Q550 255 815 172L925 50L913 216L470 242L432 869L380 914L377 246L88 218Z'
+  for (const weight of [0.999999, 1.000001]) {
+    expect(pathMask(mixDrawings([{ d }], [1], weight).d, 256)).toEqual(pathMask(d, 256))
+  }
 })

@@ -34,6 +34,10 @@
       "types": "./types/index.d.ts",
       "default": "./src/index.js"
     },
+    "./font-mix": {
+      "types": "./types/font-mix.d.ts",
+      "default": "./src/font-mix.js"
+    },
     "./compose": {
       "types": "./types/compose.d.ts",
       "default": "./src/compose.js"
@@ -215,7 +219,7 @@
   },
   "devDependencies": {
     "@types/bun": "1.4.4",
-    "@types/clipper-lib": "^6.4.0",
+    "@types/clipper-lib": "6.4.0",
     "@types/d3-contour": "3.0.6",
     "oxlint": "1.91.0",
     "playwright-core": "1.65.0",
