@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Han Compose · Font mixer</title>
+  <link rel="stylesheet" href="./ids-ui.css" />
+  <style>
+    body {
+      max-width: 68rem;
+      font-size: 1rem;
+      margin: auto;
+      padding: clamp(1rem, 4vw, 3.5rem);
+    }
+    header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--ui-color-border-strong);
+      margin-bottom: 2rem;
+      padding-bottom: 0.8rem;
+    }
+    h1 {
+      font:
+        500 clamp(2.2rem, 6vw, 4rem)/1 Georgia,
+        serif;
+      margin: 0;
+    }
+    header span {
+      font-weight: 600;
+    }
+    main {
+      display: grid;
+      grid-template-columns: minmax(0, 1.4fr) minmax(15rem, 1fr);
+      gap: clamp(1.3rem, 4vw, 3rem);
+    }
+    #proof {
+      background-color: var(--ui-color-surface);
+      background-image:
+        linear-gradient(to right, transparent 49.8%, var(--ui-color-border) 50%, transparent 50.2%),
+        linear-gradient(transparent 49.8%, var(--ui-color-border) 50%, transparent 50.2%);
+      border: 1px solid var(--ui-color-border-strong);
+      aspect-ratio: 1;
+      display: grid;
+      place-items: center;
+    }
+    #faces {
+      display: grid;
+      grid-template-columns: 6.2rem 1fr 3rem;
+      align-items: center;
+      gap: 0.55rem 0.7rem;
+    }
+    #faces input {
+      min-width: 0;
+      margin: 0;
+    }
+    #faces output {
+      text-align: right;
+    }
+    #pad {
+      margin: auto;
+      max-width: 21rem;
+    }
+    #pad svg {
+      display: block;
+      width: 100%;
+      height: 12.5rem;
+      touch-action: none;
+      cursor: crosshair;
+    }
+    #proof svg {
+      width: 90%;
+      height: 90%;
+    }
+    label {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 0.5rem;
+      font-weight: 550;
+    }
+    output {
+      font:
+        normal 0.9rem ui-monospace,
+        monospace;
+    }
+    input[type="range"] {
+      width: 100%;
+      margin: 0.45rem 0 1rem;
+    }
+    #ids {
+      width: 100%;
+      margin: 0.4rem 0 1rem;
+      font-size: 1.4rem;
+    }
+    #examples {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      margin: 0.5rem 0 0;
+    }
+    #examples button {
+      font-size: 1.1rem;
+      letter-spacing: 0.05em;
+    }
+    #examples button[aria-pressed="true"] {
+      color: var(--ui-color-accent);
+      background: var(--ui-color-accent-soft);
+      border-color: var(--ui-color-accent);
+    }
+    .ui-range {
+      block-size: 2rem;
+      --fill: 50%;
+      touch-action: pan-y;
+    }
+    .ui-range::-webkit-slider-runnable-track {
+      background: linear-gradient(
+        to right,
+        var(--ui-color-accent) var(--fill),
+        var(--ui-color-border-strong) var(--fill)
+      );
+    }
+    .ui-range::-moz-range-progress {
+      height: 4px;
+      border-radius: var(--ui-radius-pill);
+      background: var(--ui-color-accent);
+    }
+    .ui-range:active::-webkit-slider-thumb {
+      background: var(--ui-color-accent-active);
+      box-shadow: 0 0 0 4px var(--ui-color-accent-soft);
+    }
+    .ui-range:active::-moz-range-thumb {
+      background: var(--ui-color-accent-active);
+      box-shadow: 0 0 0 4px var(--ui-color-accent-soft);
+    }
+    #proof svg path:not([fill]),
+    #proof svg path[fill="#000000"] {
+      fill: currentColor;
+    }
+    #pad svg {
+      user-select: none;
+      -webkit-user-select: none;
+      cursor: grab;
+    }
+    #pad svg:active {
+      cursor: grabbing;
+    }
+    fieldset {
+      margin: 0;
+      padding: 0;
+      border: 0;
+    }
+    legend {
+      font-weight: 650;
+      margin-bottom: 1rem;
+    }
+    hr {
+      border: 0;
+      border-top: 1px solid var(--ui-color-border);
+      margin: 1rem 0;
+    }
+    #status {
+      min-height: 1.5rem;
+      color: var(--ui-color-ink-muted);
+      margin: 0.5rem 0;
+    }
+    @media (max-width: 620px) {
+      main {
+        grid-template-columns: 1fr;
+      }
+      header {
+        margin-bottom: 1rem;
+      }
+      .specimen {
+        display: contents;
+      }
+      #proof {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        aspect-ratio: auto;
+        height: clamp(8rem, 28svh, 15rem);
+      }
+      #status:empty {
+        display: none;
+      }
+      :root {
+        scroll-padding-top: clamp(9rem, 30svh, 16rem);
+      }
+    }
+  </style>
+  <header>
+    <h1>Font mixer</h1>
+    <span>Han Compose</span>
+  </header>
+  <main>
+    <section class="specimen" aria-label="Character preview">
+      <div id="proof"></div>
+      <p id="status" role="status"></p>
+      <fieldset>
+        <legend>Examples</legend>
+        <div id="examples"></div>
+      </fieldset>
+    </section>
+    <section aria-label="Mixer controls">
+      <label for="ids">Ideographic description</label
+      ><input id="ids" class="ui-input" type="text" value="⿰木口" spellcheck="false" />
+      <fieldset>
+        <legend>Face proportions</legend>
+        <div id="pad"></div>
+        <div id="faces"></div>
+      </fieldset>
+      <hr />
+      <label for="weight">Stroke weight <output id="weight-value" for="weight">100%</output></label
+      ><input type="range" id="weight" class="ui-range" min="65" max="150" value="100" />
+      <button class="ui-button" data-variant="primary" type="button" id="save" disabled>Save SVG</button>
+    </section>
+  </main>
+  <script type="module" src="./src/app.js"></script>
+</html>
