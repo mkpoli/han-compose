@@ -3,6 +3,17 @@ import { joinedDrawing, mapped, partInk, placed } from './geometry.js'
 
 // Measured ink boxes in a 1000-unit em. Each row belongs to one leaf of the written IDS.
 const specimens = {
+  // Guqin
+  '〾⿱⿰大⿱七六⿵勹五': {
+    styles: ['sans', 'serif', 'fangsong', 'regular', 'pen-writing'],
+    cells: [
+      [['大', [71, 469, 472, 794]]],
+      [['七', [511, 649, 895, 816]]],
+      [['六', [518, 450, 923, 631]]],
+      [['勹', [60, -77, 935, 403]]],
+      [['五', [223, 41, 660, 225]]],
+    ],
+  },
   // JYN00003
   '⿳宀⿰丨⿴⿻冂一一⿹𠃌灬': {
     styles: ['fangsong', 'regular'],
@@ -37,7 +48,8 @@ export function specimenParts(composer, node, region, keyOf) {
       if (composer.excluded(ch)) return null
       const glyph = composer.glyph(ch)
       if (!glyph) return null
-      pieces.push({ ...placed(glyph, glyph.box, mapped(box, [0, -120, 1000, 880], region),
+      const target = ch === '五' && composer.fontStyle === 'fangsong' ? [273, 21, 710, 205] : box
+      pieces.push({ ...placed(glyph, glyph.box, mapped(target, [0, -120, 1000, 880], region),
         partInk(glyph), `glyph ${ch}`), fixed: true })
     }
     out.push(pieces.length === 1 ? pieces[0] : joinedDrawing(pieces, `components ${cell.map(([ch]) => ch).join('')}`))
