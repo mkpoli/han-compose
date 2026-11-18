@@ -1,6 +1,7 @@
 import { expect, it } from 'bun:test'
 import { activeFaces, composeMixed, FONT_STYLES } from '../src/font-mix.js'
 import { mixDrawings } from '../src/mix-drawings.js'
+import { alignRings, groupRegions } from '../src/mix-contours.js'
 import { limitDisplacement } from '../src/mix-outline.js'
 import { count, pathMask } from '../src/geometry.js'
 import { compose } from '../src/loader.js'
@@ -132,7 +133,9 @@ it('converges to either original outline as the other face enters the mix', () =
   const serif = {
     d: 'M40 210L330 226L425 166L495 222L840 210L961 155L930 256L470 258L446 900L380 910L377 260L50 266Z'
   }
-  const fangsong = { d: 'M60 240Q370 230 520 186L909 148L954 157L922 193L532 224L490 870L450 909L472 234L70 262Z' }
+  const fangsong = {
+    d: 'M60 240Q370 230 520 186L909 148L954 157L922 193L532 224L490 870L450 909L472 234L70 262Z'
+  }
   for (const [source, other] of [
     [serif, fangsong],
     [fangsong, serif]
@@ -180,7 +183,9 @@ it('approaches the operand-wise blend when the disappearing face has no parts', 
     const rest = (1 - share) / 2
     const mask = pathMask(mixDrawings([a, b, flat], [rest, rest, share], 1).d, 480)
     const changed = mask.reduce((sum, pixel, i) => sum + Math.abs(pixel - previous[i]), 0)
-    expect(changed / count(previous)).toBeLessThan(0.035)
+    // The largest step is where the whole-glyph mix joins two islands and they stop
+    // moving with the operand-wise blend.
+    expect(changed / count(previous)).toBeLessThan(0.045)
     previous = mask
   }
 })
@@ -201,11 +206,165 @@ it('retains the original serif tips when the weight leaves neutral', () => {
   }
 })
 
+it('keeps matching the islands two faces share when one face joins two of them', () => {
+  const box = (x, y, right, bottom) => [
+    [x, y],
+    [right, y],
+    [right, bottom],
+    [x, bottom],
+    [x, y]
+  ]
+  const split = [box(20, 20, 200, 32), box(20, 60, 200, 72), box(20, 100, 200, 112), box(60, 150, 90, 230)]
+  // The second face draws the lower two bars as one island and shifts every stroke.
+  const joined = [box(24, 26, 204, 36), box(24, 64, 204, 116), box(64, 154, 96, 236)]
+  const groups = groupRegions([split, joined], (ring) => ring, 15)
+  const sizes = groups.map((group) => group.map((face) => face.length)).sort()
+  expect(sizes).toEqual([
+    [1, 1],
+    [1, 1],
+    [2, 1]
+  ])
+  expect(groups.find((group) => group[0].length === 2)[1]).toEqual([joined[1]])
+  // An island with no counterpart joins its nearest group instead of standing alone.
+  const extra = groupRegions([[...split, box(210, 20, 220, 30)], joined], (ring) => ring, 15)
+  expect(extra.every((group) => group.every((face) => face.length > 0))).toBe(true)
+  expect(extra.flatMap((group) => group[0]).length).toBe(5)
+})
+
 it('keeps a drawing whole inside a wide band around a small or thin boundary', () => {
   const drawing = 'M90 90L130 90L130 130L90 130Z'
   const ink = (d) => count(pathMask(d, 256))
   for (const boundary of ['M100 100L108 100L108 108L100 108Z', 'M100 100L400 100L400 104L100 104Z'])
-    for (const radius of [150, 300, 700]) expect(ink(limitDisplacement(drawing, boundary, radius))).toBe(ink(drawing))
+    for (const radius of [150, 300, 700])
+      expect(ink(limitDisplacement(drawing, boundary, radius))).toBe(ink(drawing))
   // A narrow band still clips ink that lies beyond it.
   expect(ink(limitDisplacement(drawing, 'M100 100L108 100L108 108L100 108Z', 5))).toBeLessThan(ink(drawing))
+})
+
+it('blends straight edges into straight edges and shrinks a tip one face lacks', () => {
+  const closed = (points) => [...points, points[0]]
+  const bar = closed([
+    [40, 100],
+    [200, 100],
+    [200, 120],
+    [40, 120]
+  ])
+  // The same bar, moved and thinner, with a triangular tip above its right end.
+  const tipped = closed([
+    [50, 104],
+    [180, 104],
+    [196, 90],
+    [212, 104],
+    [212, 114],
+    [50, 114]
+  ])
+  const [plain, serif] = alignRings([bar, tipped])
+  expect(plain.length).toBe(serif.length)
+  const onEdges = (points, ring) =>
+    points.every((p) =>
+      ring.slice(1).some((b, i) => {
+        const a = ring[i],
+          length = Math.hypot(b[0] - a[0], b[1] - a[1])
+        const off = Math.abs((b[0] - a[0]) * (p[1] - a[1]) - (b[1] - a[1]) * (p[0] - a[0])) / length
+        const along = ((p[0] - a[0]) * (b[0] - a[0]) + (p[1] - a[1]) * (b[1] - a[1])) / length ** 2
+        return off < 1e-6 && along > -1e-6 && along < 1 + 1e-6
+      })
+    )
+  // Each face keeps its own outline, corners included.
+  expect(onEdges(plain, bar)).toBe(true)
+  expect(onEdges(serif, tipped)).toBe(true)
+  for (const corner of tipped.slice(0, -1))
+    expect(serif.some((p) => Math.hypot(p[0] - corner[0], p[1] - corner[1]) < 1e-6)).toBe(true)
+  const half = plain.map((p, i) => [(p[0] + serif[i][0]) / 2, (p[1] + serif[i][1]) / 2])
+  // Halfway, the bottom and left edges are straight lines between the two bars' edges…
+  const bottom = half.filter((p) => p[1] > 116.9)
+  expect(bottom.length).toBeGreaterThan(20)
+  expect(bottom.every((p) => Math.abs(p[1] - 117) < 1e-6)).toBe(true)
+  expect(half.filter((p) => p[0] < 45.1).every((p) => Math.abs(p[0] - 45) < 1e-6)).toBe(true)
+  // …and the tip stands at half its height above the halfway top edge.
+  expect(Math.min(...half.map((p) => p[1]))).toBeCloseTo(95, 0)
+})
+
+it('blends each labelled stroke on its own when two strokes overlap', () => {
+  const bar = (x, y, right, bottom) => `M${x} ${y}L${right} ${y}L${right} ${bottom}L${x} ${bottom}Z`
+  // A cross: every face draws the two strokes as separate, overlapping contours.
+  const face = (h, v) => ({
+    d: h + v,
+    parts: [
+      {
+        leaf: 0,
+        origin: 'glyph 十',
+        box: [100, 100, 800, 800],
+        d: h + v,
+        strokes: [
+          [1, [0]],
+          [2, [1]]
+        ]
+      }
+    ]
+  })
+  const thin = face(bar(100, 480, 900, 520), bar(480, 100, 520, 900))
+  const wide = face(bar(100, 420, 900, 580), bar(420, 100, 580, 900))
+  const mixed = mixDrawings([thin, wide], [0.5, 0.5], 1)
+  const expected = pathMask(bar(100, 450, 900, 550) + bar(450, 100, 550, 900), 200)
+  const actual = pathMask(mixed.d, 200)
+  let differing = 0
+  for (let i = 0; i < expected.length; i++) differing += expected[i] !== actual[i]
+  // The blend is the cross of half-way bars with square inner corners, to within the outline's pixels.
+  expect(differing).toBeLessThan(120)
+})
+
+it('pairs the same corners however finely one face draws an edge', () => {
+  const closed = (points) => [...points, points[0]]
+  // An L-shaped stroke: a top bar and a left stem, as one contour.
+  const elbow = (thick, reach, drop) =>
+    closed([
+      [20, 20],
+      [reach, 20],
+      [reach, 20 + thick],
+      [20 + thick, 20 + thick],
+      [20 + thick, drop],
+      [20, drop]
+    ])
+  const plain = elbow(12, 200, 230)
+  const other = elbow(8, 190, 236)
+  // The same outline with its foot drawn as many short segments.
+  const [a, b, c, d, e, f, g] = other
+  const foot = Array.from({ length: 40 }, (_, i) => [e[0] - ((e[0] - f[0]) * (i + 1)) / 41, e[1]])
+  const dense = [a, b, c, d, e, ...foot, f, g]
+  for (const face of [other, dense]) {
+    const [first, second] = alignRings([plain, face])
+    const half = first.map((p, i) => [(p[0] + second[i][0]) / 2, (p[1] + second[i][1]) / 2])
+    // The inner elbows meet: halfway there is a point at their mean.
+    expect(half.some((p) => Math.hypot(p[0] - 30, p[1] - 30) < 1e-6)).toBe(true)
+    // The stem's inner edge stays vertical.
+    const inner = half.filter((p) => p[1] > 40 && p[1] < 220 && p[0] > 25)
+    expect(inner.length).toBeGreaterThan(20)
+    expect(inner.every((p) => Math.abs(p[0] - 30) < 1e-6)).toBe(true)
+  }
+})
+
+it('falls back to islands when two faces number their strokes differently', () => {
+  const bar = (x, y, right, bottom) => `M${x} ${y}L${right} ${y}L${right} ${bottom}L${x} ${bottom}Z`
+  const face = (h, v, ids) => ({
+    d: h + v,
+    parts: [
+      {
+        leaf: 0,
+        origin: 'glyph 二',
+        box: [100, 100, 800, 800],
+        d: h + v,
+        strokes: ids.map((id, i) => [id, [i]])
+      }
+    ]
+  })
+  // Two bars far apart; the second face numbers them the other way round.
+  const one = face(bar(100, 100, 900, 160), bar(100, 840, 900, 900), [1, 2])
+  const two = face(bar(100, 110, 900, 150), bar(100, 850, 900, 890), [2, 1])
+  const mixed = mixDrawings([one, two], [0.5, 0.5], 1)
+  const expected = pathMask(bar(100, 105, 900, 155) + bar(100, 845, 900, 895), 200)
+  const actual = pathMask(mixed.d, 200)
+  let differing = 0
+  for (let i = 0; i < expected.length; i++) differing += expected[i] !== actual[i]
+  expect(differing).toBeLessThan(120)
 })
