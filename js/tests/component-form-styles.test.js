@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'bun:test'
+import embeddedGrass from './fixtures/kai-embedded-grass.json'
+import chui from './fixtures/kai-chui.json'
+import splitGrass from './fixtures/kai-grass.json'
 import data from '../src/component-forms.json'
-import { componentDrawing, componentParts, componentRecord, containsComponentForm, isComponentForm, isGroupedForm, isNativeForm } from '../src/component-forms.js'
+import { componentDrawing, componentParts, componentRecord, containsComponentForm, containsForcedForm, isComponentForm, isGroupedForm, isForcedCharacter, isNativeForm } from '../src/component-forms.js'
 import { Composer } from '../src/compose.js'
-import { windingOf } from '../src/geometry.js'
+import { raster, windingOf } from '../src/geometry.js'
 import { onlyBundled } from '../src/local.js'
 import { compose, createSource } from '../src/loader.js'
 import { character, constants, files, records, shards } from './fixtures/small-export.js'
@@ -144,7 +147,7 @@ it('leaves the characters holding 眔’s lower half to their own glyphs', () =>
   expect(exported.identity('⿲𰀪丨⿱丶丶')).toBe(known)
 })
 
-// Cut from TW-Kai's 荣: the connected 艹 its simplified characters write, while its traditional
+// Cut from TW-Kai's 艺: the connected 艹 its simplified characters write, while its traditional
 // characters write two 十. The form draws; the export's split 艹 record still lays it out.
 it('draws 艹 connected in Regular Kai as a drawing-only form', () => {
   expect(isComponentForm('艹', 'regular')).toBe(true)
@@ -179,5 +182,152 @@ it('still draws the split 十十 spelling in every face', async () => {
     const drawn = await compose(source(), '⿰十十', { fontStyle })
     expect(drawn.parts).toHaveLength(2)
     expect(drawn.parts.every(part => part.origin === 'glyph 十')).toBe(true)
+  }
+})
+
+it('forces the 艹 form on every face and every encoded character that names it', () => {
+  expect(containsForcedForm('⿱艹采', 'regular')).toBe(true)
+  for (const style of ['sans', 'serif', 'fangsong', 'pen-writing']) {
+    expect(containsForcedForm('⿱艹采', style)).toBe(false)
+    expect(containsForcedForm('華', style)).toBe(false)
+  }
+  const records = { 菜: { s: '⿱艹采' }, 敬: { s: '⿰苟攵' }, 苟: { s: '⿱艹句' } }
+  const composer = new Composer({ manifest: { constants, spelled: [] }, layout: null,
+    rec: key => records[key] ?? null, hosts: () => [], places: () => [] }, { fontStyle: 'regular' })
+  expect(composer.forced('菜')).toBe(true)
+  expect(composer.forced('木')).toBe(false)
+  expect(isForcedCharacter('華', 'regular')).toBe(true)
+  expect(isForcedCharacter('茰', 'regular')).toBe(true)
+})
+
+it('redraws an encoded 菜 from its IDS with the form', async () => {
+  const grass = character('艹', [[100, 620, 480, 800], [520, 620, 900, 800]])
+  const cai = character('采', [[100, 0, 900, 520]])
+  const char = { ...character('菜', [[100, 620, 480, 800], [520, 620, 900, 800], [100, 0, 900, 520]]), s: '⿱艹采' }
+  char.G.p = [...splitGrass, char.G.p.at(-1)]
+  const input = { ...files, ...shards('g', Object.entries({ ...records, 艹: grass, 采: cai, 菜: char })) }
+  const source = createSource(async name => input[name] === undefined ? null : new Uint8Array(Buffer.from(input[name])).buffer)
+  const drawn = await compose(source, '菜', { fontStyle: 'regular' })
+  expect(drawn.origins.filter(origin => origin === 'TW-Kai: 艹')).toHaveLength(1)
+  expect(drawn.origins).toContain('glyph 菜 kept')
+})
+
+it('uses the form in a three-band stack', async () => {
+  const grass = character('艹', [[100, 620, 480, 800], [520, 620, 900, 800]])
+  const mouth = character('口', [[100, 0, 900, 200]])
+  const one = character('一', [[100, 0, 900, 100]])
+  const char = { ...character('𦴯', [[100, 0, 900, 900]]), s: '⿳艹口一' }
+  char.G.p = [...splitGrass, char.G.p.at(-1)]
+  const input = { ...files, ...shards('g', Object.entries({ ...records, 艹: grass, 口: mouth, 一: one, 𦴯: char })) }
+  const source = createSource(async name => input[name] === undefined ? null : new Uint8Array(Buffer.from(input[name])).buffer)
+  const drawn = await compose(source, '𦴯', { fontStyle: 'regular' })
+  expect(drawn.origins).toContain('TW-Kai: 艹')
+})
+
+it('keeps a forced terminal glyph with no sequence drawable', async () => {
+  const grass = character('艹', [[100, 620, 480, 800], [520, 620, 900, 800]])
+  const input = { ...files, ...shards('g', Object.entries({ ...records, 艹: grass })) }
+  const source = createSource(async name => input[name] === undefined ? null : new Uint8Array(Buffer.from(input[name])).buffer)
+  const drawn = await compose(source, '艹', { fontStyle: 'sans' })
+  expect(drawn.origins).toEqual(['glyph 艹'])
+})
+
+it('uses the form under a cover before the child glyph shortcut', async () => {
+  const grass = character('艹', [[100, 620, 480, 800], [520, 620, 900, 800]])
+  const roof = character('宀', [[100, 700, 900, 800], [100, 0, 180, 800], [820, 0, 900, 800]])
+  const gou = { ...character('苟', [[100, 0, 900, 900]]), s: '⿱艹句' }
+  const ju = character('句', [[100, 0, 900, 700]])
+  gou.G.p = [...splitGrass, gou.G.p.at(-1)]
+  const input = { ...files, ...shards('g', Object.entries({ ...records, 艹: grass, 宀: roof, 苟: gou, 句: ju })) }
+  const source = createSource(async name => input[name] === undefined ? null : new Uint8Array(Buffer.from(input[name])).buffer)
+  const drawn = await compose(source, '⿱宀苟', { fontStyle: 'regular' })
+  expect(drawn.origins).toContain('TW-Kai: 艹')
+})
+
+it('retains native contours outside each of two split grass heads', async () => {
+  const stack = character('𧁖', [[0, 0, 1000, 880]])
+  const lowerHead = splitGrass.map(([ops, light, delta]) => {
+    const points = Buffer.from(light, 'base64')
+    for (let i = 2; i < points.length; i += 4) points.writeInt16LE(points.readInt16LE(i) - 1200, i)
+    return [ops, points.toString('base64'), delta]
+  })
+  stack.G.p.push(...splitGrass, ...lowerHead)
+  stack.s = '⿳艹艹田'
+  const input = { ...files, ...shards('g', [['𧁖', stack]]) }
+  const source = createSource(async name => input[name] === undefined ? null : new Uint8Array(Buffer.from(input[name])).buffer)
+  const drawing = await compose(source, '𧁖', { fontStyle: 'regular' })
+  expect(drawing.parts.filter(p => p.origin === 'TW-Kai: 艹')).toHaveLength(2)
+  const kept = drawing.parts.find(p => p.origin === 'glyph 𧁖 kept')
+  expect(kept.d.match(/M/g)).toHaveLength(1)
+})
+
+it('groups the enclosing 木 under the leaves of each manuscript spelling', () => {
+  for (const style of ['sans', 'serif', 'fangsong', 'regular', 'pen-writing']) {
+    const expanded = componentParts('⿰氵⿺木罒', undefined, style)
+    const contracted = componentParts('⿺沐罒', undefined, style)
+    expect(expanded).toHaveLength(3)
+    expect(contracted).toHaveLength(2)
+    const [short, long] = ['⿺沐罒', '⿰氵⿺木罒'].map(text => componentDrawing(text, style).d)
+    const numbers = /-?\d+\.\d+/g
+    expect(short.replace(numbers, '')).toBe(long.replace(numbers, ''))
+    const coords = long.match(numbers).map(Number)
+    // Group placement can round a coordinate on the opposite side of a tenth.
+    expect(short.match(numbers).every((v, i) => Math.abs(Number(v) - coords[i]) < 0.101)).toBe(true)
+    expect(expanded[1].target[2]).toBeGreaterThan(expanded[2].target[2])
+    expect(isComponentForm('⿲氵木罒', style)).toBe(false)
+  }
+})
+
+it('selects the upper grass in 菙 while retaining both crosses in 垂 in composed and cell layouts', async () => {
+  const input = { ...files, ...shards('g', [['菙', { G: chui, s: '⿱艹垂' }]]) }
+  const source = createSource(async name => input[name] === undefined ? null : new Uint8Array(Buffer.from(input[name])).buffer)
+  for (const layout of ['composed', 'cells']) {
+    const drawing = await compose(source, '菙', { fontStyle: 'regular', layout })
+    const grass = drawing.parts.find(p => p.origin === 'TW-Kai: 艹')
+    expect(grass.box[3]).toBeLessThan(450)
+    expect(drawing.parts.find(p => p.origin === 'glyph 菙 kept').d.match(/M/g)).toHaveLength(chui.p.length - 2)
+    if (layout === 'cells') expect(drawing.parts.every(p => p.leaf === 0)).toBe(true)
+  }
+})
+
+it('retains the connected grass when a narrow pair restores the full glyph', () => {
+  const composer = new Composer({ manifest: { constants, spelled: [] }, layout: null,
+    rec: key => key === '菙' ? { G: chui, s: '⿱艹垂' } : null, hosts: () => [], places: () => [] }, { fontStyle: 'regular' })
+  const narrow = composer.node('菙', [0, 0, 40, 100])
+  const filled = composer.fillCell('菙', narrow, [0, 0, 250, 900], true)
+  expect(filled.map(p => p.origin)).toEqual(['glyph 菙 kept', 'TW-Kai: 艹'])
+  expect(filled[0].target[2]).toBeGreaterThan(narrow[0].target[2])
+})
+
+it('keeps the intersecting uprights and draws both heads of 𦴐', () => {
+  const cases = [
+    ['𤀾', '⿰氵⿱业⿻𢆉艹', [8, 9], 1],
+    ['𣀱', '⿰⿱米⿻⿱廿艹大攵', [3, 4], 1],
+    ['𦴐', '⿳艹⿱一艹天', [3, 4, 6, 7], 2],
+    ['𡽼', '⿱山⿰忄⿳亠厶⿻艹木', [], 0],
+    ['𡪨', '⿱宀⿻莧厶', [], 0],
+  ]
+  for (const [ch, sequence, cut, count] of cases) {
+    const composer = new Composer({ manifest: { constants, spelled: [] }, layout: null,
+      rec: key => key === ch ? { G: embeddedGrass[ch], s: sequence } : null, hosts: () => [], places: () => [] }, { fontStyle: 'regular' })
+    const glyph = composer.glyph(ch)
+    const native = composer.place(glyph, glyph.box, 0, ch)
+    const [body, ...heads] = composer.replaceGlyph(native, ch, composer.parse(sequence))
+    expect(heads).toHaveLength(count)
+    expect(body.part.contours).toEqual(glyph.contours.filter((_, i) => !cut.includes(i)))
+    if (count === 1) {
+      const size = 400
+      const before = raster([native], size), after = raster([body, ...heads], size)
+      const [left, right] = ch === '𤀾' ? [540, 749] : [233, 430]
+      let changed = 0, outside = 0
+      for (let i = 0; i < before.length; i++) {
+        if (before[i] === after[i]) continue
+        changed++
+        const x = (i % size + 0.5) * 1000 / size
+        if (x < left - 2 || x > right + 2) outside++
+      }
+      expect(changed).toBeGreaterThan(0)
+      expect(outside).toBe(0)
+    }
   }
 })

@@ -1,19 +1,23 @@
 // @ts-nocheck
 // Shape-specific font-derived forms. Keep the caller's IDS; encoded counterparts can vary by region.
 import generated from './component-forms.json' with { type: 'json' }
-import regular from './component-forms-regular.json' with { type: 'json' }
+import overrides from './component-forms-overrides.json' with { type: 'json' }
+import muNet from './mu-net-forms.json' with { type: 'json' }
 import numbered from '../data/numbered-forms.json' with { type: 'json' }
 import { joinedComponentForm } from './constructs.js'
 import constants from './constants.json' with { type: 'json' }
 import { WINDING, commands, derived, makePart, mapped, partInk, placed, svgPath, union, windingOf, wound } from './geometry.js'
 
-// Regular Kai's forms are cut by hand from TW-Kai, outside the generated Noto and brush forms.
+// Forms cut by hand from TW-Kai and the components every face draws from them, outside the
+// generated Noto and brush forms.
 const data = {
   ...generated,
-  forms: { ...generated.forms, ...regular.forms },
-  native: { ...generated.native, ...regular.native },
-  sources: { ...generated.sources, ...regular.sources },
-  donors: { ...generated.donors, ...regular.donors },
+  forms: { ...generated.forms, ...overrides.forms },
+  native: { ...generated.native, ...overrides.native },
+  sources: { ...generated.sources, ...overrides.sources },
+  donors: { ...generated.donors, ...overrides.donors },
+  force: { ...generated.force, ...overrides.force },
+  replace: { ...generated.replace, ...overrides.replace },
 }
 const formOf = groups => {
   const parts = groups.map(group => makePart(group.map(([ops, points]) => ({ ops: commands(ops), light: points, heavy: points }))))
@@ -27,6 +31,13 @@ const formOf = groups => {
 // keeps its own glyph, and the layout reads what the export records of the description.
 const styles = Object.fromEntries(Object.entries(data.forms).map(([style, forms]) => [style,
   new Map(Object.entries(forms).map(([text, groups]) => [text, { ...formOf(groups), native: data.native?.[style]?.includes(text) ?? false }]))]))
+// The manuscript's water, enclosing 木 and net. Both descriptions share the same outlines.
+for (const [style, groups] of Object.entries(muNet)) {
+  const form = formOf(groups)
+  styles[style].set('⿰氵⿺木罒', form)
+  const [water, wood, net] = groups
+  styles[style].set('⿺沐罒', formOf([[...water, ...wood], net]))
+}
 // Numbered components draw in the palette tile only. Keeping their forms out of `styles` leaves the
 // composer's glyph records reachable for separated and cell layouts; the sequence itself draws from
 // `numbered-sans-outlines.json.gz` in the surface source.
@@ -45,6 +56,12 @@ export const isGroupedForm = (text, style = 'sans') => (forms(style)?.get(text)?
 export const isComponentForm = (text, style = 'sans') => forms(style)?.has(text) ?? false
 /** Whether `text` has a native form in `style`: one that keeps what the export knows of it. */
 export const isNativeForm = (text, style = 'sans') => forms(style)?.get(text)?.native ?? false
+/** Whether `text` holds a component whose form replaces the encoded character's own outline. */
+export const hasForcedForms = style => Boolean(data.force?.[style]?.length || data.replace?.[style]?.length)
+export const containsForcedForm = (text, style = 'sans') =>
+  (data.force?.[style] ?? []).some(form => text.includes(form))
+/** A character whose own glyph is kept, with only a component replaced. */
+export const isForcedCharacter = (text, style = 'sans') => (data.replace?.[style] ?? []).includes(text)
 export function componentRecord(text, style = 'sans') {
   const form = forms(style)?.get(text)
   // A cut form carries what the layout reads of its component: usual boxes by place and shape features.
