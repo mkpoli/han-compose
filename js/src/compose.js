@@ -1261,7 +1261,17 @@ export class Composer {
     while (Array.isArray(inner) && (inner[0] === MIRROR || inner[0] === ROTATE)) inner = inner[1]
     if (typeof inner !== 'string' || isEmpty(inner) || this.excluded(inner)) return null
     const own = this.glyph(inner)
-    return own && fitted(tightBox(own), room, 1.12)
+    if (!own) return null
+    const seat = fitted(tightBox(own), room, 1.12)
+    if (this.fontStyle === 'serif' && (inner === '口' || inner === '日')) {
+      seat[0] = room[0]
+      seat[2] = room[2]
+    }
+    if (this.fontStyle === 'regular' && inner === '口') {
+      // A flatter mouth with the upper edge held in place above the foot.
+      seat[1] += (seat[3] - seat[1]) * 0.14
+    }
+    return seat
   }
 
   /** Fit the donor's 克 before placing a cell in its opening. */
@@ -1635,7 +1645,20 @@ export class Composer {
     const digest = hexOf(JSON.stringify(record.p)), indices = cuts[digest]
     if (!indices) return null
     const glyph = partOf(record)
-    const piece = derived(glyph, indices.map(i => glyph.contours[i]))
+    let contours = indices.map(i => glyph.contours[i])
+    if (digest === SERIF_BAI_HASH) {
+      // Bring the upright of 克 inward, tapering the displacement to zero
+      // at the tip of its hooked foot. Coordinates are from the 兡 donor.
+      const [left, , tip] = glyph.box
+      const shoulder = 520
+      const narrow = points => points.map((v, i) => {
+        if (i % 2) return v
+        const distance = v <= shoulder ? v - left : (tip - v) * (shoulder - left) / (tip - shoulder)
+        return v - 0.12 * Math.max(0, distance)
+      })
+      contours = contours.map(c => ({ ...c, light: narrow(c.light), heavy: narrow(c.heavy) }))
+    }
+    const piece = derived(glyph, contours)
     // Where the designed character sets what the frame holds: 巴's box in 爬.
     const held = glyph.contours.filter((_, i) => !indices.includes(i)).map(c => pointsBox(c.light))
     if (held.length) piece.held = union(held)
@@ -1646,7 +1669,9 @@ export class Composer {
       // usable seat. In TW-Kai the body and cap are a continuous contour.
       const body = digest === SERIF_BAI_HASH
         ? union([2, 3, 4, 5].map(i => pointsBox(glyph.contours[i].light))) : piece.held
-      piece.held = shrunk(body, digest === SERIF_BAI_HASH ? 0.86 : 0.92)
+      piece.held = digest === SERIF_BAI_HASH
+        ? [body[0] - 48, body[1] + 85, body[2] - 7, body[3]]
+        : shrunk(body, 0.92)
     } else if (node === '克' && piece.held) {
       const frame = placed(piece, piece.box, piece.box, 0, 'host 尅')
       const opening = this.room(op, [frame], piece.box)
