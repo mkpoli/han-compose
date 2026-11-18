@@ -10,6 +10,18 @@ import { onlyBundled } from '../src/local.js'
 import { compose, createSource } from '../src/loader.js'
 import { character, constants, files, records, shards } from './fixtures/small-export.js'
 
+it('keeps the 柬 cuts in older Zhuque exports out of ⿰山東', () => {
+  const cuts = ['練', '煉', '棟'].map(h => ({ h, k: [1], b: [400, 0, 900, 900] }))
+  const data = { manifest: { constants, spelled: [] }, rec: () => ({ G: { v: 1 } }), hosts: () => cuts }
+  const fangsong = new Composer(data, { fontStyle: 'fangsong' })
+  const sans = new Composer(data)
+  for (const uncut of [false, true]) {
+    expect(fangsong.hostsOf('東', 'R', uncut)).toEqual([cuts[2]])
+    expect(fangsong.hostsOf('柬', 'R', uncut)).toEqual(cuts)
+    expect(sans.hostsOf('東', 'R', uncut)).toEqual(cuts)
+  }
+})
+
 it('does not use Noto-only forms for Fangsong', () => {
   for (const text of ['⿱丿乚', '⿰氵氵', '㇯馬灬']) {
     expect(isComponentForm(text, 'sans')).toBe(true)
