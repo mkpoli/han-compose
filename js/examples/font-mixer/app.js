@@ -1,3 +1,4 @@
+import { createPlayback } from './playback.js'
 import { mixPad } from './pad.js'
 import { composerPreview, FONT_STYLES, drawingSvg } from '../../src/index.js'
 
@@ -88,9 +89,7 @@ function syncRange(slider, output, percentage) {
   slider.setAttribute('aria-valuetext', label)
   output.value = label
 }
-function schedule() {
-  const sequence = get('ids').value.trim()
-  const version = ++revision
+function updateControls() {
   const weight = get('weight').valueAsNumber
   position(FONT_STYLES.map((style) => shares[style] / 100))
   for (const [style, { slider, output }] of controls) {
@@ -98,11 +97,27 @@ function schedule() {
     syncRange(slider, output, shares[style])
   }
   syncRange(get('weight'), get('weight-value'), weight)
+}
+
+function updatePlayButton() {
+  const labels = { idle: 'Play loop', preparing: 'Cancel preparation', playing: 'Pause', paused: 'Resume' }
+  get('play').textContent = labels[playback.state]
+  get('play').disabled = !preview || !get('ids').value.trim() || get('from').value === get('to').value
+}
+
+function schedule() {
+  if (playback.state !== 'idle') playback.stop()
+  updateControls()
+  updatePlayButton()
+  const sequence = get('ids').value.trim(),
+    version = ++revision
+  const weight = get('weight').valueAsNumber
   for (const button of get('examples').children)
     button.setAttribute('aria-pressed', String(button.textContent === sequence))
   get('save').disabled = true
   pending = sequence ? { sequence, version, mix: { shares: { ...shares }, weight: weight / 100 } } : null
   if (running && running.sequence !== sequence) running.controller.abort()
+  if (sequence === visibleSequence) get('status').textContent = ''
   if (sequence !== visibleSequence) {
     get('proof').replaceChildren()
     get('status').textContent = sequence ? 'Composing…' : 'Enter an ideographic description.'
@@ -140,6 +155,58 @@ async function render() {
     if (pending && !frame) frame = requestAnimationFrame(render)
   }
 }
+for (const style of FONT_STYLES) {
+  for (const id of ['from', 'to']) get(id).add(new Option(names[style], style))
+}
+get('from').value = 'serif'
+get('to').value = 'fangsong'
+let recordedSequence, recordedWeight
+const playback = createPlayback({
+  draw: async (shares, signal) => {
+    const drawn = await preview(recordedSequence, { signal, mix: { shares, weight: recordedWeight } })
+    if (drawn.missing?.length) throw new Error('Missing glyphs: ' + drawn.missing.join(' '))
+    return drawingSvg(drawn)
+  },
+  paint: (frame) => {
+    svg = frame.svg
+    get('proof').replaceChildren(
+      document.importNode(new DOMParser().parseFromString(svg, 'image/svg+xml').documentElement, true)
+    )
+    visibleSequence = recordedSequence
+    for (const style of FONT_STYLES) shares[style] = (frame.mix[style] ?? 0) * 100
+    updateControls()
+    get('save').disabled = false
+  },
+  stateChanged: (state, progress = 0) => {
+    get('status').textContent = state === 'preparing' ? 'Preparing frames… ' + progress + '%' : ''
+    updatePlayButton()
+  },
+  failed: (error) => {
+    get('status').textContent = error.message
+  }
+})
+get('play').onclick = () => {
+  if (playback.state === 'playing') return playback.pause()
+  if (playback.state === 'paused') return playback.resume()
+  if (playback.state === 'preparing') {
+    playback.stop()
+    schedule()
+    return
+  }
+  recordedSequence = get('ids').value.trim()
+  recordedWeight = get('weight').valueAsNumber / 100
+  cancelAnimationFrame(frame)
+  frame = 0
+  pending = null
+  revision++
+  running?.controller.abort()
+  get('save').disabled = true
+  playback.start(get('from').value, get('to').value, Number(get('duration').value))
+}
+for (const id of ['from', 'to', 'duration']) get(id).onchange = schedule
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) playback.pause()
+})
 get('save').onclick = () => {
   const url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }))
   const a = document.createElement('a')
