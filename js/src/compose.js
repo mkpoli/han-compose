@@ -522,12 +522,15 @@ const lowerLeftFrames = new Set(['克', '米', '走'])
 function counterBox(outer, inner, nested, style) {
   const brush = ownFormsOnly(style)
   if (outer === '米') {
-    if (inner === '罒') return brush ? [0.55, 0.42, 0.985, 0.73] : [0.57, 0.35, 0.99, 0.65]
+    if (inner === '罒') return brush ? [0.43, 0.43, 0.985, 0.68] : [0.43, 0.35, 0.99, 0.60]
     if (inner === '口' && !brush) return [0.57, 0.30, 0.99, 0.84]
+    if (inner === '口' && (style === 'fangsong' || style === 'regular')) return [0.535, 0.42, 0.985, 0.905]
+    if (inner === '日' && style === 'fangsong') return [0.58, 0.365, 0.95, 0.950]
     if (inner === '日' && brush) return [0.515, 0.43, 0.985, 0.975]
   }
   if (outer === '走') {
-    if (inner === '呂') return [style === 'serif' || style === 'fangsong' ? 0.55 : 0.49, 0.20, 0.985, 0.94]
+    if (inner === '呂' && style === 'serif') return [0.44, 0.17, 0.985, 0.95]
+    if (inner === '呂') return [style === 'fangsong' ? 0.55 : 0.49, 0.20, 0.985, 0.94]
     if (inner === '口' && nested && brush) return [0.55, 0.31, 0.985, 0.79]
   }
   return null
@@ -1493,6 +1496,21 @@ export class Composer {
     }
     if (!glyph) return null
     const frame = enclosure.frame
+    if (inner === '罒' || (inner === '呂' && this.fontStyle === 'serif')) {
+      // Pull the upright inward. Let the displacement fall away along
+      // the foot so its final stroke still reaches under the right edge.
+      const [left, , right] = frame.source
+      const width = right - left
+      const narrow = points => points.map((v, i) => {
+        if (i % 2) return v
+        const x = (v - left) / width
+        const share = Math.max(0, Math.min(x / 0.56, (1 - x) / 0.44))
+        return v - 0.15 * width * share
+      })
+      frame.part = derived(frame.part, frame.part.contours.map(c => ({
+        ...c, light: narrow(c.light), heavy: narrow(c.heavy),
+      })), frame.source)
+    }
     const target = mapped(box, [0, 0, 1, 1], frame.target)
     // The wider bottom mouth of 呂 faces the crossbar when rotated.
     if (inner === '呂' && node[2] !== inner) target[0] += 0.045 * (frame.target[2] - frame.target[0])
@@ -1501,10 +1519,13 @@ export class Composer {
       counter.flips ??= []
       counter.flips.push({ x: true, y: operand[0] === ROTATE, about: centre(target) })
     }
-    if (this.fontStyle === 'pen-writing' && outer === '米') {
+    if (this.fontStyle === 'pen-writing' && (outer === '米' || inner === '口')) {
       // Kureedo's synthetic heavy master grows inward. Moving in the opposite
-      // direction adds ink to the frame and the middle strokes of 日 and 罒.
+      // direction adds ink to the uprights and the strokes between them.
       counter.weight = [-0.32, -0.32]
+      counter.fixed = true
+    } else if (this.fontStyle === 'fangsong' && inner === '日') {
+      counter.weight = [-0.18, -0.18]
       counter.fixed = true
     }
     return [frame, counter]
