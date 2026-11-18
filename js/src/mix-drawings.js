@@ -1,6 +1,12 @@
 // @ts-check
 import { contours } from 'd3-contour'
-import { groupRegions, matchRegions, prepareCorrespondence, prepareWeight } from './mix-contours.js'
+import {
+  alignRings,
+  groupRegions,
+  matchRegions,
+  prepareCorrespondence,
+  prepareWeight
+} from './mix-contours.js'
 import { inkPolygons, outlinePath, limitDisplacement } from './mix-outline.js'
 import { STROKE } from './slot-placeholder.js'
 import { ASCENT, fill, pathRings, pointsBox, union } from './geometry.js'
@@ -41,8 +47,60 @@ function signedDistance(mask, side) {
  * @type {Map<string, ReturnType<typeof prepareInk>>} */
 const outlines = new Map()
 
-/** @param {string[]} paths */
-function prepareInk(paths) {
+/** @param {string} d */
+const pathSubpaths = (d) => d.match(/M/g)?.length ?? 0
+
+/** Sets of strokes that can be blended on their own: in every face the set's contours
+ * belong to no stroke outside it. Faces that draw each stroke as its own contour give
+ * one unit per stroke; a face that fuses strokes into one contour joins them.
+ * @param {([number, number[]][] | undefined)[]} labels each face's strokes and their contours
+ * @param {number[]} counts each face's contour count
+ * @returns {number[][][] | null} per unit, each face's contour indices */
+function strokeUnits(labels, counts) {
+  if (labels.some((strokes) => !strokes?.length)) return null
+  const faces = /** @type {[number, number[]][][]} */ (labels)
+  const ids = faces[0].map(([id]) => id).sort((a, b) => a - b)
+  if (faces.some((strokes) => strokes.length !== ids.length || strokes.some(([id]) => !ids.includes(id))))
+    return null
+  /** @type {Map<number, number>} */
+  const parent = new Map(ids.map((id) => [id, id]))
+  const root = (/** @type {number} */ id) => {
+    while (parent.get(id) !== id) id = /** @type {number} */ (parent.get(id))
+    return id
+  }
+  for (const [f, strokes] of faces.entries()) {
+    /** @type {Map<number, number>} */
+    const owner = new Map()
+    const covered = new Set(strokes.flatMap(([, contours]) => contours))
+    // Contours no stroke claims would be left out of every unit.
+    if (covered.size !== counts[f] || [...covered].some((c) => c < 0 || c >= counts[f])) return null
+    for (const [id, contours] of strokes)
+      for (const contour of contours) {
+        const other = owner.get(contour)
+        if (other === undefined) owner.set(contour, id)
+        else parent.set(root(id), root(other))
+      }
+  }
+  /** @type {Map<number, number[][]>} */
+  const units = new Map()
+  for (const id of ids)
+    if (!units.has(root(id)))
+      units.set(
+        root(id),
+        faces.map(() => [])
+      )
+  faces.forEach((strokes, f) => {
+    for (const [id, contours] of strokes) {
+      const list = /** @type {number[][]} */ (units.get(root(id)))[f]
+      for (const contour of contours) if (!list.includes(contour)) list.push(contour)
+    }
+  })
+  const all = [...units.values()]
+  return all.length > 1 && all.every((unit) => unit.every((contours) => contours.length)) ? all : null
+}
+
+/** @param {string[]} paths @param {([number, number[]][] | undefined)[]} [strokes] */
+function prepareInk(paths, strokes) {
   /** @type {number[][][]} */
   const shapes = paths.map((path) => pathRings(path, 12))
   const boxes = shapes.map((r) => (r.length ? union(r.map(pointsBox)) : null))
@@ -65,24 +123,49 @@ function prepareInk(paths) {
       )
     )
   )
-  const polygons = registered.map(inkPolygons)
-  const matched = matchRegions(polygons, (p) => p[0])
-  // Faces that split the ink into different numbers of islands still match the
-  // islands they share; only the groups that differ fall back to distance fields.
-  const grouped = matched ? [] : groupRegions(polygons, (p) => p[0], 0.06 * side)
-  const regions = matched?.[0].length
-    ? matched[0].map((_, i) => matched.map((p) => [p[i]]))
-    : grouped.length
-      ? grouped
-      : [polygons]
-  const blenders = regions.map(
-    (region) =>
-      prepareCorrespondence(region) ??
+  /** Faces that split the ink into different numbers of islands still match the
+   * islands they share; only the groups that differ fall back to distance fields.
+   * @param {number[][][][][]} polygons */
+  const regionsOf = (polygons) => {
+    const matched = matchRegions(polygons, (p) => p[0])
+    if (matched?.[0].length) return matched[0].map((_, i) => matched.map((p) => [p[i]]))
+    const grouped = matched ? [] : groupRegions(polygons, (p) => p[0], 0.06 * side)
+    return grouped.length ? grouped : [polygons]
+  }
+  // Blend stroke by stroke where the faces label their strokes alike. A stroke is a
+  // simple shape whose corners match reliably; the union of several is not.
+  const units = strokeUnits(
+    present.map((k) => strokes?.[k]),
+    present.map((k) => (pathSubpaths(paths[k]) === shapes[k].length ? shapes[k].length : -1))
+  )
+  // Faces that number their strokes differently would blend one stroke into another.
+  const middle = (/** @type {number[][]} */ rings) => {
+    const box = union(rings.map(pointsBox))
+    return [(box[0] + box[2]) / 2, (box[1] + box[3]) / 2]
+  }
+  const alike =
+    units?.every((unit) => {
+      const centres = unit.map((contours, f) => middle(contours.map((c) => registered[f][c])))
+      return centres.every((c) => Math.hypot(c[0] - centres[0][0], c[1] - centres[0][1]) < 0.3 * side)
+    }) ?? false
+  const regions =
+    units && alike
+      ? units.flatMap((unit) =>
+          regionsOf(unit.map((contours, f) => inkPolygons(contours.map((c) => registered[f][c]))))
+        )
+      : regionsOf(registered.map(inkPolygons))
+  // Regions without a contour correspondence share one distance field, which keeps
+  // their strokes registered to each other.
+  const matched = regions.map((region) => prepareCorrespondence(region))
+  const blenders = matched.flatMap((blend) => blend ?? [])
+  const rest = regions.filter((_, i) => !matched[i])
+  if (rest.length)
+    blenders.push(
       prepareFields(
-        region.map((polys) => polys.flat().map((r) => r.flat())),
+        registered.map((_, f) => rest.flatMap((region) => region[f].flat().map((r) => r.flat()))),
         side
       )
-  )
+    )
   return (/** @type {number[]} */ shares, /** @type {number} */ weight) => {
     const total = present.reduce((n, i) => n + shares[i], 0)
     const proportion = present.map((i) => shares[i] / total)
@@ -221,14 +304,15 @@ function prepareFields(shapes, side) {
   }
 }
 
-/** @param {string[]} paths @param {number[]} shares @param {number} weight */
-function drawInk(paths, shares, weight) {
+/** @param {string[]} paths @param {number[]} shares @param {number} weight
+ * @param {([number, number[]][] | undefined)[]} [strokes] */
+function drawInk(paths, shares, weight, strokes) {
   const same = paths.every((path) => path === paths[0])
   if (same && weight === 1) return paths[0]
-  const key = JSON.stringify(paths)
+  const key = JSON.stringify(strokes?.some(Boolean) ? [paths, strokes] : paths)
   let render = outlines.get(key)
   if (render) outlines.delete(key)
-  else render = prepareInk(paths)
+  else render = prepareInk(paths, strokes)
   outlines.set(key, render)
   if (outlines.size > 24) outlines.delete(/** @type {string} */ (outlines.keys().next().value))
   const drawing = render(shares, weight)
@@ -253,22 +337,71 @@ function* boundaries(shares) {
     if (tail >= 0.18) break
     const separation = 1 - shares[order[k]] / shares[order[k - 1]]
     const radius = (350 * tail) / ((1 - tail / 0.18) * separation)
-    if (!(radius < 1000)) continue
     const indices = order.slice(0, k).sort((a, b) => a - b)
-    yield { indices, proportion: indices.map((i) => shares[i] / (1 - tail)), radius }
+    const settled = 1 - (1 - tail / 0.18) * separation
+    yield { indices, proportion: indices.map((i) => shares[i] / (1 - tail)), radius, settled }
   }
 }
 
-/** @param {string[]} paths @param {number[]} shares @param {number} weight */
-function mixInk(paths, shares, weight) {
-  let d = drawInk(paths, shares, weight)
-  for (const { indices, proportion, radius } of boundaries(shares)) {
+/** The outline part-way from the mix its larger shares give alone to the full mix.
+ * A face with a small share can change which strokes are matched together, so the two
+ * outlines differ by more than that share; moving between them point by point keeps
+ * the edge whole where clipping one to the other leaves scraps. Islands the two
+ * outlines do not share one-to-one are clipped to the band as before.
+ * @param {string} edge @param {string} full @param {number} amount 0 gives `edge`, 1 gives `full`
+ * @param {number} radius the band for islands that cannot be moved */
+function settleOutline(edge, full, amount, radius) {
+  if (amount < 1e-4) return edge
+  // A band this wide bounds nothing.
+  const bound = (/** @type {string} */ d) => (radius < 1000 ? limitDisplacement(d, edge, radius) : d)
+  if (!edge || !full) return bound(full)
+  const scale = 256 / 1000
+  const polygons = [edge, full].map((d) =>
+    inkPolygons(
+      pathRings(d, 12).map((/** @type {number[]} */ r) => r.map((v, i) => (i % 2 ? ASCENT - v : v) * scale))
+    )
+  )
+  const place = (/** @type {number} */ v) => Math.round((v / scale) * 100) / 100
+  const path = (/** @type {number[][]} */ ring) =>
+    ring
+      .slice()
+      .reverse()
+      .map(([x, y], n) => (n ? 'L' : 'M') + place(x) + ' ' + place(y))
+      .join('') + 'Z'
+  let moved = '',
+    rest = ''
+  for (const [from, to] of groupRegions(polygons, (p) => p[0], 0.06 * 256)) {
+    const counters =
+      from.length === 1 && to.length === 1 && from[0].length === to[0].length
+        ? matchRegions([from[0].slice(1), to[0].slice(1)], (r) => r)
+        : null
+    const rings = counters && [from, to].map((island, f) => [island[0][0], ...counters[f]])
+    const aligned = rings?.[0].map((ring, j) => alignRings([ring, rings[1][j]]))
+    if (aligned?.every(Boolean))
+      for (const pair of /** @type {number[][][][]} */ (aligned))
+        moved += path(
+          pair[0].map((p, n) => [
+            p[0] + (pair[1][n][0] - p[0]) * amount,
+            p[1] + (pair[1][n][1] - p[1]) * amount
+          ])
+        )
+    else for (const island of to) for (const ring of island) rest += path(ring.slice(0, -1))
+  }
+  return moved + (rest && bound(rest))
+}
+
+/** @param {string[]} paths @param {number[]} shares @param {number} weight
+ * @param {([number, number[]][] | undefined)[]} [strokes] */
+function mixInk(paths, shares, weight, strokes) {
+  let d = drawInk(paths, shares, weight, strokes)
+  for (const { indices, proportion, radius, settled } of boundaries(shares)) {
     const edge = drawInk(
       indices.map((i) => paths[i]),
       proportion,
-      weight
+      weight,
+      strokes && indices.map((i) => strokes[i])
     )
-    d = limitDisplacement(d, edge, radius)
+    d = settleOutline(edge, d, settled, radius)
   }
   return d
 }
@@ -302,6 +435,8 @@ function groupedDrawing(drawing, leaves) {
           cut,
           box,
           d: selected.map((p) => p.d).join(''),
+          // Contour indices stay valid only while the piece stands alone.
+          strokes: selected.length === 1 ? selected[0].strokes : undefined,
           origin: [...new Set(selected.map((p) => p.origin))].join(' / ')
         }
       ]
@@ -345,7 +480,8 @@ export function mixDrawings(drawings, shares, weight, sketches = []) {
           d: mixInk(
             pieces.map((piece) => piece.d),
             shares,
-            weight
+            weight,
+            pieces.map((piece) => piece.strokes)
           )
         }
       })
@@ -364,7 +500,7 @@ export function mixDrawings(drawings, shares, weight, sketches = []) {
   let d = ink(false),
     cut = ink(true)
   if (!matched)
-    for (const { indices, proportion, radius } of boundaries(shares)) {
+    for (const { indices, proportion, radius, settled } of boundaries(shares)) {
       // Losing a donor may restore operand-level matching. Use that actual drawing
       // as the limit, not a whole-glyph approximation of the remaining faces.
       const edge = mixDrawings(
@@ -372,8 +508,8 @@ export function mixDrawings(drawings, shares, weight, sketches = []) {
         proportion,
         weight
       )
-      if (d || edge.d) d = limitDisplacement(d, edge.d, radius)
-      if (cut || edge.cut) cut = limitDisplacement(cut, edge.cut ?? '', radius)
+      if (d || edge.d) d = settleOutline(edge.d, d, settled, radius)
+      if (cut || edge.cut) cut = settleOutline(edge.cut ?? '', cut, settled, radius)
     }
   return {
     d,
