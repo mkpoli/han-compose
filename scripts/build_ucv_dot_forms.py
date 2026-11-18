@@ -43,8 +43,8 @@ def forms(face, char, style):
         # 尖 has short flanking strokes on either side of an upright, as in 半.
         if char == "半":
             donor = face.contours("尖")
-            outward = (fit([donor[1]], (201, 483, 373, 677))
-                       + fit([donor[3]], (541, 493, 747, 679)))
+            outward = (fit([donor[1]], (213, 483, 385, 677))
+                       + fit([donor[3]], (553, 493, 759, 679)))
         else:
             outward = fit(face.contours("小")[1:3], (194, 545, 782, 742))
         if not inward:
