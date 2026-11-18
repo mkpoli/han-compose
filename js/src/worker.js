@@ -14,7 +14,7 @@ import { exportSource, sourceFor, traitKey, traitsOf } from './source.js'
 // A source for each kind of sequence, all over one source of the export they draw from: what a
 // warming or an earlier drawing read of the export is there for the next, whatever its traits.
 const sources = new Map(), exported = new Map()
-self.onmessage = async ({ data: { id, sequence, base, separate, fontStyle, warm, preferExport, loaders } }) => {
+self.onmessage = async ({ data: { id, sequence, base, separate, fontStyle, warm, preferExport, loaders, carSlots } }) => {
   const traits = !warm ? traitsOf(sequence) : null
   // Whether the sequence draws from bundled outlines is part of the key: `onlyBundled` reads the
   // sequence, which the traits alone do not cover.
@@ -43,8 +43,8 @@ self.onmessage = async ({ data: { id, sequence, base, separate, fontStyle, warm,
   if (warm) { self.postMessage({ id, warm: true }); return }
   /** The sketch and then the drawing of the sequence, from one source. */
   const draw = async from => {
-    self.postMessage({ id, sketch: await sketch(from, sequence, { fontStyle, loaders }) })
-    const drawn = await compose(from, sequence, { separate, fontStyle, loaders })
+    self.postMessage({ id, sketch: await sketch(from, sequence, { fontStyle, loaders, carSlots }) })
+    const drawn = await compose(from, sequence, { separate, fontStyle, loaders, carSlots })
     // The leaves in reading order and the leaf of each slot, so a view can place parts beside the
     // drawing without a tree of its own.
     let leaves = null
