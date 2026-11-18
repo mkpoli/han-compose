@@ -1496,7 +1496,7 @@ export class Composer {
     }
     if (!glyph) return null
     const frame = enclosure.frame
-    if (inner === '罒' || (inner === '呂' && this.fontStyle === 'serif')) {
+    if (inner === '呂' && this.fontStyle === 'serif') {
       // Pull the upright inward. Let the displacement fall away along
       // the foot so its final stroke still reaches under the right edge.
       const [left, , right] = frame.source
@@ -1512,6 +1512,28 @@ export class Composer {
       })), frame.source)
     }
     const target = mapped(box, [0, 0, 1, 1], frame.target)
+    if (inner === '罒') {
+      // Slide the net past the crossbar. When space runs short, scale 米
+      // uniformly about the net's midline and preserve the net's height.
+      const flipped = node[2] !== inner
+      const clearance = {
+        sans: flipped ? 0.105 : 0.075,
+        serif: 0.115,
+        fangsong: 0.095,
+        regular: 0,
+        'pen-writing': flipped ? 0.065 : 0.025,
+      }
+      const shift = (clearance[this.fontStyle] ?? 0.115) * (frame.target[2] - frame.target[0])
+      const left = frame.target[0], right = Math.max(frame.target[2], target[2] + shift)
+      const scale = Math.min(1, (region[2] - region[0]) / (right - left))
+      const start = Math.max(region[0], Math.min(left, region[2] - (right - left) * scale))
+      const mid = (target[1] + target[3]) / 2
+      for (const i of [0, 2]) {
+        frame.target[i] = start + (frame.target[i] - left) * scale
+        target[i] = start + (target[i] + shift - left) * scale
+      }
+      for (const i of [1, 3]) frame.target[i] = mid + (frame.target[i] - mid) * scale
+    }
     // The wider bottom mouth of 呂 faces the crossbar when rotated.
     if (inner === '呂' && node[2] !== inner) target[0] += 0.045 * (frame.target[2] - frame.target[0])
     const counter = placed(glyph, tightBox(glyph), target, this.ink(donor), donor === inner ? `glyph ${inner}` : `host ${donor}`)
