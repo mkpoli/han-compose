@@ -229,9 +229,11 @@ it('keeps matching the islands two faces share when one face joins two of them',
   expect(extra.flatMap((group) => group[0]).length).toBe(5)
 })
 
-it('leaves a drawing alone when a wide band cannot resolve its small boundary', () => {
-  const small = 'M100 100L108 100L108 108L100 108Z'
+it('keeps a drawing whole inside a wide band around a small or thin boundary', () => {
   const drawing = 'M90 90L130 90L130 130L90 130Z'
-  expect(limitDisplacement(drawing, small, 700)).toBe(drawing)
-  expect(limitDisplacement(drawing, small, 5)).not.toBe('')
+  const ink = (d) => count(pathMask(d, 256))
+  for (const boundary of ['M100 100L108 100L108 108L100 108Z', 'M100 100L400 100L400 104L100 104Z'])
+    for (const radius of [150, 300, 700]) expect(ink(limitDisplacement(drawing, boundary, radius))).toBe(ink(drawing))
+  // A narrow band still clips ink that lies beyond it.
+  expect(ink(limitDisplacement(drawing, 'M100 100L108 100L108 108L100 108Z', 5))).toBeLessThan(ink(drawing))
 })
