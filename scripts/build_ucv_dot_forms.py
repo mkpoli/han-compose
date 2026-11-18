@@ -40,15 +40,11 @@ def forms(face, char, style):
     n = max(1, len(points) // 4)
     inward = sum(x for x, _ in points[-n:]) < sum(x for x, _ in points[:n])
     if style == "fangsong":
-        # 谷 has a spreading pair above 口. Leave a gap around 半’s upright.
-        # 尖 already has the three-stroke 小 head required above 肖’s body.
+        # Use the spreading feet of 兵 for 半 and the side strokes of 小 for 肖.
         if char == "半":
-            donor = face.contours("谷")
-            outward = (fit([donor[3]], (179, 478, 386, 689))
-                       + fit([donor[4]], (558, 493, 778, 678)))
+            outward = fit(face.contours("兵")[1:3], (172, 493, 772, 706))
         else:
-            donor = face.contours("尖")
-            outward = fit([donor[1], donor[3]], (182, 553, 783, 752))
+            outward = fit(face.contours("小")[1:3], (194, 545, 782, 742))
         if not inward:
             raise ValueError(f"Unexpected native Zhuque {char} dot direction")
         return [encode(left + right) + body, encode(outward) + body]
@@ -69,9 +65,8 @@ def main():
             face = Face(font)
             dots[style] = {char: forms(face, char, style) for char in "半肖"}
             if style == "fangsong":
-                # The two strokes above 兮 have level starts and a full sweeping foot.
-                cap = face.contours("兮")[1:3]
-                eight = encode(fit(cap, (65, -38, 932, 715)))
+                donor = face.contours("叭")
+                eight = encode(fit([donor[3], donor[0]], (83, -25, 916, 718)))
     result = {"dots": dots, "fangsongEight": eight}
     args.output.write_text(json.dumps(result, ensure_ascii=False, separators=(",", ":")) + "\n")
 
