@@ -103,6 +103,13 @@ function prepareInk(paths) {
     const proportion = present.map((i) => shares[i] / total)
     const b = mixBox(bounds, proportion)
     const box = [b[0], ASCENT - b[3], b[2] - b[0], b[3] - b[1]]
+    // An absent donor contributes no ink. Scale the area by the occupied
+    // share before tracing so a tiny new operand (or subtraction) grows in.
+    const size = Math.sqrt(Math.min(1, total))
+    box[0] += (box[2] * (1 - size)) / 2
+    box[1] += (box[3] * (1 - size)) / 2
+    box[2] *= size
+    box[3] *= size
     const rings = blenders.flatMap((blend) => blend(proportion, weight))
     return rings.map((r) => outlinePath(r, box, box[2] / spanX, box[3] / spanY, pad)).join('')
   }
@@ -243,9 +250,8 @@ function drawInk(paths, shares, weight) {
 
 /** Bound how much a small contribution can move the visible edge, even if adding
  * its donor changes the topology or which master establishes correspondence.
- * @param {string[]} paths @param {number[]} shares @param {number} weight */
-function mixInk(paths, shares, weight) {
-  let drawing = drawInk(paths, shares, weight)
+ * @param {number[]} shares */
+function* boundaries(shares) {
   const order = shares.map((_, i) => i).sort((a, b) => shares[b] - shares[a])
   let tail = 0
   for (let k = order.length - 1; k > 0; k--) {
@@ -255,14 +261,22 @@ function mixInk(paths, shares, weight) {
     const radius = (500 * tail) / ((1 - tail / 0.05) * separation)
     if (!(radius < 1000)) continue
     const indices = order.slice(0, k).sort((a, b) => a - b)
-    const boundary = drawInk(
+    yield { indices, proportion: indices.map((i) => shares[i] / (1 - tail)), radius }
+  }
+}
+
+/** @param {string[]} paths @param {number[]} shares @param {number} weight */
+function mixInk(paths, shares, weight) {
+  let d = drawInk(paths, shares, weight)
+  for (const { indices, proportion, radius } of boundaries(shares)) {
+    const edge = drawInk(
       indices.map((i) => paths[i]),
-      indices.map((i) => shares[i] / (1 - tail)),
+      proportion,
       weight
     )
-    drawing = limitDisplacement(drawing, boundary, radius)
+    d = limitDisplacement(d, edge, radius)
   }
-  return drawing
+  return d
 }
 
 /** @param {number[][]} boxes @param {number[]} shares */
@@ -304,7 +318,8 @@ function groupedDrawing(drawing, leaves) {
 
 /** Mix the composer's y-down outlines before the preview restores any text emoji.
  * @param {Drawing[]} drawings @param {number[]} shares @param {number} weight
- * @param {(import('./index.js').SketchLeaf[] | null)[]} [sketches] */
+ * @param {(import('./index.js').SketchLeaf[] | null)[]} [sketches]
+ * @returns {Drawing} */
 export function mixDrawings(drawings, shares, weight, sketches = []) {
   if (drawings.length === 1 && weight === 1) return drawings[0]
   drawings = drawings.map((drawing, i) => groupedDrawing(drawing, sketches[i]))
@@ -347,14 +362,28 @@ export function mixDrawings(drawings, shares, weight, sketches = []) {
           .filter((p) => !!p.cut === cut)
           .map((p) => p.d)
           .join('')
-      : mixInk(
+      : drawInk(
           drawings.map((d) => (cut ? d.cut : d.d) ?? ''),
           shares,
           weight
         )
+  let d = ink(false),
+    cut = ink(true)
+  if (!matched)
+    for (const { indices, proportion, radius } of boundaries(shares)) {
+      // Losing a donor may restore operand-level matching. Use that actual drawing
+      // as the limit, not a whole-glyph approximation of the remaining faces.
+      const edge = mixDrawings(
+        indices.map((i) => drawings[i]),
+        proportion,
+        weight
+      )
+      if (d || edge.d) d = limitDisplacement(d, edge.d, radius)
+      if (cut || edge.cut) cut = limitDisplacement(cut, edge.cut ?? '', radius)
+    }
   return {
-    d: ink(false),
-    cut: ink(true),
+    d,
+    cut,
     parts: mixed,
     origins: [...new Set(drawings.flatMap((d) => d.origins ?? []))],
     slots: first.slots?.map((slot, i) => ({
