@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'bun:test'
+import chui from './fixtures/kai-chui.json'
 import splitGrass from './fixtures/kai-grass.json'
 import data from '../src/component-forms.json'
 import { componentDrawing, componentParts, componentRecord, containsComponentForm, containsForcedForm, isComponentForm, isGroupedForm, isForcedCharacter, isNativeForm } from '../src/component-forms.js'
@@ -273,5 +274,17 @@ it('groups the enclosing 木 under the leaves of each manuscript spelling', () =
     expect(short.match(numbers).every((v, i) => Math.abs(Number(v) - coords[i]) < 0.101)).toBe(true)
     expect(expanded[1].target[2]).toBeGreaterThan(expanded[2].target[2])
     expect(isComponentForm('⿲氵木罒', style)).toBe(false)
+  }
+})
+
+it('selects the upper grass in 菙 while retaining both crosses in 垂 in composed and cell layouts', async () => {
+  const input = { ...files, ...shards('g', [['菙', { G: chui, s: '⿱艹垂' }]]) }
+  const source = createSource(async name => input[name] === undefined ? null : new Uint8Array(Buffer.from(input[name])).buffer)
+  for (const layout of ['composed', 'cells']) {
+    const drawing = await compose(source, '菙', { fontStyle: 'regular', layout })
+    const grass = drawing.parts.find(p => p.origin === 'TW-Kai: 艹')
+    expect(grass.box[3]).toBeLessThan(450)
+    expect(drawing.parts.find(p => p.origin === 'glyph 菙 kept').d.match(/M/g)).toHaveLength(chui.p.length - 2)
+    if (layout === 'cells') expect(drawing.parts.every(p => p.leaf === 0)).toBe(true)
   }
 })

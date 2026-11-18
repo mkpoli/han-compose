@@ -669,29 +669,46 @@ export class Composer {
 
   /** A forced component replaced in the native glyph: the glyph without the component's outlines,
    *  and the form placed where they were. The rest of the glyph keeps its own design and weight. */
-  replaceGlyph(glyph, char, region, tree) {
-    const record = this.glyphRecord(char)
-    const native = { ...this.place(glyph, region, this.ink(char), `glyph ${char}`), fixed: true }
-    const groups = grassPairs(glyph, record.ls?.['艹'])
+  replaceGlyph(native, char, tree = null) {
+    const glyph = native.part
+    const groups = grassPairs(glyph, this.glyphRecord(char).ls?.['艹'])
     if (!groups.length) return [native]
-    const count = this.grassCount(tree ?? char)
-    if (!count) return [native]
-    const matches = groups.slice(0, count)
+    const matches = []
+    const visit = (node, box, seen) => {
+      if (node === '艹' || isForcedCharacter(node, this.fontStyle)) {
+        // Compare only outlines in this operand's region. In 菙 the two crosses in
+        // 垂 resemble 艹 more closely than the actual grass head does.
+        const match = groups.find(group => {
+          const x = (group.box[0] + group.box[2]) / 2, y = (group.box[1] + group.box[3]) / 2
+          return !matches.includes(group) && x >= box[0] && x <= box[2] && y >= box[1] && y <= box[3]
+        })
+        if (match) matches.push(match)
+        return
+      }
+      if (Array.isArray(node)) {
+        const axis = this.AXIS[node[0]], count = node.length - 1
+        for (let i = 0; i < count; i++) {
+          const child = box.slice()
+          if (axis !== undefined) {
+            const span = (box[axis + 2] - box[axis]) / count
+            const step = axis === 1 ? count - i - 1 : i
+            child[axis] = box[axis] + span * step
+            child[axis + 2] = child[axis] + span
+          }
+          visit(node[i + 1], child, seen)
+        }
+      } else if (typeof node === 'string' && !seen.has(node) && this.forced(node)) {
+        const sequence = this.identity(node)?.s
+        if (sequence) visit(this.parse(sequence), box, new Set([...seen, node]))
+      }
+    }
+    visit(isForcedCharacter(char, this.fontStyle) ? char : tree ?? char, tightBox(glyph), new Set())
+    if (!matches.length) return [native]
     const cut = new Set(matches.flatMap(group => group.indices))
     const keep = glyph.contours.filter((_, i) => !cut.has(i))
     const forms = matches.map(group => connectedGrass(group.box, native.source, native.target))
     if (!keep.length) return forms
-    const kept = derived(glyph, keep, glyph.box)
-    return [{ ...native, part: kept, origin: `glyph ${char} kept` }, ...forms]
-  }
-
-  grassCount(node, seen = new Set()) {
-    if (Array.isArray(node)) return node.slice(1).reduce((n, child) => n + this.grassCount(child, seen), 0)
-    if (node === '艹' || isForcedCharacter(node, this.fontStyle)) return 1
-    if (typeof node !== 'string' || seen.has(node) || !this.forced(node)) return 0
-    const sequence = this.identity(node)?.s
-    if (!sequence) return 0
-    try { return this.grassCount(this.parse(sequence), new Set([...seen, node])) } catch { return 0 }
+    return [{ ...native, part: derived(glyph, keep, glyph.box), fixed: true, origin: `glyph ${char} kept` }, ...forms]
   }
   glyph(ch) { const g = this.glyphRecord(ch); return g ? partOf(g) : null }
   /** The glyph a whole character is drawn with: a body the font drew as another shape is replaced
@@ -988,6 +1005,14 @@ export class Composer {
         return b
       })
     }
+    const emitCell = (part, key) => {
+      const parts = this.forced(key) ? this.replaceGlyph(part, key) : [part]
+      if (leafIndices) {
+        for (const drawn of parts) drawn.leaf = leaf
+        leaf++
+      }
+      out.push(...parts)
+    }
     const walk = (node, box, depth) => {
       if (isEmpty(node)) {
         const part = this.placeholder(node, inset(target(box)))
@@ -1012,8 +1037,7 @@ export class Composer {
         // narrow cell still keeps the glyph's proportions instead of turning it into a sliver.
         const cell = inset(target(box)), inkBox = tightBox(glyph)
         const part = placed(glyph, inkBox, fitted(inkBox, cell, Math.max(this.C.STRETCH, CELL_STRETCH)), this.ink(node), `cells ${node}`)
-        if (leafIndices) part.leaf = leaf++
-        out.push(part)
+        emitCell(part, node)
         return
       }
       const op = node[0], kids = node.slice(1)
@@ -1048,8 +1072,7 @@ export class Composer {
           }
           if (room) {
             if (wood) outer.origin = 'cells 木'
-            if (leafIndices) outer.leaf = leaf++
-            out.push(outer)
+            emitCell(outer, kids[0])
             walk(kids[1], [(room[0] - f[0]) / width, 1 - (room[3] - f[1]) / height,
               (room[2] - f[0]) / width, 1 - (room[1] - f[1]) / height], depth + 1)
             return
@@ -1368,7 +1391,7 @@ export class Composer {
       let squeezed = glyph !== null && stretchOf(glyph.box, region) > C.STRETCH
       if (tree && (this.stroked(tree) || this.atomic(encoded))) squeezed = false
       if (glyph && this.forced(encoded)) {
-        return this.replaceGlyph(glyph, encoded, region, isForcedCharacter(encoded, this.fontStyle) ? encoded : tree)
+        return this.replaceGlyph(this.place(glyph, region, this.ink(encoded), `glyph ${encoded}`), encoded, tree)
       }
       if (glyph && !(squeezed && tree)) {
         if (sideBySide && encoded === '\u{F2A9}' && this.fontStyle === 'sans') {
