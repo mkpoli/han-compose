@@ -6,7 +6,6 @@
 // `{ id, warm, base }` message loads the three and answers `{ id, warm }`, so the first drawing starts
 // with them. `loaders` says how to read files a page cannot fetch (`bundledFetch` in `index.js`). The page
 // ends a worker whose answer it no longer needs (`client.js`).
-import { mixDrawings } from './font-mix.js'
 import { EMPTY, leafTexts, parseTree } from './compose.js'
 import { compose, sketch } from './loader.js'
 import { onlyBundled } from './local.js'
@@ -51,7 +50,12 @@ self.onmessage = async ({ data }) => {
       lastFace.set(style,result)
       return result
     }))
-    const drawn = mixDrawings(results.map(r => r.drawing), shares, data.weight ?? 1, results.map(r => r.leaves))
+    const weight = data.weight ?? 1
+    let drawn = results[0].drawing
+    if (results.length > 1 || weight !== 1) {
+      const { mixDrawings } = await import('./mix-drawings.js')
+      drawn = mixDrawings(results.map(r => r.drawing), shares, weight, results.map(r => r.leaves))
+    }
     self.postMessage({ id, drawn })
   } catch (error) {
     self.postMessage({id, error:String(error?.message ?? error), ...(data.warm ? {warm:true} : error?.unavailable ? {unavailable:true} : {})})
