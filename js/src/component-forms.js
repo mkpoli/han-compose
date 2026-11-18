@@ -1,11 +1,21 @@
 // @ts-nocheck
 // Shape-specific font-derived forms. Keep the caller's IDS; encoded counterparts can vary by region.
-import data from './component-forms.json' with { type: 'json' }
+import generated from './component-forms.json' with { type: 'json' }
+import muNet from './mu-net-forms.json' with { type: 'json' }
+import regular from './component-forms-regular.json' with { type: 'json' }
 import numbered from '../data/numbered-forms.json' with { type: 'json' }
 import { joinedComponentForm } from './constructs.js'
 import constants from './constants.json' with { type: 'json' }
 import { WINDING, commands, derived, makePart, mapped, partInk, placed, svgPath, union, windingOf, wound } from './geometry.js'
 
+// Regular Kai's forms are cut by hand from TW-Kai, outside the generated Noto and brush forms.
+const data = {
+  ...generated,
+  forms: { ...generated.forms, ...regular.forms },
+  native: { ...generated.native, ...regular.native },
+  sources: { ...generated.sources, ...regular.sources },
+  donors: { ...generated.donors, ...regular.donors },
+}
 const formOf = groups => {
   const parts = groups.map(group => makePart(group.map(([ops, points]) => ({ ops: commands(ops), light: points, heavy: points }))))
   // A form's groups were cut from one glyph: its outermost contour winds them all alike, and a
@@ -18,6 +28,13 @@ const formOf = groups => {
 // keeps its own glyph, and the layout reads what the export records of the description.
 const styles = Object.fromEntries(Object.entries(data.forms).map(([style, forms]) => [style,
   new Map(Object.entries(forms).map(([text, groups]) => [text, { ...formOf(groups), native: data.native?.[style]?.includes(text) ?? false }]))]))
+// The manuscript's water, enclosing 木 and net. Both descriptions share the same outlines.
+for (const [style, groups] of Object.entries(muNet)) {
+  const form = formOf(groups)
+  styles[style].set('⿰氵⿺木罒', form)
+  const [water, wood, net] = groups
+  styles[style].set('⿺沐罒', formOf([[...water, ...wood], net]))
+}
 // Numbered components draw in the palette tile only. Keeping their forms out of `styles` leaves the
 // composer's glyph records reachable for separated and cell layouts; the sequence itself draws from
 // `numbered-sans-outlines.json.gz` in the surface source.
@@ -29,7 +46,7 @@ const positions = Object.fromEntries(Object.entries(data.positions ?? {}).map(([
     wound(makePart(group.map(([ops, points]) => ({ ops: commands(ops), light: points, heavy: points }))))]))]))
 const editorialForms = new Map(Object.entries(data.editorial ?? {}).flatMap(([id, entry]) => entry.forms.map(text => [text, id])))
 /** Faces whose bundled forms come only from their own font: Noto's must not stand in for them. @param {string} style */
-export const ownFormsOnly = style => style === 'kaisho' || style === 'fangsong'
+export const ownFormsOnly = style => style === 'regular' || style === 'pen-writing' || style === 'fangsong'
 const forms = style => styles[style] ?? (ownFormsOnly(style) ? null : styles.sans)
 export const containsComponentForm = (text, style = 'sans') => [...(forms(style)?.entries() ?? [])].some(([key, form]) => !form.native && text.includes(key))
 export const isGroupedForm = (text, style = 'sans') => (forms(style)?.get(text)?.parts.length ?? 0) > 1
@@ -44,7 +61,7 @@ export function componentRecord(text, style = 'sans') {
 /**
  * Forms cut from characters for components no code point names (a zi.tools stroke chain, a CHISE
  * entity), by their own text, loaded with `custom-forms.json.gz` once a sequence names one. A form
- * written above stays where both have one; Kaisho and Fangsong take none, having no cut of their own.
+ * written above stays where both have one; TW-Kai, Wen Kai and Fangsong take none, having no cut of their own.
  * @param {{ forms?: Record<string, Record<string, { g: any[], from: string, face: string, record?: object }>> }} data
  */
 export function addCutForms(data) {
@@ -66,7 +83,7 @@ export function componentParts(text, region = constants.face, style = 'sans', at
   // complete native glyphs retain their designed proportions and side bearings.
   // Nested forms use the description's contextual row/column allocation.
   const target = atRoot ? mapped(frame, constants.face, region) : region
-  const font = style === 'kaisho' ? 'Kureedo' : style === 'fangsong' ? 'Zhuque Fangsong' : `Noto ${style === 'serif' ? 'Serif' : 'Sans'} CJK`
+  const font = style === 'regular' ? 'TW-Kai' : style === 'pen-writing' ? 'Kureedo' : style === 'fangsong' ? 'Zhuque Fangsong' : `Noto ${style === 'serif' ? 'Serif' : 'Sans'} CJK`
   const editorial = editorialForms.get(text)
   const origin = form.origin ?? (editorial ? `${editorial} editorial (${font}): ${text}`
     : text === '⿰冫⿱丿丶' || text === '⿰冫⿾冫' ? 'four-dot repetition' : `${font}: ${text}`)
@@ -87,7 +104,7 @@ export function componentPosition(name, target, style = 'sans', designHeight = n
   let part = positions[style]?.get(name)
   const originalInk = part && partInk(part)
   if (part && name === '儿:under-bar' && designHeight !== null) part = weightedLegs(part, style, designHeight)
-  return part ? { ...placed(part, part.box, target, originalInk, style === 'kaisho' ? `Kureedo ${name}` : `Noto ${style} ${name}`), fixed: true, inkLength: originalInk } : null
+  return part ? { ...placed(part, part.box, target, originalInk, style === 'pen-writing' ? `Kureedo ${name}` : `Noto ${style} ${name}`), fixed: true, inkLength: originalInk } : null
 }
 
 /** Add weight above the original strokes, retaining the native outer edges and tapered sweep. */

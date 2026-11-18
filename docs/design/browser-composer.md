@@ -2,7 +2,7 @@
 
 The browser composer was forked from this composer on 2026-10-25 and maintained in ids-input beside
 it. The two drifted: this repository wrote export format 6 (`web_export.py`, `FORMAT`) and drew
-kaisho from Kureedo Full, while the fork read both format 5 and 6 and drew in one style. The rules
+pen-writing from Kureedo Full, while the fork read both format 5 and 6 and drew in one style. The rules
 for ⿾ ⿿ 〾 ㇯, empty slots, pyramids and repeated grids existed in both languages, and only the Python
 copy was tested. The fork has moved back here, as `js/`, and ids-input imports it.
 

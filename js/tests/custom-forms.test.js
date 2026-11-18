@@ -31,7 +31,7 @@ it('draws a component no code point names from the form cut for it', async () =>
     expect(componentDrawing(ENTITY, style)?.d).toMatch(/^M/)
   }
   // Kaisho and Fangsong draw only their own forms; a form written by hand is not replaced.
-  expect(isComponentForm(ENTITY, 'kaisho')).toBe(false)
+  expect(isComponentForm(ENTITY, 'pen-writing')).toBe(false)
   expect(componentDrawing('#(-𠃍㇉)', 'sans')?.d).toBe(handWritten)
   const source = createSource(async name => files[name] === undefined ? null : new Uint8Array(Buffer.from(files[name])).buffer)
   const { parts } = await compose(source, `⿰木${ENTITY}`, { fontStyle: 'sans' })

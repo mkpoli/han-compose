@@ -8,7 +8,7 @@ import { reportOf, runGiven } from './dispatch.js'
 
 /** The faces the workshop's font switch offers, as it keeps the choice (`face` in `demo/App.svelte`)
  *  and as a report's context names it. */
-const FACES = ['sans', 'serif', 'fangsong', 'klee']
+const FACES = ['sans', 'serif', 'regular', 'fangsong', 'pen-writing']
 
 /**
  * @param {Record<string, unknown>} payload the dispatch's `client_payload`

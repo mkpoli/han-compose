@@ -8,7 +8,7 @@ Node and Bun.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/mkpoli/han-compose/main/docs/images/composer-dark.png">
-  <img src="https://raw.githubusercontent.com/mkpoli/han-compose/main/docs/images/composer-light.png" alt="⿰亻哥 drawn in the sans, serif, kaisho and fangsong styles, then ⿵門⿰亻哥 and ⿸广⿰KO in sans, ⿱艹⬚ with its empty slot dotted, and ⿰亻哥 with each of its two parts in a colour of its own" width="774">
+  <img src="https://raw.githubusercontent.com/mkpoli/han-compose/main/docs/images/composer-light.png" alt="⿰亻哥 drawn in the sans, serif, Regular Kai, Wen Kai and fangsong styles, then ⿵門⿰亻哥 and ⿸广⿰KO in sans, ⿱艹⬚ with its empty slot dotted, and ⿰亻哥 with each of its two parts in a colour of its own" width="774">
 </picture>
 
 ## Install
@@ -22,7 +22,7 @@ ES modules with type declarations and no dependencies. Node needs 20.16 or later
 ## Draw a sequence
 
 The composer reads an *export*: a folder of static files holding one font style's parts and layout.
-Four are public ([Exports](#exports)), and `compose` fetches only the files a sequence needs.
+Five are public ([Exports](#exports)), and `compose` fetches only the files a sequence needs.
 
 ```js
 import { writeFile } from 'node:fs/promises'
@@ -42,15 +42,17 @@ One source serves any number of sequences and keeps what it has loaded.
 |---|---|---|
 | Sans | `'sans'` | Noto Sans CJK JP, Plangothic |
 | Serif (明朝) | `'serif'` | Noto Serif CJK JP, Jigmo |
-| Kaisho (楷書) | `'kaisho'` | Kureedo Full, GenZui Sans |
 | Fangsong (仿宋) | `'fangsong'` | Zhuque Fangsong, Jigmo |
+| Regular Kai (正楷) | `'regular'` | TW-Kai, TW-Kai Ext-B, TW-Kai Ext-G |
+| Wen Kai (文楷) | `'pen-writing'` | Kureedo Full, GenZui Sans |
 
 ```js
 const EXPORTS = {
   sans: 'https://ids-input-composer.mkpoli.workers.dev/a83fc941166b-sans-compose-layout-v4-f7+variants/',
   serif: 'https://ids-input-composer.mkpoli.workers.dev/8156f838798c-serif-compose-layout-v4-serif-f7+variants/',
-  kaisho: 'https://ids-input-composer.mkpoli.workers.dev/ce3eaafda8f9-kaisho-compose-layout-v4-kaisho-f7/',
   fangsong: 'https://ids-input-composer.mkpoli.workers.dev/9f797e2322d2-fangsong-compose-layout-v4-fangsong-f7/',
+  regular: 'https://ids-input-composer.mkpoli.workers.dev/c14ee5e08798-regular-compose-layout-v4-regular-f7/',
+  'pen-writing': 'https://ids-input-composer.mkpoli.workers.dev/ce3eaafda8f9-kaisho-compose-layout-v4-kaisho-f7/',
 }
 
 // `fontStyle` names the export's style. It defaults to 'sans'.
@@ -245,3 +247,9 @@ The fonts and tables behind an export keep their own terms, which its `manifest.
 `licences`. A drawing with `kanjivg: true` adapts KanjiVG and is shared alike under CC BY-SA 3.0
 with the notice "KanjiVG, Copyright (C) 2009-2013 Ulrich Apel, CC BY-SA 3.0,
 https://kanjivg.tagaini.net/".
+
+### Manuscript form ⿰氵⿺木罒
+
+The prepared form in `src/mu-net-forms.json` takes 氵 from 河, the left 木 from 林, the sweeping stroke from 木, and 罒 from 罪 (買 in Fangsong). ⿺沐罒 groups the first two components as 沐. The outlines are adapted from GenZui Sans 0.105, Noto Serif CJK JP 2.003, Zhuque Fangsong 0.212 and Kureedo Full 0.5.0 under SIL OFL 1.1. The Regular Kai outlines are adapted from TW-Kai 11510.1, 數位發展部 (Ministry of Digital Affairs), CNS11643中文標準交換碼全字庫, under the Open Government Data License 1.0. [Font sources and notices](https://github.com/mkpoli/han-compose/blob/main/docs/licensing.md)
+
+For ⿺木 followed by another operand, the same enclosing 木 holds the operand in the opening above its final stroke. 术 and its spelling ⿺木丶 retain their ordinary 木.

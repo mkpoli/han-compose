@@ -25,7 +25,7 @@ it('renders equivalent yan enclosure spellings with the same drawing and leaf bo
       const first = `${top}⿸厂${inner}`, second = `⿸${enclosure}${inner}`
       for (const wrap of [text => text, text => `⿰朱${text}`, text => `⿱木${text}`]) {
         const a = wrap(first), b = wrap(second)
-        for (const fontStyle of ['sans', 'serif', 'kaisho']) for (const separate of [false, true]) {
+        for (const fontStyle of ['sans', 'serif', 'pen-writing']) for (const separate of [false, true]) {
           expect(await compose(source, a, { fontStyle, separate })).toEqual(await compose(source, b, { fontStyle, separate }))
           expect(await sketch(source, a, { fontStyle })).toEqual(await sketch(source, b, { fontStyle }))
         }

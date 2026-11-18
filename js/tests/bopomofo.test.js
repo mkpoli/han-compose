@@ -32,6 +32,25 @@ it('parses and draws all 75 Bopomofo letters as editable outline parts', async (
   for (const char of ['\u3104', '\u3130', '\u319F']) expect(isLetter(char)).toBe(false)
 })
 
+it('sets a Bopomofo syllable as a centered stack of letters', async () => {
+  const local = source()
+  const drawn = await compose(local, '⿳ㄙㄨㄥ')
+  expect(drawn.origins).toEqual(['glyph ㄙ', 'glyph ㄨ', 'glyph ㄥ'])
+  const boxes = drawn.parts.map(part => part.box)
+  for (const box of boxes) {
+    expect(box[0]).toBeGreaterThan(100)
+    expect(box[2]).toBeLessThan(900)
+    expect(box[2] - box[0]).toBeLessThan(500)
+    expect(box[1]).toBeGreaterThanOrEqual(0)
+    expect(box[1] + box[3]).toBeLessThanOrEqual(1000)
+  }
+  expect(boxes[0][1] + boxes[0][3]).toBeLessThanOrEqual(boxes[1][1])
+  expect(boxes[1][1] + boxes[1][3]).toBeLessThanOrEqual(boxes[2][1])
+  const two = await compose(local, '⿱ㄅㄞ')
+  expect(two.origins).toEqual(['glyph ㄅ', 'glyph ㄞ'])
+  expect(two.parts[0].box[1] + two.parts[0].box[3]).toBeLessThanOrEqual(two.parts[1].box[1])
+})
+
 it('combines Bopomofo with Han export records and bundled Tangut', async () => {
   const remote = createSource(async name => {
     const file = files[name]

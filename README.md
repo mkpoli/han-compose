@@ -4,13 +4,14 @@ han-compose draws a Han character from its ideographic description sequence (IDS
 `⿰亻哥`, as font outlines. Use it to draw a character no font has, one with no code point, or a
 regional form the font does not draw. Each part comes from a character the font already draws,
 cut out of it (along KanjiVG's component groups where KanjiVG has that kanji), set where the
-font's designers put parts like it. The sans and serif styles then bring the parts to one stroke
-weight; kaisho and fangsong keep the weight each part has in its font. The result is an SVG path in
+font's designers put parts like it. The sans and serif styles then bring the parts to one stroke weight;
+fangsong, regular and pen-writing keep the weight each part has in its font. The result is an SVG path in
 a 1000-unit em, in a sans style from Noto Sans CJK JP, whose ideographs GenZui Sans takes unchanged;
-a serif (明朝) style from Noto Serif CJK JP; a kaisho (楷書) style from Kureedo Full, the Klee One
-design with historical kana and LXGW WenKai Light for the characters Klee lacks; or a fangsong (仿宋)
-style from Zhuque Fangsong. Plangothic supplies the sans parts Noto lacks, Jigmo the serif ones and the
-ideographs Zhuque lacks, and GenZui Sans the characters Kureedo Full lacks.
+a serif (明朝) style from Noto Serif CJK JP; a fangsong (仿宋) style from Zhuque Fangsong; a regular
+(正楷) style from TW-Kai, the CNS 11643 Kai, whose Extension B and G faces draw what its BMP face
+lacks; or a pen-writing (文楷) style from Kureedo Full, the Klee One design with historical kana and
+LXGW WenKai Light for the characters Klee lacks. Plangothic supplies the sans parts Noto lacks, Jigmo
+the serif ones and the ideographs Zhuque lacks, and GenZui Sans the characters Kureedo Full lacks.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/composed-dark.png">
@@ -44,19 +45,20 @@ uv sync
 uv run scripts/compose_ids.py draw ⿰亻哥 > 亻哥.svg
 uv run scripts/compose_ids.py bench
 uv run scripts/compose_ids.py draw --style serif ⿰亻哥 > 亻哥-serif.svg
-uv run scripts/compose_ids.py draw --style kaisho ⿰亻哥 > 亻哥-kaisho.svg
+uv run scripts/compose_ids.py draw --style fangsong ⿰亻哥 > 亻哥-fangsong.svg
+uv run scripts/compose_ids.py draw --style regular ⿰亻哥 > 亻哥-regular.svg
+uv run scripts/compose_ids.py draw --style pen-writing ⿰亻哥 > 亻哥-pen-writing.svg
 uv run scripts/compose_ids.py draw-many sequences.txt out/
 ```
 
 `draw-many` draws every sequence in a file, one a line, into `out/` as `<sha256 of its NFC form>.svg`,
 and lists those it cannot draw.
 
-Every command takes `--style sans` (the default), `--style serif`, `--style kaisho` or
-`--style fangsong`. Each style
-has its own fonts and models: a style's model is cached as `<name>-<style><ext>` beside the sans
-one, and `learn --style kaisho` and `learn-alone --style kaisho` build it. Kureedo is static, so the
-Kaisho style keeps the source brush weights instead of balancing them; Zhuque Fangsong is static too,
-and the Fangsong style does the same.
+Every command takes `--style sans` (the default), `--style serif`, `--style fangsong`, `--style regular`
+or `--style pen-writing`. Each style has its own fonts and models: a style's model is cached as
+`<name>-<style><ext>` beside the sans one, and `learn --style regular` and `learn-alone --style regular`
+build it. TW-Kai, Kureedo and Zhuque Fangsong are static, so their styles keep the source brush
+weights instead of balancing them.
 
 `bench` redraws characters from their own sequences with nothing taken from them, and scores each
 against the font's real glyph: the overlap of their ink (intersection over union, at 96 px), the same
@@ -137,7 +139,7 @@ when copying the folder out:
 ```sh
 uv run scripts/compose_ids.py export-web out/ --parity 500 --held-out 300 --workers 4
 uv run scripts/compose_ids.py export-web-pack out/
-uv run scripts/compose_ids.py redraw-parity out/ --style kaisho   # the parity rows again, after a composer change
+uv run scripts/compose_ids.py redraw-parity out/ --style pen-writing   # the parity rows again, after a composer change
 rclone copy out/ <remote>:<bucket>/<version>/ --exclude '.work/**'
 ```
 
@@ -220,7 +222,7 @@ uv run ruff check
 
 `docs/licensing.md` states what the code, the fonts and the tables are under. In short: Noto Sans CJK
 JP and Plangothic (SIL OFL 1.1) supply every sans outline, Noto Serif CJK JP (SIL OFL 1.1) and Jigmo
-(CC0 1.0) every serif one; BabelStone IDS and cjkvi-variants supply the
+(CC0 1.0) every serif one, TW-Kai (Open Government Data License 1.0) every regular one; BabelStone IDS and cjkvi-variants supply the
 sequences and the radical forms; editorial sequences replace a BabelStone sequence that draws the
 character wrongly ([`data/vocab/han-ids-drawn.tsv`](data/vocab/han-ids-drawn.tsv));
 hfhchan/ids (MIT) supplies the list of ideographs left

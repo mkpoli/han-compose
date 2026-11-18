@@ -4,8 +4,8 @@ import { componentDrawing, componentParts, componentRecord, containsComponentFor
 import { Composer } from '../src/compose.js'
 import { windingOf } from '../src/geometry.js'
 import { onlyBundled } from '../src/local.js'
-import { compose } from '../src/loader.js'
-import { constants } from './fixtures/small-export.js'
+import { compose, createSource } from '../src/loader.js'
+import { character, constants, files, records, shards } from './fixtures/small-export.js'
 
 it('does not use Noto-only forms for Fangsong', () => {
   for (const text of ['⿱丿乚', '⿰氵氵', '㇯馬灬']) {
@@ -19,13 +19,13 @@ it('does not use Noto-only forms for Kaisho capabilities or outlines', () => {
   for (const text of ['⿱丿乚', '⿸⿳亠㐅厂生', '㇯馬灬']) {
     expect(isComponentForm(text, 'sans')).toBe(true)
     expect(isComponentForm(text, 'serif')).toBe(true)
-    expect(isComponentForm(text, 'kaisho')).toBe(false)
-    expect(isGroupedForm(text, 'kaisho')).toBe(false)
-    expect(containsComponentForm(`⿰木${text}`, 'kaisho')).toBe(false)
-    expect(componentRecord(text, 'kaisho')).toBeNull()
-    expect(componentParts(text, undefined, 'kaisho')).toBeNull()
-    expect(componentDrawing(text, 'kaisho')).toBeNull()
-    expect(onlyBundled(text, false, false, 'kaisho')).toBe(false)
+    expect(isComponentForm(text, 'pen-writing')).toBe(false)
+    expect(isGroupedForm(text, 'pen-writing')).toBe(false)
+    expect(containsComponentForm(`⿰木${text}`, 'pen-writing')).toBe(false)
+    expect(componentRecord(text, 'pen-writing')).toBeNull()
+    expect(componentParts(text, undefined, 'pen-writing')).toBeNull()
+    expect(componentDrawing(text, 'pen-writing')).toBeNull()
+    expect(onlyBundled(text, false, false, 'pen-writing')).toBe(false)
   }
 })
 
@@ -37,7 +37,7 @@ it('loads the internal operands of a Noto-only form for Kaisho', async () => {
     filesOf: keys => { requests.push(...keys); return [] }, modelFiles: () => [],
     load: async () => { throw stop },
   }
-  await expect(compose(source, '⿱木⿱丿乚', { fontStyle: 'kaisho' })).rejects.toThrow(stop.message)
+  await expect(compose(source, '⿱木⿱丿乚', { fontStyle: 'pen-writing' })).rejects.toThrow(stop.message)
   expect(requests).toContain('丿')
   expect(requests).toContain('乚')
   requests.length = 0
@@ -47,16 +47,16 @@ it('loads the internal operands of a Noto-only form for Kaisho', async () => {
 })
 
 it('recognizes only explicit Kaisho forms and credits their native font', () => {
-  for (const [text, groups] of Object.entries(data.forms.kaisho ?? {})) {
-    expect(isComponentForm(text, 'kaisho')).toBe(true)
-    expect(isGroupedForm(text, 'kaisho')).toBe(groups.length > 1)
+  for (const [text, groups] of Object.entries(data.forms['pen-writing'] ?? {})) {
+    expect(isComponentForm(text, 'pen-writing')).toBe(true)
+    expect(isGroupedForm(text, 'pen-writing')).toBe(groups.length > 1)
     // A native form leaves an encoded character that holds it to its own glyph.
-    expect(containsComponentForm(`⿰木${text}`, 'kaisho')).toBe(!data.native?.kaisho?.includes(text))
-    expect(onlyBundled(text, false, false, 'kaisho')).toBe(true)
-    const parts = componentParts(text, undefined, 'kaisho')
+    expect(containsComponentForm(`⿰木${text}`, 'pen-writing')).toBe(!data.native?.['pen-writing']?.includes(text))
+    expect(onlyBundled(text, false, false, 'pen-writing')).toBe(true)
+    const parts = componentParts(text, undefined, 'pen-writing')
     expect(parts).toHaveLength(groups.length)
     expect(parts.every(part => part.origin.includes('Kureedo') && part.origin.endsWith(`: ${text}`))).toBe(true)
-    expect(componentDrawing(text, 'kaisho').d).not.toMatch(/NaN|Infinity/)
+    expect(componentDrawing(text, 'pen-writing').d).not.toMatch(/NaN|Infinity/)
   }
 })
 
@@ -122,7 +122,7 @@ it('draws ⿲𰀪丨⿱丶丶 in Sans from TC’s 眔 and in Fangsong from 鰥, 
   }
   // Serif composes it, and Kaisho cuts it from its export's 眔.
   expect(isComponentForm('⿲𰀪丨⿱丶丶', 'serif')).toBe(false)
-  expect(isComponentForm('⿲𰀪丨⿱丶丶', 'kaisho')).toBe(false)
+  expect(isComponentForm('⿲𰀪丨⿱丶丶', 'pen-writing')).toBe(false)
 })
 
 it('leaves the characters holding 眔’s lower half to their own glyphs', () => {
@@ -142,4 +142,59 @@ it('leaves the characters holding 眔’s lower half to their own glyphs', () =>
   expect(exported.ink(node)).toBe(4000)
   expect(exported.outlines(node)).toBe(0)
   expect(exported.identity('⿲𰀪丨⿱丶丶')).toBe(known)
+})
+
+// Cut from TW-Kai's 荣: the connected 艹 its simplified characters write, while its traditional
+// characters write two 十. The form draws; the export's split 艹 record still lays it out.
+it('draws 艹 connected in Regular Kai as a drawing-only form', () => {
+  expect(isComponentForm('艹', 'regular')).toBe(true)
+  // The form is a drawing only: the layout still reads the split 艹 record the export carries.
+  expect(isNativeForm('艹', 'regular')).toBe(true)
+  // A native form leaves the layout the export's own record: the split 艹's ink and outline count.
+  const record = { ink: 2729.9, o: 2 }
+  const composer = new Composer({ manifest: { constants, spelled: [] }, layout: null,
+    rec: key => key === '艹' ? record : null, hosts: () => [], places: () => [] }, { fontStyle: 'regular' })
+  expect(composer.rec('艹')).toBe(record)
+  const parts = componentParts('艹', undefined, 'regular')
+  expect(parts).toHaveLength(1)
+  expect(parts[0].part.contours).toHaveLength(1)
+  expect(parts[0].origin).toBe('TW-Kai: 艹')
+  for (const style of ['sans', 'serif', 'fangsong', 'pen-writing']) expect(isComponentForm('艹', style)).toBe(false)
+})
+
+it('draws a stacked operand from its form before a host cut', async () => {
+  const grass = character('艹', [[100, 620, 480, 800], [520, 620, 900, 800]])
+  const half = character('半', [[100, 0, 900, 520]])
+  const input = { ...files, ...shards('g', Object.entries({ ...records, 艹: grass, 半: half })) }
+  const source = createSource(async name => input[name] === undefined ? null : new Uint8Array(Buffer.from(input[name])).buffer)
+  const drawn = await compose(source, '⿱艹半', { fontStyle: 'regular' })
+  expect(drawn.parts.some(part => part.origin === 'TW-Kai: 艹')).toBe(true)
+})
+
+it('still draws the split 十十 spelling in every face', async () => {
+  const ten = character('十', [[100, 0, 480, 800], [520, 0, 900, 800]])
+  const input = { ...files, ...shards('g', Object.entries({ ...records, 十: ten })) }
+  const source = () => createSource(async name => input[name] === undefined ? null : new Uint8Array(Buffer.from(input[name])).buffer)
+  for (const fontStyle of ['sans', 'serif', 'regular', 'fangsong', 'pen-writing']) {
+    const drawn = await compose(source(), '⿰十十', { fontStyle })
+    expect(drawn.parts).toHaveLength(2)
+    expect(drawn.parts.every(part => part.origin === 'glyph 十')).toBe(true)
+  }
+})
+
+it('groups the enclosing 木 under the leaves of each manuscript spelling', () => {
+  for (const style of ['sans', 'serif', 'fangsong', 'regular', 'pen-writing']) {
+    const expanded = componentParts('⿰氵⿺木罒', undefined, style)
+    const contracted = componentParts('⿺沐罒', undefined, style)
+    expect(expanded).toHaveLength(3)
+    expect(contracted).toHaveLength(2)
+    const [short, long] = ['⿺沐罒', '⿰氵⿺木罒'].map(text => componentDrawing(text, style).d)
+    const numbers = /-?\d+\.\d+/g
+    expect(short.replace(numbers, '')).toBe(long.replace(numbers, ''))
+    const coords = long.match(numbers).map(Number)
+    // Group placement can round a coordinate on the opposite side of a tenth.
+    expect(short.match(numbers).every((v, i) => Math.abs(Number(v) - coords[i]) < 0.101)).toBe(true)
+    expect(expanded[1].target[2]).toBeGreaterThan(expanded[2].target[2])
+    expect(isComponentForm('⿲氵木罒', style)).toBe(false)
+  }
 })
