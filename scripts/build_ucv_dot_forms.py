@@ -231,6 +231,7 @@ def main():
     parser.add_argument("output", type=Path)
     args = parser.parse_args()
     dots = {}
+    components = {}
     ids = {}
     for style, filename in {**FONTS, "regular": "TW-Kai.ttf"}.items():
         with TTFont(args.font_dir / filename) as font:
@@ -240,10 +241,23 @@ def main():
                 # Keep the native 倘 body, including the centre upright and 亻.
                 host = face.contours("倘")
                 donor = face.contours("倞")
-                dots_at_top = (fit([donor[1]], bounds([host[4]]))
-                               + fit([donor[3]], (654, 495, 845, 680)))
+                dots_at_top = (fit([donor[1]], (394, 491, 525, 653))
+                               + fit([donor[3]], (666, 495, 857, 680)))
                 ids[style] = {"⿰亻⿱&GW-u21b54-03;冋": encode(host[:4] + dots_at_top)}
-    result = {"dots": dots, "ids": ids}
+                half = face.contours("半")
+                tip = face.contours("尖")
+                shang = face.contours("尚")
+                study = face.contours("学")
+                # The final falling stroke of 学 joins its cover. Fit the detached
+                # right stroke of 半 beside the two native dots.
+                three = encode(study[2:4] + fit([half[2]], (590, 550, 801, 798)))
+                components[style] = {
+                    "丷": encode(half[1:3]),
+                    "𡭔": encode(tip[1:4]),
+                    "⺌": encode(shang[3:5] + fit([tip[2]], (447, 472, 541, 808))),
+                    "𭕄": three, "⺍": three,
+                }
+    result = {"dots": dots, "components": components, "ids": ids}
     args.output.write_text(json.dumps(result, ensure_ascii=False, separators=(",", ":")) + "\n")
 
 
