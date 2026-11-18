@@ -300,7 +300,6 @@ export const COMPONENT_FIXES = {
   // 卝's terminals must clear 干's first bar, as the right side of 哶 does.
   // A whole 鰥 cut stretches the left strokes and carries a sweeping lower stroke.
   // Keep 遝’s left strokes and stem, and replace both right strokes with compact 丶 glyphs.
-  // Use 呼’s own spacing when both upper pieces came from that glyph.
   '⿰未⿱成公': {
     glyphs: {},
     apply(parts, composer) {
@@ -312,6 +311,7 @@ export const COMPONENT_FIXES = {
       return [wei, cheng, { ...gong, target: [l + inset, b, r - inset, Math.min(t, cheng.target[1] - 0.035 * heightOf(cheng.target))] }]
     },
   },
+  // Use 呼’s own spacing when both upper pieces came from that glyph.
   '⿱呼乙': {
     glyphs: {},
     apply(parts, composer) {
