@@ -95,8 +95,8 @@ export function sourceFor(sequence, { base, fontStyle = 'sans', separate = false
   }
   if (traits.custom) source = overlay(customFormsSource, source, CUSTOM_FORMS, { style: fontStyle })
   // A host's own outlines answer for the entity references they hold; without the file, nothing changes.
-  if (traits.ideographicSelector && !onlyBundled(sequence, separate, false, fontStyle) && HOST_OUTLINES in loaders) {
-    source = overlay(hostVariantSource, source, HOST_OUTLINES)
+  if (traits.ideographicSelector && (!local || !onlyBundled(sequence, separate, false, fontStyle)) && HOST_OUTLINES in loaders) {
+    source = overlay(hostVariantSource, source, HOST_OUTLINES, { style: fontStyle })
   }
   if (traits.entity && HOST_OUTLINES in loaders) source = overlay(hostSource, source, HOST_OUTLINES)
   return source ?? bundledSource({ load: async () => ({ records: {} }), matches: () => false })
