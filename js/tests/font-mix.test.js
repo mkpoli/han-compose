@@ -2,6 +2,7 @@ import { expect, it } from 'bun:test'
 import { activeFaces, composeMixed, FONT_STYLES } from '../src/font-mix.js'
 import { mixDrawings } from '../src/mix-drawings.js'
 import { groupRegions } from '../src/mix-contours.js'
+import { limitDisplacement } from '../src/mix-outline.js'
 import { count, pathMask } from '../src/geometry.js'
 import { compose } from '../src/loader.js'
 import { files } from './fixtures/small-export.js'
@@ -226,4 +227,11 @@ it('keeps matching the islands two faces share when one face joins two of them',
   const extra = groupRegions([[...split, box(210, 20, 220, 30)], joined], (ring) => ring, 15)
   expect(extra.every((group) => group.every((face) => face.length > 0))).toBe(true)
   expect(extra.flatMap((group) => group[0]).length).toBe(5)
+})
+
+it('leaves a drawing alone when a wide band cannot resolve its small boundary', () => {
+  const small = 'M100 100L108 100L108 108L100 108Z'
+  const drawing = 'M90 90L130 90L130 130L90 130Z'
+  expect(limitDisplacement(drawing, small, 700)).toBe(drawing)
+  expect(limitDisplacement(drawing, small, 5)).not.toBe('')
 })
