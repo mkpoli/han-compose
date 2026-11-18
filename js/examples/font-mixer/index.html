@@ -87,6 +87,12 @@
         linear-gradient(to right, transparent calc(50% - 0.5px), var(--ui-color-border) 0 calc(50% + 0.5px), transparent 0),
         linear-gradient(transparent calc(50% - 0.5px), var(--ui-color-border) 0 calc(50% + 0.5px), transparent 0);
     }
+    #glyph {
+      display: grid;
+      place-items: center;
+      inline-size: 100%;
+      block-size: 100%;
+    }
     #proof svg {
       width: 88%;
       height: 88%;
@@ -121,7 +127,7 @@
     }
     .pace {
       display: grid;
-      grid-template-columns: auto 9rem 2.6rem;
+      grid-template-columns: auto 9rem 3.2rem;
       align-items: center;
       gap: var(--ui-space-sm);
     }
@@ -306,8 +312,8 @@
         <div class="ui-segmented" id="phases" role="radiogroup" aria-label="Route"></div>
         <div class="pace">
           <label for="pace">Pace</label>
-          <input type="range" id="pace" class="ui-range" min="1" max="20" step="0.5" value="6" />
-          <output id="pace-value" for="pace">6 s</output>
+          <input type="range" id="pace" class="ui-range" min="0.25" max="20" step="0.25" value="3" />
+          <output id="pace-value" for="pace">3 s</output>
         </div>
       </div>
       <div id="examples" role="group" aria-label="Examples"></div>
