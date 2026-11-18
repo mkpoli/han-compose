@@ -1659,12 +1659,12 @@ export class Composer {
     const useCuts = cuts?.every(Boolean)
     const boxes = referenceBoxes(cells, region)
     const parts = []
-    for (const [i, [source]] of cells.entries()) {
+    for (const [i, [source, , weight]] of cells.entries()) {
       if (this.excluded(source)) return null
       const cut = useCuts ? cuts[i] : null
       const glyph = cut?.glyph ?? this.glyph(source)
       if (!glyph) return null
-      parts.push({ ...placed(glyph, glyph.box, cut?.box ?? boxes[i], partInk(glyph), cut?.origin ?? `glyph ${source}`), fixed: true })
+      parts.push({ ...placed(glyph, glyph.box, cut?.box ?? boxes[i], partInk(glyph), cut?.origin ?? `glyph ${source}`, weight), fixed: true })
     }
     return parts
   }

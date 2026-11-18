@@ -4,8 +4,20 @@ import { mapped } from './geometry.js'
 // Brush-face operand bounds, in a 1000-unit em with an 880-unit ascent.
 // 亽 has a short, centered dot below its open roof (TW-Kai U+4EBD).
 /** @typedef {{char: string, digest: string, indices: number[], box: number[]}} DonorCut */
-/** @type {Record<string, Record<string, { encoded: string, donors?: Record<string, DonorCut>, cells: [string, number[]][] }>>} */
+/** @type {Record<string, Record<string, { encoded: string, donors?: Record<string, DonorCut>, cells: [string, number[], [number, number]?][] }>>} */
 const layouts = {
+  "pen-writing": {
+    '⿰设正': { encoded: '', cells: [['设', [72, -7, 556, 751]], ['正', [529, 55, 927, 696], [-0.30, 0]]] },
+  },
+  regular: {
+    '⿰设正': { encoded: '', cells: [['设', [90, -7, 574, 751]], ['正', [511, 55, 909, 696], [0.5, 0.14]]] },
+  },
+  serif: {
+    '⿰设正': { encoded: '', cells: [['设', [5, -102, 523, 868], [0.65, -0.05]], ['正', [553, -72, 989, 831], [0.81, 0]]] },
+  },
+  sans: {
+    '⿰设正': { encoded: '', cells: [['设', [9, -87, 518, 856], [0.71, -0.09]], ['正', [551, -68, 984, 816], [0.88, -0.12]]] },
+  },
   fangsong: {
     // 此 keeps its size in 柴. 力 is 107% of its size in 勢 on both axes.
     // U+324C2 (UK-20135) places the diagonal of 力 below the gap between 止 and 匕.
@@ -17,6 +29,7 @@ const layouts = {
       },
       cells: [['此', [74, 325, 930, 810]], ['力', [94, -64, 880, 338]]],
     },
+    '⿰设正': { encoded: '', cells: [['设', [82, -7, 566, 751]], ['正', [519, 55, 917, 696], [0.30, 0.10]]] },
     '⿱𠆢丶': { encoded: '亽', cells: [['人', [62, 265, 964, 793]], ['丶', [397, 135, 551, 298]]] },
   },
 }
@@ -27,7 +40,7 @@ export function referenceLayout(node, style) {
   return layouts[style][node.join('')] ?? null
 }
 
-/** @param {[string, number[]][]} cells @param {number[]} region */
+/** @param {[string, number[], [number, number]?][]} cells @param {number[]} region */
 export function referenceBoxes(cells, region) {
   return cells.map(([, box]) => mapped(box, [0, -120, 1000, 880], region))
 }
