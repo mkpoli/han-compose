@@ -284,6 +284,12 @@ def component_forms(font_dir, inward=False):
                     head = face.contours("羋")[1::2]
                     if [bounds([c]) for c in head] != [(83, 414, 376, 762), (594, 424, 916, 796)]:
                         raise ValueError("Unexpected Zhuque 羋 outlines")
+                elif style == "regular":
+                    # TW-Kai's standalone ⻀ has upright stems and a triangular
+                    # terminal. 雈 carries the slanted brush form above 隹.
+                    head = face.contours("雈")[:2]
+                    if [bounds([c]) for c in head] != [(211, 496, 467, 727), (594, 494, 865, 768)]:
+                        raise ValueError("Unexpected TW-Kai 雈 outlines")
                 else:
                     head = face.contours("⻀")
             elif style == "fangsong":
