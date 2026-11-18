@@ -9,6 +9,8 @@ import keDonor from './fixtures/sans-ke.json' with { type: 'json' }
 import baiDonor from './fixtures/serif-ke-bai.json' with { type: 'json' }
 // Noto Sans CJK JP and Zhuque Fangsong (SIL OFL 1.1).
 import frameDonors from './fixtures/rice-walk-frames.json' with { type: 'json' }
+// Enclosing 爪 from TW-Kai 爮, Zhuque Fangsong 爬 and Kureedo 爬 (SIL OFL 1.1).
+import clawFrames from './fixtures/claw-frames.json' with { type: 'json' }
 import parts from './fixtures/sans-lower-left.json' with { type: 'json' }
 
 // 几 and 力 as the Sans export draws them (Noto Sans CJK, SIL OFL 1.1); 口 is the small export's
@@ -310,4 +312,26 @@ describe('米 and 走 lower-left frames', () => {
     const composer = new Composer(src.store(), { ...options, exclude: ['木'] })
     expect(composer.enclosureForm('⿺', '米')).toBeNull()
   })
+})
+
+describe('爪 lower-left frames', () => {
+  for (const [fontStyle, donor, inner, glyph, count] of [
+    ['regular', '爮', '包', clawFrames.kai, 3],
+    ['fangsong', '爬', '巴', clawFrames.fangsong, 2],
+    ['pen-writing', '爬', '巴', clawFrames.kureedo, 2],
+  ]) {
+    it(`keeps the enclosing strokes of ${donor} together in ${fontStyle}`, async () => {
+      const src = source({ 爪: records.木, [inner]: records.口, [donor]: { G: glyph, ink: 5000 } })
+      for (const layout of ['composed', 'cells']) {
+        const { parts } = await compose(src, '⿰口⿺爪口', { fontStyle, layout, separate: true })
+        expect(parts).toHaveLength(3)
+        expect(parts[1].d.match(/M/g)).toHaveLength(count)
+        expect(parts[2].box[0]).toBeGreaterThan(parts[1].box[0] + parts[1].box[2] / 2)
+      }
+      const { parts } = await compose(src, '⿺爪' + inner, { fontStyle, separate: true })
+      expect(parts.map(p => p.origin)).toEqual([`glyph ${donor}`, `glyph ${donor}`])
+      expect(parts[0].d.match(/M/g)).toHaveLength(count)
+      expect(new Composer(src.store(), { fontStyle, exclude: [donor] }).enclosureForm('⿺', '爪')).toBeNull()
+    })
+  }
 })
