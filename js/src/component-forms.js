@@ -2,6 +2,7 @@
 // Shape-specific font-derived forms. Keep the caller's IDS; encoded counterparts can vary by region.
 import generated from './component-forms.json' with { type: 'json' }
 import overrides from './component-forms-overrides.json' with { type: 'json' }
+import inwardGrass from './inward-grass-forms.json' with { type: 'json' }
 import splitGrass from './split-grass-forms.json' with { type: 'json' }
 import muNet from './mu-net-forms.json' with { type: 'json' }
 import numbered from '../data/numbered-forms.json' with { type: 'json' }
@@ -33,6 +34,7 @@ const formOf = groups => {
 const styles = Object.fromEntries(Object.entries(data.forms).map(([style, forms]) => [style,
   new Map(Object.entries(forms).map(([text, groups]) => [text, { ...formOf(groups), native: data.native?.[style]?.includes(text) ?? false }]))]))
 for (const [style, groups] of Object.entries(splitGrass)) styles[style].set('⺿', formOf(groups))
+for (const [style, groups] of Object.entries(inwardGrass)) styles[style].set('⻀', formOf(groups))
 // The manuscript's water, enclosing 木 and net. Both descriptions share the same outlines.
 for (const [style, groups] of Object.entries(muNet)) {
   const form = formOf(groups)

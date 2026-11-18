@@ -272,13 +272,21 @@ def generate(font_dir):
     return result
 
 
-def component_forms(font_dir):
+def component_forms(font_dir, inward=False):
     """One contextual four-stroke radical per face, in the composer's contour format."""
     forms = {}
     for style, filename in {**FONTS, "regular": "TW-Kai.ttf"}.items():
         with TTFont(font_dir / filename) as font:
             face = Face(font)
-            if style == "fangsong":
+            if inward:
+                if style == "fangsong":
+                    # The two outer arms of 羋 form the inward-upright radical.
+                    head = face.contours("羋")[1::2]
+                    if [bounds([c]) for c in head] != [(83, 414, 376, 762), (594, 424, 916, 796)]:
+                        raise ValueError("Unexpected Zhuque 羋 outlines")
+                else:
+                    head = face.contours("⻀")
+            elif style == "fangsong":
                 head, _ = head_and_body(face.contours("菜"))
                 head = fangsong_split(head)
             elif style == "regular":
@@ -306,8 +314,9 @@ if __name__ == "__main__":
     cli.add_argument("--fonts", type=Path, required=True)
     cli.add_argument("--output", type=Path, required=True)
     cli.add_argument("--component-forms", action="store_true")
+    cli.add_argument("--inward-forms", action="store_true")
     args = cli.parse_args()
     args.output.write_text(
-        json.dumps((component_forms if args.component_forms else generate)(args.fonts), ensure_ascii=False, separators=(",", ":"))
+        json.dumps(component_forms(args.fonts, args.inward_forms) if args.component_forms or args.inward_forms else generate(args.fonts), ensure_ascii=False, separators=(",", ":"))
         + "\n"
     )

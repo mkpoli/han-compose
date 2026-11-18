@@ -4,7 +4,7 @@ import chui from './fixtures/kai-chui.json'
 import splitGrass from './fixtures/kai-grass.json'
 import data from '../src/component-forms.json'
 import { componentDrawing, componentParts, componentRecord, containsComponentForm, containsForcedForm, isComponentForm, isGroupedForm, isForcedCharacter, isNativeForm } from '../src/component-forms.js'
-import { Composer } from '../src/compose.js'
+import { Composer, parseTree } from '../src/compose.js'
 import { raster, windingOf } from '../src/geometry.js'
 import { onlyBundled } from '../src/local.js'
 import { compose, createSource } from '../src/loader.js'
@@ -349,4 +349,19 @@ it('keeps the intersecting uprights and draws both heads of 𦴐', () => {
       expect(outside).toBe(0)
     }
   }
+})
+
+it('renders registered grass selectors while keeping the source token intact', () => {
+  const composer = new Composer({ manifest: { constants, spelled: [] }, layout: null,
+    rec: () => null, hosts: () => [], places: () => [] }, { fontStyle: 'regular' })
+  for (const [shape, spellings] of [
+    ['艹', ['艹\u{E0100}', '艹\u{E0105}', '⺾']],
+    ['⺿', ['艹\u{E0102}', '艹\u{E0104}', '艹\uFE01', '艹']],
+    ['⻀', ['艹\u{E0101}', '艹\u{E0103}', '艹\uFE00', '艹']],
+  ]) for (const text of spellings) {
+    expect(composer.parse('⿱' + text + '早')).toEqual(['⿱', shape, '早'])
+    expect(parseTree(text, () => 0)).toBe(text)
+  }
+  expect(composer.parse('草\u{E0102}')).toBe('草\u{E0102}')
+  expect(composer.parse('艹\u{E0106}')).toBe('艹\u{E0106}')
 })
