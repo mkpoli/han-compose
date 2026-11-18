@@ -50,6 +50,12 @@ for (const [style, characters] of Object.entries(dotForms.dots)) {
 for (const [style, contours] of Object.entries(dotForms.eight)) {
   styles[style].set('八', { ...formOf([contours]), atomic: true })
 }
+// Whole-character fits for composed IDS. Leave operand-based layouts to the normal renderer.
+for (const [style, sequences] of Object.entries(dotForms.ids)) {
+  for (const [sequence, contours] of Object.entries(sequences)) {
+    styles[style].set(sequence, formOf([contours]))
+  }
+}
 // The manuscript's water, enclosing 木 and net. Both descriptions share the same outlines.
 for (const [style, groups] of Object.entries(muNet)) {
   const form = formOf(groups)

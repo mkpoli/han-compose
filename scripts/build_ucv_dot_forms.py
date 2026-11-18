@@ -40,9 +40,11 @@ def forms(face, char, style):
     n = max(1, len(points) // 4)
     inward = sum(x for x, _ in points[-n:]) < sum(x for x, _ in points[:n])
     if style == "fangsong":
-        # Use the spreading feet of 兵 for 半 and the side strokes of 小 for 肖.
+        # 尖 has short flanking strokes on either side of an upright, as in 半.
         if char == "半":
-            outward = fit(face.contours("兵")[1:3], (172, 493, 772, 706))
+            donor = face.contours("尖")
+            outward = (fit([donor[1]], (201, 483, 373, 677))
+                       + fit([donor[3]], (541, 493, 747, 679)))
         else:
             outward = fit(face.contours("小")[1:3], (194, 545, 782, 742))
         if not inward:
@@ -71,18 +73,25 @@ def main():
     args = parser.parse_args()
     dots = {}
     eight = {}
+    ids = {}
     for style, filename in {**FONTS, "regular": "TW-Kai.ttf"}.items():
         with TTFont(args.font_dir / filename) as font:
             face = Face(font)
             dots[style] = {char: forms(face, char, style) for char in "半肖"}
             if style == "fangsong":
+                # Keep the native 倘 body, including the centre upright and 亻.
+                host = face.contours("倘")
+                donor = face.contours("倞")
+                dots_at_top = (fit([donor[1]], bounds([host[4]]))
+                               + fit([donor[3]], (654, 495, 845, 680)))
+                ids[style] = {"⿰亻⿱&GW-u21b54-03;冋": encode(host[:4] + dots_at_top)}
                 donor = face.contours("叭")
                 eight[style] = encode(fit([donor[3], donor[0]], (83, -25, 916, 718)))
             elif style == "regular":
                 # 兮 supplies a paired 撇 and 捺 with a shorter gap between their starts.
                 donor = face.contours("兮")
                 eight[style] = encode(fit([donor[0], donor[2]], (72, -46, 936, 706)))
-    result = {"dots": dots, "eight": eight}
+    result = {"dots": dots, "eight": eight, "ids": ids}
     args.output.write_text(json.dumps(result, ensure_ascii=False, separators=(",", ":")) + "\n")
 
 
