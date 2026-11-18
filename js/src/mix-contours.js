@@ -95,6 +95,19 @@ function centre(ring) {
  * Returns null when no alignment keeps the halfway outline simple.
  * @param {number[][][]} rings one ring per face @returns {number[][][] | null} */
 export function alignRings(rings) {
+  // The face with the most corners is the reference whichever faces join it, so two
+  // faces are matched the same way alone and among others.
+  const detail = rings.map((ring) => corners(ring, measured(ring)).length)
+  const order = rings.map((_, f) => f).sort((a, b) => detail[b] - detail[a] || a - b)
+  const aligned = alignTo(order.map((f) => rings[f]))
+  if (!aligned) return null
+  const out = rings.map(() => /** @type {number[][]} */ ([]))
+  order.forEach((f, k) => (out[f] = aligned[k]))
+  return out
+}
+
+/** @param {number[][][]} rings the reference first @returns {number[][][] | null} */
+function alignTo(rings) {
   const lines = rings.map(measured)
   const mids = rings.map(centre)
   const turns = rings.map((ring, f) =>
