@@ -291,6 +291,17 @@ describe('米 and 走 lower-left frames', () => {
     }
   })
 
+  it('uses the same 米 contours around 罒 as around 口', async () => {
+    const src = source({ 米: { G: frameDonors.brushRice, ink: 5000 }, 罡: { G: frameDonors.brushNet, ink: 5000 } })
+    const options = { fontStyle: 'fangsong', separate: true }
+    await compose(src, '⿺米罒', options)
+    await compose(src, '⿺米口', options)
+    const composer = new Composer(src.store(), options)
+    const [netFrame] = composer.compose('⿺米罒')
+    const [mouthFrame] = composer.compose('⿺米口')
+    expect(netFrame.part.contours).toEqual(mouthFrame.part.contours)
+  })
+
   it('keeps the two Fangsong 米 dots together with the enclosing 木, respecting donor exclusion', async () => {
     const src = source({ 米: { G: frameDonors.brushRice, ink: 5000 } })
     const options = { fontStyle: 'fangsong', separate: true }
