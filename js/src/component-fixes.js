@@ -275,6 +275,19 @@ export function dotIn(composer, band) {
  * A correction that cannot find the parts it names leaves the drawing as it is.
  */
 export const COMPONENT_FIXES = {
+  '⿰𭃂尤': {
+    glyphs: {},
+    apply(parts, composer, region) {
+      if (composer.fontStyle !== 'fangsong' || parts.length !== 3 ||
+          ['𭃂', '刀', '二', '尤'].some(ch => composer.excluded(ch))) return parts
+      const knife = composer.glyph('刀'), bars = composer.glyph('二'), you = composer.glyph('尤')
+      if (!knife || !bars || !you) return parts
+      // U+2D0C2 crosses 刀 with two interior bars. Neither bar doubles the knife's top stroke.
+      const place = (glyph, ch, box) => placed(glyph, glyph.box, mapped(box, [0, 0, 1, 1], region), composer.ink(ch), `glyph ${ch}`)
+      return [place(knife, '刀', [0.03, 0.06, 0.48, 0.90]), place(bars, '二', [0.025, 0.36, 0.49, 0.67]),
+        place(you, '尤', [0.52, 0.06, 0.975, 0.93])]
+    },
+  },
   // 𠷃 (BabelStone: ⿰口⿳穴𠆢又) has a broad, shallow 又. Its component's
   // proportions also occur in 𥔉. Keep both inner parts within 穴's outer span.
 
