@@ -1,7 +1,7 @@
 // @ts-check
 import { contours } from 'd3-contour'
 import { matchRegions, prepareCorrespondence, prepareWeight } from './mix-contours.js'
-import { inkPolygons, outlinePath } from './mix-outline.js'
+import { inkPolygons, outlinePath, limitDisplacement } from './mix-outline.js'
 import { STROKE } from './slot-placeholder.js'
 import { ASCENT, fill, pathRings, pointsBox, union } from './geometry.js'
 import { groupParts } from './group-parts.js'
@@ -229,7 +229,7 @@ function prepareFields(shapes, side) {
 }
 
 /** @param {string[]} paths @param {number[]} shares @param {number} weight */
-function mixInk(paths, shares, weight) {
+function drawInk(paths, shares, weight) {
   if (weight === 1 && paths.every((path) => path === paths[0])) return paths[0]
   const key = JSON.stringify(paths)
   let render = outlines.get(key)
@@ -239,6 +239,30 @@ function mixInk(paths, shares, weight) {
     outlines.set(key, render)
   }
   return render(shares, weight)
+}
+
+/** Bound how much a small contribution can move the visible edge, even if adding
+ * its donor changes the topology or which master establishes correspondence.
+ * @param {string[]} paths @param {number[]} shares @param {number} weight */
+function mixInk(paths, shares, weight) {
+  let drawing = drawInk(paths, shares, weight)
+  const order = shares.map((_, i) => i).sort((a, b) => shares[b] - shares[a])
+  let tail = 0
+  for (let k = order.length - 1; k > 0; k--) {
+    tail += shares[order[k]]
+    if (tail >= 0.05) break
+    const separation = 1 - shares[order[k]] / shares[order[k - 1]]
+    const radius = (500 * tail) / ((1 - tail / 0.05) * separation)
+    if (!(radius < 1000)) continue
+    const indices = order.slice(0, k).sort((a, b) => a - b)
+    const boundary = drawInk(
+      indices.map((i) => paths[i]),
+      indices.map((i) => shares[i] / (1 - tail)),
+      weight
+    )
+    drawing = limitDisplacement(drawing, boundary, radius)
+  }
+  return drawing
 }
 
 /** @param {number[][]} boxes @param {number[]} shares */

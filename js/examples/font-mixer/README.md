@@ -11,4 +11,4 @@ bun examples/font-mixer/build.mjs
 
 Serve `dist/font-mixer/` over HTTP. The browser reads the five exports listed in `exports.json`. Each entry can point to a separate self-hosted export.
 
-The build includes the pinned ids-input design styles. The six examples cover horizontal, vertical, enclosed, three-part and nested compositions. Drag the pad or a range to see the outline update as you move. Each face slider sets its percentage and redistributes the remainder proportionally.
+The build includes the pinned ids-input design styles. The 18 examples include left–right, stacked, enclosed and nested compositions. Drag the pad or a range to see the outline update as you move. Each face slider sets its percentage and redistributes the remainder proportionally.

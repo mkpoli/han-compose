@@ -1,5 +1,6 @@
 // @ts-check
 import clipper from 'clipper-lib'
+import { ASCENT, pathRings } from './geometry.js'
 
 /** Union the original flattened Bézier contours in fixed point. Boundary correspondence
  * sees subpixel edges and the actual counter topology of overlapping strokes.
@@ -159,4 +160,55 @@ export function weightVectors(rings) {
       )
     )
   })
+}
+
+/** Constrain ink to a band either side of the limiting outline as a share vanishes.
+ * Different sets of masters can have different contour correspondences, even for a
+ * near-zero additional share. The band has zero width on the simplex boundary.
+ * @param {string} drawing @param {string} boundary @param {number} radius */
+export function limitDisplacement(drawing, boundary, radius) {
+  if (radius < 0.01) return boundary
+  const scale = 256
+  /** @param {string} d */
+  function paths(d) {
+    return pathRings(d, 12).map((/** @type {number[]} */ r) => {
+      const pts = []
+      for (let i = 0; i < r.length; i += 2)
+        pts.push({ X: Math.round(r[i] * scale), Y: Math.round((ASCENT - r[i + 1]) * scale) })
+      return pts
+    })
+  }
+  /** @param {clipper.Paths} a @param {clipper.Paths} b @param {clipper.ClipType} operation */
+  function combine(a, b, operation) {
+    const clip = new clipper.Clipper()
+    clip.AddPaths(a, clipper.PolyType.ptSubject, true)
+    clip.AddPaths(b, clipper.PolyType.ptClip, true)
+    /** @type {clipper.Paths} */
+    const out = []
+    clip.Execute(operation, out, clipper.PolyFillType.pftNonZero, clipper.PolyFillType.pftNonZero)
+    return out
+  }
+  const union = clipper.ClipType.ctUnion
+  const edge = combine(paths(boundary), [], union)
+  if (!edge.length) return drawing
+  const offset = new clipper.ClipperOffset(2, 0.1 * scale)
+  offset.AddPaths(edge, clipper.JoinType.jtRound, clipper.EndType.etClosedPolygon)
+  /** @type {clipper.Paths} */
+  const inside = []
+  /** @type {clipper.Paths} */
+  const outside = []
+  offset.Execute(inside, -radius * scale)
+  offset.Execute(outside, radius * scale)
+  const ink = combine(paths(drawing), outside, clipper.ClipType.ctIntersection)
+  return combine(ink, inside, union)
+    .map(
+      (r) =>
+        r
+          .map(
+            ({ X, Y }, i) =>
+              (i ? 'L' : 'M') + Math.round((X / scale) * 100) / 100 + ' ' + Math.round((Y / scale) * 100) / 100
+          )
+          .join('') + 'Z'
+    )
+    .join('')
 }

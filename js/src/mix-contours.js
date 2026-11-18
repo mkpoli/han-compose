@@ -47,18 +47,19 @@ function correspondence(ref, points) {
     }
     previous.set(current)
   }
-  const result = ref.map(() => [0, 0, 0, 0])
-  const counts = new Uint16Array(n)
+  // Retain both sides of a many-to-one match. Averaging away the target's
+  // intervening points used to cut across serifs immediately before a pure pole.
+  /** @type {number[][][]} */
+  const runs = ref.map(() => [])
   let i = n - 1,
     j = n - 1
   while (i >= 0 && j >= 0) {
-    for (let k = 0; k < 4; k++) result[i][k] += path[j][k]
-    counts[i]++
+    runs[i].push(path[j])
     const step = direction[i * n + j]
     if (step !== 2) i--
     if (step !== 1) j--
   }
-  return result.map((row, i) => row.map((v) => v / counts[i]))
+  return runs.map((run) => run.reverse())
 }
 
 /** Sample in arc length, because a straight stem might only have its two end vertices.
@@ -127,9 +128,28 @@ export function prepareCorrespondence(polygons) {
   const counts = ordered[0].map((_, i) => Math.max(...ordered.map((r) => sampleCount(r[i]))))
   const faces = ordered.map((r) => withWidths(r, counts))
   const ref = faces[0]
-  const aligned = faces.map((face, f) => face.map((ring, i) => (f ? correspondence(ref[i], ring) : ring)))
+  const runs = faces.map((face, f) =>
+    face.map((ring, i) => (f ? correspondence(ref[i], ring) : ring.map((p) => [p])))
+  )
+  // Give every master a knot at every turn of the alignment path, including turns
+  // where one master stands still. This makes the blend approach either endpoint.
+  const aligned = faces.map(() => ref.map(() => /** @type {number[][]} */ ([])))
+  ref.forEach((ring, j) =>
+    ring.forEach((_, i) => {
+      const slices = runs.map((face) => face[j][i])
+      const knots = new Set([0])
+      for (const slice of slices) for (let k = 1; k < slice.length; k++) knots.add(k / (slice.length - 1))
+      for (const at of [...knots].sort((a, b) => a - b))
+        slices.forEach((slice, f) => {
+          const u = at * (slice.length - 1),
+            lo = Math.floor(u),
+            hi = Math.ceil(u)
+          aligned[f][j].push(slice[lo].map((v, k) => v + (u - lo) * (slice[hi][k] - v)))
+        })
+    })
+  )
   return (/** @type {number[]} */ shares, /** @type {number} */ weight) =>
-    ref.map((r, j) => {
+    aligned[0].map((r, j) => {
       const mixed = r.map((_, i) => {
         let x = 0,
           y = 0

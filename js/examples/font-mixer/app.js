@@ -39,7 +39,26 @@ const position = mixPad(get('pad'), FONT_STYLES, names, (weights) => {
   })
   schedule()
 })
-const examples = ['⿰木口', '⿱山石', '⿴囗木', '⿲木火木', '⿱水⿰水水', '⿰氵青']
+const examples = [
+  '⿰木口',
+  '⿱山石',
+  '⿴囗木',
+  '⿲木火木',
+  '⿱水⿰水水',
+  '⿰氵青',
+  '⿰日月',
+  '⿰女子',
+  '⿰言寺',
+  '⿱雨田',
+  '⿱艹早',
+  '⿱秋心',
+  '⿵門口',
+  '⿴囗或',
+  '⿸广木',
+  '⿺辶首',
+  '⿱口⿰口口',
+  '⿰木⿱日木'
+]
 for (const sequence of examples) {
   const button = document.createElement('button')
   button.type = 'button'

@@ -125,3 +125,21 @@ it('keeps the flank of a slanted stem straight as its weight changes', () => {
     expect(Math.max(...edges) - Math.min(...edges)).toBeLessThan(1.5)
   }
 })
+
+it('converges to either original outline as the other face enters the mix', () => {
+  const serif = {d:'M40 210L330 226L425 166L495 222L840 210L961 155L930 256L470 258L446 900L380 910L377 260L50 266Z'}
+  const fangsong = {d:'M60 240Q370 230 520 186L909 148L954 157L922 193L532 224L490 870L450 909L472 234L70 262Z'}
+  for(const [source,other] of [[serif,fangsong],[fangsong,serif]]) {
+    const actual=mixDrawings([source,other],[.999999,.000001],1)
+    expect(pathMask(actual.d,192)).toEqual(pathMask(source.d,192))
+  }
+})
+
+it('keeps a two-face path stable when a trace share changes the number of islands', () => {
+  const left={d:'M40 80L380 120L210 910L115 860Z'}
+  const right={d:'M110 170L405 190L250 908L208 820Z'}
+  const extra={d:'M110 210L301 225L146 510ZM360 670L410 705L221 960Z'}
+  const pair=mixDrawings([left,right],[.5,.5],1)
+  const near=mixDrawings([extra,left,right],[.000002,.499999,.499999],1)
+  expect(pathMask(near.d,192)).toEqual(pathMask(pair.d,192))
+})

@@ -40,11 +40,6 @@ export function mixPad(container, styles, names, change) {
   const cross = (a, b) => a[0] * b[1] - a[1] * b[0]
   function move(event) {
     const point = new DOMPoint(event.clientX, event.clientY).matrixTransform(svg.getScreenCTM().inverse())
-    const pole = vertices.findIndex(([x, y]) => Math.hypot(point.x - x, point.y - y) < 6)
-    if (pole >= 0) {
-      change(styles.map((_, i) => Number(i === pole)))
-      return
-    }
     for (let i = 0; i < 5; i++) {
       const j = (i + 1) % 5,
         a = vertices[i],
@@ -56,10 +51,14 @@ export function mixPad(container, styles, names, change) {
       if (u < -1e-7 || v < -1e-7) continue
       u = Math.max(u, 0)
       v = Math.max(v, 0)
-      const sum = Math.max(1, u + v)
-      const weights = Array(5).fill(Math.max(0, 1 - u - v) / 5)
-      weights[i] += u / sum
-      weights[j] += v / sum
+      // Leave a narrow target along each edge. Moving onto it continuously
+      // removes the three interior shares, keeping a two-face drag on its axis.
+      const sum = u + v
+      const radial = Math.min(1, sum / 0.965)
+      const across = Math.max(0, Math.min(1, ((sum ? v / sum : 0) - 0.025) / 0.95))
+      const weights = Array(5).fill((1 - radial) / 5)
+      weights[i] += radial * (1 - across)
+      weights[j] += radial * across
       change(weights)
       break
     }
