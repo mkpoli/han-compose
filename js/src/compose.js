@@ -1264,8 +1264,15 @@ export class Composer {
     if (!own) return null
     const seat = fitted(tightBox(own), room, 1.12)
     if (this.fontStyle === 'serif' && (inner === '口' || inner === '日')) {
-      seat[0] = room[0]
-      seat[2] = room[2]
+      // Use the space beside the crossbar as well as the opening above the
+      // foot. 日 has a middle horizontal and needs the taller of the two seats.
+      const height = room[3] - room[1]
+      const width = room[2] - room[0]
+      // Nested cells retain stroke weight as they narrow. Their crossbar
+      // needs a larger share of the opening to clear the left upright.
+      const leftInset = Math.max(width * 0.012, Math.min(width * 0.14, (430 - width) * 0.20))
+      return [room[0] + leftInset, room[1] - height * (inner === '日' ? 0.13 : 0.09),
+        room[2] - width * 0.035, room[3] + height * (inner === '日' ? 0.48 : 0.385)]
     }
     if (this.fontStyle === 'regular' && inner === '口') {
       // A flatter mouth with the upper edge held in place above the foot.
@@ -1652,7 +1659,12 @@ export class Composer {
       const [left, , tip] = glyph.box
       const shoulder = 520
       const narrow = points => points.map((v, i) => {
-        if (i % 2) return v
+        if (i % 2) {
+          // Only the upturned tip lies beyond x=830. Lower it above the
+          // baseline so the bottom serif of a reflected 日 clears the hook.
+          const tipShare = Math.max(0, Math.min(1, (points[i - 1] - 830) / 60))
+          return v - Math.max(0, v) * 0.48 * tipShare
+        }
         const distance = v <= shoulder ? v - left : (tip - v) * (shoulder - left) / (tip - shoulder)
         return v - 0.12 * Math.max(0, distance)
       })

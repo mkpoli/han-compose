@@ -202,7 +202,7 @@ describe('克 enclosing another component', () => {
 
 })
 
-it('widens the Serif square above the hook and keeps its width when mirrored', async () => {
+it('preserves the tall Serif mouth above the hook, including its reflection', async () => {
   const src = source({ 克: records.木, 兡: { G: baiDonor, ink: 5000 } })
   const options = { fontStyle: 'serif', separate: true }
   const cold = await sketch(src, '⿺克口', options)
@@ -210,9 +210,9 @@ it('widens the Serif square above the hook and keeps its width when mirrored', a
     const { parts } = await compose(src, seq, options)
     expect(parts[0].origin).toContain('兡')
     const [l, b, r, t] = pointsBox(pathRings(parts[1].d).flat())
-    expect(r - l).toBeGreaterThan(410)
-    expect((r - l) / (t - b)).toBeGreaterThan(0.80)
-    expect((r - l) / (t - b)).toBeLessThan(1.15)
+    expect(r - l).toBeGreaterThan(390)
+    expect(t - b).toBeGreaterThan(625)
+    expect(t - b).toBeLessThan(720)
   }
   expect(await sketch(src, '⿺克口', options)).toEqual(cold)
 })
