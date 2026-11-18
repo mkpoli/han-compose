@@ -1,6 +1,7 @@
 import { expect, it } from 'bun:test'
 import { activeFaces, composeMixed, FONT_STYLES } from '../src/font-mix.js'
 import { mixDrawings } from '../src/mix-drawings.js'
+import { groupRegions } from '../src/mix-contours.js'
 import { limitDisplacement } from '../src/mix-outline.js'
 import { count, pathMask } from '../src/geometry.js'
 import { compose } from '../src/loader.js'
@@ -132,7 +133,9 @@ it('converges to either original outline as the other face enters the mix', () =
   const serif = {
     d: 'M40 210L330 226L425 166L495 222L840 210L961 155L930 256L470 258L446 900L380 910L377 260L50 266Z'
   }
-  const fangsong = { d: 'M60 240Q370 230 520 186L909 148L954 157L922 193L532 224L490 870L450 909L472 234L70 262Z' }
+  const fangsong = {
+    d: 'M60 240Q370 230 520 186L909 148L954 157L922 193L532 224L490 870L450 909L472 234L70 262Z'
+  }
   for (const [source, other] of [
     [serif, fangsong],
     [fangsong, serif]
@@ -199,6 +202,31 @@ it('retains the original serif tips when the weight leaves neutral', () => {
   for (const weight of [0.999999, 1.000001]) {
     expect(pathMask(mixDrawings([{ d }], [1], weight).d, 256)).toEqual(pathMask(d, 256))
   }
+})
+
+it('keeps matching the islands two faces share when one face joins two of them', () => {
+  const box = (x, y, right, bottom) => [
+    [x, y],
+    [right, y],
+    [right, bottom],
+    [x, bottom],
+    [x, y]
+  ]
+  const split = [box(20, 20, 200, 32), box(20, 60, 200, 72), box(20, 100, 200, 112), box(60, 150, 90, 230)]
+  // The second face draws the lower two bars as one island and shifts every stroke.
+  const joined = [box(24, 26, 204, 36), box(24, 64, 204, 116), box(64, 154, 96, 236)]
+  const groups = groupRegions([split, joined], (ring) => ring, 15)
+  const sizes = groups.map((group) => group.map((face) => face.length)).sort()
+  expect(sizes).toEqual([
+    [1, 1],
+    [1, 1],
+    [2, 1]
+  ])
+  expect(groups.find((group) => group[0].length === 2)[1]).toEqual([joined[1]])
+  // An island with no counterpart joins its nearest group instead of standing alone.
+  const extra = groupRegions([[...split, box(210, 20, 220, 30)], joined], (ring) => ring, 15)
+  expect(extra.every((group) => group.every((face) => face.length > 0))).toBe(true)
+  expect(extra.flatMap((group) => group[0]).length).toBe(5)
 })
 
 it('keeps a drawing whole inside a wide band around a small or thin boundary', () => {
