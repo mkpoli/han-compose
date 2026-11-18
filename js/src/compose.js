@@ -31,7 +31,7 @@ import { pyramidRows, pyramidOnBase } from './pyramid-rows.js'
 import { hangulClusterAt, jamoClass } from './hangul.js'
 import { hangulLetters } from './hangul-ids.js'
 import { toConjoiningJamo } from './hangul.js'
-import { componentFix } from './component-fixes.js'
+import { componentFix, wealthBoxes } from './component-fixes.js'
 import { isOutbound, markFace, markParts } from './marks.js'
 import { customAt, splitToneMarks, toneMarksAt } from './tree.js'
 import { hexOf } from './sha256.js'
@@ -1002,6 +1002,7 @@ export class Composer {
     // Cell scaffolds already have a complete layout; searching every repeated subtree adds no evidence.
     if (this.pyramid(tree) || this.pyramidWithBase(tree)) return false
     const key = keyOf(tree)
+    if (['fangsong', 'regular', 'pen-writing'].includes(this.fontStyle) && key.includes('⿺辶⿱宀⿱⿰王尔⿲隹貝招')) return false
     if (this.bySequence(key) || this.spelled.has(key)) return false
     if (isGroupedForm(key, this.fontStyle) || isComponentForm(key, this.fontStyle)) return false
     let leaves = 0, supported = true
@@ -1207,6 +1208,13 @@ export class Composer {
     if (partitioned) return partitioned
     const out = []
     const walk = (node, region, atRoot) => {
+      if (Array.isArray(node) && node[0] === '⿺') {
+        const boxes = wealthBoxes(keyOf(node), this.fontStyle, region)
+        if (boxes) {
+          for (const box of boxes) out.push({ index: out.length, box, empty: false })
+          return
+        }
+      }
       const pyramid = this.pyramid(node)
       if (pyramid) {
         // One box per leaf of the repeated cell, in the cell the pyramid gives it.
