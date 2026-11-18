@@ -9,7 +9,8 @@ import keDonor from './fixtures/sans-ke.json' with { type: 'json' }
 import baiDonor from './fixtures/serif-ke-bai.json' with { type: 'json' }
 // Noto Sans CJK JP and Zhuque Fangsong (SIL OFL 1.1).
 import frameDonors from './fixtures/rice-walk-frames.json' with { type: 'json' }
-// Enclosing 爪 from TW-Kai 爮, Zhuque Fangsong 爬 and Kureedo 爬 (SIL OFL 1.1).
+// 爮 from TW-Kai (數位發展部, CNS11643全字庫, Open Government Data License 1.0).
+// 爬 from Zhuque Fangsong and Kureedo (SIL OFL 1.1). See docs/licensing.md.
 import clawFrames from './fixtures/claw-frames.json' with { type: 'json' }
 import parts from './fixtures/sans-lower-left.json' with { type: 'json' }
 
