@@ -279,6 +279,16 @@ export const COMPONENT_FIXES = {
   // proportions also occur in 𥔉. Keep both inner parts within 穴's outer span.
 
   // As in 堇's lower body, 口 crosses the stem above both of 土's horizontal bars.
+  '⿳吅工吅': {
+    glyphs: {},
+    apply(parts, composer) {
+      if (composer.fontStyle !== 'fangsong' || parts.length !== 3) return parts
+      const frame = union(parts.map(part => part.target))
+      // 噐 has two compact mouth rows. Leave air on both sides of 工's crossbars.
+      const bands = [[0.10, 0.67, 0.90, 1], [0.02, 0.39, 0.98, 0.62], [0.10, 0, 0.90, 0.33]]
+      return parts.map((part, i) => ({ ...part, target: mapped(bands[i], [0, 0, 1, 1], frame) }))
+    },
+  },
   '⿻口土': {
     glyphs: { '口': '412b5a81c5efb7a5f824853645e81e3aea284eb92b129004596757cdba72cc17',
       '土': '9c2d33ff79e57ea5d21a905b5a319697d917da892271e6cfffae7c5581898373' },
