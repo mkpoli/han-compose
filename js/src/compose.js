@@ -527,6 +527,14 @@ export const designedSources = (tree, style = 'sans') => {
   return [...out]
 }
 
+// Some published brush-face exports omit the records of these ideographs altogether.
+// Use their descriptions from data/vocab/han-ids.tsv when the export carries neither
+// an outline nor a description, including when one occurs inside another missing glyph.
+const MISSING_DESCRIPTIONS = new Map([
+  ['𠮚', '⿴口丶'], ['𡥦', '⿲子子子'], ['𢀛', '⿱工口'],
+  ['𤍾', '⿱林𤆍'], ['𤆍', '⿱大火'], ['𭰏', '⿰氵杂'],
+])
+
 // Left components the export carries no host cuts for, taken from a designed character's glyph.
 const DESIGNED_CUTS = {
   氵: ['𭰲', {
@@ -802,6 +810,11 @@ export class Composer {
     try { return this.resolution(this.parse(key)).encoded } catch { return null }
   }
   sequenceOf(ch) { return this.rec(ch)?.s ?? null }
+
+  missingDescription(ch) {
+    const sequence = MISSING_DESCRIPTIONS.get(ch)
+    return sequence && !this.excluded(ch) && ![...sequence].some(key => this.excluded(key)) ? sequence : null
+  }
   atomic(ch) { return this.rec(ch)?.at === 1 }
 
   /** Outline length: a glyph's, or for an excluded or glyphless character its sequence's operands'. */
@@ -1097,7 +1110,17 @@ export class Composer {
           }
         }
         const glyph = this.glyph(node)
-        if (!glyph) throw new LookupError(`No glyph draws ${node}.`)
+        if (!glyph) {
+          const sequence = this.missingDescription(node)
+          if (!sequence) throw new LookupError(`No glyph draws ${node}.`)
+          const parts = this.cellLayout(this.parse(sequence), inset(target(box)), { leafIndices: false })
+          if (leafIndices) {
+            for (const part of parts) part.leaf = leaf
+            leaf++
+          }
+          out.push(...parts)
+          return
+        }
         // A cell allows a little more stretch than a composed part, so the glyph fills it; a
         // narrow cell still keeps the glyph's proportions instead of turning it into a sliver.
         const cell = inset(target(box)), inkBox = tightBox(glyph)
@@ -1531,8 +1554,10 @@ export class Composer {
     if (encoded && !this.expanding.has(encoded) && (typeof node === 'string' || !this.excluded(encoded))) {
       const glyph = this.drawnGlyph(encoded, !atRoot)
       let tree = typeof node !== 'string' ? node : null
-      if (!tree && this.sequenceOf(encoded) && !this.excluded(encoded)) {
-        try { tree = this.parse(this.sequenceOf(encoded)) } catch (error) {
+      const sequence = !tree && !this.excluded(encoded)
+        ? this.sequenceOf(encoded) ?? (!glyph && this.missingDescription(encoded)) : null
+      if (sequence) {
+        try { tree = this.parse(sequence) } catch (error) {
           if (!glyph) throw new LookupError(`${encoded} has no glyph, and its sequence is malformed.`)
         }
         if (typeof tree === 'string') tree = null
