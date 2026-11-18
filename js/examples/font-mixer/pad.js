@@ -1,13 +1,12 @@
-// Each triangle of the pentagon blends its adjacent poles with the equal mix at the centre.
+import { pointAt, vertices, weightsAt } from './pentagon.js'
+
+// Drag inside the pentagon to set the five shares; `route` traces a run of mixes across it.
 export function mixPad(container, styles, names, change) {
   const ns = 'http://www.w3.org/2000/svg'
   const svg = document.createElementNS(ns, 'svg')
-  svg.setAttribute('viewBox', '-143 -112 286 224')
+  svg.setAttribute('viewBox', '-150 -112 300 214')
+  svg.setAttribute('role', 'img')
   svg.setAttribute('aria-label', 'Five-face mix position')
-  const vertices = styles.map((_, i) => {
-    const angle = ((i * 2) / 5 - 0.5) * Math.PI
-    return [Math.cos(angle) * 76, Math.sin(angle) * 76]
-  })
   function element(tag, attrs) {
     const el = document.createElementNS(ns, tag)
     for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v)
@@ -16,52 +15,51 @@ export function mixPad(container, styles, names, change) {
   }
   element('polygon', {
     points: vertices.map((p) => p.join(',')).join(' '),
-    fill: 'var(--ui-color-accent-soft)',
+    fill: 'var(--ui-color-surface)',
     stroke: 'var(--ui-color-control-border)'
   })
-  vertices.forEach(([x, y], i) => {
-    element('line', { x1: 0, y1: 0, x2: x, y2: y, stroke: 'var(--ui-color-border-strong)' })
-    element('circle', { cx: x, cy: y, r: 3, fill: 'var(--ui-color-accent)' })
+  vertices.forEach(([x, y]) => {
+    element('line', {
+      x1: 0,
+      y1: 0,
+      x2: x,
+      y2: y,
+      stroke: 'var(--ui-color-border)'
+    })
+  })
+  const route = element('polyline', {
+    fill: 'none',
+    stroke: 'var(--ui-color-accent)',
+    'stroke-width': 1.5,
+    'stroke-linejoin': 'round',
+    opacity: 0.45
+  })
+  const labels = vertices.map(([x, y], i) => {
+    element('circle', {
+      cx: x,
+      cy: y,
+      r: 3,
+      fill: 'var(--ui-color-ink-muted)'
+    })
     const label = element('text', {
-      x: x * 1.27,
-      y: y * 1.26 + 4,
-      'text-anchor': 'middle',
+      x: x * 1.12,
+      y: y * 1.12 + (y < -80 ? -4 : y > 0 ? 14 : 4),
+      'text-anchor': Math.abs(x) < 1 || y > 0 ? 'middle' : x > 0 ? 'start' : 'end',
       fill: 'currentColor',
-      'font-size': 15
+      'font-size': 11
     })
     label.textContent = names[styles[i]]
+    return label
   })
   const cursor = element('circle', {
-    r: 6,
+    r: 7,
     fill: 'var(--ui-color-accent)',
     stroke: 'var(--ui-color-surface)',
-    'stroke-width': 2
+    'stroke-width': 2.5
   })
-  const cross = (a, b) => a[0] * b[1] - a[1] * b[0]
   function move(event) {
     const point = new DOMPoint(event.clientX, event.clientY).matrixTransform(svg.getScreenCTM().inverse())
-    for (let i = 0; i < 5; i++) {
-      const j = (i + 1) % 5,
-        a = vertices[i],
-        b = vertices[j],
-        p = [point.x, point.y],
-        area = cross(a, b)
-      let u = cross(p, b) / area,
-        v = cross(a, p) / area
-      if (u < -1e-7 || v < -1e-7) continue
-      u = Math.max(u, 0)
-      v = Math.max(v, 0)
-      // Leave a narrow target along each edge. Moving onto it continuously
-      // removes the three interior shares, keeping a two-face drag on its axis.
-      const sum = u + v
-      const radial = Math.min(1, sum / 0.965)
-      const across = Math.max(0, Math.min(1, ((sum ? v / sum : 0) - 0.025) / 0.95))
-      const weights = Array(5).fill((1 - radial) / 5)
-      weights[i] += radial * (1 - across)
-      weights[j] += radial * across
-      change(weights)
-      break
-    }
+    change(weightsAt([point.x, point.y]))
   }
   svg.onpointerdown = (event) => {
     if (!event.isPrimary || event.button !== 0) return
@@ -73,14 +71,16 @@ export function mixPad(container, styles, names, change) {
     if (svg.hasPointerCapture(event.pointerId)) move(event)
   }
   container.append(svg)
-  return (weights) => {
-    cursor.setAttribute(
-      'cx',
-      vertices.reduce((v, p, i) => v + weights[i] * p[0], 0)
-    )
-    cursor.setAttribute(
-      'cy',
-      vertices.reduce((v, p, i) => v + weights[i] * p[1], 0)
-    )
+  return {
+    position(weights) {
+      const [x, y] = pointAt(weights)
+      cursor.setAttribute('cx', x)
+      cursor.setAttribute('cy', y)
+      labels.forEach((label, i) => label.setAttribute('font-weight', weights[i] > 0.5 ? 650 : 400))
+    },
+    // Draw the path a run of mixes takes across the pad; an empty run clears it.
+    route(mixes) {
+      route.setAttribute('points', mixes.map((weights) => pointAt(weights).join(',')).join(' '))
+    }
   }
 }

@@ -3,111 +3,226 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Han Compose · Font mixer</title>
   <link rel="stylesheet" href="./ids-ui.css" />
+  <script>
+    try {
+      const theme = localStorage.getItem('theme')
+      if (theme) document.documentElement.dataset.theme = theme
+    } catch {}
+  </script>
   <style>
+    html,
     body {
-      max-width: 68rem;
-      font-size: 1rem;
-      margin: auto;
-      padding: clamp(1rem, 4vw, 3.5rem);
+      height: 100%;
+    }
+    body {
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      margin: 0;
+      scrollbar-color: var(--ui-color-scrollbar) transparent;
+      scrollbar-width: thin;
     }
     header {
       display: flex;
-      align-items: baseline;
-      justify-content: space-between;
-      border-bottom: 1px solid var(--ui-color-border-strong);
-      margin-bottom: 2rem;
-      padding-bottom: 0.8rem;
+      align-items: center;
+      gap: var(--ui-space-lg);
+      padding: var(--ui-space-sm) var(--ui-space-3xl);
+      border-bottom: 1px solid var(--ui-color-border);
+      background: var(--ui-color-surface);
     }
     h1 {
-      font:
-        500 clamp(2.2rem, 6vw, 4rem)/1 Georgia,
-        serif;
       margin: 0;
+      font-size: var(--ui-text-lg);
+      font-weight: var(--ui-weight-semibold);
     }
     header span {
-      font-weight: 600;
+      color: var(--ui-color-ink-muted);
+      font-size: var(--ui-text-sm);
+      margin-inline-end: auto;
+    }
+    #theme svg {
+      inline-size: 16px;
+      block-size: 16px;
+    }
+    :root:not([data-theme='dark']) #theme .moon,
+    :root[data-theme='dark'] #theme .sun {
+      display: none;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme]) #theme .moon {
+        display: inline;
+      }
+      :root:not([data-theme]) #theme .sun {
+        display: none;
+      }
     }
     main {
       display: grid;
-      grid-template-columns: minmax(0, 1.4fr) minmax(15rem, 1fr);
-      gap: clamp(1.3rem, 4vw, 3rem);
+      grid-template-columns: minmax(0, 1fr) minmax(20rem, 26rem);
+      min-height: 0;
+    }
+    .stage {
+      display: grid;
+      grid-template-rows: minmax(0, 1fr) auto auto;
+      gap: var(--ui-space-xl);
+      min-height: 0;
+      padding: var(--ui-space-3xl);
+    }
+    .frame {
+      display: grid;
+      place-items: center;
+      min-height: 0;
+      container-type: size;
     }
     #proof {
-      background-color: var(--ui-color-surface);
-      background-image:
-        linear-gradient(to right, transparent 49.8%, var(--ui-color-border) 50%, transparent 50.2%),
-        linear-gradient(transparent 49.8%, var(--ui-color-border) 50%, transparent 50.2%);
-      border: 1px solid var(--ui-color-border-strong);
+      position: relative;
+      inline-size: min(100cqw, 100cqh);
       aspect-ratio: 1;
       display: grid;
       place-items: center;
+      overflow: hidden;
+      border: 1px solid var(--ui-color-border-strong);
+      border-radius: var(--ui-radius-lg);
+      background-color: var(--ui-color-surface);
+      background-image:
+        linear-gradient(to right, transparent calc(50% - 0.5px), var(--ui-color-border) 0 calc(50% + 0.5px), transparent 0),
+        linear-gradient(transparent calc(50% - 0.5px), var(--ui-color-border) 0 calc(50% + 0.5px), transparent 0);
     }
-    #faces {
+    #glyph {
       display: grid;
-      grid-template-columns: 6.2rem 1fr 3rem;
-      align-items: center;
-      gap: 0.55rem 0.7rem;
-    }
-    #faces input {
-      min-width: 0;
-      margin: 0;
-    }
-    #faces output {
-      text-align: right;
-    }
-    #pad {
-      margin: auto;
-      max-width: 21rem;
-    }
-    #pad svg {
-      display: block;
-      width: 100%;
-      height: 12.5rem;
-      touch-action: none;
-      cursor: crosshair;
+      place-items: center;
+      inline-size: 100%;
+      block-size: 100%;
     }
     #proof svg {
-      width: 90%;
-      height: 90%;
+      width: 88%;
+      height: 88%;
     }
-    label {
+    #proof svg path:not([fill]),
+    #proof svg path[fill='#000000'] {
+      fill: currentColor;
+    }
+    #status {
+      position: absolute;
+      inset: auto 0 var(--ui-space-lg);
+      margin: 0;
+      text-align: center;
+      color: var(--ui-color-ink-muted);
+      font-size: var(--ui-text-sm);
+    }
+    #progress {
+      position: absolute;
+      inset: auto 0 0;
+      block-size: 16px;
+      cursor: ew-resize;
+    }
+    #progress::-webkit-slider-runnable-track {
+      border-radius: 0;
+      margin-block-start: 8px;
+    }
+    #progress::-moz-range-track,
+    #progress::-moz-range-progress {
+      border-radius: 0;
+      transform: translateY(2px);
+    }
+    #progress::-webkit-slider-thumb {
+      inline-size: 12px;
+      block-size: 12px;
+      margin-block-start: -4px;
+    }
+    #progress::-moz-range-thumb {
+      inline-size: 12px;
+      block-size: 12px;
+      transform: translateY(2px);
+    }
+    .transport {
       display: flex;
-      justify-content: space-between;
-      align-items: baseline;
-      gap: 0.5rem;
-      font-weight: 550;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: center;
+      gap: var(--ui-space-lg);
     }
-    output {
-      font:
-        normal 0.9rem ui-monospace,
-        monospace;
+    .pace {
+      display: grid;
+      grid-template-columns: auto 9rem 3.2rem;
+      align-items: center;
+      gap: var(--ui-space-sm);
     }
-    input[type="range"] {
-      width: 100%;
-      margin: 0.45rem 0 1rem;
+    .pace label {
+      color: var(--ui-color-ink-muted);
+      font-size: var(--ui-text-xs);
+      font-weight: var(--ui-weight-semibold);
     }
-    #ids {
-      width: 100%;
-      margin: 0.4rem 0 1rem;
-      font-size: 1.4rem;
+    #play {
+      min-inline-size: 7rem;
+    }
+    #play svg {
+      inline-size: 12px;
+      block-size: 12px;
+    }
+    #play:not([data-state='playing']) .pause,
+    #play[data-state='playing'] .play,
+    #play[data-state='preparing'] .play {
+      display: none;
     }
     #examples {
       display: flex;
       flex-wrap: wrap;
-      gap: 0.4rem;
-      margin: 0.5rem 0 0;
+      justify-content: center;
+      gap: var(--ui-space-2xs);
     }
     #examples button {
-      font-size: 1.1rem;
-      letter-spacing: 0.05em;
+      font-size: var(--ui-text-lg);
     }
-    #examples button[aria-pressed="true"] {
-      color: var(--ui-color-accent);
-      background: var(--ui-color-accent-soft);
-      border-color: var(--ui-color-accent);
+    .panel {
+      display: flex;
+      flex-direction: column;
+      gap: var(--ui-space-3xl);
+      padding: var(--ui-space-3xl);
+      overflow-y: auto;
+      border-inline-start: 1px solid var(--ui-color-border);
+      background: var(--ui-color-surface);
+      scrollbar-color: var(--ui-color-scrollbar) transparent;
+      scrollbar-width: thin;
+    }
+    #ids {
+      font-size: var(--ui-text-xl);
+      block-size: var(--ui-control-h-lg);
+    }
+    #pad {
+      border: 1px solid var(--ui-color-border);
+      border-radius: var(--ui-radius-lg);
+      background: var(--ui-color-surface-sunken);
+    }
+    #pad svg {
+      display: block;
+      width: 100%;
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
+      cursor: grab;
+    }
+    #pad svg:active {
+      cursor: grabbing;
+    }
+    #faces,
+    .weight {
+      display: grid;
+      grid-template-columns: 5.5rem minmax(0, 1fr) 3.2rem;
+      align-items: center;
+      gap: var(--ui-space-xs) var(--ui-space-lg);
+    }
+    #faces label,
+    .weight label {
+      font-size: var(--ui-text-sm);
+      font-weight: var(--ui-weight-medium);
+    }
+    output {
+      text-align: end;
+      color: var(--ui-color-ink-muted);
+      font: var(--ui-text-xs) var(--ui-font-mono);
+      font-variant-numeric: tabular-nums;
     }
     .ui-range {
-      block-size: 2rem;
       --fill: 50%;
       touch-action: pan-y;
     }
@@ -131,87 +246,110 @@
       background: var(--ui-color-accent-active);
       box-shadow: 0 0 0 4px var(--ui-color-accent-soft);
     }
-    #proof svg path:not([fill]),
-    #proof svg path[fill="#000000"] {
-      fill: currentColor;
-    }
-    #pad svg {
-      user-select: none;
-      -webkit-user-select: none;
-      cursor: grab;
-    }
-    #pad svg:active {
-      cursor: grabbing;
-    }
     fieldset {
+      display: grid;
+      gap: var(--ui-space-lg);
+      min-inline-size: 0;
       margin: 0;
       padding: 0;
       border: 0;
     }
-    legend {
-      font-weight: 650;
-      margin-bottom: 1rem;
+    #save {
+      align-self: start;
     }
-    hr {
-      border: 0;
-      border-top: 1px solid var(--ui-color-border);
-      margin: 1rem 0;
-    }
-    #status {
-      min-height: 1.5rem;
-      color: var(--ui-color-ink-muted);
-      margin: 0.5rem 0;
-    }
-    @media (max-width: 620px) {
+    @media (max-width: 760px) {
+      html,
+      body {
+        height: auto;
+      }
       main {
         grid-template-columns: 1fr;
       }
-      header {
-        margin-bottom: 1rem;
+      header,
+      .stage,
+      .panel {
+        padding-inline: var(--ui-space-xl);
       }
-      .specimen {
-        display: contents;
+      .stage {
+        padding-block: var(--ui-space-xl);
+      }
+      .frame {
+        container-type: inline-size;
       }
       #proof {
-        position: sticky;
-        top: 0;
-        z-index: 1;
-        aspect-ratio: auto;
-        height: clamp(8rem, 28svh, 15rem);
+        inline-size: min(100cqw, 46svh);
       }
-      #status:empty {
-        display: none;
+      #examples {
+        flex-wrap: nowrap;
+        justify-content: start;
+        overflow-x: auto;
+        margin-inline: calc(-1 * var(--ui-space-xl));
+        padding-inline: var(--ui-space-xl);
+        scrollbar-width: none;
       }
-      :root {
-        scroll-padding-top: clamp(9rem, 30svh, 16rem);
+      #examples button {
+        flex: none;
+      }
+      .panel {
+        overflow: visible;
+        border-inline-start: 0;
+        border-block-start: 1px solid var(--ui-color-border);
       }
     }
   </style>
   <header>
     <h1>Font mixer</h1>
     <span>Han Compose</span>
+    <button class="ui-button" data-variant="quiet" data-size="icon" type="button" id="theme" aria-label="Switch theme">
+      <svg class="sun" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+        <circle cx="8" cy="8" r="3" />
+        <path d="M8 1.5v1.5M8 13v1.5M1.5 8H3M13 8h1.5M3.4 3.4l1 1M11.6 11.6l1 1M3.4 12.6l1-1M11.6 4.4l1-1" />
+      </svg>
+      <svg class="moon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round">
+        <path d="M13.5 9.5A6 6 0 0 1 6.5 2.5a6 6 0 1 0 7 7Z" />
+      </svg>
+    </button>
   </header>
   <main>
-    <section class="specimen" aria-label="Character preview">
-      <div id="proof"></div>
-      <p id="status" role="status"></p>
-      <fieldset>
-        <legend>Examples</legend>
-        <div id="examples"></div>
-      </fieldset>
+    <section class="stage" aria-label="Character preview">
+      <div class="frame">
+        <div id="proof">
+          <div id="glyph"></div>
+          <p id="status" role="status"></p>
+          <input type="range" id="progress" class="ui-range" min="0" max="1" step="any" value="0" aria-label="Tour position" hidden />
+        </div>
+      </div>
+      <div class="transport">
+        <button class="ui-button" data-variant="primary" type="button" id="play" disabled>
+          <svg class="play" viewBox="0 0 12 12" fill="currentColor"><path d="M2.5 1.2v9.6L11 6Z" /></svg>
+          <svg class="pause" viewBox="0 0 12 12" fill="currentColor"><path d="M2 1.5h3v9H2zM7 1.5h3v9H7z" /></svg>
+          <span></span>
+        </button>
+        <div class="ui-segmented" id="phases" role="radiogroup" aria-label="Route"></div>
+        <div class="pace">
+          <label for="pace">Pace</label>
+          <input type="range" id="pace" class="ui-range" min="0.25" max="20" step="0.25" value="3" />
+          <output id="pace-value" for="pace">3 s</output>
+        </div>
+      </div>
+      <div id="examples" role="group" aria-label="Examples"></div>
     </section>
-    <section aria-label="Mixer controls">
-      <label for="ids">Ideographic description</label
-      ><input id="ids" class="ui-input" type="text" value="⿰木口" spellcheck="false" />
+    <section class="panel" aria-label="Mixer controls">
+      <div class="ui-field">
+        <label class="ui-label" for="ids">Ideographic description</label>
+        <input id="ids" class="ui-input" type="text" value="⿰木口" spellcheck="false" />
+      </div>
       <fieldset>
-        <legend>Face proportions</legend>
+        <legend class="ui-label">Faces</legend>
         <div id="pad"></div>
         <div id="faces"></div>
       </fieldset>
-      <hr />
-      <label for="weight">Stroke weight <output id="weight-value" for="weight">100%</output></label
-      ><input type="range" id="weight" class="ui-range" min="65" max="150" value="100" />
-      <button class="ui-button" data-variant="primary" type="button" id="save" disabled>Save SVG</button>
+      <div class="weight">
+        <label for="weight">Weight</label>
+        <input type="range" id="weight" class="ui-range" min="65" max="150" value="100" />
+        <output id="weight-value" for="weight">100%</output>
+      </div>
+      <button class="ui-button" type="button" id="save" disabled>Save SVG</button>
     </section>
   </main>
   <script type="module" src="./src/app.js"></script>
