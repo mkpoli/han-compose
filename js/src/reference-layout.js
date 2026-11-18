@@ -6,6 +6,8 @@ import { mapped } from './geometry.js'
 /** @type {Record<string, Record<string, { encoded: string, cells: [string, number[]][] }>>} */
 const layouts = {
   fangsong: {
+    // U+324C2 (UK-20135) places the diagonal of 力 below the gap between 止 and 匕.
+    '⿱此力': { encoded: '𲓂', cells: [['此', [74, 325, 930, 810]], ['力', [94, -64, 880, 338]]] },
     '⿱𠆢丶': { encoded: '亽', cells: [['人', [62, 265, 964, 793]], ['丶', [397, 135, 551, 298]]] },
   },
 }
