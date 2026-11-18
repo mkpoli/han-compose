@@ -22,6 +22,7 @@ const layouts = {
   },
   fangsong: {
     '⿳宀𭕄木': { encoded: '𫳍', cells: [['宀', [66, 597, 941, 853]], ['𭕄', [206, 418, 798, 581]], ['木', [62, -81, 943, 380]]] },
+    '⿰糸ソ': { encoded: '', cells: [['糸', [55, -65, 477, 810]], ['ソ', [517, 98, 947, 635]]] },
     // 此 keeps its size in 柴. 力 is 107% of its size in 勢 on both axes.
     // U+324C2 (UK-20135) places the diagonal of 力 below the gap between 止 and 匕.
     '⿱此力': {
