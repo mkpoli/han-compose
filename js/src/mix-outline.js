@@ -191,8 +191,15 @@ export function limitDisplacement(drawing, boundary, radius) {
   const union = clipper.ClipType.ctUnion
   const edge = combine(paths(boundary), [], union)
   if (!edge.length) return drawing
-  const offset = new clipper.ClipperOffset(2, 0.1 * scale)
-  offset.AddPaths(edge, clipper.JoinType.jtRound, clipper.EndType.etClosedPolygon)
+  // A wide band tolerates a coarser outline and arc. Offsetting every vertex of a
+  // detailed outline by a large radius otherwise costs seconds in overlap resolution.
+  const slack = Math.max(0.1, radius / 64) * scale
+  const offset = new clipper.ClipperOffset(2, slack)
+  offset.AddPaths(
+    clipper.Clipper.CleanPolygons(edge, slack),
+    clipper.JoinType.jtRound,
+    clipper.EndType.etClosedPolygon
+  )
   /** @type {clipper.Paths} */
   const inside = []
   /** @type {clipper.Paths} */
