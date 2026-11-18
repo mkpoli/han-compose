@@ -282,7 +282,11 @@ describe('米 and 走 lower-left frames', () => {
       expect(parts[1].origin).toBe('host 罡')
       expect(parts[1].d.match(/M/g)).toHaveLength(4)
       const [left, bottom, right, top] = pointsBox(pathRings(parts[1].d).flat())
-      expect(right - left).toBeGreaterThan(1.85 * (top - bottom))
+      const [, frameBottom, , frameTop] = pointsBox(pathRings(parts[0].d).flat())
+      const height = frameTop - frameBottom
+      expect(top - bottom).toBeGreaterThan(height * 0.32)
+      expect((top + bottom) / 2).toBeGreaterThan(frameBottom + height * 0.60)
+      expect(right - left).toBeGreaterThan(top - bottom)
       expect(right - left).toBeGreaterThan(parts[0].box[2] * 0.53)
     }
   })

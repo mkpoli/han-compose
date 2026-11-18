@@ -522,7 +522,7 @@ const lowerLeftFrames = new Set(['克', '米', '走'])
 function counterBox(outer, inner, nested, style) {
   const brush = ownFormsOnly(style)
   if (outer === '米') {
-    if (inner === '罒') return brush ? [0.43, 0.43, 0.985, 0.68] : [0.43, 0.35, 0.99, 0.60]
+    if (inner === '罒') return brush ? [0.43, 0.455, 0.985, 0.795] : [0.43, 0.375, 0.99, 0.715]
     if (inner === '口' && !brush) return [0.57, 0.30, 0.99, 0.84]
     if (inner === '口' && (style === 'fangsong' || style === 'regular')) return [0.535, 0.42, 0.985, 0.905]
     if (inner === '日' && style === 'fangsong') return [0.58, 0.365, 0.95, 0.950]
