@@ -32,6 +32,7 @@ import { pyramidRows, pyramidOnBase } from './pyramid-rows.js'
 import { hangulClusterAt, jamoClass } from './hangul.js'
 import { hangulLetters } from './hangul-ids.js'
 import { toConjoiningJamo } from './hangul.js'
+import { specimenFor, specimenParts, containsSpecimen } from './specimen-parts.js'
 import { componentFix } from './component-fixes.js'
 import { isOutbound, markFace, markParts } from './marks.js'
 import { customAt, splitToneMarks, toneMarksAt } from './tree.js'
@@ -518,6 +519,7 @@ export const designedSources = (tree, style = 'sans') => {
   const visit = node => {
     if (!Array.isArray(node)) return
     const [op, ...children] = node
+    for (const cell of specimenFor(node, style, keyOf) ?? []) for (const [ch] of cell) out.add(ch)
     const frame = enclosureEntry(op, children[0], style)
     if (frame) out.add(frame[0])
     if (frame === KE_BAI && style === 'regular' && unflippedOperand(children[1]) === '口') out.add('加')
@@ -1007,6 +1009,7 @@ export class Composer {
     // Cell scaffolds already have a complete layout; searching every repeated subtree adds no evidence.
     if (this.pyramid(tree) || this.pyramidWithBase(tree)) return false
     const key = keyOf(tree)
+    if (containsSpecimen(key, this.fontStyle)) return false
     if (this.bySequence(key) || this.spelled.has(key)) return false
     if (isGroupedForm(key, this.fontStyle) || isComponentForm(key, this.fontStyle)) return false
     let leaves = 0, supported = true
@@ -1226,7 +1229,7 @@ export class Composer {
         return
       }
       const repeated = isGroupedForm(keyOf(node), this.fontStyle) ? componentParts(keyOf(node), region, this.fontStyle, atRoot) : null
-      const designed = repeated ?? this.wheatFaceParts(node, region)
+      const designed = repeated ?? specimenParts(this, node, region, keyOf) ?? this.wheatFaceParts(node, region)
       if (designed) {
         for (const part of designed) out.push({ index: out.length, box: part.target, empty: false })
         return
@@ -1477,6 +1480,8 @@ export class Composer {
   }
 
   drawNode(node, region, atRoot = false, sideBySide = false) {
+    const specimen = specimenParts(this, node, region, keyOf)
+    if (specimen) return specimen
     const wheat = this.wheatFaceParts(node, region)
     if (wheat) return wheat
     const wood = this.woodFrame(node, region)
