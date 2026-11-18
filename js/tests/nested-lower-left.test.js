@@ -1,18 +1,22 @@
 import { describe, expect, it } from 'bun:test'
-import { Composer, near, sweptPart } from '../src/compose.js'
-import { partOf, placed } from '../src/geometry.js'
-import { compose, createSource } from '../src/loader.js'
+import { Composer, designedSources, near, sweptPart } from '../src/compose.js'
+import { partOf, placed, pathRings, pointsBox } from '../src/geometry.js'
+import { compose, createSource, sketch } from '../src/loader.js'
 import { constants, files, layout, records, shards } from './fixtures/small-export.js'
+// Noto Sans CJK JP 2.004, SIL OFL 1.1. The enclosing 克 and its 口 counter come from 尅.
+import keDonor from './fixtures/sans-ke.json' with { type: 'json' }
+// Noto Serif CJK JP 2.003, SIL OFL 1.1. The lower body of 百 supplies the seat.
+import baiDonor from './fixtures/serif-ke-bai.json' with { type: 'json' }
 import parts from './fixtures/sans-lower-left.json' with { type: 'json' }
 
 // 几 and 力 as the Sans export draws them (Noto Sans CJK, SIL OFL 1.1); 口 is the small export's
 // box. The layout's weights are zero and its bias gives the second operand the right of the cell,
 // as the font sets 日 in 旭.
 const bias = Buffer.from(new Float32Array([0, 0, 1, 1, 0.45, 0, 1, 1]).buffer).toString('base64')
-const source = (extra = {}) => {
+const source = (extra = {}, modelBias = bias) => {
   const input = {
     ...files,
-    'layout.json': JSON.stringify({ ...layout, seeds: [[layout.seeds[0][0], bias]] }),
+    'layout.json': JSON.stringify({ ...layout, seeds: [[layout.seeds[0][0], modelBias]] }),
     ...shards('g', Object.entries({ ...parts, ...extra })),
   }
   return createSource(async name => input[name] === undefined ? null : new Uint8Array(Buffer.from(input[name])).buffer)
@@ -162,4 +166,85 @@ it('keeps the encoded 术 and the dot spelling on their ordinary rendering paths
   expect(spelled.parts[0].origin).toBe('glyph 术')
   const separate = await compose(src, '⿺木丶', { separate: true })
   expect(separate.parts.some(p => p.origin === 'enclosing 木')).toBe(false)
+})
+
+describe('克 enclosing another component', () => {
+  const extra = { 克: records.木, 尅: { G: keDonor, ink: 5000 } }
+  for (const layout of ['composed', 'cells']) {
+    it(`uses the 尅 frame and clears its foot in ${layout} layout`, async () => {
+      const { parts } = await compose(source(extra), '⿺克口', { layout, separate: true })
+      expect(parts).toHaveLength(2)
+      const [frame, inner] = parts
+      expect(frame.d.match(/M/g)).toHaveLength(6)
+      expect(inner.box[0]).toBeGreaterThan(frame.box[0] + frame.box[2] / 2)
+      expect(inner.box[1] + inner.box[3]).toBeLessThan(frame.box[1] + frame.box[3])
+    })
+  }
+  it('keeps the next column outside a nested 克 enclosure', async () => {
+    const { parts } = await compose(source(extra, layout.seeds[0][1]), '⿰⿺克口口', { separate: true })
+    const [frame, inside, neighbour] = parts
+    expect(neighbour.box[0]).toBeGreaterThan(right(inside))
+    expect(neighbour.box[0]).toBeGreaterThan(frame.box[0] + frame.box[2] / 2)
+  })
+
+  it('carries the reflection pivot when seating a mirrored operand', async () => {
+    const options = { separate: true }
+    const plain = await compose(source(extra), '⿺克口', options)
+    const mirror = await compose(source(extra), '⿺克⿾口', options)
+    // 口 in this fixture is symmetric. Reflection keeps its ink in the same box.
+    const ink = p => {
+      const points = pathRings(p.d).flat()
+      return pointsBox(points)
+    }
+    const expected = ink(plain.parts[1])
+    ink(mirror.parts[1]).forEach((edge, i) => expect(Math.abs(edge - expected[i])).toBeLessThan(1))
+  })
+
+})
+
+it('preserves the tall Serif mouth above the hook, including its reflection', async () => {
+  const src = source({ 克: records.木, 兡: { G: baiDonor, ink: 5000 } })
+  const options = { fontStyle: 'serif', separate: true }
+  const cold = await sketch(src, '⿺克口', options)
+  for (const seq of ['⿺克口', '⿺克⿾口']) {
+    const { parts } = await compose(src, seq, options)
+    expect(parts[0].origin).toContain('兡')
+    const [l, b, r, t] = pointsBox(pathRings(parts[1].d).flat())
+    expect(r - l).toBeGreaterThan(390)
+    expect(t - b).toBeGreaterThan(535)
+    expect(t - b).toBeLessThan(625)
+  }
+  expect(await sketch(src, '⿺克口', options)).toEqual(cold)
+})
+
+it('preloads the tall 口 donor only for a TW-Kai 克 mouth', () => {
+  for (const inner of ['口', ['⿾', '口']]) {
+    expect(designedSources(['⿺', '克', inner], 'regular')).toContain('加')
+    expect(designedSources(['⿺', '克', inner], 'serif')).not.toContain('加')
+  }
+  expect(designedSources(['⿺', '克', '日'], 'regular')).not.toContain('加')
+})
+
+it('gives both stacked mouths more height than a single mouth in Serif', async () => {
+  const src = source({ 克: records.木, 兡: { G: baiDonor, ink: 5000 }, 呂: records.口 })
+  const options = { fontStyle: 'serif', separate: true }
+  const bounds = async inner => {
+    const { parts } = await compose(src, '⿺克' + inner, options)
+    const [, bottom, , top] = pointsBox(parts.slice(1).flatMap(p => pathRings(p.d).flat()))
+    return { bottom, height: top - bottom }
+  }
+  const mouth = await bounds('口')
+  for (const inner of ['呂', '⿱口口']) {
+    const stack = await bounds(inner)
+    expect(stack.height).toBeGreaterThan(mouth.height + 30)
+    expect(stack.bottom).toBeLessThan(mouth.bottom)
+  }
+})
+
+it('uses the same Sans 克 opening before and after sibling glyphs load', async () => {
+  const src = source({ 日: records.口, 克: records.木, 尅: { G: keDonor, ink: 5000 } })
+  const sequence = '⿰口⿺克日'
+  const cold = await sketch(src, sequence)
+  await compose(src, sequence)
+  expect(await sketch(src, sequence)).toEqual(cold)
 })
