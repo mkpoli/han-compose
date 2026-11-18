@@ -21,7 +21,7 @@
 // over an export with a kin table answers `data.kin()` with it (`kin`, `kinOuter`).
 import { EM_BOX, area, centre, count, derived, drawnBox, drawnContours, fill, fitted, grown, groupRings, makePart, mapped, partInk, partOf,
   placed, pointsBox, pyRound, raster, rings, scaleOf, shrunk, square, stretchOf, targetFor, union, within } from './geometry.js'
-import { grassPairs, connectedGrass } from './grass-forms.js'
+import { grassPairs, connectedGrass, contextualGrass } from './grass-forms.js'
 import { ownFormsOnly, componentParts, componentPosition, componentPositionBox, componentRecord, containsComponentForm, hasForcedForms, containsForcedForm, isComponentForm, isForcedCharacter, isGroupedForm, isNativeForm } from './component-forms.js'
 import { features, forward } from './layout.js'
 import { CONSTRUCTS, BODY_FORMS, IVD_FORMS, SURROUND_CONSTRUCTS, bodyForm, constructBody, constructHosts, constructParts, ivdParts } from './constructs.js'
@@ -673,7 +673,8 @@ export class Composer {
     const glyph = native.part
     const groups = grassPairs(glyph, this.glyphRecord(char).ls?.['艹'])
     if (!groups.length) return [native]
-    const matches = []
+    const checked = contextualGrass(char, groups)
+    const matches = checked ?? []
     const visit = (node, box, seen) => {
       if (node === '艹' || isForcedCharacter(node, this.fontStyle)) {
         // Compare only outlines in this operand's region. In 菙 the two crosses in
@@ -702,11 +703,11 @@ export class Composer {
         if (sequence) visit(this.parse(sequence), box, new Set([...seen, node]))
       }
     }
-    visit(isForcedCharacter(char, this.fontStyle) ? char : tree ?? char, tightBox(glyph), new Set())
+    if (!checked) visit(isForcedCharacter(char, this.fontStyle) ? char : tree ?? char, tightBox(glyph), new Set())
     if (!matches.length) return [native]
     const cut = new Set(matches.flatMap(group => group.indices))
     const keep = glyph.contours.filter((_, i) => !cut.has(i))
-    const forms = matches.map(group => connectedGrass(group.box, native.source, native.target))
+    const forms = matches.map(group => connectedGrass(group.box, native.source, native.target, checked ? char : undefined))
     if (!keep.length) return forms
     return [{ ...native, part: derived(glyph, keep, glyph.box), fixed: true, origin: `glyph ${char} kept` }, ...forms]
   }

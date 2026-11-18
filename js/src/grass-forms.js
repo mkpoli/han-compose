@@ -1,10 +1,30 @@
 // TW-Kai grass heads. Each donor is one complete outline from the named glyph.
 // The templates are 12-by-12 occupancy masks of the two native split halves.
+import overlapForms from './grass-overlap-forms.json' with { type: 'json' }
 import data from './grass-forms.json' with { type: 'json' }
 import { commands, fill, makePart, mapped, placed, pointsBox, rings, union, wound } from './geometry.js'
 
 const donors = Object.values(data.donors).map(([ops, light]) =>
   wound(makePart([{ ops: commands(ops), light, heavy: light }])))
+// The interior bars of 𤀾 and 𣀱 cross a third native upright. These outlines
+// join the inner terminals while keeping both outside uprights on their native axes.
+const joined = new Map(Object.entries(overlapForms).map(([ch, [ops, light]]) =>
+  [ch, wound(makePart([{ ops: commands(ops), light, heavy: light }]))]))
+
+// Checked native ink boxes in this edition of TW-Kai. The middle head in 𦴐
+// sits above its equal-share IDS slot, immediately below 一.
+const contexts = new Map([
+  ['𤀾', [[415, 9.75, 873, 294]]],
+  ['𣀱', [[117.25, 177.75, 531.25, 329.25]]],
+  ['𦴐', [[186.5, 611.5, 815.5, 798], [202.25, 361.5, 793, 548]]],
+])
+/** @param {string} char @param {ReturnType<typeof grassPairs>} groups */
+export function contextualGrass(char, groups) {
+  const boxes = contexts.get(char)
+  if (!boxes) return null
+  const matches = groups.filter(g => boxes.some(b => b.every((v, i) => v === g.box[i])))
+  return matches.length === boxes.length ? matches : null
+}
 /** @param {number[]} b */
 const width = b => b[2] - b[0]
 /** @param {number[]} b */
@@ -78,9 +98,9 @@ export function grassPairs(glyph, owned) {
 }
 
 /** @param {number[]} box @param {number[]} source @param {number[]} target */
-export function connectedGrass(box, source, target) {
+export function connectedGrass(box, source, target, context = '') {
   /** @param {{box: number[]}} donor */
   const cost = donor => Math.hypot(Math.log(width(box) / width(donor.box)), Math.log(height(box) / height(donor.box)))
-  const donor = donors.reduce((best, d) => cost(d) < cost(best) ? d : best)
+  const donor = joined.get(context) ?? donors.reduce((best, d) => cost(d) < cost(best) ? d : best)
   return { ...placed(donor, donor.box, mapped(box, source, target), 0, 'TW-Kai: 艹'), fixed: true }
 }

@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'bun:test'
+import embeddedGrass from './fixtures/kai-embedded-grass.json'
 import chui from './fixtures/kai-chui.json'
 import splitGrass from './fixtures/kai-grass.json'
 import data from '../src/component-forms.json'
 import { componentDrawing, componentParts, componentRecord, containsComponentForm, containsForcedForm, isComponentForm, isGroupedForm, isForcedCharacter, isNativeForm } from '../src/component-forms.js'
 import { Composer } from '../src/compose.js'
-import { windingOf } from '../src/geometry.js'
+import { raster, windingOf } from '../src/geometry.js'
 import { onlyBundled } from '../src/local.js'
 import { compose, createSource } from '../src/loader.js'
 import { character, constants, files, records, shards } from './fixtures/small-export.js'
@@ -296,4 +297,37 @@ it('retains the connected grass when a narrow pair restores the full glyph', () 
   const filled = composer.fillCell('菙', narrow, [0, 0, 250, 900], true)
   expect(filled.map(p => p.origin)).toEqual(['glyph 菙 kept', 'TW-Kai: 艹'])
   expect(filled[0].target[2]).toBeGreaterThan(narrow[0].target[2])
+})
+
+it('keeps the intersecting uprights and draws both heads of 𦴐', () => {
+  const cases = [
+    ['𤀾', '⿰氵⿱业⿻𢆉艹', [8, 9], 1],
+    ['𣀱', '⿰⿱米⿻⿱廿艹大攵', [3, 4], 1],
+    ['𦴐', '⿳艹⿱一艹天', [3, 4, 6, 7], 2],
+    ['𡽼', '⿱山⿰忄⿳亠厶⿻艹木', [], 0],
+    ['𡪨', '⿱宀⿻莧厶', [], 0],
+  ]
+  for (const [ch, sequence, cut, count] of cases) {
+    const composer = new Composer({ manifest: { constants, spelled: [] }, layout: null,
+      rec: key => key === ch ? { G: embeddedGrass[ch], s: sequence } : null, hosts: () => [], places: () => [] }, { fontStyle: 'regular' })
+    const glyph = composer.glyph(ch)
+    const native = composer.place(glyph, glyph.box, 0, ch)
+    const [body, ...heads] = composer.replaceGlyph(native, ch, composer.parse(sequence))
+    expect(heads).toHaveLength(count)
+    expect(body.part.contours).toEqual(glyph.contours.filter((_, i) => !cut.includes(i)))
+    if (count === 1) {
+      const size = 400
+      const before = raster([native], size), after = raster([body, ...heads], size)
+      const [left, right] = ch === '𤀾' ? [540, 749] : [233, 430]
+      let changed = 0, outside = 0
+      for (let i = 0; i < before.length; i++) {
+        if (before[i] === after[i]) continue
+        changed++
+        const x = (i % size + 0.5) * 1000 / size
+        if (x < left - 2 || x > right + 2) outside++
+      }
+      expect(changed).toBeGreaterThan(0)
+      expect(outside).toBe(0)
+    }
+  }
 })
