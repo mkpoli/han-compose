@@ -31,6 +31,7 @@ import { pyramidRows, pyramidOnBase } from './pyramid-rows.js'
 import { hangulClusterAt, jamoClass } from './hangul.js'
 import { hangulLetters } from './hangul-ids.js'
 import { toConjoiningJamo } from './hangul.js'
+import { referenceLayout, referenceBoxes } from './reference-layout.js'
 import { componentFix } from './component-fixes.js'
 import { isOutbound, markFace, markParts } from './marks.js'
 import { customAt, splitToneMarks, toneMarksAt } from './tree.js'
@@ -517,6 +518,11 @@ export const designedSources = (tree, style = 'sans') => {
   const visit = node => {
     if (!Array.isArray(node)) return
     const [op, ...children] = node
+    const entry = referenceLayout(node, style)
+    if (entry) {
+      out.add(entry.encoded)
+      for (const [char] of entry.cells) out.add(char)
+    }
     const frame = enclosureEntry(op, children[0], style)
     if (frame) out.add(frame[0])
     if (frame === KE_BAI && style === 'regular' && unflippedOperand(children[1]) === '口') out.add('加')
@@ -1221,7 +1227,7 @@ export class Composer {
         return
       }
       const repeated = isGroupedForm(keyOf(node), this.fontStyle) ? componentParts(keyOf(node), region, this.fontStyle, atRoot) : null
-      const designed = repeated ?? this.wheatFaceParts(node, region)
+      const designed = repeated ?? this.referenceParts(node, region) ?? this.wheatFaceParts(node, region)
       if (designed) {
         for (const part of designed) out.push({ index: out.length, box: part.target, empty: false })
         return
@@ -1471,7 +1477,25 @@ export class Composer {
     return parts.length ? parts : null
   }
 
+  /** Native brush drawings at the operand bounds recorded for a particular character. */
+  referenceParts(node, region) {
+    const entry = referenceLayout(node, this.fontStyle)
+    if (!entry || this.own(entry.encoded) || node.slice(1).some(child => typeof child === 'string' && this.excluded(child))) return null
+    const { cells } = entry
+    const boxes = referenceBoxes(cells, region)
+    const parts = []
+    for (const [i, [source]] of cells.entries()) {
+      if (this.excluded(source)) return null
+      const glyph = this.glyph(source)
+      if (!glyph) return null
+      parts.push({ ...placed(glyph, glyph.box, boxes[i], partInk(glyph), `glyph ${source}`), fixed: true })
+    }
+    return parts
+  }
+
   drawNode(node, region, atRoot = false, sideBySide = false) {
+    const reference = this.referenceParts(node, region)
+    if (reference) return reference
     const wheat = this.wheatFaceParts(node, region)
     if (wheat) return wheat
     const wood = this.woodFrame(node, region)
