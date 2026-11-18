@@ -48,6 +48,17 @@ def forms(face, char, style):
         if not inward:
             raise ValueError(f"Unexpected native Zhuque {char} dot direction")
         return [encode(left + right) + body, encode(outward) + body]
+    if style == "regular":
+        if char == "半":
+            donor = face.contours("谷")
+            outward = (fit([donor[3]], (196, 468, 379, 649))
+                       + fit([donor[4]], (610, 479, 792, 641)))
+        else:
+            donor = face.contours("尖")
+            outward = fit([donor[2], donor[3]], (211, 498, 802, 673))
+        if not inward:
+            raise ValueError(f"Unexpected native TW-Kai {char} dot direction")
+        return [encode(left + right) + body, encode(outward) + body]
     native = encode(left + right)
     swapped = encode(fit(right, bounds(left)) + fit(left, bounds(right)))
     return [(native if inward else swapped) + body, (swapped if inward else native) + body]
