@@ -1,6 +1,12 @@
 // @ts-check
 import { contours } from 'd3-contour'
-import { groupRegions, matchRegions, prepareCorrespondence, prepareWeight } from './mix-contours.js'
+import {
+  alignRings,
+  groupRegions,
+  matchRegions,
+  prepareCorrespondence,
+  prepareWeight
+} from './mix-contours.js'
 import { inkPolygons, outlinePath, limitDisplacement } from './mix-outline.js'
 import { STROKE } from './slot-placeholder.js'
 import { ASCENT, fill, pathRings, pointsBox, union } from './geometry.js'
@@ -331,24 +337,71 @@ function* boundaries(shares) {
     if (tail >= 0.18) break
     const separation = 1 - shares[order[k]] / shares[order[k - 1]]
     const radius = (350 * tail) / ((1 - tail / 0.18) * separation)
-    if (!(radius < 1000)) continue
     const indices = order.slice(0, k).sort((a, b) => a - b)
-    yield { indices, proportion: indices.map((i) => shares[i] / (1 - tail)), radius }
+    const settled = 1 - (1 - tail / 0.18) * separation
+    yield { indices, proportion: indices.map((i) => shares[i] / (1 - tail)), radius, settled }
   }
+}
+
+/** The outline part-way from the mix its larger shares give alone to the full mix.
+ * A face with a small share can change which strokes are matched together, so the two
+ * outlines differ by more than that share; moving between them point by point keeps
+ * the edge whole where clipping one to the other leaves scraps. Islands the two
+ * outlines do not share one-to-one are clipped to the band as before.
+ * @param {string} edge @param {string} full @param {number} amount 0 gives `edge`, 1 gives `full`
+ * @param {number} radius the band for islands that cannot be moved */
+function settleOutline(edge, full, amount, radius) {
+  if (amount < 1e-4) return edge
+  // A band this wide bounds nothing.
+  const bound = (/** @type {string} */ d) => (radius < 1000 ? limitDisplacement(d, edge, radius) : d)
+  if (!edge || !full) return bound(full)
+  const scale = 256 / 1000
+  const polygons = [edge, full].map((d) =>
+    inkPolygons(
+      pathRings(d, 12).map((/** @type {number[]} */ r) => r.map((v, i) => (i % 2 ? ASCENT - v : v) * scale))
+    )
+  )
+  const place = (/** @type {number} */ v) => Math.round((v / scale) * 100) / 100
+  const path = (/** @type {number[][]} */ ring) =>
+    ring
+      .slice()
+      .reverse()
+      .map(([x, y], n) => (n ? 'L' : 'M') + place(x) + ' ' + place(y))
+      .join('') + 'Z'
+  let moved = '',
+    rest = ''
+  for (const [from, to] of groupRegions(polygons, (p) => p[0], 0.06 * 256)) {
+    const counters =
+      from.length === 1 && to.length === 1 && from[0].length === to[0].length
+        ? matchRegions([from[0].slice(1), to[0].slice(1)], (r) => r)
+        : null
+    const rings = counters && [from, to].map((island, f) => [island[0][0], ...counters[f]])
+    const aligned = rings?.[0].map((ring, j) => alignRings([ring, rings[1][j]]))
+    if (aligned?.every(Boolean))
+      for (const pair of /** @type {number[][][][]} */ (aligned))
+        moved += path(
+          pair[0].map((p, n) => [
+            p[0] + (pair[1][n][0] - p[0]) * amount,
+            p[1] + (pair[1][n][1] - p[1]) * amount
+          ])
+        )
+    else for (const island of to) for (const ring of island) rest += path(ring.slice(0, -1))
+  }
+  return moved + (rest && bound(rest))
 }
 
 /** @param {string[]} paths @param {number[]} shares @param {number} weight
  * @param {([number, number[]][] | undefined)[]} [strokes] */
 function mixInk(paths, shares, weight, strokes) {
   let d = drawInk(paths, shares, weight, strokes)
-  for (const { indices, proportion, radius } of boundaries(shares)) {
+  for (const { indices, proportion, radius, settled } of boundaries(shares)) {
     const edge = drawInk(
       indices.map((i) => paths[i]),
       proportion,
       weight,
       strokes && indices.map((i) => strokes[i])
     )
-    d = limitDisplacement(d, edge, radius)
+    d = settleOutline(edge, d, settled, radius)
   }
   return d
 }
@@ -447,7 +500,7 @@ export function mixDrawings(drawings, shares, weight, sketches = []) {
   let d = ink(false),
     cut = ink(true)
   if (!matched)
-    for (const { indices, proportion, radius } of boundaries(shares)) {
+    for (const { indices, proportion, radius, settled } of boundaries(shares)) {
       // Losing a donor may restore operand-level matching. Use that actual drawing
       // as the limit, not a whole-glyph approximation of the remaining faces.
       const edge = mixDrawings(
@@ -455,8 +508,8 @@ export function mixDrawings(drawings, shares, weight, sketches = []) {
         proportion,
         weight
       )
-      if (d || edge.d) d = limitDisplacement(d, edge.d, radius)
-      if (cut || edge.cut) cut = limitDisplacement(cut, edge.cut ?? '', radius)
+      if (d || edge.d) d = settleOutline(edge.d, d, settled, radius)
+      if (cut || edge.cut) cut = settleOutline(edge.cut ?? '', cut, settled, radius)
     }
   return {
     d,
