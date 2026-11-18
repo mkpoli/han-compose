@@ -109,3 +109,19 @@ it('moves the median ink position toward each of the five poles', () => {
     expect(Math.abs(biased - (neutral + centre(pole.d)) / 2)).toBeLessThan(1)
   })
 })
+
+it('keeps the flank of a slanted stem straight as its weight changes', () => {
+  const drawing = { d: 'M190 100L260 100L500 900L430 900Z' }
+  for (const weight of [0.65, 1.35, 1.5]) {
+    const d = mixDrawings([drawing], [1], weight).d
+    const side = 500,
+      mask = pathMask(d, side)
+    const edges = []
+    for (let y = 100; y < 400; y++) {
+      const start = mask.subarray(y * side, (y + 1) * side).indexOf(1)
+      expect(start).toBeGreaterThan(0)
+      edges.push(start - y * 0.3)
+    }
+    expect(Math.max(...edges) - Math.min(...edges)).toBeLessThan(1.5)
+  }
+})

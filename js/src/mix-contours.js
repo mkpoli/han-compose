@@ -1,4 +1,5 @@
 // @ts-check
+import { weightVectors } from './mix-outline.js'
 /** Points spaced by arc length, without the duplicate closing point.
  * @param {number[][]} ring @param {number} n */
 function sample(ring, n) {
@@ -46,94 +47,122 @@ function correspondence(ref, points) {
     }
     previous.set(current)
   }
-  const result = ref.map(() => [0, 0, 0])
+  const result = ref.map(() => [0, 0, 0, 0])
+  const counts = new Uint16Array(n)
   let i = n - 1,
     j = n - 1
   while (i >= 0 && j >= 0) {
-    result[i][0] += path[j][0]
-    result[i][1] += path[j][1]
-    result[i][2]++
+    for (let k = 0; k < 4; k++) result[i][k] += path[j][k]
+    counts[i]++
     const step = direction[i * n + j]
     if (step !== 2) i--
     if (step !== 1) j--
   }
-  return result.map(([x, y, count]) => [x / count, y / count])
+  return result.map((row, i) => row.map((v) => v / counts[i]))
 }
 
-/** Interpolate corresponding outer rings and counters when each face has one connected
- * ink region. Separate or touching strokes without this correspondence use the field blend.
- * @param {number[][][][][]} polygons @param {number[]} shares */
-export function correspondingInk(polygons, shares) {
-  if (!polygons.every((p) => p.length === 1 && p[0].length === polygons[0][0].length)) return null
-  // Multiple counters may switch order between masters. Their fields keep them spatially aligned.
-  if (polygons[0][0].length > 2) return null
-  const rings = polygons[0][0].map((_, index) => {
-    const sources = polygons.map((p) => p[0][index])
-    const n = Math.min(512, Math.max(64, ...sources.map((r) => r.length)))
-    const ref = sample(sources[0], n),
-      mixed = ref.map((p) => p.map((v) => v * shares[0]))
-    for (let f = 1; f < sources.length; f++) {
-      const matched = correspondence(ref, sample(sources[f], n))
-      for (let i = 0; i < n; i++)
-        for (let axis = 0; axis < 2; axis++) mixed[i][axis] += matched[i][axis] * shares[f]
+/** Sample in arc length, because a straight stem might only have its two end vertices.
+ * @param {number[][][]} rings @param {number[]} counts */
+function withWidths(rings, counts) {
+  const sampled = rings.map((r, i) => sample(r, counts[i]))
+  const vectors = weightVectors(sampled.map((r) => [...r, r[0]]))
+  return sampled.map((r, j) => r.map((p, i) => [...p, ...vectors[j][i]]))
+}
+
+/** @param {number[][]} ring */
+function sampleCount(ring) {
+  const perimeter = ring.slice(1).reduce((n, p, i) => n + Math.hypot(p[0] - ring[i][0], p[1] - ring[i][1]), 0)
+  return Math.max(12, Math.min(512, Math.ceil(perimeter / 1.4)))
+}
+
+/** Pair islands (or counters) by the distance between their bounding boxes.
+ * @template T @param {T[][]} faces @param {(item:T)=>number[][]} ringOf */
+export function matchRegions(faces, ringOf) {
+  const bounds = (/** @type {T} */ item) => {
+    const r = ringOf(item)
+    let x = Infinity,
+      y = Infinity,
+      right = -Infinity,
+      bottom = -Infinity
+    for (const [px, py] of r) {
+      x = Math.min(x, px)
+      y = Math.min(y, py)
+      right = Math.max(right, px)
+      bottom = Math.max(bottom, py)
     }
-    return [...mixed, mixed[0]]
+    return [x, y, right, bottom]
+  }
+  const refs = faces[0].map(bounds)
+  if (faces.some((f) => f.length !== refs.length)) return null
+  return faces.map((face) => {
+    const costs = face
+      .flatMap((p, j) => {
+        const box = bounds(p)
+        return refs.map((ref, i) => ({ i, j, c: ref.reduce((d, v, k) => d + (v - box[k]) ** 2, 0) }))
+      })
+      .sort((a, b) => a.c - b.c)
+    const assigned = new Set(),
+      available = new Set(face.keys())
+    const ordered = face.slice()
+    for (const { i, j } of costs)
+      if (!assigned.has(i) && available.delete(j)) {
+        assigned.add(i)
+        ordered[i] = face[j]
+      }
+    return ordered
   })
-  return [rings]
 }
 
-/** Squared Euclidean distance transform of a sampled function. Its lower envelope of
- * parabolas gives the minimum cost from any centre in one row or column.
- * @param {Float64Array} grid @param {number} side */
-function transform(grid, side) {
-  const costs = new Float64Array(side),
-    sites = new Int32Array(side),
-    breaks = new Float64Array(side + 1)
-  for (const stride of [1, side])
-    for (let line = 0; line < side; line++) {
-      const base = stride === 1 ? line * side : line
-      for (let i = 0; i < side; i++) costs[i] = grid[base + i * stride]
-      let last = 0
-      sites[0] = 0
-      breaks[0] = -Infinity
-      breaks[1] = Infinity
-      for (let i = 1; i < side; i++) {
-        let at
-        do {
-          const j = sites[last]
-          at = (costs[i] + i * i - costs[j] - j * j) / (2 * (i - j))
-          if (at > breaks[last]) break
-          last--
-        } while (last >= 0)
-        sites[++last] = i
-        breaks[last] = at
-        breaks[last + 1] = Infinity
-      }
-      let k = 0
-      for (let i = 0; i < side; i++) {
-        while (breaks[k + 1] < i) k++
-        const j = sites[k]
-        grid[base + i * stride] = (i - j) ** 2 + costs[j]
-      }
-    }
+/** Compute correspondences and local stroke widths once, independently of the controls.
+ * @param {number[][][][][]} polygons */
+export function prepareCorrespondence(polygons) {
+  if (!polygons.length || !polygons.every((p) => p.length === 1 && p[0].length === polygons[0][0].length))
+    return null
+  const holes = matchRegions(
+    polygons.map((p) => p[0].slice(1)),
+    (r) => r
+  )
+  if (!holes) return null
+  const ordered = polygons.map((p, i) => [p[0][0], ...holes[i]])
+  const counts = ordered[0].map((_, i) => Math.max(...ordered.map((r) => sampleCount(r[i]))))
+  const faces = ordered.map((r) => withWidths(r, counts))
+  const ref = faces[0]
+  const aligned = faces.map((face, f) => face.map((ring, i) => (f ? correspondence(ref[i], ring) : ring)))
+  return (/** @type {number[]} */ shares, /** @type {number} */ weight) =>
+    ref.map((r, j) => {
+      const mixed = r.map((_, i) => {
+        let x = 0,
+          y = 0
+        for (let f = 0; f < faces.length; f++) {
+          const [a, b, dx, dy] = aligned[f][j][i]
+          x += shares[f] * (a + dx * (weight - 1))
+          y += shares[f] * (b + dy * (weight - 1))
+        }
+        return [x, y]
+      })
+      return [...mixed, mixed[0]]
+    })
 }
 
-/** Reconstruct ink from its inscribed disks, scaling the radius of each maximal disk.
- * Thin strokes retain a centreline even when a neighbouring stem is much thicker.
- * @param {Uint8Array} mask @param {number} side @param {number} weight */
-export function weightedField(mask, side, weight) {
-  const far = 4 * side * side
-  const radius = Float64Array.from(mask, (v) => (v ? far : 0))
-  transform(radius, side)
-  const cost = new Float64Array(mask.length).fill(far)
-  // Keep the ridges of the distance map. Non-maximal disks would restore the original
-  // boundary on thinning if every ink pixel were allowed to contribute a disk.
-  for (let i = 0; i < mask.length; i++)
-    if (mask[i]) {
-      const r = Math.sqrt(radius[i])
-      const contained = [-1, 1, -side, side].some((d) => Math.sqrt(radius[i + d]) >= r + 0.99)
-      if (!contained) cost[i] = -((Math.max(0.5, r - 0.5) * weight) ** 2)
-    }
-  transform(cost, side)
-  return Array.from(cost, (v) => -v)
+/** @param {number[][][]} rings */
+export function prepareWeight(rings) {
+  // Subpixel level sets retain small changes of direction at scan lines. Filter
+  // the tangent on equally spaced samples before using it for a weight offset.
+  const smooth = rings.map((r) => {
+    const sampled = sample(r, sampleCount(r)),
+      n = sampled.length
+    const filtered = sampled.map((p, i) =>
+      p.map((x, k) => (sampled[(i + n - 1) % n][k] + 2 * x + sampled[(i + 1) % n][k]) / 4)
+    )
+    return [...filtered, filtered[0]]
+  })
+  const prepared = withWidths(
+    smooth,
+    smooth.map((r) => r.length - 1)
+  )
+  return (/** @type {number} */ weight) =>
+    prepared.map((r) => {
+      const pts = r.map(([x, y, dx, dy]) => [x + dx * (weight - 1), y + dy * (weight - 1)])
+      return [...pts, pts[0]]
+    })
 }

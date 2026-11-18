@@ -6,11 +6,9 @@ Build from the package’s `js/` directory after installing the workspace depend
 
 ```sh
 bun run data
-mkdir -p dist/font-mixer/src
-cp examples/font-mixer/{index.html,exports.json} dist/font-mixer/
-cp -r data dist/font-mixer/
-bun build examples/font-mixer/app.js --outfile dist/font-mixer/src/app.js
-bun build src/worker.js --outfile dist/font-mixer/src/worker.js
+bun examples/font-mixer/build.mjs
 ```
 
 Serve `dist/font-mixer/` over HTTP. The browser reads the five exports listed in `exports.json`. Each entry can point to a separate self-hosted export.
+
+The build includes the pinned ids-input design styles. The six examples cover horizontal, vertical, enclosed, three-part and nested compositions. Drag the pad or a range to see the outline update as you move. Each face slider sets its percentage and redistributes the remainder proportionally.

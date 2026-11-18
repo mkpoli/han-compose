@@ -17,7 +17,7 @@ Node and Bun.
 npm install han-compose
 ```
 
-ES modules with type declarations. The font mixer uses d3-contour to trace outlines. Node needs 20.16 or later.
+ES modules with type declarations. The font mixer uses Clipper to unite overlapping outlines and d3-contour to trace distance fields. Node needs 20.16 or later.
 
 ## Draw a sequence
 
@@ -80,7 +80,7 @@ const drawing = await preview('⿰木口', { mix })
 
 The shares are relative and at least one must be positive. Only faces with a positive share are read. Weight ranges from 0.65 to 1.50 and defaults to 1. A single pole at neutral weight returns its original drawing. The same mix works with local sources using `composeMixed(sources, sequence, mix, { separate: true })`, where `sources` maps the style names to `createSource` or `fromUrl` results.
 
-For intermediate settings the mixer registers the outlines of corresponding operands. It matches the boundaries of a connected component and its counter when possible. Other outlines interpolate on a 256-sample distance grid. Stroke weight adjusts the ink using its local thickness. Differences in stroke structure can soften fine details. When sources cannot separate the same operands, the result has a whole-glyph outline and no editable parts. Any KanjiVG attribution requirement from an active face carries through to the mix.
+For intermediate settings the mixer registers the outlines of corresponding operands. It pairs connected strokes and counters, then matches their vector boundaries. Where the faces differ in topology, it aligns their ink profiles and interpolates on a subpixel-sampled distance grid. Changing weight moves each boundary according to the local stroke thickness. The worker reuses prepared outlines across slider movements. Differences in stroke structure can soften fine details. When sources cannot separate the same operands, the result has a whole-glyph outline and no editable parts. Any KanjiVG attribution requirement from an active face carries through to the mix.
 
 The [interactive font mixer](examples/font-mixer/) has a five-pole pad, independent face controls, a stroke-weight slider and SVG export.
 

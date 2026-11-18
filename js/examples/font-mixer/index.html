@@ -2,20 +2,11 @@
 <html lang="en">
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Han Compose · Font mixer</title>
+  <link rel="stylesheet" href="./ids-ui.css" />
   <style>
-    * {
-      box-sizing: border-box;
-    }
-    :root {
-      color: #171c2a;
-      background: #f7f8fb;
-      font:
-        16px/1.45 system-ui,
-        sans-serif;
-      accent-color: #3e44ba;
-    }
     body {
       max-width: 68rem;
+      font-size: 1rem;
       margin: auto;
       padding: clamp(1rem, 4vw, 3.5rem);
     }
@@ -23,7 +14,7 @@
       display: flex;
       align-items: baseline;
       justify-content: space-between;
-      border-bottom: 1px solid #b7bdca;
+      border-bottom: 1px solid var(--ui-color-border-strong);
       margin-bottom: 2rem;
       padding-bottom: 0.8rem;
     }
@@ -42,11 +33,11 @@
       gap: clamp(1.3rem, 4vw, 3rem);
     }
     #proof {
-      background-color: white;
+      background-color: var(--ui-color-surface);
       background-image:
-        linear-gradient(to right, transparent 49.8%, #e4e5ec 50%, transparent 50.2%),
-        linear-gradient(transparent 49.8%, #e4e5ec 50%, transparent 50.2%);
-      border: 1px solid #b7bdca;
+        linear-gradient(to right, transparent 49.8%, var(--ui-color-border) 50%, transparent 50.2%),
+        linear-gradient(transparent 49.8%, var(--ui-color-border) 50%, transparent 50.2%);
+      border: 1px solid var(--ui-color-border-strong);
       aspect-ratio: 1;
       display: grid;
       place-items: center;
@@ -95,13 +86,62 @@
       width: 100%;
       margin: 0.45rem 0 1rem;
     }
-    input[type="text"] {
+    #ids {
       width: 100%;
-      font-size: 1.45rem;
-      padding: 0.55rem 0.75rem;
-      border: 1px solid #aeb3c0;
-      border-radius: 0.3rem;
-      margin: 0.4rem 0 1.6rem;
+      margin: 0.4rem 0 1rem;
+      font-size: 1.4rem;
+    }
+    #examples {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      margin: 0.5rem 0 0;
+    }
+    #examples button {
+      font-size: 1.1rem;
+      letter-spacing: 0.05em;
+    }
+    #examples button[aria-pressed="true"] {
+      color: var(--ui-color-accent);
+      background: var(--ui-color-accent-soft);
+      border-color: var(--ui-color-accent);
+    }
+    .ui-range {
+      block-size: 2rem;
+      --fill: 50%;
+      touch-action: pan-y;
+    }
+    .ui-range::-webkit-slider-runnable-track {
+      background: linear-gradient(
+        to right,
+        var(--ui-color-accent) var(--fill),
+        var(--ui-color-border-strong) var(--fill)
+      );
+    }
+    .ui-range::-moz-range-progress {
+      height: 4px;
+      border-radius: var(--ui-radius-pill);
+      background: var(--ui-color-accent);
+    }
+    .ui-range:active::-webkit-slider-thumb {
+      background: var(--ui-color-accent-active);
+      box-shadow: 0 0 0 4px var(--ui-color-accent-soft);
+    }
+    .ui-range:active::-moz-range-thumb {
+      background: var(--ui-color-accent-active);
+      box-shadow: 0 0 0 4px var(--ui-color-accent-soft);
+    }
+    #proof svg path:not([fill]),
+    #proof svg path[fill="#000000"] {
+      fill: currentColor;
+    }
+    #pad svg {
+      user-select: none;
+      -webkit-user-select: none;
+      cursor: grab;
+    }
+    #pad svg:active {
+      cursor: grabbing;
     }
     fieldset {
       margin: 0;
@@ -114,20 +154,12 @@
     }
     hr {
       border: 0;
-      border-top: 1px solid #c8ccda;
+      border-top: 1px solid var(--ui-color-border);
       margin: 1rem 0;
-    }
-    button {
-      border: 1px solid #acb0c4;
-      border-radius: 0.3rem;
-      padding: 0.55rem 1rem;
-      background: white;
-      color: inherit;
-      cursor: pointer;
     }
     #status {
       min-height: 1.5rem;
-      color: #464b66;
+      color: var(--ui-color-ink-muted);
       margin: 0.5rem 0;
     }
     @media (max-width: 620px) {
@@ -137,9 +169,21 @@
       header {
         margin-bottom: 1rem;
       }
+      .specimen {
+        display: contents;
+      }
       #proof {
-        max-height: 44vh;
-        width: auto;
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        aspect-ratio: auto;
+        height: clamp(8rem, 28svh, 15rem);
+      }
+      #status:empty {
+        display: none;
+      }
+      :root {
+        scroll-padding-top: clamp(9rem, 30svh, 16rem);
       }
     }
   </style>
@@ -148,13 +192,17 @@
     <span>Han Compose</span>
   </header>
   <main>
-    <section aria-label="Character preview">
+    <section class="specimen" aria-label="Character preview">
       <div id="proof"></div>
       <p id="status" role="status"></p>
+      <fieldset>
+        <legend>Examples</legend>
+        <div id="examples"></div>
+      </fieldset>
     </section>
     <section aria-label="Mixer controls">
       <label for="ids">Ideographic description</label
-      ><input id="ids" type="text" value="⿰木口" spellcheck="false" />
+      ><input id="ids" class="ui-input" type="text" value="⿰木口" spellcheck="false" />
       <fieldset>
         <legend>Face proportions</legend>
         <div id="pad"></div>
@@ -162,8 +210,8 @@
       </fieldset>
       <hr />
       <label for="weight">Stroke weight <output id="weight-value" for="weight">100%</output></label
-      ><input type="range" id="weight" min="65" max="150" value="100" />
-      <button type="button" id="save" disabled>Save SVG</button>
+      ><input type="range" id="weight" class="ui-range" min="65" max="150" value="100" />
+      <button class="ui-button" data-variant="primary" type="button" id="save" disabled>Save SVG</button>
     </section>
   </main>
   <script type="module" src="./src/app.js"></script>

@@ -215,12 +215,14 @@
   },
   "devDependencies": {
     "@types/bun": "1.4.4",
+    "@types/clipper-lib": "^6.4.0",
     "@types/d3-contour": "3.0.6",
     "oxlint": "1.91.0",
     "playwright-core": "1.65.0",
     "tsrs": "0.22.0-ts7.1.0-beta"
   },
   "dependencies": {
+    "clipper-lib": "6.4.2",
     "d3-contour": "4.0.2"
   }
 }

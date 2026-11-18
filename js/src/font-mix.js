@@ -1,6 +1,7 @@
 // @ts-check
 import { contours } from 'd3-contour'
-import { correspondingInk, weightedField } from './mix-contours.js'
+import { matchRegions, prepareCorrespondence, prepareWeight } from './mix-contours.js'
+import { inkPolygons, outlinePath } from './mix-outline.js'
 import { STROKE } from './slot-placeholder.js'
 import { ASCENT, fill, pathRings, pointsBox, union } from './geometry.js'
 import { groupParts } from './group-parts.js'
@@ -57,75 +58,187 @@ function signedDistance(mask, side) {
   return d.map((value, i) => (mask[i] ? value : -value))
 }
 
-/** Register each outline to the weighted ink bounds before interpolating its distance field.
- * @param {string[]} paths @param {number[]} shares @param {number} weight */
-function mixInk(paths, shares, weight) {
-  if (weight === 1 && paths.every((path) => path === paths[0])) return paths[0]
-  const shapes = paths.map((path) => pathRings(path))
-  const bounds = shapes.map((rings) => (rings.length ? union(rings.map(pointsBox)) : null))
-  const occupied = bounds.reduce((s, b, i) => s + (b ? shares[i] : 0), 0)
-  if (!occupied) return ''
-  const box = [0, 1, 2, 3].map((k) => bounds.reduce((s, b, i) => s + (b ? (b[k] * shares[i]) / occupied : 0), 0))
-  const width = box[2] - box[0],
-    height = box[3] - box[1]
-  if (!(width > 0 && height > 0)) return ''
+/** The expensive geometry depends only on the source paths. Bound the working set
+ * across glyphs and instances; dragging a handle only supplies new coefficients.
+ * @type {Map<string, ReturnType<typeof prepareInk>>} */
+const outlines = new Map()
+
+/** @param {string[]} paths */
+function prepareInk(paths) {
+  /** @type {number[][][]} */
+  const shapes = paths.map((path) => pathRings(path, 12))
+  const boxes = shapes.map((r) => (r.length ? union(r.map(pointsBox)) : null))
+  const present = boxes.flatMap((b, i) => (b && b[2] > b[0] && b[3] > b[1] ? [i] : []))
+  if (!present.length) return () => ''
+  const bounds = present.map((i) => /** @type {number[]} */ (boxes[i]))
+  const width = bounds.reduce((s, b) => s + b[2] - b[0], 0) / bounds.length
+  const height = bounds.reduce((s, b) => s + b[3] - b[1], 0) / bounds.length
   const side = 256,
-    pitch = (Math.max(width, height) * Math.max(1, weight)) / (side - 32)
-  const left = (box[0] + box[2] - pitch * side) / 2,
-    top = (box[1] + box[3] + pitch * side) / 2
-  /** @type {{ mask: Uint8Array, share: number }[]} */
-  const masks = []
-  const tracer = contours().size([side, side])
-  /** @type {number[][][][][]} */
-  const polygonsByFace = []
-  shapes.forEach((rings, i) => {
-    const b = bounds[i]
-    if (!b || b[2] <= b[0] || b[3] <= b[1]) return
-    const sx = (b[2] - b[0]) / width,
-      sy = (b[3] - b[1]) / height
-    const x = b[0] + (left - box[0]) * sx,
-      y = b[3] + (top - box[3]) * sy
-    const mask = fill(rings, side, [x, y - pitch * side * sy, x + pitch * side * sx, y])
-    polygonsByFace.push(tracer.contour(Array.from(mask), 0.5).coordinates)
-    masks.push({ mask, share: shares[i] / occupied })
-  })
-  let polygons = polygonsByFace.length === shares.length ? correspondingInk(polygonsByFace, shares) : null
-  if (!polygons) {
-    const field = new Float32Array(side * side)
-    let ink = 0
-    for (const { mask, share } of masks) {
-      const distances = signedDistance(mask, side)
-      for (let k = 0; k < mask.length; k++) {
-        field[k] += share * distances[k]
-        ink += share * mask[k]
-      }
-    }
-    if (ink < 1) return ''
-    const levels = field.slice().sort(),
-      at = levels.length - Math.round(ink)
-    const level = (levels[at] + levels[Math.max(0, at - 1)]) / 2
-    polygons = tracer.contour(Array.from(field), level).coordinates
+    pad = 16,
+    scale = (side - 2 * pad) / Math.max(width, height)
+  const spanX = width * scale,
+    spanY = height * scale
+  const registered = present.map((k, i) =>
+    shapes[k].map((r) =>
+      r.map((v, j) =>
+        j % 2
+          ? pad + ((bounds[i][3] - v) * spanY) / (bounds[i][3] - bounds[i][1])
+          : pad + ((v - bounds[i][0]) * spanX) / (bounds[i][2] - bounds[i][0])
+      )
+    )
+  )
+  const polygons = registered.map(inkPolygons)
+  const matched = matchRegions(polygons, (p) => p[0])
+  const regions = matched?.[0].length ? matched[0].map((_, i) => matched.map((p) => [p[i]])) : [polygons]
+  const blenders = regions.map(
+    (region) =>
+      prepareCorrespondence(region) ??
+      prepareFields(
+        region.map((polys) => polys.flat().map((r) => r.flat())),
+        side
+      )
+  )
+  return (/** @type {number[]} */ shares, /** @type {number} */ weight) => {
+    const total = present.reduce((n, i) => n + shares[i], 0)
+    const proportion = present.map((i) => shares[i] / total)
+    const b = mixBox(bounds, proportion)
+    const box = [b[0], ASCENT - b[3], b[2] - b[0], b[3] - b[1]]
+    const rings = blenders.flatMap((blend) => blend(proportion, weight))
+    return rings.map((r) => outlinePath(r, box, box[2] / spanX, box[3] / spanY, pad)).join('')
   }
-  if (weight !== 1) {
-    const mask = fill(
-      polygons.flat().map((ring) => ring.flatMap(([x, y]) => [x, -y])),
-      side,
+}
+
+/** The inverse cumulative ink profile. Registering row and column mass aligns nearby
+ * stems even when a counter is open in one face. A uniform component bounds the warp.
+ * @param {Float32Array} mass */
+function quantileMap(mass) {
+  const side = mass.length,
+    total = mass.reduce((s, n) => s + n, 0),
+    floor = Math.max(0.001, (total / side) * 0.55)
+  const map = new Float32Array(side)
+  let j = 0,
+    sum = 0
+  for (let i = 0; i < side; i++) {
+    const q = ((i + 0.5) * (total + floor * side)) / side
+    while (j < side - 1 && sum + mass[j] + floor < q) {
+      sum += mass[j] + floor
+      j++
+    }
+    map[i] = Math.min(side - 0.5, Math.max(0.5, j + (q - sum) / (mass[j] + floor)))
+  }
+  return map
+}
+/** @param {number} at @param {Float32Array} map */
+function mappedPosition(at, map) {
+  const u = Math.max(0, Math.min(map.length - 1, at - 0.5)),
+    i = Math.floor(u)
+  return map[i] + (u - i) * (map[Math.min(i + 1, map.length - 1)] - map[i])
+}
+
+/** Sample coverage at subpixel precision before tracing unrelated topologies.
+ * @param {number[][][]} shapes @param {number} side */
+function prepareFields(shapes, side) {
+  const samples = 3,
+    hi = side * samples
+  const fields = shapes.map((rings) => {
+    const up = fill(
+      rings.map((r) => r.map((v, i) => (i % 2 ? -v : v))),
+      hi,
       [0, -side, side, 0]
     )
-    polygons = tracer.contour(weightedField(mask, side, weight), 0).coordinates
-  }
-  const round = (/** @type {number} */ value) => Math.round(value * 10) / 10
-  return polygons
-    .flat()
-    .map(
-      (ring) =>
-        ring
-          .slice(0, -1)
-          .reverse()
-          .map(([x, y], i) => (i ? 'L' : 'M') + round(left + x * pitch) + ' ' + round(ASCENT - top + y * pitch))
-          .join('') + 'Z'
+    const coverage = new Float32Array(side * side)
+    for (let y = 0; y < hi; y++)
+      for (let x = 0; x < hi; x++)
+        coverage[Math.floor(y / samples) * side + Math.floor(x / samples)] += up[y * hi + x] / (samples * samples)
+    const field = signedDistance(
+      Uint8Array.from(coverage, (v) => Number(v >= 0.5)),
+      side
     )
-    .join('')
+    let ink = 0
+    for (let i = 0; i < field.length; i++) {
+      ink += coverage[i]
+      if (coverage[i] > 0 && coverage[i] < 0.9999) field[i] = coverage[i] - 0.5
+    }
+    const rows = new Float32Array(side),
+      cols = new Float32Array(side)
+    for (let i = 0; i < field.length; i++) {
+      rows[Math.floor(i / side)] += coverage[i]
+      cols[i % side] += coverage[i]
+    }
+    const xMap = quantileMap(cols),
+      yMap = quantileMap(rows)
+    const warped = new Float32Array(field.length)
+    ink = 0
+    for (let y = 0; y < side; y++) {
+      const v = yMap[y] - 0.5,
+        y0 = Math.floor(v) * side,
+        y1 = Math.min(y0 + side, field.length - side),
+        fy = v - Math.floor(v)
+      for (let x = 0; x < side; x++) {
+        const u = xMap[x] - 0.5,
+          a = Math.floor(u),
+          b = Math.min(a + 1, side - 1),
+          fx = u - a
+        const top = field[y0 + a] * (1 - fx) + field[y0 + b] * fx,
+          bottom = field[y1 + a] * (1 - fx) + field[y1 + b] * fx
+        const value = top + (bottom - top) * fy
+        warped[y * side + x] = value
+        ink += Math.max(0, Math.min(1, value + 0.5))
+      }
+    }
+    return { field: warped, ink, xMap, yMap }
+  })
+  const trace = contours().size([side, side])
+  let key = ''
+  /** @type {number[][][]} */
+  let rings = []
+  /** @type {ReturnType<typeof prepareWeight>|undefined} */
+  let weighted
+  return (/** @type {number[]} */ shares, /** @type {number} */ weight) => {
+    const next = shares.join(',')
+    if (key !== next) {
+      const combined = new Float32Array(side * side)
+      let ink = 0
+      fields.forEach(({ field, ink: area }, f) => {
+        ink += area * shares[f]
+        for (let i = 0; i < field.length; i++) combined[i] += field[i] * shares[f]
+      })
+      if (ink < 0.5) return []
+      const ordered = combined.slice().sort(),
+        i = ordered.length - Math.round(ink)
+      const level = (ordered[i] + ordered[i - 1]) / 2
+      const xMap = new Float32Array(side),
+        yMap = new Float32Array(side)
+      fields.forEach((f, k) => {
+        for (let i = 0; i < side; i++) {
+          xMap[i] += shares[k] * f.xMap[i]
+          yMap[i] += shares[k] * f.yMap[i]
+        }
+      })
+      rings = trace
+        .contour(Array.from(combined), level)
+        .coordinates.flat()
+        .map((r) => r.map(([x, y]) => [mappedPosition(x, xMap), mappedPosition(y, yMap)]))
+      weighted = undefined
+      key = next
+    }
+    if (weight === 1) return rings
+    weighted ??= prepareWeight(rings)
+    return weighted(weight)
+  }
+}
+
+/** @param {string[]} paths @param {number[]} shares @param {number} weight */
+function mixInk(paths, shares, weight) {
+  if (weight === 1 && paths.every((path) => path === paths[0])) return paths[0]
+  const key = JSON.stringify(paths)
+  let render = outlines.get(key)
+  if (!render) {
+    render = prepareInk(paths)
+    if (outlines.size >= 12) outlines.delete(/** @type {string} */ (outlines.keys().next().value))
+    outlines.set(key, render)
+  }
+  return render(shares, weight)
 }
 
 /** @param {number[][]} boxes @param {number[]} shares */
@@ -228,8 +341,8 @@ export function mixDrawings(drawings, shares, weight, sketches = []) {
       )
     })),
     leaves: first.leaves,
-    normalization: { capped: drawings.some(d => d.normalization?.capped) },
-    ...(drawings.every(d => d.cells) ? {cells:true} : {}),
+    normalization: { capped: drawings.some((d) => d.normalization?.capped) },
+    ...(drawings.every((d) => d.cells) ? { cells: true } : {}),
     kanjivg: drawings.some((d) => d.kanjivg),
     approximate: [...new Set(drawings.flatMap((d) => d.approximate ?? []))],
     missing: [...new Set(drawings.flatMap((d) => d.missing ?? []))],
@@ -249,7 +362,8 @@ export async function composeMixed(sources, sequence, mix, options) {
       if (!sources[style]) throw new TypeError('Missing source for ' + style)
       const config = { ...options, fontStyle: style }
       const drawing = await compose(sources[style], sequence, config)
-      const leaves = faces.length === 1 && (mix.weight ?? 1) === 1 ? null : await sketch(sources[style], sequence, config)
+      const leaves =
+        faces.length === 1 && (mix.weight ?? 1) === 1 ? null : await sketch(sources[style], sequence, config)
       return { drawing, leaves }
     })
   )

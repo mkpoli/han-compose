@@ -14,10 +14,14 @@ export function mixPad(container, styles, names, change) {
     svg.append(el)
     return el
   }
-  element('polygon', { points: vertices.map((p) => p.join(',')).join(' '), fill: '#eeeef9', stroke: '#9b9fc3' })
+  element('polygon', {
+    points: vertices.map((p) => p.join(',')).join(' '),
+    fill: 'var(--ui-color-accent-soft)',
+    stroke: 'var(--ui-color-control-border)'
+  })
   vertices.forEach(([x, y], i) => {
-    element('line', { x1: 0, y1: 0, x2: x, y2: y, stroke: '#d0d2e7' })
-    element('circle', { cx: x, cy: y, r: 3, fill: '#525796' })
+    element('line', { x1: 0, y1: 0, x2: x, y2: y, stroke: 'var(--ui-color-border-strong)' })
+    element('circle', { cx: x, cy: y, r: 3, fill: 'var(--ui-color-accent)' })
     const label = element('text', {
       x: x * 1.27,
       y: y * 1.26 + 4,
@@ -27,10 +31,20 @@ export function mixPad(container, styles, names, change) {
     })
     label.textContent = names[styles[i]]
   })
-  const cursor = element('circle', { r: 6, fill: '#3e44ba', stroke: 'white', 'stroke-width': 2 })
+  const cursor = element('circle', {
+    r: 6,
+    fill: 'var(--ui-color-accent)',
+    stroke: 'var(--ui-color-surface)',
+    'stroke-width': 2
+  })
   const cross = (a, b) => a[0] * b[1] - a[1] * b[0]
   function move(event) {
     const point = new DOMPoint(event.clientX, event.clientY).matrixTransform(svg.getScreenCTM().inverse())
+    const pole = vertices.findIndex(([x, y]) => Math.hypot(point.x - x, point.y - y) < 6)
+    if (pole >= 0) {
+      change(styles.map((_, i) => Number(i === pole)))
+      return
+    }
     for (let i = 0; i < 5; i++) {
       const j = (i + 1) % 5,
         a = vertices[i],
@@ -51,6 +65,8 @@ export function mixPad(container, styles, names, change) {
     }
   }
   svg.onpointerdown = (event) => {
+    if (!event.isPrimary || event.button !== 0) return
+    event.preventDefault()
     svg.setPointerCapture(event.pointerId)
     move(event)
   }
