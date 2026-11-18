@@ -2,6 +2,7 @@
 // Shape-specific font-derived forms. Keep the caller's IDS; encoded counterparts can vary by region.
 import generated from './component-forms.json' with { type: 'json' }
 import overrides from './component-forms-overrides.json' with { type: 'json' }
+import muNet from './mu-net-forms.json' with { type: 'json' }
 import numbered from '../data/numbered-forms.json' with { type: 'json' }
 import { joinedComponentForm } from './constructs.js'
 import constants from './constants.json' with { type: 'json' }
@@ -30,6 +31,13 @@ const formOf = groups => {
 // keeps its own glyph, and the layout reads what the export records of the description.
 const styles = Object.fromEntries(Object.entries(data.forms).map(([style, forms]) => [style,
   new Map(Object.entries(forms).map(([text, groups]) => [text, { ...formOf(groups), native: data.native?.[style]?.includes(text) ?? false }]))]))
+// The manuscript's water, enclosing 木 and net. Both descriptions share the same outlines.
+for (const [style, groups] of Object.entries(muNet)) {
+  const form = formOf(groups)
+  styles[style].set('⿰氵⿺木罒', form)
+  const [water, wood, net] = groups
+  styles[style].set('⿺沐罒', formOf([[...water, ...wood], net]))
+}
 // Numbered components draw in the palette tile only. Keeping their forms out of `styles` leaves the
 // composer's glyph records reachable for separated and cell layouts; the sequence itself draws from
 // `numbered-sans-outlines.json.gz` in the surface source.

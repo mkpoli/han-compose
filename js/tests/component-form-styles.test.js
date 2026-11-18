@@ -258,3 +258,20 @@ it('retains native contours outside each of two split grass heads', async () => 
   const kept = drawing.parts.find(p => p.origin === 'glyph 𧁖 kept')
   expect(kept.d.match(/M/g)).toHaveLength(1)
 })
+
+it('groups the enclosing 木 under the leaves of each manuscript spelling', () => {
+  for (const style of ['sans', 'serif', 'fangsong', 'regular', 'pen-writing']) {
+    const expanded = componentParts('⿰氵⿺木罒', undefined, style)
+    const contracted = componentParts('⿺沐罒', undefined, style)
+    expect(expanded).toHaveLength(3)
+    expect(contracted).toHaveLength(2)
+    const [short, long] = ['⿺沐罒', '⿰氵⿺木罒'].map(text => componentDrawing(text, style).d)
+    const numbers = /-?\d+\.\d+/g
+    expect(short.replace(numbers, '')).toBe(long.replace(numbers, ''))
+    const coords = long.match(numbers).map(Number)
+    // Group placement can round a coordinate on the opposite side of a tenth.
+    expect(short.match(numbers).every((v, i) => Math.abs(Number(v) - coords[i]) < 0.101)).toBe(true)
+    expect(expanded[1].target[2]).toBeGreaterThan(expanded[2].target[2])
+    expect(isComponentForm('⿲氵木罒', style)).toBe(false)
+  }
+})

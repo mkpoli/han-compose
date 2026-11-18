@@ -70,6 +70,9 @@ const isHangulSyllable = part => {
   return Boolean(rest && (hangulLetters(rest) || isJamoRun(rest)))
 }
 
+/** Whether `part` is one Bopomofo letter. @param {string | any[]} part */
+const isBopomofoLetter = part => typeof part === 'string' && /^[\u3105-\u312F\u31A0-\u31BF]$/u.test(part)
+
 /** Whether `text` is one run of conjoining jamo that forms a syllable. @param {string} text */
 const isJamoRun = text => {
   const chars = [...text]
@@ -1032,20 +1035,24 @@ export class Composer {
         // An enclosure whose outer operand is one part holds that part around the rest: cells that
         // split the two apart stand the frame away from what it holds (𠕲's 冂 above its rows).
         if (typeof kids[0] === 'string' && !isEmpty(kids[0])) {
-          const glyph = this.glyph(kids[0])
           const region = target(box)
-          if (glyph) {
-            const ink = tightBox(glyph)
-            const outer = placed(glyph, ink, fitted(ink, region, Math.max(this.C.STRETCH, CELL_STRETCH)), this.ink(kids[0]), `cells ${kids[0]}`)
-            const room = this.room(op, [outer], region)
-            if (room) {
-              if (leafIndices) outer.leaf = leaf++
-              out.push(outer)
-              const width = f[2] - f[0], height = f[3] - f[1]
-              walk(kids[1], [(room[0] - f[0]) / width, 1 - (room[3] - f[1]) / height,
-                (room[2] - f[0]) / width, 1 - (room[1] - f[1]) / height], depth + 1)
-              return
+          const wood = this.woodFrame(node, region)
+          let outer = wood?.frame, room = wood?.room
+          if (!outer) {
+            const glyph = this.glyph(kids[0])
+            if (glyph) {
+              const ink = tightBox(glyph)
+              outer = placed(glyph, ink, fitted(ink, region, Math.max(this.C.STRETCH, CELL_STRETCH)), this.ink(kids[0]), `cells ${kids[0]}`)
+              room = this.room(op, [outer], region)
             }
+          }
+          if (room) {
+            if (wood) outer.origin = 'cells 木'
+            if (leafIndices) outer.leaf = leaf++
+            out.push(outer)
+            walk(kids[1], [(room[0] - f[0]) / width, 1 - (room[3] - f[1]) / height,
+              (room[2] - f[0]) / width, 1 - (room[1] - f[1]) / height], depth + 1)
+            return
           }
         }
         const namedAxis = CELL_AXIS[op] ?? 0
@@ -1124,6 +1131,12 @@ export class Composer {
         return
       }
       if (!Array.isArray(node)) { out.push({ index: out.length, box: region, empty: node === EMPTY }); return }
+      const wood = this.woodFrame(node, region)
+      if (wood) {
+        out.push({ index: out.length, box: wood.frame.target, empty: false })
+        walk(node[2], wood.room, false)
+        return
+      }
       const grid = this.repeatedGrid(node)
       if (grid) {
         const start = out.length
@@ -1274,7 +1287,23 @@ export class Composer {
     return parts.length ? parts : null
   }
 
+  /** Reuse the 木 and the opening from the manuscript form. The dot in 术 sits
+   * beside an ordinary 木 and keeps the export's existing glyph or layout. */
+  woodFrame(node, region) {
+    if (!Array.isArray(node) || node[0] !== '⿺' || node[1] !== '木' || node[2] === '丶' || this.excluded('木')) return null
+    const [, frame, net] = componentParts('⿰氵⿺木罒', undefined, this.fontStyle)
+    const bounds = union([frame.target, net.target])
+    const room = net.target.slice()
+    // A taller operand can use half the space above 罒 while the top of 木 stays visible.
+    room[3] = (room[3] + bounds[3]) / 2
+    frame.target = mapped(frame.target, bounds, region)
+    frame.origin = 'enclosing 木'
+    return { frame, room: mapped(room, bounds, region) }
+  }
+
   drawNode(node, region, atRoot = false, sideBySide = false) {
+    const wood = this.woodFrame(node, region)
+    if (wood) return [wood.frame, ...this.node(node[2], wood.room)]
     if (isEmpty(node)) return [this.placeholder(node, region)]
     if (!atRoot && sideBySide && typeof node === 'string') {
       const designed = this.designedCut(node)
@@ -1384,6 +1413,7 @@ export class Composer {
     // Two syllables in one block close up as the manuscript sets them; an ideograph's two operands
     // would halve the face and leave the pair standing apart.
     if (op === '⿱' && children.length === 2 && children.every(isHangulSyllable)) return this.hangulBlock(children, region)
+    if ((op === '⿱' || op === '⿳') && children.every(isBopomofoLetter)) return this.bopomofoBlock(children, region)
     if (op === MIRROR || op === ROTATE) return this.flipped(op, children[0], region, atRoot)
     if (op === VARIANT) return this.node(children[0], region, atRoot)
     if (op === SUBTRACT) return this.subtracted(node, region, atRoot)
@@ -1446,6 +1476,20 @@ export class Composer {
       if (moved) return moved
     }
     return this.shares(op, children, region, atRoot)
+  }
+
+  /** The letters of one Bopomofo syllable stacked in the block, centered and separated by a small
+   *  gap. The letters come from the bundled Bopomofo outlines; without this a three-letter spelling
+   *  shares by ink and the ㄙ, ㄨ and ㄥ fill the cell unevenly.
+   *  @param {(string | any[])[]} children @param {number[]} region */
+  bopomofoBlock(children, region) {
+    const [x0, y0, x1, y1] = region, width = x1 - x0, height = y1 - y0
+    const slot = height / children.length, tall = slot * 0.88
+    const wide = width * 0.60, cx = (x0 + x1) / 2
+    return children.flatMap((child, i) => {
+      const top = y1 - (slot - tall) / 2 - i * slot
+      return this.node(child, [cx - wide / 2, top - tall, cx + wide / 2, top])
+    })
   }
 
   /** Two syllables in one block, set at the split the manuscript's blocks keep: the upper takes

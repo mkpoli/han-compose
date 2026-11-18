@@ -285,6 +285,33 @@ export const COMPONENT_FIXES = {
   // 卝's terminals must clear 干's first bar, as the right side of 哶 does.
   // A whole 鰥 cut stretches the left strokes and carries a sweeping lower stroke.
   // Keep 遝’s left strokes and stem, and replace both right strokes with compact 丶 glyphs.
+  // ⿱一心: the top 一 is cut from a host whose bar fills a tall teacher band. In the two static
+  // Kai faces it comes out much thicker than 心's strokes. The face's own 一 gives the bar its
+  // height at the band's width. Regular Kai lowers it into the spare space above 心.
+  // Fangsong’s learned 芯 overlaps the 亘 band, so lower the peak while holding the baseline.
+  '⿱一心': {
+    glyphs: {},
+    apply(parts, composer) {
+      if (parts.length !== 2) return parts
+      const [top, heart] = parts
+      if (composer.fontStyle === 'fangsong' && top.origin === 'learned 亘' && heart.origin === 'learned 芯') {
+        const [x, base, end, peak] = heart.target
+        const ceiling = top.target[1] - 0.08 * (top.target[3] - base)
+        if (ceiling >= peak || ceiling <= base) return parts
+        return [top, { ...heart, target: [x, base, end, ceiling] }]
+      }
+      if (composer.fontStyle !== 'regular' && composer.fontStyle !== 'pen-writing') return parts
+      const bar = composer.glyph('一')
+      if (!bar) return parts
+      const ownWidth = bar.box[2] - bar.box[0], ownHeight = bar.box[3] - bar.box[1]
+      const width = top.target[2] - top.target[0]
+      if (!(ownWidth > 0 && width > 0)) return parts
+      const height = ownHeight * width / ownWidth
+      const spare = Math.max(0, heightOf(top.target) - height)
+      const peak = top.target[3] - (composer.fontStyle === 'regular' ? 0.65 * spare : 0)
+      return [{ ...top, target: [top.target[0], peak - height, top.target[2], peak], fixed: true }, heart]
+    },
+  },
   // ⿻日丿: the 丿 comes from 屮, where it stands as tall as the glyph; over 日 it runs out above
   // the top horizontal. It is cut off at the underside of that bar.
   '⿻日丿': {
@@ -545,6 +572,21 @@ export const COMPONENT_FIXES = {
   // 監 supplies either a single right-hand cut or two separate strokes. Split the cut before
   // sizing the pair, so 臣 stays compact and the lower 一 spans the right column.
 
+  // The three columns of ⿲木十木 share by ink, leaving the middle 十 a sliver. The middle takes
+  // 90% of the gap the two 木 leave, centered; a designer's row of three gives it that room.
+  '⿲木十木': {
+    glyphs: {},
+    apply(parts) {
+      if (parts.length !== 3) return parts
+      const [left, middle, right] = parts
+      const lo = left.target[2], hi = right.target[0]
+      if (!(hi > lo)) return parts
+      const width = Math.max(middle.target[2] - middle.target[0], (hi - lo) * 0.9)
+      const cx = (lo + hi) / 2
+      middle.target = [cx - width / 2, middle.target[1], cx + width / 2, middle.target[3]]
+      return parts
+    },
+  },
 }
 
 /** Whether `composer`'s glyphs are the outlines a correction was read against. */
