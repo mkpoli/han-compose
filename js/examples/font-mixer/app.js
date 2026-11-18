@@ -1,5 +1,6 @@
 import { createPlayback } from './playback.js'
 import { mixPad } from './pad.js'
+import { tour } from './route.js'
 import { composerPreview, FONT_STYLES, drawingSvg } from '../../src/index.js'
 
 const get = (id) => document.getElementById(id)
@@ -18,7 +19,13 @@ for (const style of FONT_STYLES) {
     output = document.createElement('output')
   slider.type = 'range'
   slider.className = 'ui-range'
-  Object.assign(slider, { id: style, min: '0', max: '100', step: '0.1', value: '20' })
+  Object.assign(slider, {
+    id: style,
+    min: '0',
+    max: '100',
+    step: '0.1',
+    value: '20'
+  })
   label.htmlFor = style
   label.textContent = names[style]
   output.htmlFor.add(style)
@@ -34,17 +41,17 @@ for (const style of FONT_STYLES) {
   })
   get('faces').append(label, slider, output)
 }
-const position = mixPad(get('pad'), FONT_STYLES, names, (weights) => {
+const pad = mixPad(get('pad'), FONT_STYLES, names, (weights) => {
   FONT_STYLES.forEach((style, i) => {
     shares[style] = weights[i] * 100
   })
   schedule()
 })
 const examples = [
-  ['⿰木口', '⿰木口'],
+  ['木口', '⿰木口'],
   ['岩', '⿱山石'],
   ['困', '⿴囗木'],
-  ['⿲木火木', '⿲木火木'],
+  ['木火木', '⿲木火木'],
   ['淼', '⿱水⿰水水'],
   ['清', '⿰氵青'],
   ['明', '⿰日月'],
@@ -92,7 +99,7 @@ function syncRange(slider, output, percentage) {
 }
 function updateControls() {
   const weight = get('weight').valueAsNumber
-  position(FONT_STYLES.map((style) => shares[style] / 100))
+  pad.position(FONT_STYLES.map((style) => shares[style] / 100))
   for (const [style, { slider, output }] of controls) {
     slider.value = shares[style]
     syncRange(slider, output, shares[style])
@@ -101,9 +108,15 @@ function updateControls() {
 }
 
 function updatePlayButton() {
-  const labels = { idle: 'Play loop', preparing: 'Cancel preparation', playing: 'Pause', paused: 'Resume' }
-  get('play').textContent = labels[playback.state]
-  get('play').disabled = !preview || !get('ids').value.trim() || get('from').value === get('to').value
+  const labels = {
+    idle: 'Play',
+    preparing: 'Cancel',
+    playing: 'Pause',
+    paused: 'Resume'
+  }
+  get('play').dataset.state = playback.state
+  get('play').lastElementChild.textContent = labels[playback.state]
+  get('play').disabled = !preview || !get('ids').value.trim()
 }
 
 function schedule() {
@@ -116,11 +129,17 @@ function schedule() {
   for (const button of get('examples').children)
     button.setAttribute('aria-pressed', String(button.dataset.sequence === sequence))
   get('save').disabled = true
-  pending = sequence ? { sequence, version, mix: { shares: { ...shares }, weight: weight / 100 } } : null
+  pending = sequence
+    ? {
+        sequence,
+        version,
+        mix: { shares: { ...shares }, weight: weight / 100 }
+      }
+    : null
   if (running && running.sequence !== sequence) running.controller.abort()
   if (sequence === visibleSequence) get('status').textContent = ''
   if (sequence !== visibleSequence) {
-    get('proof').replaceChildren()
+    get('glyph').replaceChildren()
     get('status').textContent = sequence ? 'Composing…' : 'Enter an ideographic description.'
     visibleSequence = ''
   }
@@ -137,15 +156,18 @@ async function render() {
   const controller = new AbortController()
   running = { sequence: request.sequence, controller }
   try {
-    const drawn = await preview(request.sequence, { signal: controller.signal, mix: request.mix })
+    const drawn = await preview(request.sequence, {
+      signal: controller.signal,
+      mix: request.mix
+    })
     if (controller.signal.aborted) return
-    get('proof').replaceChildren(svgNode(drawn))
+    get('glyph').replaceChildren(svgNode(drawn))
     visibleSequence = request.sequence
     get('status').textContent = drawn.missing?.length ? 'Missing glyphs: ' + drawn.missing.join(' ') : ''
     get('save').disabled = request.version !== revision
   } catch (error) {
     if (!controller.signal.aborted && request.version === revision) {
-      get('proof').replaceChildren()
+      get('glyph').replaceChildren()
       visibleSequence = ''
       get('status').textContent = error.message
     }
@@ -154,38 +176,100 @@ async function render() {
     if (pending && !frame) frame = requestAnimationFrame(render)
   }
 }
-for (const style of FONT_STYLES) {
-  for (const id of ['from', 'to']) get(id).add(new Option(names[style], style))
+function segments(id, options, selected) {
+  for (const [value, label] of options) {
+    const segment = document.createElement('label'),
+      input = document.createElement('input'),
+      face = document.createElement('span')
+    segment.className = 'ui-segment'
+    Object.assign(input, {
+      type: 'radio',
+      name: id,
+      value,
+      checked: value === selected
+    })
+    face.className = 'ui-segment-face'
+    face.textContent = label
+    segment.append(input, face)
+    get(id).append(segment)
+  }
 }
-get('from').value = 'serif'
-get('to').value = 'fangsong'
+const chosen = (id) => get(id).querySelector(':checked').value
+segments(
+  'phases',
+  [
+    ['neighbours', 'Neighbours'],
+    ['distant', 'Distant'],
+    ['free', 'Free']
+  ],
+  'neighbours'
+)
+segments(
+  'pace',
+  [
+    ['3', '3 s'],
+    ['6', '6 s'],
+    ['10', '10 s']
+  ],
+  '6'
+)
 function svgNode(drawing) {
   const node = new DOMParser().parseFromString(drawingSvg(drawing), 'image/svg+xml').documentElement
   return document.importNode(node, true)
 }
-let recordedSequence, recordedWeight
+let recordedSequence,
+  recordedWeight,
+  route = { frames: [], phases: [] },
+  shown
+const weightsOf = (mix) => FONT_STYLES.map((style) => mix[style] ?? 0)
+function showPhase(phase) {
+  if (phase === shown) return
+  shown = phase
+  pad.route(phase ? route.frames.slice(phase.start - 1, phase.end).map(weightsOf) : [])
+  if (phase) get('phases').querySelector(`[value=${phase.name}]`).checked = true
+}
+function showProgress(fraction) {
+  get('progress').hidden = fraction === undefined
+  get('progress').style.setProperty('--ui-progress', (fraction ?? 0) * 100 + '%')
+}
 const playback = createPlayback({
+  kind: (mix) => Object.values(mix).filter(Boolean).length,
   draw: async (shares, signal) => {
-    const drawn = await preview(recordedSequence, { signal, mix: { shares, weight: recordedWeight } })
+    const drawn = await preview(recordedSequence, {
+      signal,
+      mix: { shares, weight: recordedWeight }
+    })
     if (drawn.missing?.length) throw new Error('Missing glyphs: ' + drawn.missing.join(' '))
     return svgNode(drawn)
   },
-  paint: (frame) => {
-    get('proof').replaceChildren(frame.image)
+  paint: (frame, index) => {
+    get('glyph').replaceChildren(frame.image)
     visibleSequence = recordedSequence
     for (const style of FONT_STYLES) shares[style] = (frame.mix[style] ?? 0) * 100
     updateControls()
+    showPhase(route.phases.findLast((phase) => index >= phase.start) ?? route.phases[0])
+    showProgress(index / route.frames.length)
     get('save').disabled = false
   },
+  progress: showProgress,
+  prepared: () => {
+    get('status').textContent = ''
+  },
   stateChanged: (state) => {
-    get('status').textContent = state === 'preparing' ? 'Preparing frames…' : ''
+    if (state === 'preparing') get('status').textContent = 'Preparing…'
+    if (state === 'idle') get('status').textContent = ''
+    if (state === 'idle') {
+      showPhase()
+      showProgress()
+    }
     updatePlayButton()
   },
   failed: (error) => {
     get('status').textContent = error.message
-    get('save').disabled = !get('proof').firstElementChild
+    get('save').disabled = !get('glyph').firstElementChild
   }
 })
+const phaseStart = () => route.phases.find((phase) => phase.name === chosen('phases')).start
 get('play').onclick = () => {
   if (playback.state === 'playing') return playback.pause()
   if (playback.state === 'paused') return playback.resume()
@@ -202,20 +286,31 @@ get('play').onclick = () => {
   revision++
   running?.controller.abort()
   get('save').disabled = true
-  playback.start(get('from').value, get('to').value, Number(get('duration').value))
+  route = tour(FONT_STYLES, Number(chosen('pace')))
+  playback.start(route.frames, phaseStart() - 1)
 }
-for (const id of ['from', 'to', 'duration'])
-  get(id).onchange = () => {
-    if (playback.state !== 'idle') {
-      playback.stop()
-      schedule()
-    } else updatePlayButton()
-  }
+get('phases').onchange = () => {
+  if (playback.state !== 'idle') playback.seek(phaseStart() - 1)
+}
+get('pace').onchange = () => {
+  if (playback.state === 'idle') return
+  playback.stop()
+  schedule()
+}
+get('theme').onclick = () => {
+  const dark = document.documentElement.dataset.theme
+    ? document.documentElement.dataset.theme === 'dark'
+    : matchMedia('(prefers-color-scheme: dark)').matches
+  document.documentElement.dataset.theme = dark ? 'light' : 'dark'
+  try {
+    localStorage.setItem('theme', document.documentElement.dataset.theme)
+  } catch {}
+}
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) playback.pause()
 })
 get('save').onclick = () => {
-  const svg = new XMLSerializer().serializeToString(get('proof').firstElementChild)
+  const svg = new XMLSerializer().serializeToString(get('glyph').firstElementChild)
   const url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }))
   const a = document.createElement('a')
   a.download = 'han-compose-mix.svg'
