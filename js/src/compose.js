@@ -569,9 +569,10 @@ function clawAroundCounter(frame, style) {
 
 // Fit only the inner after balancing. Earlier changes to the learned layout
 // also change the weight and width of Noto's claw.
-function fitNotoClawInterior(parts, tree, style, cells = false) {
-  if ((style !== 'sans' && style !== 'serif') || !Array.isArray(tree)) return
-  if (tree[0] === '⿺' && tree[1] === '爪' && parts.length === 2) {
+function fitClawInterior(parts, tree, style, cells = false) {
+  if (!Array.isArray(tree)) return
+  const noto = style === 'sans' || style === 'serif'
+  if (noto && tree[0] === '⿺' && tree[1] === '爪' && parts.length === 2) {
     const [frame, inner] = parts
     if (!cells && (tree[2] === '口' || tree[2] === '日')) {
       const seat = tree[2] === '口' ? [0.575, 0.29, 1.005, 0.835] : [0.58, 0.28, 1.015, 0.925]
@@ -585,10 +586,20 @@ function fitNotoClawInterior(parts, tree, style, cells = false) {
     }
   } else if (tree[0] === '⿰' && tree[1] === '氵' && keyOf(tree[2]) === '⿺爪日' && parts.length === 3) {
     const inner = parts[2], [l, b, r, t] = inner.target
-    const pad = (t - b) * (style === 'sans' ? 0.04 : 0.025)
+    const height = t - b
+    if (!noto) {
+      if (!ownFormsOnly(style) || !parts[1].part.held) return
+      const fraction = style === 'regular' ? (cells ? 0.014 : 0.047)
+        : style === 'fangsong' ? 0.048 : 0.095
+      inner.target = [l, b - height * fraction, r, t - height * fraction]
+      return
+    }
+    const pad = height * (style === 'sans' ? 0.04 : 0.025)
     const shift = (r - l) * (style === 'sans' ? 0.046 : 0.032)
-    const lift = style === 'serif' ? (t - b) * 0.012 : 0
-    inner.target = [l + shift, b - pad + lift, r + shift, t + pad + lift]
+    // In composed text the bottom of 日 already approaches the sweep.
+    const bottomShift = height * (cells ? -0.09 : style === 'sans' ? -0.008 : 0.005)
+    const topShift = cells ? bottomShift : -height * 0.065
+    inner.target = [l + shift, b - pad + bottomShift, r + shift, t + pad + topShift]
   }
 }
 
@@ -618,6 +629,7 @@ function counterBox(outer, inner, nested, style) {
     }
     if (inner === '口') return [0.54, 0.265, 0.992, 0.82]
     if (inner === '日') return nested ? [0.577, 0.34, 1.04, 1.045] : [0.54, 0.255, 0.995, 0.90]
+    if (inner === '罒' && style === 'pen-writing' && !nested) return [0.515, 0.255, 0.995, 0.735]
     if (inner === '罒') return [0.515, 0.315, 0.995, 0.795]
     if (inner === '呂' && style === 'pen-writing') return [0.56, 0.28, 0.995, 0.98]
     if (inner === '呂') return [0.54, 0.24, 1.015, 1.02]
@@ -1128,7 +1140,7 @@ export class Composer {
         const w = (sx1 - sx0) * scale, h = (sy1 - sy0) * scale
         part.target = [cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2]
       }
-      fitNotoClawInterior(out, tree, this.fontStyle)
+      fitClawInterior(out, tree, this.fontStyle)
       // Loose marks annotate the whole drawing; they take no part in its layout or weight.
       if (marks) out.push(...markParts(this, marks, frame, face))
       return out
@@ -1319,7 +1331,7 @@ export class Composer {
     walk(numbered, [0, 0, 1, 1], 0)
     if (!this.partial && this.weighted) this.balance(out)
     else if (!this.partial && this.staticFace) this.staticBalance(out)
-    fitNotoClawInterior(out, tree, this.fontStyle, true)
+    fitClawInterior(out, tree, this.fontStyle, true)
     return out
   }
 
