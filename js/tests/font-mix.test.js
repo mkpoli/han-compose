@@ -1,7 +1,7 @@
 import { expect, it } from 'bun:test'
 import { activeFaces, composeMixed, FONT_STYLES } from '../src/font-mix.js'
 import { mixDrawings } from '../src/mix-drawings.js'
-import { groupRegions } from '../src/mix-contours.js'
+import { alignRings, groupRegions } from '../src/mix-contours.js'
 import { limitDisplacement } from '../src/mix-outline.js'
 import { count, pathMask } from '../src/geometry.js'
 import { compose } from '../src/loader.js'
@@ -234,4 +234,77 @@ it('leaves a drawing alone when a wide band cannot resolve its small boundary', 
   const drawing = 'M90 90L130 90L130 130L90 130Z'
   expect(limitDisplacement(drawing, small, 700)).toBe(drawing)
   expect(limitDisplacement(drawing, small, 5)).not.toBe('')
+})
+
+it('blends straight edges into straight edges and shrinks a tip one face lacks', () => {
+  const closed = (points) => [...points, points[0]]
+  const bar = closed([
+    [40, 100],
+    [200, 100],
+    [200, 120],
+    [40, 120]
+  ])
+  // The same bar, moved and thinner, with a triangular tip above its right end.
+  const tipped = closed([
+    [50, 104],
+    [180, 104],
+    [196, 90],
+    [212, 104],
+    [212, 114],
+    [50, 114]
+  ])
+  const [plain, serif] = alignRings([bar, tipped])
+  expect(plain.length).toBe(serif.length)
+  const onEdges = (points, ring) =>
+    points.every((p) =>
+      ring.slice(1).some((b, i) => {
+        const a = ring[i],
+          length = Math.hypot(b[0] - a[0], b[1] - a[1])
+        const off = Math.abs((b[0] - a[0]) * (p[1] - a[1]) - (b[1] - a[1]) * (p[0] - a[0])) / length
+        const along = ((p[0] - a[0]) * (b[0] - a[0]) + (p[1] - a[1]) * (b[1] - a[1])) / length ** 2
+        return off < 1e-6 && along > -1e-6 && along < 1 + 1e-6
+      })
+    )
+  // Each face keeps its own outline, corners included.
+  expect(onEdges(plain, bar)).toBe(true)
+  expect(onEdges(serif, tipped)).toBe(true)
+  for (const corner of tipped.slice(0, -1))
+    expect(serif.some((p) => Math.hypot(p[0] - corner[0], p[1] - corner[1]) < 1e-6)).toBe(true)
+  const half = plain.map((p, i) => [(p[0] + serif[i][0]) / 2, (p[1] + serif[i][1]) / 2])
+  // Halfway, the bottom and left edges are straight lines between the two bars' edges…
+  const bottom = half.filter((p) => p[1] > 116.9)
+  expect(bottom.length).toBeGreaterThan(20)
+  expect(bottom.every((p) => Math.abs(p[1] - 117) < 1e-6)).toBe(true)
+  expect(half.filter((p) => p[0] < 45.1).every((p) => Math.abs(p[0] - 45) < 1e-6)).toBe(true)
+  // …and the tip stands at half its height above the halfway top edge.
+  expect(Math.min(...half.map((p) => p[1]))).toBeCloseTo(95, 0)
+})
+
+it('blends each labelled stroke on its own when two strokes overlap', () => {
+  const bar = (x, y, right, bottom) => `M${x} ${y}L${right} ${y}L${right} ${bottom}L${x} ${bottom}Z`
+  // A cross: every face draws the two strokes as separate, overlapping contours.
+  const face = (h, v) => ({
+    d: h + v,
+    parts: [
+      {
+        leaf: 0,
+        origin: 'glyph 十',
+        box: [100, 100, 800, 800],
+        d: h + v,
+        strokes: [
+          [1, [0]],
+          [2, [1]]
+        ]
+      }
+    ]
+  })
+  const thin = face(bar(100, 480, 900, 520), bar(480, 100, 520, 900))
+  const wide = face(bar(100, 420, 900, 580), bar(420, 100, 580, 900))
+  const mixed = mixDrawings([thin, wide], [0.5, 0.5], 1)
+  const expected = pathMask(bar(100, 450, 900, 550) + bar(450, 100, 550, 900), 200)
+  const actual = pathMask(mixed.d, 200)
+  let differing = 0
+  for (let i = 0; i < expected.length; i++) differing += expected[i] !== actual[i]
+  // The blend is the cross of half-way bars with square inner corners, to within the outline's pixels.
+  expect(differing).toBeLessThan(120)
 })
