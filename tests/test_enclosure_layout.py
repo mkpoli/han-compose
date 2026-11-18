@@ -670,11 +670,8 @@ def test_a_narrow_kin_cut_leaves_the_upper_room_for_the_enclosed_part():
     placed = c._kin_outer("⿺", ("⿱", "𡗗", "夂"), ("麥", ("⿱", "來", "夊"), ("⿱", "𡗗", "夂")), "面",
                           (0, 0, 1000, 900), (500, 0, 1000, 500))
 
-    # The cut's own upper piece (來) is placed, not the operand's glyph, which this face draws
-    # as a different form (Zhuque's 𡗗 is 丰).
-    assert [p.origin for p in placed] == ["kin 麩", "kin 麩 upper"]
-    assert placed[1].target == (0, 500, 428, 900)
-    assert drawn == []
+    assert [p.origin for p in placed] == ["kin 麩"]
+    assert drawn == [("𡗗", (0, 500, 428, 900))]
 
 
 def test_two_listed_kin_cuts_tie_on_the_midpoint_and_take_the_even_split():

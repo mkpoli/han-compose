@@ -39,7 +39,7 @@ for (const name of readdirSync(join(source, 'unicode', 'outlines'))) {
 }
 // The 山 band of 萬, the numbered forms' cuts, the Sans cuts for numbered components, and the cuts
 // of components no code point names.
-for (const name of ['wan-shan.json', 'numbered-forms.json', 'numbered-sans-outlines.json.gz', 'custom-forms.json.gz']) {
+for (const name of ['wan-shan.json', 'wheat-face-cuts.json', 'numbered-forms.json', 'numbered-sans-outlines.json.gz', 'custom-forms.json.gz']) {
   copy(join(source, name), join(into, name))
 }
 // The contextual five's native cut, drawn from 葭.

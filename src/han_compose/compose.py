@@ -54,6 +54,8 @@ from ._raster import fill
 from ._raster import ring as _ring
 from .vocab import BINARY, ROOT, TERNARY, UNARY, read_rows
 
+_WHEAT_FACE_CUTS = json.loads((ROOT / "data" / "wheat-face-cuts.json").read_text(encoding="utf-8"))
+
 # Generated from the pinned BabelStone IDS catalog; see docs/pyramid-glyphs.md.
 _PYRAMID_GLYPHS = {
     sequence: row["char"]
@@ -2333,11 +2335,6 @@ class Composer:
             part, source = upper
             target = fitted(part.box, (room[0], room[1], left, room[3]))
             upper_parts = [Placed(part, part.box, target, native=self.ink(source), origin=f"kin {source}")]
-        elif narrow:
-            # A narrow cut holds only part of the outer, and the described upper may be a form of
-            # its own in this face (Zhuque's 𡗗 is 丰): place the kin's upper piece (來 over 夊 in
-            # 麥) instead.
-            upper_parts = [Placed(top, top.box, (room[0], room[1], left, room[3]), native=self.ink(char), origin=f"kin {char} upper")]
         else:
             upper_parts = self._node(own[1], (room[0], room[1], left, room[3]))
         return placed + self._settled(upper_parts, Placed(top, top.box, room), placed)
@@ -3145,8 +3142,31 @@ class Composer:
             p.target = tuple(target)
             p.weight = (weight[0], weight[1])
 
+    def _wheat_face(self, region: Box) -> list[Placed]:
+        """The checked 榛, sweep and 麺 cuts for the described enclosure in Zhuque and TW-Kai."""
+        from .web_export import part_record
+
+        cuts = _WHEAT_FACE_CUTS.get(getattr(getattr(self.font, "style", None), "name", None), ())
+        parts = []
+        for cut in cuts:
+            host = cut["host"]
+            if host in self.exclude or (glyph := self.font.glyph(host)) is None:
+                return []
+            outlines = json.dumps(part_record(glyph)["p"], separators=(",", ":")).encode()
+            if hashlib.sha256(outlines).hexdigest() != cut["digest"]:
+                return []
+            part = Part([glyph.contours[i] for i in cut["contours"]])
+            parts.append(Placed(part, part.box, tuple(cut["box"]), origin=f"construct {cut['label']}"))
+        if parts:
+            frame = self.font.glyph("麺").box
+            for part in parts:
+                part.target = mapped(part.target, frame, region)
+        return parts
+
     def _node(self, node: Node, region: Box, at_root: bool = False) -> list[Placed]:
         """`node` drawn into `region`; at the root, the whole character, laid out in the em."""
+        if node == ("⿺", ("⿱", "𡗗", "夂"), "面") and (parts := self._wheat_face(region)):
+            return parts
         if isinstance(node, str) and is_jamo_run(node):
             return self._jamo_syllable(node, region)
         encoded = node if isinstance(node, str) else None if key(node) in self.spelled else self.by_sequence.get(key(node))

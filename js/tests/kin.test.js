@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'bun:test'
 import { gzipSync } from 'node:zlib'
 import { Composer } from '../src/compose.js'
-import { createSource } from '../src/loader.js'
+import { compose, createSource, sketch } from '../src/loader.js'
 import { commands, makePart, mapped, placed } from '../src/geometry.js'
-import { character, constants, files } from './fixtures/small-export.js'
+import wheatFaces from './fixtures/wheat-faces.json' with { type: 'json' }
+import { character, constants, files, shards } from './fixtures/small-export.js'
 
 // 麭 as boxes: the upper part of its 麥 (來), the sweep under it, and the 包 the sweep holds.
 const UPPER = [100, 500, 500, 800], SWEEP = [100, 0, 900, 120], HELD = [550, 200, 900, 800]
@@ -130,8 +131,7 @@ describe('an enclosing part no host draws in its place', () => {
     }
     const c = new Composer({ ...store({ kin: half }), rec: key => halfRecords[key] ?? null })
     const drawn = c.kinOuter('⿺', ['⿱', '𡗗', '夂'], c.kin('⿺', ['⿱', '𡗗', '夊']), '面', [0, 0, 1000, 900], [500, 0, 1000, 500])
-    // The cut's own upper piece (來) is placed, not the operand's glyph, which this face draws as a different form.
-    expect(drawn.map(p => p.origin)).toEqual(['kin 麩', 'kin 麩 upper'])
+    expect(drawn.map(p => p.origin)).toEqual(['kin 麩', 'glyph 𡗗'])
     expect(drawn[1].target[2]).toBeLessThanOrEqual(500 - constants.FACING[0] + 1e-6)
   })
 
@@ -193,4 +193,29 @@ describe('the kin table', () => {
     expect(store.kin()).toBeNull()
     expect(store.missing.size).toBe(0)
   })
+})
+
+describe('the wheat enclosure in Zhuque Fangsong and TW-Kai', () => {
+  for (const [style, donors] of Object.entries(wheatFaces)) {
+    it(`draws and sketches the same three leaves from a cold ${style} export`, async () => {
+      const held = { ...files, ...shards('g', Object.entries(donors)) }
+      const source = () => createSource(async name => {
+        const data = held[name]
+        if (!data) return null
+        return new Uint8Array(typeof data === 'string' ? new TextEncoder().encode(data) : data).buffer
+      })
+      const ids = '⿺⿱𡗗夂面', options = { fontStyle: style }
+      const boxes = await sketch(source(), ids, options)
+      const warm = source()
+      const drawing = await compose(warm, ids, { ...options, separate: true })
+      expect(await sketch(warm, ids, options)).toEqual(boxes)
+      expect(drawing.origins).toEqual(['construct 榛 𡗗', style === 'regular' ? 'construct 麵 夂' : 'construct 处 夂', 'construct 麺 面'])
+      expect((await compose(source(), ids, options)).d).toBe(drawing.d)
+      const [upper, sweep, inner] = boxes.map(leaf => leaf.box)
+      expect(upper[0] + upper[2]).toBeLessThanOrEqual(inner[0] + 1)
+      expect(inner[3]).toBeGreaterThan(0.7 * (sweep[1] + sweep[3] - upper[1]))
+      expect(sweep[0] + sweep[2]).toBeGreaterThan(inner[0] + 0.8 * inner[2])
+      expect(sweep[1] + sweep[3]).toBeGreaterThan(inner[1] + inner[3])
+    })
+  }
 })

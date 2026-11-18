@@ -36,6 +36,7 @@ import { customAt, splitToneMarks, toneMarksAt } from './tree.js'
 import { hexOf } from './sha256.js'
 import componentConstants from './constants.json' with { type: 'json' }
 import numberedFiveContext from '../data/numbered-five-context.json' with { type: 'json' }
+import wheatFaceCuts from '../data/wheat-face-cuts.json' with { type: 'json' }
 import pyramidCatalog from './pyramid-glyphs.json' with { type: 'json' }
 import { createRenderNormalizer } from './normalization.js'
 
@@ -483,6 +484,11 @@ const ENCLOSURE_FORMS = {
     }],
   },
 }
+
+const WHEAT_FACE = '⿺⿱𡗗夂面'
+const wheatHosts = [...new Set(Object.values(wheatFaceCuts).flat().map(cut => cut.host))]
+/** Donor records needed by both the drawing and its leaf boxes, including a nested enclosure. */
+export const wheatFaceHosts = sequence => sequence.includes(WHEAT_FACE) ? wheatHosts : []
 
 /** Characters whose glyphs the tree's designed cuts are read from; the loader preloads them. */
 export const designedSources = tree => {
@@ -1175,8 +1181,9 @@ export class Composer {
         return
       }
       const repeated = isGroupedForm(keyOf(node), this.fontStyle) ? componentParts(keyOf(node), region, this.fontStyle, atRoot) : null
-      if (repeated) {
-        for (const part of repeated) out.push({ index: out.length, box: part.target, empty: false })
+      const designed = repeated ?? this.wheatFaceParts(node, region)
+      if (designed) {
+        for (const part of designed) out.push({ index: out.length, box: part.target, empty: false })
         return
       }
       if (!Array.isArray(node)) { out.push({ index: out.length, box: region, empty: node === EMPTY }); return }
@@ -1350,7 +1357,23 @@ export class Composer {
     return { frame, room: mapped(room, bounds, region) }
   }
 
+  /** Three native cuts for the described wheat enclosure. 麺 supplies the frame and right-hand 面,
+   *  榛 the narrow 𡗗. The sweep is 处’s in Zhuque and 麵’s in TW-Kai. */
+  wheatFaceParts(node, region) {
+    if (node[0] !== '⿺' || keyOf(node) !== WHEAT_FACE || this.excluded('麺')) return null
+    const frame = this.glyphRecord('麺')
+    if (!frame) return null
+    const digest = hexOf(JSON.stringify(frame.p))
+    const cuts = Object.values(wheatFaceCuts).find(cuts => cuts[2].digest === digest)
+    if (!cuts || cuts.some(cut => this.excluded(cut.host))) return null
+    const records = Object.fromEntries(cuts.map(cut => [cut.host, this.glyphRecord(cut.host)]))
+    const parts = constructParts({ host: '麺', cuts }, [], records, region)
+    return parts.length ? parts : null
+  }
+
   drawNode(node, region, atRoot = false, sideBySide = false) {
+    const wheat = this.wheatFaceParts(node, region)
+    if (wheat) return wheat
     const wood = this.woodFrame(node, region)
     if (wood) return [wood.frame, ...this.node(node[2], wood.room)]
     if (isEmpty(node)) return [this.placeholder(node, region)]
@@ -1799,10 +1822,6 @@ export class Composer {
       // keep, its proportions kept within `STRETCH`.
       const target = fitted(upper.part.box, [room[0], room[1], left, room[3]], C.STRETCH)
       above = [placed(upper.part, upper.part.box, target, this.ink(upper.source), `kin ${upper.source}`)]
-    } else if (narrow) {
-      // A narrow cut holds only part of the outer, and the described upper may be a form of its
-      // own in this face (Zhuque's 𡗗 is 丰): place the kin's upper piece instead.
-      above = [placed(top, top.box, [room[0], room[1], left, room[3]], this.ink(char), `kin ${char} upper`)]
     } else above = this.node(kin.own[1], [room[0], room[1], left, room[3]])
     this.settle(above, placed(top, top.box, room, 0, `kin ${char}`), drawn)
     // A separated drawing keeps reading order, the upper operand first.
