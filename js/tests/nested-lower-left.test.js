@@ -12,6 +12,8 @@ import frameDonors from './fixtures/rice-walk-frames.json' with { type: 'json' }
 // 爮 from TW-Kai (數位發展部, CNS11643全字庫, Open Government Data License 1.0).
 // 爬 from Zhuque Fangsong and Kureedo (SIL OFL 1.1). See docs/licensing.md.
 import clawFrames from './fixtures/claw-frames.json' with { type: 'json' }
+// 咫 (Zhuque Fangsong, SIL OFL 1.1) and 𣥉 (TW-Kai, CNS11643, OGDL 1.0).
+import rulerFrames from './fixtures/ruler-frames.json' with { type: 'json' }
 import parts from './fixtures/sans-lower-left.json' with { type: 'json' }
 
 // 几 and 力 as the Sans export draws them (Noto Sans CJK, SIL OFL 1.1); 口 is the small export's
@@ -338,6 +340,26 @@ describe('爪 lower-left frames', () => {
       expect(parts.map(p => p.origin)).toEqual([`glyph ${donor}`, `glyph ${donor}`])
       expect(parts[0].d.match(/M/g)).toHaveLength(count)
       expect(new Composer(src.store(), { fontStyle, exclude: [donor] }).enclosureForm('⿺', '爪')).toBeNull()
+    })
+  }
+})
+
+describe('尺 lower-left frames', () => {
+  for (const [fontStyle, donor, glyph] of [
+    ['fangsong', '咫', rulerFrames.fangsong],
+    ['regular', '𣥉', rulerFrames.kai],
+  ]) {
+    it(`fits a nested 日 above the 尺 from ${donor}`, async () => {
+      const src = source({ 尺: records.木, 日: records.口, [donor]: { G: glyph, ink: 5000 } })
+      for (const layout of ['composed', 'cells']) {
+        const { parts } = await compose(src, '⿰口⿺尺日', { fontStyle, layout, separate: true })
+        const [, frame, day] = parts
+        expect(frame.origin).toBe(`host ${donor}`)
+        expect(day.box[2]).toBeGreaterThan(frame.box[2] * 0.35)
+        expect(day.box[3]).toBeGreaterThan(frame.box[3] * 0.55)
+      }
+      const excluded = new Composer(src.store(), { fontStyle, exclude: [donor] })
+      expect(excluded.enclosureForm('⿺', '尺')).toBeNull()
     })
   }
 })

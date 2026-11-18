@@ -488,6 +488,7 @@ const ENCLOSURE_TAILS = {
   电: ['𠀧', { '97647776e6a744399c766db1da6c1eb408c37901e4607ff6f613de6a71a99646': [0, 1, 2] }],
 }
 
+const FANGSONG_ZHI_HASH = '8107afd7a4e2fc5956fbc890568088655068a3cb02247e4e91635edca08b531c'
 const ENCLOSURE_FORMS = {
   '⿺': {
     // 𮇇 is ⿺米日. Keep both upper dots and the stroke below 日.
@@ -513,6 +514,13 @@ const ENCLOSURE_FORMS = {
       '656184795d653a390844e1bfd99e8efddfb5c36be68d683d9d8986984f150a85': [0, 1, 2, 3, 4],
       '2fa6f7b8e09a68c6173dafe84d5b96d5b4c36dc9a7e6b77703d9ed9f13ff525a': [0, 3, 4, 6, 7],
     }],
+    // 尺 extends beneath 只 in 咫. Keep both contours of its hollow upper body.
+    尺: ['咫', {
+      [FANGSONG_ZHI_HASH]: [0, 1],
+      '32acd8662f39756ae47755e87be4cae6a5172496083c5700703f3dfdaef4a335': [0, 1, 2],
+      '66f0f2aff64d0e5454190791c8ec41c54a53da22420fff7cabfbeef5cfd5dbdb': [0, 1, 2, 3, 4],
+      '26a8dba8b102e3c211aafb6a6f20104e2029f1effd7d1be7931ee26070bb7bbe': [0, 2],
+    }],
     // The enclosing strokes of 爬, separate from 巴 in both Noto faces, Fangsong and Kureedo.
     爪: ['爬', {
       '62ea1c7cd18e715ba4735256be0aa9976af23b6b55e3a199d7599a3c9bb41c45': [0, 1],
@@ -534,6 +542,10 @@ const SERIF_BAI_HASH = '84034012b3affecc9e357a89b924ff8f29bfd4fe31a79b11239772e2
 const KE_BAI = ['兡', {
   [SERIF_BAI_HASH]: [6, 7, 8, 9, 10, 11, 12],
   'f33b6640f3595ae1504ba85316b5d6973ce90728ce0485ed483f7fc7426246af': [0, 1],
+}]
+// TW-Kai has a clean cut of 尺 in 𣥉 (⿺尺止).
+const RULER_STOP = ['𣥉', {
+  'a203e8bc61f82eeb10d4aa030e803a20e545db51ce9b9383b5cee0997492553b': [0, 1],
 }]
 const RICE_DOTS = ['米', {
   // Left dot, right dot in Zhuque Fangsong, TW-Kai and Kureedo.
@@ -626,7 +638,7 @@ function fitClawInterior(parts, tree, style, cells = false) {
   }
 }
 
-const lowerLeftFrames = new Set(['克', '米', '走'])
+const lowerLeftFrames = new Set(['克', '米', '走', '尺'])
 const brushClaw = (outer, style) => outer === '爪' && ownFormsOnly(style)
 /** Rectangular counters in the openings of 𮇇 and 趄, in frame-relative
  * coordinates. The brush 米 has a higher diagonal foot than the Noto cut. */
@@ -638,6 +650,16 @@ function counterBox(outer, inner, nested, style) {
     if (inner === '口' && (style === 'fangsong' || style === 'regular')) return [0.535, 0.42, 0.985, 0.905]
     if (inner === '日' && style === 'fangsong') return [0.58, 0.365, 0.95, 0.950]
     if (inner === '日' && brush) return [0.515, 0.43, 0.985, 0.975]
+  }
+  if (outer === '尺') {
+    // The lower left corner of the counter follows the diagonal in 咫.
+    const drop = brush ? (nested ? 0 : 0.025) : 0.065
+    if (inner === '口') return [0.535, 0.34 - drop, 0.985, 0.87 - drop]
+    if (inner === '日' || inner === '呂') {
+      const inset = nested && style === 'regular' ? 0.036 : 0
+      return [0.55 + inset, 0.32 - drop, 0.985 + inset, 0.975 - drop]
+    }
+    if (inner === '罒') return [0.53, 0.415 - drop, 0.985, 0.865 - drop]
   }
   if (brushClaw(outer, style)) {
     // Sized against 巴 in 爬 and 包 in TW-Kai 爮. Keep the proportions
@@ -667,6 +689,7 @@ function counterBox(outer, inner, nested, style) {
 
 const enclosureEntry = (op, outer, style) => {
   if (op === '⿺' && outer === '克' && (style === 'serif' || style === 'regular')) return KE_BAI
+  if (op === '⿺' && outer === '尺' && style === 'regular') return RULER_STOP
   if (op === '⿺' && outer === '爪' && style === 'regular') return KAI_CLAW
   if (op === '⿺' && outer === '米' && ownFormsOnly(style)) return RICE_DOTS
   return ENCLOSURE_FORMS[op]?.[outer]
@@ -2153,6 +2176,15 @@ export class Composer {
     const glyph = partOf(record)
     if (entry === RICE_DOTS) return this.brushRiceFrame(glyph, indices)
     let contours = indices.map(i => glyph.contours[i])
+    if (digest === FANGSONG_ZHI_HASH) {
+      // In 咫 the left leg of 八 branches off 尺's sweep at (522, 172)
+      // and returns at (548, 151). Join these two points in both masters.
+      const c = contours[0], keep = c.ops.slice(0, 43), branch = c.ops.slice(43, 52)
+      const size = ops => ops.reduce((n, op) => n + op[1] * 2, 0)
+      const from = size(keep), to = from + size(branch)
+      const trim = points => new Float64Array([...points.slice(0, from), ...points.slice(to)])
+      contours[0] = { ...c, ops: [...keep, ...c.ops.slice(52)], light: trim(c.light), heavy: trim(c.heavy) }
+    }
     if (digest === SERIF_BAI_HASH) {
       // Bring the upright of 克 inward, tapering the displacement to zero
       // at the tip of its hooked foot. Coordinates are from the 兡 donor.
