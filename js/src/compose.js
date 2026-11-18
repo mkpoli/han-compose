@@ -464,12 +464,10 @@ const ENCLOSURE_TAILS = {
 
 const ENCLOSURE_FORMS = {
   '⿺': {
-    // 尅 supplies the narrow 克 and the long hooked leg beneath 寸 in all five faces.
+    // 尅 supplies the narrow 克 and the long hooked leg beneath 寸.
     克: ['尅', {
       'ae84ef672359ae6623803e35731ecc3e67ff219d45927bc13358728a70289272': [0, 2, 3, 4, 5, 8],
-      '69e8e13dda68e0757eb8ab784ec7e2a75a4117dec44332a2ea00eec0b1c9887d': [3, 4, 5, 6, 7, 8, 9],
       '59500d3d2cfd9d7852b3ae0ae80801610a2c76d676c333efed708021f9443979': [1, 2, 3, 4],
-      'b4c082f38aaec769272024e589bb41645be666715fb5a6901f11d11509613674': [2, 3],
       'c900407c27c59b2fe74a9460b6117a98e9e32f25b02be67d1a6c2ea3c742a79a': [0, 3],
     }],
     电: ['𫌷', {
@@ -491,13 +489,23 @@ const ENCLOSURE_FORMS = {
   },
 }
 
+// In 兡 the font already seats a rectangular 百 above the hooked foot.
+const SERIF_BAI_HASH = '84034012b3affecc9e357a89b924ff8f29bfd4fe31a79b11239772e285f3f826'
+const KE_BAI = ['兡', {
+  [SERIF_BAI_HASH]: [6, 7, 8, 9, 10, 11, 12],
+  'f33b6640f3595ae1504ba85316b5d6973ce90728ce0485ed483f7fc7426246af': [0, 1],
+}]
+const enclosureEntry = (op, outer, style) => op === '⿺' && outer === '克' && (style === 'serif' || style === 'regular')
+  ? KE_BAI : ENCLOSURE_FORMS[op]?.[outer]
+
 /** Characters whose glyphs the tree's designed cuts are read from; the loader preloads them. */
-export const designedSources = tree => {
+export const designedSources = (tree, style = 'sans') => {
   const out = new Set()
   const visit = node => {
     if (!Array.isArray(node)) return
     const [op, ...children] = node
-    for (const [key, [char]] of Object.entries(ENCLOSURE_FORMS[op] ?? {})) if (children[0] === key) out.add(char)
+    const frame = enclosureEntry(op, children[0], style)
+    if (frame) out.add(frame[0])
     for (const [key, [char]] of Object.entries(DESIGNED_CUTS)) if (children.includes(key)) out.add(char)
     children.forEach(visit)
   }
@@ -997,6 +1005,7 @@ export class Composer {
           const region = target(box)
           const enclosure = this.woodFrame(node, region) ?? this.keFrame(node, region)
           let outer = enclosure?.frame, room = enclosure?.room
+          if (room && enclosureEntry(op, kids[0], this.fontStyle) === KE_BAI) room = this.baiSeat(kids[1], room) ?? room
           if (!outer) {
             const glyph = this.glyph(kids[0])
             if (glyph) {
@@ -1246,13 +1255,22 @@ export class Composer {
     return parts.length ? parts : null
   }
 
-  /** In a cell, fit the cut from 尅 before placing the leaf in its opening. */
+  /** A narrow borrowed cut of 口 or 日 may have been stretched already. Use
+   * the leaf's native proportions when fitting it in the space taken by 百. */
+  baiSeat(inner, room) {
+    while (Array.isArray(inner) && (inner[0] === MIRROR || inner[0] === ROTATE)) inner = inner[1]
+    if (typeof inner !== 'string' || isEmpty(inner) || this.excluded(inner)) return null
+    const own = this.glyph(inner)
+    return own && fitted(tightBox(own), room, 1.12)
+  }
+
+  /** Fit the donor's 克 before placing a cell in its opening. */
   keFrame(node, region) {
     if (!Array.isArray(node) || node[0] !== '⿺' || node[1] !== '克') return null
     const cut = this.enclosureForm('⿺', '克')
     if (!cut?.piece.held) return null
     const { piece } = cut
-    const frame = this.place(piece, region, this.ink('尅'), 'cells 克')
+    const frame = this.place(piece, region, this.ink(cut.record.h), 'cells 克')
     return { frame, room: mapped(piece.held, frame.source, frame.target) }
   }
 
@@ -1610,11 +1628,11 @@ export class Composer {
   /** A designed enclosing form of a whole operand, where the export has no cut of it: 电 as ⿺'s
    *  enclosing part from 𫌷. Answers a host-like `{ record, piece }`, or null. */
   enclosureForm(op, node) {
-    const entry = typeof node === 'string' ? ENCLOSURE_FORMS[op]?.[node] : null
+    const entry = typeof node === 'string' ? enclosureEntry(op, node, this.fontStyle) : null
     if (!entry || this.excluded(node)) return null
     const [char, cuts] = entry, record = this.glyphRecord(char)
     if (!record || this.excluded(char)) return null
-    const indices = cuts[hexOf(JSON.stringify(record.p))]
+    const digest = hexOf(JSON.stringify(record.p)), indices = cuts[digest]
     if (!indices) return null
     const glyph = partOf(record)
     const piece = derived(glyph, indices.map(i => glyph.contours[i]))
@@ -1623,7 +1641,13 @@ export class Composer {
     if (held.length) piece.held = union(held)
     // 寸 interlocks with the crossbar and hook of 克. A box-shaped replacement
     // needs clearance at both corners, even though 寸 itself leaves them empty.
-    if (node === '克' && piece.held) {
+    if (char === '兡') {
+      // Serif's 百 projects its top 一 over 克. Its rectangular body is the
+      // usable seat. In TW-Kai the body and cap are a continuous contour.
+      const body = digest === SERIF_BAI_HASH
+        ? union([2, 3, 4, 5].map(i => pointsBox(glyph.contours[i].light))) : piece.held
+      piece.held = shrunk(body, digest === SERIF_BAI_HASH ? 0.86 : 0.92)
+    } else if (node === '克' && piece.held) {
       const frame = placed(piece, piece.box, piece.box, 0, 'host 尅')
       const opening = this.room(op, [frame], piece.box)
       if (opening) {
@@ -1736,7 +1760,9 @@ export class Composer {
     const frame = groups[0]?.find(p => p.part?.held)
     if (!frame || !groups[1]?.length) return
     const room = mapped(frame.part.held, frame.source, frame.target)
-    const box = union(groups[1].map(p => p.target)), seat = fitted(box, room, this.C.STRETCH)
+    const box = union(groups[1].map(p => p.target))
+    const ownSeat = enclosureEntry(op, children[0], this.fontStyle) === KE_BAI && this.baiSeat(children[1], room)
+    const seat = ownSeat || fitted(box, room, this.C.STRETCH)
     for (const p of groups[1]) {
       p.target = mapped(p.target, box, seat)
       if (p.flips) p.flips = p.flips.map(flip => ({

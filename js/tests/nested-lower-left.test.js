@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'bun:test'
 import { Composer, near, sweptPart } from '../src/compose.js'
 import { partOf, placed, pathRings, pointsBox } from '../src/geometry.js'
-import { compose, createSource } from '../src/loader.js'
+import { compose, createSource, sketch } from '../src/loader.js'
 import { constants, files, layout, records, shards } from './fixtures/small-export.js'
 // Noto Sans CJK JP 2.004, SIL OFL 1.1. The enclosing 克 and its 口 counter come from 尅.
 import keDonor from './fixtures/sans-ke.json' with { type: 'json' }
+// Noto Serif CJK JP 2.003, SIL OFL 1.1. The lower body of 百 supplies the seat.
+import baiDonor from './fixtures/serif-ke-bai.json' with { type: 'json' }
 import parts from './fixtures/sans-lower-left.json' with { type: 'json' }
 
 // 几 and 力 as the Sans export draws them (Noto Sans CJK, SIL OFL 1.1); 口 is the small export's
@@ -198,4 +200,18 @@ describe('克 enclosing another component', () => {
     ink(mirror.parts[1]).forEach((edge, i) => expect(Math.abs(edge - expected[i])).toBeLessThan(1))
   })
 
+})
+
+it('fits a Serif square to the body of 百 and keeps its width when mirrored', async () => {
+  const src = source({ 克: records.木, 兡: { G: baiDonor, ink: 5000 } })
+  const options = { fontStyle: 'serif', separate: true }
+  const cold = await sketch(src, '⿺克口', options)
+  for (const seq of ['⿺克口', '⿺克⿾口']) {
+    const { parts } = await compose(src, seq, options)
+    expect(parts[0].origin).toContain('兡')
+    const [l, b, r, t] = pointsBox(pathRings(parts[1].d).flat())
+    expect((r - l) / (t - b)).toBeGreaterThan(0.80)
+    expect((r - l) / (t - b)).toBeLessThan(1.15)
+  }
+  expect(await sketch(src, '⿺克口', options)).toEqual(cold)
 })
