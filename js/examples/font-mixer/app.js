@@ -204,15 +204,14 @@ segments(
   ],
   'neighbours'
 )
-segments(
-  'pace',
-  [
-    ['3', '3 s'],
-    ['6', '6 s'],
-    ['10', '10 s']
-  ],
-  '6'
-)
+function syncPace() {
+  const pace = get('pace')
+  const label = pace.valueAsNumber + ' s'
+  pace.style.setProperty('--fill', ((pace.valueAsNumber - pace.min) / (pace.max - pace.min)) * 100 + '%')
+  pace.setAttribute('aria-valuetext', label)
+  get('pace-value').value = label
+}
+syncPace()
 function svgNode(drawing) {
   const node = new DOMParser().parseFromString(drawingSvg(drawing), 'image/svg+xml').documentElement
   return document.importNode(node, true)
@@ -286,12 +285,13 @@ get('play').onclick = () => {
   revision++
   running?.controller.abort()
   get('save').disabled = true
-  route = tour(FONT_STYLES, Number(chosen('pace')))
+  route = tour(FONT_STYLES, get('pace').valueAsNumber)
   playback.start(route.frames, phaseStart() - 1)
 }
 get('phases').onchange = () => {
   if (playback.state !== 'idle') playback.seek(phaseStart() - 1)
 }
+get('pace').oninput = syncPace
 get('pace').onchange = () => {
   if (playback.state === 'idle') return
   playback.stop()
