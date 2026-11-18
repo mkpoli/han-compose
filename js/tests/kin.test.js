@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'bun:test'
 import { gzipSync } from 'node:zlib'
 import { Composer } from '../src/compose.js'
-import { createSource } from '../src/loader.js'
+import { compose, createSource, sketch } from '../src/loader.js'
 import { commands, makePart, mapped, placed } from '../src/geometry.js'
-import { character, constants, files } from './fixtures/small-export.js'
+import wheatFaces from './fixtures/wheat-faces.json' with { type: 'json' }
+import { character, constants, files, shards } from './fixtures/small-export.js'
 
 // 麭 as boxes: the upper part of its 麥 (來), the sweep under it, and the 包 the sweep holds.
 const UPPER = [100, 500, 500, 800], SWEEP = [100, 0, 900, 120], HELD = [550, 200, 900, 800]
@@ -91,6 +92,49 @@ describe('an enclosing part no host draws in its place', () => {
       .toEqual(['kin 麭', 'glyph 𡗗'])
   })
 
+  it('takes the listed cut whose split stands nearest the middle when none is ranked', () => {
+    const split = { ...table() }
+    split.cuts[`${PLACE}\t麥`] = { 麩: [[0], [1]], 麪: [[0], [1]], 麭: [[0], [1]] }
+    const splitRecords = {
+      麩: character('麩', [[0, 750, 1000, 900], [0, 0, 1000, 900]]),
+      麪: character('麪', [[0, 500, 1000, 900], [0, 0, 1000, 900]]),
+      麭: character('麭', [[0, 450, 1000, 900], [0, 0, 1000, 900]]),
+      麥: records.麥, 𡗗: records['𡗗'], 面: records.面,
+    }
+    const c = new Composer({ ...store({ kin: split }), rec: key => splitRecords[key] ?? null })
+    c.ranked = () => []
+    const drawn = c.kinOuter('⿺', ['⿱', '𡗗', '夂'], c.kin('⿺', ['⿱', '𡗗', '夊']), '面', [0, 0, 1000, 900], [500, 0, 1000, 500])
+    // 麩's upper box is 150 high in a 900-unit frame; 麪's 400 and 麭's 450 stand either side of it.
+    expect(drawn[0].origin).toBe('kin 麪')
+  })
+
+  it('takes the even split when two cuts tie on the midpoint', () => {
+    const two = { ...table() }
+    two.cuts[`${PLACE}\t麥`] = { 麩: [[0], [1]], 麪: [[0], [1]] }
+    const twoRecords = {
+      麩: character('麩', [[0, 180, 1000, 900], [0, 0, 1000, 100]]),
+      麪: character('麪', [[0, 360, 1000, 900], [0, 0, 1000, 100]]),
+      麥: records.麥, 𡗗: records['𡗗'], 面: records.面,
+    }
+    const c = new Composer({ ...store({ kin: two }), rec: key => twoRecords[key] ?? null })
+    c.ranked = () => []
+    const drawn = c.kinOuter('⿺', ['⿱', '𡗗', '夂'], c.kin('⿺', ['⿱', '𡗗', '夊']), '面', [0, 0, 1000, 900], [500, 0, 1000, 500])
+    expect(drawn[0].origin).toBe('kin 麪')
+  })
+
+  it('keeps the upper room clear of the enclosed part when the cut spans only the outer half', () => {
+    const half = { ...table() }
+    half.cuts[`${PLACE}\t麥`] = { 麩: [[0], [1]] }
+    const halfRecords = {
+      麩: character('麩', [[0, 500, 500, 900], [0, 0, 500, 500]]),
+      麥: records.麥, 𡗗: records['𡗗'], 面: records.面,
+    }
+    const c = new Composer({ ...store({ kin: half }), rec: key => halfRecords[key] ?? null })
+    const drawn = c.kinOuter('⿺', ['⿱', '𡗗', '夂'], c.kin('⿺', ['⿱', '𡗗', '夊']), '面', [0, 0, 1000, 900], [500, 0, 1000, 500])
+    expect(drawn.map(p => p.origin)).toEqual(['kin 麩', 'glyph 𡗗'])
+    expect(drawn[1].target[2]).toBeLessThanOrEqual(500 - constants.FACING[0] + 1e-6)
+  })
+
   it('is not drawn from a host whose kin KanjiVG does not cut', () => {
     const kin = table()
     kin.cuts[`${PLACE}\t麥`].麭 = null
@@ -149,4 +193,36 @@ describe('the kin table', () => {
     expect(store.kin()).toBeNull()
     expect(store.missing.size).toBe(0)
   })
+})
+
+describe('the wheat enclosure in Zhuque Fangsong and TW-Kai', () => {
+  for (const [style, donors] of Object.entries(wheatFaces)) {
+    it(`falls back when a ${style} donor is excluded or its outline changes`, () => {
+      const node = ['⿺', ['⿱', '𡗗', '夂'], '面']
+      const data = { ...store(), rec: key => donors[key] ?? records[key] ?? null }
+      const changed = { ...data, rec: key => key === '榛' ? records.面 : data.rec(key) }
+      expect(new Composer(data, { exclude: ['榛'] }).wheatFaceParts(node, constants.face)).toBeNull()
+      expect(new Composer(changed).wheatFaceParts(node, constants.face)).toBeNull()
+    })
+    it(`draws and sketches the same three leaves from a cold ${style} export`, async () => {
+      const held = { ...files, ...shards('g', Object.entries(donors)) }
+      const source = () => createSource(async name => {
+        const data = held[name]
+        if (!data) return null
+        return new Uint8Array(typeof data === 'string' ? new TextEncoder().encode(data) : data).buffer
+      })
+      const ids = '⿺⿱𡗗夂面', options = { fontStyle: style }
+      const boxes = await sketch(source(), ids, options)
+      const warm = source()
+      const drawing = await compose(warm, ids, { ...options, separate: true })
+      expect(await sketch(warm, ids, options)).toEqual(boxes)
+      expect(drawing.origins).toEqual(['construct 榛 𡗗', style === 'regular' ? 'construct 麵 夂' : 'construct 处 夂', 'construct 麺 面'])
+      expect((await compose(source(), ids, options)).d).toBe(drawing.d)
+      const [upper, sweep, inner] = boxes.map(leaf => leaf.box)
+      expect(upper[0] + upper[2]).toBeLessThanOrEqual(inner[0] + 1)
+      expect(inner[3]).toBeGreaterThan(0.7 * (sweep[1] + sweep[3] - upper[1]))
+      expect(sweep[0] + sweep[2]).toBeGreaterThan(inner[0] + 0.8 * inner[2])
+      expect(sweep[1] + sweep[3]).toBeGreaterThan(inner[1] + inner[3])
+    })
+  }
 })
