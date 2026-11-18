@@ -1639,7 +1639,14 @@ export class Composer {
         keyOf(node[1]) !== '⿱⿴𦥑同冖' || !Object.hasOwn(cuanForms, this.fontStyle) ||
         ['爨', '𦥑', '同', '冖', '𤍾'].some(ch => this.excluded(ch))) return null
     const form = cuanForms[this.fontStyle], record = this.glyphRecord('爨')
-    if (record && hexOf(JSON.stringify(record.p)) !== form.digest) return null
+    if (record) {
+      if (hexOf(JSON.stringify(record.p)) !== form.digest) return null
+    } else {
+      // The sparse Pen export omits 爨 but identifies the font that supplied these cuts.
+      const fonts = this.data.manifest?.composer?.font_sha256
+      if (this.fontStyle !== 'pen-writing' || fonts?.['KureedoFull-Regular.ttf'] !==
+          '737f04de3b2b222664b5386628b0a15b009c7dd69086a1050dac0e507117c5d6') return null
+    }
     const frame = atRoot ? this.C.face : record?.b ?? union(form.groups.map(group => group.b))
     return form.groups.map((g, i) => {
       const part = partOf(g)
