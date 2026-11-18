@@ -587,6 +587,7 @@ export const designedSources = (tree, style = 'sans') => {
     if (entry) {
       if (entry.encoded) out.add(entry.encoded)
       for (const [char] of entry.cells) out.add(char)
+      for (const donor of Object.values(entry.donors ?? {})) out.add(donor.char)
     }
     const frame = enclosureEntry(op, children[0], style)
     if (frame) out.add(frame[0])
@@ -1641,14 +1642,29 @@ export class Composer {
   referenceParts(node, region) {
     const entry = referenceLayout(node, this.fontStyle)
     if (!entry || (entry.encoded && this.own(entry.encoded)) || node.slice(1).some(child => typeof child === 'string' && this.excluded(child))) return null
-    const { cells } = entry
+    const { cells, donors } = entry
+    const cuts = donors && cells.map(([source]) => {
+      const donor = donors[source]
+      if (!donor || this.excluded(donor.char)) return null
+      const record = this.glyphRecord(donor.char)
+      if (record?.v !== 1 || hexOf(JSON.stringify(record.p)) !== donor.digest) return null
+      const parent = partOf(record)
+      return {
+        glyph: derived(parent, donor.indices.map(k => parent.contours[k])),
+        box: mapped(donor.box, EM_BOX, region),
+        origin: `${source} from ${donor.char}`,
+      }
+    })
+    // The two contextual cuts share a placement. Standalone forms have their own pair of boxes.
+    const useCuts = cuts?.every(Boolean)
     const boxes = referenceBoxes(cells, region)
     const parts = []
     for (const [i, [source]] of cells.entries()) {
       if (this.excluded(source)) return null
-      const glyph = this.glyph(source)
+      const cut = useCuts ? cuts[i] : null
+      const glyph = cut?.glyph ?? this.glyph(source)
       if (!glyph) return null
-      parts.push({ ...placed(glyph, glyph.box, boxes[i], partInk(glyph), `glyph ${source}`), fixed: true })
+      parts.push({ ...placed(glyph, glyph.box, cut?.box ?? boxes[i], partInk(glyph), cut?.origin ?? `glyph ${source}`), fixed: true })
     }
     return parts
   }
