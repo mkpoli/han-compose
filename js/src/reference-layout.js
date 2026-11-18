@@ -19,6 +19,7 @@ const layouts = {
     '⿰设正': { encoded: '', cells: [['设', [9, -87, 518, 856], [0.71, -0.09]], ['正', [551, -68, 984, 816], [0.88, -0.12]]] },
   },
   fangsong: {
+    '⿰糸ソ': { encoded: '', cells: [['糸', [55, -65, 477, 810]], ['ソ', [517, 98, 947, 635]]] },
     // 此 keeps its size in 柴. 力 is 107% of its size in 勢 on both axes.
     // U+324C2 (UK-20135) places the diagonal of 力 below the gap between 止 and 匕.
     '⿱此力': {
