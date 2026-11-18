@@ -301,6 +301,17 @@ export const COMPONENT_FIXES = {
   // A whole 鰥 cut stretches the left strokes and carries a sweeping lower stroke.
   // Keep 遝’s left strokes and stem, and replace both right strokes with compact 丶 glyphs.
   // Use 呼’s own spacing when both upper pieces came from that glyph.
+  '⿰未⿱成公': {
+    glyphs: {},
+    apply(parts, composer) {
+      const [wei, cheng, gong] = parts
+      if (composer.fontStyle !== 'pen-writing' || parts.length !== 3) return parts
+      // 枩 supplies a spreading 公 for a full-width bottom row. Here it shares a column with 成.
+      const [l, b, r, t] = gong.target
+      const inset = 0.12 * (r - l)
+      return [wei, cheng, { ...gong, target: [l + inset, b, r - inset, Math.min(t, cheng.target[1] - 0.035 * heightOf(cheng.target))] }]
+    },
+  },
   '⿱呼乙': {
     glyphs: {},
     apply(parts, composer) {
