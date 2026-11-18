@@ -520,7 +520,7 @@ export const designedSources = (tree, style = 'sans') => {
     const [op, ...children] = node
     const entry = referenceLayout(node, style)
     if (entry) {
-      out.add(entry.encoded)
+      if (entry.encoded) out.add(entry.encoded)
       for (const [char] of entry.cells) out.add(char)
     }
     const frame = enclosureEntry(op, children[0], style)
@@ -1480,7 +1480,7 @@ export class Composer {
   /** Native brush drawings at the operand bounds recorded for a particular character. */
   referenceParts(node, region) {
     const entry = referenceLayout(node, this.fontStyle)
-    if (!entry || this.own(entry.encoded) || node.slice(1).some(child => typeof child === 'string' && this.excluded(child))) return null
+    if (!entry || (entry.encoded && this.own(entry.encoded)) || node.slice(1).some(child => typeof child === 'string' && this.excluded(child))) return null
     const { cells } = entry
     const boxes = referenceBoxes(cells, region)
     const parts = []
