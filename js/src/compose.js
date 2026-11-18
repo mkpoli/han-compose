@@ -979,7 +979,7 @@ export class Composer {
       if (!Array.isArray(node)) {
         leaves++
         const { rest } = typeof node === 'string' ? splitToneMarks(node) : { rest: node }
-        if (!isEmpty(node) && !this.glyph(rest)) supported = false
+        if (!isEmpty(node) && !(rest === '⺿' || rest === '艹' && isComponentForm(rest, this.fontStyle)) && !this.glyph(rest)) supported = false
         return
       }
       const op = node[0]
@@ -1056,6 +1056,15 @@ export class Composer {
           leaf++
           out.push(...parts)
           return
+        }
+        if (node === '艹' || node === '⺿') {
+          const form = componentParts(node, undefined, this.fontStyle)?.[0]
+          if (form) {
+            form.target = fitted(form.source, inset(target(box)), Math.max(this.C.STRETCH, CELL_STRETCH))
+            if (leafIndices) form.leaf = leaf++
+            out.push(form)
+            return
+          }
         }
         const glyph = this.glyph(node)
         if (!glyph) throw new LookupError(`No glyph draws ${node}.`)
@@ -2557,7 +2566,7 @@ export class Composer {
    *  no character of its own, and is read as the character it is a shape of (`like`). */
   predict(op, children) {
     const keys = children.map(child => (this.constructed(child, this.face) && CONSTRUCTS[keyOf(child)].like) || this.renderKey(child))
-    return forward(this.layout, features(this.layout, op, keys.map(k => this.rec(k)), [this.slot(op, 0), this.slot(op, 1)]))
+    return forward(this.layout, features(this.layout, op, keys.map(k => this.rec(k === '⺿' ? '艹' : k)), [this.slot(op, 0), this.slot(op, 1)]))
   }
 
   /**

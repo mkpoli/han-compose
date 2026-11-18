@@ -272,12 +272,42 @@ def generate(font_dir):
     return result
 
 
+def component_forms(font_dir):
+    """One contextual four-stroke radical per face, in the composer's contour format."""
+    forms = {}
+    for style, filename in {**FONTS, "regular": "TW-Kai.ttf"}.items():
+        with TTFont(font_dir / filename) as font:
+            face = Face(font)
+            if style == "fangsong":
+                head, _ = head_and_body(face.contours("菜"))
+                head = fangsong_split(head)
+            elif style == "regular":
+                head, _ = head_and_body(face.contours("草"))
+            else:
+                head, _ = head_and_body(face.contours("菜"))
+                head = split_head(head, split_donors(face, style))
+            contours = []
+            for recording in head:
+                for op, points in recording.value:
+                    if op == "moveTo":
+                        commands, coords = [], []
+                    if op in ("closePath", "endPath"):
+                        contours.append(["".join(commands), coords])
+                        continue
+                    commands.append({"moveTo": "M", "lineTo": "L", "curveTo": "C",
+                                     "qCurveTo": f"Q{len(points)}"}[op])
+                    coords.extend(round(v, 2) for point in points for v in point)
+            forms[style] = [contours]
+    return forms
+
+
 if __name__ == "__main__":
     cli = argparse.ArgumentParser(description=__doc__)
     cli.add_argument("--fonts", type=Path, required=True)
     cli.add_argument("--output", type=Path, required=True)
+    cli.add_argument("--component-forms", action="store_true")
     args = cli.parse_args()
     args.output.write_text(
-        json.dumps(generate(args.fonts), ensure_ascii=False, separators=(",", ":"))
+        json.dumps((component_forms if args.component_forms else generate)(args.fonts), ensure_ascii=False, separators=(",", ":"))
         + "\n"
     )
