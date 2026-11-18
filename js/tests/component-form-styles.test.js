@@ -419,3 +419,16 @@ it('fits the saved outward 倘 IDS to the Zhuque whole glyph in composed layout'
   const result = await compose(src, ids, { fontStyle: 'fangsong' })
   expect(result.origins).toEqual(['Zhuque Fangsong: ' + ids])
 })
+
+it('draws the cut Fangsong dot components as leaves inside an IDS', async () => {
+  const makeSource = () => createSource(async name => files[name] === undefined ? null : new Uint8Array(Buffer.from(files[name])).buffer)
+  const shapes = ['丷', '𡭔', '⺌', '𭕄']
+  const paths = shapes.map(ch => componentDrawing(ch, 'fangsong').d)
+  expect(new Set(paths).size).toBe(shapes.length)
+  expect(componentDrawing('⺍', 'fangsong').d).toBe(paths[3])
+  for (const ch of shapes) {
+    const drawn = await compose(makeSource(), '⿰八' + ch, { fontStyle: 'fangsong', layout: 'cells' })
+    expect(drawn.parts.map(part => part.leaf)).toEqual([0, 1])
+    expect(drawn.origins).toContain('Zhuque Fangsong: ' + ch)
+  }
+})

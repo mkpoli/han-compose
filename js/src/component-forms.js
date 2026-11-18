@@ -47,8 +47,10 @@ for (const [style, characters] of Object.entries(dotForms.dots)) {
     })
   }
 }
-for (const [style, contours] of Object.entries(dotForms.eight)) {
-  styles[style].set('八', { ...formOf([contours]), atomic: true })
+for (const [style, components] of Object.entries(dotForms.components)) {
+  for (const [shape, contours] of Object.entries(components)) {
+    styles[style].set(shape, { ...formOf([contours]), atomic: true })
+  }
 }
 // Whole-character fits for composed IDS. Leave operand-based layouts to the normal renderer.
 for (const [style, sequences] of Object.entries(dotForms.ids)) {
