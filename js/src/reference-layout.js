@@ -5,6 +5,9 @@ import { mapped } from './geometry.js'
 // 亽 has a short, centered dot below its open roof (TW-Kai U+4EBD).
 /** @type {Record<string, Record<string, { encoded: string, cells: [string, number[]][] }>>} */
 const layouts = {
+  regular: {
+    '⿱龸ド': { encoded: '', cells: [['龸', [104, 427, 905, 837]], ['ド', [226, -65, 815, 387]]] },
+  },
   fangsong: {
     '⿱𠆢丶': { encoded: '亽', cells: [['人', [62, 265, 964, 793]], ['丶', [397, 135, 551, 298]]] },
   },
