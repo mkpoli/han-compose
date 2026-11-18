@@ -7,6 +7,8 @@ import { constants, files, layout, records, shards } from './fixtures/small-expo
 import keDonor from './fixtures/sans-ke.json' with { type: 'json' }
 // Noto Serif CJK JP 2.003, SIL OFL 1.1. The lower body of 百 supplies the seat.
 import baiDonor from './fixtures/serif-ke-bai.json' with { type: 'json' }
+// Noto Sans CJK JP and Zhuque Fangsong (SIL OFL 1.1).
+import frameDonors from './fixtures/rice-walk-frames.json' with { type: 'json' }
 import parts from './fixtures/sans-lower-left.json' with { type: 'json' }
 
 // 几 and 力 as the Sans export draws them (Noto Sans CJK, SIL OFL 1.1); 口 is the small export's
@@ -247,4 +249,37 @@ it('uses the same Sans 克 opening before and after sibling glyphs load', async 
   const cold = await sketch(src, sequence)
   await compose(src, sequence)
   expect(await sketch(src, sequence)).toEqual(cold)
+})
+
+describe('米 and 走 lower-left frames', () => {
+  const extra = { 米: records.木, 走: records.木, '𮇇': { G: frameDonors.rice, ink: 5000 }, 趄: { G: frameDonors.walk, ink: 5000 } }
+  for (const layout of ['composed', 'cells']) {
+    for (const [outer, count] of [['米', 3], ['走', 7]]) {
+      it(`keeps the complete ${outer} around a nested mouth in ${layout}`, async () => {
+        const { parts } = await compose(source(extra), '⿰口⿺' + outer + '口', { layout, separate: true })
+        expect(parts).toHaveLength(3)
+        const [, frame, inner] = parts
+        expect(frame.d.match(/M/g)).toHaveLength(count)
+        expect(inner.box[0]).toBeGreaterThan(frame.box[0])
+        expect(right(frame)).toBeGreaterThan(right(inner))
+      })
+    }
+  }
+
+  it('partitions the native 𮇇 and 趄 when their leaves are drawn separately', async () => {
+    for (const [seq, donor] of [['⿺米日', '𮇇'], ['⿺走且', '趄']]) {
+      const { parts } = await compose(source({ ...extra, 日: records.口, 且: records.口 }), seq, { separate: true })
+      expect(parts.map(p => p.origin)).toEqual([`glyph ${donor}`, `glyph ${donor}`])
+      expect(parts.map(p => p.d.match(/M/g).length)).toEqual(donor === '𮇇' ? [3, 3] : [7, 4])
+    }
+  })
+
+  it('keeps the two Fangsong 米 dots together with the enclosing 木, respecting donor exclusion', async () => {
+    const src = source({ 米: { G: frameDonors.brushRice, ink: 5000 } })
+    const options = { fontStyle: 'fangsong', separate: true }
+    const { parts } = await compose(src, '⿺米口', options)
+    expect(parts[0].d.match(/M/g)).toHaveLength(4)
+    const composer = new Composer(src.store(), { ...options, exclude: ['木'] })
+    expect(composer.enclosureForm('⿺', '米')).toBeNull()
+  })
 })

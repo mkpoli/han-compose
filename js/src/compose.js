@@ -466,6 +466,19 @@ const ENCLOSURE_TAILS = {
 
 const ENCLOSURE_FORMS = {
   '⿺': {
+    // 𮇇 is ⿺米日. Keep both upper dots and the stroke below 日.
+    米: ['𮇇', {
+      'fbd4d23f4115d3e27d2f7d40a37c2617d42efd2a2bd8d309a76671c3c7056097': [0, 1, 2],
+      'dba389255ed37438a7dff7a7e52946fe55aa0b89dd950ef675a6054382718855': [0, 4, 5],
+    }],
+    // 趄 is ⿺走且. The remaining contours describe the opening above 走.
+    走: ['趄', {
+      '057bf627c3fffe82172d911eef372cf496e403eb9c5c1e6a372b6c3233c02d15': [4, 5, 6, 7, 8, 9, 10],
+      '92a8251d91e02aad289ae77efcef545ad68814bc3a52f604026847e56f16807b': [0, 1, 6, 7, 8, 9, 10],
+      '14381857d034572ecd0b8bd718a9dc6342e753589f850d2a2eeb8b1eb09dbd83': [0],
+      'f52d243fdd29c63c3fc1e492f1ecbcc5bc4f3b699041d731bae079f7f971789b': [0],
+      '4ec639d5ab237c1a3e16d3bb6b6899c3b313f9baf108640f0e9c43d57ed2a9a3': [0],
+    }],
     // 尅 supplies the narrow 克 and the long hooked leg beneath 寸.
     克: ['尅', {
       'ae84ef672359ae6623803e35731ecc3e67ff219d45927bc13358728a70289272': [0, 2, 3, 4, 5, 8],
@@ -497,8 +510,18 @@ const KE_BAI = ['兡', {
   [SERIF_BAI_HASH]: [6, 7, 8, 9, 10, 11, 12],
   'f33b6640f3595ae1504ba85316b5d6973ce90728ce0485ed483f7fc7426246af': [0, 1],
 }]
-const enclosureEntry = (op, outer, style) => op === '⿺' && outer === '克' && (style === 'serif' || style === 'regular')
-  ? KE_BAI : ENCLOSURE_FORMS[op]?.[outer]
+const RICE_DOTS = ['米', {
+  // Left dot, right dot in Zhuque Fangsong, TW-Kai and Kureedo.
+  '1ec0927d4db7c3caf7c5f412f948f5ce9593c68ef20caf889cec12298c751427': [1, 2],
+  '8fbccf83460cc3c74c1f22434f2bc416355805fb0bf63514df1316fb081dd6cf': [1, 2],
+  'c18496a92711cf9afa9354af46782e82d7634ecec3c5a63342644546e396f1bd': [2, 1],
+}]
+const lowerLeftFrames = new Set(['克', '米', '走'])
+const enclosureEntry = (op, outer, style) => {
+  if (op === '⿺' && outer === '克' && (style === 'serif' || style === 'regular')) return KE_BAI
+  if (op === '⿺' && outer === '米' && ownFormsOnly(style)) return RICE_DOTS
+  return ENCLOSURE_FORMS[op]?.[outer]
+}
 
 function unflippedOperand(node) {
   while (Array.isArray(node) && (node[0] === MIRROR || node[0] === ROTATE)) node = node[1]
@@ -1114,7 +1137,7 @@ export class Composer {
         // split the two apart stand the frame away from what it holds (𠕲's 冂 above its rows).
         if (typeof kids[0] === 'string' && !isEmpty(kids[0])) {
           const region = target(box)
-          const enclosure = this.woodFrame(node, region) ?? this.keFrame(node, region)
+          const enclosure = this.woodFrame(node, region) ?? this.lowerLeftFrame(node, region)
           let outer = enclosure?.frame, room = enclosure?.room
           if (room && enclosureEntry(op, kids[0], this.fontStyle) === KE_BAI) room = this.baiSeat(kids[1], room) ?? room
           if (!outer) {
@@ -1216,7 +1239,7 @@ export class Composer {
         return
       }
       if (!Array.isArray(node)) { out.push({ index: out.length, box: region, empty: node === EMPTY }); return }
-      const frame = this.woodFrame(node, region) ?? this.keFrame(node, region)
+      const frame = this.woodFrame(node, region) ?? this.lowerLeftFrame(node, region)
       if (frame) {
         out.push({ index: out.length, box: frame.frame.target, empty: false })
         walk(node[2], frame.room, false)
@@ -1422,13 +1445,13 @@ export class Composer {
     return placed(mouth, tightBox(mouth), target, this.ink('加'), 'host 加')
   }
 
-  /** Fit the donor's 克 before placing a cell in its opening. */
-  keFrame(node, region) {
-    if (!Array.isArray(node) || node[0] !== '⿺' || node[1] !== '克') return null
-    const cut = this.enclosureForm('⿺', '克')
+  /** Place the enclosing strokes and map their opening into the same cell. */
+  lowerLeftFrame(node, region) {
+    if (!Array.isArray(node) || node[0] !== '⿺' || !lowerLeftFrames.has(node[1])) return null
+    const cut = this.enclosureForm('⿺', node[1])
     if (!cut?.piece.held) return null
     const { piece } = cut
-    const frame = this.place(piece, region, this.ink(cut.record.h), 'cells 克')
+    const frame = this.place(piece, region, this.ink(cut.record.h), `cells ${node[1]}`)
     return { frame, room: mapped(piece.held, frame.source, frame.target) }
   }
 
@@ -1807,6 +1830,24 @@ export class Composer {
     return [...body, ...marks]
   }
 
+  /** The brush exports have no 𮇇. The two upper strokes of their own 米
+   * sit on either side of the tall stem of their enclosing 木. */
+  brushRiceFrame(rice, [left, right]) {
+    if (this.excluded('木')) return null
+    const [, wood] = componentParts('⿰氵⿺木罒', undefined, this.fontStyle)
+    const dot = (index, target) => {
+      const c = rice.contours[index]
+      const stroke = placed(derived(rice, [c]), pointsBox(c.light), target, 0, '米')
+      const [points] = drawnContours(stroke)
+      return { ops: c.ops, light: points, heavy: points }
+    }
+    // Coordinates in the 木 outline, before the entire frame is fitted.
+    const dots = [dot(left, [218, 554, 333, 695]), dot(right, [426, 561, 529, 728])]
+    const piece = derived(wood.part, [...wood.part.contours, ...dots])
+    piece.held = [542, 260, 924, 724]
+    return { record: { h: '米' }, piece: this.clearLowerLeftRoom(piece, '米') }
+  }
+
   /** A designed enclosing form of a whole operand, where the export has no cut of it: 电 as ⿺'s
    *  enclosing part from 𫌷. Answers a host-like `{ record, piece }`, or null. */
   enclosureForm(op, node) {
@@ -1817,6 +1858,7 @@ export class Composer {
     const digest = hexOf(JSON.stringify(record.p)), indices = cuts[digest]
     if (!indices) return null
     const glyph = partOf(record)
+    if (entry === RICE_DOTS) return this.brushRiceFrame(glyph, indices)
     let contours = indices.map(i => glyph.contours[i])
     if (digest === SERIF_BAI_HASH) {
       // Bring the upright of 克 inward, tapering the displacement to zero
@@ -1849,17 +1891,24 @@ export class Composer {
       piece.held = digest === SERIF_BAI_HASH
         ? [body[0] - 48, body[1] + 85, body[2] - 7, body[3]]
         : shrunk(body, 0.92)
-    } else if (node === '克' && piece.held) {
-      const frame = placed(piece, piece.box, piece.box, 0, 'host 尅')
-      const opening = this.roomFromInk(op, [frame], piece.box)
-      if (opening) {
-        const [l, b, r, t] = piece.held
-        const clear = [Math.max(l, opening[0]), Math.max(b, opening[1]), Math.min(r, opening[2]), Math.min(t, opening[3])]
-        // Leave clearance for the stroke-weight pass in a narrow nested cell.
-        if (clear[0] < clear[2] && clear[1] < clear[3]) piece.held = shrunk(clear, 0.90)
+    } else if (lowerLeftFrames.has(node) && piece.held) this.clearLowerLeftRoom(piece, char)
+    return { record: { h: char }, piece }
+  }
+
+  /** Intersect a donor's interior with the ink-free space above its foot.
+   * A rectangular replacement fills corners the original inner glyph left open. */
+  clearLowerLeftRoom(piece, char) {
+    const frame = placed(piece, piece.box, piece.box, 0, `host ${char}`)
+    const opening = this.roomFromInk('⿺', [frame], piece.box)
+    if (opening) {
+      const [l, b, r, t] = piece.held
+      const clear = [Math.max(l, opening[0]), Math.max(b, opening[1]), Math.min(r, opening[2]), Math.min(t, opening[3])]
+      if (clear[0] < clear[2] && clear[1] < clear[3]) {
+        piece.held = shrunk(clear, 0.90)
+        if (char !== '尅') piece.held[0] += (piece.held[2] - piece.held[0]) * 0.055
       }
     }
-    return { record: { h: char }, piece }
+    return piece
   }
 
   /** The kin an enclosing part is drawn as (`_kin`): of the characters written over the same lower
@@ -1988,9 +2037,12 @@ export class Composer {
     if (!frame || !groups[1]?.length) return
     const room = mapped(frame.part.held, frame.source, frame.target)
     const box = union(groups[1].map(drawnBox))
-    const ownSeat = enclosureEntry(op, children[0], this.fontStyle) === KE_BAI && this.baiSeat(children[1], room)
+    const inner = unflippedOperand(children[1])
+    const own = (children[0] === '米' || children[0] === '走') && typeof inner === 'string' && !isEmpty(inner) && !this.excluded(inner) && this.glyph(inner)
+    const ownSeat = own ? fitted(tightBox(own), room, 1.15)
+      : enclosureEntry(op, children[0], this.fontStyle) === KE_BAI && this.baiSeat(children[1], room)
     const seat = ownSeat || fitted(box, room, this.C.STRETCH)
-    const mouth = ownSeat && groups[1].length === 1 && this.baiMouth(children[1], groups[1][0].target)
+    const mouth = children[0] === '克' && ownSeat && groups[1].length === 1 && this.baiMouth(children[1], groups[1][0].target)
     if (mouth) {
       Object.assign(groups[1][0], mouth)
       // Keep 克 at its native weight when balancing the borrowed mouth.
@@ -2018,7 +2070,11 @@ export class Composer {
 
   /** Preserve the font's designed shape while retaining one adjustable piece per leaf. */
   enclosureParts(node, region) {
-    const entry = ENCLOSURE_CUTS[keyOf(node)]
+    const key = keyOf(node)
+    // In a separated 𮇇 or 趄, the inner leaf is the complement of the
+    // enclosing cut. Keep both pieces in their original glyph coordinates.
+    const split = this.separate && (key === '⿺米日' || key === '⿺走且') && !this.excluded(node[1]) && !this.excluded(node[2])
+    const entry = split ? ENCLOSURE_FORMS['⿺'][node[1]] : ENCLOSURE_CUTS[key]
     // Expansion adapts a squeezed character to its region; do not replace it with that same glyph.
     if (!entry || this.expanding.size || this.excluded(entry[0])) return null
     const [char, cuts] = entry, record = this.glyphRecord(char)
@@ -2028,7 +2084,8 @@ export class Composer {
     this.nativeEnclosures.add(keyOf(node))
     const glyph = partOf(record), target = fitted(glyph.box, region, this.C.STRETCH)
     if (!this.separate) return [placed(glyph, glyph.box, target, this.ink(char), `glyph ${char}`)]
-    return indices.map(group => {
+    const groups = split ? [indices, glyph.contours.map((_, i) => i).filter(i => !indices.includes(i))] : indices
+    return groups.map(group => {
       const part = derived(glyph, group.map(i => glyph.contours[i]))
       return { ...placed(part, part.box, mapped(part.box, glyph.box, target), this.ink(char), `glyph ${char}`), balanceBox: glyph.box }
     })
@@ -2605,7 +2662,7 @@ export class Composer {
       if (designed) return designed
     }
     // Use the enclosing posture drawn in 爬 or 尅 before borrowing a generic host.
-    if (op === '⿺' && index === 0 && (node === '爪' || node === '克')) {
+    if (op === '⿺' && index === 0 && (node === '爪' || lowerLeftFrames.has(node))) {
       const designed = this.enclosureForm(op, node)
       if (designed) return designed
     }
@@ -3207,7 +3264,7 @@ export class Composer {
       const inner = this.node(children[1], hu ? huRoom : room)
       if (!hu) this.fit(outer, inner, region, this.stem0[0][0], C,
         fallback && op === '⿽' ? { room, bounds: room } : undefined)
-      if (children[0] === '克' && outer[0]?.part.held) this.seatInDesignedFrame(op, children, [outer, inner])
+      if (lowerLeftFrames.has(children[0]) && outer[0]?.part.held) this.seatInDesignedFrame(op, children, [outer, inner])
       if (held) this.sweeps.push([outer, inner])
       return [...outer, ...inner]
     }
