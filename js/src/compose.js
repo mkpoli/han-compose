@@ -1719,7 +1719,7 @@ export class Composer {
         : shrunk(body, 0.92)
     } else if (node === '克' && piece.held) {
       const frame = placed(piece, piece.box, piece.box, 0, 'host 尅')
-      const opening = this.room(op, [frame], piece.box)
+      const opening = this.roomFromInk(op, [frame], piece.box)
       if (opening) {
         const [l, b, r, t] = piece.held
         const clear = [Math.max(l, opening[0]), Math.max(b, opening[1]), Math.min(r, opening[2]), Math.min(t, opening[3])]
@@ -3582,7 +3582,12 @@ export class Composer {
    *  `ROOM_MARGIN` stroke widths clear of its ink (`_room`). On an open side the box stops at the
    *  part's own ink, so an enclosed part sits between the arms (凵, 門) rather than over their tips. */
   room(op, outer, region, size = 48) {
-    if (this.partial) return null
+    return this.partial ? null : this.roomFromInk(op, outer, region, size)
+  }
+
+  // A verified donor already supplies every contour needed for this scan,
+  // even when a sketch is still waiting for an unrelated sibling's record.
+  roomFromInk(op, outer, region, size = 48) {
     const C = this.C
     const ink = fill(groupRings(outer), size, region)
     const margin = Math.max(1, pyRound(C.ROOM_MARGIN * this.stem0[0][0] / ((region[2] - region[0]) / size)))

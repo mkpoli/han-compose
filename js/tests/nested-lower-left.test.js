@@ -236,3 +236,11 @@ it('gives both stacked mouths more height than a single mouth in Serif', async (
   const mouth = await height('口')
   for (const inner of ['呂', '⿱口口']) expect(await height(inner)).toBeGreaterThan(mouth + 30)
 })
+
+it('uses the same Sans 克 opening before and after sibling glyphs load', async () => {
+  const src = source({ 日: records.口, 克: records.木, 尅: { G: keDonor, ink: 5000 } })
+  const sequence = '⿰口⿺克日'
+  const cold = await sketch(src, sequence)
+  await compose(src, sequence)
+  expect(await sketch(src, sequence)).toEqual(cold)
+})
