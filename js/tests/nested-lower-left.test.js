@@ -219,22 +219,26 @@ it('preserves the tall Serif mouth above the hook, including its reflection', as
 
 it('preloads the tall 口 donor only for a TW-Kai 克 mouth', () => {
   for (const inner of ['口', ['⿾', '口']]) {
-    expect(designedSources(['⿺', '克', inner], 'regular')).toContain('咬')
-    expect(designedSources(['⿺', '克', inner], 'serif')).not.toContain('咬')
+    expect(designedSources(['⿺', '克', inner], 'regular')).toContain('加')
+    expect(designedSources(['⿺', '克', inner], 'serif')).not.toContain('加')
   }
-  expect(designedSources(['⿺', '克', '日'], 'regular')).not.toContain('咬')
+  expect(designedSources(['⿺', '克', '日'], 'regular')).not.toContain('加')
 })
 
 it('gives both stacked mouths more height than a single mouth in Serif', async () => {
   const src = source({ 克: records.木, 兡: { G: baiDonor, ink: 5000 }, 呂: records.口 })
   const options = { fontStyle: 'serif', separate: true }
-  const height = async inner => {
+  const bounds = async inner => {
     const { parts } = await compose(src, '⿺克' + inner, options)
     const [, bottom, , top] = pointsBox(parts.slice(1).flatMap(p => pathRings(p.d).flat()))
-    return top - bottom
+    return { bottom, height: top - bottom }
   }
-  const mouth = await height('口')
-  for (const inner of ['呂', '⿱口口']) expect(await height(inner)).toBeGreaterThan(mouth + 30)
+  const mouth = await bounds('口')
+  for (const inner of ['呂', '⿱口口']) {
+    const stack = await bounds(inner)
+    expect(stack.height).toBeGreaterThan(mouth.height + 30)
+    expect(stack.bottom).toBeLessThan(mouth.bottom)
+  }
 })
 
 it('uses the same Sans 克 opening before and after sibling glyphs load', async () => {
