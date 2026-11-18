@@ -275,6 +275,14 @@ export function dotIn(composer, band) {
  * A correction that cannot find the parts it names leaves the drawing as it is.
  */
 export const COMPONENT_FIXES = {
+  '⿱艹堀': {
+    glyphs: {},
+    apply(parts, composer) {
+      if (composer.fontStyle !== 'pen-writing' || parts.length !== 2 || parts[0].origin !== 'learned 蔎') return parts
+      // The compressed grass head needs the same downstroke weight as the verticals in 堀.
+      return [{ ...parts[0], weight: [.16, 0], fixed: true }, parts[1]]
+    },
+  },
   // 𠷃 (BabelStone: ⿰口⿳穴𠆢又) has a broad, shallow 又. Its component's
   // proportions also occur in 𥔉. Keep both inner parts within 穴's outer span.
 
