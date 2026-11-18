@@ -3,6 +3,7 @@
 import generated from './component-forms.json' with { type: 'json' }
 import overrides from './component-forms-overrides.json' with { type: 'json' }
 import muNet from './mu-net-forms.json' with { type: 'json' }
+import waterStrokeRow from './water-stroke-row.json' with { type: 'json' }
 import numbered from '../data/numbered-forms.json' with { type: 'json' }
 import { joinedComponentForm } from './constructs.js'
 import constants from './constants.json' with { type: 'json' }
@@ -43,6 +44,8 @@ for (const [style, groups] of Object.entries(muNet)) {
 // `numbered-sans-outlines.json.gz` in the surface source.
 const numberedStyles = Object.fromEntries(Object.entries(numbered.forms).map(([style, entries]) => [style,
   new Map(Object.entries(entries).map(([text, groups]) => [text, formOf(groups)]))]))
+// 潮語十五音: a short 丨 stands between the bend and hooked body cut from the same 水.
+for (const [style, groups] of Object.entries(waterStrokeRow)) styles[style].set('⿲㇇丨𰛅', { ...formOf(groups), donors: ['水', '丨'] })
 const numberedDrawing = (text, style) => numberedStyles[style]?.get(text) ?? null
 const positions = Object.fromEntries(Object.entries(data.positions ?? {}).map(([style, entries]) => [style,
   new Map(Object.entries(entries).map(([name, group]) => [name,
@@ -82,9 +85,9 @@ export function addCutForms(data) {
     }
   }
 }
-export function componentParts(text, region = constants.face, style = 'sans', atRoot = true) {
+export function componentParts(text, region = constants.face, style = 'sans', atRoot = true, exclude = undefined) {
   const form = forms(style)?.get(text)
-  if (!form) return null
+  if (!form || form.donors?.some(char => exclude?.has(char))) return null
   const { frame, ink } = form
   const parts = joinedComponentForm(text, style, form.parts)
   // Preserve the source font's em and placement for standalone forms. A crop
