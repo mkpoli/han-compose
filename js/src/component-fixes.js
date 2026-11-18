@@ -270,11 +270,33 @@ export function dotIn(composer, band) {
   return placed(glyph, glyph.box, target, composer.ink('丶'), 'dot 丶')
 }
 
+// Korean characters written with a final 乙, as in 㐓, 㐙, 㐒 and 𰀽.
+// The final has a full lead-in and a level baseline. A contextual cut from 吃 or 迄
+// shortens the lead-in and can put it across the bottom stroke of the upper glyph.
+function eulFinal(top, style, topBox, finalBox) {
+  return {
+    glyphs: {},
+    apply(parts, composer, region) {
+      if (composer.fontStyle !== style || parts.length !== 2 ||
+          composer.excluded(top) || composer.excluded('乙')) return parts
+      const upper = composer.glyph(top), final = composer.glyph('乙')
+      if (!upper || !final) return parts
+      const place = (glyph, char, box) => placed(glyph, glyph.box, mapped(box, [0, 0, 1, 1], region),
+        composer.ink(char), `glyph ${char}`)
+      return [place(upper, top, topBox), place(final, '乙', finalBox)]
+    },
+  }
+}
+
 /**
  * The corrections, by description. `glyphs` ties each to the outlines it was read against.
  * A correction that cannot find the parts it names leaves the drawing as it is.
  */
 export const COMPONENT_FIXES = {
+  '⿱可乙': eulFinal('可', 'fangsong', [0.06, 0.46, 0.94, 0.98], [0.14, 0.02, 0.91, 0.42]),
+  '⿱豆乙': eulFinal('豆', 'fangsong', [0.05, 0.48, 0.94, 0.98], [0.14, 0.02, 0.91, 0.43]),
+  '⿱召乙': eulFinal('召', 'fangsong', [0.04, 0.44, 0.92, 0.98], [0.14, 0.02, 0.91, 0.40]),
+  '⿱覀乙': eulFinal('覀', 'regular', [0.05, 0.47, 0.95, 0.98], [0.14, 0.02, 0.91, 0.42]),
   // 𠷃 (BabelStone: ⿰口⿳穴𠆢又) has a broad, shallow 又. Its component's
   // proportions also occur in 𥔉. Keep both inner parts within 穴's outer span.
 
