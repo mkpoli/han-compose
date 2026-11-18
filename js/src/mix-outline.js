@@ -191,20 +191,34 @@ export function limitDisplacement(drawing, boundary, radius) {
   const union = clipper.ClipType.ctUnion
   const edge = combine(paths(boundary), [], union)
   if (!edge.length) return drawing
-  // A wide band tolerates a coarser outline and arc. Offsetting every vertex of a
-  // detailed outline by a large radius otherwise costs seconds in overlap resolution.
+  // Offsetting every vertex of a detailed outline by a large radius costs seconds in
+  // overlap resolution. Take a first short step at full detail, coarsen that result,
+  // and take the rest from it. Coarsening the outline itself would drop thin strokes
+  // from the band, and the ink they bound with them.
   const slack = Math.max(0.1, radius / 64) * scale
-  const offset = new clipper.ClipperOffset(2, slack)
-  // A piece smaller than the slack cleans away to nothing; the band cannot bound it.
-  const coarse = clipper.Clipper.CleanPolygons(edge, slack).filter((/** @type {unknown[]} */ r) => r.length > 2)
-  if (!coarse.length) return drawing
-  offset.AddPaths(coarse, clipper.JoinType.jtRound, clipper.EndType.etClosedPolygon)
-  /** @type {clipper.Paths} */
-  const inside = []
-  /** @type {clipper.Paths} */
-  const outside = []
-  offset.Execute(inside, -radius * scale)
-  offset.Execute(outside, radius * scale)
+  const first = Math.min(radius * scale, 2 * slack)
+  /** @param {number} sign */
+  const grown = (sign) => {
+    const near = new clipper.ClipperOffset(2, slack / 4)
+    near.AddPaths(edge, clipper.JoinType.jtRound, clipper.EndType.etClosedPolygon)
+    /** @type {clipper.Paths} */
+    const step = []
+    near.Execute(step, sign * first)
+    const coarse = clipper.Clipper.CleanPolygons(step, slack / 2).filter(
+      (/** @type {unknown[]} */ r) => r.length > 2
+    )
+    /** @type {clipper.Paths} */
+    const out = []
+    if (!coarse.length) return out
+    const far = new clipper.ClipperOffset(2, slack)
+    far.AddPaths(coarse, clipper.JoinType.jtRound, clipper.EndType.etClosedPolygon)
+    far.Execute(out, sign * (radius * scale - first))
+    return out
+  }
+  const inside = grown(-1),
+    outside = grown(1)
+  // The band cannot bound a drawing whose limit it lost.
+  if (!outside.length) return drawing
   const ink = combine(paths(drawing), outside, clipper.ClipType.ctIntersection)
   return combine(ink, inside, union)
     .map(
