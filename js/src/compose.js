@@ -3649,11 +3649,41 @@ export class Composer {
     return [this.place(derived(glyph, kept, union(kept.map(contour => pointsBox(contour.light)))), region, this.ink(base), `glyph ${base}`)]
   }
 
+  /** The middle left-falling stroke of 豕 branches from a single contour. Follow its outline
+   *  from one junction on the curved spine to the other; the closing segment restores the spine. */
+  pigStroke(region) {
+    if (this.excluded('豕') || this.excluded('㇒') || !['fangsong', 'pen-writing'].includes(this.fontStyle)) return null
+    const record = this.glyphRecord('豕')
+    if (!record) return null
+    const range = {
+      '7d61f638d6977488862a868d07925e50569a21b9d55320d0151cc9d753c3b032': [17, 23],
+      'e9bcc28600894e9768fbb816568ccbb6fa474cb43dacdb8d1bea046a50aa0a91': [21, 24],
+    }[hexOf(JSON.stringify(record.p))]
+    if (!range) return null
+    const glyph = partOf(record), contour = glyph.contours[0]
+    const [first, last] = range, ops = contour.ops
+    const length = commands => commands.reduce((n, op) => n + 2 * op[1], 0)
+    const start = length(ops.slice(0, first)), end = length(ops.slice(0, last + 1))
+    const kept = points => Float64Array.from([...points.slice(0, start), ...points.slice(end - 2)])
+    const body = derived(glyph, [{ ...contour, ops: [...ops.slice(0, first), ['L', 1], ...ops.slice(last + 1)],
+      light: kept(contour.light), heavy: kept(contour.heavy) }])
+    const target = fitted(glyph.box, region, this.C.STRETCH)
+    const result = placed(body, glyph.box, target, this.ink('豕'), 'glyph 豕 minus ㇒')
+    if (!this.separate) return [result]
+    const stroke = derived(glyph, [{ ...contour, ops: [['M', 1], ...ops.slice(first, last + 1)],
+      light: contour.light.slice(start - 2, end), heavy: contour.heavy.slice(start - 2, end) }])
+    return [result, { ...placed(stroke, glyph.box, target, this.ink('豕'), 'stroke of 豕'), cut: true }]
+  }
+
   /** ㇯ the first operand less the second: its own outlines where the export cut them, else the
    *  glyph without what KanjiVG names so (`less`, which knows no index), else what is left of its
    *  description, else the second operand cut out of it. */
   subtracted(node, region, atRoot) {
     const children = node.slice(1)
+    if (children[0] === '豕' && children[1] === '㇒' && takenIndex(node) === 0) {
+      const native = this.pigStroke(region)
+      if (native) return native
+    }
     const left = this.remainder(node, region, atRoot) ?? (takenIndex(node) === 0 ? this.less(children, region) : null)
     if (left) return left
     // A character with no description the part can be found in: the part is laid over it and cut out.
