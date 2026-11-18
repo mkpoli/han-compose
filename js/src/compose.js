@@ -1,4 +1,5 @@
 // @ts-nocheck: a port of han-compose's Python, kept line for line; its types are the arrays it reads.
+import diamondSyllable from './diamond-syllable.json' with { type: 'json' }
 import { grassShape } from './variants.js'
 // A port of han-compose's composer (`compose.py`, `Composer.compose`) over its web export: a sequence
 // drawn from parts other characters' designers drew. The export carries what the composer reads
@@ -1471,7 +1472,23 @@ export class Composer {
     return parts.length ? parts : null
   }
 
+  diamondSyllable(node, region) {
+    if (this.fontStyle === 'fangsong' && keyOf(node) === '⿱⿰◇ㅏㄴ' &&
+        !['◇', 'ㅏ', 'ㄴ', '안'].some(ch => this.excluded(ch))) {
+      // 안 supplies the three positions of a syllable with a vertical vowel and final ㄴ.
+      const parts = diamondSyllable.map(g => partOf(g))
+      const frame = union(parts.map(part => part.box)), target = fitted(frame, region, 1)
+      return parts.map((part, i) => ({ ...placed(part, part.box, mapped(part.box, frame, target),
+        partInk(part), ['Zhuque ◇', 'Gowun Batang ㅏ', 'Gowun Batang ㄴ'][i]), fixed: true }))
+    }
+    return null
+  }
+
   drawNode(node, region, atRoot = false, sideBySide = false) {
+    if (Array.isArray(node) && node[0] === '⿱') {
+      const syllable = this.diamondSyllable(node, region)
+      if (syllable) return syllable
+    }
     const wheat = this.wheatFaceParts(node, region)
     if (wheat) return wheat
     const wood = this.woodFrame(node, region)
