@@ -275,6 +275,15 @@ export function dotIn(composer, band) {
  * A correction that cannot find the parts it names leaves the drawing as it is.
  */
 export const COMPONENT_FIXES = {
+  '⿰車ト': {
+    glyphs: {},
+    apply(parts, composer) {
+      if (composer.fontStyle !== 'regular' || parts.length !== 2 || parts[0].origin !== 'learned 䡎' ||
+          parts[1].origin !== 'glyph ト') return parts
+      // At this width the three crossbars of 車 close the two small counters in the middle.
+      return [{ ...parts[0], fixed: true, weight: [0.5, 0.5] }, parts[1]]
+    },
+  },
   // 𠷃 (BabelStone: ⿰口⿳穴𠆢又) has a broad, shallow 又. Its component's
   // proportions also occur in 𥔉. Keep both inner parts within 穴's outer span.
 
