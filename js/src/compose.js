@@ -1,4 +1,5 @@
 // @ts-nocheck: a port of han-compose's Python, kept line for line; its types are the arrays it reads.
+import { grassShape } from './variants.js'
 // A port of han-compose's composer (`compose.py`, `Composer.compose`) over its web export: a sequence
 // drawn from parts other characters' designers drew. The export carries what the composer reads
 // when it draws: the learned layout, each character's glyph, and every host of each operand in each
@@ -261,7 +262,7 @@ const CONTAINED_MIDDLE_BARS = new Set(['丑'])
 
 /** `⿰亻⿱亠女` as ['⿰', '亻', ['⿱', '亠', '女']], each operator taking `arity(op)` operands.
  * An operator's zi.tools modifier is retained as the array's `note`. */
-export function parseTree(sequence, arity) {
+export function parseTree(sequence, arity, render = false) {
   const chars = [...sequence]
   let at = 0
   const node = () => {
@@ -280,7 +281,7 @@ export function parseTree(sequence, arity) {
       const end = toneMarksAt(chars, at)
       const tones = chars.slice(at, end).join('')
       at = end
-      return ch + tones
+      return (render ? grassShape(ch) ?? ch : ch) + tones
     }
     let note = ''
     if (MODIFIABLE.has(ch) && chars[at] === '[') {
@@ -613,7 +614,7 @@ export class Composer {
   }
 
   arity = ch => this.arities.get(ch) ?? 0
-  parse = sequence => parseTree(sequence, this.arity)
+  parse = sequence => parseTree(sequence, this.arity, true)
   // A key holding an empty slot has no record and no hosts: nothing is asked for it.
   rec = key => key.includes(EMPTY) ? null : this.formRecord(key) ?? this.data.rec(key) ?? componentRecord(key, this.fontStyle)
   /** A component form's record, which stands in for the export's; a native form's does only where
@@ -717,7 +718,8 @@ export class Composer {
     // stays missing rather than standing in as a Mincho.
     if (glyph && this.fontStyle === 'fangsong' && glyph.v === 0) return null
     if (glyph && record.sg && !glyph.sg) glyph.sg = record.sg
-    return glyph ?? null
+    // The offline Unicode shard carries the connected radical at U+2EBE.
+    return glyph ?? (ch === '艹' && !this.excluded('⺾') ? this.glyphRecord('⺾') : null)
   }
 
   /** A forced component replaced in the native glyph: the glyph without the component's outlines,
@@ -1007,7 +1009,7 @@ export class Composer {
       if (!Array.isArray(node)) {
         leaves++
         const { rest } = typeof node === 'string' ? splitToneMarks(node) : { rest: node }
-        if (!isEmpty(node) && !this.glyph(rest)) supported = false
+        if (!isEmpty(node) && !(rest === '⺿' || rest === '⻀' || rest === '艹' && isComponentForm(rest, this.fontStyle)) && !this.glyph(rest)) supported = false
         return
       }
       const op = node[0]
@@ -1084,6 +1086,15 @@ export class Composer {
           leaf++
           out.push(...parts)
           return
+        }
+        if (node === '艹' || node === '⺿' || node === '⻀') {
+          const form = componentParts(node, undefined, this.fontStyle)?.[0]
+          if (form) {
+            form.target = fitted(form.source, inset(target(box)), Math.max(this.C.STRETCH, CELL_STRETCH))
+            if (leafIndices) form.leaf = leaf++
+            out.push(form)
+            return
+          }
         }
         const glyph = this.glyph(node)
         if (!glyph) throw new LookupError(`No glyph draws ${node}.`)
@@ -2750,7 +2761,7 @@ export class Composer {
    *  no character of its own, and is read as the character it is a shape of (`like`). */
   predict(op, children) {
     const keys = children.map(child => (this.constructed(child, this.face) && CONSTRUCTS[keyOf(child)].like) || this.renderKey(child))
-    return forward(this.layout, features(this.layout, op, keys.map(k => this.rec(k)), [this.slot(op, 0), this.slot(op, 1)]))
+    return forward(this.layout, features(this.layout, op, keys.map(k => this.rec(k === '⺿' || k === '⻀' ? '艹' : k)), [this.slot(op, 0), this.slot(op, 1)]))
   }
 
   /**

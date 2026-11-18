@@ -331,7 +331,7 @@ export async function sketch(source, sequence, { fontStyle = 'sans' } = {}) {
     new Composer(store, { fontStyle }).faceBeside(marks)
     if (store.missing.size) await source.load(store.missing)
   }
-  const tree = parseTree(description, arity)
+  const tree = parseTree(description, arity, true)
   const donors = [...wheatFaceHosts(description), ...designedSources(tree, fontStyle)]
   await source.load([...modelOf(source, tree), ...(donors.length ? source.filesOf(donors) : [])])
   // A description that asked for the layout or the table after all is sketched again with them.
@@ -373,7 +373,7 @@ export async function compose(source, sequence, { exclude = [], face = null, sep
   // A Hangul syllable described letter by letter draws as the syllable: ⿰ㄱㅏ is 가.
   const syllable = hangulOfIds(base)
   const description = normaliseHangul(syllable ?? base, arity)
-  const tree = parseTree(description, arity)
+  const tree = parseTree(description, arity, true)
   if (tooLarge(tree)) throw new LookupError(`${sequence} is larger than a preview draws.`)
   // A mark's outline loads like a component's. The identity table and the layout load beside the
   // first records of a description that reads them.
