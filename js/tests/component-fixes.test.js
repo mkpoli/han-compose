@@ -63,17 +63,26 @@ describe('a composition fix', () => {
 })
 
 
-describe('C... ⿱一心', () => {
-  it('sets the top 一 to the face’s own bar height', () => {
-    const top = part('host 亍', [0, 0, 1000, 1000], [100, 80, 900, 416], [[100, 80, 900, 416]])
-    const bottom = part('host 芯', [0, 0, 1000, 1000], [100, 451, 900, 936], [[100, 451, 900, 936]])
+describe('⿱一心', () => {
+  it('lowers Regular Kai’s 一 within its band at its own bar height', () => {
+    const top = part('host 亍', [0, 0, 1000, 1000], [100, 544, 900, 880], [[100, 544, 900, 880]])
+    const bottom = part('host 芯', [0, 0, 1000, 1000], [100, 0, 900, 510], [[100, 0, 900, 510]])
     const bar = part('glyph 一', [0, 0, 1000, 1000], [100, 0, 900, 100], [[100, 0, 900, 100]])
     bar.part.box = [100, 0, 900, 100]
     const composer = { fontStyle: 'regular', glyph: () => bar.part }
     const [fixed] = componentFix('⿱一心', [top, bottom], composer)
     expect(fixed.target[3] - fixed.target[1]).toBeCloseTo(100, 6)
-    expect(fixed.target[3]).toBeCloseTo(416, 6)
+    expect(fixed.target[3]).toBeCloseTo(880 - 0.65 * 236, 6)
     expect(fixed.fixed).toBe(true)
+  })
+
+  it('fits the Fangsong 心 below 一 while keeping its baseline and width', () => {
+    const top = part('learned 亘', [0, 0, 800, 150], [100, 600, 900, 750], [[0, 0, 800, 150]])
+    const heart = part('learned 芯', [0, 0, 800, 550], [80, 0, 920, 640], [[0, 0, 800, 550]])
+    const fixed = componentFix('⿱一心', [top, heart], { fontStyle: 'fangsong' })
+    expect(fixed[0]).toBe(top)
+    expect(fixed[1].target).toEqual([80, 0, 920, 540])
+    expect(fixed[1].part).toBe(heart.part)
   })
 })
 
