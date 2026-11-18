@@ -78,6 +78,14 @@ describe('⿱呼乙', () => {
     expect(fixed[2]).toBe(bottom)
   })
 
+  it('fits the three Serif parts into the selected bands above the wide base', () => {
+    const serif = { ...composer, fontStyle: 'serif', glyphRecord: () => null }
+    const [lip, hu, yi] = componentFix('⿱呼乙', [left, right, bottom], serif)
+    expect(lip.target).toEqual([168, 580, 388, 910])
+    expect(hu.target).toEqual([412, 410, 852, 1000])
+    expect(yi.target).toEqual([172, 0, 852, 370])
+  })
+
   it('preserves the host cuts when standalone 口 is excluded', () => {
     const layout = [left, right, bottom]
     expect(componentFix('⿱呼乙', layout, { ...composer, excluded: ch => ch === '口' })).toBe(layout)

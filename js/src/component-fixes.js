@@ -324,9 +324,7 @@ export const COMPONENT_FIXES = {
         return [{ ...upper, source, target: mapped(source, left.source, upper.target),
           part: { ...left.part, box: source, contours } }, { ...right, target: [x0 + inset, y0, x1 - inset, y1] }]
       }
-      if (parts.length !== 3 || left.origin !== 'host 呼' || right.origin !== 'host 呼' || composer.excluded('口')) return parts
-      const mouth = composer.glyph('口')
-      if (!mouth) return parts
+      if (parts.length !== 3 || left.origin !== 'host 呼' || right.origin !== 'host 呼') return parts
       const host = union([left.source, right.source]), row = union([left.target, right.target])
       const gap = Math.max(0, right.target[0] - left.target[2])
       row[1] = Math.max(row[1], bottom.target[3] + gap)
@@ -342,6 +340,9 @@ export const COMPONENT_FIXES = {
           { ...bottom, target: mapped([0.16, 0, 0.86, 0.33], [0, 0, 1, 1], frame) },
         ]
       }
+      if (composer.excluded('口')) return parts
+      const mouth = composer.glyph('口')
+      if (!mouth) return parts
       const mouthBox = mapped(left.source, host, row), rightBox = mapped(right.source, host, row)
       // The cuts can overlap in 呼. Leave room for the wider corners of a standalone 口.
       mouthBox[2] = Math.min(mouthBox[2], rightBox[0] - gap)
