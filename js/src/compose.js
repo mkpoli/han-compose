@@ -498,6 +498,20 @@ const DESIGNED_CUTS = {
   }],
 }
 
+// Cuts used in 羔口's middle and lower bands, indexed against each donor's outlines.
+const GAO_MOUTH_CUTS = {
+  𦉪: ['裔', {
+    '3618847597c0f20438df7a89dd8ffb72617473b2db94c7bf02abac85e8121f84': [1],
+    '1a918e990221329aae91fad36e07fcd7616a2e145d6f205ed31706058ff9b2ed': [2],
+  }],
+  儿: ['兜', {
+    '219141863bb84ba5be1f99375cd22675f346c6ab5ced16cc96eb7a7ddfe0d638': [0, 2],
+  }],
+  口: ['品', {
+    '16f56cdc0f1b178350d0f1a4ac73b0e0ce036d00413a11f7759c39673aa4a976': [0, 5],
+  }],
+}
+
 export class Composer {
   /**
    * `data`: `{ manifest, layout, rec(key), hosts(key, place), places(key), identity?(key), kin?() }`; `exclude`: characters nothing is taken from (a
@@ -2209,9 +2223,9 @@ export class Composer {
   }
 
   /** A designed left form from a character's glyph, for a component whose host cuts the export lacks. */
-  designedCut(node) {
-    const entry = typeof node === 'string' ? DESIGNED_CUTS[node] : null
-    if (!entry) return null
+  designedCut(node, cutsByPart = DESIGNED_CUTS) {
+    const entry = typeof node === 'string' ? cutsByPart[node] : null
+    if (!entry || this.excluded(entry[0])) return null
     const [char, cuts] = entry, record = this.glyphRecord(char)
     if (!record) return null
     const indices = cuts[hexOf(JSON.stringify(record.p))]
@@ -2827,28 +2841,38 @@ export class Composer {
     // place — the top 羔 from a stack over it, the middle 口 from under a cover — rather than the
     // standalone glyph, which is drawn for a character of its own.
     if (axis === 1 && children.length === 3 && ENCLOSED_MIDDLE.has(children[1]) && Array.isArray(children[2]) && !this.partial) {
-      const bands = stackBands(region)
+      const gaoMouth = children[0] === '羔' && children[1] === '口' && keyOf(children[2]) === '⿵𦉪十'
+      const bands = gaoMouth ? gaoMouthBands(region, this.data.manifest.style ?? this.fontStyle) : stackBands(region)
       // The Serif foot carries its ink a little above its band; close the band to the 口 so no
       // white seam stands between them.
-      if (this.fontStyle === 'serif') bands.foot[3] = region[1] + 0.47 * (region[3] - region[1])
+      if (!gaoMouth && this.fontStyle === 'serif') bands.foot[3] = region[1] + 0.47 * (region[3] - region[1])
       const parts = []
       const goals = [bands.top, bands.mouth, bands.foot]
       for (const [i, child] of children.entries()) {
         const box = goals[i]
-        const cut = this.host(op, i, child, [...children.slice(0, i), ...children.slice(i + 1)], box)
+        if (gaoMouth && i === 2) {
+          const foot = this.gaoMouthFoot(box)
+          if (foot) { parts.push(foot); continue }
+        }
+        const mouth = gaoMouth && i === 1 && this.fontStyle === 'fangsong' && !this.excluded('口') ? this.designedCut(child, GAO_MOUTH_CUTS) : null
+        const cut = mouth ?? this.host(op, i, child, [...children.slice(0, i), ...children.slice(i + 1)], box)
         if (cut) {
           const source = this.pieceFor(child, cut.piece)
           // The cut's ink fills the band, not its own padded box, so the band leaves no gap.
           const ink = union(source.contours.map(contour => pointsBox(contour.light)))
-          parts.push(placed(source, ink, box, this.ink(cut.record.h), `host ${cut.record.h}`))
+          const part = placed(source, ink, box, this.ink(cut.record.h), `host ${cut.record.h}`)
+          if (gaoMouth && i < 2) part.weightLimit = [0.45, 0.30]
+          parts.push(part)
           continue
         }
         const group = this.row(child, box, this.narrowRow(children), false, this.beside.has(children))
         const from = union(group.map(drawnBox))
         for (const part of group) part.target = targetFor(part, mapped(drawnBox(part), from, box))
-        parts.push(...group)
+        parts.push(group)
       }
-      return this.flatten(parts)
+      const stack = this.flatten(parts)
+      if (gaoMouth && !this.separate) balanceGaoMouth(stack, this.data.manifest.style)
+      return stack
     }
     const [power, middle] = C.SHARES[`${op},${children.length}`] ?? [0.5, 1.0]
     const other = children[1]
@@ -3510,6 +3534,35 @@ export class Composer {
     }
   }
 
+  /** The shallow 𦉪十 under 羔口. In the single-outline faces the frame's two legs
+   *  share the lintel and the 十 occupies the full opening below. */
+  gaoMouthFoot(box) {
+    if (this.separate || ['sans', 'serif'].includes(this.fontStyle) || this.excluded('𦉪')) return null
+    const joined = !this.excluded('冂') && !this.excluded('儿') && this.designedCut('𦉪', GAO_MOUTH_CUTS)
+    // 裔 supplies the roof and both legs in one contour in Kureedo and TW-Kai.
+    // Fangsong uses its own 冂 and the short lower strokes of 兜.
+    const pieces = joined ? [['𦉪', [0, 0, 1, 1]]] : [
+      ['冂', [0, 0, 1, 1]],
+      ['儿', [0.16, 0.56, 0.82, this.fontStyle === 'fangsong' ? 0.915 : 0.928]],
+    ]
+    pieces.push(['十', [0.23, 0, 0.76, 0.61]])
+    const parts = []
+    for (const [ch, slot] of pieces) {
+      if (this.excluded(ch)) return null
+      const target = mapped(slot, [0, 0, 1, 1], box)
+      let cut = joined
+      if (ch === '十') cut = this.host('⿱', 1, ch, ['儿'], target)
+      else if (!joined) cut = this.designedCut(ch, GAO_MOUTH_CUTS)
+      let source = cut?.piece ?? this.glyph(ch)
+      if (!source) return null
+      if (joined && ch === '𦉪' && this.data.manifest.style === 'kaisho') source = fitGaoUprights(source, target)
+      const ink = source.box
+      const host = cut?.record.h ?? ch
+      parts.push(placed(source, ink, target, this.ink(host), cut ? `host ${host}` : `glyph ${ch}`))
+    }
+    return this.flatten([parts.slice(0, -1), parts.at(-1)])
+  }
+
   /** The parts of each operand, flattened, each part remembering the operand it came from in
    *  `branch`: the index within this node first, then the indices of the nodes below it. A caller
    *  that needs a node's own operands reads `branch[0]` before this runs on the node above. */
@@ -3920,6 +3973,51 @@ export function stackBands(region) {
     top: [middle - 0.32 * width, y0 + 0.62 * height, middle + 0.32 * width, y1],
     mouth: [middle - 0.15 * width, y0 + 0.47 * height, middle + 0.15 * width, y0 + 0.62 * height],
     foot: [middle - 0.32 * width, y0, middle + 0.32 * width, y0 + 0.43 * height],
+  }
+}
+
+/** Fit the joined 裔 frame with a mirrored Möbius map. Both walls and the centre
+ *  stay in place. At each wall the horizontal scale becomes the geometric mean
+ *  of the x and y scales, leaving more of the widening to the open interior. */
+function fitGaoUprights(piece, target) {
+  const [sx, sy] = scaleOf({ source: piece.box, target })
+  if (!(sx > sy && sy > 0)) return piece
+  const half = (piece.box[2] - piece.box[0]) / 2, middle = piece.box[0] + half
+  const ratio = Math.sqrt(sx / sy)
+  const warp = points => points.map((value, i) => {
+    if (i % 2) return value
+    const u = (value - middle) / half
+    return middle + half * Math.sign(u) * footMap(Math.abs(u), ratio)
+  })
+  return derived(piece, piece.contours.map(c => ({ ...c, light: warp(c.light), heavy: warp(c.heavy) })), piece.box)
+}
+
+// Calibrated against the em-square ink coverage of 羹, 羸, 簋, 營, 膏 and 薑.
+function balanceGaoMouth(parts, style) {
+  const frame = parts.find(part => part.branch[0] === 2 && part.branch[1] === 0)
+  let weights
+  // In this Kureedo export the second outline is lighter. Moving away from it adds ink.
+  if (style === 'kaisho' && frame?.origin === 'host 裔') weights = [-0.14, -0.48, -0.10, -0.64]
+  else if (style === 'regular' && frame?.origin === 'host 裔') weights = [0, 0.40, -0.09, [0.76, 0.53]]
+  else if (style === 'fangsong' && frame?.origin === 'glyph 冂') weights = [0.21, 0.73, 0.12, 0.76]
+  else return
+  for (const part of parts) {
+    const [band, inner] = part.branch
+    const weight = style === 'fangsong' && part.origin === 'host 兜' && band === 2
+      ? 0.45 : weights[band === 2 && inner === 1 ? 3 : band]
+    part.weight = Array.isArray(weight) ? weight.slice() : [weight, weight]
+  }
+}
+
+/** Ink bounds of 羔, 口 and the enclosing foot in the five-face reference. */
+function gaoMouthBands(region, style) {
+  const mouthLift = style === 'sans' ? 0.011 : style === 'regular' ? 0.014 : 0
+  const footTop = { sans: 0.37, serif: 0.379, regular: 0.403 }[style] ?? 0.386
+  const band = box => mapped(box, [0, 0, 1, 1], region)
+  return {
+    top: band([0.10, 0.53, 0.90, 1]),
+    mouth: band(style === 'serif' ? [0.345, 0.393, 0.655, 0.542] : [0.35, 0.395 + mouthLift, 0.65, 0.525 + mouthLift]),
+    foot: band([0.11, 0, 0.89, footTop]),
   }
 }
 
