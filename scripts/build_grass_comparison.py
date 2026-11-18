@@ -129,7 +129,10 @@ def head_halves(head):
 def split_donors(face, style):
     if style == "pen-writing":
         # Kureedo draws both complete crossed strokes in U+2EBF.
-        return [head_halves(face.contours("⺿"))]
+        pair = head_halves(face.contours("⺿"))
+        if pair is None:
+            raise ValueError("Expected two separate crossed strokes in Kureedo ⺿")
+        return [pair]
     donors = []
     for ch in "草苑艾蘭蘇苗":
         head, _ = head_and_body(face.contours(ch, "ZHT "))
@@ -173,6 +176,8 @@ def fangsong_split(contours):
         contour.replay(pen)
     center = 495
     rows = [y for y in range(860, 520, -1) if drawing.contains((center, y))]
+    if not rows:
+        raise ValueError("Missing Zhuque grass bar at the center of the head")
     top = rows[0]
     bottom = next(
         (y for y in range(top, 519, -1) if not drawing.contains((center, y))), 520
@@ -253,10 +258,12 @@ def generate(font_dir):
                 if ord(char) in face.cmap:
                     full = face.contours(char)
                     head, body = head_and_body(full)
-                else:
+                elif char == "𦴯" or (char == "茰" and style == "fangsong"):
                     head, _ = head_and_body(face.contours("薹" if char == "𦴯" else "菜"))
                     body = rare_body(face, char, head)
                     full = head + body
+                else:
+                    raise ValueError(f"Missing native {char} in {filename}")
                 if style == "fangsong":
                     split = fangsong_split(full)
                 else:
