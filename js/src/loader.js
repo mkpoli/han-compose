@@ -2,7 +2,7 @@
 // The composer in the browser: han-compose's export (manifest, layout and the drawing data of each
 // key) loaded as a sequence needs it, and the sequence drawn from it as an SVG path. A file is
 // fetched once a page; a gzipped one (the export writes them so) is unpacked with DecompressionStream.
-import { APPROXIMATE, Composer, EMPTY, LookupError, designedSources, keyOf, leafCutChar, mapOperands, parseTree } from './compose.js'
+import { APPROXIMATE, Composer, EMPTY, LookupError, designedSources, keyOf, leafCutChar, wheatFaceHosts, mapOperands, parseTree } from './compose.js'
 import { splitDescription } from './tree.js'
 import { hangulOfIds } from './hangul-ids.js'
 import { composeJamo } from './hangul.js'
@@ -331,7 +331,7 @@ export async function sketch(source, sequence, { fontStyle = 'sans' } = {}) {
     new Composer(store, { fontStyle }).faceBeside(marks)
     if (store.missing.size) await source.load(store.missing)
   }
-  await source.load(modelOf(source, parseTree(description, arity, true)))
+  await source.load([...source.filesOf(wheatFaceHosts(description)), ...modelOf(source, parseTree(description, arity, true))])
   // A description that asked for the layout or the table after all is sketched again with them.
   for (let again = false; ; again = true) {
     const store = source.store()
@@ -375,7 +375,7 @@ export async function compose(source, sequence, { exclude = [], face = null, sep
   if (tooLarge(tree)) throw new LookupError(`${sequence} is larger than a preview draws.`)
   // A mark's outline loads like a component's. The identity table and the layout load beside the
   // first records of a description that reads them.
-  await source.load([...source.filesOf([...keysOf(tree, [], separate, fontStyle), ...marks, ...designedSources(tree)]), ...modelOf(source, tree)])
+  await source.load([...source.filesOf([...keysOf(tree, [], separate, fontStyle), ...marks, ...wheatFaceHosts(description), ...designedSources(tree)]), ...modelOf(source, tree)])
   for (let round = 0; round < ROUNDS; round++) {
     const store = source.store()
     let drawn = null, failure = null, composer = null, cells = false
