@@ -270,11 +270,28 @@ export function dotIn(composer, band) {
   return placed(glyph, glyph.box, target, composer.ink('丶'), 'dot 丶')
 }
 
+const incomeColumnBounds = [[0.10,0.55,0.415,0.925], [0.035,0.045,0.45,0.50],
+  [0.49,0.53,0.98,0.975], [0.505,0.025,0.945,0.485]]
+
+export function incomeBoxes(key, style, region) {
+  if (key !== '⿰⿱日斗⿱進金' || !['regular', 'pen-writing'].includes(style)) return null
+  return incomeColumnBounds.map(box => mapped(box, [0, 0, 1, 1], region))
+}
+
 /**
  * The corrections, by description. `glyphs` ties each to the outlines it was read against.
  * A correction that cannot find the parts it names leaves the drawing as it is.
  */
 export const COMPONENT_FIXES = {
+  '⿰⿱日斗⿱進金': {
+    glyphs: {},
+    apply(parts, composer, region) {
+      // Each column keeps its written reading order. Give 進 space for the walking stroke above 金.
+      const boxes = incomeBoxes('⿰⿱日斗⿱進金', composer.fontStyle, region)
+      if (!boxes || parts.length !== boxes.length) return parts
+      return parts.map((part, i) => ({ ...part, target: boxes[i] }))
+    },
+  },
   // 𠷃 (BabelStone: ⿰口⿳穴𠆢又) has a broad, shallow 又. Its component's
   // proportions also occur in 𥔉. Keep both inner parts within 穴's outer span.
 
