@@ -62,22 +62,56 @@ describe('a composition fix', () => {
   })
 })
 
+describe('⿱呼乙', () => {
+  const left = part('host 呼', [0, 200, 320, 800], [0, 400, 460, 1000], [[0, 200, 320, 800]])
+  const right = part('host 呼', [300, 0, 1000, 1000], [500, 400, 1000, 1000], [[300, 0, 1000, 1000]])
+  const bottom = part('learned 乴', [0, 0, 800, 420], [100, 0, 900, 420], [[0, 0, 800, 420]])
+  const mouth = part('glyph 口', [0, 0, 100, 100], [0, 0, 100, 100], [[0, 0, 100, 100]])
+  const composer = { glyph: ch => ch === '口' ? mouth.part : null, ink: () => 1000, excluded: () => false }
 
-describe('C... ⿱呼乙', () => {
-  it('draws a square 口 in the left cut and keeps 乎 and 乙', () => {
-    const left = part('host 呼', [0, 0, 1000, 1000], [78, 42, 478, 545], [[78, 42, 478, 545]])
-    const right = part('host 呼', [0, 0, 1000, 1000], [513, 42, 943, 545], [[513, 42, 943, 545]])
-    const bottom = part('learned 乴', [0, 0, 1000, 1000], [143, 575, 931, 936], [[143, 575, 931, 936]])
-    const glyph = part('glyph 口', [0, 0, 1000, 1000], [0, 0, 1000, 1000], [[0, 0, 1000, 1000]])
-    glyph.part.box = [0, 0, 1000, 1000]
-    const composer = { glyph: () => glyph.part, ink: () => 1000 }
+  it('recovers 呼’s width shares and leaves a gap beside 口 and above 乙', () => {
     const fixed = componentFix('⿱呼乙', [left, right, bottom], composer)
-    expect(fixed).toHaveLength(3)
     expect(fixed[0].origin).toBe('glyph 口')
-    expect(fixed[0].target[2] - fixed[0].target[0]).toBeCloseTo(400, 0)
-    expect(fixed[0].target[3] - fixed[0].target[1]).toBeCloseTo(400, 0)
-    expect(fixed[1]).toBe(right)
+    expect(fixed[0].target).toEqual([0, 600, 260, 860])
+    expect(fixed[1].target).toEqual([300, 460, 1000, 1000])
+    expect(fixed[1].part).toBe(right.part)
     expect(fixed[2]).toBe(bottom)
+  })
+
+  it('preserves the host cuts when standalone 口 is excluded', () => {
+    const layout = [left, right, bottom]
+    expect(componentFix('⿱呼乙', layout, { ...composer, excluded: ch => ch === '口' })).toBe(layout)
+  })
+
+  it('leaves the weight pass in control of other mouth outlines', () => {
+    for (const fontStyle of ['sans', 'serif', 'fangsong', 'pen-writing']) {
+      const other = { ...composer, fontStyle, glyphRecord: () => ({ p: [] }) }
+      const [lip] = componentFix('⿱呼乙', [left, right, bottom], other)
+      expect(lip.fixed).toBeUndefined()
+      expect(lip.weight).toEqual([0, 0])
+    }
+  })
+
+  it('raises the foot of whole 呼 clear of 乙 in Regular Kai', () => {
+    const hu = { ...left, origin: 'glyph 呼' }
+    const [raised, yi] = componentFix('⿱呼乙', [hu, bottom], { fontStyle: 'regular', glyphRecord: () => null })
+    expect(raised.target).toEqual([0, 470, 460, 1000])
+    expect(yi).toBe(bottom)
+  })
+
+  it('narrows WenKai’s 乎 around the row centre and carries 口 with it', () => {
+    const [lip, hu] = componentFix('⿱呼乙', [left, right, bottom], {
+      ...composer, fontStyle: 'pen-writing', glyphRecord: () => null,
+    })
+    expect(hu.target[2] - hu.target[0]).toBeCloseTo(540 * 0.7 * 1.25)
+    expect(hu.target[0] - lip.target[2]).toBeCloseTo(40)
+    expect(lip.target[0] + hu.target[2]).toBeCloseTo(1000)
+  })
+
+  it('keeps whole-glyph and unrelated layouts intact', () => {
+    for (const layout of [[mouth, bottom], [mouth, right, bottom], [left, mouth, bottom]]) {
+      expect(componentFix('⿱呼乙', layout, composer)).toBe(layout)
+    }
   })
 })
 
