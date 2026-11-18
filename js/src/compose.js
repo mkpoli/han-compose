@@ -545,6 +545,28 @@ function strengthenRiceStroke(contour, radius) {
 const KAI_CLAW = ['爮', {
   '2cbb04cd3b0444f9ee4d4862eaa1c5f80347fe40d16c655710c88f99353ca0e2': [3, 4, 5],
 }]
+/** Bring the claw's uprights closer together for a rectangular lower-left
+ * corner. The sweep still reaches the donor's original endpoint. */
+function clawAroundCounter(frame, style) {
+  const [left, , right] = frame.source, width = right - left
+  const squeeze = style === 'regular' ? 0.25 : style === 'pen-writing' ? 0.13 : 0.19
+  const narrow = points => points.map((v, i) => {
+    if (i % 2) return v
+    const x = (v - left) / width
+    return v - width * squeeze * Math.max(0, Math.min(x, (1 - x) * 1.65))
+  })
+  return derived(frame.part, frame.part.contours.map(c => {
+    const [l, , r] = pointsBox(c.light)
+    if (r - l < width * 0.22) {
+      // Move a separate upright as a unit, preserving its stroke weight.
+      const shift = Math.min(l - left, ((l + r) / 2 - left) * squeeze)
+      const move = points => points.map((v, i) => i % 2 ? v : v - shift)
+      return { ...c, light: move(c.light), heavy: move(c.heavy) }
+    }
+    return { ...c, light: narrow(c.light), heavy: narrow(c.heavy) }
+  }), frame.source)
+}
+
 const lowerLeftFrames = new Set(['克', '米', '走', '爪'])
 /** Rectangular counters in the openings of 𮇇 and 趄, in frame-relative
  * coordinates. The brush 米 has a higher diagonal foot than the Noto cut. */
@@ -558,12 +580,18 @@ function counterBox(outer, inner, nested, style) {
     if (inner === '日' && brush) return [0.515, 0.43, 0.985, 0.975]
   }
   if (outer === '爪') {
-    // The sweep rises towards the left. Wide counters sit above the bend,
-    // while the taller 日 and 呂 occupy the space beside the inner upright.
-    const left = style === 'regular' ? 0.625 : 0.59
-    if (inner === '口') return [left, 0.38, 0.985, 0.84]
-    if (inner === '日' || inner === '呂') return [left, 0.36, 0.99, 0.94]
-    if (inner === '罒') return [left - 0.035, 0.49, 0.99, 0.83]
+    // Sized against 巴 in 爬 and 包 in TW-Kai 爮. Keep the proportions
+    // of a tall 日 or 呂 and the wider aspect of 罒.
+    if (style === 'regular') {
+      // 包 in 爮 occupies a wider and taller opening than 巴 in 爬.
+      const inset = nested ? 0.045 : 0
+      if (inner === '口') return [0.52 + inset, 0.25, 0.995, 0.87]
+      if (inner === '日' || inner === '呂') return [0.53 + inset, 0.245, 0.995, 0.935]
+      if (inner === '罒') return [0.50 + inset, 0.305, 0.995, 0.83]
+    }
+    if (inner === '口') return [0.54, 0.265, 0.992, 0.82]
+    if (inner === '日' || inner === '呂') return [0.54, 0.255, 0.995, 0.90]
+    if (inner === '罒') return [0.515, 0.315, 0.995, 0.795]
   }
   if (outer === '走') {
     if (inner === '呂' && style === 'serif') return [0.44, 0.17, 0.985, 0.95]
@@ -1544,6 +1572,11 @@ export class Composer {
     }
     if (!glyph) return null
     const frame = enclosure.frame
+    if (outer === '爪') {
+      frame.part = clawAroundCounter(frame, this.fontStyle)
+      // Automatic emboldening in narrow columns can join the two uprights.
+      frame.weightLimit = [0.16, this.fontStyle === 'fangsong' ? 0.16 : 1]
+    }
     if (outer === '走' && inner === '呂' && this.fontStyle === 'serif') {
       // Pull the upright inward. Let the displacement fall away along
       // the foot so its final stroke still reaches under the right edge.
