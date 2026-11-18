@@ -4,8 +4,16 @@
 // description it corrects, the SHA-256 outlines of the glyphs it was read against, and the parts it
 // changes; an export drawing other outlines keeps the font's cut. The parts are plain placed pieces,
 // so the corrections work wherever the description is drawn, at any depth.
-import { derived, makePart, mapped, partOf, placed, pointsBox, union } from './geometry.js'
+import { derived, fitted, makePart, mapped, partOf, placed, pointsBox, union } from './geometry.js'
 import { hexOf } from './sha256.js'
+
+// Interpolation factors for the hosted 口 outlines when fitted beside 乎.
+const mouthWeights = {
+  sans: ['412b5a81c5efb7a5f824853645e81e3aea284eb92b129004596757cdba72cc17', 1.5],
+  serif: ['dde421f19453a0eee88caff584e339a24fd70d66f40710f20349f3294afab006', 1.3],
+  fangsong: ['e6685a3625d9c79a9f80323a1a4aa9fe41a9abbefce6d69ecc42ce06b27d045d', 1.65],
+  'pen-writing': ['068b4bb60a0c0088ab291df86718480e499001dddeb79758e9e1054ddf3104af', -1.4],
+}
 
 const FANGSONG_FRAME = {
   ops: [['M', 1], ['L', 1], ['L', 1], ['C', 3], ['C', 3], ['L', 1], ['C', 3], ['C', 3], ['C', 3], ['L', 1], ['L', 1], ['L', 1], ['C', 3], ['C', 3], ['L', 1], ['C', 3], ['C', 3], ['L', 1], ['C', 3], ['C', 3], ['L', 1], ['C', 3], ['L', 1], ['C', 3], ['C', 3], ['L', 1], ['L', 1], ['L', 1], ['L', 1], ['L', 1], ['C', 3], ['C', 3], ['L', 1], ['C', 3], ['C', 3], ['C', 3], ['L', 1], ['L', 1], ['C', 3], ['C', 3], ['C', 3], ['C', 3], ['L', 1]],
@@ -292,6 +300,82 @@ export const COMPONENT_FIXES = {
   // 卝's terminals must clear 干's first bar, as the right side of 哶 does.
   // A whole 鰥 cut stretches the left strokes and carries a sweeping lower stroke.
   // Keep 遝’s left strokes and stem, and replace both right strokes with compact 丶 glyphs.
+  // Use 呼’s own spacing when both upper pieces came from that glyph.
+  '⿱呼乙': {
+    glyphs: {},
+    apply(parts, composer) {
+      const [left, right, bottom] = parts
+      if (composer.fontStyle === 'regular' && parts.length === 2 && left.origin === 'glyph 呼') {
+        const [x, y, end, top] = left.target
+        const foot = Math.max(y, right.target[3] + 0.05 * (top - right.target[1]))
+        if (foot >= top) return parts
+        const upper = { ...left, target: [x, foot, end, top] }
+        if (!matches({ glyphs: { '呼': '6b1060852f4620bd5824536997f9105af07b09003e159930435718d8a51d291a' } }, composer)) return [upper, right]
+        // Lower the two contours of 口, and move 乎 and its dots together.
+        const dx = 0.03 * widthOf(left.source), dy = -0.025 * heightOf(left.source)
+        const contours = left.part.contours.map((c, i) => {
+          const mouth = i < 2
+          const offsetX = mouth ? 0 : dx, offsetY = mouth ? -0.09 * heightOf(left.source) : dy
+          const shift = coords => coords.map((v, j) => v + (j % 2 ? offsetY : offsetX))
+          return { ...c, light: shift(c.light), heavy: shift(c.heavy) }
+        })
+        const source = union(contours.map(c => pointsBox(c.light)))
+        const [x0, y0, x1, y1] = right.target, inset = 0.10 * (x1 - x0)
+        return [{ ...upper, source, target: mapped(source, left.source, upper.target),
+          part: { ...left.part, box: source, contours } }, { ...right, target: [x0 + inset, y0, x1 - inset, y1] }]
+      }
+      if (parts.length !== 3 || left.origin !== 'host 呼' || right.origin !== 'host 呼') return parts
+      const host = union([left.source, right.source]), row = union([left.target, right.target])
+      const gap = Math.max(0, right.target[0] - left.target[2])
+      row[1] = Math.max(row[1], bottom.target[3] + gap)
+      if (row[1] >= row[3]) return parts
+      const face = composer.fontStyle
+      if (face === 'fangsong' && !composer.excluded('呼') &&
+          matches({ glyphs: { '呼': '7dad688f1c5b8a9dafc7284970077d1ba7d4b50ef36240ae67b2d0ec9bed711d' } }, composer)) {
+        const glyph = composer.glyph('呼')
+        const frame = [bottom.target[0], bottom.target[1], bottom.target[2], row[3] + 0.025 * heightOf(row)]
+        return [
+          { ...right, part: glyph, source: glyph.box, native: composer.ink('呼'), origin: 'glyph 呼',
+            target: mapped([0.06, 0.36, 0.94, 1], [0, 0, 1, 1], frame), weight: [0, 0], fixed: true },
+          { ...bottom, target: mapped([0.16, 0, 0.86, 0.33], [0, 0, 1, 1], frame) },
+        ]
+      }
+      if (composer.excluded('口')) return parts
+      const mouth = composer.glyph('口')
+      if (!mouth) return parts
+      const mouthBox = mapped(left.source, host, row), rightBox = mapped(right.source, host, row)
+      // The cuts can overlap in 呼. Leave room for the wider corners of a standalone 口.
+      mouthBox[2] = Math.min(mouthBox[2], rightBox[0] - gap)
+      if (mouthBox[0] >= mouthBox[2]) return parts
+      const lip = placed(mouth, mouth.box, fitted(mouth.box, mouthBox, 1), composer.ink('口'), 'glyph 口')
+      // WenKai’s second master draws a lighter mouth, so its heavier setting is below zero.
+      const setting = mouthWeights[composer.fontStyle]
+      if (setting && matches({ glyphs: { '口': setting[0] } }, composer)) {
+        lip.weight = [setting[1], setting[1]]
+        lip.fixed = true
+      }
+      const hu = { ...right, target: rightBox }
+      if (face === 'serif') {
+        const frame = [bottom.target[0], bottom.target[1], bottom.target[2], row[3]]
+        return [
+          { ...lip, target: mapped([0.085, 0.58, 0.36, 0.91], [0, 0, 1, 1], frame) },
+          { ...hu, target: mapped([0.39, 0.41, 0.94, 1], [0, 0, 1, 1], frame) },
+          { ...bottom, target: mapped([0.09, 0, 0.94, 0.37], [0, 0, 1, 1], frame) },
+        ]
+      }
+      if (face === 'pen-writing') {
+        const fittedBox = fitted(hu.source, rightBox, 1.25)
+        const inset = (widthOf(rightBox) - widthOf(fittedBox)) / 2
+        lip.target = [lip.target[0] + inset, lip.target[1], lip.target[2] + inset, lip.target[3]]
+        hu.target = fittedBox
+      }
+      if (composer.fontStyle === 'pen-writing' && matches({ glyphs: { '呼': 'bfc223bec870e2306976f48830406872284ae282c08cc697bf4127fa55b44779' } }, composer)) {
+        hu.weight = [-0.6, -0.6]
+        hu.fixed = true
+      }
+      return [lip, hu, bottom]
+    },
+  },
   // ⿱一心: the top 一 is cut from a host whose bar fills a tall teacher band. In the two static
   // Kai faces it comes out much thicker than 心's strokes. The face's own 一 gives the bar its
   // height at the band's width. Regular Kai lowers it into the spare space above 心.
