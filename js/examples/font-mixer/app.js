@@ -293,9 +293,12 @@ get('phases').onchange = () => {
 }
 get('pace').oninput = syncPace
 get('pace').onchange = () => {
-  if (playback.state === 'idle') return
+  const state = playback.state
+  if (state === 'idle') return
   playback.stop()
   schedule()
+  // A tour that was running starts again at the new pace.
+  if (state !== 'paused') get('play').click()
 }
 get('theme').onclick = () => {
   const dark = document.documentElement.dataset.theme
