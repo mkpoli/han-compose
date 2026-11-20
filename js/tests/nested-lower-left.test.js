@@ -9,6 +9,11 @@ import keDonor from './fixtures/sans-ke.json' with { type: 'json' }
 import baiDonor from './fixtures/serif-ke-bai.json' with { type: 'json' }
 // Noto Sans CJK JP and Zhuque Fangsong (SIL OFL 1.1).
 import frameDonors from './fixtures/rice-walk-frames.json' with { type: 'json' }
+// 爮 from TW-Kai (數位發展部, CNS11643全字庫, Open Government Data License 1.0).
+// 爬 from Zhuque Fangsong and Kureedo (SIL OFL 1.1). See docs/licensing.md.
+import clawFrames from './fixtures/claw-frames.json' with { type: 'json' }
+// 咫 (Zhuque Fangsong, SIL OFL 1.1) and 𣥉 (TW-Kai, CNS11643, OGDL 1.0).
+import rulerFrames from './fixtures/ruler-frames.json' with { type: 'json' }
 import parts from './fixtures/sans-lower-left.json' with { type: 'json' }
 
 // 几 and 力 as the Sans export draws them (Noto Sans CJK, SIL OFL 1.1); 口 is the small export's
@@ -310,4 +315,51 @@ describe('米 and 走 lower-left frames', () => {
     const composer = new Composer(src.store(), { ...options, exclude: ['木'] })
     expect(composer.enclosureForm('⿺', '米')).toBeNull()
   })
+})
+
+describe('爪 lower-left frames', () => {
+  for (const [fontStyle, donor, inner, glyph, count] of [
+    ['regular', '爮', '包', clawFrames.kai, 3],
+    ['fangsong', '爬', '巴', clawFrames.fangsong, 2],
+    ['pen-writing', '爬', '巴', clawFrames.kureedo, 2],
+  ]) {
+    it(`keeps the enclosing strokes of ${donor} together in ${fontStyle}`, async () => {
+      const src = source({ 爪: records.木, [inner]: records.口, [donor]: { G: glyph, ink: 5000 } })
+      for (const layout of ['composed', 'cells']) {
+        const { parts } = await compose(src, '⿰口⿺爪口', { fontStyle, layout, separate: true })
+        expect(parts).toHaveLength(3)
+        expect(parts[1].d.match(/M/g)).toHaveLength(count)
+        const [, frame, mouth] = parts
+        expect(mouth.box[0]).toBeGreaterThan(frame.box[0] + frame.box[2] / 2)
+        expect(mouth.box[2] * mouth.box[3]).toBeGreaterThan(0.24 * frame.box[2] * frame.box[3])
+        expect(mouth.box[1] + mouth.box[3]).toBeGreaterThan(frame.box[1] + 0.70 * frame.box[3])
+      }
+      const composer = new Composer(src.store(), { fontStyle })
+      expect(composer.enclosureForm('⿺', '爪')?.piece.contours).toHaveLength(count)
+      const { parts } = await compose(src, '⿺爪' + inner, { fontStyle, separate: true })
+      expect(parts.map(p => p.origin)).toEqual([`glyph ${donor}`, `glyph ${donor}`])
+      expect(parts[0].d.match(/M/g)).toHaveLength(count)
+      expect(new Composer(src.store(), { fontStyle, exclude: [donor] }).enclosureForm('⿺', '爪')).toBeNull()
+    })
+  }
+})
+
+describe('尺 lower-left frames', () => {
+  for (const [fontStyle, donor, glyph] of [
+    ['fangsong', '咫', rulerFrames.fangsong],
+    ['regular', '𣥉', rulerFrames.kai],
+  ]) {
+    it(`fits a nested 日 above the 尺 from ${donor}`, async () => {
+      const src = source({ 尺: records.木, 日: records.口, [donor]: { G: glyph, ink: 5000 } })
+      for (const layout of ['composed', 'cells']) {
+        const { parts } = await compose(src, '⿰口⿺尺日', { fontStyle, layout, separate: true })
+        const [, frame, day] = parts
+        expect(frame.origin).toBe(`host ${donor}`)
+        expect(day.box[2]).toBeGreaterThan(frame.box[2] * 0.35)
+        expect(day.box[3]).toBeGreaterThan(frame.box[3] * 0.55)
+      }
+      const excluded = new Composer(src.store(), { fontStyle, exclude: [donor] })
+      expect(excluded.enclosureForm('⿺', '尺')).toBeNull()
+    })
+  }
 })
