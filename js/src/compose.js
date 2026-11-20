@@ -714,6 +714,7 @@ export const designedSources = (tree, style = 'sans') => {
     if (!Array.isArray(node)) return
     const [op, ...children] = node
     for (const cell of specimenFor(node, style, keyOf) ?? []) for (const [ch] of cell) out.add(ch)
+    if (op === '⿴' && keyOf(node) === '⿴𰀪⺀' && ['fangsong', 'regular'].includes(style)) out.add('彡')
     if (muKoForms[style] && isMuKo(node)) {
       out.add('む')
       if (style !== 'serif') out.add('子')
