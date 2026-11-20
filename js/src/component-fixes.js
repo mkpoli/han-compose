@@ -275,6 +275,17 @@ export function dotIn(composer, band) {
  * A correction that cannot find the parts it names leaves the drawing as it is.
  */
 export const COMPONENT_FIXES = {
+  '⿲𠂤日千': {
+    glyphs: {},
+    apply(parts, composer) {
+      if (composer.fontStyle !== 'pen-writing' || parts.length !== 3) return parts
+      const frame = union(parts.map(part => part.target))
+      // 日 is the short middle column. Give 千 room for its crossbar beside it.
+      const boxes = [[0, .025, .345, .975], [.385, .16, .65, .84], [.682, 0, 1, 1]]
+      return parts.map((part, i) => ({ ...part, target: mapped(boxes[i], [0, 0, 1, 1], frame),
+        weight: i === 0 ? [0, -.10] : i === 1 ? [-.68, -.20] : [-.60, -.12], fixed: true }))
+    },
+  },
   // 𠷃 (BabelStone: ⿰口⿳穴𠆢又) has a broad, shallow 又. Its component's
   // proportions also occur in 𥔉. Keep both inner parts within 穴's outer span.
 
