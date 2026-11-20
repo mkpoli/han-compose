@@ -1,7 +1,7 @@
 import { expect, it } from 'bun:test'
 import { activeFaces, composeMixed, FONT_STYLES } from '../src/font-mix.js'
 import { mixDrawings } from '../src/mix-drawings.js'
-import { alignRings, groupRegions } from '../src/mix-contours.js'
+import { alignRings, groupRegions, tangled } from '../src/mix-contours.js'
 import { limitDisplacement } from '../src/mix-outline.js'
 import { count, pathMask } from '../src/geometry.js'
 import { compose } from '../src/loader.js'
@@ -367,4 +367,26 @@ it('falls back to islands when two faces number their strokes differently', () =
   let differing = 0
   for (let i = 0; i < expected.length; i++) differing += expected[i] !== actual[i]
   expect(differing).toBeLessThan(120)
+})
+
+it('tells a counter that leaves its frame from one that stays inside', () => {
+  const square = (x, y, side) => [
+    [x, y],
+    [x + side, y],
+    [x + side, y + side],
+    [x, y + side]
+  ]
+  expect(tangled([square(0, 0, 100), square(20, 20, 30), square(60, 60, 30)])).toBe(false)
+  expect(tangled([square(0, 0, 100), square(80, 20, 30)])).toBe(true)
+  expect(tangled([square(0, 0, 100), square(20, 20, 30), square(40, 40, 30)])).toBe(true)
+  expect(
+    tangled([
+      [
+        [0, 0],
+        [100, 100],
+        [100, 0],
+        [0, 100]
+      ]
+    ])
+  ).toBe(true)
 })

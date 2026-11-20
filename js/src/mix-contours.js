@@ -402,6 +402,36 @@ function alignTo(rings) {
   }
 }
 
+/** Whether any of the closed outlines crosses itself or another of them.
+ * @param {number[][][]} rings without the repeated closing point */
+export function tangled(rings) {
+  if (rings.some(crosses)) return true
+  const side = (/** @type {number[]} */ a, /** @type {number[]} */ b, /** @type {number[]} */ c) =>
+    (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0])
+  const boxes = rings.map(ringBox)
+  for (let r = 0; r < rings.length; r++)
+    for (let q = r + 1; q < rings.length; q++) {
+      const [left, top, right, bottom] = boxes[q]
+      if (boxes[r][0] > right || boxes[r][2] < left || boxes[r][1] > bottom || boxes[r][3] < top) continue
+      const one = rings[r],
+        other = rings[q]
+      for (let i = 0; i < one.length; i++) {
+        const a = one[i],
+          b = one[(i + 1) % one.length]
+        if (Math.max(a[0], b[0]) < left || Math.min(a[0], b[0]) > right) continue
+        if (Math.max(a[1], b[1]) < top || Math.min(a[1], b[1]) > bottom) continue
+        for (let j = 0; j < other.length; j++) {
+          const c = other[j],
+            d = other[(j + 1) % other.length]
+          if (Math.max(a[0], b[0]) < Math.min(c[0], d[0]) || Math.max(c[0], d[0]) < Math.min(a[0], b[0]))
+            continue
+          if (side(a, b, c) * side(a, b, d) < 0 && side(c, d, a) * side(c, d, b) < 0) return true
+        }
+      }
+    }
+  return false
+}
+
 /** Whether a closed outline crosses itself.
  * @param {number[][]} ring */
 function crosses(ring) {
