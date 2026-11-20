@@ -169,3 +169,5 @@ ships the licence texts beside it.
 Publishing a glyph drawn with KanjiVG-assisted cuts publishes a CC BY-SA derivative of KanjiVG's
 component data. Glyphs drawn without those cuts carry only the terms of the fonts they come from:
 the SIL OFL 1.1 for Noto Sans CJK, Noto Serif CJK and Plangothic outlines; none for Jigmo's (CC0).
+
+The Serif drawing of ⿶む子 uses the outline of U+1B127 𛄧 from GenZui Serif Bold 0.118 for its inner operand. The outline in `js/src/genzui-alternate-ne.json` is in the font’s original coordinates. [GenZui Serif 0.118](https://github.com/mkpoli/GenZui/releases/tag/v0.118) · [SIL Open Font License 1.1 and copyright notices](../data/licences/OFL-GenZuiSerif.txt)
