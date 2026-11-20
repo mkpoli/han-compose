@@ -1,7 +1,13 @@
 import { expect, it } from 'bun:test'
 import { activeFaces, composeMixed, FONT_STYLES } from '../src/font-mix.js'
 import { mixDrawings } from '../src/mix-drawings.js'
-import { alignRings, groupRegions, joinIslands, prepareCorrespondence, tangled } from '../src/mix-contours.js'
+import {
+  alignRings,
+  groupRegions,
+  prepareCorrespondence,
+  splitIslands,
+  tangled
+} from '../src/mix-contours.js'
 import { limitDisplacement } from '../src/mix-outline.js'
 import { count, pathMask } from '../src/geometry.js'
 import { compose } from '../src/loader.js'
@@ -414,15 +420,30 @@ it('blends a stroke that stands clear in one face and touches its neighbour in a
   // Two bars side by side against one bar spanning both.
   const apart = [[box(20, 100, 90, 40)], [box(130, 100, 100, 40)]]
   const fused = [[box(20, 100, 210, 40)]]
-  const regions = joinIslands([apart, fused])
-  expect(regions).toHaveLength(1)
-  const blend = prepareCorrespondence(regions[0])
-  expect(blend).not.toBeNull()
-  // Each pole keeps its own ink, and halfway the gap has half closed.
-  expect(Math.abs(inkOf(blend([1, 0], 1)))).toBeCloseTo(190 * 40, -2)
-  expect(Math.abs(inkOf(blend([0, 1], 1)))).toBeCloseTo(210 * 40, -2)
-  expect(Math.abs(Math.abs(inkOf(blend([0.5, 0.5], 1))) - 200 * 40)).toBeLessThan(150)
-  expect(joinIslands([fused, apart])).toHaveLength(1)
+  for (const faces of [
+    [apart, fused],
+    [fused, apart]
+  ]) {
+    const regions = splitIslands(faces)
+    // The spanning bar is cut where the others part, one piece for each.
+    expect(regions).toHaveLength(2)
+    const blends = regions.map((region) => prepareCorrespondence(region))
+    expect(blends.every(Boolean)).toBe(true)
+    const own = faces[0] === apart ? [1, 0] : [0, 1]
+    const spans = (shares) =>
+      blends.map((blend) => {
+        const xs = blend(shares, 1).flatMap((ring) => ring.map((p) => p[0]))
+        return [Math.min(...xs), Math.max(...xs)]
+      })
+    // Each bar keeps its own ends, and halfway the gap between them has half closed.
+    expect(spans(own)[0][1]).toBeCloseTo(110, 0)
+    expect(spans(own)[1][0]).toBeCloseTo(130, 0)
+    const [left, right] = spans([0.5, 0.5])
+    expect(left[0]).toBeCloseTo(20, 0)
+    expect(right[1]).toBeCloseTo(230, 0)
+    expect(right[0] - left[1]).toBeGreaterThan(4)
+    expect(right[0] - left[1]).toBeLessThan(12)
+  }
 })
 
 it('opens a counter where a face stops its bar short of the frame', () => {
@@ -453,7 +474,13 @@ it('opens a counter where a face stops its bar short of the frame', () => {
   ]
   const blend = prepareCorrespondence([closed, open])
   expect(blend).not.toBeNull()
-  const halfway = blend([0.5, 0.5], 1)
-  expect(halfway).toHaveLength(2)
-  expect(Math.abs(inkOf(blend([1, 0], 1)))).toBeCloseTo(200 * 200 - 2 * 160 * 70, -2)
+  // The open face's one counter is cut at the gap into the two the closed face has.
+  expect(blend([0.5, 0.5], 1)).toHaveLength(3)
+  const closedInk = 200 * 200 - 2 * 160 * 70,
+    openInk = 200 * 200 - 160 * 160 + 130 * 20
+  expect(Math.abs(inkOf(blend([1, 0], 1)))).toBeCloseTo(closedInk, -2)
+  expect(Math.abs(inkOf(blend([0, 1], 1)))).toBeCloseTo(openInk, -2)
+  const halfway = Math.abs(inkOf(blend([0.5, 0.5], 1)))
+  expect(halfway).toBeGreaterThan(openInk)
+  expect(halfway).toBeLessThan(closedInk)
 })
