@@ -272,12 +272,73 @@ def generate(font_dir):
     return result
 
 
+def fangsong_inward(face):
+    """Keep the upper bars of 悲's 非 and raise its two native brush feet."""
+    left, right = face.contours("悲")[4:6]
+    if (left.value[23] != ("lineTo", ((390, 580),)) or
+            right.value[23] != ("lineTo", ((606, 586),))):
+        raise ValueError("Unexpected Zhuque 悲 outlines")
+
+    def lifted(ops, dx, dy):
+        return [(op, tuple((x + dx, y + dy) for x, y in pts)) for op, pts in ops]
+
+    # The feet meet the uprights just below the retained bars. Each half
+    # stays on its original axis, with the same intervening white space.
+    a, b = RecordingPen(), RecordingPen()
+    a.value = (lifted(left.value[:5], 2, 200) + left.value[23:36]
+               + lifted(left.value[36:], 2, 200))
+    b.value = (lifted(right.value[:3], 0, 190) + right.value[4:24]
+               + lifted(right.value[49:], 3, 190))
+    return [a, b]
+
+
+def component_forms(font_dir, inward=False):
+    """One contextual four-stroke radical per face, in the composer's contour format."""
+    forms = {}
+    for style, filename in {**FONTS, "regular": "TW-Kai.ttf"}.items():
+        with TTFont(font_dir / filename) as font:
+            face = Face(font)
+            if inward:
+                if style == "fangsong":
+                    head = fangsong_inward(face)
+                elif style == "regular":
+                    # 雚 supplies the compact inward-facing brush strokes above 吅.
+                    head = face.contours("雚")[:2]
+                    if [bounds([c]) for c in head] != [(227, 517, 476, 721), (607, 519, 865, 758)]:
+                        raise ValueError("Unexpected TW-Kai 雚 outlines")
+                else:
+                    head = face.contours("⻀")
+            elif style == "fangsong":
+                head, _ = head_and_body(face.contours("菜"))
+                head = fangsong_split(head)
+            elif style == "regular":
+                head, _ = head_and_body(face.contours("草"))
+            else:
+                head, _ = head_and_body(face.contours("菜"))
+                head = split_head(head, split_donors(face, style))
+            contours = []
+            for recording in head:
+                for op, points in recording.value:
+                    if op == "moveTo":
+                        commands, coords = [], []
+                    if op in ("closePath", "endPath"):
+                        contours.append(["".join(commands), coords])
+                        continue
+                    commands.append({"moveTo": "M", "lineTo": "L", "curveTo": "C",
+                                     "qCurveTo": f"Q{len(points)}"}[op])
+                    coords.extend(round(v, 2) for point in points for v in point)
+            forms[style] = [contours]
+    return forms
+
+
 if __name__ == "__main__":
     cli = argparse.ArgumentParser(description=__doc__)
     cli.add_argument("--fonts", type=Path, required=True)
     cli.add_argument("--output", type=Path, required=True)
+    cli.add_argument("--component-forms", action="store_true")
+    cli.add_argument("--inward-forms", action="store_true")
     args = cli.parse_args()
     args.output.write_text(
-        json.dumps(generate(args.fonts), ensure_ascii=False, separators=(",", ":"))
+        json.dumps(component_forms(args.fonts, args.inward_forms) if args.component_forms or args.inward_forms else generate(args.fonts), ensure_ascii=False, separators=(",", ":"))
         + "\n"
     )
