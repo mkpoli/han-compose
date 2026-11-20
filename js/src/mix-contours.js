@@ -632,7 +632,8 @@ function slit(one, other, free, nested, loose = false) {
   let best = null,
     most = nested ? 0.99 : 0.79
   for (const n of nearest) {
-    if (n.gap > 2.5 * least + 2) continue
+    // A thread stays at the closest approach; a slit may lie wherever the gap is.
+    if (n.gap > (loose ? 2.5 * least + 2 : Math.max(2.5 * least + 2, 48))) continue
     const p = a[n.i],
       q = b[n.j]
     let open = 0
@@ -743,9 +744,10 @@ export function joinIslands(polygons) {
       let outer = group[0][0]
       const left = group.slice(1)
       while (left.length) {
-        outer = /** @type {number[][]} */ (
-          slit(outer, /** @type {number[][][]} */ (left.shift())[0], ink(whole[k]), false, true)
-        )
+        // Take first an island the fused face's ink reaches from what is joined so far.
+        const reached = left.findIndex((island) => slit(outer, island[0], ink(whole[k]), false))
+        const [next] = left.splice(Math.max(0, reached), 1)
+        outer = /** @type {number[][]} */ (slit(outer, next[0], ink(whole[k]), false, true))
       }
       out.push([outer, ...group.flatMap((island) => island.slice(1))])
     }
@@ -758,8 +760,8 @@ export function joinIslands(polygons) {
 /** Compute correspondences and local stroke widths once, independently of the controls.
  * @param {number[][][][][]} polygons */
 export function prepareCorrespondence(polygons) {
-  if (!polygons.length || !polygons.every((p) => p.length === 1)) return null
   let joined = false
+  if (!polygons.length || !polygons.every((p) => p.length === 1)) return null
   if (!polygons.every((p) => p[0].length === polygons[0][0].length)) {
     const same = sameCounters(polygons.map((p) => p[0]))
     if (!same) return null
@@ -778,11 +780,15 @@ export function prepareCorrespondence(polygons) {
   )
   if (sampled.some((ring) => !ring)) return null
   if (joined) {
-    // Joined rings are long and winding. Keep the match only when the even mix is one
-    // clean island holding about the ink the faces hold.
-    const even = sampled.map((ring) =>
-      ring[0].map((_, i) => [0, 1].map((k) => ring.reduce((sum, face) => sum + face[i][k], 0) / ring.length))
-    )
+    // Joined rings are long and winding. Keep the match only when the mix stays one
+    // clean island across the shares and holds about the ink the faces hold.
+    const mix = (/** @type {number[]} */ shares) =>
+      sampled.map((ring) =>
+        ring[0].map((_, i) =>
+          [0, 1].map((k) => ring.reduce((sum, face, f) => sum + shares[f] * face[i][k], 0))
+        )
+      )
+    const even = mix(faces.map(() => 1 / faces.length))
     const held = (/** @type {number[][][]} */ rings) =>
       Math.abs(
         rings.slice(1).reduce((sum, ring) => sum - Math.abs(turning(ring)), Math.abs(turning(rings[0])))
