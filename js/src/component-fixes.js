@@ -270,11 +270,34 @@ export function dotIn(composer, band) {
   return placed(glyph, glyph.box, target, composer.ink('丶'), 'dot 丶')
 }
 
+const wealthCdlBounds = [[0,22,128,128], [14,0,124,24], [30,27,63,48], [69,22,109,50],
+  [21,52,53,114], [55,63,87,119], [90,57,125,117]]
+
+export function wealthBoxes(key, style, region) {
+  if (key !== '⿺辶⿱宀⿱⿰王尔⿲隹貝招' || !['fangsong', 'regular', 'pen-writing'].includes(style)) return null
+  // The exported walking radicals have a wider upstroke and a higher baseline than the CDL specimen.
+  // Carry the six inner components together into the remaining opening.
+  return wealthCdlBounds.map(([l, t, r, b], i) => {
+    const box = i ? [0.82*l + 21.4, 128 - 0.83*b + 1.0, 0.82*r + 21.4, 128 - 0.83*t + 1.0]
+      : [l, 128 - b, r, 128 - t]
+    return mapped(box, [0, 0, 128, 128], region)
+  })
+}
+
 /**
  * The corrections, by description. `glyphs` ties each to the outlines it was read against.
  * A correction that cannot find the parts it names leaves the drawing as it is.
  */
 export const COMPONENT_FIXES = {
+  '⿺辶⿱宀⿱⿰王尔⿲隹貝招': {
+    glyphs: {},
+    apply(parts, composer, region) {
+      // 128-unit, top-down CDL coordinates in Unicode L2/12-032, p. 2, in the written IDS order.
+      const boxes = wealthBoxes('⿺辶⿱宀⿱⿰王尔⿲隹貝招', composer.fontStyle, region)
+      if (!boxes || parts.length !== boxes.length) return parts
+      return parts.map((part, i) => ({ ...part, target: boxes[i] }))
+    },
+  },
   // 𠷃 (BabelStone: ⿰口⿳穴𠆢又) has a broad, shallow 又. Its component's
   // proportions also occur in 𥔉. Keep both inner parts within 穴's outer span.
 
