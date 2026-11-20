@@ -76,7 +76,7 @@ def _require_layout(composer: compose.Composer, style: str) -> None:
 def _composer(style: str = compose.DEFAULT_STYLE, **options) -> compose.Composer:
     """The composer in `style`, cutting hosts along KanjiVG's groups, with the learned layout and
     standalone model when `learn` and `learn-alone` have made them."""
-    composer = compose.Composer(compose.Font.of(_style(style)), compose.japanese_sequences(),
+    composer = compose.Composer(compose.Font.of(_style(style)), compose.drawn_sequences(style),
                                 weighted=compose.STYLES[style].weighted, **options)
     if _layout_path(style).exists():
         composer.layout = compose_layout.LayoutModel.load(_layout_path(style))
