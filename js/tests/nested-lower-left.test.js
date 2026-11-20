@@ -18,6 +18,8 @@ import rulerFrames from './fixtures/ruler-frames.json' with { type: 'json' }
 import maoDonor from './fixtures/sans-fur-frame.json' with { type: 'json' }
 // 尪 from Noto Sans CJK JP, SIL OFL 1.1.
 import wangDonor from './fixtures/sans-limp-frame.json' with { type: 'json' }
+// 菱 from Zhuque Fangsong, SIL OFL 1.1.
+import shrineDonor from './fixtures/fangsong-ling.json' with { type: 'json' }
 import parts from './fixtures/sans-lower-left.json' with { type: 'json' }
 
 // 几 and 力 as the Sans export draws them (Noto Sans CJK, SIL OFL 1.1); 口 is the small export's
@@ -400,4 +402,18 @@ it('keeps 𡯙 as a whole and uses the 尪 enclosure when its operands are separ
   }
   const excluded = await compose(src, description, { layout: 'composed', separate: true, exclude: ['尪'] })
   expect(excluded.parts.some(p => p.origin === 'host 尪')).toBe(false)
+})
+
+it('seats 玉 beside the 夌 of 菱 in the Misato shrine character', async () => {
+  const sequence = '⿱艹⿺夌玉'
+  const src = source({ 菱: { G: shrineDonor, ink: 5000 }, 夌: records.木, 玉: records.口, 艹: records.口 })
+  for (const layout of ['composed', 'cells']) {
+    const { parts } = await compose(src, sequence, { layout, separate: true, fontStyle: 'fangsong' })
+    expect(parts.map(p => p.origin)).toEqual(['grass from 菱', 'enclosing 夌 from 菱', 'glyph 玉'])
+    const [, body, jade] = parts
+    expect(jade.box[2]).toBeGreaterThan(body.box[2] * 0.36)
+    expect(right(body)).toBeGreaterThan(right(jade))
+  }
+  const fallback = await compose(src, sequence, { exclude: ['菱'], fontStyle: 'fangsong' })
+  expect(fallback.origins).not.toContain('enclosing 夌 from 菱')
 })
