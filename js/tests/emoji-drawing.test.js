@@ -40,6 +40,15 @@ describe('an Emoji in a drawing', () => {
     expect(svg).toContain('🙂')
     expect(svg.split('😀')).toHaveLength(2)
   })
+  it('identifies the car slot after an empty operand and beside another emoji', async () => {
+    const worker = new FakeWorker()
+    const preview = composerPreview({ base: 'https://example.org/', fontStyle: 'regular', worker: () => worker })
+    await preview('⿲⬚⿱車🚗️🛒')
+    expect(worker.posted.at(-1).sequence).toBe('⿲⬚⿱車⬚⬚')
+    expect(worker.posted.at(-1).carSlots).toEqual([1])
+    await preview('⿱車⬚')
+    expect(worker.posted.at(-1).carSlots).toBeUndefined()
+  })
   it('has a part when nothing else was drawn', async () => {
     const preview = composerPreview({ base: 'http://example.org/', separate: true, worker: () => new FakeWorker() })
     const drawing = await preview('😀')

@@ -35,7 +35,7 @@ self.onmessage = async ({ data }) => {
           v + share*(sketches.get(j)?.[i]?.box[k] ?? leaf.box[k]),0))})))
     }
     const results = await Promise.all(data.faces.map(async ({style, base}, index) => {
-      const key = JSON.stringify([data.sequence,base,data.separate,data.loaders,data.preferExport])
+      const key = JSON.stringify([data.sequence,base,data.separate,data.loaders,data.preferExport,data.carSlots])
       const cached = lastFace.get(style)
       if (cached?.key === key) {
         heard(index,cached.leaves)
@@ -62,7 +62,7 @@ self.onmessage = async ({ data }) => {
   }
 }
 
-async function drawFace({ sequence, base, separate, fontStyle, warm, preferExport, loaders, faces }, sendSketch) {
+async function drawFace({ sequence, base, separate, fontStyle, warm, preferExport, loaders, faces, carSlots }, sendSketch) {
   const traits = !warm ? traitsOf(sequence) : null
   // Whether the sequence draws from bundled outlines is part of the key: `onlyBundled` reads the
   // sequence, which the traits alone do not cover.
@@ -90,8 +90,8 @@ async function drawFace({ sequence, base, separate, fontStyle, warm, preferExpor
   if (warm) return
   /** The sketch and then the drawing of the sequence, from one source. */
   const draw = async from => {
-    sendSketch(await sketch(from, sequence, { fontStyle, loaders }))
-    const drawn = await compose(from, sequence, { separate, fontStyle, loaders })
+    sendSketch(await sketch(from, sequence, { fontStyle, loaders, carSlots }))
+    const drawn = await compose(from, sequence, { separate, fontStyle, loaders, carSlots })
     // The leaves in reading order and the leaf of each slot, so a view can place parts beside the
     // drawing without a tree of its own.
     let leaves = null
