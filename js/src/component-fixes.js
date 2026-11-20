@@ -275,6 +275,21 @@ export function dotIn(composer, band) {
  * A correction that cannot find the parts it names leaves the drawing as it is.
  */
 export const COMPONENT_FIXES = {
+  '⿰舟邊': {
+    glyphs: {},
+    apply(parts, composer) {
+      if (parts.length !== 2 || !['fangsong', 'regular', 'pen-writing'].includes(composer.fontStyle)) return parts
+      const [boat, border] = parts
+      const frame = union(parts.map(part => part.target))
+      if (composer.fontStyle !== 'regular') {
+        const move = Math.max(0, (border.target[0] - boat.target[2] - .018 * widthOf(frame)) / 2)
+        return parts.map((part, i) => ({ ...part, target: part.target.map((v, axis) => axis % 2 ? v : v + (i ? -move : move)) }))
+      }
+      // The open left side of 辶 can sit close to 舟. Hold its sweeping foot at the boat's baseline.
+      return [{ ...boat, target: mapped([0, .025, .40, 1], [0, 0, 1, 1], frame) },
+        { ...border, target: mapped([.414, .025, 1, .965], [0, 0, 1, 1], frame) }]
+    },
+  },
   // 𠷃 (BabelStone: ⿰口⿳穴𠆢又) has a broad, shallow 又. Its component's
   // proportions also occur in 𥔉. Keep both inner parts within 穴's outer span.
 
