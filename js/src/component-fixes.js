@@ -275,6 +275,21 @@ export function dotIn(composer, band) {
  * A correction that cannot find the parts it names leaves the drawing as it is.
  */
 export const COMPONENT_FIXES = {
+  '⿱投石': {
+    glyphs: {},
+    apply(parts, composer) {
+      const [hand, stone] = parts
+      if (parts.length !== 2) return parts
+      if (composer.fontStyle === 'pen-writing' && hand.origin === 'glyph 投') {
+        // The complete 投 shrinks into a shallow row; bring its strokes up to the weight of 石.
+        return [{ ...hand, weight: [-.65, -.65], fixed: true }, stone]
+      }
+      if (composer.fontStyle !== 'regular') return parts
+      const frame = union([hand.target, stone.target])
+      return [{ ...hand, target: mapped([.04, .52, .96, 1], [0, 0, 1, 1], frame) },
+        { ...stone, target: mapped([.12, 0, .88, .48], [0, 0, 1, 1], frame) }]
+    },
+  },
   // 𠷃 (BabelStone: ⿰口⿳穴𠆢又) has a broad, shallow 又. Its component's
   // proportions also occur in 𥔉. Keep both inner parts within 穴's outer span.
 
