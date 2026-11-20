@@ -412,3 +412,13 @@ it('gives both tiers of the source 393 metric unit their full height above 克',
     expect(bottom[1] + bottom[3] - top[1]).toBeGreaterThan(ke[3] * 0.75)
   }
 })
+
+it('draws the complete native 意 inside the Fangsong metric 克', async () => {
+  const src = source({ 克: records.木, 尅: { G: keDonor, ink: 5000 }, 意: records.口 })
+  for (const layout of ['composed', 'cells']) {
+    const { parts } = await compose(src, '⿺克意', { fontStyle: 'fangsong', layout, separate: true })
+    expect(parts).toHaveLength(2)
+    expect(parts[1].origin).toBe('glyph 意')
+    expect(parts[1].d.match(/M/g)).toHaveLength(records.口.G.p.length)
+  }
+})
