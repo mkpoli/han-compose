@@ -24,6 +24,14 @@ const specimens = {
       [['灬', [141, 18, 673, 157]]],
     ],
   },
+  // 𱁬
+  '⿱䨺龘': {
+    styles: ['serif', 'sans', 'regular', 'pen-writing'],
+    cells: [
+      [['雲', [321, 557, 679, 844]], ['雲', [47, 342, 445, 559]], ['雲', [559, 342, 955, 559]]],
+      [['龍', [330, 117, 677, 324]], ['龍', [53, -93, 476, 120]], ['龍', [528, -93, 953, 120]]],
+    ],
+  },
 }
 const roots = new Set(Object.keys(specimens).map(key => [...key][0]))
 export const containsSpecimen = (key, style) => Object.entries(specimens).some(([seq, plan]) => plan.styles.includes(style) && key.includes(seq))
