@@ -1864,7 +1864,10 @@ export class Composer {
         const tip = i === cut.sweep ? Math.max(0, (x - 0.46) / 0.54) * Math.max(0, Math.min(1, (0.34 - y) / 0.20)) : 0
         return k % 2 ? v + h * 0.065 * tip * tip : l + w * (0.55 * x + 0.45 * tip)
       })
-      return [{ ...c, light: narrow(c.light), heavy: narrow(c.heavy) }]
+      // Weight balancing uses the stem of the narrowed body, before the
+      // terminal flares out under 玉.
+      const width = c.width && [0.55 * c.width[0], c.width[1]]
+      return [{ ...c, width, light: narrow(c.light), heavy: narrow(c.heavy) }]
     }))
     const face = fitted(donor.box, region, this.C.STRETCH)
     const capBox = mapped(cap.box, donor.box, face)
