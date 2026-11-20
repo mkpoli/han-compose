@@ -42,6 +42,16 @@ import alternateNe from './genzui-alternate-ne.json' with { type: 'json' }
 import pyramidCatalog from './pyramid-glyphs.json' with { type: 'json' }
 import { createRenderNormalizer } from './normalization.js'
 
+const isShrineJade = node => node[0] === '⿱' && node[1] === '艹' && node[2]?.[0] === '⿺' && node[2][1] === '夌' && node[2][2] === '玉' && !node.note && !node[2].note
+// In 菱 all three brush styles share the last stroke with the rest of 夂.
+const shrineLingCuts = {
+  '43439cecaec205e6cff69f7b1a448b5e8e14a10cbcb159a8c73331ed10253e99': { grass: [0, 3, 4], sweep: 7 },
+  '5f2a0f14140808d1139b74cca6efe70b6a24f3372efe72f97a31b40419228ff0': { grass: [8], sweep: 2 },
+  'ffa4c57a60cd3e2b446539cfc7e5f6241f4a8555b76c93803b8600f8efbf9dd3': { grass: [3], sweep: 4 },
+  'b209240f1a7606d8d99c5704c5dcf0731813587cf51aa5de843eb248a8f6c9e2': { grass: [3, 4], sweep: 1 },
+  '943627947ecafb8f5fad026ef1040565ee8e943d08072f11e6465e2bde0ea173': { grass: [0], sweep: 2 },
+}
+
 // Positions in each source font’s em. Match the outline of む before using its opening.
 const muKoForms = {
   'serif': {
@@ -742,6 +752,10 @@ export const designedSources = (tree, style = 'sans') => {
   const visit = node => {
     if (!Array.isArray(node)) return
     const [op, ...children] = node
+    if (isShrineJade(node)) {
+      out.add('菱')
+      out.add('玉')
+    }
     if (muKoForms[style] && isMuKo(node)) {
       out.add('む')
       if (style !== 'serif') out.add('子')
@@ -1342,6 +1356,15 @@ export class Composer {
         emitCell(part, node)
         return
       }
+      const shrine = this.shrineJadeParts(node, target(box))
+      if (shrine) {
+        for (const part of shrine) {
+          if (leafIndices) part.leaf = leaf
+          leaf++
+          out.push(part)
+        }
+        return
+      }
       const op = node[0], kids = node.slice(1)
       if (op in this.AXIS) {
         // The top of a stacked description is one part over many; the reference design gives it
@@ -1464,7 +1487,7 @@ export class Composer {
         return
       }
       const repeated = isGroupedForm(keyOf(node), this.fontStyle) ? componentParts(keyOf(node), region, this.fontStyle, atRoot) : null
-      const designed = repeated ?? this.muKoParts(node, region) ?? this.wheatFaceParts(node, region)
+      const designed = repeated ?? this.shrineJadeParts(node, region) ?? this.muKoParts(node, region) ?? this.wheatFaceParts(node, region)
       if (designed) {
         for (const part of designed) out.push({ index: out.length, box: part.target, empty: false })
         return
@@ -1810,6 +1833,43 @@ export class Composer {
     return parts.length ? parts : null
   }
 
+  /** The 三郷 shrine plaque sets 玉 beside 夌, with the final sweep beneath both. */
+  shrineJadeParts(node, region) {
+    if (!isShrineJade(node) || ['艹', '夌', '玉', '菱'].some(c => this.excluded(c))) return null
+    const record = this.glyphRecord('菱'), jade = this.glyph('玉')
+    const cut = record && shrineLingCuts[hexOf(JSON.stringify(record.p))]
+    if (!cut || !jade) return null
+    const donor = partOf(record), [l, b, r, t] = donor.box, w = r - l, h = t - b
+    const cap = derived(donor, cut.grass.map(i => donor.contours[i]))
+    const body = derived(donor, donor.contours.flatMap((c, i) => {
+      if (cut.grass.includes(i)) return []
+      const narrow = points => points.map((v, k) => {
+        const at = k - k % 2
+        const x = (points[at] - l) / w, y = (points[at + 1] - b) / h
+        // The sweep on the plaque turns up slightly as it emerges below 玉.
+        const tip = i === cut.sweep ? Math.max(0, (x - 0.46) / 0.54) * Math.max(0, Math.min(1, (0.34 - y) / 0.20)) : 0
+        return k % 2 ? v + h * 0.065 * tip * tip : l + w * (0.55 * x + 0.45 * tip)
+      })
+      // Weight balancing uses the stem of the narrowed body, before the
+      // terminal flares out under 玉.
+      const width = c.width && [0.55 * c.width[0], c.width[1]]
+      return [{ ...c, width, light: narrow(c.light), heavy: narrow(c.heavy) }]
+    }))
+    const face = fitted(donor.box, region, this.C.STRETCH)
+    const capBox = mapped(cap.box, donor.box, face)
+    const capWidth = capBox[2] - capBox[0]
+    capBox[0] += capWidth * 0.13
+    capBox[2] -= capWidth * 0.055
+    if (this.fontStyle === 'regular' || this.fontStyle === 'serif') capBox[1] += 0.036 * (face[3] - face[1])
+    // 玉 reaches toward the middle of 夌 as in 𭐨 (⿺夌主). Sans has a wider right branch on 夌.
+    const jadeBox = this.fontStyle === 'sans' ? [0.525, 0.20, 0.96, 0.72] : [0.50, 0.18, 0.955, 0.72]
+    return [
+      placed(cap, cap.box, capBox, this.ink('菱'), 'grass from 菱'),
+      placed(body, body.box, mapped(body.box, donor.box, face), this.ink('夌'), 'enclosing 夌 from 菱'),
+      placed(jade, tightBox(jade), mapped(jadeBox, [0, 0, 1, 1], face), this.ink('玉'), 'glyph 玉'),
+    ]
+  }
+
   /** Fit the two editable operands in the opening of the face's own む. */
   muKoParts(node, region) {
     if (!isMuKo(node) || this.excluded('む') || this.excluded('子')) return null
@@ -1831,6 +1891,8 @@ export class Composer {
   }
 
   drawNode(node, region, atRoot = false, sideBySide = false) {
+    const shrine = this.shrineJadeParts(node, region)
+    if (shrine) return shrine
     const kana = this.muKoParts(node, region)
     if (kana) return kana
     // Use an encoded glyph first when the donor is specific to a rectangular counter.
