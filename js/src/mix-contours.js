@@ -921,8 +921,11 @@ export function prepareCorrespondence(polygons, cut = false) {
   const same = alike ? rings : splitCounters(rings)
   const match = same && matchOf(same, !alike)
   // Rings that were cut wind in and out of their gaps. Keep the match only when the even
-  // mix stays one clean island that holds about the ink, and turns about as much, as the faces.
-  if (match && (cut || !alike) && (match.crossed || match.ink > 0.05 || match.wander > 0.05)) return null
+  // mix does not cross itself and turns about as much as the faces. Cut counters must
+  // also hold about the faces' ink; a cut stroke may fairly differ in size from its
+  // counterpart, and the area between two sizes is not their mean.
+  if (match && (cut || !alike) && (match.crossed || match.wander > 0.05 || (!alike && match.ink > 0.05)))
+    return null
   if (!match) return null
   const { sampled } = match
   const faces = polygons
