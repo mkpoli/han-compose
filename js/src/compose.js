@@ -638,6 +638,16 @@ function fitClawInterior(parts, tree, style, cells = false) {
   }
 }
 
+// Donors used only when composing a rectangular inner component.
+const counterFrames = {
+  毛: ['毡', {
+    'b1ad78cadf7a8abb7d4d9d5a572f5b5bfe8aaf74772d1e3d1d9ea5014691ec32': [2, 3, 4, 5],
+    'b214682a621146b45711a4998af13dabc6b85c2db21773e1520b12920f6b0a27': [5, 6, 7, 8],
+    'f7dea78f2d96345e0a0e9dd4bfa3b98bbfa6121723241fb8e0d58e654d2d4826': [0],
+    '1912e3546cd765f290259aba97ce36946b7c19341e89e988ac5c138314483585': [0],
+    'a175e0d4196ca3c602c2e13c041f04798c0535cc87b6c5246210b8f96e5889b7': [1],
+  }],
+}
 const lowerLeftFrames = new Set(['克', '米', '走', '尺'])
 const brushClaw = (outer, style) => outer === '爪' && ownFormsOnly(style)
 /** Rectangular counters in the openings of 𮇇 and 趄, in frame-relative
@@ -650,6 +660,14 @@ function counterBox(outer, inner, nested, style) {
     if (inner === '口' && (style === 'fangsong' || style === 'regular')) return [0.535, 0.42, 0.985, 0.905]
     if (inner === '日' && style === 'fangsong') return [0.58, 0.365, 0.95, 0.950]
     if (inner === '日' && brush) return [0.515, 0.43, 0.985, 0.975]
+  }
+  if (outer === '毛') {
+    if (inner === '口') return [0.50, 0.23, 0.94, 0.77]
+    if (inner === '罒') return [0.50, 0.31, 0.955, 0.76]
+    if (inner === '日' || inner === '呂') {
+      // A narrow column brings the bottom of 日 close to 毛's upturned tip.
+      return nested ? [0.535, 0.29, 0.915, 0.965] : [0.51, 0.21, 0.94, 0.93]
+    }
   }
   if (outer === '尺') {
     // The lower left corner of the counter follows the diagonal in 咫.
@@ -719,6 +737,7 @@ export const designedSources = (tree, style = 'sans') => {
     if (frame) out.add(frame[0])
     const inner = unflippedOperand(children[1])
     if (op === '⿺' && counterBox(children[0], inner, true, style)) {
+      if (counterFrames[children[0]]) out.add(counterFrames[children[0]][0])
       out.add(inner)
       if (style === 'fangsong' && inner === '罒') out.add('罡')
     }
@@ -1657,7 +1676,13 @@ export class Composer {
     const outer = node[1], inner = unflippedOperand(node[2])
     const box = counterBox(outer, inner, nested, this.fontStyle)
     if (!box || this.excluded(inner)) return null
-    const enclosure = this.lowerLeftFrame(node, region)
+    if (outer === '毛' && node[2] !== inner) {
+      // Flipping the counter brings its broad corners beside the crossbars and hook.
+      box[0] += 0.04
+      box[1] += 0.04
+      box[2] -= 0.04
+    }
+    const enclosure = this.lowerLeftFrame(node, region, counterFrames[outer])
     if (!enclosure) return null
     let glyph = this.glyph(inner), donor = inner
     if (this.fontStyle === 'fangsong' && inner === '罒') {
@@ -1738,9 +1763,9 @@ export class Composer {
   }
 
   /** Place the enclosing strokes and map their opening into the same cell. */
-  lowerLeftFrame(node, region) {
-    if (!Array.isArray(node) || node[0] !== '⿺' || !(lowerLeftFrames.has(node[1]) || brushClaw(node[1], this.fontStyle))) return null
-    const cut = this.enclosureForm('⿺', node[1])
+  lowerLeftFrame(node, region, counterEntry = null) {
+    if (!Array.isArray(node) || node[0] !== '⿺' || !(counterEntry || lowerLeftFrames.has(node[1]) || brushClaw(node[1], this.fontStyle))) return null
+    const cut = this.enclosureForm('⿺', node[1], counterEntry)
     if (!cut?.piece.held) return null
     const { piece } = cut
     const frame = this.place(piece, region, this.ink(cut.record.h), `host ${cut.record.h}`)
@@ -1798,7 +1823,9 @@ export class Composer {
   drawNode(node, region, atRoot = false, sideBySide = false) {
     const kana = this.muKoParts(node, region)
     if (kana) return kana
-    const counters = this.counterInFrame(node, region, !atRoot)
+    // Use an encoded glyph first when the donor is specific to a rectangular counter.
+    const deferredCounter = Array.isArray(node) && node[0] === '⿺' && counterFrames[node[1]]
+    const counters = deferredCounter ? null : this.counterInFrame(node, region, !atRoot)
     if (counters) return counters
     const wheat = this.wheatFaceParts(node, region)
     if (wheat) return wheat
@@ -1899,6 +1926,10 @@ export class Composer {
       const glyph = this.drawnGlyph(node, !atRoot)
       if (!glyph) throw new LookupError(`No glyph or sequence draws ${node}.`)
       return [this.place(glyph, region, this.ink(node), `glyph ${node}`)]
+    }
+    if (deferredCounter) {
+      const fitted = this.counterInFrame(node, region, !atRoot)
+      if (fitted) return fitted
     }
     const coverHead = Array.isArray(node) && typeof node[1] === 'string' && this.isCover(node[1])
     const found = this.separate || hasRepetition || isRepeatedRow(node) || this.spelled.has(keyOf(node)) || coverHead || this.forced(node) ? null : this.instance(node, region)
@@ -2166,8 +2197,8 @@ export class Composer {
 
   /** A designed enclosing form of a whole operand, where the export has no cut of it: 电 as ⿺'s
    *  enclosing part from 𫌷. Answers a host-like `{ record, piece }`, or null. */
-  enclosureForm(op, node) {
-    const entry = typeof node === 'string' ? enclosureEntry(op, node, this.fontStyle) : null
+  enclosureForm(op, node, counterEntry = null) {
+    const entry = counterEntry ?? (typeof node === 'string' ? enclosureEntry(op, node, this.fontStyle) : null)
     if (!entry || this.excluded(node)) return null
     const [char, cuts] = entry, record = this.glyphRecord(char)
     if (!record || this.excluded(char)) return null
