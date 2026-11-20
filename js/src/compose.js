@@ -711,7 +711,7 @@ function counterBox(outer, inner, nested, style) {
     if (inner === '呂') return [0.54, 0.24, 1.015, 1.02]
   }
   if (outer === '走') {
-    if (inner === '呂' && style === 'serif') return [0.44, 0.17, 0.985, 0.95]
+    if (inner === '呂' && style === 'serif') return [nested ? 0.53 : 0.515, 0.17, 1.005, 0.95]
     if (inner === '呂') return [style === 'fangsong' ? 0.55 : 0.49, 0.20, 0.985, 0.94]
     if (inner === '口' && nested && brush) return [0.55, 0.31, 0.985, 0.79]
   }
@@ -1717,21 +1717,6 @@ export class Composer {
       if (!(nested && inner === '日')) frame.part = clawAroundCounter(frame, this.fontStyle)
       // Automatic emboldening in narrow columns can join the two uprights.
       frame.weightLimit = [0.16, this.fontStyle === 'fangsong' ? 0.16 : 1]
-    }
-    if (outer === '走' && inner === '呂' && this.fontStyle === 'serif') {
-      // Pull the upright inward. Let the displacement fall away along
-      // the foot so its final stroke still reaches under the right edge.
-      const [left, , right] = frame.source
-      const width = right - left
-      const narrow = points => points.map((v, i) => {
-        if (i % 2) return v
-        const x = (v - left) / width
-        const share = Math.max(0, Math.min(x / 0.56, (1 - x) / 0.44))
-        return v - 0.15 * width * share
-      })
-      frame.part = derived(frame.part, frame.part.contours.map(c => ({
-        ...c, light: narrow(c.light), heavy: narrow(c.heavy),
-      })), frame.source)
     }
     const target = mapped(box, [0, 0, 1, 1], frame.target)
     if (outer === '尢' && node[2] !== inner) {
