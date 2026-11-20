@@ -11,6 +11,14 @@ const specimens = {
       [['厂', [299, -45, 929, 798]], ['黑', [454, 206, 917, 625]], ['土', [419, -35, 934, 167]]],
     ],
   },
+  // 𤬑
+  '⿱㼌瓜': {
+    styles: ['fangsong', 'pen-writing'],
+    cells: [
+      [['瓜', [46, 401, 472, 829]], ['瓜', [520, 401, 946, 829]]],
+      [['瓜', [118, -72, 889, 361]]],
+    ],
+  },
   // JYN00003
   '⿳宀⿰丨⿴⿻冂一一⿹𠃌灬': {
     styles: ['fangsong', 'regular'],
@@ -45,8 +53,9 @@ export function specimenParts(composer, node, region, keyOf) {
       if (composer.excluded(ch)) return null
       const glyph = composer.glyph(ch)
       if (!glyph) return null
+      const weight = ch === '瓜' && composer.fontStyle === 'pen-writing' && cell.length === 1 ? [0.54, 0] : [0, 0]
       pieces.push({ ...placed(glyph, glyph.box, mapped(box, [0, -120, 1000, 880], region),
-        partInk(glyph), `glyph ${ch}`), fixed: true })
+        partInk(glyph), `glyph ${ch}`, weight), fixed: true })
     }
     out.push(pieces.length === 1 ? pieces[0] : joinedDrawing(pieces, `components ${cell.map(([ch]) => ch).join('')}`))
   }
