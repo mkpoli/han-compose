@@ -484,3 +484,17 @@ it('opens a counter where a face stops its bar short of the frame', () => {
   expect(halfway).toBeGreaterThan(openInk)
   expect(halfway).toBeLessThan(closedInk)
 })
+
+it('cuts a fused island clear of its counter', () => {
+  // A long bar with a window against a windowed block and a plain block side by side.
+  const fused = [[box(20, 100, 210, 40), box(60, 110, 90, 20, true)]]
+  const apart = [[box(20, 100, 150, 40), box(60, 110, 90, 20, true)], [box(190, 100, 40, 40)]]
+  const regions = splitIslands([fused, apart])
+  expect(regions).toHaveLength(2)
+  // The window stays whole in the piece that pairs with the windowed block.
+  const windowed = regions.find((region) => region[1][0].length === 2)
+  expect(windowed[0][0]).toHaveLength(2)
+  const xs = windowed[0][0][0].map((p) => p[0])
+  expect(Math.max(...xs)).toBeGreaterThan(150)
+  expect(regions.find((region) => region !== windowed)[0][0]).toHaveLength(1)
+})
