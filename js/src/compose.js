@@ -713,7 +713,10 @@ export const designedSources = (tree, style = 'sans') => {
   const visit = node => {
     if (!Array.isArray(node)) return
     const [op, ...children] = node
-    for (const cell of specimenFor(node, style, keyOf) ?? []) for (const [ch] of cell) out.add(ch)
+    for (const cell of specimenFor(node, style, keyOf) ?? []) for (const [ch, , donor] of cell) {
+      out.add(ch)
+      if (donor) out.add(donor.host)
+    }
     if (muKoForms[style] && isMuKo(node)) {
       out.add('む')
       if (style !== 'serif') out.add('子')
