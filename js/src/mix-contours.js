@@ -572,11 +572,200 @@ export function groupRegions(faces, ringOf, reach) {
   return groups.map((group) => faces.map((_, f) => group.filter((n) => n.f === f).map((n) => n.item)))
 }
 
+/** Whether a point lies inside a closed ring.
+ * @param {number[]} point @param {number[][]} ring */
+function inside([x, y], ring) {
+  let within = false
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const a = ring[i],
+      b = ring[j]
+    if (a[1] > y !== b[1] > y && x < a[0] + ((y - a[1]) * (b[0] - a[0])) / (b[1] - a[1])) within = !within
+  }
+  return within
+}
+
+/** @param {number[][]} ring */
+const turning = (ring) =>
+  ring.reduce((sum, p, i) => {
+    const q = ring[(i + 1) % ring.length]
+    return sum + p[0] * q[1] - q[0] * p[1]
+  }, 0)
+
+/** A ring's points without the closing one, with no two further apart than `step`.
+ * @param {number[][]} ring @param {number} step */
+function dense(ring, step) {
+  /** @type {number[][]} */
+  const out = []
+  for (let i = 0; i + 1 < ring.length; i++) {
+    const a = ring[i],
+      b = ring[i + 1],
+      pieces = Math.max(1, Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / step))
+    for (let t = 0; t < pieces; t++)
+      out.push([a[0] + ((b[0] - a[0]) * t) / pieces, a[1] + ((b[1] - a[1]) * t) / pieces])
+  }
+  return out
+}
+
+/** Join two rings into one along a slit of no width, placed where `free` says another
+ * face leaves the ink between them open. Null when no such place is near.
+ * @param {number[][]} one @param {number[][]} other closed rings
+ * @param {(point: number[]) => boolean} free @param {boolean} nested `other` is a counter of `one`
+ * @param {boolean} [loose] join at the nearest place when none is open */
+function slit(one, other, free, nested, loose = false) {
+  const a = dense(one, 2)
+  let b = dense(other, 2)
+  if (turning(a) * turning(b) > 0 === nested) b = b.reverse()
+  /** @type {{ i: number, j: number, gap: number }[]} */
+  const nearest = a.map((p, i) => {
+    let j = 0,
+      gap = Infinity
+    b.forEach((q, k) => {
+      const d = Math.hypot(q[0] - p[0], q[1] - p[1])
+      if (d < gap) {
+        gap = d
+        j = k
+      }
+    })
+    return { i, j, gap }
+  })
+  const least = Math.min(...nearest.map((n) => n.gap))
+  let best = null,
+    most = nested ? 0.99 : 0.79
+  for (const n of nearest) {
+    if (n.gap > 2.5 * least + 2) continue
+    const p = a[n.i],
+      q = b[n.j]
+    let open = 0
+    for (let t = 1; t <= 5; t++)
+      open += free([p[0] + ((q[0] - p[0]) * t) / 6, p[1] + ((q[1] - p[1]) * t) / 6]) ? 0.2 : 0
+    if (open > most + 1e-9 || (best && Math.abs(open - most) < 1e-9 && n.gap < best.gap)) {
+      most = open
+      best = n
+    }
+  }
+  if (!best && !loose) return null
+  const { i, j } = best ?? nearest.reduce((least, n) => (n.gap < least.gap ? n : least))
+  const joined = [...a.slice(0, i + 1), ...b.slice(j), ...b.slice(0, j + 1), ...a.slice(i)]
+  return [...joined, joined[0]]
+}
+
+/** Faces that close a counter another face leaves open (a bar that stops short of its
+ * frame) have more rings than it. Slit their extra counters into the ring the open face
+ * draws, so every face has the same rings and the gap opens with that face's share.
+ * @param {number[][][][]} faces each face's frame and counters
+ * @returns {number[][][][] | null} */
+function sameCounters(faces) {
+  const fewest = faces.reduce((best, rings, f) => (rings.length < faces[best].length ? f : best), 0)
+  const [frame, ...open] = faces[fewest]
+  const out = faces.map((rings, f) => {
+    if (f === fewest || rings.length === faces[fewest].length) return rings
+    let outer = rings[0]
+    /** @type {number[][][][]} */
+    const groups = open.map(() => [])
+    for (const counter of rings.slice(1)) {
+      const points = counter.slice(0, -1)
+      const mid = [0, 1].map((k) => points.reduce((sum, p) => sum + p[k], 0) / points.length)
+      const votes = new Map()
+      for (const p of [mid, ...points.map((q) => [(q[0] + mid[0]) / 2, (q[1] + mid[1]) / 2])]) {
+        const where = inside(p, frame) ? open.findIndex((ring) => inside(p, ring)) : -2
+        if (where !== -1) votes.set(where, (votes.get(where) ?? 0) + 1)
+      }
+      if (!votes.size) return null
+      const [where] = [...votes].sort((x, y) => y[1] - x[1])[0]
+      if (where === -2) {
+        const joined = slit(
+          outer,
+          counter,
+          (p) => !inside(p, frame) || open.some((ring) => inside(p, ring)),
+          true
+        )
+        if (!joined) return null
+        outer = joined
+      } else groups[where].push(counter)
+    }
+    /** @type {number[][][]} */
+    const counters = []
+    for (const [k, group] of groups.entries()) {
+      if (!group.length) return null
+      let merged = group[0]
+      const left = group.slice(1)
+      while (left.length) {
+        const index = left.findIndex((counter) => slit(merged, counter, (p) => inside(p, open[k]), false))
+        if (index < 0) return null
+        merged = /** @type {number[][]} */ (slit(merged, left[index], (p) => inside(p, open[k]), false))
+        left.splice(index, 1)
+      }
+      counters.push(merged)
+    }
+    return [outer, ...counters]
+  })
+  return out.every(Boolean) ? /** @type {number[][][][]} */ (out) : null
+}
+
+/** Faces that draw as one island what another draws as several (a stroke that touches
+ * its neighbour in one face and stands clear in another) get the same islands: the
+ * separate pieces are joined by a thread of no width where the fused face has ink, and
+ * the thread thickens with that face's share. Null when the faces split the ink in
+ * ways that are not one a coarser form of the other.
+ * @param {number[][][][][]} polygons each face's islands
+ * @returns {number[][][][][][] | null} per island, each face's one island */
+export function joinIslands(polygons) {
+  const fewest = polygons.reduce((best, islands, f) => (islands.length < polygons[best].length ? f : best), 0)
+  const whole = polygons[fewest]
+  if (!whole.length) return null
+  const ink = (/** @type {number[][][]} */ island) => (/** @type {number[]} */ p) =>
+    inside(p, island[0]) && !island.slice(1).some((ring) => inside(p, ring))
+  const faces = polygons.map((islands, f) => {
+    if (f === fewest) return whole
+    /** @type {number[][][][][]} */
+    const groups = whole.map(() => [])
+    for (const island of islands) {
+      const points = dense(island[0], 3)
+      const mid = [0, 1].map((k) => points.reduce((sum, p) => sum + p[k], 0) / points.length)
+      const votes = whole.map(
+        (other) => points.filter((p) => ink(other)([(2 * p[0] + mid[0]) / 3, (2 * p[1] + mid[1]) / 3])).length
+      )
+      const most = Math.max(...votes)
+      // A thin stroke can lie wholly beside the ink it belongs to; it goes with the nearest.
+      const apart = whole.map((other) =>
+        Math.min(
+          ...dense(other[0], 3).map((q) =>
+            Math.min(...points.map((p) => Math.hypot(p[0] - q[0], p[1] - q[1])))
+          )
+        )
+      )
+      groups[most ? votes.indexOf(most) : apart.indexOf(Math.min(...apart))].push(island)
+    }
+    /** @type {number[][][][]} */
+    const out = []
+    for (const [k, group] of groups.entries()) {
+      if (!group.length) return null
+      let outer = group[0][0]
+      const left = group.slice(1)
+      while (left.length) {
+        outer = /** @type {number[][]} */ (
+          slit(outer, /** @type {number[][][]} */ (left.shift())[0], ink(whole[k]), false, true)
+        )
+      }
+      out.push([outer, ...group.flatMap((island) => island.slice(1))])
+    }
+    return out
+  })
+  if (faces.some((face) => !face)) return null
+  return whole.map((_, k) => faces.map((face) => [/** @type {number[][][][]} */ (face)[k]]))
+}
+
 /** Compute correspondences and local stroke widths once, independently of the controls.
  * @param {number[][][][][]} polygons */
 export function prepareCorrespondence(polygons) {
-  if (!polygons.length || !polygons.every((p) => p.length === 1 && p[0].length === polygons[0][0].length))
-    return null
+  if (!polygons.length || !polygons.every((p) => p.length === 1)) return null
+  let joined = false
+  if (!polygons.every((p) => p[0].length === polygons[0][0].length)) {
+    const same = sameCounters(polygons.map((p) => p[0]))
+    if (!same) return null
+    polygons = same.map((rings) => [rings])
+    joined = true
+  }
   const holes = matchRegions(
     polygons.map((p) => p[0].slice(1)),
     (r) => r
@@ -588,6 +777,19 @@ export function prepareCorrespondence(polygons) {
     ordered[0].map((_, j) => alignRings(ordered.map((rings) => rings[j])))
   )
   if (sampled.some((ring) => !ring)) return null
+  if (joined) {
+    // Joined rings are long and winding. Keep the match only when the even mix is one
+    // clean island holding about the ink the faces hold.
+    const even = sampled.map((ring) =>
+      ring[0].map((_, i) => [0, 1].map((k) => ring.reduce((sum, face) => sum + face[i][k], 0) / ring.length))
+    )
+    const held = (/** @type {number[][][]} */ rings) =>
+      Math.abs(
+        rings.slice(1).reduce((sum, ring) => sum - Math.abs(turning(ring)), Math.abs(turning(rings[0])))
+      )
+    const mean = faces.reduce((sum, _, f) => sum + held(sampled.map((ring) => ring[f])), 0) / faces.length
+    if (tangled(even) || Math.abs(held(even) - mean) > 0.025 * mean) return null
+  }
   const aligned = faces.map((_, f) => {
     const rings = sampled.map((ring) => ring[f])
     const vectors = weightVectors(rings.map((r) => [...r, r[0]]))

@@ -1,7 +1,7 @@
 import { expect, it } from 'bun:test'
 import { activeFaces, composeMixed, FONT_STYLES } from '../src/font-mix.js'
 import { mixDrawings } from '../src/mix-drawings.js'
-import { alignRings, groupRegions, tangled } from '../src/mix-contours.js'
+import { alignRings, groupRegions, joinIslands, prepareCorrespondence, tangled } from '../src/mix-contours.js'
 import { limitDisplacement } from '../src/mix-outline.js'
 import { count, pathMask } from '../src/geometry.js'
 import { compose } from '../src/loader.js'
@@ -390,4 +390,70 @@ it('tells a counter that leaves its frame from one that stays inside', () => {
       ]
     ])
   ).toBe(true)
+})
+
+const box = (x, y, w, h, hole = false) => {
+  const ring = [
+    [x, y],
+    [x + w, y],
+    [x + w, y + h],
+    [x, y + h],
+    [x, y]
+  ]
+  return hole ? ring.reverse() : ring
+}
+const inkOf = (rings) =>
+  rings.reduce((sum, ring) => {
+    let twice = 0
+    for (let i = 0; i + 1 < ring.length; i++)
+      twice += ring[i][0] * ring[i + 1][1] - ring[i + 1][0] * ring[i][1]
+    return sum + twice / 2
+  }, 0)
+
+it('blends a stroke that stands clear in one face and touches its neighbour in another', () => {
+  // Two bars side by side against one bar spanning both.
+  const apart = [[box(20, 100, 90, 40)], [box(130, 100, 100, 40)]]
+  const fused = [[box(20, 100, 210, 40)]]
+  const regions = joinIslands([apart, fused])
+  expect(regions).toHaveLength(1)
+  const blend = prepareCorrespondence(regions[0])
+  expect(blend).not.toBeNull()
+  // Each pole keeps its own ink, and halfway the gap has half closed.
+  expect(Math.abs(inkOf(blend([1, 0], 1)))).toBeCloseTo(190 * 40, -2)
+  expect(Math.abs(inkOf(blend([0, 1], 1)))).toBeCloseTo(210 * 40, -2)
+  expect(Math.abs(Math.abs(inkOf(blend([0.5, 0.5], 1))) - 200 * 40)).toBeLessThan(150)
+  expect(joinIslands([fused, apart])).toHaveLength(1)
+})
+
+it('opens a counter where a face stops its bar short of the frame', () => {
+  // A frame with a bar across it against the same frame with the bar ending early.
+  const closed = [[box(20, 20, 200, 200), box(40, 40, 160, 70, true), box(40, 130, 160, 70, true)]]
+  const gap = [
+    [20, 20],
+    [220, 20],
+    [220, 220],
+    [20, 220],
+    [20, 20]
+  ]
+  const open = [
+    [
+      gap,
+      [
+        [40, 40],
+        [40, 200],
+        [200, 200],
+        [200, 130],
+        [70, 130],
+        [70, 110],
+        [200, 110],
+        [200, 40],
+        [40, 40]
+      ]
+    ]
+  ]
+  const blend = prepareCorrespondence([closed, open])
+  expect(blend).not.toBeNull()
+  const halfway = blend([0.5, 0.5], 1)
+  expect(halfway).toHaveLength(2)
+  expect(Math.abs(inkOf(blend([1, 0], 1)))).toBeCloseTo(200 * 200 - 2 * 160 * 70, -2)
 })

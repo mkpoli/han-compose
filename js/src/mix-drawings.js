@@ -3,6 +3,7 @@ import { contours } from 'd3-contour'
 import {
   alignRings,
   groupRegions,
+  joinIslands,
   matchRegions,
   prepareCorrespondence,
   tangled,
@@ -130,6 +131,8 @@ function prepareInk(paths, strokes) {
   const regionsOf = (polygons) => {
     const matched = matchRegions(polygons, (p) => p[0])
     if (matched?.[0].length) return matched[0].map((_, i) => matched.map((p) => [p[i]]))
+    const joined = matched ? null : joinIslands(polygons)
+    if (joined) return joined
     const grouped = matched ? [] : groupRegions(polygons, (p) => p[0], 0.06 * side)
     return grouped.length ? grouped : [polygons]
   }
