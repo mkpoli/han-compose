@@ -1,8 +1,35 @@
 // @ts-nocheck
 import { joinedDrawing, mapped, partInk, placed } from './geometry.js'
 
+// Five fits inside the hook. Its usable counter differs across the five outlines.
+const guqinFiveBoxes = {
+  sans: [300, -13, 721, 227],
+  serif: [270, 3, 691, 243],
+  fangsong: [325, 10, 715, 216],
+  regular: [284, 2, 705, 242],
+  'pen-writing': [279, -2, 700, 238],
+}
+
+function guqinCells(style) {
+  // The Pen export's second master has lighter strokes.
+  const direction = style === 'pen-writing' ? -1 : 1
+  const leaf = (ch, box, amount) => [[ch, box, [direction * amount, direction * amount]]]
+  return [
+    leaf('大', [105, 434, 485, 808], 0.12),
+    leaf('七', [524, 656, 855, 840], 0.5),
+    leaf('六', [505, 421, 887, 633], 0.5),
+    leaf('勹', [102, -96, 881, 397], -0.30),
+    leaf('五', guqinFiveBoxes[style], 0.25),
+  ]
+}
+
 // Measured ink boxes in a 1000-unit em. Each row belongs to one leaf of the written IDS.
 const specimens = {
+  // Guqin
+  '〾⿱⿰大⿱七六⿵勹五': {
+    styles: ['sans', 'serif', 'fangsong', 'regular', 'pen-writing'],
+    cells: guqinCells,
+  },
   // 𤬑
   '⿱㼌瓜': {
     styles: ['fangsong', 'pen-writing'],
@@ -31,7 +58,8 @@ export const containsSpecimen = (key, style) => Object.entries(specimens).some((
 export function specimenFor(node, style, keyOf) {
   if (!Array.isArray(node) || !roots.has(node[0])) return null
   const spec = specimens[keyOf(node)]
-  return spec?.styles.includes(style) ? spec.cells : null
+  if (!spec?.styles.includes(style)) return null
+  return typeof spec.cells === 'function' ? spec.cells(style) : spec.cells
 }
 
 export function specimenParts(composer, node, region, keyOf) {
@@ -41,13 +69,13 @@ export function specimenParts(composer, node, region, keyOf) {
   const out = []
   for (const cell of cells) {
     const pieces = []
-    for (const [ch, box] of cell) {
+    for (const [ch, box, strokeWeight] of cell) {
       if (composer.excluded(ch)) return null
       const glyph = composer.glyph(ch)
       if (!glyph) return null
       const weight = ch === '瓜' && composer.fontStyle === 'pen-writing' && cell.length === 1 ? [0.54, 0] : [0, 0]
       pieces.push({ ...placed(glyph, glyph.box, mapped(box, [0, -120, 1000, 880], region),
-        partInk(glyph), `glyph ${ch}`, weight), fixed: true })
+        partInk(glyph), `glyph ${ch}`, strokeWeight ?? weight), fixed: true })
     }
     out.push(pieces.length === 1 ? pieces[0] : joinedDrawing(pieces, `components ${cell.map(([ch]) => ch).join('')}`))
   }
