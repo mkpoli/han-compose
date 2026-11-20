@@ -1603,6 +1603,11 @@ export class Composer {
       const glyph = this.glyph(h.h)
       if (!glyph) return makePart([], h.b.slice())
       piece = derived(glyph, h.k.map(k => glyph.contours[k]), h.b.slice())
+      // A stroke the piece holds whole stays addressable, its contours renumbered to the piece.
+      const strokes = (glyph.strokes ?? [])
+        .filter(([, contours]) => contours.every(contour => h.k.includes(contour)))
+        .map(([id, contours]) => [id, contours.map(contour => h.k.indexOf(contour))])
+      if (strokes.length) piece.strokes = strokes
       Object.defineProperty(h, '_piece', { value: piece, enumerable: false })
     }
     // A piece cut along KanjiVG's groups, which a drawing using it credits.
