@@ -270,11 +270,31 @@ export function dotIn(composer, band) {
   return placed(glyph, glyph.box, target, composer.ink('丶'), 'dot 丶')
 }
 
+// The standalone 门 in the Pen export has a central vertical in place of the dot.
+// 闭 supplies a dotted three-sided door around the entire height of its inner glyph.
+function penDoor(char) {
+  return {
+    glyphs: { 闭: '6ece69c3cf7b4e294ee0d127ef5624c40142b755ae9d54cbdf681bb3ab5bb776' },
+    apply(parts, composer, region) {
+      if (composer.fontStyle !== 'pen-writing' || ['门', '闭', char].some(ch => composer.excluded(ch))) return parts
+      const host = composer.glyph('闭'), inner = composer.glyph(char)
+      if (!host || !inner) return parts
+      const frame = derived(host, [0, 2, 3].map(i => host.contours[i]))
+      const outer = mapped(frame.box, composer.C.face, region)
+      const room = mapped(char === '斗' ? [229, 36, 773, 597] : [272, 53, 724, 568], composer.C.face, region)
+      return [{ ...placed(frame, frame.box, outer, composer.ink('闭'), '闭 门'), fixed: true },
+        { ...placed(inner, inner.box, fitted(inner.box, room, 1.10), composer.ink(char), `glyph ${char}`), fixed: true }]
+    },
+  }
+}
+
 /**
  * The corrections, by description. `glyphs` ties each to the outlines it was read against.
  * A correction that cannot find the parts it names leaves the drawing as it is.
  */
 export const COMPONENT_FIXES = {
+  '⿵门斗': penDoor('斗'),
+  '⿵门T': penDoor('T'),
   // 𠷃 (BabelStone: ⿰口⿳穴𠆢又) has a broad, shallow 又. Its component's
   // proportions also occur in 𥔉. Keep both inner parts within 穴's outer span.
 
