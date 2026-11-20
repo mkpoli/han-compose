@@ -1875,10 +1875,12 @@ export class Composer {
     capBox[0] += capWidth * 0.13
     capBox[2] -= capWidth * 0.055
     if (this.fontStyle === 'regular' || this.fontStyle === 'serif') capBox[1] += 0.036 * (face[3] - face[1])
+    // 玉 reaches toward the middle of 夌 as in 𭐨 (⿺夌主). Sans has a wider right branch on 夌.
+    const jadeBox = this.fontStyle === 'sans' ? [0.525, 0.20, 0.96, 0.72] : [0.50, 0.18, 0.955, 0.72]
     return [
       placed(cap, cap.box, capBox, this.ink('菱'), 'grass from 菱'),
       placed(body, body.box, mapped(body.box, donor.box, face), this.ink('夌'), 'enclosing 夌 from 菱'),
-      placed(jade, tightBox(jade), mapped([0.57, 0.215, 0.98, 0.72], [0, 0, 1, 1], face), this.ink('玉'), 'glyph 玉'),
+      placed(jade, tightBox(jade), mapped(jadeBox, [0, 0, 1, 1], face), this.ink('玉'), 'glyph 玉'),
     ]
   }
 

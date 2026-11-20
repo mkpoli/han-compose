@@ -411,7 +411,8 @@ it('seats 玉 beside the 夌 of 菱 in the Misato shrine character', async () =>
     const { parts } = await compose(src, sequence, { layout, separate: true, fontStyle: 'fangsong' })
     expect(parts.map(p => p.origin)).toEqual(['grass from 菱', 'enclosing 夌 from 菱', 'glyph 玉'])
     const [, body, jade] = parts
-    expect(jade.box[2]).toBeGreaterThan(body.box[2] * 0.36)
+    expect(jade.box[2]).toBeGreaterThan(body.box[2] * 0.43)
+    expect(jade.box[0] - body.box[0]).toBeLessThan(body.box[2] * 0.53)
     expect(right(body)).toBeGreaterThan(right(jade))
   }
   const fallback = await compose(src, sequence, { exclude: ['菱'], fontStyle: 'fangsong' })
