@@ -138,8 +138,8 @@ def main():
                 # Keep the native 倘 body, including the centre upright and 亻.
                 host = face.contours("倘")
                 donor = face.contours("倞")
-                dots_at_top = (fit([donor[1]], (402, 491, 533, 653))
-                               + fit([donor[3]], (674, 495, 865, 680)))
+                dots_at_top = (fit([donor[1]], (402, 499, 533, 661))
+                               + fit([donor[3]], (674, 503, 865, 688)))
                 ids[style] = {"⿰亻⿱&GW-u21b54-03;冋": encode(host[:4] + dots_at_top)}
                 donor = face.contours("叭")
                 half = face.contours("半")
