@@ -3,14 +3,12 @@ import { joinedDrawing, mapped, partInk, placed } from './geometry.js'
 
 // Measured ink boxes in a 1000-unit em. Each row belongs to one leaf of the written IDS.
 const specimens = {
-  // JYN00010
-  '⿰扌⿸厃⿱儿𢀛': {
-    styles: ['sans', 'serif', 'fangsong', 'regular', 'pen-writing'],
+  // 𤬑
+  '⿱㼌瓜': {
+    styles: ['fangsong', 'pen-writing'],
     cells: [
-      [['扌', [43, -44, 382, 820]]],
-      [['⺈', [392, 530, 708, 833]], ['厂', [369, -70, 949, 612]]],
-      [['儿', [516, 361, 898, 579]]],
-      [['工', [519, 151, 909, 342]], ['口', [520, -64, 909, 129]]],
+      [['瓜', [46, 401, 472, 829]], ['瓜', [520, 401, 946, 829]]],
+      [['瓜', [118, -72, 889, 361]]],
     ],
   },
   // JYN00003
@@ -24,6 +22,16 @@ const specimens = {
       [['一', [389, 314, 644, 367]]],
       [['𠃌', [235, -88, 854, 291]]],
       [['灬', [141, 18, 673, 157]]],
+    ],
+  },
+  // JYN00010
+  '⿰扌⿸厃⿱儿𢀛': {
+    styles: ['sans', 'serif', 'fangsong', 'regular', 'pen-writing'],
+    cells: [
+      [['扌', [43, -44, 382, 820]]],
+      [['⺈', [392, 530, 708, 833]], ['厂', [369, -70, 949, 612]]],
+      [['儿', [516, 361, 898, 579]]],
+      [['工', [519, 151, 909, 342]], ['口', [520, -64, 909, 129]]],
     ],
   },
 }
@@ -47,8 +55,9 @@ export function specimenParts(composer, node, region, keyOf) {
       if (composer.excluded(ch)) return null
       const glyph = composer.glyph(ch)
       if (!glyph) return null
+      const weight = ch === '瓜' && composer.fontStyle === 'pen-writing' && cell.length === 1 ? [0.54, 0] : [0, 0]
       pieces.push({ ...placed(glyph, glyph.box, mapped(box, [0, -120, 1000, 880], region),
-        partInk(glyph), `glyph ${ch}`), fixed: true })
+        partInk(glyph), `glyph ${ch}`, weight), fixed: true })
     }
     out.push(pieces.length === 1 ? pieces[0] : joinedDrawing(pieces, `components ${cell.map(([ch]) => ch).join('')}`))
   }
