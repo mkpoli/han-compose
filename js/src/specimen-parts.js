@@ -24,6 +24,16 @@ const specimens = {
       [['灬', [141, 18, 673, 157]]],
     ],
   },
+  // JYN00010
+  '⿰扌⿸厃⿱儿𢀛': {
+    styles: ['sans', 'serif', 'fangsong', 'regular', 'pen-writing'],
+    cells: [
+      [['扌', [43, -44, 382, 820]]],
+      [['⺈', [392, 530, 708, 833]], ['厂', [369, -70, 949, 612]]],
+      [['儿', [516, 361, 898, 579]]],
+      [['工', [519, 151, 909, 342]], ['口', [520, -64, 909, 129]]],
+    ],
+  },
 }
 const roots = new Set(Object.keys(specimens).map(key => [...key][0]))
 export const containsSpecimen = (key, style) => Object.entries(specimens).some(([seq, plan]) => plan.styles.includes(style) && key.includes(seq))
