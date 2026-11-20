@@ -275,6 +275,22 @@ export function dotIn(composer, band) {
  * A correction that cannot find the parts it names leaves the drawing as it is.
  */
 export const COMPONENT_FIXES = {
+  '⿰未⿱成公': {
+    glyphs: { '未': '86de49086c3f6a0d4443132473553216c9228682c8a129c9f76ae916b99cb427' },
+    apply(parts, composer) {
+      if (composer.fontStyle !== 'pen-writing' || composer.excluded('未') || parts.length !== 3 || parts[0].origin !== 'host 㲠') return parts
+      // 㲠 supplies a squat upper-left 未. Its broad bars grow heavy when stretched to a full column.
+      const [wei, cheng, gong] = parts
+      const glyph = composer.glyph('未')
+      // Keep the host cut in the group's weight calculation so 成 and 公 retain their original ink.
+      const finishOutline = part => {
+        const [left, bottom, right, top] = part.target
+        const inset = 0.06 * (top - bottom)
+        return placed(glyph, glyph.box, [left, bottom + inset, right, top - inset], composer.ink('未'), 'glyph 未', [-0.7, -0.25])
+      }
+      return [{ ...wei, finishOutline }, cheng, gong]
+    },
+  },
   // 𠷃 (BabelStone: ⿰口⿳穴𠆢又) has a broad, shallow 又. Its component's
   // proportions also occur in 𥔉. Keep both inner parts within 穴's outer span.
 

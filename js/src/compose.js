@@ -1222,6 +1222,7 @@ export class Composer {
         const w = (sx1 - sx0) * scale, h = (sy1 - sy0) * scale
         part.target = [cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2]
       }
+      for (const part of out) if (part.finishOutline) Object.assign(part, part.finishOutline(part))
       fitClawInterior(out, tree, this.fontStyle)
       // Loose marks annotate the whole drawing; they take no part in its layout or weight.
       if (marks) out.push(...markParts(this, marks, frame, face))
