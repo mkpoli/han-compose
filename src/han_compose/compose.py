@@ -618,6 +618,15 @@ def japanese_sequences() -> dict[str, str]:
     return out
 
 
+def drawn_sequences(style: str) -> dict[str, str]:
+    """The descriptions used to index and draw the glyphs in this style."""
+    sequences = japanese_sequences()
+    if style == "fangsong":
+        # Zhuque draws both with 柬. Indexing the Japanese forms lets 練 donate 柬 to ⿰山東.
+        sequences.update({"練": "⿰糹柬", "煉": "⿰火柬"})
+    return sequences
+
+
 #: BabelStone's tag for another analysis of the same shape, not a glyph of its own (主 as ⿱亠土).
 ANALYSIS = "X"
 
