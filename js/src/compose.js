@@ -37,6 +37,7 @@ import { customAt, splitToneMarks, toneMarksAt } from './tree.js'
 import { hexOf } from './sha256.js'
 import componentConstants from './constants.json' with { type: 'json' }
 import numberedFiveContext from '../data/numbered-five-context.json' with { type: 'json' }
+import fangsongZero from './fangsong-zero.json' with { type: 'json' }
 import wheatFaceCuts from '../data/wheat-face-cuts.json' with { type: 'json' }
 import alternateNe from './genzui-alternate-ne.json' with { type: 'json' }
 import pyramidCatalog from './pyramid-glyphs.json' with { type: 'json' }
@@ -949,6 +950,9 @@ export class Composer {
 
   glyphRecord(ch) {
     const record = this.rec(ch), glyph = record?.G
+    // Exports that selected Unicode letters omit U+3007 (Letter Number). Use Zhuque's own 〇
+    // when the source has no native record, including sources with a bundled fallback.
+    if (ch === '〇' && this.fontStyle === 'fangsong' && !glyph?.v) return fangsongZero
     // A Fangsong drawing takes no outline another face drew: a record its own font lacks (v 0)
     // stays missing rather than standing in as a Mincho.
     if (glyph && this.fontStyle === 'fangsong' && glyph.v === 0) return null
