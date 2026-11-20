@@ -402,10 +402,22 @@ function alignTo(rings) {
   }
 }
 
-/** Whether any of the closed outlines crosses itself or another of them.
- * @param {number[][][]} rings without the repeated closing point */
+/** Whether a frame and its counters no longer make one island: a ring crosses itself
+ * or another, or a counter has left the frame.
+ * @param {number[][][]} rings the frame first, without the repeated closing point */
 export function tangled(rings) {
   if (rings.some(crosses)) return true
+  const [frame, ...counters] = rings
+  const within = (/** @type {number[]} */ [x, y]) => {
+    let inside = false
+    for (let i = 0, j = frame.length - 1; i < frame.length; j = i++) {
+      const a = frame[i],
+        b = frame[j]
+      if (a[1] > y !== b[1] > y && x < a[0] + ((y - a[1]) * (b[0] - a[0])) / (b[1] - a[1])) inside = !inside
+    }
+    return inside
+  }
+  if (counters.some((ring) => !within(ring[0]))) return true
   const side = (/** @type {number[]} */ a, /** @type {number[]} */ b, /** @type {number[]} */ c) =>
     (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0])
   const boxes = rings.map(ringBox)

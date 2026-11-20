@@ -378,6 +378,7 @@ it('tells a counter that leaves its frame from one that stays inside', () => {
   ]
   expect(tangled([square(0, 0, 100), square(20, 20, 30), square(60, 60, 30)])).toBe(false)
   expect(tangled([square(0, 0, 100), square(80, 20, 30)])).toBe(true)
+  expect(tangled([square(0, 0, 100), square(120, 20, 30)])).toBe(true)
   expect(tangled([square(0, 0, 100), square(20, 20, 30), square(40, 40, 30)])).toBe(true)
   expect(
     tangled([
