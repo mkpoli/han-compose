@@ -16,6 +16,8 @@ import clawFrames from './fixtures/claw-frames.json' with { type: 'json' }
 import rulerFrames from './fixtures/ruler-frames.json' with { type: 'json' }
 // 毡 from Noto Sans CJK JP, SIL OFL 1.1.
 import maoDonor from './fixtures/sans-fur-frame.json' with { type: 'json' }
+// 尪 from Noto Sans CJK JP, SIL OFL 1.1.
+import wangDonor from './fixtures/sans-limp-frame.json' with { type: 'json' }
 import parts from './fixtures/sans-lower-left.json' with { type: 'json' }
 
 // 几 and 力 as the Sans export draws them (Noto Sans CJK, SIL OFL 1.1); 口 is the small export's
@@ -381,4 +383,21 @@ it('keeps 𣬰 as a whole and uses the 毡 enclosure when its operands are separ
   }
   const excluded = await compose(src, description, { layout: 'composed', separate: true, exclude: ['毡'] })
   expect(excluded.parts.some(p => p.origin === 'host 毡')).toBe(false)
+})
+
+it('keeps 𡯙 as a whole and uses the 尪 enclosure when its operands are separate', async () => {
+  const description = '⿺尢日'
+  const src = source({
+    尢: records.木, 日: records.口, 尪: { G: wangDonor, ink: 5000 },
+    𡯙: { ...records.木, s: description }, [description]: { e: '𡯙' },
+  })
+  const native = await compose(src, description, { layout: 'composed' })
+  expect(native.parts.map(p => p.origin)).toEqual(['glyph 𡯙'])
+  for (const layout of ['composed', 'cells']) {
+    const { parts } = await compose(src, description, { layout, separate: true })
+    expect(parts.map(p => p.origin)).toEqual(['host 尪', 'glyph 日'])
+    expect(parts[1].box[3]).toBeGreaterThan(parts[0].box[3] * 0.55)
+  }
+  const excluded = await compose(src, description, { layout: 'composed', separate: true, exclude: ['尪'] })
+  expect(excluded.parts.some(p => p.origin === 'host 尪')).toBe(false)
 })

@@ -640,6 +640,13 @@ function fitClawInterior(parts, tree, style, cells = false) {
 
 // Donors used only when composing a rectangular inner component.
 const counterFrames = {
+  尢: ['尪', {
+    '52ea982bd0d5af6dc35324128a9d68778f0380d786a1f02500d18cca4b8c6d04': [0, 1, 2],
+    'aa1fcf6bf446d3b614c7f29db800b6f2bcee6db92c1d6a3f53ccf991d3902d9f': [0, 1, 2],
+    'd520d20950ff8a48f0ea4605377e0a2e2f67e90a38c9da88cc8b3aaac12f59ca': [0, 1],
+    '66bd13aca8916e5f0259c53f48699bb6481523b37a67e4637c6cc7bfce7025f5': [1, 2],
+    '21c7bc095ac428e708818e2fbef4a48b13f2dcb696789b6ca1fb2d615e6bf701': [1, 2],
+  }],
   毛: ['毡', {
     'b1ad78cadf7a8abb7d4d9d5a572f5b5bfe8aaf74772d1e3d1d9ea5014691ec32': [2, 3, 4, 5],
     'b214682a621146b45711a4998af13dabc6b85c2db21773e1520b12920f6b0a27': [5, 6, 7, 8],
@@ -668,6 +675,12 @@ function counterBox(outer, inner, nested, style) {
       // A narrow column brings the bottom of 日 close to 毛's upturned tip.
       return nested ? [0.535, 0.29, 0.915, 0.965] : [0.51, 0.21, 0.94, 0.93]
     }
+  }
+  if (outer === '尢') {
+    const left = brush ? 0.55 : 0.575
+    if (inner === '口') return [left, 0.28, 0.955, 0.82]
+    if (inner === '罒') return [left, 0.31, 0.965, 0.76]
+    if (inner === '日' || inner === '呂') return [left + (nested ? 0.025 : 0), nested ? 0.31 : 0.25, 0.95, 0.94]
   }
   if (outer === '尺') {
     // The lower left corner of the counter follows the diagonal in 咫.
@@ -1715,6 +1728,12 @@ export class Composer {
       })), frame.source)
     }
     const target = mapped(box, [0, 0, 1, 1], frame.target)
+    if (outer === '尢' && node[2] !== inner) {
+      // A reflected corner can meet the upturned tip of the brush hook.
+      const inset = this.fontStyle === 'regular' ? (nested ? 0.06 : 0.03)
+        : this.fontStyle === 'fangsong' ? (nested ? 0.04 : 0.02) : 0
+      target[2] -= inset * (frame.target[2] - frame.target[0])
+    }
     if (outer === '米' && inner === '罒') {
       // Slide the net past the crossbar. When space runs short, scale 米
       // uniformly about the net's midline and preserve the net's height.
