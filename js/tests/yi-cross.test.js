@@ -37,6 +37,7 @@ for (const [fontStyle, donor] of Object.entries(mouthDonors)) {
     const reference = mask((await compose(src, '哉', { fontStyle })).d)
     for (const layout of ['composed', 'cells']) {
       const drawing = await compose(src, id, { fontStyle, layout, separate: true })
+      expect(drawing.approximate).not.toContain('⿽')
       expect(drawing.parts.map(p => p.origin)).toEqual(['弋 from 哉', '十 from 哉', '口 from 哉'])
       const ink = mask(drawing.d)
       const mouth = mask(drawing.parts[2].d)
