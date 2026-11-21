@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs'
 import { gunzipSync, gzipSync } from 'node:zlib'
 import { compose } from '../src/loader.js'
 import { sourceFor, traitsOf } from '../src/source.js'
-import { HOST_OUTLINES, hasEntity, hostSource } from '../src/host.js'
+import { HOST_OUTLINES, hasEntity, hostSource, hostVariantSource } from '../src/host.js'
 import { CUSTOM_FORMS } from '../src/custom-forms.js'
 
 const palette = JSON.parse(gunzipSync(readFileSync(new URL('../data/sources/palette/outlines.json.gz', import.meta.url))))
@@ -74,4 +74,25 @@ describe('outlines a host supplies', () => {
     await source.ready()
     expect(source.store().rec(NAME)).toBeNull()
   })
+})
+
+it('draws an explicitly requested reference for a registered form the export lacks', async () => {
+  const sequence = '壬\u{E0100}'
+  const records = { [NAME]: { ...borrowed, k: NAME, G: { ...borrowed.G, v: 0 } } }
+  const loaders = { [HOST_OUTLINES]: 'http://host/ucv' }
+  const source = sourceFor(sequence, { bundled: true, fontStyle: 'fangsong', loaders,
+    read: async () => new Response(gzipSync(JSON.stringify({ records, aliases: { [sequence]: NAME } }))) })
+  expect((await compose(source, sequence, { fontStyle: 'fangsong' })).parts[0].d).toBeTruthy()
+})
+
+it('prefers a native Fangsong selector and uses its alias for a foreign export record', async () => {
+  const sequence = '壬\u{E0100}'
+  const records = { [NAME]: { ...borrowed, k: NAME } }
+  for (const v of [0, 1]) {
+    const remote = { k: sequence, G: { ...borrowed.G, v } }
+    const fallback = { ready: async () => {}, store: () => ({ rec: () => remote }) }
+    const source = hostVariantSource({ load: async () => ({ aliases: { [sequence]: NAME }, records }), fallback, style: 'fangsong' })
+    await source.ready()
+    expect(source.store().rec(sequence)).toBe(v ? remote : records[NAME])
+  }
 })

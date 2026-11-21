@@ -19,3 +19,22 @@ export const hostSource = ({ load, fallback = null }) => bundledSource({
   matches: (/** @type {string} */ key) => hasEntity(key),
   fallback,
 })
+
+/** Registered glyphs supplied by a host for faces whose export lacks a sequence.
+ * @param {{ load: () => Promise<any>, fallback?: any, style?: string }} options */
+export const hostVariantSource = ({ load, fallback = null, style = 'sans' }) => bundledSource({
+  load: async () => {
+    const data = await load()
+    const records = Object.fromEntries(Object.entries(data?.aliases ?? {}).flatMap(([sequence, reference]) => {
+      const record = data.records?.[String(reference)]
+      return record?.G ? [[sequence, record]] : []
+    }))
+    return { records }
+  },
+  matches: (/** @type {string} */ key) => hasIdeographicSelector(key),
+  under: true, fallback,
+  drawable: (/** @type {any} */ record) => Boolean(record?.G && (style !== 'fangsong' || record.G.v !== 0)),
+})
+
+/** @param {string} text */
+export const hasIdeographicSelector = text => /[\p{Unified_Ideograph}][\uFE00-\uFE0F\u{E0100}-\u{E01EF}]/u.test(text)

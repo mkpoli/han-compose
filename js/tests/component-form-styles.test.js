@@ -388,3 +388,75 @@ it('renders registered grass selectors while keeping the source token intact', (
   expect(composer.parse('草\u{E0102}')).toBe('草\u{E0102}')
   expect(composer.parse('艹\u{E0106}')).toBe('艹\u{E0106}')
 })
+
+it('draws each registered half or flesh-top form as one leaf in every face', () => {
+  for (const fontStyle of ['sans', 'serif', 'fangsong', 'regular', 'pen-writing']) {
+    for (const char of ['半', '肖']) {
+      const paths = [0, 1, 2, 3].map(i => componentDrawing(char + String.fromCodePoint(0xE0100 + i), fontStyle).d)
+      expect(paths[0]).not.toEqual(paths[1])
+      expect(paths.slice(0, 2)).toEqual(paths.slice(2))
+    }
+    for (const separate of [false, true]) {
+      const composer = new Composer({ manifest: { constants, spelled: [] }, layout: null,
+        rec: () => null, hosts: () => [], places: () => [] }, { fontStyle, separate })
+      const sequence = '⿰半\u{E0101}肖\u{E0100}'
+      const tree = composer.parse(sequence)
+      expect(composer.cellLayout(tree).map(part => part.leaf)).toEqual([0, 1])
+      expect(composer.sketched(sequence)).toHaveLength(2)
+      expect(composer.node(tree, composer.face)).toHaveLength(2)
+    }
+  }
+})
+
+it('uses the Fangsong 八 donor in composed and cell layouts while preserving the explicit reference', () => {
+  const source = { manifest: { constants, spelled: [] }, layout: null,
+    rec: () => null, hosts: () => [], places: () => [] }
+  for (const separate of [false, true]) {
+    const composer = new Composer(source, { fontStyle: 'fangsong', separate })
+    const tree = composer.parse('⿰八肖\u{E0101}')
+    expect(composer.node(tree, composer.face).map(part => part.origin))
+      .toEqual(['Zhuque Fangsong: 八', 'Zhuque Fangsong: 肖\u{E0101}'])
+    expect(composer.cellLayout(tree).map(part => part.leaf)).toEqual([0, 1])
+  }
+  expect(isComponentForm('&GW-u516b-03;', 'fangsong')).toBe(false)
+})
+
+it('fits the saved outward 倘 IDS to the Zhuque whole glyph in composed layout', async () => {
+  const ids = '⿰亻⿱&GW-u21b54-03;冋'
+  const src = createSource(async name => files[name] === undefined ? null : new Uint8Array(Buffer.from(files[name])).buffer)
+  const fit = componentDrawing(ids, 'fangsong')
+  expect(fit.d.length).toBeGreaterThan(100)
+  expect(isComponentForm(ids, 'serif')).toBe(false)
+  expect(isComponentForm('⿰亻⿱&GW-u2e8c-03;冋', 'fangsong')).toBe(false)
+  const result = await compose(src, ids, { fontStyle: 'fangsong' })
+  expect(result.origins).toEqual(['Zhuque Fangsong: ' + ids])
+})
+
+it('draws the cut Fangsong dot components as leaves inside an IDS', async () => {
+  const makeSource = () => createSource(async name => files[name] === undefined ? null : new Uint8Array(Buffer.from(files[name])).buffer)
+  const shapes = ['丷', '𡭔', '⺌', '𭕄']
+  const paths = shapes.map(ch => componentDrawing(ch, 'fangsong').d)
+  expect(new Set(paths).size).toBe(shapes.length)
+  expect(componentDrawing('⺍', 'fangsong').d).toBe(paths[3])
+  for (const ch of shapes) {
+    const drawn = await compose(makeSource(), '⿰八' + ch, { fontStyle: 'fangsong', layout: 'cells' })
+    expect(drawn.parts.map(part => part.leaf)).toEqual([0, 1])
+    expect(drawn.origins).toContain('Zhuque Fangsong: ' + ch)
+  }
+})
+
+it('keeps the Zhuque roof or bar in alternate heads of 学, 覚 and 兴', async () => {
+  const source = createSource(async name => files[name] === undefined ? null : new Uint8Array(Buffer.from(files[name])).buffer)
+  for (const template of ['⿱⿱@冖子', '⿱⿱@冖見', '⿳@一八']) {
+    const paths = []
+    for (const shape of ['小', '𡭔', '⺌', '𭕄']) {
+      const ids = template.replace('@', shape)
+      const result = await compose(source, ids, { fontStyle: 'fangsong' })
+      expect(result.origins).toEqual(['Zhuque Fangsong: ' + ids])
+      paths.push(result.d)
+    }
+    expect(new Set(paths).size).toBe(4)
+    expect(componentDrawing(template.replace('@', '⺍'), 'fangsong').d).toBe(paths[3])
+  }
+  expect(componentDrawing('尙', 'fangsong').d).toBe(componentDrawing('⿱𡭔冋', 'fangsong').d)
+})
