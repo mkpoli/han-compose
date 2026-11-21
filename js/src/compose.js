@@ -1,4 +1,5 @@
 // @ts-nocheck: a port of han-compose's Python, kept line for line; its types are the arrays it reads.
+import fangsongComponents from './fangsong-components.json' with { type: 'json' }
 import { grassShape } from './variants.js'
 // A port of han-compose's composer (`compose.py`, `Composer.compose`) over its web export: a sequence
 // drawn from parts other characters' designers drew. The export carries what the composer reads
@@ -951,7 +952,11 @@ export class Composer {
     const record = this.rec(ch), glyph = record?.G
     // A Fangsong drawing takes no outline another face drew: a record its own font lacks (v 0)
     // stays missing rather than standing in as a Mincho.
-    if (glyph && this.fontStyle === 'fangsong' && glyph.v === 0) return null
+    if (this.fontStyle === 'fangsong' && (!glyph || glyph.v === 0)) {
+      const cut = Object.hasOwn(fangsongComponents, ch) && fangsongComponents[ch]
+      if (cut && !this.excluded(ch) && !this.excluded(cut.host)) return cut.glyph
+      if (glyph) return null
+    }
     if (glyph && record.sg && !glyph.sg) glyph.sg = record.sg
     // The offline Unicode shard carries the connected radical at U+2EBE.
     return glyph ?? (ch === '艹' && !this.excluded('⺾') ? this.glyphRecord('⺾') : null)
