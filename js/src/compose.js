@@ -31,6 +31,7 @@ import { pyramidRows, pyramidOnBase } from './pyramid-rows.js'
 import { hangulClusterAt, jamoClass } from './hangul.js'
 import { hangulLetters } from './hangul-ids.js'
 import { toConjoiningJamo } from './hangul.js'
+import { referenceLayout, referenceBoxes } from './reference-layout.js'
 import { componentFix } from './component-fixes.js'
 import { isOutbound, markFace, markParts } from './marks.js'
 import { customAt, splitToneMarks, toneMarksAt } from './tree.js'
@@ -742,6 +743,12 @@ export const designedSources = (tree, style = 'sans') => {
   const visit = node => {
     if (!Array.isArray(node)) return
     const [op, ...children] = node
+    const entry = referenceLayout(node, style)
+    if (entry) {
+      if (entry.encoded) out.add(entry.encoded)
+      for (const [char] of entry.cells) out.add(char)
+      for (const donor of Object.values(entry.donors ?? {})) out.add(donor.char)
+    }
     if (muKoForms[style] && isMuKo(node)) {
       out.add('む')
       if (style !== 'serif') out.add('子')
@@ -1464,7 +1471,7 @@ export class Composer {
         return
       }
       const repeated = isGroupedForm(keyOf(node), this.fontStyle) ? componentParts(keyOf(node), region, this.fontStyle, atRoot) : null
-      const designed = repeated ?? this.muKoParts(node, region) ?? this.wheatFaceParts(node, region)
+      const designed = repeated ?? this.referenceParts(node, region) ?? this.muKoParts(node, region) ?? this.wheatFaceParts(node, region)
       if (designed) {
         for (const part of designed) out.push({ index: out.length, box: part.target, empty: false })
         return
@@ -1810,6 +1817,47 @@ export class Composer {
     return parts.length ? parts : null
   }
 
+  /** Native brush drawings at the operand bounds recorded for a particular character. */
+  referenceParts(node, region) {
+    const entry = referenceLayout(node, this.fontStyle)
+    if (!entry || (entry.encoded && this.own(entry.encoded)) || node.slice(1).some(child => typeof child === 'string' && this.excluded(child))) return null
+    const { cells, donors } = entry
+    const cuts = donors && cells.map(([source]) => {
+      const donor = donors[source]
+      if (!donor || this.excluded(donor.char)) return null
+      const record = this.glyphRecord(donor.char)
+      if (record?.v !== 1 || hexOf(JSON.stringify(record.p)) !== donor.digest) return null
+      const parent = partOf(record)
+      return {
+        glyph: derived(parent, donor.indices.map(k => parent.contours[k])),
+        box: mapped(donor.box, EM_BOX, region),
+        origin: `${source} from ${donor.char}`,
+      }
+    })
+    // The two contextual cuts share a placement. Standalone forms have their own pair of boxes.
+    const useCuts = cuts?.every(Boolean)
+    const boxes = referenceBoxes(cells, region)
+    const parts = []
+    for (const [i, [source, , weight]] of cells.entries()) {
+      if (this.excluded(source)) return null
+      const cut = useCuts ? cuts[i] : null
+      let glyph = cut?.glyph ?? this.glyph(source), origin = cut?.origin ?? `glyph ${source}`
+      if (!glyph && source === '𭕄') {
+        const [host, digest, indices] = this.fontStyle === 'fangsong'
+          ? ['脳', 'f937dce6dd7e1605c22ec245ba082ea03c4aa15bf225553056332c8f0fb934e5', [3, 4, 5]] : ['巣', '6f947f2ce7bf188981c71dbe42c21792117c0d979527cf84c4af737e36243386', [5, 6, 7]]
+        const record = !this.excluded(host) && this.glyphRecord(host)
+        if (record && hexOf(JSON.stringify(record.p)) === digest) {
+          const native = partOf(record)
+          glyph = derived(native, indices.map(i => native.contours[i]))
+          origin = `host ${host}`
+        }
+      }
+      if (!glyph) return null
+      parts.push({ ...placed(glyph, glyph.box, cut?.box ?? boxes[i], partInk(glyph), origin, weight), fixed: true })
+    }
+    return parts
+  }
+
   /** Fit the two editable operands in the opening of the face's own む. */
   muKoParts(node, region) {
     if (!isMuKo(node) || this.excluded('む') || this.excluded('子')) return null
@@ -1831,6 +1879,8 @@ export class Composer {
   }
 
   drawNode(node, region, atRoot = false, sideBySide = false) {
+    const reference = this.referenceParts(node, region)
+    if (reference) return reference
     const kana = this.muKoParts(node, region)
     if (kana) return kana
     // Use an encoded glyph first when the donor is specific to a rectangular counter.
