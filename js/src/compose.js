@@ -1810,6 +1810,28 @@ export class Composer {
     return parts.length ? parts : null
   }
 
+  /** Keep each copy of a repeated glyph at the same size across both rows. */
+  penGrid(node, region, atRoot) {
+    if (this.fontStyle !== 'pen-writing' || !Array.isArray(node) || node[0] !== '⿱') return null
+    const [upper, lower] = node.slice(1)
+    const expand = row => row === '𡥦' && !this.excluded(row) ? ['⿲', '子', '子', '子'] : row
+    const row = expand(upper)
+    if (!Array.isArray(row) || keyOf(row) !== keyOf(expand(lower))) return null
+    const child = row[1]
+    const pair = row[0] === '⿰' && ['林', '竹', '幺'].includes(child)
+    const triple = row[0] === '⿲' && child === '子'
+    if (!(pair || triple) || !row.slice(1).every(part => part === child) ||
+        this.excluded(child) || !this.glyph(child)) return null
+    const parts = this.cellLayout(['⿱', row, row], region, { leafIndices: false })
+    if (atRoot && this.separate) {
+      const width = row.length - 1, firstLeaves = upper === '𡥦' ? 1 : width
+      parts.forEach((part, i) => {
+        part.leaf = i < width ? (upper === '𡥦' ? 0 : i) : firstLeaves + (lower === '𡥦' ? 0 : i - width)
+      })
+    }
+    return parts
+  }
+
   /** Fit the two editable operands in the opening of the face's own む. */
   muKoParts(node, region) {
     if (!isMuKo(node) || this.excluded('む') || this.excluded('子')) return null
@@ -1831,6 +1853,8 @@ export class Composer {
   }
 
   drawNode(node, region, atRoot = false, sideBySide = false) {
+    const grid = this.penGrid(node, region, atRoot)
+    if (grid) return grid
     const kana = this.muKoParts(node, region)
     if (kana) return kana
     // Use an encoded glyph first when the donor is specific to a rectangular counter.
