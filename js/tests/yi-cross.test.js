@@ -17,6 +17,7 @@ for (const [fontStyle, donor] of Object.entries(donors)) {
     const reference = mask((await compose(src, '𢦏', { fontStyle })).d)
     for (const layout of ['composed', 'cells']) {
       const result = await compose(src, sequence, { layout, fontStyle, separate: true })
+      expect(result.approximate).not.toContain('⿽')
       expect(result.parts.map(p => p.origin)).toEqual(['弋 from 𢦏', '十 from 𢦏'])
       const ink = mask(result.d)
       expect(ink.slice(0, 100 * 256)).toEqual(reference.slice(0, 100 * 256))

@@ -75,6 +75,7 @@ export function yiCrossParts(composer, node, region) {
     composer.balance([whole])
     composer.stroke = stroke
   }
+  composer.nativeEnclosures.add('⿽弋十')
   return groups.map((group, index) => {
     const part = derived(donor, group)
     const target = mapped(part.box, donor.box, whole.target)
