@@ -1463,7 +1463,7 @@ export class Composer {
         walk(stacked.base, base, false)
         return
       }
-      const repeated = isGroupedForm(keyOf(node), this.fontStyle) ? componentParts(keyOf(node), region, this.fontStyle, atRoot) : null
+      const repeated = isGroupedForm(keyOf(node), this.fontStyle) ? componentParts(keyOf(node), region, this.fontStyle, atRoot, this.exclude) : null
       const designed = repeated ?? this.muKoParts(node, region) ?? this.wheatFaceParts(node, region)
       if (designed) {
         for (const part of designed) out.push({ index: out.length, box: part.target, empty: false })
@@ -1874,7 +1874,7 @@ export class Composer {
       if (variant) return variant
     }
     const repeated = (!nativeSource || !this.excluded(nativeSource)) && (!this.separate || isGroupedForm(key, this.fontStyle)) && !ivdRecord
-      ? componentParts(key, region, this.fontStyle, atRoot) : null
+      ? componentParts(key, region, this.fontStyle, atRoot, this.exclude) : null
     if (repeated) return repeated
     const hasRepetition = containsComponentForm(keyOf(node), this.fontStyle)
     const C = this.C
