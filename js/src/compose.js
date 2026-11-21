@@ -1,4 +1,5 @@
 // @ts-nocheck: a port of han-compose's Python, kept line for line; its types are the arrays it reads.
+import gowunBatang from './gowun-batang.json' with { type: 'json' }
 import { grassShape } from './variants.js'
 // A port of han-compose's composer (`compose.py`, `Composer.compose`) over its web export: a sequence
 // drawn from parts other characters' designers drew. The export carries what the composer reads
@@ -1810,6 +1811,21 @@ export class Composer {
     return parts.length ? parts : null
   }
 
+  koreanPair(node, region) {
+    if (node[0] !== '⿴' || node[1] !== '口' || node[2] !== '도' ||
+        !['fangsong', 'regular', 'pen-writing'].includes(this.fontStyle) ||
+        this.excluded('口') || this.excluded('도')) return null
+    const mouth = this.glyph('口')
+    if (!mouth) return null
+    const frame = this.place(mouth, region, this.ink('口'), 'glyph 口')
+    const opening = this.room('⿴', [frame], region)
+    if (!opening) return null
+    const syllable = partOf(gowunBatang[this.fontStyle === 'fangsong' ? '도' : '도-bold'])
+    const [l, b, r, t] = opening, dx = (r - l) * 0.07, dy = (t - b) * 0.07
+    const inside = fitted(syllable.box, [l + dx, b + dy, r - dx, t - dy], 1)
+    return [frame, { ...placed(syllable, syllable.box, inside, partInk(syllable), 'Gowun Batang 도'), fixed: true }]
+  }
+
   /** Fit the two editable operands in the opening of the face's own む. */
   muKoParts(node, region) {
     if (!isMuKo(node) || this.excluded('む') || this.excluded('子')) return null
@@ -1831,6 +1847,10 @@ export class Composer {
   }
 
   drawNode(node, region, atRoot = false, sideBySide = false) {
+    if (Array.isArray(node) && node[0] === '⿴') {
+      const korean = this.koreanPair(node, region)
+      if (korean) return korean
+    }
     const kana = this.muKoParts(node, region)
     if (kana) return kana
     // Use an encoded glyph first when the donor is specific to a rectangular counter.
