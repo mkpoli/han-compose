@@ -1,4 +1,5 @@
 // @ts-nocheck: a port of han-compose's Python, kept line for line; its types are the arrays it reads.
+import fangsongZhi from './fangsong-zhi.json' with { type: 'json' }
 import { grassShape } from './variants.js'
 // A port of han-compose's composer (`compose.py`, `Composer.compose`) over its web export: a sequence
 // drawn from parts other characters' designers drew. The export carries what the composer reads
@@ -949,6 +950,9 @@ export class Composer {
 
   glyphRecord(ch) {
     const record = this.rec(ch), glyph = record?.G
+    // 盾 supplies the joined cliff, cross and eye of 貭; 貝 supplies its two feet.
+    if (ch === '貭' && this.fontStyle === 'fangsong' && glyph?.v !== 1 &&
+        !['貭', '盾', '貝'].some(donor => this.excluded(donor))) return fangsongZhi
     // A Fangsong drawing takes no outline another face drew: a record its own font lacks (v 0)
     // stays missing rather than standing in as a Mincho.
     if (glyph && this.fontStyle === 'fangsong' && glyph.v === 0) return null
