@@ -616,15 +616,21 @@ function clawAroundCounter(frame, style) {
 // Metric unit spellings in 工業標準與度量衡, 1935, vol. 1 no. 7 (source 393).
 const metricKeInners = new Set([...'兆朱累黍甾𢼸屯石成勿𡵂少鹿矣眇莫意基亥卡息生密', '⿱从韭'])
 const metricKeSeats = {
-  sans: [0.575, 0.218, 0.917, 1.005], serif: [0.50, 0.215, 0.959, 1.01],
-  fangsong: [0.625, 0.22, 0.905, 1.005], regular: [0.505, 0.23, 0.90, 1.01],
-  'pen-writing': [0.55, 0.22, 0.925, 1.01],
+  sans: [0.575, 0.244, 0.945, 1.005], serif: [0.50, 0.215, 0.99, 1.01],
+  fangsong: [0.625, 0.226, 0.93, 1.005], regular: [0.505, 0.235, 0.93, 1.01],
+  'pen-writing': [0.55, 0.22, 0.962, 1.01],
 }
 
 function metricKeSeat(tree, style, frame) {
   if (!Array.isArray(tree) || tree[0] !== '⿺' || tree[1] !== '克' || !metricKeInners.has(keyOf(tree[2]))) return null
   if (!frame?.part.held || !metricKeSeats[style]) return null
-  return mapped(metricKeSeats[style], [0, 0, 1, 1], drawnBox(frame))
+  const seat = metricKeSeats[style].slice()
+  // These shapes leave more room beside the rising tip.
+  if (['黍', '勿', '少', '卡'].includes(tree[2])) seat[2] = Math.min(0.99, seat[2] + 0.035)
+  // Low strokes in these donors approach the hook sooner.
+  if (style === 'regular' && ['成', '𢼸'].includes(tree[2])) seat[2] = 0.922
+  if (style === 'pen-writing' && tree[2] === '黍') seat[2] = 0.973
+  return mapped(seat, [0, 0, 1, 1], drawnBox(frame))
 }
 
 // Fit only the inner after balancing. Earlier changes to the learned layout
