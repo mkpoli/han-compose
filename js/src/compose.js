@@ -1858,6 +1858,8 @@ export class Composer {
     const cut = record && shrineLingCuts[hexOf(JSON.stringify(record.p))]
     if (!cut || !jade) return null
     const donor = partOf(record), [l, b, r, t] = donor.box, w = r - l, h = t - b
+    const bodyWidth = this.fontStyle === 'sans' || this.fontStyle === 'serif' ? 0.57 : 0.61
+    const tipRise = this.fontStyle === 'regular' || this.fontStyle === 'pen-writing' ? 0.075 : 0.045
     const cap = derived(donor, cut.grass.map(i => donor.contours[i]))
     const body = derived(donor, donor.contours.flatMap((c, i) => {
       if (cut.grass.includes(i)) return []
@@ -1866,11 +1868,11 @@ export class Composer {
         const x = (points[at] - l) / w, y = (points[at + 1] - b) / h
         // The sweep on the plaque turns up slightly as it emerges below 玉.
         const tip = i === cut.sweep ? Math.max(0, (x - 0.46) / 0.54) * Math.max(0, Math.min(1, (0.34 - y) / 0.20)) : 0
-        return k % 2 ? v + h * 0.065 * tip * tip : l + w * (0.55 * x + 0.45 * tip)
+        return k % 2 ? v + h * (0.065 * tip * tip + tipRise * tip ** 3) : l + w * (bodyWidth * x + (1 - bodyWidth) * tip)
       })
       // Weight balancing uses the stem of the narrowed body, before the
       // terminal flares out under 玉.
-      const width = c.width && [0.55 * c.width[0], c.width[1]]
+      const width = c.width && [bodyWidth * c.width[0], c.width[1]]
       return [{ ...c, width, light: narrow(c.light), heavy: narrow(c.heavy) }]
     }))
     const face = fitted(donor.box, region, this.C.STRETCH)
@@ -1880,7 +1882,7 @@ export class Composer {
     capBox[2] -= capWidth * 0.055
     if (this.fontStyle === 'regular' || this.fontStyle === 'serif') capBox[1] += 0.036 * (face[3] - face[1])
     // 玉 reaches toward the middle of 夌 as in 𭐨 (⿺夌主). Sans has a wider right branch on 夌.
-    const jadeBox = this.fontStyle === 'sans' ? [0.525, 0.20, 0.96, 0.72] : [0.50, 0.18, 0.955, 0.72]
+    const jadeBox = this.fontStyle === 'sans' ? [0.55, 0.205, 0.985, 0.725] : [0.535, 0.21, 0.99, this.fontStyle === 'fangsong' ? 0.715 : 0.73]
     return [
       placed(cap, cap.box, capBox, this.ink('菱'), 'grass from 菱'),
       placed(body, body.box, mapped(body.box, donor.box, face), this.ink('夌'), 'enclosing 夌 from 菱'),
