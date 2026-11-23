@@ -32,18 +32,13 @@ test('a sequence with a layout of its own keeps it, and one the export lacks has
   expect(composer.rec('禺\u{E0102}')).toBe(null)
 })
 
-test('a variation sequence takes the cuts of its own shape alone', () => {
-  const key = '禺' + SELECTOR, entries = composer.hostsOf('禺', 'R')
-  expect(entries.map(h => h.h)).toEqual(['偶', '湡'])
-  expect(composer.variantEntries(key, '禺', entries).map(h => h.h)).toEqual(['湡'])
-  expect(composer.variantCuts(key, '禺', entries.map(h => [false, 0, h])).map(([, , h]) => h.h)).toEqual(['湡'])
-  expect(composer.hostsOf(key, 'R')).toEqual([])
+test('a variation sequence takes no cut of its base, which may draw another shape', () => {
+  expect(composer.hostsOf('禺', 'R').map(h => h.h)).toEqual(['偶', '湡'])
+  expect(composer.hostsOf('禺' + SELECTOR, 'R')).toEqual([])
 })
 
-test('only the first cuts are read, so a part held by hundreds loads few hosts', () => {
-  let read = 0
-  const entries = Array.from({ length: 50 }, () => [false, 0, hosts['R\t禺'][0]])
-  const counting = Object.assign(Object.create(composer), { pieceOf: h => { read++; return composer.pieceOf(h) } })
-  expect(counting.variantCuts('禺' + SELECTOR, '禺', entries)).toEqual([])
-  expect(read).toBe(12)
+test('a sequence whose base has no record is drawn from its own outline', () => {
+  const orphan = new Composer({ manifest: { constants, spelled: [] }, layout: null,
+    rec: key => key === '禺' ? null : records[key] ?? null, hosts: () => [], places: () => [] })
+  expect(orphan.compose('⿰木禺' + SELECTOR).map(part => part.origin)).toContain('glyph 禺' + SELECTOR)
 })
