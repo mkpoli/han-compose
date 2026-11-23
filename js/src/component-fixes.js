@@ -275,6 +275,18 @@ export function dotIn(composer, band) {
  * A correction that cannot find the parts it names leaves the drawing as it is.
  */
 export const COMPONENT_FIXES = {
+  '⿱一丛': {
+    glyphs: { '丛': ['6101a4a331e919f7901aefbd3fb9feaec8802bb6daef6a46bea98fab1d35f811', 'dfc25b96a72d8ac1aa6559b6223e05b939b4899098b70cf468fb889a233a6b1f'] },
+    apply(parts, composer) {
+      const [bar, lower] = parts
+      if (!['sans', 'serif'].includes(composer.fontStyle) || parts.length !== 2 || lower.origin !== 'glyph 丛') return parts
+      // Inset the two people between the bars. The broad bottom contour is 丛’s own 一.
+      const [l, b, r, t] = lower.source
+      const bottomInset = composer.fontStyle === 'serif' ? 0.09 : 0.06
+      return [bar, shifted(lower, (_x, y, box) => widthOf(box) > 0.8 * (r - l)
+        ? 0 : bottomInset * (t - b) - 0.14 * (y - b))]
+    },
+  },
   '⿰未⿱成公': {
     glyphs: { '未': '86de49086c3f6a0d4443132473553216c9228682c8a129c9f76ae916b99cb427' },
     apply(parts, composer) {

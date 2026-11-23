@@ -608,3 +608,18 @@ describe('C219 ⿲木十木', () => {
     expect((fixed.target[0] + fixed.target[2]) / 2).toBeCloseTo((352 + 653) / 2, 6)
   })
 })
+
+it('opens both gaps around 从 while preserving the bars of ⿱一丛', () => {
+  const frame = [0, 0, 1000, 1000]
+  const top = part('glyph 一', frame, frame, [[40, 920, 960, 980]])
+  const lower = part('glyph 丛', frame, frame, [[20, 0, 980, 50], [120, 70, 450, 910], [520, 70, 930, 910]])
+  for (const fontStyle of ['sans', 'serif']) {
+    const [bar, inset] = COMPONENT_FIXES['⿱一丛'].apply([top, lower], { fontStyle })
+    expect(bar).toBe(top)
+    expect(inset.part.contours[0]).toEqual(lower.part.contours[0])
+    for (const contour of inset.part.contours.slice(1)) {
+      expect(box(contour)[1]).toBeGreaterThan(110)
+      expect(box(contour)[3]).toBeLessThan(884)
+    }
+  }
+})
