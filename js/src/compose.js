@@ -3045,7 +3045,7 @@ export class Composer {
     // The 齒-family cuts filed as 丛 put 一 above 从. Use the native 丛
     // in this stack so its baseline stays below both people.
     if (op === '⿱' && index === 1 && node === '丛' && siblings[0] === '一'
-      && (this.fontStyle === 'sans' || this.fontStyle === 'serif') && this.glyph('丛')) return null
+      && (this.fontStyle === 'sans' || this.fontStyle === 'serif') && !this.excluded('丛') && this.glyph('丛')) return null
     // The face's own cut of a component it does not draw stands ahead of a cut of another shape.
     if (node === '䒑') {
       const designed = this.designedCut(node)

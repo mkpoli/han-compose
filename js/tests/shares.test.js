@@ -100,5 +100,7 @@ it('keeps the baseline of 丛 when a dental host offers a bar above 从', async 
     const src = sourceOf(input)
     const out = await compose(src, '⿱一丛', { fontStyle, separate: true })
     expect(out.parts.map(p => p.origin)).toEqual(['glyph 一', 'glyph 丛'])
+    const excluded = await compose(src, '⿱一丛', { fontStyle, exclude: ['丛'] })
+    expect(excluded.parts[1].origin).toBe('host 齔')
   }
 })
