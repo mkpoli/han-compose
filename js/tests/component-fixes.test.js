@@ -617,6 +617,7 @@ it('opens both gaps around 从 while preserving the bars of ⿱一丛', () => {
     const [bar, inset] = COMPONENT_FIXES['⿱一丛'].apply([top, lower], { fontStyle })
     expect(bar).toBe(top)
     expect(inset.part.contours[0]).toEqual(lower.part.contours[0])
+    expect(inset.target[3]).toBeCloseTo(box(inset.part.contours[1])[3])
     for (const contour of inset.part.contours.slice(1)) {
       expect(box(contour)[1]).toBeGreaterThan(110)
       expect(box(contour)[3]).toBeLessThan(884)

@@ -283,8 +283,11 @@ export const COMPONENT_FIXES = {
       // Inset the two people between the bars. The broad bottom contour is 丛’s own 一.
       const [l, b, r, t] = lower.source
       const bottomInset = composer.fontStyle === 'serif' ? 0.09 : 0.06
-      return [bar, shifted(lower, (_x, y, box) => widthOf(box) > 0.8 * (r - l)
-        ? 0 : bottomInset * (t - b) - 0.14 * (y - b))]
+      const inset = shifted(lower, (_x, y, box) => widthOf(box) > 0.8 * (r - l)
+        ? 0 : bottomInset * (t - b) - 0.14 * (y - b))
+      const source = union(inset.part.contours.map(c => pointsBox(c.light)))
+      inset.part.box = source
+      return [bar, { ...inset, source, target: mapped(source, lower.source, lower.target) }]
     },
   },
   '⿰未⿱成公': {
