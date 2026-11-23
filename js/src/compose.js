@@ -1,4 +1,6 @@
 // @ts-nocheck: a port of han-compose's Python, kept line for line; its types are the arrays it reads.
+import { yiCrossDonor, yiCrossParts } from './yi-cross.js'
+import { ghostParts, usesGhostForm } from './ghost-form.js'
 import { grassShape } from './variants.js'
 // A port of han-compose's composer (`compose.py`, `Composer.compose`) over its web export: a sequence
 // drawn from parts other characters' designers drew. The export carries what the composer reads
@@ -72,6 +74,15 @@ const muKoForms = {
   },
 }
 
+// Right-hand 朿 in the two-operand glyph 棘, including exports without leaf metadata.
+const thornRightCuts = {
+  '1b15485a2e9c6b74c2c550dac7c645f0d7211bfcaf68b2971a3b1be501ebbf96': [1, 5, 6, 7, 8, 11],
+  '55fcd305f326cae9b97fc051f56b6b3886736e7b0fc2abe26205df96a5a2035c': [5, 6, 7, 8, 9, 11],
+  '5290da5002d04471e02c8f83f739f79f44f2134723019d3180a054df64cb7729': [0],
+  '028c526e891583bae6a8e0ec9b97bb3cbd763fd5675ab9367329eaeac569d20c': [1],
+  'a9619b47bb2eb046c0df1d5ea1ca5145d69807b55ce4fc9e0eb6512b868199f7': [0],
+}
+const isThornRow = node => node[0] === '⿲' && node[1] === '朿' && node[2] === '企' && node[3] === '朿' && !node.note
 const isMuKo = node => node[0] === '⿶' && node[1] === 'む' && node[2] === '子' && !node.note
 
 const pyramidGlyphs = new Map(pyramidCatalog.entries.flatMap(({ char, part, sequence, pair }) =>
@@ -721,7 +732,7 @@ function counterBox(outer, inner, nested, style) {
     if (inner === '呂') return [0.54, 0.24, 1.015, 1.02]
   }
   if (outer === '走') {
-    if (inner === '呂' && style === 'serif') return [0.44, 0.17, 0.985, 0.95]
+    if (inner === '呂' && style === 'serif') return [nested ? 0.53 : 0.515, 0.17, 1.005, 0.95]
     if (inner === '呂') return [style === 'fangsong' ? 0.55 : 0.49, 0.20, 0.985, 0.94]
     if (inner === '口' && nested && brush) return [0.55, 0.31, 0.985, 0.79]
   }
@@ -756,6 +767,13 @@ export const designedSources = (tree, style = 'sans') => {
       out.add('菱')
       out.add('玉')
     }
+    if (isThornRow(node)) {
+      out.add('棘')
+      out.add('企')
+    }
+    const yiHost = yiCrossDonor(node, style)
+    if (yiHost) out.add(yiHost)
+    if (usesGhostForm(node, style)) out.add('鬼')
     if (muKoForms[style] && isMuKo(node)) {
       out.add('む')
       if (style !== 'serif') out.add('子')
@@ -1236,6 +1254,7 @@ export class Composer {
         const w = (sx1 - sx0) * scale, h = (sy1 - sy0) * scale
         part.target = [cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2]
       }
+      for (const part of out) if (part.finishOutline) Object.assign(part, part.finishOutline(part))
       fitClawInterior(out, tree, this.fontStyle)
       // Loose marks annotate the whole drawing; they take no part in its layout or weight.
       if (marks) out.push(...markParts(this, marks, frame, face))
@@ -1355,11 +1374,11 @@ export class Composer {
         emitCell(part, node)
         return
       }
-      const shrine = this.shrineJadeParts(node, target(box))
-      if (shrine) {
-        for (const part of shrine) {
-          if (leafIndices) part.leaf = leaf
-          leaf++
+      const cell = target(box)
+      const parts = this.shrineJadeParts(node, cell) ?? this.thornRowParts(node, cell) ?? yiCrossParts(this, node, cell) ?? ghostParts(this, node, cell)
+      if (parts) {
+        for (const part of parts) {
+          if (leafIndices) part.leaf = leaf++
           out.push(part)
         }
         return
@@ -1486,7 +1505,7 @@ export class Composer {
         return
       }
       const repeated = isGroupedForm(keyOf(node), this.fontStyle) ? componentParts(keyOf(node), region, this.fontStyle, atRoot) : null
-      const designed = repeated ?? this.shrineJadeParts(node, region) ?? this.muKoParts(node, region) ?? this.wheatFaceParts(node, region)
+      const designed = repeated ?? this.shrineJadeParts(node, region) ?? this.thornRowParts(node, region) ?? yiCrossParts(this, node, region) ?? ghostParts(this, node, region) ?? this.muKoParts(node, region) ?? this.wheatFaceParts(node, region)
       if (designed) {
         for (const part of designed) out.push({ index: out.length, box: part.target, empty: false })
         return
@@ -1740,21 +1759,6 @@ export class Composer {
       // Automatic emboldening in narrow columns can join the two uprights.
       frame.weightLimit = [0.16, this.fontStyle === 'fangsong' ? 0.16 : 1]
     }
-    if (outer === '走' && inner === '呂' && this.fontStyle === 'serif') {
-      // Pull the upright inward. Let the displacement fall away along
-      // the foot so its final stroke still reaches under the right edge.
-      const [left, , right] = frame.source
-      const width = right - left
-      const narrow = points => points.map((v, i) => {
-        if (i % 2) return v
-        const x = (v - left) / width
-        const share = Math.max(0, Math.min(x / 0.56, (1 - x) / 0.44))
-        return v - 0.15 * width * share
-      })
-      frame.part = derived(frame.part, frame.part.contours.map(c => ({
-        ...c, light: narrow(c.light), heavy: narrow(c.heavy),
-      })), frame.source)
-    }
     const target = mapped(box, [0, 0, 1, 1], frame.target)
     if (outer === '尢' && node[2] !== inner) {
       // A reflected corner can meet the upturned tip of the brush hook.
@@ -1884,6 +1888,26 @@ export class Composer {
     ]
   }
 
+  /** R+06D8, 出土文獻與古文字教程 p. 15. The two sides of 棘 flank a shorter 企. */
+  thornRowParts(node, region) {
+    if (!isThornRow(node) || ['棘', '企', '朿'].some(ch => this.excluded(ch))) return null
+    const record = this.glyphRecord('棘'), middle = this.glyph('企')
+    const indices = record && thornRightCuts[hexOf(JSON.stringify(record.p))]
+    if (!middle || !indices) return null
+    const pair = partOf(record)
+    const right = derived(pair, pair.contours.filter((_, i) => indices.includes(i)))
+    const left = derived(pair, pair.contours.filter((_, i) => !indices.includes(i)))
+    const fit = (part, box, origin, weight = [0, 0]) => ({
+      ...placed(part, part.box, mapped(box, [0, 0, 1, 1], region), partInk(part), origin, weight),
+      fixed: true,
+    })
+    return [
+      fit(left, [0, 0.025, 0.337, 0.975], 'left 朿 from 棘'),
+      fit(middle, [0.345, 0.09, 0.665, 0.945], 'glyph 企', [this.fontStyle === 'pen-writing' ? -0.65 : 0.65, 0]),
+      fit(right, [0.67, 0.025, 1, 0.975], 'right 朿 from 棘'),
+    ]
+  }
+
   /** Fit the two editable operands in the opening of the face's own む. */
   muKoParts(node, region) {
     if (!isMuKo(node) || this.excluded('む') || this.excluded('子')) return null
@@ -1907,6 +1931,12 @@ export class Composer {
   drawNode(node, region, atRoot = false, sideBySide = false) {
     const shrine = this.shrineJadeParts(node, region)
     if (shrine) return shrine
+    const thorns = this.thornRowParts(node, region)
+    if (thorns) return thorns
+    const yi = yiCrossParts(this, node, region)
+    if (yi) return yi
+    const ghost = ghostParts(this, node, region)
+    if (ghost) return ghost
     const kana = this.muKoParts(node, region)
     if (kana) return kana
     // Use an encoded glyph first when the donor is specific to a rectangular counter.
@@ -3101,6 +3131,10 @@ export class Composer {
     // A forced operand is drawn from its own IDS, not replaced by a host's cut. A direct 艹 is
     // exempt: its form is placed by the caller, or the face's own cut is the connected component.
     if (!(typeof node === 'string' && node === '艹') && this.forced(node)) return null
+    // The 齒-family cuts filed as 丛 put 一 above 从. Use the native 丛
+    // in this stack so its baseline stays below both people.
+    if (op === '⿱' && index === 1 && node === '丛' && siblings[0] === '一'
+      && (this.fontStyle === 'sans' || this.fontStyle === 'serif') && !this.excluded('丛') && this.glyph('丛')) return null
     // The face's own cut of a component it does not draw stands ahead of a cut of another shape.
     if (node === '䒑') {
       const designed = this.designedCut(node)

@@ -275,6 +275,37 @@ export function dotIn(composer, band) {
  * A correction that cannot find the parts it names leaves the drawing as it is.
  */
 export const COMPONENT_FIXES = {
+  '⿱一丛': {
+    glyphs: { '丛': ['6101a4a331e919f7901aefbd3fb9feaec8802bb6daef6a46bea98fab1d35f811', 'dfc25b96a72d8ac1aa6559b6223e05b939b4899098b70cf468fb889a233a6b1f'] },
+    apply(parts, composer) {
+      const [bar, lower] = parts
+      if (!['sans', 'serif'].includes(composer.fontStyle) || parts.length !== 2 || lower.origin !== 'glyph 丛') return parts
+      // Inset the two people between the bars. The broad bottom contour is 丛’s own 一.
+      const [l, b, r, t] = lower.source
+      const bottomInset = composer.fontStyle === 'serif' ? 0.09 : 0.06
+      const inset = shifted(lower, (_x, y, box) => widthOf(box) > 0.8 * (r - l)
+        ? 0 : bottomInset * (t - b) - 0.14 * (y - b))
+      const source = union(inset.part.contours.map(c => pointsBox(c.light)))
+      inset.part.box = source
+      return [bar, { ...inset, source, target: mapped(source, lower.source, lower.target) }]
+    },
+  },
+  '⿰未⿱成公': {
+    glyphs: { '未': '86de49086c3f6a0d4443132473553216c9228682c8a129c9f76ae916b99cb427' },
+    apply(parts, composer) {
+      if (composer.fontStyle !== 'pen-writing' || composer.excluded('未') || parts.length !== 3 || parts[0].origin !== 'host 㲠') return parts
+      // 㲠 supplies a squat upper-left 未. Its broad bars grow heavy when stretched to a full column.
+      const [wei, cheng, gong] = parts
+      const glyph = composer.glyph('未')
+      // Keep the host cut in the group's weight calculation so 成 and 公 retain their original ink.
+      const finishOutline = part => {
+        const [left, bottom, right, top] = part.target
+        const inset = 0.06 * (top - bottom)
+        return placed(glyph, glyph.box, [left, bottom + inset, right, top - inset], composer.ink('未'), 'glyph 未', [-0.7, -0.25])
+      }
+      return [{ ...wei, finishOutline }, cheng, gong]
+    },
+  },
   // 𠷃 (BabelStone: ⿰口⿳穴𠆢又) has a broad, shallow 又. Its component's
   // proportions also occur in 𥔉. Keep both inner parts within 穴's outer span.
 

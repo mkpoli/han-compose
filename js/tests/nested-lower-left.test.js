@@ -277,6 +277,18 @@ describe('米 and 走 lower-left frames', () => {
     }
   }
 
+  it('keeps the donor 走 contours when fitting Serif 呂', async () => {
+    const src = source({ ...extra, 呂: records.口 })
+    const opts = { fontStyle: 'serif', separate: true }
+    await compose(src, '⿺走呂', opts)
+    const composer = new Composer(src.store(), opts)
+    const node = ['⿺', '走', '呂']
+    const donor = composer.lowerLeftFrame(node, composer.face)
+    const fitted = composer.counterInFrame(node, composer.face, false)
+    expect(fitted?.[0].part.contours).toEqual(donor.frame.part.contours)
+    expect(fitted[1].target[0]).toBeGreaterThan((donor.frame.target[0] + donor.frame.target[2]) / 2)
+  })
+
   it('partitions the native 𮇇 and 趄 when their leaves are drawn separately', async () => {
     for (const [seq, donor] of [['⿺米日', '𮇇'], ['⿺走且', '趄']]) {
       const { parts } = await compose(source({ ...extra, 日: records.口, 且: records.口 }), seq, { separate: true })
