@@ -33,6 +33,17 @@ test('a sequence with a layout of its own keeps it, and one the export lacks has
 })
 
 test('a variation sequence takes the cuts of its own shape alone', () => {
-  expect(composer.hostsOf('禺' + SELECTOR, 'R').map(h => h.h)).toEqual(['湡'])
-  expect(composer.hostsOf('禺', 'R').map(h => h.h)).toEqual(['偶', '湡'])
+  const key = '禺' + SELECTOR, entries = composer.hostsOf('禺', 'R')
+  expect(entries.map(h => h.h)).toEqual(['偶', '湡'])
+  expect(composer.variantEntries(key, '禺', entries).map(h => h.h)).toEqual(['湡'])
+  expect(composer.variantCuts(key, '禺', entries.map(h => [false, 0, h])).map(([, , h]) => h.h)).toEqual(['湡'])
+  expect(composer.hostsOf(key, 'R')).toEqual([])
+})
+
+test('only the first cuts are read, so a part held by hundreds loads few hosts', () => {
+  let read = 0
+  const entries = Array.from({ length: 50 }, () => [false, 0, hosts['R\t禺'][0]])
+  const counting = Object.assign(Object.create(composer), { pieceOf: h => { read++; return composer.pieceOf(h) } })
+  expect(counting.variantCuts('禺' + SELECTOR, '禺', entries)).toEqual([])
+  expect(read).toBe(12)
 })

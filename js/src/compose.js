@@ -127,6 +127,8 @@ const isSelector = ch => ch !== undefined && /^[︀-️\u{E0100}-\u{E01EF}]$/u.t
  *  every cut of the other 禺 at 0.98 or more, every undotted 者 at 0.92 or more, and the one-dot 辶
  *  of 遇, 道 and 近 at 0.57 or less. */
 const VARIANT_LIKENESS = 0.7
+/** How many of a base's cuts are read to find one of a sequence's shape. */
+const VARIANT_TRIED = 12
 /** The character a variation sequence varies, or null for any other key. */
 const variantBase = key => {
   const [base, selector, ...rest] = key
@@ -891,23 +893,24 @@ export class Composer {
     if (!base) return null
     const own = this.data.rec(key)
     if (!own?.G || own.f) return null
-    const { s: _sequence, e: _described, ...record } = this.data.rec(base) ?? {}
+    const { s: _sequence, e: _described, a: _forms, ...record } = this.data.rec(base) ?? {}
     return { ...record, o: own.G.p.length, ...own }
   }
-  /**
-   * The host entries of a base character that draw it as `key`, its variation sequence, does. A
-   * designer draws one shape of a part in some hosts and another in others (辶 has one dot in 遠 and
-   * two in 遜), and an entry names the part, not the shape, so a cut is taken only where its ink,
-   * filling the same square, is clearly closer to the sequence's glyph than to the base's
-   * (`VARIANT_LIKENESS`). With none, the sequence's own glyph is drawn.
-   */
-  variantHosts(key, base, list) {
+  /** A base character's host entries that may draw it as its variation sequence `key` does, told by
+   *  what an entry says without its outlines: its contour count, where the two shapes differ in it. */
+  variantEntries(key, base, list) {
     const own = this.glyph(key), plain = this.glyph(base)
     if (!own || !plain) return []
-    const ours = square(own, 64), theirs = square(plain, 64)
+    return own.contours.length === plain.contours.length ? list : list.filter(h => this.cutOf(h)?.count === own.contours.length)
+  }
+  /** Of entries in order of preference, those that draw `key`'s shape. A designer draws one shape of a
+   *  part in some hosts and another in others, and an entry names the part, not the shape, so a cut is
+   *  taken only where its ink, filling the same square, is clearly closer to the sequence's glyph than
+   *  to the base's. Reading a cut can load its host, so only the first `VARIANT_TRIED` are read. */
+  variantCuts(key, base, ranked) {
+    const ours = square(this.glyph(key), 64), theirs = square(this.glyph(base), 64)
     const apart = (mask, other) => mask.reduce((n, ink, i) => n + (ink ^ other[i]), 0)
-    return list.filter(h => {
-      if (!this.cutOf(h)) return false
+    return ranked.slice(0, VARIANT_TRIED).filter(([, , h]) => {
       const mask = square(this.pieceOf(h), 64)
       return apart(mask, ours) <= VARIANT_LIKENESS * apart(mask, theirs)
     })
@@ -1627,8 +1630,8 @@ export class Composer {
    *  a piece, which the composer weighs before finding it cannot cut them. */
   hostsOf(written, place, uncut = false) {
     if (written.includes(EMPTY)) return []
-    const base = variantBase(written)
-    if (base && this.variantRecord(written)) return this.variantHosts(written, base, this.hostsOf(base, place, uncut))
+    // A variation sequence has no list of its own: `ranked` reads its base's.
+    if (this.variantRecord(written)) return []
     let list = this.data.hosts(written, place)
     // A face that cannot draw the component itself takes one of its other places' cuts before any
     // fallback glyph: Zhuque Fangsong's 善 holds 䒑 in its middle but the export cannot cut it clean,
@@ -3231,18 +3234,24 @@ export class Composer {
     }
     for (const written of this.alternatives(node, place)) {
       const kin = C.KIN_PLACES[place]
-      let candidates = this.hostsOf(written, place, true).map(h => [h, false])
-      if (kin) candidates = candidates.concat(upTo(this.hostsOf(written, kin, true), C.KIN_HOSTS).map(h => [h, true]))
+      const base = this.variantRecord(written) ? variantBase(written) : null, named = base ?? written
+      let candidates = this.hostsOf(named, place, true).map(h => [h, false])
+      if (kin) candidates = candidates.concat(upTo(this.hostsOf(named, kin, true), C.KIN_HOSTS).map(h => [h, true]))
+      if (base) {
+        const may = new Set(this.variantEntries(written, base, candidates.map(([h]) => h)))
+        candidates = candidates.filter(([h]) => may.has(h))
+      }
       let found = weighed(candidates, written)
       const facing = C.FACING_PLACES[place]
       if (facing && found.length && !found.some(r => r[2].v === 1)) {
-        found = found.concat(weighed(this.hostsOf(written, facing, true).filter(h => h.v === 1).slice(0, C.KIN_HOSTS).map(h => [h, true]), written, true))
+        found = found.concat(weighed(this.hostsOf(named, facing, true).filter(h => h.v === 1).slice(0, C.KIN_HOSTS).map(h => [h, true]), written, true))
         const local = found.filter(r => r[2].v === 1 && r[2].j === 1)
         if (local.length) found = local
       }
       if (op in this.ENCLOSE && typeof node === 'string' && this.own(node) && found.length && !found.some(r => r[2].v === 1)) return []
+      found.sort((a, b) => (a[0] - b[0]) || (a[1] - b[1]))
+      if (base) found = this.variantCuts(written, base, found)
       if (found.length) {
-        found.sort((a, b) => (a[0] - b[0]) || (a[1] - b[1]))
         return this.nativeShapes(found.map(r => [r[1], this.chosen(r[2])]))
       }
     }
