@@ -122,6 +122,16 @@ export class LookupError extends Error { name = 'LookupError' }
 const upTo = (list, n) => list.filter(h => h.r < n)
 
 const isSelector = ch => ch !== undefined && /^[︀-️\u{E0100}-\u{E01EF}]$/u.test(ch)
+/** How far a cut may be from a variation sequence's glyph, as a share of how far it is from its base's.
+ *  Measured with U+E0101 in Sans and Serif: the one Sans cut of the crossing 禺 (湡) is at 0.57 and
+ *  every cut of the other 禺 at 0.98 or more, every undotted 者 at 0.92 or more, and the one-dot 辶
+ *  of 遇, 道 and 近 at 0.57 or less. */
+const VARIANT_LIKENESS = 0.7
+/** The character a variation sequence varies, or null for any other key. */
+const variantBase = key => {
+  const [base, selector, ...rest] = key
+  return isSelector(selector) && !rest.length ? base : null
+}
 
 const MODIFIER = /^[0-9:,._xabcdlr|-]+$/u
 const MODIFIABLE = new Set(['⿻', '⿴', '⿵', '⿶', '⿷', '⿼', '㇯'])
@@ -869,7 +879,39 @@ export class Composer {
   arity = ch => this.arities.get(ch) ?? 0
   parse = sequence => parseTree(sequence, this.arity, true)
   // A key holding an empty slot has no record and no hosts: nothing is asked for it.
-  rec = key => key.includes(EMPTY) ? null : this.formRecord(key) ?? this.data.rec(key) ?? componentRecord(key, this.fontStyle)
+  rec = key => key.includes(EMPTY) ? null : this.formRecord(key) ?? this.variantRecord(key) ?? this.data.rec(key) ?? componentRecord(key, this.fontStyle)
+  /**
+   * The record of a character under a variation selector: its own outline, laid out as its base is.
+   * The export records a variation sequence's outline alone, so what the layout reads of it (its
+   * features, its usual boxes, its places) is the base's. Null where the font draws no such sequence
+   * or the export records a layout of its own for it.
+   */
+  variantRecord(key) {
+    const base = variantBase(key)
+    if (!base) return null
+    const own = this.data.rec(key)
+    if (!own?.G || own.f) return null
+    const { s: _sequence, e: _described, ...record } = this.data.rec(base) ?? {}
+    return { ...record, o: own.G.p.length, ...own }
+  }
+  /**
+   * The host entries of a base character that draw it as `key`, its variation sequence, does. A
+   * designer draws one shape of a part in some hosts and another in others (辶 has one dot in 遠 and
+   * two in 遜), and an entry names the part, not the shape, so a cut is taken only where its ink,
+   * filling the same square, is clearly closer to the sequence's glyph than to the base's
+   * (`VARIANT_LIKENESS`). With none, the sequence's own glyph is drawn.
+   */
+  variantHosts(key, base, list) {
+    const own = this.glyph(key), plain = this.glyph(base)
+    if (!own || !plain) return []
+    const ours = square(own, 64), theirs = square(plain, 64)
+    const apart = (mask, other) => mask.reduce((n, ink, i) => n + (ink ^ other[i]), 0)
+    return list.filter(h => {
+      if (!this.cutOf(h)) return false
+      const mask = square(this.pieceOf(h), 64)
+      return apart(mask, ours) <= VARIANT_LIKENESS * apart(mask, theirs)
+    })
+  }
   /** A component form's record, which stands in for the export's; a native form's does only where
    *  the export records nothing. */
   formRecord = key => isNativeForm(key, this.fontStyle) ? null : componentRecord(key, this.fontStyle)
@@ -1585,6 +1627,8 @@ export class Composer {
    *  a piece, which the composer weighs before finding it cannot cut them. */
   hostsOf(written, place, uncut = false) {
     if (written.includes(EMPTY)) return []
+    const base = variantBase(written)
+    if (base && this.variantRecord(written)) return this.variantHosts(written, base, this.hostsOf(base, place, uncut))
     let list = this.data.hosts(written, place)
     // A face that cannot draw the component itself takes one of its other places' cuts before any
     // fallback glyph: Zhuque Fangsong's 善 holds 䒑 in its middle but the export cannot cut it clean,
