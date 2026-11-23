@@ -1,5 +1,6 @@
 // @ts-nocheck: a port of han-compose's Python, kept line for line; its types are the arrays it reads.
 import { yiCrossDonor, yiCrossParts } from './yi-cross.js'
+import { ghostParts, usesGhostForm } from './ghost-form.js'
 import { grassShape } from './variants.js'
 // A port of han-compose's composer (`compose.py`, `Composer.compose`) over its web export: a sequence
 // drawn from parts other characters' designers drew. The export carries what the composer reads
@@ -745,6 +746,7 @@ export const designedSources = (tree, style = 'sans') => {
     const [op, ...children] = node
     const yiHost = yiCrossDonor(node, style)
     if (yiHost) out.add(yiHost)
+    if (usesGhostForm(node, style)) out.add('鬼')
     if (muKoForms[style] && isMuKo(node)) {
       out.add('む')
       if (style !== 'serif') out.add('子')
@@ -1345,9 +1347,9 @@ export class Composer {
         emitCell(part, node)
         return
       }
-      const yi = yiCrossParts(this, node, target(box))
-      if (yi) {
-        for (const part of yi) {
+      const parts = yiCrossParts(this, node, target(box)) ?? ghostParts(this, node, target(box))
+      if (parts) {
+        for (const part of parts) {
           if (leafIndices) part.leaf = leaf++
           out.push(part)
         }
@@ -1475,7 +1477,7 @@ export class Composer {
         return
       }
       const repeated = isGroupedForm(keyOf(node), this.fontStyle) ? componentParts(keyOf(node), region, this.fontStyle, atRoot) : null
-      const designed = repeated ?? yiCrossParts(this, node, region) ?? this.muKoParts(node, region) ?? this.wheatFaceParts(node, region)
+      const designed = repeated ?? yiCrossParts(this, node, region) ?? ghostParts(this, node, region) ?? this.muKoParts(node, region) ?? this.wheatFaceParts(node, region)
       if (designed) {
         for (const part of designed) out.push({ index: out.length, box: part.target, empty: false })
         return
@@ -1844,6 +1846,8 @@ export class Composer {
   drawNode(node, region, atRoot = false, sideBySide = false) {
     const yi = yiCrossParts(this, node, region)
     if (yi) return yi
+    const ghost = ghostParts(this, node, region)
+    if (ghost) return ghost
     const kana = this.muKoParts(node, region)
     if (kana) return kana
     // Use an encoded glyph first when the donor is specific to a rectangular counter.
