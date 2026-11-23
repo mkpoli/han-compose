@@ -64,6 +64,15 @@ const muKoForms = {
   },
 }
 
+// Right-hand 朿 in the two-operand glyph 棘, including exports without leaf metadata.
+const thornRightCuts = {
+  '1b15485a2e9c6b74c2c550dac7c645f0d7211bfcaf68b2971a3b1be501ebbf96': [1, 5, 6, 7, 8, 11],
+  '55fcd305f326cae9b97fc051f56b6b3886736e7b0fc2abe26205df96a5a2035c': [5, 6, 7, 8, 9, 11],
+  '5290da5002d04471e02c8f83f739f79f44f2134723019d3180a054df64cb7729': [0],
+  '028c526e891583bae6a8e0ec9b97bb3cbd763fd5675ab9367329eaeac569d20c': [1],
+  'a9619b47bb2eb046c0df1d5ea1ca5145d69807b55ce4fc9e0eb6512b868199f7': [0],
+}
+const isThornRow = node => node[0] === '⿲' && node[1] === '朿' && node[2] === '企' && node[3] === '朿' && !node.note
 const isMuKo = node => node[0] === '⿶' && node[1] === 'む' && node[2] === '子' && !node.note
 
 const pyramidGlyphs = new Map(pyramidCatalog.entries.flatMap(({ char, part, sequence, pair }) =>
@@ -744,6 +753,10 @@ export const designedSources = (tree, style = 'sans') => {
   const visit = node => {
     if (!Array.isArray(node)) return
     const [op, ...children] = node
+    if (isThornRow(node)) {
+      out.add('棘')
+      out.add('企')
+    }
     const yiHost = yiCrossDonor(node, style)
     if (yiHost) out.add(yiHost)
     if (usesGhostForm(node, style)) out.add('鬼')
@@ -1347,7 +1360,8 @@ export class Composer {
         emitCell(part, node)
         return
       }
-      const parts = yiCrossParts(this, node, target(box)) ?? ghostParts(this, node, target(box))
+      const cell = target(box)
+      const parts = this.thornRowParts(node, cell) ?? yiCrossParts(this, node, cell) ?? ghostParts(this, node, cell)
       if (parts) {
         for (const part of parts) {
           if (leafIndices) part.leaf = leaf++
@@ -1477,7 +1491,7 @@ export class Composer {
         return
       }
       const repeated = isGroupedForm(keyOf(node), this.fontStyle) ? componentParts(keyOf(node), region, this.fontStyle, atRoot) : null
-      const designed = repeated ?? yiCrossParts(this, node, region) ?? ghostParts(this, node, region) ?? this.muKoParts(node, region) ?? this.wheatFaceParts(node, region)
+      const designed = repeated ?? this.thornRowParts(node, region) ?? yiCrossParts(this, node, region) ?? ghostParts(this, node, region) ?? this.muKoParts(node, region) ?? this.wheatFaceParts(node, region)
       if (designed) {
         for (const part of designed) out.push({ index: out.length, box: part.target, empty: false })
         return
@@ -1823,6 +1837,26 @@ export class Composer {
     return parts.length ? parts : null
   }
 
+  /** R+06D8, 出土文獻與古文字教程 p. 15. The two sides of 棘 flank a shorter 企. */
+  thornRowParts(node, region) {
+    if (!isThornRow(node) || ['棘', '企', '朿'].some(ch => this.excluded(ch))) return null
+    const record = this.glyphRecord('棘'), middle = this.glyph('企')
+    const indices = record && thornRightCuts[hexOf(JSON.stringify(record.p))]
+    if (!middle || !indices) return null
+    const pair = partOf(record)
+    const right = derived(pair, pair.contours.filter((_, i) => indices.includes(i)))
+    const left = derived(pair, pair.contours.filter((_, i) => !indices.includes(i)))
+    const fit = (part, box, origin, weight = [0, 0]) => ({
+      ...placed(part, part.box, mapped(box, [0, 0, 1, 1], region), partInk(part), origin, weight),
+      fixed: true,
+    })
+    return [
+      fit(left, [0, 0.025, 0.337, 0.975], 'left 朿 from 棘'),
+      fit(middle, [0.345, 0.09, 0.665, 0.945], 'glyph 企', [this.fontStyle === 'pen-writing' ? -0.65 : 0.65, 0]),
+      fit(right, [0.67, 0.025, 1, 0.975], 'right 朿 from 棘'),
+    ]
+  }
+
   /** Fit the two editable operands in the opening of the face's own む. */
   muKoParts(node, region) {
     if (!isMuKo(node) || this.excluded('む') || this.excluded('子')) return null
@@ -1844,6 +1878,8 @@ export class Composer {
   }
 
   drawNode(node, region, atRoot = false, sideBySide = false) {
+    const thorns = this.thornRowParts(node, region)
+    if (thorns) return thorns
     const yi = yiCrossParts(this, node, region)
     if (yi) return yi
     const ghost = ghostParts(this, node, region)
