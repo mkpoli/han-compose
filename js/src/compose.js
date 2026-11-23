@@ -621,6 +621,16 @@ const metricKeSeats = {
   'pen-writing': [0.55, 0.22, 0.962, 1.01],
 }
 
+// Horizontal moves toward the body of 克, in steps of 1.6% of its width.
+// Grouped by the clearance between facing strokes in both layout modes.
+const metricKeLeftMoves = {
+  'sans': ['成𡵂基生', '朱累石勿少鹿卡', '⿱从韭息'],
+  'serif': ['黍甾𡵂矣卡', '⿱从韭鹿', '兆朱累石成勿少莫意基息生'],
+  'fangsong': ['兆累𢼸息密', '⿱从韭黍成𡵂', '朱石勿少鹿矣莫基亥卡生'],
+  'regular': ['少亥密', '兆朱黍𢼸屯𡵂矣基生', '累石成勿鹿莫意卡息'],
+  'pen-writing': ['兆𢼸亥', '⿱从韭累黍', '朱屯石成勿少鹿矣莫意基卡息生'],
+}
+
 function metricKeSeat(tree, style, frame) {
   if (!Array.isArray(tree) || tree[0] !== '⿺' || tree[1] !== '克' || !metricKeInners.has(keyOf(tree[2]))) return null
   if (!frame?.part.held || !metricKeSeats[style]) return null
@@ -629,6 +639,10 @@ function metricKeSeat(tree, style, frame) {
   if (['黍', '勿', '少', '卡'].includes(tree[2])) seat[2] = Math.min(0.99, seat[2] + 0.035)
   // The long lower stroke of Kureedo 黍 comes closer to the hook.
   if (style === 'pen-writing' && tree[2] === '黍') seat[2] = 0.973
+  const key = keyOf(tree[2])
+  const move = 0.016 * (1 + metricKeLeftMoves[style].findIndex(group => group.includes(key)))
+  seat[0] -= move
+  seat[2] -= move
   return mapped(seat, [0, 0, 1, 1], drawnBox(frame))
 }
 
