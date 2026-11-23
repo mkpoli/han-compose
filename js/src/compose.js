@@ -617,7 +617,7 @@ function clawAroundCounter(frame, style) {
 const metricKeInners = new Set([...'兆朱累黍甾𢼸屯石成勿𡵂少鹿矣眇莫意基亥卡息生密', '⿱从韭'])
 const metricKeSeats = {
   sans: [0.575, 0.244, 0.945, 1.005], serif: [0.50, 0.215, 0.99, 1.01],
-  fangsong: [0.625, 0.226, 0.93, 1.005], regular: [0.505, 0.235, 0.93, 1.01],
+  fangsong: [0.625, 0.226, 0.923, 1.005], regular: [0.505, 0.235, 0.922, 1.01],
   'pen-writing': [0.55, 0.22, 0.962, 1.01],
 }
 
@@ -627,8 +627,7 @@ function metricKeSeat(tree, style, frame) {
   const seat = metricKeSeats[style].slice()
   // These shapes leave more room beside the rising tip.
   if (['黍', '勿', '少', '卡'].includes(tree[2])) seat[2] = Math.min(0.99, seat[2] + 0.035)
-  // Low strokes in these donors approach the hook sooner.
-  if (style === 'regular' && ['成', '𢼸'].includes(tree[2])) seat[2] = 0.922
+  // The long lower stroke of Kureedo 黍 comes closer to the hook.
   if (style === 'pen-writing' && tree[2] === '黍') seat[2] = 0.973
   return mapped(seat, [0, 0, 1, 1], drawnBox(frame))
 }
