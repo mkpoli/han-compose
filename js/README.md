@@ -275,3 +275,5 @@ https://kanjivg.tagaini.net/".
 The prepared form in `src/mu-net-forms.json` takes 氵 from 河, the left 木 from 林, the sweeping stroke from 木, and 罒 from 罪 (買 in Fangsong). ⿺沐罒 groups the first two components as 沐. The outlines are adapted from GenZui Sans 0.105, Noto Serif CJK JP 2.003, Zhuque Fangsong 0.212 and Kureedo Full 0.5.0 under SIL OFL 1.1. The Regular Kai outlines are adapted from TW-Kai 11510.1, 數位發展部 (Ministry of Digital Affairs), CNS11643中文標準交換碼全字庫, under the Open Government Data License 1.0. [Font sources and notices](https://github.com/mkpoli/han-compose/blob/main/docs/licensing.md)
 
 For ⿺木 followed by another operand, the same enclosing 木 holds the operand in the opening above its final stroke. 术 and its spelling ⿺木丶 retain their ordinary 木.
+
+The ㅏ and ㄴ in the FangSong drawing of ⿱⿰◇ㅏㄴ retain their positions in Gowun Batang’s 안, with a diamond from Zhuque Fangsong in the initial position. [Gowun Batang source](https://github.com/yangheeryu/Gowun-Batang) · [SIL Open Font License 1.1](../data/licences/OFL-GowunBatang.txt)
