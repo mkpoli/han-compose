@@ -293,12 +293,15 @@ export const COMPONENT_FIXES = {
         const [left, sun, right] = parts
         const inset = composer.fontStyle === 'regular' ? .12 : .135
         const height = heightOf(frame)
-        return [left, { ...sun, target: [sun.target[0], frame[1] + inset * height,
-          sun.target[2], frame[3] - inset * height] }, right]
+        // 日 originally set the ink extremes. Let the flanking strokes reach them.
+        const limits = composer.fontStyle === 'regular' ? [0, -.0066, 1, 1.0066] : [0, -.0084, 1, 1.0097]
+        const outer = mapped(limits, [0, 0, 1, 1], frame)
+        return [{ ...left, target: mapped(left.target, frame, outer) }, { ...sun, target: [sun.target[0], frame[1] + inset * height,
+          sun.target[2], frame[3] - inset * height] }, { ...right, target: mapped(right.target, frame, outer) }]
       }
       if (composer.fontStyle !== 'pen-writing') return parts
       // 日 is the short middle column. Give 千 room for its crossbar beside it.
-      const boxes = [[0, .025, .345, .975], [.385, .16, .65, .84], [.682, 0, 1, 1]]
+      const boxes = [[0, .0233, .3438, .9767], [.3837, .1588, .6478, .8412], [.6797, -.0018, .9966, 1.0018]]
       return parts.map((part, i) => ({ ...part, target: mapped(boxes[i], [0, 0, 1, 1], frame),
         weight: i === 0 ? [0, -.10] : i === 1 ? [-.68, -.20] : [-.60, -.12], fixed: true }))
     },
