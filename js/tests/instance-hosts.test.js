@@ -43,3 +43,16 @@ describe('the hosts an instance weighs', () => {
     expect(composer([host('丘')], ['丙']).instance(node, region).origin).toBe('instance 丘')
   })
 })
+
+describe('a piece kept from its host', () => {
+  it('carries the strokes it holds whole, renumbered to its own contours', () => {
+    const glyph = makePart([0, 1, 2, 3].map(i => square(i * 100, 0, i * 100 + 80, 100)))
+    glyph.strokes = [[1, [0]], [2, [1, 2]], [3, [2, 3]], [4, [3]]]
+    const c = Object.create(Composer.prototype)
+    c.glyph = () => glyph
+    const piece = c.pieceOf({ h: '甲', k: [3, 2], b: [200, 0, 380, 100] })
+    expect(piece.contours).toEqual([glyph.contours[3], glyph.contours[2]])
+    expect(piece.strokes).toEqual([[3, [1, 0]], [4, [0]]])
+    expect(c.pieceOf({ h: '乙', k: [0], b: [0, 0, 80, 100] }).strokes).toEqual([[1, [0]]])
+  })
+})
