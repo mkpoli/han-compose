@@ -333,6 +333,11 @@ export function parseTree(sequence, arity, render = false) {
       }
     }
     const tree = [ch, ...Array.from({ length: n }, node)]
+    // R+07C5 groups 儿 with 厶. Both readings draw the same headless 鬼
+    // and visit 田, 儿, 厶 in the same order.
+    if (render && ch === '⿱' && tree[1] === '田' && tree[2][0] === '⿺' &&
+        tree[2][1] === '儿' && tree[2][2] === '厶' && !tree[2].note)
+      return ['⿷', ['⿱', '田', '儿'], '厶']
     if (note) tree.note = note
     return tree
   }

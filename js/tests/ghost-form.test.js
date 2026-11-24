@@ -26,3 +26,22 @@ for (const [fontStyle, donor] of Object.entries(donors)) {
     expect((await compose(src, id, { fontStyle, exclude: ['鬼'] })).origins).not.toContain('田 from 鬼')
   })
 }
+
+
+for (const fontStyle of ['sans', 'serif', 'fangsong', 'regular', 'pen-writing']) {
+  it(`renders both R+07C5 groupings alike in ${fontStyle}`, async () => {
+    const input = { ...files, ...shards('g', Object.entries({
+      ...(donors[fontStyle] ? { 鬼: donors[fontStyle] } : {}),
+      云: records.木, 田: records.口, 儿: records.木, 厶: records.口,
+    })) }
+    const src = createSource(async name => input[name] === undefined ? null : new Uint8Array(Buffer.from(input[name])).buffer)
+    const written = '⿰云⿱田⿺儿厶', equivalent = '⿰云' + id
+    for (const layout of ['cells', 'composed']) {
+      for (const separate of [false, true]) {
+        const options = { fontStyle, layout, separate }
+        expect((await compose(src, written, options)).parts).toEqual((await compose(src, equivalent, options)).parts)
+      }
+    }
+    expect(await sketch(src, written, { fontStyle })).toEqual(await sketch(src, equivalent, { fontStyle }))
+  })
+}
