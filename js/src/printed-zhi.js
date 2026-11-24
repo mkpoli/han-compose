@@ -1,6 +1,15 @@
 // @ts-nocheck
 import { derived, mapped, partInk, placed, pointsBox, tightBox } from './geometry.js'
 
+// Per-face drawing space calibrated against the visible outline of the IDS on main.
+const frames = {
+  sans: [0.0108, -0.01903, 0.9743, 0.97638],
+  serif: [-0.04853, -0.02597, 1.01891, 1.00128],
+  fangsong: [0.06648, -0.01511, 0.92751, 0.99588],
+  regular: [0.01978, 0.01182, 0.98428, 0.9952],
+  'pen-writing': [0.03007, -0.0148, 0.96989, 0.98706],
+}
+
 export const isPrintedZhi = node => node[0] === '⿱' && node[1] === '罒' &&
   node[2]?.[0] === '⿱' && node[2][1] === '十' && node[2][2]?.[0] === '⿺' &&
   node[2][2][1] === '丄' && node[2][2][2]?.[0] === '⿵' &&
@@ -10,7 +19,8 @@ export const isPrintedZhi = node => node[0] === '⿱' && node[1] === '罒' &&
 /** 置 in 広恵済急方, crop 1jeg0012. The separate upright stands to the left
  * of the three-bar enclosure, and both feet land on the same baseline. */
 export function printedZhiParts(composer, node, region) {
-  if (!isPrintedZhi(node)) return null
+  const frame = frames[composer.fontStyle]
+  if (!frame || !isPrintedZhi(node)) return null
   const leaves = ['罒', '十', '丄', '冂', '三']
   if (leaves.some(ch => composer.excluded(ch))) return null
   const glyphs = leaves.map(ch => ch === '罒' && composer.fontStyle === 'fangsong'
@@ -65,8 +75,9 @@ export function printedZhiParts(composer, node, region) {
     [0.045, 0.015, 0.96, 0.49], [0.445, 0.016, 0.79, 0.505],
     [0.455, 0.15, 0.735, 0.415],
   ]
+  const drawing = mapped(frame, [0, 0, 1, 1], region)
   return glyphs.map((g, i) => ({
-    ...placed(g, tightBox(g), mapped(seats[i], [0, 0, 1, 1], region), partInk(g), `printed 置: ${leaves[i]}`),
+    ...placed(g, tightBox(g), mapped(seats[i], [0, 0, 1, 1], drawing), partInk(g), `printed 置: ${leaves[i]}`),
     fixed: true,
   }))
 }
