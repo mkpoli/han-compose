@@ -3,6 +3,7 @@ import { isNode, parseDescription as parse, splitDescription, tonesOf, withoutMa
 import { isComponentForm, isGroupedForm } from './component-forms.js'
 import { hasPaletteGlyph } from './palette.js'
 import { hasBundledGlyph } from './bundled-coverage.js'
+import { grassShape } from './variants.js'
 import { hasNewKorean } from './new-korean.js'
 import { hasUnicodeGlyph } from './unicode.js'
 
@@ -22,14 +23,15 @@ export function onlyBundled(sequence, separate = false, unicode = false, fontSty
   /** @param {import('./tree.js').Part} part */
   const local = part => {
     if (part === null) return true
-    const node = isNode(part) ? part : /** @type {string} */ (withoutMarks(part))
+    const bare = isNode(part) ? part : /** @type {string} */ (withoutMarks(part))
+    const node = typeof bare === 'string' ? grassShape(bare) ?? bare : bare
     if ((separate ? isGroupedForm : isComponentForm)(write(node), fontStyle)) { filled = true; return true }
     // What ㇯ leaves of a character is read from the character's description and cuts, which only
     // the export holds: its outlines alone do not draw it.
     if (isNode(node) && node.op === '㇯') return false
     if (isNode(node)) return node.parts.every(local)
     filled = true
-    return (unicode && hasUnicodeGlyph(node)) || ((unicode || fontStyle === 'sans') && hasPaletteGlyph(node)) || hasBundledGlyph('tangut', node) || hasBundledGlyph('jurchen', node) || hasBundledGlyph('bopomofo', node) || hasBundledGlyph('small-seal', node) || hasNewKorean(node) || hasBundledGlyph('shuishu', node)
+    return (unicode && (hasUnicodeGlyph(node) || node === '艹' && hasUnicodeGlyph('⺾'))) || ((unicode || fontStyle === 'sans') && hasPaletteGlyph(node)) || hasBundledGlyph('tangut', node) || hasBundledGlyph('jurchen', node) || hasBundledGlyph('bopomofo', node) || hasBundledGlyph('small-seal', node) || hasNewKorean(node) || hasBundledGlyph('shuishu', node)
   }
   return local(tree) && filled
 }
