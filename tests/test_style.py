@@ -35,6 +35,13 @@ def test_styles_are_listed_in_the_switch_order() -> None:
     assert list(compose.STYLES) == ["sans", "serif", "fangsong", "regular", "pen-writing"]
 
 
+def test_fangsong_indexes_the_right_halves_of_lian_as_jian() -> None:
+    fangsong = compose.drawn_sequences("fangsong")
+    sans = compose.drawn_sequences("sans")
+    assert [fangsong[ch] for ch in "練煉崠"] == ["⿰糹柬", "⿰火柬", "⿰山東"]
+    assert [sans[ch] for ch in "練煉崠"] == ["⿰糸東", "⿰火東", "⿰山東"]
+
+
 def test_only_fallbacks_of_the_main_fonts_design_teach_the_layout() -> None:
     from types import SimpleNamespace
 

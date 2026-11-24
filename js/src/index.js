@@ -1,6 +1,8 @@
 // @ts-check
 // The engine's front door: draw a sequence from an export in a Worker, and what a drawing answers.
 // Everything else is reachable from its own entry point (see `package.json`).
+import { activeFaces } from './font-mix.js'
+export { FONT_STYLES, composeMixed } from './font-mix.js'
 import { APPROXIMATE, EMPTY } from './compose.js'
 import { createDrawer } from './client.js'
 import { emojiSlots } from './emoji.js'
@@ -43,6 +45,8 @@ export { partScript } from './part-script.js'
  * @property {boolean} [kanjivg] Whether a part was cut along KanjiVG's groups, so the drawing is shared alike (CC BY-SA 3.0).
  * @property {{ leaf: number, origin: string, box: number[], d: string, cut?: boolean, strokes?: [number, number[]][] }[]} [parts] Each drawn part: the leaf it stands under, where it came from, its box and its path, and the source stroke groups it was cut along.
  * @property {string[]} [origins] Where each drawn part came from, in reading order.
+ * @property {{ capped: boolean }} [normalization] Whether operand normalization hit its limit.
+ * @property {boolean} [cells] Whether the composition uses cell layout.
  * @property {string[]} [missing] Characters the drawing needed but the export could not draw.
  * @property {{ text: string, box: number[], leaf: number, part: number, flip?: [boolean, boolean], cut?: boolean, restored?: boolean }[]} [emoji] Each Emoji part, drawn as text in its box; `part` is its piece in `parts` when the parts could be told apart.
  */
@@ -57,6 +61,7 @@ export { partScript } from './part-script.js'
 
 /**
  * @typedef {object} PreviewOptions
+ * @property {import('./font-mix.js').FontMix} [mix] Relative shares of the face exports and an independent stroke weight.
  * @property {AbortSignal} [signal]
  * @property {(leaves: SketchLeaf[]) => void} [onSketch]
  */
@@ -67,6 +72,8 @@ export class TooLargeError extends Error { name = 'TooLargeError' }
 export class UnavailableError extends Error { name = 'UnavailableError' }
 
 /** @typedef {import('./client.js').WorkerLike} WorkerLike */
+/** @typedef {import('./font-mix.js').FontMix} FontMix */
+/** @typedef {import('./font-mix.js').FontStyle} FontStyle */
 
 /**
  * A `preview` for an IDS editor: `draw(sequence, options)` answers the drawing, empty slots (⬚) and
@@ -84,10 +91,10 @@ export class UnavailableError extends Error { name = 'UnavailableError' }
  *
  * `preferExport` draws from the export even where the bundled outlines would cover the sequence.
  * @param {{ base: string, separate?: boolean, fontStyle?: 'sans' | 'serif' | 'regular' | 'fangsong' | 'pen-writing',
- *   preferExport?: boolean, worker?: () => WorkerLike, loaders?: Record<string, string>, timeout?: number }} options
+ *   faceBases?: Partial<Record<import('./font-mix.js').FontStyle, string>>, preferExport?: boolean, worker?: () => WorkerLike, loaders?: Record<string, string>, timeout?: number }} options
  * @returns {((sequence: string, options?: PreviewOptions) => Promise<Drawing>) & { warm: () => void }}
  */
-export function composerPreview({ base, separate = false, fontStyle = 'sans', preferExport = false, loaders = {}, timeout, worker = () => new Worker(new URL('./worker.js', import.meta.url), { type: 'module' }) }) {
+export function composerPreview({ base, faceBases = {}, separate = false, fontStyle = 'sans', preferExport = false, loaders = {}, timeout, worker = () => new Worker(new URL('./worker.js', import.meta.url), { type: 'module' }) }) {
   // A base that is no URL is reported when a drawing needs the export; nothing makes a worker for it.
   const known = (() => { try { new URL(base, globalThis.location?.href); return true } catch { return false } })()
   const drawer = known ? createDrawer(worker, base, { loaders, timeout }) : null
@@ -135,16 +142,23 @@ export function composerPreview({ base, separate = false, fontStyle = 'sans', pr
   }
   /** @type {ReturnType<typeof composerPreview>} */
   const preview = async (sequence, options = {}) => {
-    const { signal, onSketch } = options;
+    const { signal, onSketch, mix } = options
     // The loose marks travel with the sequence: the composer draws them, and the size check skips them.
     const text = sequence
     const prepared = emojiSlots(text)
     if (tooLarge(parseLoose(splitDescription(text).base || text))) throw new TooLargeError(`${text} is larger than ${LIMITS.nodes} operators or ${LIMITS.depth} levels.`)
     signal?.throwIfAborted()
-    const cached = drawings.get(text)
+    const faces = mix && activeFaces(mix).map(face => {
+      const url = faceBases[face.style] ?? (face.style === fontStyle ? base : null)
+      if (!url) throw new UnavailableError('Missing export URL for ' + face.style)
+      return { ...face, base: url }
+    })
+    const key = JSON.stringify([text, faces, mix?.weight ?? 1])
+    if (mix && !drawer) throw new UnavailableError('A font mix needs a worker and a valid base URL.')
+    const cached = drawings.get(key)
     if (cached) {
-      drawings.delete(text)
-      drawings.set(text, cached)
+      drawings.delete(key)
+      drawings.set(key, cached)
       if (cached.sketch) onSketch?.(cached.sketch)
       return cached.drawn
     }
@@ -159,7 +173,7 @@ export function composerPreview({ base, separate = false, fontStyle = 'sans', pr
     }
     // The drawing itself: from the export, or from the bundled outlines where there is no export.
     /** @type {Promise<import('./client.js').Answer>} */
-    const request = drawer ? drawer.draw(prepared.sequence, heard, { separate, fontStyle, preferExport })
+    const request = drawer ? drawer.draw(prepared.sequence, heard, { separate, fontStyle, preferExport, ...(faces && { faces, weight: mix?.weight ?? 1 }) })
       : drawnBundled(prepared.sequence, { separate, fontStyle, preferExport, loaders }, heard)
     // The drawing in progress, ended when its signal aborts; the drawer answers it as cancelled.
     /** @type {import('./client.js').Answer} */
@@ -172,7 +186,7 @@ export function composerPreview({ base, separate = false, fontStyle = 'sans', pr
     })
     if (answer.status === 'composed') {
       const made = withEmoji(answer.drawn, prepared.emoji, answer.sketch ?? shown)
-      remember(text, made.drawn, made.sketch)
+      remember(key, made.drawn, made.sketch)
       return made.drawn
     }
     if (answer.status === 'cancelled') throw new DOMException('The drawing was replaced.', 'AbortError')

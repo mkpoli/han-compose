@@ -32,3 +32,24 @@ it('reads an export once for a warming and for sequences of different kinds', as
     globalThis.fetch = previousFetch
   }
 })
+
+it('mixes active exports in the worker and returns a sketch before the drawing', async () => {
+  const previousSelf = globalThis.self, previousFetch = globalThis.fetch
+  const messages = []
+  globalThis.self = { postMessage: message => messages.push(message) }
+  globalThis.fetch = served(files, [])
+  try {
+    await import('../src/worker.js?five-face-mix')
+    const faces = [{style:'sans',base:'/',share:0.25},{style:'regular',base:'/',share:0.75}]
+    const send = weight => globalThis.self.onmessage({ data:{ id:1,sequence:'⿰木口', separate:true, faces, weight } })
+    await send(1)
+    expect(messages[0].sketch?.length).toBe(2)
+    const neutral = messages.at(-1).drawn
+    expect(neutral.parts.map(p => p.leaf)).toEqual([0,1])
+    await send(1.35)
+    expect(messages.at(-1).drawn.d).not.toBe(neutral.d)
+  } finally {
+    globalThis.self = previousSelf
+    globalThis.fetch = previousFetch
+  }
+})
