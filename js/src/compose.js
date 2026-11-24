@@ -122,6 +122,13 @@ export class LookupError extends Error { name = 'LookupError' }
 const upTo = (list, n) => list.filter(h => h.r < n)
 
 const isSelector = ch => ch !== undefined && /^[︀-️\u{E0100}-\u{E01EF}]$/u.test(ch)
+/** The character a variation sequence varies, or null for any other key. Asked of every key the
+ *  composer looks up, so a key of any other length is told at once. */
+const variantBase = key => {
+  if (key.length < 2 || key.length > 4) return null
+  const base = String.fromCodePoint(key.codePointAt(0)), selector = key.slice(base.length)
+  return isSelector(selector) ? base : null
+}
 
 const MODIFIER = /^[0-9:,._xabcdlr|-]+$/u
 const MODIFIABLE = new Set(['⿻', '⿴', '⿵', '⿶', '⿷', '⿼', '㇯'])
@@ -869,7 +876,21 @@ export class Composer {
   arity = ch => this.arities.get(ch) ?? 0
   parse = sequence => parseTree(sequence, this.arity, true)
   // A key holding an empty slot has no record and no hosts: nothing is asked for it.
-  rec = key => key.includes(EMPTY) ? null : this.formRecord(key) ?? this.data.rec(key) ?? componentRecord(key, this.fontStyle)
+  rec = key => key.includes(EMPTY) ? null : this.formRecord(key) ?? this.variantRecord(key) ?? this.data.rec(key) ?? componentRecord(key, this.fontStyle)
+  /**
+   * The record of a character under a variation selector: its own outline, laid out as its base is.
+   * The export records a variation sequence's outline alone, so what the layout reads of it (its
+   * features, its usual boxes, its places) is the base's. Null where the font draws no such sequence
+   * or the export records a layout of its own for it.
+   */
+  variantRecord(key) {
+    const base = variantBase(key)
+    if (!base) return null
+    const own = this.data.rec(key)
+    if (!own?.G || own.f) return null
+    const { s: _sequence, e: _described, a: _forms, ...record } = this.data.rec(base) ?? {}
+    return { ...record, o: own.G.p.length, ...own }
+  }
   /** A component form's record, which stands in for the export's; a native form's does only where
    *  the export records nothing. */
   formRecord = key => isNativeForm(key, this.fontStyle) ? null : componentRecord(key, this.fontStyle)
@@ -1585,6 +1606,8 @@ export class Composer {
    *  a piece, which the composer weighs before finding it cannot cut them. */
   hostsOf(written, place, uncut = false) {
     if (written.includes(EMPTY)) return []
+    // A cut names the part, not which of its shapes the host draws, so a variation sequence takes none.
+    if (this.variantRecord(written)) return []
     let list = this.data.hosts(written, place)
     // A face that cannot draw the component itself takes one of its other places' cuts before any
     // fallback glyph: Zhuque Fangsong's 善 holds 䒑 in its middle but the export cannot cut it clean,
@@ -3381,7 +3404,8 @@ export class Composer {
         this.fit(groups[0], groups[1], frameOf, stem, C, { room: opening })
         continue
       }
-      let part = this.host(op, i, child, [...children.slice(0, i), ...children.slice(i + 1)], box, region === null)
+      // Inside a variation sequence, which is drawn from its glyph, a part is set into the opening.
+      let part = i === 1 && op in this.ENCLOSE && this.variantRecord(keyOf(children[0])) ? null : this.host(op, i, child, [...children.slice(0, i), ...children.slice(i + 1)], box, region === null)
       if (op in this.ENCLOSE && i === 0 && (!part || (typeof child === 'string' && this.own(child)
         && stretchOf(part.piece.box, box) > C.ENCLOSING_STRETCH))) {
         // An enclosing part no host draws in its place, or every host squeezes, is drawn as its kin's.

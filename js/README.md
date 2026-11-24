@@ -123,6 +123,7 @@ nothing may be taken from.
 | `⿸广⿰KO` | Letters and digits of Latin, Greek, Cyrillic, kana and Hangul as parts. |
 | `⿰ㄱㅏ` | Hangul letters, drawn as the syllable they spell. |
 | `者󠄁` | A variation sequence, drawn as the glyph the font maps it to. The sans and serif exports hold them. |
+| `⿺辶󠄁禺󠄁` | A variation sequence as a part: laid out as its base character is, in the sequence's own shape. |
 
 ## In a page
 
