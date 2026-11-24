@@ -1,4 +1,5 @@
 // @ts-nocheck: a port of han-compose's Python, kept line for line; its types are the arrays it reads.
+import fangsongZhi from './fangsong-zhi.json' with { type: 'json' }
 import haNine from './ha-nine.json' with { type: 'json' }
 import { yiCrossDonor, yiCrossParts } from './yi-cross.js'
 import { ghostParts, usesGhostForm } from './ghost-form.js'
@@ -1023,6 +1024,9 @@ export class Composer {
 
   glyphRecord(ch) {
     const record = this.rec(ch), glyph = record?.G
+    // 盾 supplies the joined cliff, cross and eye of 貭; 貝 supplies its two feet.
+    if (ch === '貭' && this.fontStyle === 'fangsong' && glyph?.v !== 1 &&
+        !['貭', '盾', '貝'].some(donor => this.excluded(donor))) return fangsongZhi
     if (ch === '𛂦' && !this.excluded(ch) && glyph?.v !== 1 && Object.hasOwn(haNine, this.fontStyle))
       return haNine[this.fontStyle]
     // A Fangsong drawing takes no outline another face drew: a record its own font lacks (v 0)
