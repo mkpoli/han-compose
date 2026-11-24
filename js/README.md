@@ -276,4 +276,6 @@ The prepared form in `src/mu-net-forms.json` takes 氵 from 河, the left 木 fr
 
 For ⿺木 followed by another operand, the same enclosing 木 holds the operand in the opening above its final stroke. 术 and its spelling ⿺木丶 retain their ordinary 木.
 
+Noto Serif Hentaigana supplies 𛂦 (hentaigana HA-9) for the FangSong and Regular pairings when the selected font lacks it. The two columns of ⿰𛂦方 follow the encoded form 𭤪. [Noto Serif Hentaigana](https://github.com/notofonts/hentaigana) · [SIL Open Font License 1.1](../data/licences/OFL-NotoSerifHentaigana.txt)
+
 The ㅏ and ㄴ in the FangSong drawing of ⿱⿰◇ㅏㄴ retain their positions in Gowun Batang’s 안, with a diamond from Zhuque Fangsong in the initial position. [Gowun Batang source](https://github.com/yangheeryu/Gowun-Batang) · [SIL Open Font License 1.1](../data/licences/OFL-GowunBatang.txt)
