@@ -293,7 +293,7 @@ export const COMPONENT_FIXES = {
         const [left, sun, right] = parts
         const inset = composer.fontStyle === 'regular' ? .12 : .135
         const height = heightOf(frame)
-        // 日 originally set the ink extremes. Let the flanking strokes reach them.
+        // Shortening 日 changes stroke balancing. Extend the flanks to restore the original ink bounds.
         const limits = composer.fontStyle === 'regular' ? [0, -.0066, 1, 1.0066] : [0, -.0084, 1, 1.0097]
         const outer = mapped(limits, [0, 0, 1, 1], frame)
         return [{ ...left, target: mapped(left.target, frame, outer) }, { ...sun, target: [sun.target[0], frame[1] + inset * height,
