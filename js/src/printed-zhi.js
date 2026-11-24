@@ -54,7 +54,7 @@ export function printedZhiParts(composer, node, region) {
   ])
   // Tuck the 冂 hook into the baseline so the third bar stays distinct.
   glyphs[3] = reshape(glyphs[3], (x, y) => [
-    x > 0.5 ? x + (0.92 - x) * 0.90 * Math.max(0, 1 - y / 0.18) : x, y,
+    x > 0.4 ? x + Math.max(0, 0.89 - x) * Math.max(0, Math.min(1, (0.4 - y) / 0.14)) : x, y,
   ])
   // Seat the three native bars against the left wall. The lowest reaches furthest right.
   const bars = glyphs[4]
