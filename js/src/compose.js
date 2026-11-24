@@ -33,7 +33,7 @@ import { pyramidRows, pyramidOnBase } from './pyramid-rows.js'
 import { hangulClusterAt, jamoClass } from './hangul.js'
 import { hangulLetters } from './hangul-ids.js'
 import { toConjoiningJamo } from './hangul.js'
-import { componentFix } from './component-fixes.js'
+import { componentFix, joinXingStem } from './component-fixes.js'
 import { isOutbound, markFace, markParts } from './marks.js'
 import { customAt, splitToneMarks, toneMarksAt } from './tree.js'
 import { hexOf } from './sha256.js'
@@ -1295,7 +1295,10 @@ export class Composer {
         part.target = [cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2]
       }
       this.fitMetricKeInterior(out, tree)
-      for (const part of out) if (part.finishOutline) Object.assign(part, part.finishOutline(part))
+      for (const [i, part] of out.entries()) {
+        if (part.finishOutline) Object.assign(part, part.finishOutline(part))
+        if (part.joinXing && i) out[i] = joinXingStem(out[i - 1], part)
+      }
       fitClawInterior(out, tree, this.fontStyle)
       // Loose marks annotate the whole drawing; they take no part in its layout or weight.
       if (marks) out.push(...markParts(this, marks, frame, face))
@@ -1437,6 +1440,7 @@ export class Composer {
           b[2] -= w * CELL_MIDDLE_INSET
         }
         kids.forEach((kid, i) => walk(kid, boxes[i], depth + 1))
+        if (op === '⿱' && kids[0] === '龹' && kids[1] === '幸' && !node.note && !this.excluded('幸')) out.at(-1).joinXing = true
         return
       }
       if (op in this.ENCLOSE) {
@@ -1497,6 +1501,7 @@ export class Composer {
     if (!this.partial && this.weighted) this.balance(out)
     else if (!this.partial && this.staticFace) this.staticBalance(out)
     this.fitMetricKeInterior(out, tree)
+    for (const [i, part] of out.entries()) if (part.joinXing && i) out[i] = joinXingStem(out[i - 1], part)
     fitClawInterior(out, tree, this.fontStyle, true)
     return out
   }

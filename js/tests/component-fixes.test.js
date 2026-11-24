@@ -2,9 +2,9 @@
 // and tied to the outlines it was read against, so these tests exercise the correction itself on
 // the shapes it was written for, and the guard that leaves another export's drawing alone.
 import { describe, expect, it } from 'bun:test'
-import { COMPONENT_FIXES, clippedAbove, componentFix, dotIn, respanned, withoutContours } from 'han-compose/component-fixes'
+import { COMPONENT_FIXES, clippedAbove, componentFix, dotIn, joinXingStem, respanned, withoutContours } from 'han-compose/component-fixes'
 import { Composer } from 'han-compose/compose'
-import { drawnContours, makePart, mapped, partOf, placed, pointsBox } from 'han-compose/geometry'
+import { commands, drawnContours, makePart, mapped, partOf, placed, pointsBox } from 'han-compose/geometry'
 import { hexOf } from 'han-compose/sha256'
 
 /** A placed part of rectangular contours: `boxes` in font units, drawn from `source` into `target`. */
@@ -31,6 +31,24 @@ function dotComposer() {
 }
 
 describe('a stroke correction', () => {
+  it('joins the exposed stem of 幸 to the final ink edge of 龹', () => {
+    const rectangle = (x0, y0, x1, y1) => {
+      const points = Float64Array.of(x0, y0, x1, y0, x1, y1, x0, y1)
+      return { ops: commands('MLLL'), light: points, heavy: points }
+    }
+    const face = [0, 0, 1000, 1000]
+    const upper = makePart([rectangle(50, 600, 950, 645)])
+    const lower = makePart([rectangle(470, 100, 530, 470), rectangle(80, 365, 920, 395)])
+    const top = placed(upper, face, face, 0, '龹')
+    const base = placed(lower, face, face, 0, '幸')
+    for (const flips of [[], [{ x: true, y: true, about: [500, 500] }]]) {
+      const joined = joinXingStem({ ...top, flips }, { ...base, flips })
+      const [stem, bar] = drawnContours(joined).map(pointsBox)
+      expect(flips.length ? stem[1] : stem[3]).toBe(flips.length ? 400 : 600)
+      expect(bar).toEqual(pointsBox(drawnContours({ ...base, flips })[1]))
+    }
+  })
+
   it('cuts a contour off at a height in the box it is drawn into', () => {
     const slash = part('x', [0, 0, 100, 1000], [0, 0, 1000, 1000], [[20, 0, 80, 1000]])
     const cut = clippedAbove(slash, [0], 600)

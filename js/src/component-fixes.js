@@ -4,7 +4,7 @@
 // description it corrects, the SHA-256 outlines of the glyphs it was read against, and the parts it
 // changes; an export drawing other outlines keeps the font's cut. The parts are plain placed pieces,
 // so the corrections work wherever the description is drawn, at any depth.
-import { derived, fitted, makePart, mapped, partOf, placed, pointsBox, union } from './geometry.js'
+import { derived, drawnContours, fitted, groupRings, makePart, mapped, partOf, placed, pointsBox, union } from './geometry.js'
 import { hexOf } from './sha256.js'
 
 // Interpolation factors for the hosted 口 outlines when fitted beside 乎.
@@ -270,6 +270,43 @@ export function dotIn(composer, band) {
   return placed(glyph, glyph.box, target, composer.ink('丶'), 'dot 丶')
 }
 
+/** Extend only the exposed stem of 幸. Its cap meets the underside of 龹's
+ * lower bar after the two parts have their final positions and stroke weights. */
+export function joinXingStem(top, lower) {
+  // Both operands follow the same enclosing mirror or rotation. Measure them
+  // upright and let the renderer transform the finished neck with the pair.
+  const upper = groupRings([{ ...top, flips: [] }], 32)
+  const points = drawnContours({ ...lower, flips: [] })
+  const [left, bottom, right, head] = union(points.map(pointsBox))
+  const center = (left + right) / 2, span = (right - left) * 0.16
+  const shoulder = head - 0.095 * (head - bottom)
+  const cap = head - 0.052 * (head - bottom)
+  const underside = x => {
+    let edge = Infinity
+    for (const ring of upper) {
+      for (let j = 0; j < ring.length; j += 2) {
+        const k = (j + 2) % ring.length, x1 = ring[j], x2 = ring[k]
+        if ((x1 <= x) !== (x2 <= x)) {
+          edge = Math.min(edge, ring[j + 1] + (ring[k + 1] - ring[j + 1]) * (x - x1) / (x2 - x1))
+        }
+      }
+    }
+    return edge
+  }
+  if (!(underside(center) > head)) return lower
+  const contours = points.map((coords, i) => {
+    for (let j = 1; j < coords.length; j += 2) {
+      const x = coords[j - 1], y = coords[j]
+      if (y <= shoulder || Math.abs(x - center) > span) continue
+      const edge = underside(x)
+      if (Number.isFinite(edge)) coords[j] = shoulder + (edge - shoulder) * Math.min(1, (y - shoulder) / (cap - shoulder))
+    }
+    return { ops: lower.part.contours[i].ops, light: coords, heavy: coords }
+  })
+  const part = derived(lower.part, contours)
+  return { ...lower, part, source: part.box, target: part.box, weight: [0, 0] }
+}
+
 /**
  * The corrections, by description. `glyphs` ties each to the outlines it was read against.
  * A correction that cannot find the parts it names leaves the drawing as it is.
@@ -278,14 +315,15 @@ export const COMPONENT_FIXES = {
   '⿱龹幸': {
     glyphs: {},
     apply(parts, composer) {
-      if (parts.length !== 2 || !['serif', 'pen-writing'].includes(composer.fontStyle) || composer.excluded('幸')) return parts
+      if (parts.length !== 2 || composer.excluded('幸')) return parts
+      if (!['serif', 'pen-writing'].includes(composer.fontStyle)) return [parts[0], { ...parts[1], joinXing: true }]
       const xing = composer.glyph('幸')
       if (!xing) return parts
       const [top, bottom] = parts, frame = union([top.target, bottom.target])
       // The crown of 幸 fits between the splayed legs of 龹, below its two horizontals.
       const upper = mapped([.055, .54, .945, 1], [0, 0, 1, 1], frame)
       const lower = mapped([.12, 0, .88, .57], [0, 0, 1, 1], frame)
-      return [{ ...top, target: upper }, placed(xing, xing.box, lower, composer.ink('幸'), 'glyph 幸')]
+      return [{ ...top, target: upper }, { ...placed(xing, xing.box, lower, composer.ink('幸'), 'glyph 幸'), joinXing: true }]
     },
   },
   '⿱一丛': {
