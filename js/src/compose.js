@@ -1820,19 +1820,22 @@ export class Composer {
     return parts.length ? parts : null
   }
 
-  koreanPair(node, region) {
+  koreanPair(node, region, atRoot, sideBySide) {
     if (node[0] !== '⿴' || node[1] !== '口' || node[2] !== '도' ||
-        !['fangsong', 'regular', 'pen-writing'].includes(this.fontStyle) ||
+        !['sans', 'fangsong', 'regular', 'pen-writing'].includes(this.fontStyle) ||
         this.excluded('口') || this.excluded('도')) return null
     const mouth = this.glyph('口')
     if (!mouth) return null
-    const frame = this.place(mouth, region, this.ink('口'), 'glyph 口')
+    // Reuse the outer part of the ordinary enclosure wherever the syllable is available.
+    const original = this.glyph('도') ? this.drawNode(node, region, atRoot, sideBySide, true) : null
+    const frame = original?.[0] ?? this.place(mouth, region, this.ink('口'), 'glyph 口')
     const opening = this.room('⿴', [frame], region)
     if (!opening) return null
-    const syllable = partOf(gowunBatang[this.fontStyle === 'fangsong' ? '도' : '도-bold'])
+    const native = this.fontStyle === 'sans' ? this.glyph('도') : null
+    const syllable = native ?? partOf(gowunBatang[this.fontStyle === 'fangsong' ? '도' : '도-bold'])
     const [l, b, r, t] = opening, dx = (r - l) * 0.07, dy = (t - b) * 0.07
     const inside = fitted(syllable.box, [l + dx, b + dy, r - dx, t - dy], 1)
-    return [frame, { ...placed(syllable, syllable.box, inside, partInk(syllable), 'Gowun Batang 도'), fixed: true }]
+    return [frame, { ...placed(syllable, syllable.box, inside, partInk(syllable), native ? 'glyph 도' : 'Gowun Batang 도'), fixed: true }]
   }
 
   /** Fit the two editable operands in the opening of the face's own む. */
@@ -1855,9 +1858,9 @@ export class Composer {
     ]
   }
 
-  drawNode(node, region, atRoot = false, sideBySide = false) {
-    if (Array.isArray(node) && node[0] === '⿴') {
-      const korean = this.koreanPair(node, region)
+  drawNode(node, region, atRoot = false, sideBySide = false, ordinaryEnclosure = false) {
+    if (!ordinaryEnclosure && Array.isArray(node) && node[0] === '⿴') {
+      const korean = this.koreanPair(node, region, atRoot, sideBySide)
       if (korean) return korean
     }
     const kana = this.muKoParts(node, region)
