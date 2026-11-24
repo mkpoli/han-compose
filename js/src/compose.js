@@ -1416,7 +1416,9 @@ export class Composer {
         return
       }
       const cell = target(box)
-      const parts = this.thornRowParts(node, cell) ?? yiCrossParts(this, node, cell) ?? ghostParts(this, node, cell)
+      const water = node[0] === '⿲' && node[1] === '㇇' && node[2] === '丨' && node[3] === '𰛅' && !node.note
+        ? componentParts('⿲㇇丨𰛅', cell, this.fontStyle, depth === 0, this.exclude) : null
+      const parts = water ?? this.thornRowParts(node, cell) ?? yiCrossParts(this, node, cell) ?? ghostParts(this, node, cell)
       if (parts) {
         for (const part of parts) {
           if (leafIndices) part.leaf = leaf++

@@ -272,7 +272,7 @@ https://kanjivg.tagaini.net/".
 
 ### Manuscript form ⿰氵⿺木罒
 
-The prepared form for ⿲㇇丨𰛅 in `src/water-stroke-row.json` cuts 水 into its left bend and hooked body, then inserts the short 丨 shown in the source. The outlines are adapted from Zhuque FangSong 0.212, Kureedo Full 0.5.0 (SIL OFL 1.1) and TW-Kai 11510.1 (數位發展部, Open Government Data License 1.0). [潮語十五音 reference](https://rare.glyphatlas.org/media/v2/3bbecda5aaee2182bb994d8cabd674aad5c4a14245b8ec4f8817e4064b2317ce.webp) · [Font notices](../docs/licensing.md)
+The prepared form for ⿲㇇丨𰛅 in `src/water-stroke-row.json` cuts 水 into its left bend and hooked body, then inserts the short 丨 shown in the source. The outlines are adapted from Noto Sans CJK, Noto Serif CJK, Zhuque FangSong 0.212, Kureedo Full 0.5.0 (SIL OFL 1.1) and TW-Kai 11510.1 (數位發展部, Open Government Data License 1.0). [潮語十五音 reference](https://rare.glyphatlas.org/media/v2/3bbecda5aaee2182bb994d8cabd674aad5c4a14245b8ec4f8817e4064b2317ce.webp) · [Font notices](../docs/licensing.md)
 
 The prepared form in `src/mu-net-forms.json` takes 氵 from 河, the left 木 from 林, the sweeping stroke from 木, and 罒 from 罪 (買 in Fangsong). ⿺沐罒 groups the first two components as 沐. The outlines are adapted from GenZui Sans 0.105, Noto Serif CJK JP 2.003, Zhuque Fangsong 0.212 and Kureedo Full 0.5.0 under SIL OFL 1.1. The Regular Kai outlines are adapted from TW-Kai 11510.1, 數位發展部 (Ministry of Digital Affairs), CNS11643中文標準交換碼全字庫, under the Open Government Data License 1.0. [Font sources and notices](https://github.com/mkpoli/han-compose/blob/main/docs/licensing.md)
 
