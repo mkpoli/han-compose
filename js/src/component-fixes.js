@@ -4,7 +4,7 @@
 // description it corrects, the SHA-256 outlines of the glyphs it was read against, and the parts it
 // changes; an export drawing other outlines keeps the font's cut. The parts are plain placed pieces,
 // so the corrections work wherever the description is drawn, at any depth.
-import { derived, fitted, makePart, mapped, partOf, placed, pointsBox, union } from './geometry.js'
+import { derived, drawnBox, fitted, makePart, mapped, partOf, placed, pointsBox, targetFor, union } from './geometry.js'
 import { hexOf } from './sha256.js'
 
 // Interpolation factors for the hosted 口 outlines when fitted beside 乎.
@@ -270,19 +270,24 @@ export function dotIn(composer, band) {
   return placed(glyph, glyph.box, target, composer.ink('丶'), 'dot 丶')
 }
 
+export function enclosedZeroTarget(zero, opening) {
+  return targetFor(zero, mapped([0.16, 0.14, 0.84, 0.86], [0, 0, 1, 1], opening))
+}
+
 /**
  * The corrections, by description. `glyphs` ties each to the outlines it was read against.
  * A correction that cannot find the parts it names leaves the drawing as it is.
  */
 export const COMPONENT_FIXES = {
-  // The Bouyei form has a small oval centred within the square enclosure.
+  // 布依方塊古文字 shows a slightly upright oval with room on all four sides.
   '⿴囗〇': {
     glyphs: {},
     apply(parts, composer) {
-      if (parts.length !== 2 || composer.fontStyle !== 'fangsong') return parts
-      const [frame, zero] = parts, [l, b, r, t] = frame.target
-      const room = [l + .33 * (r - l), b + .29 * (t - b), r - .33 * (r - l), t - .29 * (t - b)]
-      return [frame, { ...zero, target: room }]
+      if (parts.length !== 2) return parts
+      const [frame, zero] = parts
+      const opening = composer.roomFromInk('⿴', [frame], drawnBox(frame))
+      if (!opening) return parts
+      return [frame, { ...zero, target: enclosedZeroTarget(zero, opening) }]
     },
   },
   '⿱一丛': {

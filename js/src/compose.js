@@ -33,7 +33,7 @@ import { pyramidRows, pyramidOnBase } from './pyramid-rows.js'
 import { hangulClusterAt, jamoClass } from './hangul.js'
 import { hangulLetters } from './hangul-ids.js'
 import { toConjoiningJamo } from './hangul.js'
-import { componentFix } from './component-fixes.js'
+import { componentFix, enclosedZeroTarget } from './component-fixes.js'
 import { isOutbound, markFace, markParts } from './marks.js'
 import { customAt, splitToneMarks, toneMarksAt } from './tree.js'
 import { hexOf } from './sha256.js'
@@ -1475,6 +1475,10 @@ export class Composer {
             }
             walk(kids[1], [(room[0] - f[0]) / width, 1 - (room[3] - f[1]) / height,
               (room[2] - f[0]) / width, 1 - (room[1] - f[1]) / height], depth + 1)
+            if (op === '⿴' && kids[0] === '囗' && kids[1] === '〇') {
+              const zero = out.at(-1)
+              zero.target = enclosedZeroTarget(zero, room)
+            }
             return
           }
         }
