@@ -764,6 +764,10 @@ export const designedSources = (tree, style = 'sans') => {
       out.add('棘')
       out.add('企')
     }
+    if (op === '⿻' && (children[1] === '土' || children[1] === '士')) {
+      out.add(children[1])
+      if (typeof children[0] === 'string') out.add(children[0])
+    }
     const yiHost = yiCrossDonor(node, style)
     if (yiHost) out.add(yiHost)
     if (usesGhostForm(node, style)) out.add('鬼')
@@ -1222,12 +1226,12 @@ export class Composer {
       // the tree was not split.
       // What ㇯ leaves is drawn in fewer parts than the description has leaves, or as a cut: neither
       // has one part for each leaf.
-      if (ownership && (ownership.split || out.some(p => p.origin?.startsWith('mark '))) && !out.some(p => p.cut) && !subtracts(tree)) {
+      if (ownership && (ownership.split || out.some(p => p.sameLeaf || p.origin?.startsWith('mark '))) && !out.some(p => p.cut) && !subtracts(tree)) {
         // A toned syllable draws its marks beside it; they belong to the leaf they mark.
         const before = out.map(part => part.leaf)
         let owner = 0, current = null
         for (const part of out) {
-          if (part.origin?.startsWith('mark ')) part.leaf = current
+          if (part.sameLeaf || part.origin?.startsWith('mark ')) part.leaf = current
           else part.leaf = current = ownership.owners[owner++]
         }
         // The walk only answers for a drawing of one part per leaf; another keeps the leaves it
@@ -1553,6 +1557,14 @@ export class Composer {
         return
       }
       const op = node[0], kids = node.slice(1)
+      const earthPair = op === '⿻' && this.earthRow(...kids)
+      const earth = earthPair && this.earthRooms(kids[1], region)
+      if (earth) {
+        if (Array.isArray(kids[0])) earthPair.slice(1).forEach((child, i) => walk(child, earth.rooms[i], false))
+        else walk(kids[0], union(earth.rooms), false)
+        walk(kids[1], earth.frame.target, false)
+        return
+      }
       if (kids.length === 2 && this.hosted && this.layout && this.hasHosts(op, kids) && (atRoot ? this.layout.ops.includes(op) : op === '⿰' || op === '⿱')) {
         let boxes = this.predict(op, kids.map(kid => this.normalizeRepeatedGrids(this.normalizeRequestedEnclosures(kid))))
         if (!atRoot) { const frame = union(boxes); boxes = boxes.map(b => mapped(b, frame, region)) }
@@ -4067,9 +4079,51 @@ export class Composer {
     return placed(piece, piece.box, region.slice(), this.ink(best[1].h), `instance ${best[1].h}`)
   }
 
+  /** A row flanks the upright of 土 or 士 above its crossbar, as in 坐. */
+  earthRow(row, base) {
+    if (base !== '土' && base !== '士') return null
+    if (Array.isArray(row)) return row[0] === '⿰' ? row : null
+    const sequence = this.sequenceOf(row) ?? (row === '丷' ? '⿰丶㇒' : '')
+    if (!sequence.startsWith('⿰')) return null
+    try { return this.parse(sequence) } catch { return null }
+  }
+
+  earthRooms(base, region) {
+    const glyph = !this.excluded(base) && this.glyph(base)
+    if (!glyph) return null
+    const frame = this.place(glyph, region, this.ink(base), `glyph ${base}`)
+    // Each search includes the stem and crossbar as its two closed sides.
+    const box = coords => mapped(coords, [0, 0, 1, 1], frame.target)
+    const halves = [box([0, 0.25, 0.64, 1]), box([0.36, 0.25, 1, 1])]
+    const rooms = halves.map((half, i) => this.roomFromInk(i ? '⿺' : '⿽', [frame], half))
+    return rooms.every(Boolean) && rooms[0][2] <= rooms[1][0] ? { frame, rooms } : null
+  }
+
+  earthCorners(children, region) {
+    const [row, base] = children, pair = this.earthRow(row, base)
+    const layout = pair && this.earthRooms(base, region)
+    if (!layout) return null
+    const { frame, rooms } = layout
+    try {
+      const corners = pair.slice(1).flatMap((child, i) => {
+        // Some exports carry the short left-fall in 丷 under 丿.
+        if (row === '丷' && child === '㇒' && !this.glyph(child) && !this.excluded('丿') && this.glyph('丿')) child = '丿'
+        return this.node(child, rooms[i])
+      })
+      if (typeof row === 'string') for (const piece of corners.slice(1)) piece.sameLeaf = true
+      return [...corners, frame]
+    } catch (error) {
+      // A compact row may still have its own glyph when a constituent is unavailable.
+      if (typeof row === 'string' && error instanceof LookupError) return null
+      throw error
+    }
+  }
+
   /** Operands drawn across each other (⿻): whole from a character that draws them so
    *  (`overlayGroup`), else where characters overlaying like operands put them. */
   overlay(children, region) {
+    const corners = this.earthCorners(children, region)
+    if (corners) return corners
     const whole = this.overlayGroup(children, region)
     if (whole) return [whole]
     const C = this.C, keys = children.map(keyOf), usable = this.overlayTeachers(children)
