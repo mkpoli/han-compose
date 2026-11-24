@@ -9,6 +9,15 @@ import keDonor from './fixtures/sans-ke.json' with { type: 'json' }
 import baiDonor from './fixtures/serif-ke-bai.json' with { type: 'json' }
 // Noto Sans CJK JP and Zhuque Fangsong (SIL OFL 1.1).
 import frameDonors from './fixtures/rice-walk-frames.json' with { type: 'json' }
+// 爮 from TW-Kai (數位發展部, CNS11643全字庫, Open Government Data License 1.0).
+// 爬 from Zhuque Fangsong and Kureedo (SIL OFL 1.1). See docs/licensing.md.
+import clawFrames from './fixtures/claw-frames.json' with { type: 'json' }
+// 咫 (Zhuque Fangsong, SIL OFL 1.1) and 𣥉 (TW-Kai, CNS11643, OGDL 1.0).
+import rulerFrames from './fixtures/ruler-frames.json' with { type: 'json' }
+// 毡 from Noto Sans CJK JP, SIL OFL 1.1.
+import maoDonor from './fixtures/sans-fur-frame.json' with { type: 'json' }
+// 尪 from Noto Sans CJK JP, SIL OFL 1.1.
+import wangDonor from './fixtures/sans-limp-frame.json' with { type: 'json' }
 import parts from './fixtures/sans-lower-left.json' with { type: 'json' }
 
 // 几 and 力 as the Sans export draws them (Noto Sans CJK, SIL OFL 1.1); 口 is the small export's
@@ -266,6 +275,18 @@ describe('米 and 走 lower-left frames', () => {
     }
   }
 
+  it('keeps the donor 走 contours when fitting Serif 呂', async () => {
+    const src = source({ ...extra, 呂: records.口 })
+    const opts = { fontStyle: 'serif', separate: true }
+    await compose(src, '⿺走呂', opts)
+    const composer = new Composer(src.store(), opts)
+    const node = ['⿺', '走', '呂']
+    const donor = composer.lowerLeftFrame(node, composer.face)
+    const fitted = composer.counterInFrame(node, composer.face, false)
+    expect(fitted?.[0].part.contours).toEqual(donor.frame.part.contours)
+    expect(fitted[1].target[0]).toBeGreaterThan((donor.frame.target[0] + donor.frame.target[2]) / 2)
+  })
+
   it('partitions the native 𮇇 and 趄 when their leaves are drawn separately', async () => {
     for (const [seq, donor] of [['⿺米日', '𮇇'], ['⿺走且', '趄']]) {
       const { parts } = await compose(source({ ...extra, 日: records.口, 且: records.口 }), seq, { separate: true })
@@ -310,4 +331,106 @@ describe('米 and 走 lower-left frames', () => {
     const composer = new Composer(src.store(), { ...options, exclude: ['木'] })
     expect(composer.enclosureForm('⿺', '米')).toBeNull()
   })
+})
+
+describe('爪 lower-left frames', () => {
+  for (const [fontStyle, donor, inner, glyph, count] of [
+    ['regular', '爮', '包', clawFrames.kai, 3],
+    ['fangsong', '爬', '巴', clawFrames.fangsong, 2],
+    ['pen-writing', '爬', '巴', clawFrames.kureedo, 2],
+  ]) {
+    it(`keeps the enclosing strokes of ${donor} together in ${fontStyle}`, async () => {
+      const src = source({ 爪: records.木, [inner]: records.口, [donor]: { G: glyph, ink: 5000 } })
+      for (const layout of ['composed', 'cells']) {
+        const { parts } = await compose(src, '⿰口⿺爪口', { fontStyle, layout, separate: true })
+        expect(parts).toHaveLength(3)
+        expect(parts[1].d.match(/M/g)).toHaveLength(count)
+        const [, frame, mouth] = parts
+        expect(mouth.box[0]).toBeGreaterThan(frame.box[0] + frame.box[2] / 2)
+        expect(mouth.box[2] * mouth.box[3]).toBeGreaterThan(0.24 * frame.box[2] * frame.box[3])
+        expect(mouth.box[1] + mouth.box[3]).toBeGreaterThan(frame.box[1] + 0.70 * frame.box[3])
+      }
+      const composer = new Composer(src.store(), { fontStyle })
+      expect(composer.enclosureForm('⿺', '爪')?.piece.contours).toHaveLength(count)
+      const { parts } = await compose(src, '⿺爪' + inner, { fontStyle, separate: true })
+      expect(parts.map(p => p.origin)).toEqual([`glyph ${donor}`, `glyph ${donor}`])
+      expect(parts[0].d.match(/M/g)).toHaveLength(count)
+      expect(new Composer(src.store(), { fontStyle, exclude: [donor] }).enclosureForm('⿺', '爪')).toBeNull()
+    })
+  }
+})
+
+describe('尺 lower-left frames', () => {
+  for (const [fontStyle, donor, glyph] of [
+    ['fangsong', '咫', rulerFrames.fangsong],
+    ['regular', '𣥉', rulerFrames.kai],
+  ]) {
+    it(`fits a nested 日 above the 尺 from ${donor}`, async () => {
+      const src = source({ 尺: records.木, 日: records.口, [donor]: { G: glyph, ink: 5000 } })
+      for (const layout of ['composed', 'cells']) {
+        const { parts } = await compose(src, '⿰口⿺尺日', { fontStyle, layout, separate: true })
+        const [, frame, day] = parts
+        expect(frame.origin).toBe(`host ${donor}`)
+        expect(day.box[2]).toBeGreaterThan(frame.box[2] * 0.35)
+        expect(day.box[3]).toBeGreaterThan(frame.box[3] * 0.55)
+      }
+      const excluded = new Composer(src.store(), { fontStyle, exclude: [donor] })
+      expect(excluded.enclosureForm('⿺', '尺')).toBeNull()
+    })
+  }
+})
+
+it('keeps 𣬰 as a whole and uses the 毡 enclosure when its operands are separate', async () => {
+  const description = '⿺毛日'
+  const src = source({
+    毛: records.木, 日: records.口, 毡: { G: maoDonor, ink: 5000 },
+    𣬰: { ...records.木, s: description }, [description]: { e: '𣬰' },
+  })
+  const native = await compose(src, description, { layout: 'composed' })
+  expect(native.parts.map(p => p.origin)).toEqual(['glyph 𣬰'])
+  for (const layout of ['composed', 'cells']) {
+    const { parts } = await compose(src, description, { layout, separate: true })
+    expect(parts.map(p => p.origin)).toEqual(['host 毡', 'glyph 日'])
+    expect(parts[1].box[3]).toBeGreaterThan(parts[0].box[3] * 0.55)
+  }
+  const excluded = await compose(src, description, { layout: 'composed', separate: true, exclude: ['毡'] })
+  expect(excluded.parts.some(p => p.origin === 'host 毡')).toBe(false)
+})
+
+it('keeps 𡯙 as a whole and uses the 尪 enclosure when its operands are separate', async () => {
+  const description = '⿺尢日'
+  const src = source({
+    尢: records.木, 日: records.口, 尪: { G: wangDonor, ink: 5000 },
+    𡯙: { ...records.木, s: description }, [description]: { e: '𡯙' },
+  })
+  const native = await compose(src, description, { layout: 'composed' })
+  expect(native.parts.map(p => p.origin)).toEqual(['glyph 𡯙'])
+  for (const layout of ['composed', 'cells']) {
+    const { parts } = await compose(src, description, { layout, separate: true })
+    expect(parts.map(p => p.origin)).toEqual(['host 尪', 'glyph 日'])
+    expect(parts[1].box[3]).toBeGreaterThan(parts[0].box[3] * 0.55)
+  }
+  const excluded = await compose(src, description, { layout: 'composed', separate: true, exclude: ['尪'] })
+  expect(excluded.parts.some(p => p.origin === 'host 尪')).toBe(false)
+})
+
+it('gives both tiers of the source 393 metric unit their full height above 克', async () => {
+  const src = source({ 克: records.木, 兡: { G: baiDonor, ink: 5000 }, 从: records.口, 韭: records.木 })
+  for (const layout of ['composed', 'cells']) {
+    const { parts } = await compose(src, '⿺克⿱从韭', { fontStyle: 'serif', layout, separate: true })
+    expect(parts).toHaveLength(3)
+    const [ke, top, bottom] = parts.map(p => p.box)
+    expect(top[1]).toBeLessThan(bottom[1])
+    expect(bottom[1] + bottom[3] - top[1]).toBeGreaterThan(ke[3] * 0.75)
+  }
+})
+
+it('draws the complete native 意 inside the Fangsong metric 克', async () => {
+  const src = source({ 克: records.木, 尅: { G: keDonor, ink: 5000 }, 意: records.口 })
+  for (const layout of ['composed', 'cells']) {
+    const { parts } = await compose(src, '⿺克意', { fontStyle: 'fangsong', layout, separate: true })
+    expect(parts).toHaveLength(2)
+    expect(parts[1].origin).toBe('glyph 意')
+    expect(parts[1].d.match(/M/g)).toHaveLength(records.口.G.p.length)
+  }
 })
