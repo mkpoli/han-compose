@@ -1,5 +1,5 @@
 name: Package
-# Each merge becomes the package the sites install.
+# Each merge becomes the package the sites install, and the sites are told to take it.
 on:
   push:
     branches: [main]
@@ -52,3 +52,21 @@ jobs:
           GIT_COMMITTER_NAME: github-actions[bot]
           GIT_COMMITTER_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
         run: scripts/publish_package.sh
+    outputs:
+      published: ${{ steps.publish.outputs.published }}
+  # SITES_TOKEN starts each site's own `han-compose.yml`: a fine-grained token with Actions write on
+  # the sites and nothing else. Without it a site takes the package on its own hourly run.
+  notify:
+    needs: publish
+    if: needs.publish.outputs.published == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        site: [unencoded-db, ids-input]
+    env:
+      GH_TOKEN: ${{ secrets.SITES_TOKEN }}
+    steps:
+      - if: env.GH_TOKEN != ''
+        run: gh workflow run han-compose.yml --repo "mkpoli/${{ matrix.site }}" --ref main
