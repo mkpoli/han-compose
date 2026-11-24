@@ -277,10 +277,17 @@ export function wealthBoxes(key, style, region) {
   if (key !== '⿺辶⿱宀⿱⿰王尔⿲隹貝招' || !['fangsong', 'regular', 'pen-writing'].includes(style)) return null
   // The exported walking radicals have a wider upstroke and a higher baseline than the CDL specimen.
   // Carry the six inner components together into the remaining opening.
+  // The outer walking radical keeps the footprint of the composed inscription.
+  const inkFrame = mapped({
+    'fangsong': [0.0039, -0.0009, 1.0218, 0.8962],
+    'regular': [-0.0098, 0.0429, 1.0055, 0.884],
+    'pen-writing': [-0.0207, 0.0331, 1.017, 0.945],
+  }[style], [0, 0, 1, 1], region)
   return wealthCdlBounds.map(([l, t, r, b], i) => {
-    const box = i ? [0.82*l + 21.4, 128 - 0.83*b + 1.0, 0.82*r + 21.4, 128 - 0.83*t + 1.0]
+    const inset = i === 4 ? (style === 'pen-writing' ? 4.3 : style === 'regular' ? 3.2 : 0) : 0
+    const box = i ? [inset + 0.90*l + 11.3, 128 - 0.89*b - 0.5, 0.90*r + 11.3, 128 - 0.89*t - 0.5]
       : [l, 128 - b, r, 128 - t]
-    return mapped(box, [0, 0, 128, 128], region)
+    return mapped(box, [0, 0, 128, 128], inkFrame)
   })
 }
 
