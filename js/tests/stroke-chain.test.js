@@ -35,9 +35,29 @@ it('sets the frame of 乌 with its bar under the counter and its wall outside it
 })
 
 it('crosses the strokes a chain says cross and closes a closed one', () => {
-  expect(solveChain('#(-𠃌𠃊x0)').cost).toBeLessThan(40)
+  expect(solveChain('#(-𠃌𠃊x0)').broken).toBe(0)
   const box = solveChain('#(-𠃊𠃍z)')
   expect(box.points.find(box.strokes[0].at[2])).toBe(box.points.find(box.strokes[1].at[2]))
+})
+
+it('draws a long chain whose strokes run against the writing order', () => {
+  expect(solveChain('#(丨x4◞◟◜◝◞◝◞◝)').broken).toBe(0)
+})
+
+it('keeps a declared crossing once its lines are spaced', () => {
+  const s = solveChain('#(㇉㇇㇀x0)')
+  const at = v => [s.x.get(s.xs.find(v)), -s.y.get(s.ys.find(v))]
+  const side = ([a, b], p) => (b[0] - a[0]) * (p[1] - a[1]) - (b[1] - a[1]) * (p[0] - a[0])
+  const cross = (g, h) => {
+    const [p, q] = [g, h].map(e => [at(e.from), at(e.to)])
+    return side(p, q[0]) * side(p, q[1]) < 0 && side(q, p[0]) * side(q, p[1]) < 0
+  }
+  const crossed = s.segments.filter(e => e.stroke === 2).flatMap(e => s.segments.filter(o => o.stroke !== 2 && cross(e, o)))
+  expect(crossed.map(e => e.stroke)).toEqual([0])
+})
+
+it('takes no stroke from an excluded character', async () => {
+  await expect(compose(source(), BIRD, { exclude: ['𠃌'] })).rejects.toThrow(BIRD)
 })
 
 it('gives each enclosure its own counter', () => {

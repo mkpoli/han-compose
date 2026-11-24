@@ -1173,7 +1173,7 @@ export class Composer {
     if (!isChain(node) || isComponentForm(node, this.fontStyle)) return null
     if (!this.chains.has(node)) {
       const missed = this.data.missing?.size ?? 0
-      const form = chainForm(node, ch => this.glyph(ch))
+      const form = chainForm(node, ch => this.excluded(ch) ? null : this.glyph(ch))
       // A pass that met a stroke not loaded yet settles nothing.
       if ((this.data.missing?.size ?? 0) !== missed) return form
       this.chains.set(node, form)

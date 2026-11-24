@@ -122,6 +122,18 @@ function meeting(a, b) {
  * @param {string} text
  */
 export function solveChain(text) {
+  if (!solved.has(text)) {
+    if (solved.size >= MOST_SOLVED) solved.clear()
+    solved.set(text, solve(text))
+  }
+  return solved.get(text) ?? null
+}
+/** Each chain's drawing, solved once however many composers ask. @type {Map<string, ReturnType<typeof solve>>} */
+const solved = new Map()
+const MOST_SOLVED = 500
+
+/** @param {string} text */
+function solve(text) {
   const chain = parseChain(text)
   if (!chain) return null
   const { strokes, closed } = chain
@@ -175,13 +187,12 @@ export function solveChain(text) {
     [lx.get(xs.find(s.from)) ?? 0, -(ly.get(ys.find(s.from)) ?? 0), lx.get(xs.find(s.to)) ?? 0, -(ly.get(ys.find(s.to)) ?? 0)]
   const joined = (/** @type {Segment} */ a, /** @type {Segment} */ b) =>
     [a.from, a.to].some(p => [b.from, b.to].some(q => points.find(p) === points.find(q)))
-  let best = null, least = Infinity
-  ox.forEach((lx, i) => oy.forEach((ly, j) => {
-    let sum = cx[i] + cy[j]
-    if (sum >= least) return
-    const rings = segments.map(s => ringOf(s, lx, ly))
+  /** How many joins and crossings a drawing breaks, its segments as `[x0, y0, x1, y1]`;
+   *  counting stops past `most`. @param {number[][]} rings @param {number} [most] */
+  const breaks = (rings, most = Infinity) => {
+    let sum = 0
     const crossed = new Set()
-    for (let a = 0; a < segments.length && sum < least; a++) for (let b = a + 1; b < segments.length; b++) {
+    for (let a = 0; a < segments.length && sum <= most; a++) for (let b = a + 1; b < segments.length; b++) {
       const sa = segments[a], sb = segments[b]
       if (sa.stroke === sb.stroke && b === a + 1) continue
       const how = meeting(rings[a], rings[b])
@@ -197,19 +208,27 @@ export function solveChain(text) {
           - Math.max(Math.min(rings[a][axis], rings[a][axis + 2]), Math.min(rings[b][axis], rings[b][axis + 2]))
         if (lap <= 0) continue
       }
-      sum += 40
+      sum++
     }
     strokes.forEach((s, k) => {
-      if (s.cross !== null && ![`${s.cross},${k}`, `${k},${s.cross}`].some(key => crossed.has(key))) sum += 40
+      if (s.cross !== null && ![`${s.cross},${k}`, `${k},${s.cross}`].some(key => crossed.has(key))) sum++
     })
-    if (sum < least) { least = sum; best = { lx, ly } }
+    return sum
+  }
+  let best = null, broken = Infinity, least = Infinity
+  ox.forEach((lx, i) => oy.forEach((ly, j) => {
+    const sum = cx[i] + cy[j]
+    if (broken === 0 && sum >= least) return
+    const count = breaks(segments.map(s => ringOf(s, lx, ly)), broken)
+    if (count < broken || (count === broken && sum < least)) { broken = count; least = sum; best = { lx, ly } }
   }))
   if (!best) return null
   const { lx, ly } = /** @type {{ lx: Map<number, number>, ly: Map<number, number> }} */ (best)
   /** Where each line stands, 0 to 1, after the room its neighbours need.
-   *  @param {Map<number, number>} levels @param {0 | 1} d */
-  const spread = (levels, d) => {
+   *  @param {Map<number, number>} levels @param {0 | 1} d @param {boolean} [even] Equal steps. */
+  const spread = (levels, d, even = false) => {
     const most = Math.max(...levels.values())
+    if (even) return new Map([...levels].map(([id, level]) => [id, most ? level / most : 0.5]))
     const rings = segments.map(s => ringOf(s, lx, ly).map((v, i) => i % 2 ? -v : v))
     const o = 1 - d
     const spans = (/** @type {number} */ level) => rings.filter((r, i) => STEP[segments[i].kind][d] === 0 && r[d] === level)
@@ -223,11 +242,12 @@ export function solveChain(text) {
     }
     return new Map([...levels].map(([id, level]) => [id, most ? at[level] / at[most] : 0.5]))
   }
-  return { strokes, segments, xs, ys, points, x: spread(lx, 0), y: spread(ly, 1), bandX, bandY, cost: least }
+  // Uneven steps turn a diagonal, and may carry it over another stroke: such a chain keeps even ones.
+  const [x, y] = [spread(lx, 0), spread(ly, 1)]
+  const kept = breaks(segments.map(s => ringOf(s, x, y))) <= broken
+  return { strokes, segments, xs, ys, points, x: kept ? x : spread(lx, 0, true), y: kept ? y : spread(ly, 1, true), broken }
 }
 
-/** A solution that breaks a join or a declared crossing is no drawing of the chain. */
-const BROKEN = 40
 const RASTER = 240
 
 /** The bars of a stroke's glyph along one axis: each line's `[lo, hi]` in font units, in the order
@@ -287,7 +307,8 @@ const through = anchors => (/** @type {number} */ v) => {
  */
 export function chainForm(text, glyphOf) {
   const solved = solveChain(text)
-  if (!solved || solved.cost >= BROKEN) return null
+  // A solution that breaks a join or a declared crossing is no drawing of the chain.
+  if (!solved || solved.broken) return null
   const glyphs = solved.strokes.map(s => glyphOf(s.char))
   if (glyphs.some(g => !g)) return null
   /** Each stroke's lines along x and y: the axis lines it stands on, low to high, and their bars. */
