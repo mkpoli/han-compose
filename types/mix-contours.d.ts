@@ -19,8 +19,16 @@ export declare function matchRegions<T>(faces: T[][], ringOf: (item: T) => numbe
  * @template T @param {T[][]} faces @param {(item:T)=>number[][]} ringOf @param {number} reach
  * @returns {T[][][]} */
 export declare function groupRegions<T>(faces: T[][], ringOf: (item: T) => number[][], reach: number): T[][][];
+/** Faces that draw as one island what another draws as several (a stroke that runs
+ * into its neighbour in one face and stands clear in another) get the same islands: the
+ * fused island is cut at the junction, so each stroke blends with its own counterpart.
+ * Null when the faces split the ink in ways that are not one a coarser form of the other.
+ * @param {number[][][][][]} polygons each face's islands
+ * @returns {number[][][][][][] | null} per island, each face's one island */
+export declare function splitIslands(polygons: number[][][][][]): number[][][][][][] | null;
 /** Compute correspondences and local stroke widths once, independently of the controls.
- * @param {number[][][][][]} polygons */
-export declare function prepareCorrespondence(polygons: number[][][][][]): ((shares: number[], weight: number) => number[][][]) | null;
+ * @param {number[][][][][]} polygons each face's one island
+ * @param {boolean} [cut] the islands were cut from larger ones */
+export declare function prepareCorrespondence(polygons: number[][][][][], cut?: boolean): ((shares: number[], weight: number) => number[][][]) | null;
 /** @param {number[][][]} rings */
 export declare function prepareWeight(rings: number[][][]): (/** @type {number} */ weight: number) => number[][][];

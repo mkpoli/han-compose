@@ -98,6 +98,13 @@ export declare class Composer {
     arity: (ch: any) => any;
     parse: (sequence: any) => any;
     rec: (key: any) => any;
+    /**
+     * The record of a character under a variation selector: its own outline, laid out as its base is.
+     * The export records a variation sequence's outline alone, so what the layout reads of it (its
+     * features, its usual boxes, its places) is the base's. Null where the font draws no such sequence
+     * or the export records a layout of its own for it.
+     */
+    variantRecord(key: any): any;
     /** A component form's record, which stands in for the export's; a native form's does only where
      *  the export records nothing. */
     formRecord: (key: any) => any;
@@ -263,6 +270,7 @@ export declare class Composer {
      *  such construct, and for one left to the composer, where a glyph it is drawn from is excluded or
      *  missing or the export draws another. */
     constructed(node: any, region: any, atRoot?: boolean): any[] | null;
+    fitMetricKeInterior(parts: any, tree: any): void;
     /** A narrow borrowed cut of 口 or 日 may have been stretched already. Use
      * the leaf's native proportions when fitting it in the space taken by 百. */
     baiSeat(inner: any, room: any): any[] | null;
@@ -324,6 +332,17 @@ export declare class Composer {
         origin: any;
         fixed: boolean;
     }[] | null;
+    diamondSyllable(node: any, region: any): {
+        part: any;
+        source: any;
+        target: any;
+        weight: number[];
+        native: any;
+        origin: any;
+        fixed: boolean;
+    }[] | null;
+    /** Keep each copy of a repeated glyph at the same size across both rows. */
+    penGrid(node: any, region: any, atRoot: any): any[] | null;
     drawNode(node: any, region: any, atRoot?: boolean, sideBySide?: boolean): any;
     /** The letters of one Bopomofo syllable stacked in the block, centered and separated by a small
      *  gap. The letters come from the bundled Bopomofo outlines; without this a three-letter spelling
@@ -658,6 +677,24 @@ export declare class Composer {
         native: any;
         origin: any;
     }[] | null;
+    /** The middle left-falling stroke of 豕 branches from a single contour. Follow its outline
+     *  from one junction on the curved spine to the other; the closing segment restores the spine. */
+    pigStroke(region: any): ({
+        part: any;
+        source: any;
+        target: any;
+        weight: number[];
+        native: any;
+        origin: any;
+    } | {
+        part: any;
+        source: any;
+        target: any;
+        weight: number[];
+        native: any;
+        origin: any;
+        cut: boolean;
+    })[] | null;
     /** ㇯ the first operand less the second: its own outlines where the export cut them, else the
      *  glyph without what KanjiVG names so (`less`, which knows no index), else what is left of its
      *  description, else the second operand cut out of it. */

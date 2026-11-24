@@ -26,6 +26,35 @@ export function inkPolygons(rings) {
   )
 }
 
+/** Rings whose counters may overlap one another, redrawn so that ink is only where the
+ * frames cover more than the counters do. Frames turn one way and counters the other.
+ * @param {number[][][]} rings closed rings, the first a frame */
+export function settledRings(rings) {
+  const turn = (/** @type {number[][]} */ ring) =>
+    ring.reduce((sum, p, i) => {
+      const q = ring[(i + 1) % ring.length]
+      return sum + p[0] * q[1] - q[0] * p[1]
+    }, 0)
+  const forward = turn(rings[0]) > 0
+  const engine = new clipper.Clipper()
+  engine.AddPaths(
+    rings.map((ring) =>
+      ring.slice(0, -1).map(([x, y]) => ({ X: Math.round(x * 4096), Y: Math.round(y * 4096) }))
+    ),
+    clipper.PolyType.ptSubject,
+    true
+  )
+  const fill = forward ? clipper.PolyFillType.pftPositive : clipper.PolyFillType.pftNegative
+  /** @type {{ X: number, Y: number }[][]} */
+  const out = []
+  engine.Execute(clipper.ClipType.ctUnion, out, fill, fill)
+  return out.map((path) => {
+    // Clipper turns its frames forward; keep the way the rings came.
+    const ring = (forward ? path : path.slice().reverse()).map((p) => [p.X / 4096, p.Y / 4096])
+    return [...ring, ring[0]]
+  })
+}
+
 /** Remove almost-collinear samples within a geometric tolerance; keep both halves
  * of the closed ring so the starting sample has the same error bound as the others.
  * @param {number[][]} ring @param {number} tolerance */

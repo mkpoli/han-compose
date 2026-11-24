@@ -1,8 +1,9 @@
 export declare const hasBopomofo: (text: any) => boolean;
 declare const loadOutlines: () => Promise<any>;
-export declare const bopomofoSource: ({ load, fallback }?: {
+export declare const bopomofoSource: ({ load, fallback, style }?: {
     fallback?: null | undefined;
     load?: typeof loadOutlines | undefined;
+    style?: string | undefined;
 }) => {
     manifest: null;
     readonly layout: any;

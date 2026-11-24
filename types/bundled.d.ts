@@ -1,11 +1,12 @@
 /**
  * `under` lets the export answer first, with these records filling only what it lacks.
  */
-export declare function bundledSource({ load, matches, fallback, under, alias }: {
+export declare function bundledSource({ load, matches, fallback, under, nativeFirst, alias }: {
     alias?: ((key: any) => any) | undefined;
     fallback?: null | undefined;
     load: any;
     matches: any;
+    nativeFirst?: boolean | undefined;
     under?: boolean | undefined;
 }): {
     manifest: null;

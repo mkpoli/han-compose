@@ -1,6 +1,9 @@
 // @ts-nocheck: a port of han-compose's Python, kept line for line; its types are the arrays it reads.
+import fangsongZhi from './fangsong-zhi.json' with { type: 'json' }
+import haNine from './ha-nine.json' with { type: 'json' }
 import { yiCrossDonor, yiCrossParts } from './yi-cross.js'
 import { ghostParts, usesGhostForm } from './ghost-form.js'
+import diamondSyllable from './diamond-syllable.json' with { type: 'json' }
 import { grassShape } from './variants.js'
 // A port of han-compose's composer (`compose.py`, `Composer.compose`) over its web export: a sequence
 // drawn from parts other characters' designers drew. The export carries what the composer reads
@@ -122,6 +125,13 @@ export class LookupError extends Error { name = 'LookupError' }
 const upTo = (list, n) => list.filter(h => h.r < n)
 
 const isSelector = ch => ch !== undefined && /^[︀-️\u{E0100}-\u{E01EF}]$/u.test(ch)
+/** The character a variation sequence varies, or null for any other key. Asked of every key the
+ *  composer looks up, so a key of any other length is told at once. */
+const variantBase = key => {
+  if (key.length < 2 || key.length > 4) return null
+  const base = String.fromCodePoint(key.codePointAt(0)), selector = key.slice(base.length)
+  return isSelector(selector) ? base : null
+}
 
 const MODIFIER = /^[0-9:,._xabcdlr|-]+$/u
 const MODIFIABLE = new Set(['⿻', '⿴', '⿵', '⿶', '⿷', '⿼', '㇯'])
@@ -613,6 +623,39 @@ function clawAroundCounter(frame, style) {
   }), frame.source)
 }
 
+// Metric unit spellings in 工業標準與度量衡, 1935, vol. 1 no. 7 (source 393).
+const metricKeInners = new Set([...'兆朱累黍甾𢼸屯石成勿𡵂少鹿矣眇莫意基亥卡息生密', '⿱从韭'])
+const metricKeSeats = {
+  sans: [0.575, 0.244, 0.945, 1.005], serif: [0.50, 0.215, 0.99, 1.01],
+  fangsong: [0.625, 0.226, 0.923, 1.005], regular: [0.505, 0.235, 0.922, 1.01],
+  'pen-writing': [0.55, 0.22, 0.962, 1.01],
+}
+
+// Horizontal moves toward the body of 克, in steps of 1.6% of its width.
+// Grouped by the clearance between facing strokes in both layout modes.
+const metricKeLeftMoves = {
+  'sans': ['成𡵂基生', '朱累石勿少鹿卡', '⿱从韭息'],
+  'serif': ['黍甾𡵂矣卡', '⿱从韭鹿', '兆朱累石成勿少莫意基息生'],
+  'fangsong': ['兆累𢼸息密', '⿱从韭黍成𡵂', '朱石勿少鹿矣莫基亥卡生'],
+  'regular': ['少亥密', '兆朱黍𢼸屯𡵂矣基生', '累石成勿鹿莫意卡息'],
+  'pen-writing': ['兆𢼸亥', '⿱从韭累黍', '朱屯石成勿少鹿矣莫意基卡息生'],
+}
+
+function metricKeSeat(tree, style, frame) {
+  if (!Array.isArray(tree) || tree[0] !== '⿺' || tree[1] !== '克' || !metricKeInners.has(keyOf(tree[2]))) return null
+  if (!frame?.part.held || !metricKeSeats[style]) return null
+  const seat = metricKeSeats[style].slice()
+  // These shapes leave more room beside the rising tip.
+  if (['黍', '勿', '少', '卡'].includes(tree[2])) seat[2] = Math.min(0.99, seat[2] + 0.035)
+  // The long lower stroke of Kureedo 黍 comes closer to the hook.
+  if (style === 'pen-writing' && tree[2] === '黍') seat[2] = 0.973
+  const key = keyOf(tree[2])
+  const move = 0.016 * (1 + metricKeLeftMoves[style].findIndex(group => group.includes(key)))
+  seat[0] -= move
+  seat[2] -= move
+  return mapped(seat, [0, 0, 1, 1], drawnBox(frame))
+}
+
 // Fit only the inner after balancing. Earlier changes to the learned layout
 // also change the weight and width of Noto's claw.
 function fitClawInterior(parts, tree, style, cells = false) {
@@ -869,7 +912,21 @@ export class Composer {
   arity = ch => this.arities.get(ch) ?? 0
   parse = sequence => parseTree(sequence, this.arity, true)
   // A key holding an empty slot has no record and no hosts: nothing is asked for it.
-  rec = key => key.includes(EMPTY) ? null : this.formRecord(key) ?? this.data.rec(key) ?? componentRecord(key, this.fontStyle)
+  rec = key => key.includes(EMPTY) ? null : this.formRecord(key) ?? this.variantRecord(key) ?? this.data.rec(key) ?? componentRecord(key, this.fontStyle)
+  /**
+   * The record of a character under a variation selector: its own outline, laid out as its base is.
+   * The export records a variation sequence's outline alone, so what the layout reads of it (its
+   * features, its usual boxes, its places) is the base's. Null where the font draws no such sequence
+   * or the export records a layout of its own for it.
+   */
+  variantRecord(key) {
+    const base = variantBase(key)
+    if (!base) return null
+    const own = this.data.rec(key)
+    if (!own?.G || own.f) return null
+    const { s: _sequence, e: _described, a: _forms, ...record } = this.data.rec(base) ?? {}
+    return { ...record, o: own.G.p.length, ...own }
+  }
   /** A component form's record, which stands in for the export's; a native form's does only where
    *  the export records nothing. */
   formRecord = key => isNativeForm(key, this.fontStyle) ? null : componentRecord(key, this.fontStyle)
@@ -967,6 +1024,11 @@ export class Composer {
 
   glyphRecord(ch) {
     const record = this.rec(ch), glyph = record?.G
+    // 盾 supplies the joined cliff, cross and eye of 貭; 貝 supplies its two feet.
+    if (ch === '貭' && this.fontStyle === 'fangsong' && glyph?.v !== 1 &&
+        !['貭', '盾', '貝'].some(donor => this.excluded(donor))) return fangsongZhi
+    if (ch === '𛂦' && !this.excluded(ch) && glyph?.v !== 1 && Object.hasOwn(haNine, this.fontStyle))
+      return haNine[this.fontStyle]
     // A Fangsong drawing takes no outline another face drew: a record its own font lacks (v 0)
     // stays missing rather than standing in as a Mincho.
     if (glyph && this.fontStyle === 'fangsong' && glyph.v === 0) return null
@@ -1240,6 +1302,7 @@ export class Composer {
         const w = (sx1 - sx0) * scale, h = (sy1 - sy0) * scale
         part.target = [cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2]
       }
+      this.fitMetricKeInterior(out, tree)
       for (const part of out) if (part.finishOutline) Object.assign(part, part.finishOutline(part))
       fitClawInterior(out, tree, this.fontStyle)
       // Loose marks annotate the whole drawing; they take no part in its layout or weight.
@@ -1441,6 +1504,7 @@ export class Composer {
     walk(numbered, [0, 0, 1, 1], 0)
     if (!this.partial && this.weighted) this.balance(out)
     else if (!this.partial && this.staticFace) this.staticBalance(out)
+    this.fitMetricKeInterior(out, tree)
     fitClawInterior(out, tree, this.fontStyle, true)
     return out
   }
@@ -1505,7 +1569,7 @@ export class Composer {
       const frame = this.woodFrame(node, region) ?? this.lowerLeftFrame(node, region)
       if (frame) {
         out.push({ index: out.length, box: frame.frame.target, empty: false })
-        walk(node[2], frame.room, false)
+        walk(node[2], (atRoot && metricKeSeat(node, this.fontStyle, frame.frame)) || frame.room, false)
         return
       }
       const grid = this.repeatedGrid(node)
@@ -1585,6 +1649,8 @@ export class Composer {
    *  a piece, which the composer weighs before finding it cannot cut them. */
   hostsOf(written, place, uncut = false) {
     if (written.includes(EMPTY)) return []
+    // A cut names the part, not which of its shapes the host draws, so a variation sequence takes none.
+    if (this.variantRecord(written)) return []
     let list = this.data.hosts(written, place)
     // A face that cannot draw the component itself takes one of its other places' cuts before any
     // fallback glyph: Zhuque Fangsong's 善 holds 䒑 in its middle but the export cannot cut it clean,
@@ -1665,6 +1731,33 @@ export class Composer {
     if ([...hosts].some(host => this.excluded(host))) return null
     const parts = constructParts(construct, [], Object.fromEntries([...hosts].map(host => [host, this.glyphRecord(host)])), region, atRoot)
     return parts.length ? parts : null
+  }
+
+  fitMetricKeInterior(parts, tree) {
+    const style = this.fontStyle
+    const seat = metricKeSeat(tree, style, parts[0])
+    if (!seat || parts.length < 2) return
+    const inner = parts.slice(1)
+    const bounds = union(inner.map(drawnBox))
+    for (const p of inner) p.target = targetFor(p, mapped(drawnBox(p), bounds, seat))
+
+    // Fit the face's own strokes before measuring them. Contextual cuts from
+    // unrelated hosts can carry very different weights into the same 克 opening.
+    if (style !== 'regular' && style !== 'serif' && !(style === 'fangsong' && tree[2] === '意')) return
+    const char = tree[2]
+    if (typeof char === 'string' && !this.excluded(char) && !this.forced(char)) {
+      const glyph = this.drawnGlyph(char, true)
+      if (glyph) {
+        const native = placed(glyph, tightBox(glyph), seat, this.ink(char), `glyph ${char}`)
+        if (glyph.fixed) native.fixed = true
+        if (inner[0].leaf !== undefined) native.leaf = inner[0].leaf
+        parts.splice(1, inner.length, native)
+      }
+    }
+    if (this.partial) return
+    const group = [{ ...parts[0], fixed: true }, ...parts.slice(1)]
+    if (this.weighted) this.balance(group)
+    else if (this.staticFace) this.staticBalance(group)
   }
 
   /** A narrow borrowed cut of 口 or 日 may have been stretched already. Use
@@ -1877,7 +1970,49 @@ export class Composer {
     ]
   }
 
+  diamondSyllable(node, region) {
+    if (this.fontStyle === 'fangsong' && keyOf(node) === '⿱⿰◇ㅏㄴ' &&
+        !['◇', 'ㅏ', 'ㄴ', '안'].some(ch => this.excluded(ch))) {
+      // 안 supplies the three positions of a syllable with a vertical vowel and final ㄴ.
+      const parts = diamondSyllable.map(g => partOf(g))
+      const frame = union(parts.map(part => part.box)), target = fitted(frame, region, 1)
+      return parts.map((part, i) => ({ ...placed(part, part.box, mapped(part.box, frame, target),
+        partInk(part), ['Zhuque ◇', 'Gowun Batang ㅏ', 'Gowun Batang ㄴ'][i]), fixed: true }))
+    }
+    return null
+
+  }
+
+  /** Keep each copy of a repeated glyph at the same size across both rows. */
+  penGrid(node, region, atRoot) {
+    if (this.fontStyle !== 'pen-writing' || !Array.isArray(node) || node[0] !== '⿱') return null
+    const [upper, lower] = node.slice(1)
+    const expand = row => row === '𡥦' && !this.excluded(row) ? ['⿲', '子', '子', '子'] : row
+    const row = expand(upper)
+    if (!Array.isArray(row) || keyOf(row) !== keyOf(expand(lower))) return null
+    const child = row[1]
+    const pair = row[0] === '⿰' && ['林', '竹', '幺'].includes(child)
+    const triple = row[0] === '⿲' && child === '子'
+    if (!(pair || triple) || !row.slice(1).every(part => part === child) ||
+        this.excluded(child) || !this.glyph(child)) return null
+    const parts = this.cellLayout(['⿱', row, row], region, { leafIndices: false })
+    if (atRoot && this.separate) {
+      const width = row.length - 1, firstLeaves = upper === '𡥦' ? 1 : width
+      parts.forEach((part, i) => {
+        part.leaf = i < width ? (upper === '𡥦' ? 0 : i) : firstLeaves + (lower === '𡥦' ? 0 : i - width)
+      })
+    }
+    return parts
+  }
+
+
   drawNode(node, region, atRoot = false, sideBySide = false) {
+    if (Array.isArray(node) && node[0] === '⿱') {
+      const syllable = this.diamondSyllable(node, region)
+      if (syllable) return syllable
+    }
+    const grid = this.penGrid(node, region, atRoot)
+    if (grid) return grid
     const thorns = this.thornRowParts(node, region)
     if (thorns) return thorns
     const yi = yiCrossParts(this, node, region)
@@ -3381,7 +3516,8 @@ export class Composer {
         this.fit(groups[0], groups[1], frameOf, stem, C, { room: opening })
         continue
       }
-      let part = this.host(op, i, child, [...children.slice(0, i), ...children.slice(i + 1)], box, region === null)
+      // Inside a variation sequence, which is drawn from its glyph, a part is set into the opening.
+      let part = i === 1 && op in this.ENCLOSE && this.variantRecord(keyOf(children[0])) ? null : this.host(op, i, child, [...children.slice(0, i), ...children.slice(i + 1)], box, region === null)
       if (op in this.ENCLOSE && i === 0 && (!part || (typeof child === 'string' && this.own(child)
         && stretchOf(part.piece.box, box) > C.ENCLOSING_STRETCH))) {
         // An enclosing part no host draws in its place, or every host squeezes, is drawn as its kin's.
@@ -4136,11 +4272,41 @@ export class Composer {
     return [this.place(derived(glyph, kept, union(kept.map(contour => pointsBox(contour.light)))), region, this.ink(base), `glyph ${base}`)]
   }
 
+  /** The middle left-falling stroke of 豕 branches from a single contour. Follow its outline
+   *  from one junction on the curved spine to the other; the closing segment restores the spine. */
+  pigStroke(region) {
+    if (this.excluded('豕') || this.excluded('㇒') || !['fangsong', 'pen-writing'].includes(this.fontStyle)) return null
+    const record = this.glyphRecord('豕')
+    if (!record) return null
+    const range = {
+      '7d61f638d6977488862a868d07925e50569a21b9d55320d0151cc9d753c3b032': [17, 23],
+      'e9bcc28600894e9768fbb816568ccbb6fa474cb43dacdb8d1bea046a50aa0a91': [21, 24],
+    }[hexOf(JSON.stringify(record.p))]
+    if (!range) return null
+    const glyph = partOf(record), contour = glyph.contours[0]
+    const [first, last] = range, ops = contour.ops
+    const length = commands => commands.reduce((n, op) => n + 2 * op[1], 0)
+    const start = length(ops.slice(0, first)), end = length(ops.slice(0, last + 1))
+    const kept = points => Float64Array.from([...points.slice(0, start), ...points.slice(end - 2)])
+    const body = derived(glyph, [{ ...contour, ops: [...ops.slice(0, first), ['L', 1], ...ops.slice(last + 1)],
+      light: kept(contour.light), heavy: kept(contour.heavy) }])
+    const target = fitted(glyph.box, region, this.C.STRETCH)
+    const result = placed(body, glyph.box, target, this.ink('豕'), 'glyph 豕 minus ㇒')
+    if (!this.separate) return [result]
+    const stroke = derived(glyph, [{ ...contour, ops: [['M', 1], ...ops.slice(first, last + 1)],
+      light: contour.light.slice(start - 2, end), heavy: contour.heavy.slice(start - 2, end) }])
+    return [result, { ...placed(stroke, glyph.box, target, this.ink('豕'), 'stroke of 豕'), cut: true }]
+  }
+
   /** ㇯ the first operand less the second: its own outlines where the export cut them, else the
    *  glyph without what KanjiVG names so (`less`, which knows no index), else what is left of its
    *  description, else the second operand cut out of it. */
   subtracted(node, region, atRoot) {
     const children = node.slice(1)
+    if (children[0] === '豕' && children[1] === '㇒' && takenIndex(node) === 0) {
+      const native = this.pigStroke(region)
+      if (native) return native
+    }
     const left = this.remainder(node, region, atRoot) ?? (takenIndex(node) === 0 ? this.less(children, region) : null)
     if (left) return left
     // A character with no description the part can be found in: the part is laid over it and cut out.

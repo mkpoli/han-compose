@@ -2,6 +2,10 @@
  * sees subpixel edges and the actual counter topology of overlapping strokes.
  * @param {number[][]} rings (flat x,y pairs, y down) */
 export declare function inkPolygons(rings: number[][]): number[][][][];
+/** Rings whose counters may overlap one another, redrawn so that ink is only where the
+ * frames cover more than the counters do. Frames turn one way and counters the other.
+ * @param {number[][][]} rings closed rings, the first a frame */
+export declare function settledRings(rings: number[][][]): number[][][];
 /** A smooth SVG outline with bounded corner rounding. Gentle turns use quadratic
  * joins; a serif, stroke tip or square corner keeps its vertex.
  * @param {number[][]} ring @param {number[]} box SVG [left,top,width,height]
