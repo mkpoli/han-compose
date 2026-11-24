@@ -1967,7 +1967,32 @@ export class Composer {
     ]
   }
 
+  /** Keep each copy of a repeated glyph at the same size across both rows. */
+  penGrid(node, region, atRoot) {
+    if (this.fontStyle !== 'pen-writing' || !Array.isArray(node) || node[0] !== '⿱') return null
+    const [upper, lower] = node.slice(1)
+    const expand = row => row === '𡥦' && !this.excluded(row) ? ['⿲', '子', '子', '子'] : row
+    const row = expand(upper)
+    if (!Array.isArray(row) || keyOf(row) !== keyOf(expand(lower))) return null
+    const child = row[1]
+    const pair = row[0] === '⿰' && ['林', '竹', '幺'].includes(child)
+    const triple = row[0] === '⿲' && child === '子'
+    if (!(pair || triple) || !row.slice(1).every(part => part === child) ||
+        this.excluded(child) || !this.glyph(child)) return null
+    const parts = this.cellLayout(['⿱', row, row], region, { leafIndices: false })
+    if (atRoot && this.separate) {
+      const width = row.length - 1, firstLeaves = upper === '𡥦' ? 1 : width
+      parts.forEach((part, i) => {
+        part.leaf = i < width ? (upper === '𡥦' ? 0 : i) : firstLeaves + (lower === '𡥦' ? 0 : i - width)
+      })
+    }
+    return parts
+  }
+
+
   drawNode(node, region, atRoot = false, sideBySide = false) {
+    const grid = this.penGrid(node, region, atRoot)
+    if (grid) return grid
     const thorns = this.thornRowParts(node, region)
     if (thorns) return thorns
     const yi = yiCrossParts(this, node, region)
