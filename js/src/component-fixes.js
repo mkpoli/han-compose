@@ -41,6 +41,14 @@ const heightOf = box => box[3] - box[1]
 const centreX = box => (box[0] + box[2]) / 2
 const centreY = box => (box[1] + box[3]) / 2
 
+/** Close the gap after 忄 without stretching its dots or the neighbouring glyph. */
+function heartColumnSpacing(parts, composer) {
+  if (parts.length !== 2 || !['fangsong', 'regular', 'pen-writing'].includes(composer.fontStyle)) return parts
+  const [heart, body] = parts, frame = union([heart.target, body.target])
+  const move = Math.max(0, (body.target[0] - heart.target[2] - .022 * widthOf(frame)) / 2)
+  return parts.map((part, i) => ({ ...part, target: part.target.map((v, axis) => axis % 2 ? v : v + (i ? -move : move)) }))
+}
+
 /** The part drawn from `origin`, where a description drew it so. */
 const partFrom = (parts, origin) => parts.find(part => part.origin === origin)
 
@@ -275,6 +283,14 @@ export function dotIn(composer, band) {
  * A correction that cannot find the parts it names leaves the drawing as it is.
  */
 export const COMPONENT_FIXES = {
+  '⿰忄実': {
+    glyphs: {},
+    apply: heartColumnSpacing,
+  },
+  '⿰忄實': {
+    glyphs: {},
+    apply: heartColumnSpacing,
+  },
   '⿱一丛': {
     glyphs: { '丛': ['6101a4a331e919f7901aefbd3fb9feaec8802bb6daef6a46bea98fab1d35f811', 'dfc25b96a72d8ac1aa6559b6223e05b939b4899098b70cf468fb889a233a6b1f'] },
     apply(parts, composer) {
