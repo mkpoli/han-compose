@@ -2,6 +2,7 @@
 import fangsongZhi from './fangsong-zhi.json' with { type: 'json' }
 import haNine from './ha-nine.json' with { type: 'json' }
 import { yiCrossDonor, yiCrossParts } from './yi-cross.js'
+import { isPrintedZhi, printedZhiParts } from './printed-zhi.js'
 import { ghostParts, usesGhostForm } from './ghost-form.js'
 import diamondSyllable from './diamond-syllable.json' with { type: 'json' }
 import { grassShape } from './variants.js'
@@ -26,7 +27,7 @@ import { grassShape } from './variants.js'
 // `data.identity(key)`: the key's sequence and the character it describes, without its record; one
 // over an export with a kin table answers `data.kin()` with it (`kin`, `kinOuter`).
 import { EM_BOX, area, centre, count, derived, drawnBox, drawnContours, fill, fitted, grown, groupRings, makePart, mapped, partInk, partOf,
-  placed, pointsBox, pyRound, raster, rings, scaleOf, shrunk, square, stretchOf, targetFor, union, windingOf, within } from './geometry.js'
+  placed, pointsBox, pyRound, tightBox, raster, rings, scaleOf, shrunk, square, stretchOf, targetFor, union, windingOf, within } from './geometry.js'
 import { grassPairs, connectedGrass, contextualGrass } from './grass-forms.js'
 import { ownFormsOnly, componentParts, componentPosition, componentPositionBox, componentRecord, containsComponentForm, hasForcedForms, containsForcedForm, isComponentForm, isForcedCharacter, isGroupedForm, isNativeForm } from './component-forms.js'
 import { features, forward } from './layout.js'
@@ -342,13 +343,6 @@ export function parseTree(sequence, arity, render = false) {
   const tree = node()
   if (at !== chars.length) throw new LookupError(`${sequence} has more components than its operators take.`)
   return tree
-}
-
-/** A glyph's ink box: its strokes can reach past its placement box, and inside a cell that overflow
- *  runs into the next cell, so a cell fits the ink. @param {any} part */
-const tightBox = part => {
-  const box = part.contours.reduce((b, c) => union([b, pointsBox(c.light)]), [Infinity, Infinity, -Infinity, -Infinity])
-  return Number.isFinite(box[0]) ? box : part.box
 }
 
 /** The text of each leaf of a tree in reading order, an empty slot as ⬚. @param {any} node @returns {string[]} */
@@ -796,6 +790,7 @@ export const designedSources = (tree, style = 'sans') => {
   const visit = node => {
     if (!Array.isArray(node)) return
     const [op, ...children] = node
+    if (style === 'fangsong' && isPrintedZhi(node)) out.add('罡')
     if (isThornRow(node)) {
       out.add('棘')
       out.add('企')
@@ -1424,7 +1419,7 @@ export class Composer {
         return
       }
       const cell = target(box)
-      const parts = this.thornRowParts(node, cell) ?? yiCrossParts(this, node, cell) ?? ghostParts(this, node, cell)
+      const parts = printedZhiParts(this, node, cell) ?? this.thornRowParts(node, cell) ?? yiCrossParts(this, node, cell) ?? ghostParts(this, node, cell)
       if (parts) {
         for (const part of parts) {
           if (leafIndices) part.leaf = leaf++
@@ -1555,7 +1550,7 @@ export class Composer {
         return
       }
       const repeated = isGroupedForm(keyOf(node), this.fontStyle) ? componentParts(keyOf(node), region, this.fontStyle, atRoot) : null
-      const designed = repeated ?? this.thornRowParts(node, region) ?? yiCrossParts(this, node, region) ?? ghostParts(this, node, region) ?? this.muKoParts(node, region) ?? this.wheatFaceParts(node, region)
+      const designed = repeated ?? printedZhiParts(this, node, region) ?? this.thornRowParts(node, region) ?? yiCrossParts(this, node, region) ?? ghostParts(this, node, region) ?? this.muKoParts(node, region) ?? this.wheatFaceParts(node, region)
       if (designed) {
         for (const part of designed) out.push({ index: out.length, box: part.target, empty: false })
         return
@@ -1825,10 +1820,7 @@ export class Composer {
     if (!enclosure) return null
     let glyph = this.glyph(inner), donor = inner
     if (this.fontStyle === 'fangsong' && inner === '罒') {
-      const record = !this.excluded('罡') && this.glyphRecord('罡')
-      if (!record || hexOf(JSON.stringify(record.p)) !== 'b157761ed58dfbf011bdac2d0925357da36a92cc25dcb90b2d31bef39a54db47') return null
-      const source = partOf(record)
-      glyph = derived(source, source.contours.slice(1, 5))
+      glyph = this.fangsongNet()
       donor = '罡'
     }
     if (!glyph) return null
@@ -1930,6 +1922,14 @@ export class Composer {
     return parts.length ? parts : null
   }
 
+  /** The contextual 罒 from Zhuque's 罡. */
+  fangsongNet() {
+    const record = !this.excluded('罡') && this.glyphRecord('罡')
+    if (!record || hexOf(JSON.stringify(record.p)) !== 'b157761ed58dfbf011bdac2d0925357da36a92cc25dcb90b2d31bef39a54db47') return null
+    const donor = partOf(record)
+    return derived(donor, donor.contours.slice(1, 5))
+  }
+
   /** R+06D8, 出土文獻與古文字教程 p. 15. The two sides of 棘 flank a shorter 企. */
   thornRowParts(node, region) {
     if (!isThornRow(node) || ['棘', '企', '朿'].some(ch => this.excluded(ch))) return null
@@ -2013,6 +2013,8 @@ export class Composer {
     }
     const grid = this.penGrid(node, region, atRoot)
     if (grid) return grid
+    const zhi = printedZhiParts(this, node, region)
+    if (zhi) return zhi
     const thorns = this.thornRowParts(node, region)
     if (thorns) return thorns
     const yi = yiCrossParts(this, node, region)

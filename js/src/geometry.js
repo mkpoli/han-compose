@@ -109,6 +109,13 @@ export function wound(part) {
   return sign !== 0 && sign !== WINDING ? { ...part, reverse: true } : part
 }
 
+/** A glyph's ink box: its strokes can reach past its placement box, and inside a cell that overflow
+ *  runs into the next cell, so a cell fits the ink. @param {any} part */
+export const tightBox = part => {
+  const box = part.contours.reduce((b, c) => union([b, pointsBox(c.light)]), [Infinity, Infinity, -Infinity, -Infinity])
+  return Number.isFinite(box[0]) ? box : part.box
+}
+
 /** A part made of `contours` taken from `from` (a cut, a split, a stroke group): drawn the way
  *  `from` is drawn. */
 export function derived(from, contours, box) {
