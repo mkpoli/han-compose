@@ -620,6 +620,39 @@ function clawAroundCounter(frame, style) {
   }), frame.source)
 }
 
+// Metric unit spellings in 工業標準與度量衡, 1935, vol. 1 no. 7 (source 393).
+const metricKeInners = new Set([...'兆朱累黍甾𢼸屯石成勿𡵂少鹿矣眇莫意基亥卡息生密', '⿱从韭'])
+const metricKeSeats = {
+  sans: [0.575, 0.244, 0.945, 1.005], serif: [0.50, 0.215, 0.99, 1.01],
+  fangsong: [0.625, 0.226, 0.923, 1.005], regular: [0.505, 0.235, 0.922, 1.01],
+  'pen-writing': [0.55, 0.22, 0.962, 1.01],
+}
+
+// Horizontal moves toward the body of 克, in steps of 1.6% of its width.
+// Grouped by the clearance between facing strokes in both layout modes.
+const metricKeLeftMoves = {
+  'sans': ['成𡵂基生', '朱累石勿少鹿卡', '⿱从韭息'],
+  'serif': ['黍甾𡵂矣卡', '⿱从韭鹿', '兆朱累石成勿少莫意基息生'],
+  'fangsong': ['兆累𢼸息密', '⿱从韭黍成𡵂', '朱石勿少鹿矣莫基亥卡生'],
+  'regular': ['少亥密', '兆朱黍𢼸屯𡵂矣基生', '累石成勿鹿莫意卡息'],
+  'pen-writing': ['兆𢼸亥', '⿱从韭累黍', '朱屯石成勿少鹿矣莫意基卡息生'],
+}
+
+function metricKeSeat(tree, style, frame) {
+  if (!Array.isArray(tree) || tree[0] !== '⿺' || tree[1] !== '克' || !metricKeInners.has(keyOf(tree[2]))) return null
+  if (!frame?.part.held || !metricKeSeats[style]) return null
+  const seat = metricKeSeats[style].slice()
+  // These shapes leave more room beside the rising tip.
+  if (['黍', '勿', '少', '卡'].includes(tree[2])) seat[2] = Math.min(0.99, seat[2] + 0.035)
+  // The long lower stroke of Kureedo 黍 comes closer to the hook.
+  if (style === 'pen-writing' && tree[2] === '黍') seat[2] = 0.973
+  const key = keyOf(tree[2])
+  const move = 0.016 * (1 + metricKeLeftMoves[style].findIndex(group => group.includes(key)))
+  seat[0] -= move
+  seat[2] -= move
+  return mapped(seat, [0, 0, 1, 1], drawnBox(frame))
+}
+
 // Fit only the inner after balancing. Earlier changes to the learned layout
 // also change the weight and width of Noto's claw.
 function fitClawInterior(parts, tree, style, cells = false) {
@@ -1261,6 +1294,7 @@ export class Composer {
         const w = (sx1 - sx0) * scale, h = (sy1 - sy0) * scale
         part.target = [cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2]
       }
+      this.fitMetricKeInterior(out, tree)
       for (const part of out) if (part.finishOutline) Object.assign(part, part.finishOutline(part))
       fitClawInterior(out, tree, this.fontStyle)
       // Loose marks annotate the whole drawing; they take no part in its layout or weight.
@@ -1462,6 +1496,7 @@ export class Composer {
     walk(numbered, [0, 0, 1, 1], 0)
     if (!this.partial && this.weighted) this.balance(out)
     else if (!this.partial && this.staticFace) this.staticBalance(out)
+    this.fitMetricKeInterior(out, tree)
     fitClawInterior(out, tree, this.fontStyle, true)
     return out
   }
@@ -1526,7 +1561,7 @@ export class Composer {
       const frame = this.woodFrame(node, region) ?? this.lowerLeftFrame(node, region)
       if (frame) {
         out.push({ index: out.length, box: frame.frame.target, empty: false })
-        walk(node[2], frame.room, false)
+        walk(node[2], (atRoot && metricKeSeat(node, this.fontStyle, frame.frame)) || frame.room, false)
         return
       }
       const grid = this.repeatedGrid(node)
@@ -1688,6 +1723,33 @@ export class Composer {
     if ([...hosts].some(host => this.excluded(host))) return null
     const parts = constructParts(construct, [], Object.fromEntries([...hosts].map(host => [host, this.glyphRecord(host)])), region, atRoot)
     return parts.length ? parts : null
+  }
+
+  fitMetricKeInterior(parts, tree) {
+    const style = this.fontStyle
+    const seat = metricKeSeat(tree, style, parts[0])
+    if (!seat || parts.length < 2) return
+    const inner = parts.slice(1)
+    const bounds = union(inner.map(drawnBox))
+    for (const p of inner) p.target = targetFor(p, mapped(drawnBox(p), bounds, seat))
+
+    // Fit the face's own strokes before measuring them. Contextual cuts from
+    // unrelated hosts can carry very different weights into the same 克 opening.
+    if (style !== 'regular' && style !== 'serif' && !(style === 'fangsong' && tree[2] === '意')) return
+    const char = tree[2]
+    if (typeof char === 'string' && !this.excluded(char) && !this.forced(char)) {
+      const glyph = this.drawnGlyph(char, true)
+      if (glyph) {
+        const native = placed(glyph, tightBox(glyph), seat, this.ink(char), `glyph ${char}`)
+        if (glyph.fixed) native.fixed = true
+        if (inner[0].leaf !== undefined) native.leaf = inner[0].leaf
+        parts.splice(1, inner.length, native)
+      }
+    }
+    if (this.partial) return
+    const group = [{ ...parts[0], fixed: true }, ...parts.slice(1)]
+    if (this.weighted) this.balance(group)
+    else if (this.staticFace) this.staticBalance(group)
   }
 
   /** A narrow borrowed cut of 口 or 日 may have been stretched already. Use
