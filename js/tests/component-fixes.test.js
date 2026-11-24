@@ -62,6 +62,24 @@ describe('a composition fix', () => {
   })
 })
 
+it('aligns the FangSong 工 in ⿳吅工吅 when 吅 is a host cut or two separate mouths', () => {
+  const source = [0, 0, 100, 100]
+  const gong = part('glyph 工', source, [0, 40, 100, 60], [[0, 0, 100, 6], [45, 6, 55, 94], [15, 94, 85, 100]])
+  const row = (y, split) => (split ? [[0, 45], [55, 100]] : [[0, 100]])
+    .map(([left, right]) => part('mouth', source, [left, y, right, y + 35], [source]))
+  for (const split of [false, true]) {
+    const top = row(65, split), bottom = row(0, split)
+    const composer = { fontStyle: 'fangsong' }
+    const parts = componentFix('⿳吅工吅', [...top, gong, ...bottom], composer)
+    // An encoded glyph can expand to the same IDS, visiting the fix twice.
+    for (const drawing of [parts, componentFix('⿳吅工吅', parts, composer)]) {
+      const fixed = drawing[top.length], [x0, y0, x1, y1] = fixed.target
+      const [ax, ay, bx, by] = fixed.part.contours[0].light
+      expect(((by - ay) * (y1 - y0)) / ((bx - ax) * (x1 - x0))).toBeCloseTo(0.08, 6)
+    }
+  }
+})
+
 describe('⿱呼乙', () => {
   const left = part('host 呼', [0, 200, 320, 800], [0, 400, 460, 1000], [[0, 200, 320, 800]])
   const right = part('host 呼', [300, 0, 1000, 1000], [500, 400, 1000, 1000], [[300, 0, 1000, 1000]])

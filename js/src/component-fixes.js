@@ -312,11 +312,33 @@ export const COMPONENT_FIXES = {
   '⿳吅工吅': {
     glyphs: {},
     apply(parts, composer) {
-      if (composer.fontStyle !== 'fangsong' || parts.length !== 3) return parts
+      if (composer.fontStyle !== 'fangsong') return parts
+      const middle = parts.findIndex(p => p.origin === 'glyph 工')
+      const below = parts.length - middle - 1
+      if (middle < 1 || middle > 2 || below < 1 || below > 2) return parts
       const frame = union(parts.map(part => part.target))
-      // 噐 has two compact mouth rows. Leave air on both sides of 工's crossbars.
+      // Each 吅 can be one host cut or two separately drawn mouths.
+      const rows = [parts.slice(0, middle), [parts[middle]], parts.slice(middle + 1)]
       const bands = [[0.10, 0.67, 0.90, 1], [0, 0.39, 1, 0.62], [0.10, 0, 0.90, 0.33]]
-      return parts.map((part, i) => ({ ...part, target: mapped(bands[i], [0, 0, 1, 1], frame) }))
+      return rows.flatMap((row, index) => {
+        const bounds = union(row.map(p => p.target))
+        const band = mapped(bands[index], [0, 0, 1, 1], frame)
+        return row.map(p => {
+          const out = { ...p, target: mapped(p.target, bounds, band) }
+          if (index !== 1) return out
+          // The shallow band flattens both bars of 工. Restore the rise of the adjacent mouth bars.
+          const x1 = band[0] + 0.25 * widthOf(band), x2 = band[0] + 0.7 * widthOf(band)
+          const slope = (inkBottomAt(out, x2) - inkBottomAt(out, x1)) / (x2 - x1)
+          const [sx, sy] = scaleOf(out), rise = (0.08 - slope) * sx / sy
+          if (!Number.isFinite(rise)) return out
+          const centre = centreX(p.source)
+          const incline = points => points.map((v, i) => i % 2 ? v + (points[i - 1] - centre) * rise : v)
+          out.part = derived(p.part, p.part.contours.map(c => ({
+            ...c, light: incline(c.light), heavy: incline(c.heavy ?? c.light),
+          })))
+          return out
+        })
+      })
     },
   },
   // As in 堇's lower body, 口 crosses the stem above both of 土's horizontal bars.
