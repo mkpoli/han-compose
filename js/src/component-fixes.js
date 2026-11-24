@@ -285,9 +285,24 @@ export const COMPONENT_FIXES = {
         const move = Math.max(0, (border.target[0] - boat.target[2] - .018 * widthOf(frame)) / 2)
         return parts.map((part, i) => ({ ...part, target: part.target.map((v, axis) => axis % 2 ? v : v + (i ? -move : move)) }))
       }
-      // The open left side of 辶 can sit close to 舟. Hold its sweeping foot at the boat's baseline.
-      return [{ ...boat, target: mapped([0, .025, .40, 1], [0, 0, 1, 1], frame) },
-        { ...border, target: mapped([.414, .025, 1, .965], [0, 0, 1, 1], frame) }]
+      // The right column compresses 邊 horizontally. Give its native 辶 the
+      // wider turn of standalone 邊 and lower the sweep beneath the boat.
+      const right = { ...border, target: mapped([.414, .025, 1, .965], [0, 0, 1, 1], frame) }
+      const walk = composer.glyphRecord('邊')?.ls?.['辶']
+      if (border.origin === 'glyph 邊' && walk?.length) {
+        const [, bottom, end] = border.source
+        const height = heightOf(border.source)
+        const open = points => points.map((v, i) => i % 2
+          ? bottom + (v - bottom) * 0.88 - 0.027 * height
+          : end + (v - end) * 1.065)
+        const contours = border.part.contours.map((c, i) => walk.includes(i)
+          ? { ...c, light: open(c.light), heavy: open(c.heavy ?? c.light) } : c)
+        const bounds = union(contours.map(c => pointsBox(c.light)))
+        right.part = revised(border, contours, bounds).part
+        right.target = mapped(bounds, border.source, right.target)
+        right.source = bounds
+      }
+      return [{ ...boat, target: mapped([0, .025, .40, 1], [0, 0, 1, 1], frame) }, right]
     },
   },
   '⿱一丛': {

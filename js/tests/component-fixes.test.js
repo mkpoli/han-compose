@@ -624,3 +624,16 @@ it('opens both gaps around 从 while preserving the bars of ⿱一丛', () => {
     }
   }
 })
+
+it('opens the Regular 辶 in ⿰舟邊 while preserving the other strokes of 邊', () => {
+  const em = [0, 0, 1000, 1000]
+  const boat = part('learned 艭', em, [0, 0, 400, 1000], [em])
+  const border = part('glyph 邊', em, [420, 0, 1000, 1000], [[0, 0, 1000, 300], [350, 400, 900, 1000]])
+  const draw = ls => componentFix('⿰舟邊', [boat, border], { fontStyle: 'regular', glyphRecord: () => ({ ls }) })[1]
+  const plain = draw({}), opened = draw({ 辶: [0] })
+  const foot = targetBox(opened, opened.part.contours[0])
+  expect(foot[0]).toBeLessThan(targetBox(plain, plain.part.contours[0])[0])
+  expect(foot[1]).toBeLessThan(targetBox(plain, plain.part.contours[0])[1])
+  const inner = targetBox(plain, plain.part.contours[1])
+  targetBox(opened, opened.part.contours[1]).forEach((value, i) => expect(value).toBeCloseTo(inner[i], 6))
+})
