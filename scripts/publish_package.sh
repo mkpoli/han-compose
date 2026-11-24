@@ -48,3 +48,4 @@ commit="$(git commit-tree "$(tree_naming "$head")" ${parent:+-p "$parent"} -m "h
 echo "${head:0:12} packs as $commit, $(git ls-tree -r "$commit" | wc -l) files"
 if [ "$dry_run" = --dry-run ]; then echo 'dry run: nothing pushed'; exit 0; fi
 git push --quiet origin "$commit:refs/heads/package"
+[ -z "${GITHUB_OUTPUT:-}" ] || echo 'published=true' >> "$GITHUB_OUTPUT"
