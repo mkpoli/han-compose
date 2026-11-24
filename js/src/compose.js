@@ -1183,7 +1183,9 @@ export class Composer {
   chainParts(node, region, atRoot = false) {
     const form = this.chain(node)
     if (!form) return null
-    const target = atRoot ? mapped(form.frame, this.face, region) : region
+    // Alone, a chain keeps its own size, within the face.
+    const [x0, y0, x1, y1] = mapped(form.frame, this.face, region)
+    const target = atRoot ? [Math.max(x0, region[0]), Math.max(y0, region[1]), Math.min(x1, region[2]), Math.min(y1, region[3])] : region
     return form.parts.map(part => placed(part, part.box, mapped(part.box, form.frame, target), form.ink, `chain ${node}`))
   }
   /** A chain holding a part, or such an enclosure holding another (岛 as ⿹⿴#(-𠃌㇉)丶山): each inner
