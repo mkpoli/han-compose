@@ -275,6 +275,47 @@ export function dotIn(composer, band) {
  * A correction that cannot find the parts it names leaves the drawing as it is.
  */
 export const COMPONENT_FIXES = {
+  '⿳丷冖兀': {
+    glyphs: {},
+    apply(parts, composer) {
+      if (composer.fontStyle !== 'fangsong' || parts.length !== 3) return parts
+      const [dots, cover, feet] = parts
+      // Keep the 571:264 proportion of the two top strokes in 半.
+      const box = fitted(dots.source, dots.target, 1)
+      return [{ ...dots, target: box }, cover, feet]
+    },
+  },
+  '⿱加𠃍': {
+    glyphs: {},
+    apply(parts, composer, region) {
+      if (composer.fontStyle !== 'fangsong' || parts.length !== 2) return parts
+      const [upper, hook] = parts
+      // The hook in 㔖 sits under the middle of 加.
+      return [upper, { ...hook, target: mapped([.23, .01, .75, .44], [0, 0, 1, 1], region) }]
+    },
+  },
+  '⿴𰀪⺀': {
+    glyphs: {},
+    apply(parts, composer, region) {
+      if (composer.fontStyle !== 'fangsong' || parts.length !== 3 || parts[2].part.contours.length !== 2) return parts
+      const [slash, sweep, dots] = parts
+      const cell = box => mapped(box, [0, 0, 1, 1], region)
+      const dotParts = dots.part.contours.map(c => derived(dots.part, [c])).sort((a, b) => a.box[0] - b.box[0])
+      // In 𫜵 the upper stroke descends shallowly; the second dot sits above the first.
+      const strokes = dotParts.map((dot, i) => {
+        const to = cell(i ? [.39, .48, .62, .68] : [.13, .35, .37, .57])
+        const coords = points => points.map((v, k) => {
+          const axis = k % 2
+          return to[axis] + (v - dot.box[axis]) * (to[axis + 2] - to[axis]) / (dot.box[axis + 2] - dot.box[axis])
+        })
+        const c = dot.contours[0]
+        return { ...c, light: coords(c.light), heavy: coords(c.heavy) }
+      })
+      const pair = makePart(strokes)
+      return [{ ...slash, target: cell([.10, .70, .76, 1]) }, sweep,
+        placed(pair, pair.box, pair.box, dots.native, dots.origin)]
+    },
+  },
   // 𠷃 (BabelStone: ⿰口⿳穴𠆢又) has a broad, shallow 又. Its component's
   // proportions also occur in 𥔉. Keep both inner parts within 穴's outer span.
 
