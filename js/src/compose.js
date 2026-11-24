@@ -35,6 +35,7 @@ import { hangulLetters } from './hangul-ids.js'
 import { toConjoiningJamo } from './hangul.js'
 import { componentFix } from './component-fixes.js'
 import { isOutbound, markFace, markParts } from './marks.js'
+import { chainForm, chainRoom, isChain } from './stroke-chain.js'
 import { customAt, splitToneMarks, toneMarksAt } from './tree.js'
 import { hexOf } from './sha256.js'
 import componentConstants from './constants.json' with { type: 'json' }
@@ -858,6 +859,8 @@ export class Composer {
     this.nativeEnclosures = new Set()
     this.normalizer = createRenderNormalizer({ record: key => this.identity(key), parse: text => this.parse(text), keyOf, excluded: key => this.excluded(key) })
     this.resolutions = new Map()
+    // Each stroke chain's drawing.
+    this.chains = new Map()
     // Stacked operand pairs, settled against their ink once the drawing is weighted.
     this.joints = []
     // Swept glyphs with the part each holds over its foot, refitted once the drawing is weighted.
@@ -1165,6 +1168,48 @@ export class Composer {
   }
 
   // ---------------------------------------------------------------- the composer's entry
+  /** A stroke chain (`#(-𠃌㇉)`) joined from the face's own strokes, or null for anything else. */
+  chain(node) {
+    if (!isChain(node) || isComponentForm(node, this.fontStyle)) return null
+    if (!this.chains.has(node)) {
+      const missed = this.data.missing?.size ?? 0
+      const form = chainForm(node, ch => this.glyph(ch))
+      // A pass that met a stroke not loaded yet settles nothing.
+      if ((this.data.missing?.size ?? 0) !== missed) return form
+      this.chains.set(node, form)
+    }
+    return this.chains.get(node)
+  }
+  chainParts(node, region, atRoot = false) {
+    const form = this.chain(node)
+    if (!form) return null
+    const target = atRoot ? mapped(form.frame, this.face, region) : region
+    return form.parts.map(part => placed(part, part.box, mapped(part.box, form.frame, target), form.ink, `chain ${node}`))
+  }
+  /** A chain holding a part, or such an enclosure holding another (岛 as ⿹⿴#(-𠃌㇉)丶山): each inner
+   *  part goes into the cell of the chain its operator names. Null for any other enclosure. */
+  chainEnclosure(node, region) {
+    if (!Array.isArray(node) || !(node[0] in this.ENCLOSE) || node.length !== 3) return null
+    const [op, outer, inner] = node
+    const form = this.chain(outer)
+    const held = form ? { form, parts: this.chainParts(outer, region), taken: [] } : this.chainEnclosure(outer, region)
+    if (!held) return null
+    const frame = held.form.frame
+    const cell = chainRoom(held.form.solved, this.ENCLOSE[op], held.taken)
+    let room
+    if (cell) {
+      const box = mapped(cell, frame, region)
+      const reach = this.stem0[0][0]
+      // The cell's lines run down the middle of the bars: the ink says what is left between them.
+      room = this.room(op, held.parts, [box[0] - reach, box[1] - reach, box[2] + reach, box[3] + reach]) ?? box
+    } else {
+      const [x0, y0, x1, y1] = this.INSIDE[op]
+      const w = region[2] - region[0], h = region[3] - region[1]
+      room = [region[0] + x0 * w, region[1] + y0 * h, region[0] + x1 * w, region[1] + y1 * h]
+    }
+    return { form: held.form, taken: cell ? [...held.taken, cell] : held.taken, parts: [...held.parts, ...this.node(inner, room)] }
+  }
+
   /** The parts drawing `sequence`, weighted, and the loose `marks` its text carries after it. */
   compose(sequence, marks = '') {
     this.approximate.clear()
@@ -1945,6 +1990,10 @@ export class Composer {
       // A run of conjoining jamo has no glyph of its own; its letters stand in the syllable's 配置.
       if (isJamoRun(node)) return this.runLeaf(node, region)
     }
+    if (typeof node === 'string') {
+      const chain = this.chainParts(node, region, atRoot)
+      if (chain) return chain
+    }
     if (this.separate && Array.isArray(node)) encoded = null
     if (encoded && !this.expanding.has(encoded) && (typeof node === 'string' || !this.excluded(encoded))) {
       const glyph = this.drawnGlyph(encoded, !atRoot)
@@ -2049,11 +2098,13 @@ export class Composer {
         return [frame, ...this.node(children[1], room)]
       }
     }
+    const chained = op in this.ENCLOSE ? this.chainEnclosure(node, region) : null
+    if (chained) return chained.parts
     // A cut form round a part (a stroke chain such as the frame of 马) has no character that places
     // what it holds, so the part fills the room the form's own ink leaves, as a surround construct's does.
-    const cutFrame = !this.separate && op in this.ENCLOSE && typeof children[0] === 'string'
-      && isComponentForm(children[0], this.fontStyle) && !this.data.rec(children[0])?.G
-      ? componentParts(children[0], region, this.fontStyle, false) : null
+    const cutFrame = this.separate || !(op in this.ENCLOSE) || typeof children[0] !== 'string' ? null
+      : isComponentForm(children[0], this.fontStyle) && !this.data.rec(children[0])?.G
+        ? componentParts(children[0], region, this.fontStyle, false) : null
     if (cutFrame) {
       const [x0, y0, x1, y1] = this.INSIDE[op]
       const w = region[2] - region[0], h = region[3] - region[1]
