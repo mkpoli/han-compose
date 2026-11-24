@@ -275,6 +275,18 @@ describe('米 and 走 lower-left frames', () => {
     }
   }
 
+  it('keeps the donor 走 contours when fitting Serif 呂', async () => {
+    const src = source({ ...extra, 呂: records.口 })
+    const opts = { fontStyle: 'serif', separate: true }
+    await compose(src, '⿺走呂', opts)
+    const composer = new Composer(src.store(), opts)
+    const node = ['⿺', '走', '呂']
+    const donor = composer.lowerLeftFrame(node, composer.face)
+    const fitted = composer.counterInFrame(node, composer.face, false)
+    expect(fitted?.[0].part.contours).toEqual(donor.frame.part.contours)
+    expect(fitted[1].target[0]).toBeGreaterThan((donor.frame.target[0] + donor.frame.target[2]) / 2)
+  })
+
   it('partitions the native 𮇇 and 趄 when their leaves are drawn separately', async () => {
     for (const [seq, donor] of [['⿺米日', '𮇇'], ['⿺走且', '趄']]) {
       const { parts } = await compose(source({ ...extra, 日: records.口, 且: records.口 }), seq, { separate: true })
@@ -400,4 +412,25 @@ it('keeps 𡯙 as a whole and uses the 尪 enclosure when its operands are separ
   }
   const excluded = await compose(src, description, { layout: 'composed', separate: true, exclude: ['尪'] })
   expect(excluded.parts.some(p => p.origin === 'host 尪')).toBe(false)
+})
+
+it('gives both tiers of the source 393 metric unit their full height above 克', async () => {
+  const src = source({ 克: records.木, 兡: { G: baiDonor, ink: 5000 }, 从: records.口, 韭: records.木 })
+  for (const layout of ['composed', 'cells']) {
+    const { parts } = await compose(src, '⿺克⿱从韭', { fontStyle: 'serif', layout, separate: true })
+    expect(parts).toHaveLength(3)
+    const [ke, top, bottom] = parts.map(p => p.box)
+    expect(top[1]).toBeLessThan(bottom[1])
+    expect(bottom[1] + bottom[3] - top[1]).toBeGreaterThan(ke[3] * 0.75)
+  }
+})
+
+it('draws the complete native 意 inside the Fangsong metric 克', async () => {
+  const src = source({ 克: records.木, 尅: { G: keDonor, ink: 5000 }, 意: records.口 })
+  for (const layout of ['composed', 'cells']) {
+    const { parts } = await compose(src, '⿺克意', { fontStyle: 'fangsong', layout, separate: true })
+    expect(parts).toHaveLength(2)
+    expect(parts[1].origin).toBe('glyph 意')
+    expect(parts[1].d.match(/M/g)).toHaveLength(records.口.G.p.length)
+  }
 })

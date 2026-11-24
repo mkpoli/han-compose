@@ -5,6 +5,7 @@ import {
   groupRegions,
   matchRegions,
   prepareCorrespondence,
+  tangled,
   prepareWeight
 } from './mix-contours.js'
 import { inkPolygons, outlinePath, limitDisplacement } from './mix-outline.js'
@@ -377,14 +378,16 @@ function settleOutline(edge, full, amount, radius) {
         : null
     const rings = counters && [from, to].map((island, f) => [island[0][0], ...counters[f]])
     const aligned = rings?.[0].map((ring, j) => alignRings([ring, rings[1][j]]))
-    if (aligned?.every(Boolean))
-      for (const pair of /** @type {number[][][][]} */ (aligned))
-        moved += path(
-          pair[0].map((p, n) => [
-            p[0] + (pair[1][n][0] - p[0]) * amount,
-            p[1] + (pair[1][n][1] - p[1]) * amount
-          ])
-        )
+    const between =
+      aligned?.every(Boolean) &&
+      /** @type {number[][][][]} */ (aligned).map((pair) =>
+        pair[0].map((p, n) => [
+          p[0] + (pair[1][n][0] - p[0]) * amount,
+          p[1] + (pair[1][n][1] - p[1]) * amount
+        ])
+      )
+    // Matched points can still carry a counter across its frame part of the way.
+    if (between && !tangled(between)) for (const ring of between) moved += path(ring)
     else for (const island of to) for (const ring of island) rest += path(ring.slice(0, -1))
   }
   return moved + (rest && bound(rest))
