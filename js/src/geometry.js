@@ -423,6 +423,23 @@ function backwards(segs) {
   return out
 }
 
+/** Preserve the Bezier outlines of several placed pieces as one editable IDS operand.
+ * @param {any[]} pieces @param {string} origin */
+export function joinedDrawing(pieces, origin) {
+  const contours = []
+  for (const piece of pieces) {
+    const drawn = drawnContours(piece)
+    for (const [i, contour] of piece.part.contours.entries()) {
+      const path = segments(contour.ops, drawn[i])
+      const ordered = runsBack(piece) ? backwards(path) : path
+      const light = Float64Array.from(ordered.flatMap(([, points]) => points.flat()))
+      contours.push({ ops: ordered.map(([kind, points]) => [kind, points.length]), light, heavy: light, width: null })
+    }
+  }
+  const combined = makePart(contours)
+  return { ...placed(combined, combined.box, combined.box, partInk(combined), origin), fixed: true }
+}
+
 /** Placed parts as one SVG path in a 1000 × 1000 box, y down from the em's top (`compose.svg_path`);
  *  fill it with the nonzero rule. A part whose source runs the other way, or whose flip turns it
  *  over, is drawn backwards as a whole, so overlapping ink adds up and its counters stay holes. */

@@ -20,7 +20,7 @@ import { grassShape } from './variants.js'
 // before drawing again). A store that holds the export's identity table also answers
 // `data.identity(key)`: the key's sequence and the character it describes, without its record; one
 // over an export with a kin table answers `data.kin()` with it (`kin`, `kinOuter`).
-import { EM_BOX, area, centre, count, derived, drawnBox, drawnContours, fill, fitted, grown, groupRings, makePart, mapped, partInk, partOf,
+import { EM_BOX, area, centre, count, derived, drawnBox, drawnContours, joinedDrawing, fill, fitted, grown, groupRings, makePart, mapped, partInk, partOf,
   placed, pointsBox, pyRound, raster, rings, scaleOf, shrunk, square, stretchOf, targetFor, union, windingOf, within } from './geometry.js'
 import { grassPairs, connectedGrass, contextualGrass } from './grass-forms.js'
 import { ownFormsOnly, componentParts, componentPosition, componentPositionBox, componentRecord, containsComponentForm, hasForcedForms, containsForcedForm, isComponentForm, isForcedCharacter, isGroupedForm, isNativeForm } from './component-forms.js'
@@ -31,7 +31,7 @@ import { pyramidRows, pyramidOnBase } from './pyramid-rows.js'
 import { hangulClusterAt, jamoClass } from './hangul.js'
 import { hangulLetters } from './hangul-ids.js'
 import { toConjoiningJamo } from './hangul.js'
-import { referenceLayout, referenceBoxes } from './reference-layout.js'
+import { referenceLayout, referenceBoxes, referenceSources } from './reference-layout.js'
 import { componentFix } from './component-fixes.js'
 import { isOutbound, markFace, markParts } from './marks.js'
 import { customAt, splitToneMarks, toneMarksAt } from './tree.js'
@@ -715,7 +715,10 @@ export const designedSources = (tree, style = 'sans') => {
     const entry = referenceLayout(node, style)
     if (entry) {
       if (entry.encoded) out.add(entry.encoded)
-      for (const [char] of entry.cells) out.add(char)
+      for (const [char] of entry.cells) {
+        out.add(char)
+        for (const [source] of referenceSources(char, style) ?? []) out.add(source)
+      }
       for (const donor of Object.values(entry.donors ?? {})) out.add(donor.char)
     }
     if (muKoForms[style] && isMuKo(node)) {
@@ -1817,7 +1820,18 @@ export class Composer {
           origin = `host ${host}`
         }
       }
-      if (!glyph) return null
+      if (!glyph) {
+        const fragments = []
+        for (const [ch, box] of referenceSources(source, this.fontStyle) ?? []) {
+          if (this.excluded(ch)) return null
+          const part = this.glyph(ch)
+          if (!part) return null
+          fragments.push(placed(part, part.box, box, partInk(part), `glyph ${ch}`))
+        }
+        if (!fragments.length) return null
+        glyph = joinedDrawing(fragments, source).part
+        origin = `${source} from ${fragments.map(part => part.origin.slice(6)).join('')}`
+      }
       parts.push({ ...placed(glyph, glyph.box, cut?.box ?? boxes[i], partInk(glyph), origin, weight), fixed: true })
     }
     return parts
