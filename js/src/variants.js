@@ -30,3 +30,16 @@ export function variationSequences(base, { fetch: get = download } = {}) {
   }
   return list
 }
+
+// Unicode IVD 2026-08-03, U+8279. Adobe-Japan1 CIDs 14197, 14198 and 14199
+// correspond respectively to MJ021481, MJ030293 and MJ030292. FE00 and FE01
+// are the standardized variants for compatibility ideographs FA5D and FA5E.
+export const grassIVS = Object.freeze({ connected: '艹\u{E0100}', split: '艹\u{E0102}', inward: '艹\u{E0101}' })
+const grassShapes = new Map([
+  ...['艹', '⺾', grassIVS.connected, '艹\u{E0105}'].map(s => [s, '艹']),
+  ...['⺿', '艹', '艹\uFE01', grassIVS.split, '艹\u{E0104}'].map(s => [s, '⺿']),
+  ...['⻀', '艹', '艹\uFE00', grassIVS.inward, '艹\u{E0103}'].map(s => [s, '⻀']),
+].map(([text, shape]) => /** @type {[string,string]} */ ([text, shape])))
+
+/** Contextual drawing key for a single grass radical token. @param {string} text */
+export const grassShape = text => grassShapes.get(text)
