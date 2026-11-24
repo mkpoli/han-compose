@@ -1,0 +1,33 @@
+{
+ "construction": "The 山 of 萬's prepared form, drawn into the band from the band's own edges rather than scaled in from a donor. Each face keeps its own stroke weights: the arms and the stem are as wide as the legs, the bar is as thick as the band's ceiling, and the stem continues 萬's spine down through the ceiling instead of starting below it. The width is the 69 per cent of the compartment that 岡 gives its own enclosed 山, mirrored about the spine. The whites, bottom up, are the clearance over the hook's blade, the feet below the bar, the arms over it and the channel under the ceiling; together with the bar they fill the compartment exactly.",
+ "models": [
+  {
+   "char": "山",
+   "reading": "Both feet run below the bar: in Noto Sans CJK the bar's underside is 13 and the feet reach -68 and -64; in Noto Serif CJK the bar is 46-76 and the feet reach -75 and -59. The bar spans the arms' inner edges, not the full width."
+  },
+  {
+   "char": "岡",
+   "reading": "A 山 inside 冂: the feet stop 25 above the enclosure's lower stroke, the stem hangs from the ink above and lands on the bar, the arms stop short of that ink and leave a channel, and the whole is 467 wide inside an interior of 681, keeping margins of 103 and 111. Under compression the feet keep nearly their full length while the arms lose half of theirs."
+  },
+  {
+   "char": "萬",
+   "reading": "The spliced-out 禸 occupies y -9 to 208 in the sans face and 32 to 240 in the serif: the compartment's floor is the hook blade's upper edge, not the floor the legs stand on, and the element's vertical reaches the ceiling. The serif blade climbs to the right from its tip, so the serif clearance is the 40 the native 禸 keeps, against the sans's 7."
+  }
+ ],
+ "styles": {
+  "sans": {
+   "band": { "inner": [182, 826], "ceiling": [208, 273], "spine": [462, 534], "blade": [713, -16] },
+   "width": 444,
+   "weight": { "vertical": 72, "horizontal": 65 },
+   "whites": { "clearance": 16, "feet": 40, "arms": 73, "channel": 30 },
+   "fuse": 24
+  },
+  "serif": {
+   "band": { "inner": [190, 814], "ceiling": [240, 269], "spine": [472, 535], "blade": [664, -8] },
+   "width": 431,
+   "weight": { "vertical": 63, "horizontal": 29 },
+   "whites": { "clearance": 40, "feet": 48, "arms": 95, "channel": 36 },
+   "fuse": 12
+  }
+ }
+}

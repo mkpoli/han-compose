@@ -1,0 +1,887 @@
+{
+  "source": "BabelStone IDS, https://www.babelstone.co.uk/CJK/IDS.TXT, Andrew West (魏安); File Date 2025-06-27, sha256:cc2a0a97e6a51ed6ebe59870ef2af66e83f3c3c27387d79b4441bb2d791d78b1",
+  "entries": [
+    {
+      "char": "㐂",
+      "part": "七",
+      "sequence": "⿱七⿰七七",
+      "pair": "⿰七七"
+    },
+    {
+      "char": "㽓",
+      "part": "生",
+      "sequence": "⿱生甡",
+      "pair": "⿰生生"
+    },
+    {
+      "char": "䆐",
+      "part": "秦",
+      "sequence": "⿱秦⿰秦秦",
+      "pair": "⿰秦秦"
+    },
+    {
+      "char": "䖃",
+      "part": "若",
+      "sequence": "⿱若⿰若若",
+      "pair": "⿰若若"
+    },
+    {
+      "char": "䨺",
+      "part": "雲",
+      "sequence": "⿱雲⿰雲雲",
+      "pair": "⿰雲雲"
+    },
+    {
+      "char": "众",
+      "part": "人",
+      "sequence": "⿱人从",
+      "pair": "⿰人人"
+    },
+    {
+      "char": "刕",
+      "part": "刀",
+      "sequence": "⿱刀𠚪",
+      "pair": "⿰刀刀"
+    },
+    {
+      "char": "劦",
+      "part": "力",
+      "sequence": "⿱力𠠴",
+      "pair": "⿰力力"
+    },
+    {
+      "char": "厵",
+      "part": "原",
+      "sequence": "⿱原𰆬",
+      "pair": "⿰原原"
+    },
+    {
+      "char": "厽",
+      "part": "厶",
+      "sequence": "⿱厶厸",
+      "pair": "⿰厶厶"
+    },
+    {
+      "char": "叒",
+      "part": "又",
+      "sequence": "⿱又双",
+      "pair": "⿰又又"
+    },
+    {
+      "char": "品",
+      "part": "口",
+      "sequence": "⿱口吅",
+      "pair": "⿰口口"
+    },
+    {
+      "char": "嚞",
+      "part": "吉",
+      "sequence": "⿱吉喆",
+      "pair": "⿰吉吉"
+    },
+    {
+      "char": "垚",
+      "part": "土",
+      "sequence": "⿱土𪢴",
+      "pair": "⿰土土"
+    },
+    {
+      "char": "壵",
+      "part": "士",
+      "sequence": "⿱士⿰士士",
+      "pair": "⿰士士"
+    },
+    {
+      "char": "姦",
+      "part": "女",
+      "sequence": "⿱女奻",
+      "pair": "⿰女女"
+    },
+    {
+      "char": "孨",
+      "part": "子",
+      "sequence": "⿱子孖",
+      "pair": "⿰子子"
+    },
+    {
+      "char": "尛",
+      "part": "小",
+      "sequence": "⿱小⿰小小",
+      "pair": "⿰小小"
+    },
+    {
+      "char": "惢",
+      "part": "心",
+      "sequence": "⿱心𢗰",
+      "pair": "⿰心心"
+    },
+    {
+      "char": "掱",
+      "part": "手",
+      "sequence": "⿱手𢪒",
+      "pair": "⿰手手"
+    },
+    {
+      "char": "晶",
+      "part": "日",
+      "sequence": "⿱日昍",
+      "pair": "⿰日日"
+    },
+    {
+      "char": "森",
+      "part": "木",
+      "sequence": "⿱木林",
+      "pair": "⿰木木"
+    },
+    {
+      "char": "歮",
+      "part": "止",
+      "sequence": "⿱止𣥖",
+      "pair": "⿰止止"
+    },
+    {
+      "char": "毳",
+      "part": "毛",
+      "sequence": "⿱毛㲎",
+      "pair": "⿰毛毛"
+    },
+    {
+      "char": "淼",
+      "part": "水",
+      "sequence": "⿱水沝",
+      "pair": "⿰水水"
+    },
+    {
+      "char": "灥",
+      "part": "泉",
+      "sequence": "⿱泉⿰泉泉",
+      "pair": "⿰泉泉"
+    },
+    {
+      "char": "焱",
+      "part": "火",
+      "sequence": "⿱火炏",
+      "pair": "⿰火火"
+    },
+    {
+      "char": "犇",
+      "part": "牛",
+      "sequence": "⿱牛牪",
+      "pair": "⿰牜牛"
+    },
+    {
+      "char": "猋",
+      "part": "犬",
+      "sequence": "⿱犬㹜",
+      "pair": "⿰犬犬"
+    },
+    {
+      "char": "畾",
+      "part": "田",
+      "sequence": "⿱田⿰田田",
+      "pair": "⿰田田"
+    },
+    {
+      "char": "皛",
+      "part": "白",
+      "sequence": "⿱白㿟",
+      "pair": "⿰白白"
+    },
+    {
+      "char": "瞐",
+      "part": "目",
+      "sequence": "⿱目䀠",
+      "pair": "⿰目目"
+    },
+    {
+      "char": "矗",
+      "part": "直",
+      "sequence": "⿱直⿰直直",
+      "pair": "⿰直直"
+    },
+    {
+      "char": "磊",
+      "part": "石",
+      "sequence": "⿱石砳",
+      "pair": "⿰石石"
+    },
+    {
+      "char": "羴",
+      "part": "羊",
+      "sequence": "⿱羊⿰羊羊",
+      "pair": "⿰羊羊"
+    },
+    {
+      "char": "聶",
+      "part": "耳",
+      "sequence": "⿱耳聑",
+      "pair": "⿰耳耳"
+    },
+    {
+      "char": "舙",
+      "part": "舌",
+      "sequence": "⿱舌𦧚",
+      "pair": "⿰舌舌"
+    },
+    {
+      "char": "蟲",
+      "part": "虫",
+      "sequence": "⿱虫䖵",
+      "pair": "⿰虫虫"
+    },
+    {
+      "char": "贔",
+      "part": "貝",
+      "sequence": "⿱貝賏",
+      "pair": "⿰貝貝"
+    },
+    {
+      "char": "赑",
+      "part": "贝",
+      "sequence": "⿱贝𲂻",
+      "pair": "⿰贝贝"
+    },
+    {
+      "char": "轟",
+      "part": "車",
+      "sequence": "⿱車䡛",
+      "pair": "⿰車車"
+    },
+    {
+      "char": "鑫",
+      "part": "金",
+      "sequence": "⿱金鍂",
+      "pair": "⿰釒金"
+    },
+    {
+      "char": "雥",
+      "part": "隹",
+      "sequence": "⿱隹雔",
+      "pair": "⿰隹隹"
+    },
+    {
+      "char": "靐",
+      "part": "雷",
+      "sequence": "⿱雷⿰雷雷",
+      "pair": "⿰雷雷"
+    },
+    {
+      "char": "飍",
+      "part": "風",
+      "sequence": "⿱風䬕",
+      "pair": "⿰風風"
+    },
+    {
+      "char": "飝",
+      "part": "飛",
+      "sequence": "⿱飛⿰飛飛",
+      "pair": "⿰飛飛"
+    },
+    {
+      "char": "馫",
+      "part": "香",
+      "sequence": "⿱香⿰香香",
+      "pair": "⿰香香"
+    },
+    {
+      "char": "馫",
+      "part": "香",
+      "sequence": "⿱香𩡐",
+      "pair": "⿰香香"
+    },
+    {
+      "char": "驫",
+      "part": "馬",
+      "sequence": "⿱馬騳",
+      "pair": "⿰馬馬"
+    },
+    {
+      "char": "骉",
+      "part": "马",
+      "sequence": "⿱马𱄿",
+      "pair": "⿰马马"
+    },
+    {
+      "char": "鱻",
+      "part": "魚",
+      "sequence": "⿱魚䲆",
+      "pair": "⿰魚魚"
+    },
+    {
+      "char": "麤",
+      "part": "鹿",
+      "sequence": "⿱鹿𱋁",
+      "pair": "⿰鹿鹿"
+    },
+    {
+      "char": "龘",
+      "part": "龍",
+      "sequence": "⿱龍龖",
+      "pair": "⿰龍龍"
+    },
+    {
+      "char": "𠁭",
+      "part": "个",
+      "sequence": "⿱个⿰个个",
+      "pair": "⿰个个"
+    },
+    {
+      "char": "𠁼",
+      "part": "丶",
+      "sequence": "⿱丶⿰丶丶",
+      "pair": "⿰丶丶"
+    },
+    {
+      "char": "𠄕",
+      "part": "了",
+      "sequence": "⿱了𰁒",
+      "pair": "⿰了了"
+    },
+    {
+      "char": "𠌕",
+      "part": "介",
+      "sequence": "⿱介𰁽",
+      "pair": "⿰介介"
+    },
+    {
+      "char": "𠐰",
+      "part": "企",
+      "sequence": "⿱企⿰企企",
+      "pair": "⿰企企"
+    },
+    {
+      "char": "𠑰",
+      "part": "舍",
+      "sequence": "⿱舍⿰舍舍",
+      "pair": "⿰舍舍"
+    },
+    {
+      "char": "𠒶",
+      "part": "圥",
+      "sequence": "⿱圥𡋰",
+      "pair": "⿰圥圥"
+    },
+    {
+      "char": "𠓉",
+      "part": "光",
+      "sequence": "⿱光⿰光光",
+      "pair": "⿰光光"
+    },
+    {
+      "char": "𠓗",
+      "part": "兔",
+      "sequence": "⿱兔⿰兔兔",
+      "pair": "⿰兔兔"
+    },
+    {
+      "char": "𠓾",
+      "part": "全",
+      "sequence": "⿱全𫤪",
+      "pair": "⿰全全"
+    },
+    {
+      "char": "𠚛",
+      "part": "凷",
+      "sequence": "⿱凷⿰凷凷",
+      "pair": "⿰凷凷"
+    },
+    {
+      "char": "𠨋",
+      "part": "𠧪",
+      "sequence": "⿱𠧪⿰𠧪𠧪",
+      "pair": "⿰𠧪𠧪"
+    },
+    {
+      "char": "𠨕",
+      "part": "㔾",
+      "sequence": "⿱㔾𠨎",
+      "pair": "⿰㔾㔾"
+    },
+    {
+      "char": "𠫒",
+      "part": "厡",
+      "sequence": "⿱厡⿰厡厡",
+      "pair": "⿰厡厡"
+    },
+    {
+      "char": "𠾳",
+      "part": "可",
+      "sequence": "⿱可⿰可可",
+      "pair": "⿰可可"
+    },
+    {
+      "char": "𡈲",
+      "part": "因",
+      "sequence": "⿱因⿰因因",
+      "pair": "⿰因因"
+    },
+    {
+      "char": "𡖃",
+      "part": "夏",
+      "sequence": "⿱夏⿰夏夏",
+      "pair": "⿰夏夏"
+    },
+    {
+      "char": "𡘙",
+      "part": "大",
+      "sequence": "⿱大夶",
+      "pair": "⿰大大"
+    },
+    {
+      "char": "𡙎",
+      "part": "天",
+      "sequence": "⿱天𭑈",
+      "pair": "⿰天天"
+    },
+    {
+      "char": "𡙒",
+      "part": "太",
+      "sequence": "⿱太⿰太太",
+      "pair": "⿰太太"
+    },
+    {
+      "char": "𡚤",
+      "part": "𦉼",
+      "sequence": "⿱𦉼⿰𦉼𦉼",
+      "pair": "⿰𦉼𦉼"
+    },
+    {
+      "char": "𡬏",
+      "part": "宝",
+      "sequence": "⿱宝⿰宝宝",
+      "pair": "⿰宝宝"
+    },
+    {
+      "char": "𡬐",
+      "part": "宜",
+      "sequence": "⿱宜⿰宜宜",
+      "pair": "⿰宜宜"
+    },
+    {
+      "char": "𡬚",
+      "part": "客",
+      "sequence": "⿱客𡫥",
+      "pair": "⿰客客"
+    },
+    {
+      "char": "𡬜",
+      "part": "寒",
+      "sequence": "⿱寒⿰寒寒",
+      "pair": "⿰寒寒"
+    },
+    {
+      "char": "𡮏",
+      "part": "少",
+      "sequence": "⿱少⿰少少",
+      "pair": "⿰少少"
+    },
+    {
+      "char": "𡳻",
+      "part": "𭕘",
+      "sequence": "⿱𭕘⿰𭕘𭕘",
+      "pair": "⿰𭕘𭕘"
+    },
+    {
+      "char": "𡴫",
+      "part": "𡴆",
+      "sequence": "⿱𡴆⿰𡴆𡴆",
+      "pair": "⿰𡴆𡴆"
+    },
+    {
+      "char": "𡷈",
+      "part": "山",
+      "sequence": "⿱山屾",
+      "pair": "⿰山山"
+    },
+    {
+      "char": "𢀎",
+      "part": "𰤔",
+      "sequence": "⿱𰤔⿰𰤔𰤔",
+      "pair": "⿰𰤔𰤔"
+    },
+    {
+      "char": "𢅈",
+      "part": "市",
+      "sequence": "⿱市⿰市市",
+      "pair": "⿰市市"
+    },
+    {
+      "char": "𣁕",
+      "part": "文",
+      "sequence": "⿱文𪯢",
+      "pair": "⿰文文"
+    },
+    {
+      "char": "𣁾",
+      "part": "斗",
+      "sequence": "⿱斗⿰斗斗",
+      "pair": "⿰斗斗"
+    },
+    {
+      "char": "𣝯",
+      "part": "朿",
+      "sequence": "⿱朿棘",
+      "pair": "⿰朿朿"
+    },
+    {
+      "char": "𣠆",
+      "part": "束",
+      "sequence": "⿱束𣗥",
+      "pair": "⿰束束"
+    },
+    {
+      "char": "𣡕",
+      "part": "林",
+      "sequence": "⿱林⿰林林",
+      "pair": "⿰林林"
+    },
+    {
+      "char": "𣡗",
+      "part": "果",
+      "sequence": "⿱果𣛕",
+      "pair": "⿰果果"
+    },
+    {
+      "char": "𣣓",
+      "part": "欠",
+      "sequence": "⿱欠𣢐",
+      "pair": "⿰欠欠"
+    },
+    {
+      "char": "𣦴",
+      "part": "𣥚",
+      "sequence": "⿱𣥚⿰𣥚𣥚",
+      "pair": "⿰𣥚𣥚"
+    },
+    {
+      "char": "𤔙",
+      "part": "爪",
+      "sequence": "⿱爪⿰爪爪",
+      "pair": "⿰爪爪"
+    },
+    {
+      "char": "𤕇",
+      "part": "妥",
+      "sequence": "⿱妥⿰妥妥",
+      "pair": "⿰妥妥"
+    },
+    {
+      "char": "𤰌",
+      "part": "用",
+      "sequence": "⿱用𰢱",
+      "pair": "⿰用用"
+    },
+    {
+      "char": "𤳅",
+      "part": "甲",
+      "sequence": "⿱甲⿰甲甲",
+      "pair": "⿰甲甲"
+    },
+    {
+      "char": "𤾩",
+      "part": "百",
+      "sequence": "⿱百皕",
+      "pair": "⿰百百"
+    },
+    {
+      "char": "𥃣",
+      "part": "盖",
+      "sequence": "⿱盖⿰盖盖",
+      "pair": "⿰盖盖"
+    },
+    {
+      "char": "𥩌",
+      "part": "空",
+      "sequence": "⿱空⿰空空",
+      "pair": "⿰空空"
+    },
+    {
+      "char": "𥫮",
+      "part": "亇",
+      "sequence": "⿱亇⿰亇亇",
+      "pair": "⿰亇亇"
+    },
+    {
+      "char": "𥴒",
+      "part": "竹",
+      "sequence": "⿱竹⿰竹竹",
+      "pair": "⿰竹竹"
+    },
+    {
+      "char": "𦋹",
+      "part": "罒",
+      "sequence": "⿱罒⿰罒罒",
+      "pair": "⿰罒罒"
+    },
+    {
+      "char": "𦏱",
+      "part": "羗",
+      "sequence": "⿱羗⿰羗羗",
+      "pair": "⿰羗羗"
+    },
+    {
+      "char": "𦓈",
+      "part": "老",
+      "sequence": "⿱老䎜",
+      "pair": "⿰老老"
+    },
+    {
+      "char": "𦜳",
+      "part": "月",
+      "sequence": "⿱月朋",
+      "pair": "⿰月月"
+    },
+    {
+      "char": "𦥏",
+      "part": "至",
+      "sequence": "⿱至臸",
+      "pair": "⿰至至"
+    },
+    {
+      "char": "𦧅",
+      "part": "興",
+      "sequence": "⿱興⿰興興",
+      "pair": "⿰興興"
+    },
+    {
+      "char": "𨆬",
+      "part": "足",
+      "sequence": "⿱足⿰足足",
+      "pair": "⿰足足"
+    },
+    {
+      "char": "𨑂",
+      "part": "㖖",
+      "sequence": "⿱㖖𨐼",
+      "pair": "⿰㖖㖖"
+    },
+    {
+      "char": "𨷮",
+      "part": "門",
+      "sequence": "⿱門⿰門門",
+      "pair": "⿰門門"
+    },
+    {
+      "char": "𩉖",
+      "part": "面",
+      "sequence": "⿱面𩈳",
+      "pair": "⿰面面"
+    },
+    {
+      "char": "𩖏",
+      "part": "頁",
+      "sequence": "⿱頁𩔊",
+      "pair": "⿰頁頁"
+    },
+    {
+      "char": "𪈼",
+      "part": "鳥",
+      "sequence": "⿱鳥𪅝",
+      "pair": "⿰鳥鳥"
+    },
+    {
+      "char": "𪟧",
+      "part": "男",
+      "sequence": "⿱男𤲶",
+      "pair": "⿰男男"
+    },
+    {
+      "char": "𫁪",
+      "part": "立",
+      "sequence": "⿱立竝",
+      "pair": "⿰立立"
+    },
+    {
+      "char": "𫡤",
+      "part": "九",
+      "sequence": "⿱九⿰九九",
+      "pair": "⿰九九"
+    },
+    {
+      "char": "𫡩",
+      "part": "也",
+      "sequence": "⿱也⿰也也",
+      "pair": "⿰也也"
+    },
+    {
+      "char": "𫦹",
+      "part": "加",
+      "sequence": "⿱加⿰加加",
+      "pair": "⿰加加"
+    },
+    {
+      "char": "𫦿",
+      "part": "動",
+      "sequence": "⿱動⿰動動",
+      "pair": "⿰動動"
+    },
+    {
+      "char": "𬀉",
+      "part": "方",
+      "sequence": "⿱方⿰方方",
+      "pair": "⿰方方"
+    },
+    {
+      "char": "𬂚",
+      "part": "朔",
+      "sequence": "⿱朔⿰朔朔",
+      "pair": "⿰朔朔"
+    },
+    {
+      "char": "𬍼",
+      "part": "玉",
+      "sequence": "⿱玉𤤴",
+      "pair": "⿰玉玉"
+    },
+    {
+      "char": "𬏍",
+      "part": "申",
+      "sequence": "⿱申⿰申申",
+      "pair": "⿰申申"
+    },
+    {
+      "char": "𬻄",
+      "part": "丁",
+      "sequence": "⿱丁⿰丁丁",
+      "pair": "⿰丁丁"
+    },
+    {
+      "char": "𭃊",
+      "part": "刁",
+      "sequence": "⿱刁⿰刁刁",
+      "pair": "⿰刁刁"
+    },
+    {
+      "char": "𭅦",
+      "part": "午",
+      "sequence": "⿱午⿰午午",
+      "pair": "⿰午午"
+    },
+    {
+      "char": "𭌳",
+      "part": "告",
+      "sequence": "⿱告𠼑",
+      "pair": "⿰告告"
+    },
+    {
+      "char": "𮄿",
+      "part": "竜",
+      "sequence": "⿱竜⿰竜竜",
+      "pair": "⿰竜竜"
+    },
+    {
+      "char": "𮚰",
+      "part": "負",
+      "sequence": "⿱負⿰負負",
+      "pair": "⿰負負"
+    },
+    {
+      "char": "𮲿",
+      "part": "正",
+      "sequence": "⿱正𰙤",
+      "pair": "⿰正正"
+    },
+    {
+      "char": "𮷛",
+      "part": "车",
+      "sequence": "⿱车⿰车车",
+      "pair": "⿰车车"
+    },
+    {
+      "char": "𮸽",
+      "part": "飞",
+      "sequence": "⿱飞⿰飞飞",
+      "pair": "⿰飞飞"
+    },
+    {
+      "char": "𮹝",
+      "part": "龙",
+      "sequence": "⿱龙𱍂",
+      "pair": "⿰龙龙"
+    },
+    {
+      "char": "𰀎",
+      "part": "上",
+      "sequence": "⿱上⿰上上",
+      "pair": "⿰上上"
+    },
+    {
+      "char": "𰀝",
+      "part": "且",
+      "sequence": "⿱且⿰且且",
+      "pair": "⿰且且"
+    },
+    {
+      "char": "𰆂",
+      "part": "南",
+      "sequence": "⿱南⿰南南",
+      "pair": "⿰南南"
+    },
+    {
+      "char": "𰌱",
+      "part": "㞌",
+      "sequence": "⿱㞌𡥷",
+      "pair": "⿰㞌㞌"
+    },
+    {
+      "char": "𰏗",
+      "part": "巾",
+      "sequence": "⿱巾𰏒",
+      "pair": "⿰巾巾"
+    },
+    {
+      "char": "𰦌",
+      "part": "真",
+      "sequence": "⿱真㒹",
+      "pair": "⿰真真"
+    },
+    {
+      "char": "𱃝",
+      "part": "风",
+      "sequence": "⿱风⿰风风",
+      "pair": "⿰风风"
+    },
+    {
+      "char": "𱈜",
+      "part": "鱼",
+      "sequence": "⿱鱼⿰鱼鱼",
+      "pair": "⿰鱼鱼"
+    },
+    {
+      "char": "𱊜",
+      "part": "鸟",
+      "sequence": "⿱鸟⿰鸟鸟",
+      "pair": "⿰鸟鸟"
+    },
+    {
+      "char": "𱏷",
+      "part": "共",
+      "sequence": "⿱共⿰共共",
+      "pair": "⿰共共"
+    },
+    {
+      "char": "𱛃",
+      "part": "𡱝",
+      "sequence": "⿱𡱝⿰𡱝𡱝",
+      "pair": "⿰𡱝𡱝"
+    },
+    {
+      "char": "𱤺",
+      "part": "次",
+      "sequence": "⿱次⿰次次",
+      "pair": "⿰次次"
+    },
+    {
+      "char": "𱬳",
+      "part": "焦",
+      "sequence": "⿱焦⿰焦焦",
+      "pair": "⿰焦焦"
+    },
+    {
+      "char": "𱿗",
+      "part": "虎",
+      "sequence": "⿱虎虤",
+      "pair": "⿰虎虎"
+    }
+  ]
+}

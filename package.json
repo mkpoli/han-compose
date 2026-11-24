@@ -1,0 +1,212 @@
+{
+  "name": "han-compose",
+  "version": "0.1.0",
+  "description": "Draws a Han character from its ideographic description sequence (IDS), such as ⿰亻哥, as an SVG path, from parts of characters a font already draws.",
+  "license": "MIT",
+  "author": "mkpoli",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mkpoli/han-compose.git",
+    "directory": "js"
+  },
+  "homepage": "https://github.com/mkpoli/han-compose",
+  "keywords": [
+    "ids",
+    "ideographic description sequence",
+    "cjk",
+    "han",
+    "kanji",
+    "hanzi",
+    "hanja",
+    "chu nom",
+    "tangut",
+    "glyph",
+    "svg",
+    "unicode",
+    "typography"
+  ],
+  "type": "module",
+  "sideEffects": [
+    "./src/worker.js"
+  ],
+  "exports": {
+    ".": {
+      "types": "./types/index.d.ts",
+      "default": "./src/index.js"
+    },
+    "./font-mix": {
+      "types": "./types/font-mix.d.ts",
+      "default": "./src/font-mix.js"
+    },
+    "./compose": {
+      "types": "./types/compose.d.ts",
+      "default": "./src/compose.js"
+    },
+    "./geometry": {
+      "types": "./types/geometry.d.ts",
+      "default": "./src/geometry.js"
+    },
+    "./loader": {
+      "types": "./types/loader.d.ts",
+      "default": "./src/loader.js"
+    },
+    "./hangul": {
+      "types": "./types/hangul.d.ts",
+      "default": "./src/hangul.js"
+    },
+    "./hangul-ids": {
+      "types": "./types/hangul-ids.d.ts",
+      "default": "./src/hangul-ids.js"
+    },
+    "./retry": {
+      "types": "./types/retry.d.ts",
+      "default": "./src/retry.js"
+    },
+    "./repetition": {
+      "types": "./types/repetition.d.ts",
+      "default": "./src/repetition.js"
+    },
+    "./strokes": {
+      "types": "./types/strokes.d.ts",
+      "default": "./src/strokes.js"
+    },
+    "./worker": {
+      "types": "./types/worker.d.ts",
+      "default": "./src/worker.js"
+    },
+    "./source": {
+      "types": "./types/source.d.ts",
+      "default": "./src/source.js"
+    },
+    "./unicode": {
+      "types": "./types/unicode.d.ts",
+      "default": "./src/unicode.js"
+    },
+    "./palette": {
+      "types": "./types/palette.d.ts",
+      "default": "./src/palette.js"
+    },
+    "./host": {
+      "types": "./types/host.d.ts",
+      "default": "./src/host.js"
+    },
+    "./component-forms": {
+      "types": "./types/component-forms.d.ts",
+      "default": "./src/component-forms.js"
+    },
+    "./local": {
+      "types": "./types/local.d.ts",
+      "default": "./src/local.js"
+    },
+    "./bundled": {
+      "types": "./types/bundled.d.ts",
+      "default": "./src/bundled.js"
+    },
+    "./emoji": {
+      "types": "./types/emoji.d.ts",
+      "default": "./src/emoji.js"
+    },
+    "./group-parts": {
+      "types": "./types/group-parts.d.ts",
+      "default": "./src/group-parts.js"
+    },
+    "./drawing-svg": {
+      "types": "./types/drawing-svg.d.ts",
+      "default": "./src/drawing-svg.js"
+    },
+    "./tokens": {
+      "types": "./types/tokens.d.ts",
+      "default": "./src/tokens.js"
+    },
+    "./scripts": {
+      "types": "./types/scripts.d.ts",
+      "default": "./src/scripts.js"
+    },
+    "./sha256": {
+      "types": "./types/sha256.d.ts",
+      "default": "./src/sha256.js"
+    },
+    "./data/*": "./data/*",
+    "./src/*.js": {
+      "types": "./types/*.d.ts",
+      "default": "./src/*.js"
+    },
+    "./src/*": "./src/*",
+    "./tree": {
+      "types": "./types/tree.d.ts",
+      "default": "./src/tree.js"
+    },
+    "./pyramid": {
+      "types": "./types/pyramid.d.ts",
+      "default": "./src/pyramid.js"
+    },
+    "./pyramid-rows": {
+      "types": "./types/pyramid-rows.d.ts",
+      "default": "./src/pyramid-rows.js"
+    },
+    "./tangut": {
+      "types": "./types/tangut.d.ts",
+      "default": "./src/tangut.js"
+    },
+    "./bopomofo": {
+      "types": "./types/bopomofo.d.ts",
+      "default": "./src/bopomofo.js"
+    },
+    "./small-seal": {
+      "types": "./types/small-seal.d.ts",
+      "default": "./src/small-seal.js"
+    },
+    "./new-korean": {
+      "types": "./types/new-korean.d.ts",
+      "default": "./src/new-korean.js"
+    },
+    "./shuishu": {
+      "types": "./types/shuishu.d.ts",
+      "default": "./src/shuishu.js"
+    },
+    "./jurchen": {
+      "types": "./types/jurchen.d.ts",
+      "default": "./src/jurchen.js"
+    },
+    "./document-source": {
+      "types": "./types/document-source.d.ts",
+      "default": "./src/document-source.js"
+    },
+    "./document-view": {
+      "types": "./types/document-view.d.ts",
+      "default": "./src/document-view.js"
+    },
+    "./package.json": "./package.json",
+    "./normalization": {
+      "types": "./types/normalization.d.ts",
+      "default": "./src/normalization.js"
+    },
+    "./component-fixes": {
+      "types": "./types/component-fixes.d.ts",
+      "default": "./src/component-fixes.js"
+    },
+    "./constructs": {
+      "types": "./types/constructs.d.ts",
+      "default": "./src/constructs.js"
+    },
+    "./variants": {
+      "types": "./types/variants.d.ts",
+      "default": "./src/variants.js"
+    },
+    "./constants.json": "./src/constants.json"
+  },
+  "files": [
+    "src",
+    "types",
+    "data",
+    "README.md",
+    "scripts",
+    "LICENSE",
+    "examples"
+  ],
+  "dependencies": {
+    "clipper-lib": "6.4.2",
+    "d3-contour": "4.0.2"
+  },
+  "gitHead": "3727537fd996170e0802a44b1b135fe2a8368599"
+}
