@@ -41,6 +41,14 @@ const heightOf = box => box[3] - box[1]
 const centreX = box => (box[0] + box[2]) / 2
 const centreY = box => (box[1] + box[3]) / 2
 
+/** Close the gap after 忄 without stretching its dots or the neighbouring glyph. */
+function heartColumnSpacing(parts, composer) {
+  if (parts.length !== 2 || !['fangsong', 'regular', 'pen-writing'].includes(composer.fontStyle)) return parts
+  const [heart, body] = parts, frame = union([heart.target, body.target])
+  const move = Math.max(0, (body.target[0] - heart.target[2] - .022 * widthOf(frame)) / 2)
+  return parts.map((part, i) => ({ ...part, target: part.target.map((v, axis) => axis % 2 ? v : v + (i ? -move : move)) }))
+}
+
 /** The part drawn from `origin`, where a description drew it so. */
 const partFrom = (parts, origin) => parts.find(part => part.origin === origin)
 
@@ -275,9 +283,96 @@ export function dotIn(composer, band) {
  * A correction that cannot find the parts it names leaves the drawing as it is.
  */
 export const COMPONENT_FIXES = {
+  '⿱林𤆍': {
+    glyphs: {},
+    apply(parts, composer, region) {
+      if (composer.fontStyle !== 'fangsong' || parts.length !== 3) return parts
+      // In 𤍾 the arms of 大 extend beneath both 木, with 火 tucked under the legs.
+      const boxes = [[0.0262, 0.5987, 0.9933, 1.0076], [0.0262, 0.2869, 0.9933, 0.6191], [0.1042, -0.0045, 0.9153, 0.292]]
+      return parts.map((part, i) => ({ ...part, target: mapped(boxes[i], [0, 0, 1, 1], region) }))
+    },
+  },
+  '⿱工口': {
+    glyphs: {},
+    apply(parts, composer, region) {
+      if (composer.fontStyle !== 'fangsong' || parts.length !== 2) return parts
+      const boxes = [[0.0076, 0.5098, 0.9749, 0.9639], [0.1088, 0.0002, 0.8736, 0.4391]]
+      return parts.map((part, i) => ({ ...part, target: mapped(boxes[i], [0, 0, 1, 1], region) }))
+    },
+  },
+  '⿴口丶': {
+    glyphs: {},
+    apply(parts, composer) {
+      if (composer.fontStyle !== 'pen-writing' || parts.length !== 2) return parts
+      const [mouth, dot] = parts, room = composer.roomFromInk('⿴', [mouth], mouth.target)
+      if (!room) return parts
+      const dy = centreY(room) - centreY(boxOf(dot))
+      return [mouth, { ...dot, target: dot.target.map((v, i) => i % 2 ? v + dy : v) }]
+    },
+  },
+  '⿰忄実': {
+    glyphs: {},
+    apply: heartColumnSpacing,
+  },
+  '⿰忄實': {
+    glyphs: {},
+    apply: heartColumnSpacing,
+  },
+  '⿱一丛': {
+    glyphs: { '丛': ['6101a4a331e919f7901aefbd3fb9feaec8802bb6daef6a46bea98fab1d35f811', 'dfc25b96a72d8ac1aa6559b6223e05b939b4899098b70cf468fb889a233a6b1f'] },
+    apply(parts, composer) {
+      const [bar, lower] = parts
+      if (!['sans', 'serif'].includes(composer.fontStyle) || parts.length !== 2 || lower.origin !== 'glyph 丛') return parts
+      // Inset the two people between the bars. The broad bottom contour is 丛’s own 一.
+      const [l, b, r, t] = lower.source
+      const bottomInset = composer.fontStyle === 'serif' ? 0.09 : 0.06
+      const inset = shifted(lower, (_x, y, box) => widthOf(box) > 0.8 * (r - l)
+        ? 0 : bottomInset * (t - b) - 0.14 * (y - b))
+      const source = union(inset.part.contours.map(c => pointsBox(c.light)))
+      inset.part.box = source
+      return [bar, { ...inset, source, target: mapped(source, lower.source, lower.target) }]
+    },
+  },
+  '⿰未⿱成公': {
+    glyphs: { '未': '86de49086c3f6a0d4443132473553216c9228682c8a129c9f76ae916b99cb427' },
+    apply(parts, composer) {
+      if (composer.fontStyle !== 'pen-writing' || composer.excluded('未') || parts.length !== 3 || parts[0].origin !== 'host 㲠') return parts
+      // 㲠 supplies a squat upper-left 未. Its broad bars grow heavy when stretched to a full column.
+      const [wei, cheng, gong] = parts
+      const glyph = composer.glyph('未')
+      // Keep the host cut in the group's weight calculation so 成 and 公 retain their original ink.
+      const finishOutline = part => {
+        const [left, bottom, right, top] = part.target
+        const inset = 0.06 * (top - bottom)
+        return placed(glyph, glyph.box, [left, bottom + inset, right, top - inset], composer.ink('未'), 'glyph 未', [-0.7, -0.25])
+      }
+      return [{ ...wei, finishOutline }, cheng, gong]
+    },
+  },
   // 𠷃 (BabelStone: ⿰口⿳穴𠆢又) has a broad, shallow 又. Its component's
   // proportions also occur in 𥔉. Keep both inner parts within 穴's outer span.
 
+  '⿰生意': {
+    glyphs: {},
+    apply(parts, composer) {
+      if (parts.length !== 2 || !['regular', 'pen-writing'].includes(composer.fontStyle)) return parts
+      let [sheng, yi] = parts
+      if (composer.fontStyle === 'pen-writing') {
+        const frame = union([sheng.target, yi.target])
+        const move = Math.max(0, (yi.target[0] - sheng.target[2] - .008 * widthOf(frame)) / 2)
+        return [sheng, yi].map((part, i) => ({ ...part, target: part.target.map((v, axis) => axis % 2 ? v : v + (i ? -move : move)) }))
+      }
+      if (!composer.excluded('甥') &&
+          matches({ glyphs: { '甥': '8db2f5156d8bd3fbc122c207d283f5cd1372a975944f82539c440174e6852fce' } }, composer)) {
+        const donor = composer.glyph('甥'), left = derived(donor, [donor.contours[0]])
+        sheng = placed(left, left.box, sheng.target, composer.ink('甥'), 'host 甥')
+      }
+      // The raised foot of left-hand 生 tucks beside 意. Keep both columns near the same baseline.
+      const frame = union(parts.map(part => part.target))
+      return [{ ...sheng, target: mapped([0, .035, .43, .965], [0, 0, 1, 1], frame) },
+        { ...yi, target: mapped([.438, 0, 1, 1], [0, 0, 1, 1], frame) }]
+    },
+  },
   // As in 堇's lower body, 口 crosses the stem above both of 土's horizontal bars.
   '⿻口土': {
     glyphs: { '口': '412b5a81c5efb7a5f824853645e81e3aea284eb92b129004596757cdba72cc17',
