@@ -59,12 +59,12 @@ export function guideChainParts(composer, key, region, atRoot = false) {
   const contours = indices ? indices.map(i => glyph.contours[i])
     : (reconnects ?? []).map(runs => reconnectStroke(glyph.contours, runs))
   const piece = derived(glyph, contours)
-  // Center a standalone side component horizontally at the native em scale.
+  // 卬 compresses the frame into half an em. Restore the standalone proportions
+  // measured from the Bai guide U+E009 before matching the face's ink metrics.
   let target = region
   if (atRoot) {
     const face = composer.C.face
-    const shift = key === angled ? (face[0] + face[2] - piece.box[0] - piece.box[2]) / 2 : 0
-    const box = [piece.box[0] + shift, piece.box[1], piece.box[2] + shift, piece.box[3]]
+    const box = key === angled ? [133, -59, 882, 825] : piece.box
     target = mapped(box, face, region)
   }
   return [placed(piece, piece.box, target, partInk(piece), `chain ${key}, cut from ${source.char}`)]

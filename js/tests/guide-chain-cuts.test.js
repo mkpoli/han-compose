@@ -19,15 +19,13 @@ const inkAt = (part, x, y) => fill(
   [x - 0.5, y - 0.5, x + 0.5, y + 0.5],
 )[0]
 
-it('centres the native 卬 cut while keeping its size and baseline', () => {
+it('restores the standalone guide proportions to the side form from 卬', () => {
   expect(guideChainDonor(angle)).toBe('卬')
   const source = composer('sans')
   const [part] = guideChainParts(source, angle, face, true)
   expect(part.origin).toContain('cut from 卬')
   expect(part.part.contours).toEqual([0, 2, 4].map(i => partOf(records.sans.卬).contours[i]))
-  expect(part.target[0] + part.target[2]).toBe(1000)
-  expect(part.target[2] - part.target[0]).toBe(part.source[2] - part.source[0])
-  expect([part.target[1], part.target[3]]).toEqual([part.source[1], part.source[3]])
+  expect(part.target).toEqual([133, -59, 882, 825])
   const region = [230, 340, 400, 690]
   expect(guideChainParts(source, angle, region)[0].target).toEqual(region)
 })

@@ -80,6 +80,19 @@ node js/scripts/recorded-chain-metrics.mjs /path/to/audit > js/src/chain-ink-met
 Use all five faces when regenerating the checked-in metrics. The audit reads
 only local files and writes one result file per face and corpus.
 
+The standalone ink metrics use the five shipped format-7 exports and the renderer
+at `b3b6b921`. They apply only to a previously drawable spelling in its matching
+export. For 33 chains, the interior proportions come from zi.tools’ drawing on
+2026-11-25. The measurement matches each directed segment and its endpoints and
+rejects ambiguous mappings and duplicate drawing programs. To regenerate, save
+each response as `{"chain": "...", "reference": RESPONSE}` in a local directory
+and run `bun js/scripts/measure-chain-landmarks.mjs DIRECTORY > js/src/chain-landmarks.json`.
+The source for each measurement is the [zi.tools drawing API](https://zi.tools/api/ids/zu/%23%28-%E4%B8%A8%E3%87%8C%29).
+
+The illustrated loop under 𠆭 follows the guide font’s U+E00B.
+[Guide font source](https://github.com/NightFurySL2001/bai-ids/blob/104501af/fonts/example.vfc) ·
+[Font notice](licences/OFL-Bai-IDS-example.txt) · [Stroke donor notices](licences/NOTICE-recorded-strokes.txt).
+
 ## `recorded-arcs.json`
 
 Centerlines for 14 stroke chains cut from their recorded hosts' GlyphWiki KAGE

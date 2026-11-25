@@ -50,3 +50,11 @@ it('composes every pinned spelling with a local fixture in all five faces', asyn
   }
   expect(failures).toEqual([])
 }, 30_000)
+
+it('keeps every stroke of an unencoded chain in its single editable cell', async () => {
+  const key = '#(-一丿)'
+  const result = await compose(source(), key, { layout: 'cells', separate: true, exclude: ['厂'] })
+  expect(result.cells).toBe(true)
+  expect(result.parts).toHaveLength(2)
+  expect(result.parts.map(p => p.leaf)).toEqual([0, 0])
+})

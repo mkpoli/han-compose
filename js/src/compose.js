@@ -818,15 +818,18 @@ export const designedSources = (tree, style = 'sans') => {
   const out = new Set()
   const visit = node => {
     const key = keyOf(node)
-    for (const char of rccChainDonors(key, style)) out.add(char)
-    const guide = isChain(node) && guideChainDonor(drawingChain(node))
-    if (guide) out.add(guide)
-    const reference = recordedDonor(key)
-    if (reference) out.add(reference)
-    if (isChain(node)) for (const char of recordedArcDonors(drawingChain(node), style)) out.add(char)
-    const host = chainHost(typeof node === 'string' ? drawingChain(node) : node, style)
-    if (host) out.add(host)
-    const bird = birdOutlineDonors(keyOf(node), style)
+    if (key.includes('#(')) {
+      for (const char of rccChainDonors(key, style)) out.add(char)
+      const reference = recordedDonor(key)
+      if (reference) out.add(reference)
+      if (isChain(node)) {
+        const chain = drawingChain(node)
+        for (const donor of [guideChainDonor(chain), chainHost(chain, style), ...recordedArcDonors(chain, style)]) {
+          if (donor) out.add(donor)
+        }
+      }
+    }
+    const bird = birdOutlineDonors(key, style)
     if (bird.length) {
       bird.forEach(char => out.add(char))
       return
@@ -1278,8 +1281,7 @@ export class Composer {
     return native ?? reconstructStroke(ch, this.fontStyle, key => this.chainStroke(key)) ?? (record ? partOf(record) : null)
   }
 
-  recordedParts(node, region) {
-    const key = keyOf(node)
+  recordedParts(node, region, key) {
     const char = recordedDonor(key)
     if (!char || this.excluded(char) || (this.separate && Array.isArray(node))) return null
     if (this.exclude.size && (this.excluded(key) || leafTexts(node).some(leaf =>
@@ -1518,6 +1520,16 @@ export class Composer {
           for (const part of parts) part.leaf = leaf
           leaf++
           out.push(...parts)
+          return
+        }
+        if (isChain(node)) {
+          const group = this.node(node, inset(target(box)))
+          for (const part of group) {
+            part.origin = `cells ${node} (${part.origin})`
+            if (leafIndices) part.leaf = leaf
+          }
+          if (leafIndices) leaf++
+          out.push(...group)
           return
         }
         if (node === '艹' || node === '⺿' || node === '⻀') {
@@ -2143,9 +2155,10 @@ export class Composer {
     }
     const grid = this.penGrid(node, region, atRoot)
     if (grid) return grid
-    const rcc = rccChainContextParts(this, keyOf(node), region)
+    const key = keyOf(node), hasChain = key.includes('#(')
+    const rcc = hasChain && rccChainContextParts(this, key, region)
     if (rcc) return rcc
-    const bird = birdChainParts(this, node, region, atRoot) ?? birdOutlineParts(this, keyOf(node), region)
+    const bird = birdChainParts(this, node, region, atRoot) ?? birdOutlineParts(this, key, region)
     if (bird) return bird
     const thorns = this.thornRowParts(node, region)
     if (thorns) return thorns
@@ -2187,9 +2200,9 @@ export class Composer {
     if (interlocked) return interlocked
     const designed = this.variantParts(node, region)
     if (designed) return designed
-    const recorded = this.recordedParts(node, region)
+    const recorded = hasChain && this.recordedParts(node, region, key)
     if (recorded) return recorded
-    const key = keyOf(node), nativeSource = yanGlyphs.get(key) ?? yanSources.get(key)
+    const nativeSource = yanGlyphs.get(key) ?? yanSources.get(key)
     // A description the font draws as a variation sequence keeps that outline, where the export
     // still draws the glyph the outline was read against. An export that draws another base composes
     // its operands; a source without a drawable base keeps the prepared form.
@@ -2202,11 +2215,11 @@ export class Composer {
     const repeated = (!nativeSource || !this.excluded(nativeSource)) && (!this.separate || isGroupedForm(key, this.fontStyle)) && !ivdRecord
       ? componentParts(key, region, this.fontStyle, atRoot) : null
     if (repeated) return repeated
-    const hasRepetition = containsComponentForm(keyOf(node), this.fontStyle)
+    const hasRepetition = containsComponentForm(key, this.fontStyle)
     const C = this.C
-    let encoded = typeof node === 'string' ? node : hasRepetition ? null : this.spelled.has(keyOf(node)) ? null : this.bySequence(keyOf(node))
+    let encoded = typeof node === 'string' ? node : hasRepetition ? null : this.spelled.has(key) ? null : this.bySequence(key)
     if (atRoot && typeof node !== 'string') {
-      const redrawn = [...this.exclude].find(ch => this.sequenceOf(ch) === keyOf(node))
+      const redrawn = [...this.exclude].find(ch => this.sequenceOf(ch) === key)
       if (redrawn) encoded = redrawn
     }
     // A syllable with tone marks splits before any whole-character lookup, since no character
