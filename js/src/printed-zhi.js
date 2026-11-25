@@ -1,5 +1,7 @@
 // @ts-nocheck
-import { derived, mapped, partInk, placed, pointsBox, tightBox } from './geometry.js'
+import { derived, mapped, partInk, placed, tightBox } from './geometry.js'
+
+import { joinEye } from './eye-baseline.js'
 
 // Per-face drawing space calibrated against the visible outline of the IDS on main.
 const frames = {
@@ -7,7 +9,7 @@ const frames = {
   serif: [-0.04853, -0.02597, 1.01891, 1.00128],
   fangsong: [0.06648, -0.01511, 0.92751, 0.99588],
   regular: [0.01978, 0.01182, 0.98428, 0.9952],
-  'pen-writing': [0.03007, -0.0148, 0.96989, 0.98706],
+  'pen-writing': [0.02987, -0.0148, 0.97426, 0.98706],
 }
 
 export const isPrintedZhi = node => node[0] === '⿱' && node[1] === '罒' &&
@@ -52,32 +54,15 @@ export function printedZhiParts(composer, node, region) {
     x < 0.36 ? x * 0.61 : x < 0.66 ? 0.2196 + (x - 0.36) * 0.58 : 1 - (1 - x) * 1.784,
     y,
   ])
-  // Tuck the 冂 hook into the baseline so the third bar stays distinct.
-  glyphs[3] = reshape(glyphs[3], (x, y) => [
-    x > 0.4 ? x + Math.max(0, 0.89 - x) * Math.max(0, Math.min(1, (0.4 - y) / 0.14)) : x, y,
-  ])
-  // Seat the three native bars against the left wall. The lowest reaches furthest right.
-  const bars = glyphs[4]
-  if (bars.contours.length !== 3 || !bars.contours.every(c => hasArea(pointsBox(c.light)))) return null
-  const ordered = [...bars.contours].sort((a, b) => pointsBox(b.light)[1] - pointsBox(a.light)[1])
-  const levels = [0.9, 0.5, 0.1], reaches = [0.88, 0.83, 1]
-  const [barLeft, , barRight] = tightBox(bars)
-  glyphs[4] = derived(bars, ordered.map((c, i) => {
-    const [l, b, r, t] = pointsBox(c.light)
-    const thickness = 1.45 * (t - b) / (barRight - barLeft)
-    const place = points => points.map((v, k) => k % 2
-      ? 1000 * (levels[i] + ((v - b) / (t - b) - 0.5) * thickness)
-      : 1000 * (v - l) / (r - l) * reaches[i])
-    return { ...c, light: place(c.light), heavy: place(c.heavy ?? c.light) }
-  }))
   const seats = [
     [0.16, 0.73, 0.86, 0.985], [0.29, 0.45, 0.64, 0.795],
     [0.045, 0.015, 0.96, 0.49], [0.445, 0.016, 0.79, 0.505],
     [0.455, 0.15, 0.735, 0.415],
   ]
   const drawing = mapped(frame, [0, 0, 1, 1], region)
-  return glyphs.map((g, i) => ({
+  const parts = glyphs.map((g, i) => ({
     ...placed(g, tightBox(g), mapped(seats[i], [0, 0, 1, 1], drawing), partInk(g), `printed 置: ${leaves[i]}`),
     fixed: true,
   }))
+  return joinEye(parts, { eye: 3, base: 2, char: '丄' })
 }

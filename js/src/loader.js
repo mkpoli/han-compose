@@ -8,6 +8,7 @@ import { hangulOfIds } from './hangul-ids.js'
 import { composeJamo } from './hangul.js'
 import { withoutMarks } from './tree.js'
 import { ASCENT } from './geometry.js'
+import { eyeBaseline } from './eye-baseline.js'
 import { drawnBox, svgPath } from './geometry.js'
 import { readLayout } from './layout.js'
 import { isComponentForm, isGroupedForm } from './component-forms.js'
@@ -334,14 +335,16 @@ export async function sketch(source, sequence, { fontStyle = 'sans' } = {}) {
   const tree = parseTree(description, arity, true)
   const donors = [...wheatFaceHosts(description), ...designedSources(tree, fontStyle)]
   await source.load([...modelOf(source, tree), ...(donors.length ? source.filesOf(donors) : [])])
-  // A description that asked for the layout or the table after all is sketched again with them.
-  for (let again = false; ; again = true) {
+  const measured = t => Array.isArray(t) && (eyeBaseline(t) || t.slice(1).some(measured))
+  const loadHosts = measured(tree)
+  for (let round = 0; round < ROUNDS; round++) {
     const store = source.store()
     const leaves = new Composer(store, { fontStyle }).sketch(description, marks)
-    const model = source.modelFiles().filter(name => store.missing.has(name))
-    if (again || !model.length) return leaves.map(leaf => ({ ...leaf, box: svgBox(leaf.box) }))
-    await source.load(model)
+    const missing = loadHosts ? [...store.missing] : source.modelFiles().filter(name => store.missing.has(name))
+    if (!missing.length || (!loadHosts && round > 0)) return leaves.map(leaf => ({ ...leaf, box: svgBox(leaf.box) }))
+    await source.load(missing)
   }
+  throw new LookupError(`${sequence} needs more data than ${ROUNDS} rounds load.`)
 }
 
 /**

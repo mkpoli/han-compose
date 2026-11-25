@@ -2,6 +2,7 @@
 import fangsongZhi from './fangsong-zhi.json' with { type: 'json' }
 import haNine from './ha-nine.json' with { type: 'json' }
 import { yiCrossDonor, yiCrossParts } from './yi-cross.js'
+import { eyeBaseline, eyeInStack, firstFoot, fitEye, joinEye, leafCount, singleFoot } from './eye-baseline.js'
 import { isPrintedZhi, printedZhiParts } from './printed-zhi.js'
 import { ghostParts, usesGhostForm } from './ghost-form.js'
 import diamondSyllable from './diamond-syllable.json' with { type: 'json' }
@@ -790,6 +791,7 @@ export const designedSources = (tree, style = 'sans') => {
   const visit = node => {
     if (!Array.isArray(node)) return
     const [op, ...children] = node
+    if (eyeBaseline(node)?.char === '𡭕') { out.add('一'); out.add('小') }
     if (style === 'fangsong' && isPrintedZhi(node)) out.add('罡')
     if (isThornRow(node)) {
       out.add('棘')
@@ -1419,7 +1421,7 @@ export class Composer {
         return
       }
       const cell = target(box)
-      const parts = printedZhiParts(this, node, cell) ?? this.thornRowParts(node, cell) ?? yiCrossParts(this, node, cell) ?? ghostParts(this, node, cell)
+      const parts = printedZhiParts(this, node, cell) ?? this.joinedEye(node, cell) ?? this.thornRowParts(node, cell) ?? yiCrossParts(this, node, cell) ?? ghostParts(this, node, cell)
       if (parts) {
         for (const part of parts) {
           if (leafIndices) part.leaf = leaf++
@@ -1550,7 +1552,7 @@ export class Composer {
         return
       }
       const repeated = isGroupedForm(keyOf(node), this.fontStyle) ? componentParts(keyOf(node), region, this.fontStyle, atRoot) : null
-      const designed = repeated ?? printedZhiParts(this, node, region) ?? this.thornRowParts(node, region) ?? yiCrossParts(this, node, region) ?? ghostParts(this, node, region) ?? this.muKoParts(node, region) ?? this.wheatFaceParts(node, region)
+      const designed = repeated ?? printedZhiParts(this, node, region) ?? this.joinedEye(node, region) ?? this.thornRowParts(node, region) ?? yiCrossParts(this, node, region) ?? ghostParts(this, node, region) ?? this.muKoParts(node, region) ?? this.wheatFaceParts(node, region)
       if (designed) {
         for (const part of designed) out.push({ index: out.length, box: part.target, empty: false })
         return
@@ -2006,6 +2008,41 @@ export class Composer {
   }
 
 
+  joinedEye(node, region) {
+    if (this.readingEyeBaseline) return null
+    const match = eyeInStack(node)
+    if (!match || ['冂', '三', match.char].some(ch => this.excluded(ch)) || node.flat(Infinity).includes(EMPTY)) return null
+    // Measure the ordinary stack in the current export before moving any shared strokes.
+    const ordinary = new Composer(this.data, { fontStyle: this.fontStyle, face: this.face, keepBars: this.keepBars,
+      separate: this.separate, exclude: this.exclude })
+    ordinary.readingEyeBaseline = true
+    const key = keyOf(node)
+    let original, substituted = false
+    try {
+      original = ordinary.compose(key)
+    } catch (error) {
+      if (!(error instanceof LookupError)) throw error
+      if (match.char !== '𡭕' || this.excluded('一') || this.excluded('小')) return null
+      let leaf = 0
+      const expand = t => Array.isArray(t) ? mapOperands(t, expand) : leaf++ === match.base ? ['⿱', '一', '小'] : t
+      try { original = ordinary.compose(keyOf(expand(node))); substituted = true } catch (again) {
+        if (again instanceof LookupError) return null
+        throw again
+      }
+    }
+    if (original.some(p => p.cut || p.flips?.length)) return null
+    const n = leafCount(node)
+    const split = match.char === '𡭕' && original.length === n + 1
+      && original[match.base]?.branch?.slice(0, -1).join() === original[match.base + 1]?.branch?.slice(0, -1).join()
+      && original[match.base]?.branch?.at(-1) === 0 && original[match.base + 1]?.branch?.at(-1) === 1
+    if (original.length !== n && !split) return null
+    const source = substituted && split ? firstFoot(original, match) : original
+    let joined = joinEye(source, match)
+    if (!joined) return null
+    if (split) joined = singleFoot(joined, match.base)
+    return fitEye(joined, original, this.face, region)
+  }
+
   drawNode(node, region, atRoot = false, sideBySide = false) {
     if (Array.isArray(node) && node[0] === '⿱') {
       const syllable = this.diamondSyllable(node, region)
@@ -2015,6 +2052,8 @@ export class Composer {
     if (grid) return grid
     const zhi = printedZhiParts(this, node, region)
     if (zhi) return zhi
+    const joined = this.joinedEye(node, region)
+    if (joined) return joined
     const thorns = this.thornRowParts(node, region)
     if (thorns) return thorns
     const yi = yiCrossParts(this, node, region)
