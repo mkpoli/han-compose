@@ -1097,6 +1097,385 @@ export function splitIslands(polygons) {
   return fine.map((_, j) => faces.map((face) => [/** @type {number[][][][]} */ (face)[j]]))
 }
 
+/** Map one ring from a source bounding box into a destination bounding box.
+ * @param {number[][]} ring @param {number[]} dst @param {number[]} [src] */
+function fitRingToBox(ring, dst, src = ringBox(ring)) {
+  const sw = src[2] - src[0] || 1,
+    sh = src[3] - src[1] || 1
+  const dw = dst[2] - dst[0] || 1,
+    dh = dst[3] - dst[1] || 1
+  return ring.map(([x, y]) => [dst[0] + ((x - src[0]) * dw) / sw, dst[1] + ((y - src[1]) * dh) / sh])
+}
+
+/** Lazily yield candidate merged-counter topologies: slit each closed bar of a finer face
+ * at the stem wall where a coarser face leaves that bar open, so every face shares the
+ * open-bar topology and the bar slides across the gap at full thickness without a pinched thread.
+ * @param {number[][][][]} faces each face's frame and counters
+ * @returns {Generator<number[][][][], void, void>} candidate face lists to try in order */
+function* mergeCounterCandidates(faces) {
+  const coarsest = faces.reduce((best, rings, f) => (rings.length < faces[best].length ? f : best), 0)
+  const coarse = faces[coarsest]
+
+  const side = (/** @type {number[]} */ a, /** @type {number[]} */ b, /** @type {number[]} */ c) =>
+    (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0])
+  const segHits = (
+    /** @type {number[]} */ a,
+    /** @type {number[]} */ b,
+    /** @type {number[]} */ c,
+    /** @type {number[]} */ d
+  ) => {
+    if (
+      Math.max(a[0], b[0]) < Math.min(c[0], d[0]) ||
+      Math.max(c[0], d[0]) < Math.min(a[0], b[0]) ||
+      Math.max(a[1], b[1]) < Math.min(c[1], d[1]) ||
+      Math.max(c[1], d[1]) < Math.min(a[1], b[1])
+    )
+      return false
+    return side(a, b, c) * side(a, b, d) < 0 && side(c, d, a) * side(c, d, b) < 0
+  }
+  const dirAt = (/** @type {number[][]} */ pts, /** @type {number} */ idx, /** @type {1|-1} */ stepDir) => {
+    const n = pts.length,
+      origin = pts[idx]
+    let k = idx,
+      span = 0
+    for (let s = 1; s < n / 2 && span < 5; s++) {
+      k = (((idx + stepDir * s) % n) + n) % n
+      span = Math.hypot(pts[k][0] - origin[0], pts[k][1] - origin[1])
+    }
+    if (span < 0.5) return [0, 0]
+    return [(pts[k][0] - origin[0]) / span, (pts[k][1] - origin[1]) / span]
+  }
+  const stepAlong = (
+    /** @type {number[][]} */ pts,
+    /** @type {number} */ start,
+    /** @type {1|-1} */ dir,
+    /** @type {number} */ dist
+  ) => {
+    const n = pts.length
+    let walked = 0,
+      cur = start
+    for (let s = 0; s < n - 2; s++) {
+      const next = (((cur + dir) % n) + n) % n
+      const seg = Math.hypot(pts[next][0] - pts[cur][0], pts[next][1] - pts[cur][1])
+      if (walked + seg >= dist) {
+        const t = seg ? (dist - walked) / seg : 0
+        return {
+          pt: [
+            pts[cur][0] + (pts[next][0] - pts[cur][0]) * t,
+            pts[cur][1] + (pts[next][1] - pts[cur][1]) * t
+          ],
+          skip: s + 1
+        }
+      }
+      walked += seg
+      cur = next
+    }
+    return null
+  }
+
+  /** Splice two rings across a closed bar at its open-in-coarse stem wall.
+   * Outer frames and holes share one ink-side handedness (`sign = 1` when ink is left of
+   * each edge, `-1` when right), so one junction formula handles both hole+hole and frame+hole merges.
+   * @param {number[][]} r1 @param {number[][]} r2 @param {number[][]} guideRing
+   * @param {boolean} guideIsHole @param {number[][][]} regCoarse @param {number[][][]} allRings
+   * @param {1 | -1} sign */
+  const splicePair = (r1, r2, guideRing, guideIsHole, regCoarse, allRings, sign) => {
+    const p1 = dense(r1, 2),
+      p2 = dense(r2, 2)
+    const n1 = p1.length,
+      n2 = p2.length
+    if (n1 < 6 || n2 < 6) return null
+    const b1Before = p1.map((_, i) => dirAt(p1, i, -1))
+    const b1After = p1.map((_, i) => dirAt(p1, i, 1))
+    const b2Before = p2.map((_, i) => dirAt(p2, i, -1))
+    const b2After = p2.map((_, i) => dirAt(p2, i, 1))
+
+    // Only real stem-to-bar inner corners can anchor a slit (rejects diagonals across straight walls).
+    /** @type {number[]} */
+    const iCorners = []
+    for (let i = 0; i < n1; i++)
+      if (sign * (-b1Before[i][0] * b1After[i][1] + b1Before[i][1] * b1After[i][0]) >= 0.45) iCorners.push(i)
+    /** @type {number[]} */
+    const jCorners = []
+    for (let j = 0; j < n2; j++)
+      if (sign * (-b2Before[j][0] * b2After[j][1] + b2Before[j][1] * b2After[j][0]) >= 0.45) jCorners.push(j)
+    if (!iCorners.length || !jCorners.length) return null
+
+    const isCoarseWhite = (/** @type {number[]} */ pt) =>
+      guideIsHole ? inside(pt, guideRing) : !inside(pt, guideRing)
+    const isCoarseInk = (/** @type {number[]} */ pt) =>
+      guideIsHole
+        ? !inside(pt, guideRing)
+        : inside(pt, regCoarse[0]) && !regCoarse.slice(1).some((h) => inside(pt, h))
+
+    const box1 = ringBox(r1),
+      box2 = ringBox(r2)
+    const spanAlong = (
+      /** @type {number[]} */ box,
+      /** @type {number[]} */ origin,
+      /** @type {number} */ ux,
+      /** @type {number} */ uy
+    ) => {
+      let lo = Infinity,
+        hi = -Infinity
+      for (const x of [box[0], box[2]])
+        for (const y of [box[1], box[3]]) {
+          const p = (x - origin[0]) * ux + (y - origin[1]) * uy
+          if (p < lo) lo = p
+          if (p > hi) hi = p
+        }
+      return [lo, hi]
+    }
+
+    /** @type {{ i: number, j: number, cost: number }[]} */
+    const cands = []
+    for (const i of iCorners) {
+      const a = p1[i]
+      for (const j of jCorners) {
+        const b = p2[j]
+        const dx = b[0] - a[0],
+          dy = b[1] - a[1]
+        if (dx > 40 || dx < -40 || dy > 40 || dy < -40) continue
+        const d = Math.hypot(dx, dy)
+        if (d < 1.5 || d > 40) continue
+        const ux = dx / d,
+          uy = dy / d
+        // Entering p1[i] (-b1Before) and leaving p2[j] (b2After) continue along the stem wall.
+        const stemIn = -(b1Before[i][0] * ux + b1Before[i][1] * uy)
+        const stemOut = b2After[j][0] * ux + b2After[j][1] * uy
+        if (stemIn < 0.7 || stemOut < 0.7) continue
+        // Bar extends along b = sign * (-uy, ux) (into bar ink).
+        const bx = -uy * sign,
+          by = ux * sign
+        const bar1 = b1After[i][0] * bx + b1After[i][1] * by
+        const bar2 = b2Before[j][0] * bx + b2Before[j][1] * by
+        if (bar1 < 0.45 || bar2 < 0.45) continue
+
+        // An open bar end in the coarse face leaves a continuous white channel parallel to a->b
+        // with solid coarse ink (the stem) behind it. Extending into the adjacent counters
+        // rejects closed bar ends even when the coarse bar is shifted vertically.
+        const [min1] = spanAlong(box1, a, ux, uy)
+        const [, max2] = spanAlong(box2, a, ux, uy)
+        const reach1 = Math.max(0, -min1)
+        const reach2 = Math.max(0, max2 - d)
+        const uSamples = [
+          -Math.min(5, reach1 * 0.8),
+          -1,
+          d * 0.25,
+          d * 0.5,
+          d * 0.75,
+          d + 1,
+          d + Math.min(5, reach2 * 0.8)
+        ]
+        const wideSamples = [
+          -Math.min(28, reach1 * 0.45),
+          -Math.min(28, reach1 * 0.8),
+          d + Math.min(28, reach2 * 0.45),
+          d + Math.min(28, reach2 * 0.8)
+        ]
+        let channelK = Infinity,
+          bestWide = -1
+        for (let k = -6; k <= 18; k += 1.5) {
+          const ox = a[0] + bx * k,
+            oy = a[1] + by * k
+          let open = true
+          for (const s of uSamples) {
+            if (!isCoarseWhite([ox + ux * s, oy + uy * s])) {
+              open = false
+              break
+            }
+          }
+          if (!open) continue
+          let wideHits = 0
+          for (const s of wideSamples) if (isCoarseWhite([ox + ux * s, oy + uy * s])) wideHits++
+          if (wideHits > bestWide || (wideHits === bestWide && Math.abs(k - 3) < Math.abs(channelK - 3))) {
+            bestWide = wideHits
+            channelK = k
+          }
+        }
+        if (!Number.isFinite(channelK)) continue
+        const mid = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]
+        let stemHits = 0
+        for (const dk of [3, 6, 10, 14, 18]) {
+          const sk = channelK - dk
+          if (isCoarseInk([mid[0] + bx * sk, mid[1] + by * sk])) stemHits++
+        }
+        if (!stemHits) continue
+
+        const alignCost = (2 - stemIn - stemOut) * 18 + (2 - bar1 - bar2) * 10
+        const gapCost = Math.abs(channelK - 3) * 0.5 + (4 - bestWide) * 8
+        cands.push({ i, j, cost: d + alignCost + gapCost })
+      }
+    }
+    cands.sort((x, y) => x.cost - y.cost)
+    const frameRing = allRings[0]
+    for (const { i, j, cost } of cands) {
+      const a = p1[i],
+        b = p2[j]
+      const inkOk = [1, 2, 3].every((t) => {
+        const q = [a[0] + ((b[0] - a[0]) * t) / 4, a[1] + ((b[1] - a[1]) * t) / 4]
+        return inside(q, frameRing) && !allRings.slice(1).some((h) => inside(q, h))
+      })
+      if (!inkOk) continue
+      let hit = false
+      for (const other of allRings) {
+        for (let k = 0; k + 1 < other.length; k++) {
+          if (segHits(a, b, other[k], other[k + 1])) {
+            hit = true
+            break
+          }
+        }
+        if (hit) break
+      }
+      if (hit) continue
+      const off1 = stepAlong(p1, i, 1, 0.15)
+      const off2 = stepAlong(p2, j, -1, 0.15)
+      if (!off1 || !off2) continue
+      /** @type {number[][]} */
+      const merged = [off1.pt]
+      for (let s = off1.skip; s <= n1; s++) merged.push(p1[(i + s) % n1])
+      for (let s = 0; s <= n2 - off2.skip; s++) merged.push(p2[(j + s) % n2])
+      merged.push(off2.pt)
+      if (merged.length >= 6 && !crosses(merged))
+        return { ring: [...merged, merged[0]], cost, key: [a[0], a[1], b[0], b[1]] }
+    }
+    return null
+  }
+
+  const ownersFor = (/** @type {number[][][]} */ rings, /** @type {boolean} */ preferClosed) =>
+    preferClosed && coarse.length > 1
+      ? rings.map((counter, j) => {
+          if (!j) return 0
+          const closedBoxes = coarse.slice(1).map(ringBox)
+          const [x0, y0, x1, y1] = ringBox(counter)
+          const cx = (x0 + x1) / 2,
+            cy = (y0 + y1) / 2
+          let best = 1,
+            least = Infinity
+          closedBoxes.forEach((b, idx) => {
+            const dx = Math.max(0, b[0] - cx, cx - b[2]),
+              dy = Math.max(0, b[1] - cy, cy - b[3])
+            const d =
+              dx * dx + dy * dy + 0.01 * ((cx - (b[0] + b[2]) / 2) ** 2 + (cy - (b[1] + b[3]) / 2) ** 2)
+            if (d < least) {
+              least = d
+              best = idx + 1
+            }
+          })
+          return best
+        })
+      : rings.map((counter, j) => {
+          if (!j) return 0
+          const points = counter.slice(0, -1)
+          const mid = [0, 1].map((k) => points.reduce((sum, p) => sum + p[k], 0) / points.length)
+          const votes = new Map()
+          for (const p of [mid, ...points.map((q) => [(q[0] + mid[0]) / 2, (q[1] + mid[1]) / 2])]) {
+            const within = coarse.findIndex((ring, x) => x && inside(p, ring))
+            const where = within > 0 ? within : inside(p, coarse[0]) ? -1 : 0
+            if (where >= 0) votes.set(where, (votes.get(where) ?? 0) + 1)
+          }
+          return votes.size ? [...votes].sort((x, y) => y[1] - x[1])[0][0] : -1
+        })
+
+  const beforeKey = (/** @type {number[]} */ p, /** @type {number[]} */ q) => {
+    for (let k = 0; k < 4; k++) if (Math.abs(p[k] - q[k]) > 1e-6) return p[k] < q[k]
+    return false
+  }
+
+  const buildFromOwners = (/** @type {(number[] | null)[]} */ allOwners) => {
+    const out = faces.map((rings, f) => {
+      if (f === coarsest) return rings
+      if (rings.length === coarse.length) {
+        const matched = matchRegions([coarse.slice(1), rings.slice(1)], (r) => r)
+        return matched ? [rings[0], ...matched[1]] : null
+      }
+      const owners = allOwners[f]
+      if (!owners || owners.includes(-1)) return null
+      /** @type {number[][][]} */
+      const result = []
+      for (let x = 0; x < coarse.length; x++) {
+        const mine = owners.flatMap((owner, j) => (owner === x ? [j] : []))
+        if (!mine.length) return null
+        if (mine.length === 1) {
+          result[x] = rings[mine[0]]
+          continue
+        }
+        let guide = coarse[x]
+        let regCoarse = coarse
+        if (x > 0) {
+          const boxes = mine.map((j) => ringBox(rings[j]))
+          guide = fitRingToBox(coarse[x], [
+            Math.min(...boxes.map((b) => b[0])),
+            Math.min(...boxes.map((b) => b[1])),
+            Math.max(...boxes.map((b) => b[2])),
+            Math.max(...boxes.map((b) => b[3]))
+          ])
+        } else {
+          const srcBox = ringBox(coarse[0]),
+            dstBox = ringBox(rings[0])
+          regCoarse = coarse.map((r) => fitRingToBox(r, dstBox, srcBox))
+          guide = regCoarse[0]
+        }
+        const sign = turning(rings[0]) < 0 ? 1 : -1
+        const pool = mine.map((j) => rings[j])
+        while (pool.length > 1) {
+          /** @type {{ ring: number[][], cost: number, key: number[], a: number, b: number } | null} */
+          let best = null
+          for (let a = 0; a < pool.length; a++) {
+            for (let b = 0; b < pool.length; b++) {
+              if (a === b) continue
+              const candidate = splicePair(pool[a], pool[b], guide, x > 0, regCoarse, rings, sign)
+              if (
+                candidate &&
+                (!best ||
+                  candidate.cost < best.cost - 1e-6 ||
+                  (Math.abs(candidate.cost - best.cost) <= 1e-6 && beforeKey(candidate.key, best.key)))
+              )
+                best = { ...candidate, a, b }
+            }
+          }
+          if (!best) return null
+          const { a, b, ring: spliced } = best
+          const next = pool.filter((_, idx) => idx !== a && idx !== b)
+          next.push(spliced)
+          pool.length = 0
+          pool.push(...next)
+        }
+        result[x] = pool[0]
+      }
+      return result
+    })
+    return out.every(Boolean) ? /** @type {number[][][][]} */ (out) : null
+  }
+
+  /** @type {(number[] | null)[] | null} */
+  let closedOwners = null
+  if (coarse.length > 1) {
+    closedOwners = faces.map((rings, f) =>
+      f === coarsest || rings.length === coarse.length ? null : ownersFor(rings, true)
+    )
+    const closed = buildFromOwners(closedOwners)
+    if (closed) yield closed
+  }
+  const votedOwners = faces.map((rings, f) =>
+    f === coarsest || rings.length === coarse.length ? null : ownersFor(rings, false)
+  )
+  const sameOwners =
+    closedOwners !== null &&
+    votedOwners.every(
+      (o, f) =>
+        o === closedOwners[f] ||
+        (o !== null &&
+          closedOwners[f] !== null &&
+          o.length === closedOwners[f].length &&
+          o.every((v, i) => v === /** @type {number[]} */ (closedOwners[f])[i]))
+    )
+  if (!sameOwners) {
+    const voted = buildFromOwners(votedOwners)
+    if (voted) yield voted
+  }
+}
+
 /** Map a group of target counters into the bounding box of the merged counter they
  * divide, so a face that shifts a counter stack still places each target in its bay.
  * @param {number[][]} ring @param {number[][][]} targetRings */
@@ -1256,13 +1635,47 @@ export function prepareCorrespondence(polygons, cut = false) {
     const settledEven = cutTo ? settled(even) : even
     let crossed =
       tangled(even) || (cutTo && settledEven.filter((r) => Math.sign(turning(r)) === outerSign).length !== 1)
-    // A moving counter can clear a narrow frame bridge at 50/50 yet sever it at 25/75 or 75/25.
+    // A moving counter can clear a narrow frame bridge at 50/50 yet sever it at an intermediate share.
     // Near an open face, cut counters may legitimately meet one another across their gap,
-    // so biased probes require each ring to stay simple and the settled frame to stay one island.
+    // so intermediate probes require each ring to stay simple and the settled frame to stay one island.
+    // Scale probe count with counter travel relative to counter width so a small counter cannot jump a bridge.
     if (!crossed && faces.length > 1) {
-      const rest = 0.25 / (faces.length - 1)
-      for (let f = 0; f < faces.length && !crossed; f++) {
-        const probe = blendAt(faces.map((_, k) => (k === f ? 0.75 : rest)))
+      let maxRatio = 1
+      if (cutTo && sampled.length > 1) {
+        for (let r = 1; r < sampled.length; r++) {
+          const boxes = sampled[r].map(ringBox)
+          for (let f1 = 0; f1 < boxes.length; f1++) {
+            const b1 = boxes[f1],
+              w1 = b1[2] - b1[0],
+              h1 = b1[3] - b1[1]
+            for (let f2 = f1 + 1; f2 < boxes.length; f2++) {
+              const b2 = boxes[f2],
+                w2 = b2[2] - b2[0],
+                h2 = b2[3] - b2[1]
+              const travel = Math.hypot(
+                (b1[0] + b1[2] - b2[0] - b2[2]) / 2,
+                (b1[1] + b1[3] - b2[1] - b2[3]) / 2
+              )
+              const minDim = Math.max(4, Math.min(w1, h1, w2, h2))
+              if (travel / minDim > maxRatio) maxRatio = travel / minDim
+            }
+          }
+        }
+      }
+      const steps = Math.min(12, Math.max(3, Math.ceil(maxRatio) + 1))
+      const sharesList =
+        faces.length === 2
+          ? Array.from({ length: steps }, (_, m) => (m + 1) / (steps + 1))
+              .filter((t) => Math.abs(t - 0.5) > 1e-4)
+              .map((t) => [t, 1 - t])
+          : faces.flatMap((_, f) => {
+              const s = 0.75,
+                rest = (1 - s) / (faces.length - 1)
+              return [faces.map((__, k) => (k === f ? s : rest))]
+            })
+      for (const shares of sharesList) {
+        if (crossed) break
+        const probe = blendAt(shares)
         if (cutTo) {
           const settledProbe = settled(probe)
           crossed =
@@ -1286,15 +1699,27 @@ export function prepareCorrespondence(polygons, cut = false) {
   }
   const rings = polygons.map((p) => p[0])
   const alike = rings.every((face) => face.length === rings[0].length)
-  // Faces that differ in their counters are brought to the same rings by cutting the open ones.
-  const same = alike ? rings : splitCounters(rings)
-  const match = same && matchOf(same, !alike, cut || !alike)
-  // Rings that were cut wind in and out of their gaps. Keep the match only when the even
-  // mix does not cross itself and turns about as much as the faces. Cut counters must
-  // also hold about the faces' ink; a cut stroke may fairly differ in size from its
-  // counterpart, and the area between two sizes is not their mean.
-  if (match && (cut || !alike) && (match.crossed || match.wander > 0.05 || (!alike && match.ink > 0.05)))
-    return null
+  // Faces that differ in their counters prefer slitting closed bars at the stem wall
+  // where a coarser face leaves them open (so bars slide at full thickness across the gap),
+  // falling back to cutting the open counters when slitting does not yield a clean blend.
+  let match = null
+  if (alike) {
+    match = matchOf(rings, false, cut)
+    if (match && cut && (match.crossed || match.wander > 0.05)) return null
+  } else {
+    for (const candidate of mergeCounterCandidates(rings)) {
+      const m = matchOf(candidate, true, true)
+      if (m && !m.crossed && m.wander <= 0.05 && m.ink <= 0.05) {
+        match = m
+        break
+      }
+    }
+    if (!match) {
+      const split = splitCounters(rings)
+      const m = split && matchOf(split, true, true)
+      if (m && !m.crossed && m.wander <= 0.05 && m.ink <= 0.05) match = m
+    }
+  }
   if (!match) return null
   const { sampled } = match
   const faces = polygons
