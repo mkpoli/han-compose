@@ -31,7 +31,7 @@ export function onlyBundled(sequence, separate = false, unicode = false, fontSty
     if (isNode(node) && node.op === '㇯') return false
     if (isNode(node)) return node.parts.every(local)
     filled = true
-    return (unicode && (hasUnicodeGlyph(node) || node === '艹' && hasUnicodeGlyph('⺾'))) || ((unicode || fontStyle === 'sans') && hasPaletteGlyph(node)) || hasBundledGlyph('tangut', node) || hasBundledGlyph('jurchen', node) || hasBundledGlyph('bopomofo', node) || hasBundledGlyph('small-seal', node) || hasNewKorean(node) || hasBundledGlyph('shuishu', node)
+    return (unicode && (hasUnicodeGlyph(node) || node === '艹' && hasUnicodeGlyph('⺾'))) || ((unicode || fontStyle === 'sans') && hasPaletteGlyph(node)) || hasBundledGlyph('tangut', node) || hasBundledGlyph('jurchen', node) || (hasBundledGlyph('bopomofo', node) && (fontStyle !== 'fangsong' || !'ㆸㆹㆺㆼㆽㆾㆿ'.includes(node))) || hasBundledGlyph('small-seal', node) || hasNewKorean(node) || hasBundledGlyph('shuishu', node)
   }
   return local(tree) && filled
 }

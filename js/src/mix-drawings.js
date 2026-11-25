@@ -5,6 +5,8 @@ import {
   groupRegions,
   matchRegions,
   prepareCorrespondence,
+  splitIslands,
+  tangled,
   prepareWeight
 } from './mix-contours.js'
 import { inkPolygons, outlinePath, limitDisplacement } from './mix-outline.js'
@@ -123,12 +125,19 @@ function prepareInk(paths, strokes) {
       )
     )
   )
+  /** Regions whose islands were cut from larger ones. @type {WeakSet<object>} */
+  const cuts = new WeakSet()
   /** Faces that split the ink into different numbers of islands still match the
    * islands they share; only the groups that differ fall back to distance fields.
    * @param {number[][][][][]} polygons */
   const regionsOf = (polygons) => {
     const matched = matchRegions(polygons, (p) => p[0])
     if (matched?.[0].length) return matched[0].map((_, i) => matched.map((p) => [p[i]]))
+    const split = matched ? null : splitIslands(polygons)
+    if (split) {
+      for (const region of split) cuts.add(region)
+      return split
+    }
     const grouped = matched ? [] : groupRegions(polygons, (p) => p[0], 0.06 * side)
     return grouped.length ? grouped : [polygons]
   }
@@ -156,7 +165,7 @@ function prepareInk(paths, strokes) {
       : regionsOf(registered.map(inkPolygons))
   // Regions without a contour correspondence share one distance field, which keeps
   // their strokes registered to each other.
-  const matched = regions.map((region) => prepareCorrespondence(region))
+  const matched = regions.map((region) => prepareCorrespondence(region, cuts.has(region)))
   const blenders = matched.flatMap((blend) => blend ?? [])
   const rest = regions.filter((_, i) => !matched[i])
   if (rest.length)
@@ -377,14 +386,16 @@ function settleOutline(edge, full, amount, radius) {
         : null
     const rings = counters && [from, to].map((island, f) => [island[0][0], ...counters[f]])
     const aligned = rings?.[0].map((ring, j) => alignRings([ring, rings[1][j]]))
-    if (aligned?.every(Boolean))
-      for (const pair of /** @type {number[][][][]} */ (aligned))
-        moved += path(
-          pair[0].map((p, n) => [
-            p[0] + (pair[1][n][0] - p[0]) * amount,
-            p[1] + (pair[1][n][1] - p[1]) * amount
-          ])
-        )
+    const between =
+      aligned?.every(Boolean) &&
+      /** @type {number[][][][]} */ (aligned).map((pair) =>
+        pair[0].map((p, n) => [
+          p[0] + (pair[1][n][0] - p[0]) * amount,
+          p[1] + (pair[1][n][1] - p[1]) * amount
+        ])
+      )
+    // Matched points can still carry a counter across its frame part of the way.
+    if (between && !tangled(between)) for (const ring of between) moved += path(ring)
     else for (const island of to) for (const ring of island) rest += path(ring.slice(0, -1))
   }
   return moved + (rest && bound(rest))

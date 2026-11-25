@@ -1,5 +1,5 @@
 // @ts-check
-import { weightVectors } from './mix-outline.js'
+import { settledRings, weightVectors } from './mix-outline.js'
 /** Points spaced by arc length, without the duplicate closing point.
  * @param {number[][]} ring @param {number} n */
 function sample(ring, n) {
@@ -402,6 +402,48 @@ function alignTo(rings) {
   }
 }
 
+/** Whether a frame and its counters no longer make one island: a ring crosses itself
+ * or another, or a counter has left the frame.
+ * @param {number[][][]} rings the frame first, without the repeated closing point */
+export function tangled(rings) {
+  if (rings.some(crosses)) return true
+  const [frame, ...counters] = rings
+  const within = (/** @type {number[]} */ [x, y]) => {
+    let inside = false
+    for (let i = 0, j = frame.length - 1; i < frame.length; j = i++) {
+      const a = frame[i],
+        b = frame[j]
+      if (a[1] > y !== b[1] > y && x < a[0] + ((y - a[1]) * (b[0] - a[0])) / (b[1] - a[1])) inside = !inside
+    }
+    return inside
+  }
+  if (counters.some((ring) => !within(ring[0]))) return true
+  const side = (/** @type {number[]} */ a, /** @type {number[]} */ b, /** @type {number[]} */ c) =>
+    (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0])
+  const boxes = rings.map(ringBox)
+  for (let r = 0; r < rings.length; r++)
+    for (let q = r + 1; q < rings.length; q++) {
+      const [left, top, right, bottom] = boxes[q]
+      if (boxes[r][0] > right || boxes[r][2] < left || boxes[r][1] > bottom || boxes[r][3] < top) continue
+      const one = rings[r],
+        other = rings[q]
+      for (let i = 0; i < one.length; i++) {
+        const a = one[i],
+          b = one[(i + 1) % one.length]
+        if (Math.max(a[0], b[0]) < left || Math.min(a[0], b[0]) > right) continue
+        if (Math.max(a[1], b[1]) < top || Math.min(a[1], b[1]) > bottom) continue
+        for (let j = 0; j < other.length; j++) {
+          const c = other[j],
+            d = other[(j + 1) % other.length]
+          if (Math.max(a[0], b[0]) < Math.min(c[0], d[0]) || Math.max(c[0], d[0]) < Math.min(a[0], b[0]))
+            continue
+          if (side(a, b, c) * side(a, b, d) < 0 && side(c, d, a) * side(c, d, b) < 0) return true
+        }
+      }
+    }
+  return false
+}
+
 /** Whether a closed outline crosses itself.
  * @param {number[][]} ring */
 function crosses(ring) {
@@ -530,29 +572,370 @@ export function groupRegions(faces, ringOf, reach) {
   return groups.map((group) => faces.map((_, f) => group.filter((n) => n.f === f).map((n) => n.item)))
 }
 
+/** Whether a point lies inside a closed ring.
+ * @param {number[]} point @param {number[][]} ring */
+function inside([x, y], ring) {
+  let within = false
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const a = ring[i],
+      b = ring[j]
+    if (a[1] > y !== b[1] > y && x < a[0] + ((y - a[1]) * (b[0] - a[0])) / (b[1] - a[1])) within = !within
+  }
+  return within
+}
+
+/** @param {number[][]} ring */
+const turning = (ring) =>
+  ring.reduce((sum, p, i) => {
+    const q = ring[(i + 1) % ring.length]
+    return sum + p[0] * q[1] - q[0] * p[1]
+  }, 0)
+
+/** A ring's points without the closing one, with no two further apart than `step`.
+ * @param {number[][]} ring @param {number} step */
+function dense(ring, step) {
+  /** @type {number[][]} */
+  const out = []
+  for (let i = 0; i + 1 < ring.length; i++) {
+    const a = ring[i],
+      b = ring[i + 1],
+      pieces = Math.max(1, Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / step))
+    for (let t = 0; t < pieces; t++)
+      out.push([a[0] + ((b[0] - a[0]) * t) / pieces, a[1] + ((b[1] - a[1]) * t) / pieces])
+  }
+  return out
+}
+
+/** Cut a ring at its necks into one ring per target. Each point goes with the target it
+ * lies in or nearest to; the ring is then cut along the narrowest chord that leaves the
+ * points of every target together on one side, until each piece holds one target. Null
+ * when no chord parts the targets.
+ * @param {number[][]} ring closed
+ * @param {{ ring: number[][], solid: boolean }[]} targets closed rings; a solid one claims the points inside it
+ * @param {boolean} within whether a chord runs inside the ring (through its ink or its counter) or outside it (across a bay)
+ * @param {boolean} cap bow the smaller piece's cut end outward, so it overlaps what it left
+ * @param {number[][][]} [clear] rings no chord may touch
+ * @returns {number[][][] | null} per target, a closed ring */
+function cutRing(ring, targets, within, cap, clear = []) {
+  const points = dense(ring, 3)
+  const marks = targets.map((target) => dense(target.ring, 3))
+  const labels = points.map((p) => {
+    let best = 0,
+      least = Infinity
+    targets.forEach((target, k) => {
+      const d =
+        target.solid && inside(p, target.ring)
+          ? 0
+          : Math.min(...marks[k].map((q) => Math.hypot(q[0] - p[0], q[1] - p[1])))
+      if (d < least) {
+        least = d
+        best = k
+      }
+    })
+    return best
+  })
+  /** @type {(number[][] | undefined)[]} */
+  const out = targets.map(() => undefined)
+  /** @type {{ points: number[][], labels: number[] }[]} */
+  const pieces = [{ points, labels }]
+  while (pieces.length) {
+    const piece = /** @type {{ points: number[][], labels: number[] }} */ (pieces.pop())
+    const size = piece.points.length
+    const held = [...new Set(piece.labels)]
+    if (held.length === 1) {
+      if (out[held[0]] || size < 3) return null
+      out[held[0]] = [...piece.points, piece.points[0]]
+      continue
+    }
+    // How many points of each target lie before each position.
+    const before = held.map((label) => {
+      const sums = [0]
+      for (const l of piece.labels) sums.push(sums[sums.length - 1] + (l === label ? 1 : 0))
+      return sums
+    })
+    /** @type {{ i: number, j: number, width: number, cost: number }[]} */
+    const chords = []
+    for (let i = 0; i < size; i++)
+      for (let j = i + 6; j < size; j++) {
+        if (size - (j - i) < 6) continue
+        const width = Math.hypot(
+          piece.points[j][0] - piece.points[i][0],
+          piece.points[j][1] - piece.points[i][1]
+        )
+        if (width > 56) continue
+        // Points i..j-1 on one side, the rest on the other; the share of a target left
+        // on the wrong side counts against the chord.
+        let stray = 0,
+          here = 0,
+          there = 0
+        for (const sums of before) {
+          const inner = sums[j] - sums[i],
+            outer = sums[size] - inner
+          stray = Math.max(stray, Math.min(inner, outer) / sums[size])
+          if (inner > outer) here++
+          else there++
+        }
+        if (!here || !there || stray > 0.3) continue
+        chords.push({ i, j, width, cost: width * (1 + 2 * stray) + 30 * stray })
+      }
+    chords.sort((a, b) => a.cost - b.cost)
+    const chord = chords.find(({ i, j }) => {
+      const a = piece.points[i],
+        b = piece.points[j]
+      const side = (/** @type {number[]} */ p, /** @type {number[]} */ q, /** @type {number[]} */ r) =>
+        (q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0])
+      const apart = (/** @type {number[]} */ p, /** @type {number[]} */ q) =>
+        side(a, b, p) * side(a, b, q) > 0 ||
+        side(p, q, a) * side(p, q, b) > 0 ||
+        Math.max(p[0], q[0]) < Math.min(a[0], b[0]) ||
+        Math.min(p[0], q[0]) > Math.max(a[0], b[0]) ||
+        Math.max(p[1], q[1]) < Math.min(a[1], b[1]) ||
+        Math.min(p[1], q[1]) > Math.max(a[1], b[1])
+      // The chord stays on its side of the ring, meets the piece only at its ends and
+      // touches nothing it must keep clear of.
+      return (
+        [1, 2, 3].every((t) => {
+          const p = [a[0] + ((b[0] - a[0]) * t) / 4, a[1] + ((b[1] - a[1]) * t) / 4]
+          return inside(p, ring) === within && !clear.some((other) => inside(p, other))
+        }) &&
+        piece.points.every((p, k) => {
+          const next = (k + 1) % size
+          return k === i || k === j || next === i || next === j || apart(p, piece.points[next])
+        }) &&
+        clear.every((other) => other.every((p, k) => !k || apart(other[k - 1], p)))
+      )
+    })
+    if (!chord) return null
+    const { i, j } = chord
+    const sides = [
+      { points: piece.points.slice(i, j + 1), labels: piece.labels.slice(i, j + 1) },
+      {
+        points: [...piece.points.slice(j), ...piece.points.slice(0, i + 1)],
+        labels: [...piece.labels.slice(j), ...piece.labels.slice(0, i + 1)]
+      }
+    ]
+    // Each target goes whole to the side that holds most of it.
+    const first = new Set(held.filter((_, k) => 2 * (before[k][j] - before[k][i]) > before[k][size]))
+    sides.forEach((side, n) => {
+      const own = held.filter((label) => first.has(label) === !n)
+      const counts = own.map((label) => side.labels.filter((l) => l === label).length)
+      const most = own[counts.indexOf(Math.max(...counts))]
+      side.labels = side.labels.map((label) => (own.includes(label) ? label : most))
+    })
+    // Each side closes along the chord from its last point to its first. Points along it
+    // let a later cut end there, and bow the smaller side's end out over what it left,
+    // far enough to stay joined when a lighter weight draws both pieces back.
+    const small = sides[0].points.length <= sides[1].points.length ? 0 : 1
+    const depth = cap ? Math.min(chord.width / 4, 4) : 0
+    const steps = Math.ceil(chord.width / 3)
+    sides.forEach((side, n) => {
+      const from = side.points[side.points.length - 1],
+        to = side.points[0]
+      const centre = [0, 1].map((k) => side.points.reduce((sum, p) => sum + p[k], 0) / side.points.length)
+      const mid = [(from[0] + to[0]) / 2, (from[1] + to[1]) / 2]
+      const away = Math.hypot(mid[0] - centre[0], mid[1] - centre[1]) || 1
+      const other = [...sides[1 - n].points, sides[1 - n].points[0]]
+      const bow =
+        n === small &&
+        depth &&
+        inside(
+          [0, 1].map((k) => mid[k] + ((mid[k] - centre[k]) / away) * depth),
+          other
+        )
+          ? depth
+          : 0
+      const ends = [side.labels[side.labels.length - 1], side.labels[0]]
+      for (let t = 1; t < steps; t++) {
+        const out = bow * Math.sin((Math.PI * t) / steps)
+        side.points.push(
+          [0, 1].map((k) => from[k] + ((to[k] - from[k]) * t) / steps + ((mid[k] - centre[k]) / away) * out)
+        )
+        side.labels.push(ends[2 * t < steps ? 0 : 1])
+      }
+    })
+    pieces.push(...sides)
+  }
+  return out.every(Boolean) ? /** @type {number[][][]} */ (out) : null
+}
+
+/** Faces that draw as one island what another draws as several (a stroke that runs
+ * into its neighbour in one face and stands clear in another) get the same islands: the
+ * fused island is cut at the junction, so each stroke blends with its own counterpart.
+ * Null when the faces split the ink in ways that are not one a coarser form of the other.
+ * @param {number[][][][][]} polygons each face's islands
+ * @returns {number[][][][][][] | null} per island, each face's one island */
+export function splitIslands(polygons) {
+  const finest = polygons.reduce((best, islands, f) => (islands.length > polygons[best].length ? f : best), 0)
+  const fine = polygons[finest]
+  if (!fine.length || polygons.some((islands) => !islands.length)) return null
+  const faces = polygons.map((islands, f) => {
+    if (f === finest) return fine
+    if (islands.length === fine.length) return matchRegions([fine, islands], (p) => p[0])?.[1] ?? null
+    const outlines = islands.map((island) => dense(island[0], 3))
+    const owners = fine.map((island) => {
+      const points = dense(island[0], 3)
+      const mid = [0, 1].map((k) => points.reduce((sum, p) => sum + p[k], 0) / points.length)
+      const votes = islands.map(
+        (other) =>
+          points.filter((p) => {
+            const q = [(2 * p[0] + mid[0]) / 3, (2 * p[1] + mid[1]) / 3]
+            return inside(q, other[0]) && !other.slice(1).some((ring) => inside(q, ring))
+          }).length
+      )
+      const most = Math.max(...votes)
+      if (most) return votes.indexOf(most)
+      // A thin stroke can lie wholly beside the ink it belongs to; it goes with the nearest.
+      const apart = outlines.map((outline) =>
+        Math.min(...outline.map((q) => Math.min(...points.map((p) => Math.hypot(p[0] - q[0], p[1] - q[1])))))
+      )
+      return apart.indexOf(Math.min(...apart))
+    })
+    /** @type {number[][][][]} */
+    const out = []
+    for (const [x, island] of islands.entries()) {
+      const mine = owners.flatMap((owner, j) => (owner === x ? [j] : []))
+      if (!mine.length) return null
+      if (mine.length === 1) {
+        out[mine[0]] = island
+        continue
+      }
+      const pieces = cutRing(
+        island[0],
+        mine.map((j) => ({ ring: fine[j][0], solid: true })),
+        true,
+        true,
+        island.slice(1)
+      )
+      if (!pieces) return null
+      mine.forEach((j, k) => (out[j] = [pieces[k]]))
+      // No cut touches a counter, so each lies whole in one piece.
+      for (const hole of island.slice(1)) {
+        const k = pieces.findIndex((piece) => inside(hole[0], piece))
+        if (k < 0) return null
+        out[mine[k]].push(hole)
+      }
+    }
+    return out
+  })
+  if (faces.some((face) => !face)) return null
+  return fine.map((_, j) => faces.map((face) => [/** @type {number[][][][]} */ (face)[j]]))
+}
+
+/** Faces that leave open a counter another face closes (a bar that stops short of its
+ * frame) have fewer rings than it. Cut their rings at the gaps, so every face has the
+ * counters of the face with most, each blending with its own counterpart.
+ * @param {number[][][][]} faces each face's frame and counters
+ * @returns {number[][][][] | null} */
+function splitCounters(faces) {
+  const finest = faces.reduce((best, rings, f) => (rings.length > faces[best].length ? f : best), 0)
+  const fine = faces[finest]
+  const out = faces.map((rings, f) => {
+    if (f === finest || rings.length === fine.length) return rings
+    const owners = fine.map((counter, j) => {
+      if (!j) return 0
+      const points = counter.slice(0, -1)
+      const mid = [0, 1].map((k) => points.reduce((sum, p) => sum + p[k], 0) / points.length)
+      const votes = new Map()
+      for (const p of [mid, ...points.map((q) => [(q[0] + mid[0]) / 2, (q[1] + mid[1]) / 2])]) {
+        const within = rings.findIndex((ring, x) => x && inside(p, ring))
+        const where = within > 0 ? within : inside(p, rings[0]) ? -1 : 0
+        if (where >= 0) votes.set(where, (votes.get(where) ?? 0) + 1)
+      }
+      return votes.size ? [...votes].sort((x, y) => y[1] - x[1])[0][0] : -1
+    })
+    if (owners.includes(-1)) return null
+    /** @type {number[][][]} */
+    const cut = []
+    for (const [x, ring] of rings.entries()) {
+      const mine = owners.flatMap((owner, j) => (owner === x ? [j] : []))
+      if (!mine.length) return null
+      if (mine.length === 1) {
+        cut[mine[0]] = ring
+        continue
+      }
+      const pieces = cutRing(
+        ring,
+        mine.map((j) => ({ ring: fine[j], solid: j > 0 })),
+        x > 0,
+        false
+      )
+      if (!pieces) return null
+      mine.forEach((j, k) => (cut[j] = pieces[k]))
+    }
+    return cut
+  })
+  return out.every(Boolean) ? /** @type {number[][][][]} */ (out) : null
+}
+
 /** Compute correspondences and local stroke widths once, independently of the controls.
- * @param {number[][][][][]} polygons */
-export function prepareCorrespondence(polygons) {
-  if (!polygons.length || !polygons.every((p) => p.length === 1 && p[0].length === polygons[0][0].length))
+ * @param {number[][][][][]} polygons each face's one island
+ * @param {boolean} [cut] the islands were cut from larger ones */
+export function prepareCorrespondence(polygons, cut = false) {
+  if (!polygons.length || !polygons.every((p) => p.length === 1)) return null
+  /** A face's ink, and how much its outline turns in all.
+   * @param {number[][][]} rings */
+  const held = (rings) =>
+    Math.abs(rings.slice(1).reduce((sum, ring) => sum - Math.abs(turning(ring)), Math.abs(turning(rings[0]))))
+  const winding = (/** @type {number[][][]} */ rings) =>
+    rings.reduce(
+      (sum, ring) =>
+        sum +
+        ring.reduce((bends, p, i) => {
+          const a = ring[(i + ring.length - 2) % ring.length],
+            b = ring[(i + 2) % ring.length]
+          const turn = Math.atan2(b[1] - p[1], b[0] - p[0]) - Math.atan2(p[1] - a[1], p[0] - a[0])
+          return bends + Math.abs(Math.atan2(Math.sin(turn), Math.cos(turn)))
+        }, 0),
+      0
+    )
+  /** Match the rings point for point; how far the even mix strays from the faces.
+   * @param {number[][][][]} faces each face's frame and counters, alike in number
+   * @param {boolean} cutTo the counters already stand in one order */
+  const matchOf = (faces, cutTo) => {
+    const holes = matchRegions(
+      faces.map((rings) => rings.slice(1)),
+      (r) => r
+    )
+    if (!holes) return null
+    const ordered = faces.map((rings, i) => [rings[0], ...holes[i]])
+    const sampled = /** @type {number[][][][]} */ (
+      ordered[0].map((_, j) => alignRings(ordered.map((rings) => rings[j])))
+    )
+    if (sampled.some((ring) => !ring)) return null
+    const even = sampled.map((ring) =>
+      ring[0].map((_, i) => [0, 1].map((k) => ring.reduce((sum, face) => sum + face[i][k], 0) / faces.length))
+    )
+    const each = faces.map((_, f) => sampled.map((ring) => ring[f]))
+    const mean = (/** @type {(rings: number[][][]) => number} */ of) =>
+      each.reduce((sum, rings) => sum + of(rings), 0) / faces.length
+    return {
+      sampled,
+      crossed: tangled(even),
+      ink: Math.abs(held(even) - mean(held)) / mean(held),
+      wander: winding(even) / mean(winding) - 1
+    }
+  }
+  const rings = polygons.map((p) => p[0])
+  const alike = rings.every((face) => face.length === rings[0].length)
+  // Faces that differ in their counters are brought to the same rings by cutting the open ones.
+  const same = alike ? rings : splitCounters(rings)
+  const match = same && matchOf(same, !alike)
+  // Rings that were cut wind in and out of their gaps. Keep the match only when the even
+  // mix does not cross itself and turns about as much as the faces. Cut counters must
+  // also hold about the faces' ink; a cut stroke may fairly differ in size from its
+  // counterpart, and the area between two sizes is not their mean.
+  if (match && (cut || !alike) && (match.crossed || match.wander > 0.05 || (!alike && match.ink > 0.05)))
     return null
-  const holes = matchRegions(
-    polygons.map((p) => p[0].slice(1)),
-    (r) => r
-  )
-  if (!holes) return null
-  const ordered = polygons.map((p, i) => [p[0][0], ...holes[i]])
-  const faces = ordered
-  const sampled = /** @type {number[][][][]} */ (
-    ordered[0].map((_, j) => alignRings(ordered.map((rings) => rings[j])))
-  )
-  if (sampled.some((ring) => !ring)) return null
+  if (!match) return null
+  const { sampled } = match
+  const faces = polygons
   const aligned = faces.map((_, f) => {
     const rings = sampled.map((ring) => ring[f])
     const vectors = weightVectors(rings.map((r) => [...r, r[0]]))
     return rings.map((r, j) => r.map((p, i) => [...p, ...vectors[j][i]]))
   })
-  return (/** @type {number[]} */ shares, /** @type {number} */ weight) =>
-    aligned[0].map((r, j) => {
+  return (/** @type {number[]} */ shares, /** @type {number} */ weight) => {
+    const rings = aligned[0].map((r, j) => {
       const mixed = r.map((_, i) => {
         let x = 0,
           y = 0
@@ -565,6 +948,9 @@ export function prepareCorrespondence(polygons) {
       })
       return [...mixed, mixed[0]]
     })
+    // Counters cut from one another meet along the cut, and a lighter weight laps them.
+    return alike ? rings : settledRings(rings)
+  }
 }
 
 /** @param {number[][][]} rings */

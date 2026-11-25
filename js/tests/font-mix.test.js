@@ -1,7 +1,13 @@
 import { expect, it } from 'bun:test'
 import { activeFaces, composeMixed, FONT_STYLES } from '../src/font-mix.js'
 import { mixDrawings } from '../src/mix-drawings.js'
-import { alignRings, groupRegions } from '../src/mix-contours.js'
+import {
+  alignRings,
+  groupRegions,
+  prepareCorrespondence,
+  splitIslands,
+  tangled
+} from '../src/mix-contours.js'
 import { limitDisplacement } from '../src/mix-outline.js'
 import { count, pathMask } from '../src/geometry.js'
 import { compose } from '../src/loader.js'
@@ -367,4 +373,128 @@ it('falls back to islands when two faces number their strokes differently', () =
   let differing = 0
   for (let i = 0; i < expected.length; i++) differing += expected[i] !== actual[i]
   expect(differing).toBeLessThan(120)
+})
+
+it('tells a counter that leaves its frame from one that stays inside', () => {
+  const square = (x, y, side) => [
+    [x, y],
+    [x + side, y],
+    [x + side, y + side],
+    [x, y + side]
+  ]
+  expect(tangled([square(0, 0, 100), square(20, 20, 30), square(60, 60, 30)])).toBe(false)
+  expect(tangled([square(0, 0, 100), square(80, 20, 30)])).toBe(true)
+  expect(tangled([square(0, 0, 100), square(120, 20, 30)])).toBe(true)
+  expect(tangled([square(0, 0, 100), square(20, 20, 30), square(40, 40, 30)])).toBe(true)
+  expect(
+    tangled([
+      [
+        [0, 0],
+        [100, 100],
+        [100, 0],
+        [0, 100]
+      ]
+    ])
+  ).toBe(true)
+})
+
+const box = (x, y, w, h, hole = false) => {
+  const ring = [
+    [x, y],
+    [x + w, y],
+    [x + w, y + h],
+    [x, y + h],
+    [x, y]
+  ]
+  return hole ? ring.reverse() : ring
+}
+const inkOf = (rings) =>
+  rings.reduce((sum, ring) => {
+    let twice = 0
+    for (let i = 0; i + 1 < ring.length; i++)
+      twice += ring[i][0] * ring[i + 1][1] - ring[i + 1][0] * ring[i][1]
+    return sum + twice / 2
+  }, 0)
+
+it('blends a stroke that stands clear in one face and touches its neighbour in another', () => {
+  // Two bars side by side against one bar spanning both.
+  const apart = [[box(20, 100, 90, 40)], [box(130, 100, 100, 40)]]
+  const fused = [[box(20, 100, 210, 40)]]
+  for (const faces of [
+    [apart, fused],
+    [fused, apart]
+  ]) {
+    const regions = splitIslands(faces)
+    // The spanning bar is cut where the others part, one piece for each.
+    expect(regions).toHaveLength(2)
+    const blends = regions.map((region) => prepareCorrespondence(region))
+    expect(blends.every(Boolean)).toBe(true)
+    const own = faces[0] === apart ? [1, 0] : [0, 1]
+    const spans = (shares) =>
+      blends.map((blend) => {
+        const xs = blend(shares, 1).flatMap((ring) => ring.map((p) => p[0]))
+        return [Math.min(...xs), Math.max(...xs)]
+      })
+    // Each bar keeps its own ends, and halfway the gap between them has half closed.
+    expect(spans(own)[0][1]).toBeCloseTo(110, 0)
+    expect(spans(own)[1][0]).toBeCloseTo(130, 0)
+    const [left, right] = spans([0.5, 0.5])
+    expect(left[0]).toBeCloseTo(20, 0)
+    expect(right[1]).toBeCloseTo(230, 0)
+    expect(right[0] - left[1]).toBeGreaterThan(4)
+    expect(right[0] - left[1]).toBeLessThan(12)
+  }
+})
+
+it('opens a counter where a face stops its bar short of the frame', () => {
+  // A frame with a bar across it against the same frame with the bar ending early.
+  const closed = [[box(20, 20, 200, 200), box(40, 40, 160, 70, true), box(40, 130, 160, 70, true)]]
+  const gap = [
+    [20, 20],
+    [220, 20],
+    [220, 220],
+    [20, 220],
+    [20, 20]
+  ]
+  const open = [
+    [
+      gap,
+      [
+        [40, 40],
+        [40, 200],
+        [200, 200],
+        [200, 130],
+        [70, 130],
+        [70, 110],
+        [200, 110],
+        [200, 40],
+        [40, 40]
+      ]
+    ]
+  ]
+  const blend = prepareCorrespondence([closed, open])
+  expect(blend).not.toBeNull()
+  // The open face's one counter is cut at the gap into the two the closed face has.
+  expect(blend([0.5, 0.5], 1)).toHaveLength(3)
+  const closedInk = 200 * 200 - 2 * 160 * 70,
+    openInk = 200 * 200 - 160 * 160 + 130 * 20
+  expect(Math.abs(inkOf(blend([1, 0], 1)))).toBeCloseTo(closedInk, -2)
+  expect(Math.abs(inkOf(blend([0, 1], 1)))).toBeCloseTo(openInk, -2)
+  const halfway = Math.abs(inkOf(blend([0.5, 0.5], 1)))
+  expect(halfway).toBeGreaterThan(openInk)
+  expect(halfway).toBeLessThan(closedInk)
+})
+
+it('cuts a fused island clear of its counter', () => {
+  // A long bar with a window against a windowed block and a plain block side by side.
+  const fused = [[box(20, 100, 210, 40), box(60, 110, 90, 20, true)]]
+  const apart = [[box(20, 100, 150, 40), box(60, 110, 90, 20, true)], [box(190, 100, 40, 40)]]
+  const regions = splitIslands([fused, apart])
+  expect(regions).toHaveLength(2)
+  // The window stays whole in the piece that pairs with the windowed block.
+  const windowed = regions.find((region) => region[1][0].length === 2)
+  expect(windowed[0][0]).toHaveLength(2)
+  const xs = windowed[0][0][0].map((p) => p[0])
+  expect(Math.max(...xs)).toBeGreaterThan(150)
+  expect(regions.find((region) => region !== windowed)[0][0]).toHaveLength(1)
 })
