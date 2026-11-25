@@ -48,9 +48,9 @@ it('connects six crossbar ends and both wall feet in the printed 置', async () 
   }
 })
 
-it('uses the same baseline through surrounding and nested stacks', async () => {
-  for (const [ids, count] of [['⿺丄⿵冂三', 3], ['⿱⿵冂三一', 3], ['⿱十⿱⿵冂三一', 4],
+for (const [ids, count] of [['⿺丄⿵冂三', 3], ['⿱⿵冂三一', 3], ['⿱十⿱⿵冂三一', 4],
     ['⿱⿵冂三𡭕', 3], ['⿱⿵冂三⿱一小', 4]]) {
+  it(`joins all four counters in ${ids}`, async () => {
     for (const separate of [false, true]) {
       const src = source()
       const cold = await sketch(src, ids)
@@ -59,8 +59,8 @@ it('uses the same baseline through surrounding and nested stacks', async () => {
       expect(drawing.parts).toHaveLength(count)
       expect(counters(drawing.d)).toBe(4)
     }
-  }
-})
+  })
+}
 
 it('joins two independent baselines in the same stack', async () => {
   const drawing = await compose(source(), '⿱⿺丄⿵冂三⿺丄⿵冂三')

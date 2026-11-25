@@ -13,12 +13,13 @@ export function eyeBaseline(node) {
     return { eye: leafCount(node) - 2, base: 0, char: '丄' }
   }
   if (stack(node)) {
-    let n = 0
     for (let i = 1; i < node.length - 1; i++) {
-      n += leafCount(node[i])
       const lower = node[i + 1]
       const char = stack(lower) && lower[1] === '一' ? '一' : lower
-      if (endsInEye(node[i]) && (char === '一' || char === '𡭕')) return { eye: n - 2, base: n, char }
+      if ((char === '一' || char === '𡭕') && endsInEye(node[i])) {
+        const n = node.slice(1, i + 1).reduce((count, child) => count + leafCount(child), 0)
+        return { eye: n - 2, base: n, char }
+      }
     }
   }
   return null
@@ -29,14 +30,14 @@ export function eyeBaseline(node) {
 export function eyeInStack(node) {
   const match = eyeBaseline(node)
   if (match || !stack(node)) return match
-  let offset = 0, found = null
-  for (const child of node.slice(1)) {
-    const nested = eyeInStack(child)
+  let found = null
+  for (let i = 1; i < node.length; i++) {
+    const nested = eyeInStack(node[i])
     if (nested) {
       if (found) return null // Each child resolves its own baseline.
+      const offset = node.slice(1, i).reduce((count, child) => count + leafCount(child), 0)
       found = { ...nested, eye: offset + nested.eye, base: offset + nested.base }
     }
-    offset += leafCount(child)
   }
   return found
 }
@@ -147,7 +148,6 @@ export function fitEye(parts, original, face, region) {
     return { ...fixed(g, mapped(bounds(p), extent, frame), p.origin), ...(p.leaf === undefined ? {} : { leaf: p.leaf }) }
   })
 }
-
 
 /** The export may spell 𡭕 as its native 一 and 小 outlines. The two cuts still belong to
  * the single written operand; keep normal stroke winding when combining their outlines. */
