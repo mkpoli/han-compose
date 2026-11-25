@@ -693,6 +693,9 @@ it('rejects a counter cut correspondence when a moving counter would sever the e
     ]
   ]
   expect(prepareCorrespondence([faceA, faceB])).toBeNull()
+  // Shifted further right so the counter clears the bridge at 50/50 but would sever it at 75% A / 25% B.
+  const faceBShifted = [[dumbell, faceB[0][1].map(([x, y]) => [x + 35, y])]]
+  expect(prepareCorrespondence([faceA, faceBShifted])).toBeNull()
 })
 
 it('keeps an open bar substantial near its moving tip halfway and open at bold weight near the open pole', () => {

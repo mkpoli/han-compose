@@ -1238,27 +1238,48 @@ export function prepareCorrespondence(polygons, cut = false) {
     )
     if (sampled.some((ring) => !ring)) return null
     if (!check) return { sampled, crossed: false, ink: 0, wander: 0 }
-    const even = sampled.map((ring) =>
-      ring[0].map((_, i) => [0, 1].map((k) => ring.reduce((sum, face) => sum + face[i][k], 0) / faces.length))
-    )
+    const blendAt = (/** @type {number[]} */ shares) =>
+      sampled.map((ring) =>
+        ring[0].map((_, i) =>
+          [0, 1].map((k) => ring.reduce((sum, face, f) => sum + shares[f] * face[i][k], 0))
+        )
+      )
+    const even = blendAt(faces.map(() => 1 / faces.length))
     const each = faces.map((_, f) => sampled.map((ring) => ring[f]))
     const mean = (/** @type {(rings: number[][][]) => number} */ of) =>
       each.reduce((sum, rings) => sum + of(rings), 0) / faces.length
-    const settledEven = cutTo ? settledRings(even.map((r) => [...r, r[0]])).map((r) => r.slice(0, -1)) : even
     const outerSign = Math.sign(turning(even[0]))
-    const outerCount = settledEven.filter((r) => Math.sign(turning(r)) === outerSign).length
     const signedInk = (/** @type {number[][][]} */ list) =>
       Math.abs(list.reduce((sum, ring) => sum + turning(ring) * outerSign, 0))
+    const settled = (/** @type {number[][][]} */ list) =>
+      settledRings(list.map((r) => [...r, r[0]])).map((r) => r.slice(0, -1))
+    const settledEven = cutTo ? settled(even) : even
+    let crossed =
+      tangled(even) || (cutTo && settledEven.filter((r) => Math.sign(turning(r)) === outerSign).length !== 1)
+    // A moving counter can clear a narrow frame bridge at 50/50 yet sever it at 25/75 or 75/25.
+    // Near an open face, cut counters may legitimately meet one another across their gap,
+    // so biased probes require each ring to stay simple and the settled frame to stay one island.
+    if (!crossed && faces.length > 1) {
+      const rest = 0.25 / (faces.length - 1)
+      for (let f = 0; f < faces.length && !crossed; f++) {
+        const probe = blendAt(faces.map((_, k) => (k === f ? 0.75 : rest)))
+        if (cutTo) {
+          const settledProbe = settled(probe)
+          crossed =
+            probe.some(crosses) ||
+            settledProbe.filter((r) => Math.sign(turning(r)) === outerSign).length !== 1 ||
+            probe.slice(1).some((hole) => !inside(hole[0], probe[0]))
+        } else {
+          crossed = tangled(probe)
+        }
+      }
+    }
     const eachArea = cutTo
-      ? each.reduce(
-          (sum, list) =>
-            sum + signedInk(settledRings(list.map((r) => [...r, r[0]])).map((r) => r.slice(0, -1))),
-          0
-        ) / faces.length
+      ? each.reduce((sum, list) => sum + signedInk(settled(list)), 0) / faces.length
       : mean(held)
     return {
       sampled,
-      crossed: tangled(even) || (cutTo && outerCount !== 1),
+      crossed,
       ink: eachArea ? Math.abs((cutTo ? signedInk(settledEven) : held(even)) - eachArea) / eachArea : 1,
       wander: winding(even) / mean(winding) - 1
     }
