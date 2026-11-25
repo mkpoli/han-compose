@@ -1,7 +1,7 @@
 import { expect, it } from 'bun:test'
 import { compose, createSource, sketch } from '../src/loader.js'
 import { pathRings, pointsBox, union } from '../src/geometry.js'
-import { character, files, shards } from './fixtures/small-export.js'
+import { character, files, shardOf, shards } from './fixtures/small-export.js'
 
 const mouth = x => [[x, 100, x + 360, 160], [x, 640, x + 360, 700],
   [x, 160, x + 60, 640], [x + 300, 160, x + 360, 640]]
@@ -16,7 +16,10 @@ const records = {
   '𫩏': character('𫩏', [...mouth(180), [345, 160, 400, 640]]),
 }
 const assets = { ...files, ...shards('g', Object.entries(records)) }
-const source = () => createSource(async name => assets[name] === undefined ? null : new Uint8Array(Buffer.from(assets[name])).buffer)
+const source = (reads = []) => createSource(async name => {
+  reads.push(name)
+  return assets[name] === undefined ? null : new Uint8Array(Buffer.from(assets[name])).buffer
+})
 const ink = d => union(pathRings(d, 16).map(pointsBox))
 const variants = ['⿳吅犬𫩏', '⿳吅太吅', '⿳吅𡗜吅', '⿳吅大𫩏', '⿳𫩏犬吅', '⿳𫩏大吅']
 
@@ -45,6 +48,9 @@ it('retains the ordinary ink bounds when the left and right mouths become one fr
   const src = source(), ids = '⿳吅犬𫩏'
   const ordinary = await compose(src, ids, { exclude: ['丨'] })
   const result = await compose(src, ids)
+  const reads = []
+  expect((await sketch(source(reads), ids)).map(p => p.box)).toEqual(result.parts.map(p => p.box))
+  expect(reads).toContain(shardOf('g', '𫩏'))
   expect(ink(result.d)).toEqual(ink(ordinary.d))
   expect(pathRings(result.parts[2].d)).toHaveLength(5)
 })
