@@ -13,6 +13,7 @@ import { readLayout } from './layout.js'
 import { isComponentForm, isGroupedForm } from './component-forms.js'
 import { hexOf } from './sha256.js'
 import { pyramidOnBase, pyramidRows } from './pyramid-rows.js'
+import { birdChainChar } from './bird-chain.js'
 import { isChain, parseChain } from './stroke-chain.js'
 import { unicodeSource } from './unicode.js'
 import { download } from './retry.js'
@@ -273,6 +274,8 @@ function keysOf(tree, out = [], separate = false, fontStyle = 'sans', root = tru
   if (!keyOf(tree).includes(EMPTY)) out.push(keyOf(tree))
   const designed = leafCutChar(keyOf(tree))
   if (designed) out.push(designed)
+  const bird = !separate && birdChainChar(tree)
+  if (bird) out.push(bird)
   // A stroke chain is drawn from its strokes' glyphs.
   if (isChain(tree)) out.push(...(parseChain(tree)?.strokes ?? []).map(stroke => stroke.char))
   if (Array.isArray(tree)) tree.slice(1).forEach(n => keysOf(n, out, separate, fontStyle, false))

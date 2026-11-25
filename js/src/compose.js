@@ -38,6 +38,9 @@ import { hangulLetters } from './hangul-ids.js'
 import { toConjoiningJamo } from './hangul.js'
 import { componentFix } from './component-fixes.js'
 import { isOutbound, markFace, markParts } from './marks.js'
+import { hostChainParts } from './host-chain.js'
+import { birdChainParts } from './bird-chain.js'
+import { birdOutlineDonors, birdOutlineParts } from './bird-outline.js'
 import { chainForm, chainRoom, isChain } from './stroke-chain.js'
 import { customAt, splitToneMarks, toneMarksAt } from './tree.js'
 import { hexOf } from './sha256.js'
@@ -795,6 +798,11 @@ export const wheatFaceHosts = sequence => sequence.includes(WHEAT_FACE) ? wheatH
 export const designedSources = (tree, style = 'sans') => {
   const out = new Set()
   const visit = node => {
+    const bird = birdOutlineDonors(keyOf(node), style)
+    if (bird.length) {
+      bird.forEach(char => out.add(char))
+      return
+    }
     if (!Array.isArray(node)) return
     const [op, ...children] = node
     if (isThornRow(node)) {
@@ -1602,7 +1610,7 @@ export class Composer {
         return
       }
       const repeated = isGroupedForm(keyOf(node), this.fontStyle) ? componentParts(keyOf(node), region, this.fontStyle, atRoot) : null
-      const designed = repeated ?? this.thornRowParts(node, region) ?? yiCrossParts(this, node, region) ?? ghostParts(this, node, region) ?? this.muKoParts(node, region) ?? this.wheatFaceParts(node, region)
+      const designed = repeated ?? birdOutlineParts(this, keyOf(node), region) ?? this.thornRowParts(node, region) ?? yiCrossParts(this, node, region) ?? ghostParts(this, node, region) ?? this.muKoParts(node, region) ?? this.wheatFaceParts(node, region)
       if (designed) {
         for (const part of designed) out.push({ index: out.length, box: part.target, empty: false })
         return
@@ -2060,6 +2068,8 @@ export class Composer {
     }
     const grid = this.penGrid(node, region, atRoot)
     if (grid) return grid
+    const bird = birdChainParts(this, node, region, atRoot) ?? birdOutlineParts(this, keyOf(node), region)
+    if (bird) return bird
     const thorns = this.thornRowParts(node, region)
     if (thorns) return thorns
     const yi = yiCrossParts(this, node, region)
@@ -2128,7 +2138,7 @@ export class Composer {
       if (isJamoRun(node)) return this.runLeaf(node, region)
     }
     if (typeof node === 'string') {
-      const chain = this.chainParts(node, region, atRoot)
+      const chain = hostChainParts(this, node, region, atRoot) ?? this.chainParts(node, region, atRoot)
       if (chain) return chain
     }
     if (this.separate && Array.isArray(node)) encoded = null

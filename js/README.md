@@ -119,7 +119,7 @@ nothing may be taken from.
 |---|---|
 | `⿰亻哥` `⿵門⿰亻哥` | The operators `⿰ ⿱ ⿲ ⿳ ⿴ ⿵ ⿶ ⿷ ⿸ ⿹ ⿺ ⿻`, up to 24 in a sequence and 8 deep. |
 | `⿼叵口` `⿾可` `㇯口丨` | `⿼ ⿽`, the reflection `⿾`, the half-turn `⿿`, the subtraction `㇯` and `〾`. |
-| `⿹⿴#(-𠃌㇉)丶灬` | A zi.tools stroke chain, joined from the face's own strokes where no cut of it is bundled. |
+| `⿰又⿱丿⿹⿴#(-𠃌㇉)丶灬` | The face’s 鸡 supplies 又 and the bird frame. The four dots come from 鳮 or, in FangSong, 鴨. Other zi.tools chains can use strokes joined from the face. |
 | `⿱艹⬚` | `⬚` (U+2B1A), an empty slot: the layout keeps its room and reports its box. |
 | `⿸广⿰KO` | Letters and digits of Latin, Greek, Cyrillic, kana and Hangul as parts. |
 | `⿰ㄱㅏ` | Hangul letters, drawn as the syllable they spell. |
