@@ -40,6 +40,80 @@ it with `bun scripts/build_zi_tools_chains.mjs`.
 
 Licence: MIT, Copyright (c) 2021 Yi Bai; see `data/licences/yi-bai-ids-MIT.txt`.
 
+## `recorded-chains.json.gz`
+
+Stroke-chain spellings from all 60 commits reachable from Yi Bai's IDS revision
+[`2597437b`](https://github.com/yi-bai/ids/tree/2597437b928e8d530b7ae09cf53fe5ec7868569c).
+The archive preserves each current occurrence with its level and source line.
+Historical entries preserve the host, full description and first and last source
+commits alongside the number of commits containing that combination.
+
+The compact index in `js/src/recorded-chains.json` gives the composer a native
+glyph only when the level-0 primary default description identifies one character
+across all levels and revisions. [The Bai IDS guide](https://nightfurysl2001.github.io/bai-ids/)
+supplies four example-font glyph locators, with the shape drawings in the
+upstream font. The IDS data keeps [Yi Bai's MIT license](licences/yi-bai-ids-MIT.txt).
+The upstream example font is separately licensed under SIL Open Font License 1.1.
+
+Rebuild from local clones of
+[`yi-bai/ids`](https://github.com/yi-bai/ids) and
+[`NightFurySL2001/bai-ids`](https://github.com/NightFurySL2001/bai-ids).
+
+```sh
+python3 js/scripts/recorded-chains.py --ids /path/to/ids --guide /path/to/bai-ids \
+  --output data/recorded-chains.json.gz --runtime js/src/recorded-chains.json
+```
+
+Audit the 436 spellings and five RCC contexts with local format-7 exports.
+Run `node js/scripts/data.mjs` in each renderer checkout first to populate its
+bundled data, then pass one `style=path` argument per export.
+
+```sh
+node js/scripts/audit-recorded-chains.mjs --out /path/to/audit --prefix revised \
+  sans=/path/to/sans-export serif=/path/to/serif-export
+node js/scripts/audit-recorded-chains.mjs --out /path/to/audit --prefix main \
+  --renderer /path/to/main-checkout sans=/path/to/sans-export serif=/path/to/serif-export \
+  regular=/path/to/regular-export fangsong=/path/to/fangsong-export pen-writing=/path/to/pen-export
+node js/scripts/recorded-chain-metrics.mjs /path/to/audit > js/src/chain-ink-metrics.json
+```
+
+Use all five faces when regenerating the checked-in metrics. The audit reads
+only local files and writes one result file per face and corpus.
+
+## `recorded-arcs.json`
+
+Centerlines for 14 stroke chains cut from their recorded hosts' GlyphWiki KAGE
+programs. The selection lists the host, regional variant when specified, component
+record and zero-based source stroke indices. The composer draws these centerlines
+at the selected face's stem weights. The reference for the 𠆭 G form is the guide
+font's U+E00B instead.
+
+The data keeps the [GlyphWiki glyph data license](licences/GlyphWiki.txt).
+Rebuild from the pinned `dump_newest_only.txt` in the
+[GlyphWiki dump](https://glyphwiki.org/dump.tar.gz). The generated file stores the
+dump's SHA-256 and Yi Bai's pinned IDS revision.
+
+```sh
+python3 js/scripts/recorded-arcs.py --dump /path/to/dump_newest_only.txt \
+  --output js/src/recorded-arcs.json
+```
+
+## `recorded-native.json`
+
+Whole glyphs for attested stroke-chain descriptions missing from the format-7
+exports. The shapes come from the selected primary face, including TW-Kai's
+Extension B font for its supplementary characters. The asset records each
+source font's checksum, copyright and release.
+
+The [font licensing notes](../docs/licensing.md) cover the Noto Sans CJK JP,
+Noto Serif CJK JP, Kureedo Full and TW-Kai source fonts. Rebuild with the
+project's Python environment and its cache of pinned fonts.
+
+```sh
+uv run python js/scripts/recorded-native.py --cache /path/to/cache \
+  --output js/src/recorded-native.json
+```
+
 ## `babelstone-ids.tsv.gz`
 
 BabelStone IDS (Ideographic Description Sequences for CJK Unified Ideographs) by Andrew West (魏安),

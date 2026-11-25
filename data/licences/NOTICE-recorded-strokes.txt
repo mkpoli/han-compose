@@ -1,0 +1,9 @@
+NotoSansCJKjp-VF-2.004.ttf
+© 2014-2021 Adobe (http://www.adobe.com/), with Reserved Font Name 'Source'.
+https://github.com/notofonts/noto-cjk/raw/Sans2.004/Sans/Variable/TTF/NotoSansCJKjp-VF.ttf
+SIL OFL 1.1
+
+NotoSerifCJKjp-VF-2.003.ttf
+© 2017-2024 Adobe (http://www.adobe.com/).
+https://github.com/notofonts/noto-cjk/raw/Serif2.003/Serif/Variable/TTF/NotoSerifCJKjp-VF.ttf
+SIL OFL 1.1

@@ -42,8 +42,17 @@ import { isOutbound, markFace, markParts } from './marks.js'
 import { chainHost, hostChainParts } from './host-chain.js'
 import { birdChainParts } from './bird-chain.js'
 import { birdOutlineDonors, birdOutlineParts } from './bird-outline.js'
-import { chainForm, chainRoom, isChain } from './stroke-chain.js'
-import { customAt, splitToneMarks, toneMarksAt } from './tree.js'
+import { fitRecordedInk } from './chain-ink.js'
+import { correctedChain, drawingChain } from './chain-corrections.js'
+import { historicalNativeChar } from './historical-chains.js'
+import { guideChainParts, guideChainDonor } from './guide-chain-cuts.js'
+import { rccChainContextParts, rccChainDonors } from './rcc-chain-contexts.js'
+import { recordedNativeGlyph } from './recorded-native.js'
+import { recordedArcParts, recordedArcDonors } from './recorded-arcs.js'
+import { recordedChainNative } from './recorded-chains.js'
+import { nativeStroke, reconstructStroke, strokeDonor } from './stroke-donors.js'
+import { chainForm, chainRoom, isChain, parseChain } from './stroke-chain.js'
+import { STROKE_CHAINS, customAt, splitToneMarks, toneMarksAt } from './tree.js'
 import { hexOf } from './sha256.js'
 import componentConstants from './constants.json' with { type: 'json' }
 import numberedFiveContext from '../data/numbered-five-context.json' with { type: 'json' }
@@ -795,11 +804,27 @@ const wheatHosts = [...new Set(Object.values(wheatFaceCuts).flat().map(cut => cu
 /** Donor records needed by both the drawing and its leaf boxes, including a nested enclosure. */
 export const wheatFaceHosts = sequence => sequence.includes(WHEAT_FACE) ? wheatHosts : []
 
+// Use only exact attested spellings for whole-character references. User-written
+// operators and variant annotations remain part of the key.
+function recordedDonor(key) {
+  if (!key.includes('#(')) return null
+  const normalized = key.replace(/#\([^()]*\)/gu, drawingChain)
+  return recordedChainNative(normalized)?.char ?? historicalNativeChar(key) ??
+    (isChain(normalized) ? STROKE_CHAINS[normalized.slice(2, -1)] : null)
+}
+
 /** Characters whose glyphs the tree's designed cuts are read from; the loader preloads them. */
 export const designedSources = (tree, style = 'sans') => {
   const out = new Set()
   const visit = node => {
-    const host = chainHost(node, style)
+    const key = keyOf(node)
+    for (const char of rccChainDonors(key, style)) out.add(char)
+    const guide = isChain(node) && guideChainDonor(drawingChain(node))
+    if (guide) out.add(guide)
+    const reference = recordedDonor(key)
+    if (reference) out.add(reference)
+    if (isChain(node)) for (const char of recordedArcDonors(drawingChain(node), style)) out.add(char)
+    const host = chainHost(typeof node === 'string' ? drawingChain(node) : node, style)
     if (host) out.add(host)
     const bird = birdOutlineDonors(keyOf(node), style)
     if (bird.length) {
@@ -1243,11 +1268,34 @@ export class Composer {
 
   // ---------------------------------------------------------------- the composer's entry
   /** A stroke chain (`#(-𠃌㇉)`) joined from the face's own strokes, or null for anything else. */
+  chainStroke(ch) {
+    if (this.excluded(ch)) return null
+    const record = this.glyphRecord(ch)
+    if (record?.v === 1) return partOf(record)
+    const host = strokeDonor(ch, this.fontStyle)
+    const native = !host || !this.excluded(host)
+      ? nativeStroke(ch, this.fontStyle, key => this.glyphRecord(key)) : null
+    return native ?? reconstructStroke(ch, this.fontStyle, key => this.chainStroke(key)) ?? (record ? partOf(record) : null)
+  }
+
+  recordedParts(node, region) {
+    const key = keyOf(node)
+    const char = recordedDonor(key)
+    if (!char || this.excluded(char) || (this.separate && Array.isArray(node))) return null
+    if (this.exclude.size && (this.excluded(key) || leafTexts(node).some(leaf =>
+      this.excluded(leaf) || (isChain(leaf) && parseChain(leaf)?.strokes.some(s => this.excluded(s.char)))))) return null
+    const record = this.glyphRecord(char)
+    const piece = record?.v === 1 ? partOf(record) : recordedNativeGlyph(this.fontStyle, char) ??
+      (isChain(node) && STROKE_CHAINS[drawingChain(node).slice(2, -1)] === char ? this.chainStroke(char) : null)
+    if (!piece) return null
+    return [this.place(piece, region, partInk(piece), `chain ${key}, glyph ${char}`)]
+  }
+
   chain(node) {
     if (!isChain(node) || isComponentForm(node, this.fontStyle)) return null
     if (!this.chains.has(node)) {
       const missed = this.data.missing?.size ?? 0
-      const form = chainForm(node, ch => this.excluded(ch) ? null : this.glyph(ch))
+      const form = chainForm(node, ch => this.chainStroke(ch))
       // A pass that met a stroke not loaded yet settles nothing.
       if ((this.data.missing?.size ?? 0) !== missed) return form
       this.chains.set(node, form)
@@ -1255,12 +1303,16 @@ export class Composer {
     return this.chains.get(node)
   }
   chainParts(node, region, atRoot = false) {
+    if (!isChain(node) || this.excluded(node)) return null
+    const key = drawingChain(node)
+    const cut = guideChainParts(this, key, region, atRoot) ?? hostChainParts(this, key, region, atRoot) ?? recordedArcParts(this, key, region, atRoot)
+    if (cut) return cut
     const form = this.chain(node)
     if (!form) return null
     // Alone, a chain keeps its own size, within the face.
     const [x0, y0, x1, y1] = mapped(form.frame, this.C.face, region)
     const target = atRoot ? [Math.max(x0, region[0]), Math.max(y0, region[1]), Math.min(x1, region[2]), Math.min(y1, region[3])] : region
-    return form.parts.map(part => placed(part, part.box, mapped(part.box, form.frame, target), form.ink, `chain ${node}`))
+    return form.parts.map(part => placed(part, part.box, mapped(part.box, form.frame, target), form.ink, correctedChain(node) ? `chain ${node}, reference ${correctedChain(node)}` : `chain ${node}`))
   }
   /** A chain holding a part, or such an enclosure holding another (岛 as ⿹⿴#(-𠃌㇉)丶山): each inner
    *  part goes into the cell of the chain its operator names. Null for any other enclosure. */
@@ -1273,7 +1325,10 @@ export class Composer {
     const frame = held.form.frame
     const cell = chainRoom(held.form.solved, this.ENCLOSE[op], held.taken)
     let room
-    if (cell) {
+    const cutRoom = typeof outer === 'string' && guideChainDonor(drawingChain(outer)) &&
+      held.parts[0]?.origin?.includes('cut from') && this.room(op, held.parts, region)
+    if (cutRoom) room = cutRoom
+    else if (cell) {
       const box = mapped(cell, frame, region)
       const reach = this.stem0[0][0]
       // The cell's lines run down the middle of the bars: the ink says what is left between them.
@@ -1365,6 +1420,7 @@ export class Composer {
       for (const part of out) if (part.finishOutline) Object.assign(part, part.finishOutline(part))
       fitClawInterior(out, tree, this.fontStyle)
       // Loose marks annotate the whole drawing; they take no part in its layout or weight.
+      if (!marks) fitRecordedInk(this, sequence, out)
       if (marks) out.push(...markParts(this, marks, frame, face))
       return out
     } finally { this.face = previous }
@@ -1614,7 +1670,7 @@ export class Composer {
         return
       }
       const repeated = isGroupedForm(keyOf(node), this.fontStyle) ? componentParts(keyOf(node), region, this.fontStyle, atRoot) : null
-      const designed = repeated ?? birdOutlineParts(this, keyOf(node), region) ?? this.thornRowParts(node, region) ?? yiCrossParts(this, node, region) ?? this.qiParts(node, region) ?? ghostParts(this, node, region) ?? this.muKoParts(node, region) ?? this.wheatFaceParts(node, region)
+      const designed = repeated ?? rccChainContextParts(this, keyOf(node), region) ?? birdOutlineParts(this, keyOf(node), region) ?? this.thornRowParts(node, region) ?? yiCrossParts(this, node, region) ?? this.qiParts(node, region) ?? ghostParts(this, node, region) ?? this.muKoParts(node, region) ?? this.wheatFaceParts(node, region)
       if (designed) {
         for (const part of designed) out.push({ index: out.length, box: part.target, empty: false })
         return
@@ -2087,6 +2143,8 @@ export class Composer {
     }
     const grid = this.penGrid(node, region, atRoot)
     if (grid) return grid
+    const rcc = rccChainContextParts(this, keyOf(node), region)
+    if (rcc) return rcc
     const bird = birdChainParts(this, node, region, atRoot) ?? birdOutlineParts(this, keyOf(node), region)
     if (bird) return bird
     const thorns = this.thornRowParts(node, region)
@@ -2129,6 +2187,8 @@ export class Composer {
     if (interlocked) return interlocked
     const designed = this.variantParts(node, region)
     if (designed) return designed
+    const recorded = this.recordedParts(node, region)
+    if (recorded) return recorded
     const key = keyOf(node), nativeSource = yanGlyphs.get(key) ?? yanSources.get(key)
     // A description the font draws as a variation sequence keeps that outline, where the export
     // still draws the glyph the outline was read against. An export that draws another base composes
@@ -2159,7 +2219,7 @@ export class Composer {
       if (isJamoRun(node)) return this.runLeaf(node, region)
     }
     if (typeof node === 'string') {
-      const chain = hostChainParts(this, node, region, atRoot) ?? this.chainParts(node, region, atRoot)
+      const chain = this.chainParts(node, region, atRoot)
       if (chain) return chain
     }
     if (this.separate && Array.isArray(node)) encoded = null

@@ -1,0 +1,389 @@
+{
+  "sources": {
+    "fangsong": {
+      "font": "Zhuque FangSong 0.212",
+      "url": "https://github.com/TrionesType/zhuque/releases/tag/v0.212",
+      "license": "SIL OFL 1.1",
+      "export": "9f797e2322d2-fangsong-compose-layout-v4-fangsong-f7"
+    },
+    "definitions": "https://www.unicode.org/Public/18.0.0/charts/PDF/U31C0.pdf",
+    "regular": {
+      "file": "TW-Kai.ttf",
+      "url": "https://www.cns11643.gov.tw/opendata/Fonts_Kai.zip",
+      "sha256": "9b502e5197d52a946552bef100b9a3d601befcf896fb2b64f28f862314bea337",
+      "license": "Open Government Data License 1.0",
+      "font": "TW-Kai 11510.1",
+      "export": "c14ee5e08798-regular-compose-layout-v4-regular-f7"
+    },
+    "exampleStrokes": "https://www.unicode.org/versions/Unicode18.0.0/core-spec/appendix-f/"
+  },
+  "styles": {
+    "fangsong": {
+      "乀": {
+        "host": "八",
+        "digest": "fcdc9dd3886ebb0fbf3a075d842238f6aa31707a425b6ac1ab3b31d8ffb12ada",
+        "contours": [
+          0
+        ]
+      },
+      "㇀": {
+        "host": "刁",
+        "digest": "4b36a0acab470e1d54aa192489df5901df09e95a86c477260d5d6a93fc181beb",
+        "contours": [
+          1
+        ]
+      },
+      "㇇": {
+        "host": "今",
+        "digest": "4da56e62354c8c60efb0d2e305c47e0280585007a891cdf3e564ffd2b6f1d89b",
+        "contours": [
+          2
+        ]
+      },
+      "㇉": {
+        "host": "马",
+        "digest": "0526547dc938b6ef17ee451d1d30973aed734f3d848979462017f6993d6887fa",
+        "contours": [
+          0
+        ]
+      },
+      "㇊": {
+        "host": "计",
+        "digest": "86852182bb7de8a81a82cbb52d113c7206af184f752530679d7a680ee80da97e",
+        "contours": [
+          1
+        ]
+      },
+      "㇍": {
+        "host": "投",
+        "digest": "d7f2e695d98b3655cbebf00cc734b6cf7383ae5a317d6ed2f70f8605d9ef1e44",
+        "contours": [],
+        "ranges": {
+          "index": 2,
+          "segments": [
+            [
+              9,
+              35
+            ]
+          ]
+        }
+      },
+      "乚": {
+        "host": "儿",
+        "digest": "7e1c56ed3c64c221cc3d624c48eb4488aeff55dc75bf884ddacdfe29a2e99098",
+        "contours": [
+          0
+        ]
+      },
+      "亅": {
+        "host": "小",
+        "digest": "cbf04e8f63c551ff1263d248e65076d957db4bcdd9de95abfca23ed1acd0ec8d",
+        "contours": [
+          0
+        ]
+      },
+      "𠃌": {
+        "host": "刁",
+        "digest": "4b36a0acab470e1d54aa192489df5901df09e95a86c477260d5d6a93fc181beb",
+        "contours": [
+          0
+        ]
+      },
+      "𠃍": {
+        "host": "马",
+        "digest": "0526547dc938b6ef17ee451d1d30973aed734f3d848979462017f6993d6887fa",
+        "contours": [
+          2
+        ]
+      },
+      "𠄌": {
+        "host": "以",
+        "digest": "bfc3176b6f9c7e9a0d171a0ffc76e86074f61535b2ff3ec15af212dcc7717d47",
+        "contours": [
+          0
+        ]
+      },
+      "𠃊": {
+        "host": "凵",
+        "digest": "0f4880a004c03a84e6fe14a6960ecb7ef13e3bc9e27e2de7395115e4ca731959",
+        "contours": [],
+        "ranges": {
+          "index": 0,
+          "segments": [
+            [
+              1,
+              31
+            ]
+          ]
+        }
+      },
+      "㇄": {
+        "host": "亡",
+        "digest": "6e001a181248a0028a67d87e7d260ccb0143b4389abfe9a1b61da10acf8e00c9",
+        "contours": [],
+        "ranges": {
+          "index": 0,
+          "segments": [
+            [
+              29,
+              53
+            ],
+            [
+              0,
+              7
+            ]
+          ]
+        }
+      },
+      "㇌": {
+        "host": "阝",
+        "digest": "8908a246b7479f69a64daf1ff4c0cf8fa80592a2729cb5d7865a4a93baae3957",
+        "contours": [],
+        "ranges": {
+          "index": 0,
+          "segments": [
+            [
+              11,
+              45
+            ]
+          ]
+        }
+      },
+      "㇅": {
+        "host": "卍",
+        "digest": "797ea1c772e92b8eabf88f12fa80881990352fa4e57330b5e3429b4b9c65f682",
+        "contours": [],
+        "ranges": {
+          "index": 0,
+          "segments": [
+            [
+              15,
+              33
+            ],
+            [
+              59,
+              89
+            ],
+            [
+              14,
+              14
+            ]
+          ]
+        }
+      },
+      "㇝": {
+        "host": "辶",
+        "digest": "16897d7876abf6e7f3a897360c27199c14d83c013c53dcd8e37ef693dd1b08b9",
+        "contours": [],
+        "ranges": {
+          "index": 0,
+          "segments": [
+            [
+              44,
+              60
+            ],
+            [
+              0,
+              12
+            ]
+          ]
+        }
+      },
+      "⺄": {
+        "host": "气",
+        "digest": "74010313471e080dae4703ea80d0c710ca26fc7ad922da2a9c4b58f19af21bd3",
+        "contours": [
+          0
+        ]
+      },
+      "㇈": {
+        "host": "九",
+        "digest": "8d998d0c6ba966e2d1a7e31c017f82d083cc42824d72b8ed52abad747df70b5f",
+        "contours": [],
+        "ranges": {
+          "index": 0,
+          "segments": [
+            [
+              5,
+              12
+            ],
+            [
+              22,
+              69
+            ]
+          ]
+        }
+      },
+      "𠃑": {
+        "host": "鼎",
+        "digest": "a363eb10796f5b70b4566c434fe49af102266005c626604564c437db4b977bc0",
+        "contours": [],
+        "ranges": {
+          "index": 0,
+          "segments": [
+            [
+              12,
+              50
+            ]
+          ]
+        }
+      },
+      "乛": {
+        "host": "冖",
+        "digest": "46bca6d27b489c993b1528fe0de384f140361ab0772023b5e2c6a3a4ff43ad49",
+        "contours": [],
+        "ranges": {
+          "index": 0,
+          "segments": [
+            [
+              13,
+              39
+            ]
+          ]
+        }
+      },
+      "㇁": {
+        "host": "狐",
+        "digest": "8637a299e00b2c640a1d3534a19047ad858823814f2c88727c90ad84120d5063",
+        "contours": [],
+        "ranges": {
+          "index": 1,
+          "segments": [
+            [
+              23,
+              27
+            ],
+            [
+              39,
+              48
+            ],
+            [
+              0,
+              12
+            ],
+            [
+              17,
+              20
+            ],
+            [
+              23,
+              23
+            ]
+          ]
+        }
+      },
+      "㇂": {
+        "host": "弋",
+        "digest": "29ff18c1dd54395c6ffae9ca2c421683248d97d4da5cfa27ba06539f0c8b7192",
+        "contours": [],
+        "ranges": {
+          "index": 0,
+          "segments": [
+            [
+              13,
+              26
+            ],
+            [
+              41,
+              58
+            ],
+            [
+              0,
+              5
+            ]
+          ]
+        }
+      },
+      "㇋": {
+        "host": "及",
+        "digest": "a89857a268a2412ca20577e221112a0e8409bf8e6e721ce3b6aaadd31a9d095f",
+        "contours": [],
+        "ranges": {
+          "index": 0,
+          "segments": [
+            [
+              15,
+              47
+            ],
+            [
+              21,
+              22,
+              1
+            ],
+            [
+              0,
+              10,
+              1
+            ]
+          ]
+        }
+      },
+      "㇎": {
+        "host": "凸",
+        "digest": "e5061d48da8696120b76aef039f60f19b7013615efa0ef389a40a9f6bf735d6b",
+        "contours": [],
+        "ranges": {
+          "index": 0,
+          "segments": [
+            [
+              22,
+              52
+            ],
+            [
+              0,
+              17,
+              1
+            ]
+          ]
+        }
+      }
+    },
+    "regular": {
+      "㇌": {
+        "host": "阝",
+        "digest": "401944727ad4a995c8c99bcc97bef2bf2f5c685ccaf2fee155f72ad0ac1cc75f",
+        "contours": [],
+        "ranges": {
+          "index": 0,
+          "segments": [
+            [
+              18,
+              52
+            ]
+          ]
+        }
+      },
+      "㇊": {
+        "host": "计",
+        "digest": "aac48e871b8024453b92c37ba1f1e0fc76e21483d43de4a9edac479577a0489f",
+        "contours": [
+          1
+        ]
+      },
+      "㇋": {
+        "host": "及",
+        "digest": "7314ac8fca03614fc4e8d0c68336d7c1c7f85d676d4b3a81bcf47be32438fe60",
+        "contours": [],
+        "ranges": {
+          "index": 0,
+          "segments": [
+            [
+              0,
+              39
+            ],
+            [
+              4,
+              14,
+              2
+            ],
+            [
+              2,
+              11,
+              1
+            ]
+          ]
+        }
+      }
+    }
+  }
+}
