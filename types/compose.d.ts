@@ -75,6 +75,7 @@ export declare class Composer {
         resolve: (node: import("./normalization.js").RenderNode) => import("./normalization.js").RenderPlan;
     };
     resolutions: Map<any, any>;
+    chains: Map<any, any>;
     joints: any[];
     sweeps: any[];
     /** How much smaller than it was laid out the character is drawn, beside marks that take a margin. */
@@ -201,6 +202,12 @@ export declare class Composer {
         native: any;
         origin: any;
     };
+    /** A stroke chain (`#(-𠃌㇉)`) joined from the face's own strokes, or null for anything else. */
+    chain(node: any): any;
+    chainParts(node: any, region: any, atRoot?: boolean): any;
+    /** A chain holding a part, or such an enclosure holding another (岛 as ⿹⿴#(-𠃌㇉)丶山): each inner
+     *  part goes into the cell of the chain its operator names. Null for any other enclosure. */
+    chainEnclosure(node: any, region: any): any;
     /** The parts drawing `sequence`, weighted, and the loose `marks` its text carries after it. */
     compose(sequence: any, marks?: string): any;
     /** Whether `tree` is drawn in cells (`compose`'s `layout: 'auto'`): no character spells it as a
