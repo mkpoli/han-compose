@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { partOf } from '../src/geometry.js'
+import { mapped, partOf } from '../src/geometry.js'
 import { hostChainParts } from '../src/host-chain.js'
 
 const horse = '#(-一丨b𠃌)'
@@ -53,13 +53,15 @@ test('preserves the host contours and native placement of its frame', () => {
   const composer = {
     excluded: () => false,
     glyphRecord: () => record,
-    face: region,
+    C: { face: region },
   }
   const [root] = hostChainParts(composer, horse, region, true)
   const glyph = partOf(record)
   expect(root.part.contours).toEqual([glyph.contours[2], glyph.contours[3], glyph.contours[9]])
   expect(root.target).toEqual(root.source)
   const slot = [100, 100, 400, 500]
+  const [custom] = hostChainParts({ ...composer, face: slot }, horse, slot, true)
+  expect(custom.target).toEqual(mapped(root.source, region, slot))
   const [nested] = hostChainParts(composer, horse, slot, false)
   expect(nested.target).toEqual(slot)
 })

@@ -38,7 +38,7 @@ import { hangulLetters } from './hangul-ids.js'
 import { toConjoiningJamo } from './hangul.js'
 import { componentFix } from './component-fixes.js'
 import { isOutbound, markFace, markParts } from './marks.js'
-import { hostChainParts } from './host-chain.js'
+import { chainHost, hostChainParts } from './host-chain.js'
 import { birdChainParts } from './bird-chain.js'
 import { birdOutlineDonors, birdOutlineParts } from './bird-outline.js'
 import { chainForm, chainRoom, isChain } from './stroke-chain.js'
@@ -798,6 +798,8 @@ export const wheatFaceHosts = sequence => sequence.includes(WHEAT_FACE) ? wheatH
 export const designedSources = (tree, style = 'sans') => {
   const out = new Set()
   const visit = node => {
+    const host = chainHost(node, style)
+    if (host) out.add(host)
     const bird = birdOutlineDonors(keyOf(node), style)
     if (bird.length) {
       bird.forEach(char => out.add(char))
@@ -1254,7 +1256,7 @@ export class Composer {
     const form = this.chain(node)
     if (!form) return null
     // Alone, a chain keeps its own size, within the face.
-    const [x0, y0, x1, y1] = mapped(form.frame, this.face, region)
+    const [x0, y0, x1, y1] = mapped(form.frame, this.C.face, region)
     const target = atRoot ? [Math.max(x0, region[0]), Math.max(y0, region[1]), Math.min(x1, region[2]), Math.min(y1, region[3])] : region
     return form.parts.map(part => placed(part, part.box, mapped(part.box, form.frame, target), form.ink, `chain ${node}`))
   }

@@ -22,6 +22,11 @@ const hosts = new Map([
   }],
 ])
 
+/** @param {any} node @param {string} style */
+export function chainHost(node, style) {
+  return style === 'sans' || style === 'serif' ? hosts.get(node)?.char : undefined
+}
+
 /** Place a leaf drawn from an attested host whose frame has its own contours.
  * @param {import('./compose.js').Composer} composer
  * @param {any} node @param {number[]} region @param {boolean} atRoot */
@@ -36,6 +41,6 @@ export function hostChainParts(composer, node, region, atRoot) {
   if (!indices) return null
   const glyph = partOf(record)
   const piece = derived(glyph, indices.map(i => glyph.contours[i]))
-  const target = atRoot ? mapped(piece.box, composer.face, region) : region
+  const target = atRoot ? mapped(piece.box, composer.C.face, region) : region
   return [placed(piece, piece.box, target, partInk(piece), `chain ${node}, cut from ${host.char}`)]
 }
