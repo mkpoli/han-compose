@@ -343,6 +343,16 @@ export declare class Composer {
     }[] | null;
     /** Keep each copy of a repeated glyph at the same size across both rows. */
     penGrid(node: any, region: any, atRoot: any): any[] | null;
+    /** The six vessel variants share the native drawing inside each ordinary stack’s ink bounds. */
+    qiParts(node: any, region: any): {
+        part: any;
+        source: any;
+        target: any;
+        weight: number[];
+        native: any;
+        origin: any;
+        fixed: boolean;
+    }[] | null;
     drawNode(node: any, region: any, atRoot?: boolean, sideBySide?: boolean): any;
     /** The letters of one Bopomofo syllable stacked in the block, centered and separated by a small
      *  gap. The letters come from the bundled Bopomofo outlines; without this a three-letter spelling

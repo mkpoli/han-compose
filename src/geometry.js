@@ -411,7 +411,7 @@ const turnsOver = p => (p.flips ?? []).reduce((odd, f) => odd !== (Boolean(f.x) 
 export const runsBack = p => Boolean(p.part.reverse) !== turnsOver(p)
 
 /** A contour's segments drawn the other way round: the same outline, wound as the glyph was drawn. */
-function backwards(segs) {
+export function backwards(segs) {
   const ends = segs.map(([kind, pts]) => (kind === 'C' ? pts[2] : kind === 'Q' ? pts[1] : pts[0]))
   const out = [['M', [ends[0]]], ['L', [ends.at(-1)]]]
   for (let i = segs.length - 1; i > 0; i--) {

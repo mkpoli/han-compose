@@ -95,6 +95,8 @@ export declare function raster(group: any, size?: number): Uint8Array<ArrayBuffe
 /** Whether a placed part's contours, as drawn, run against `WINDING`: the part was marked at its
  *  source, and its flips turn them over once more. */
 export declare const runsBack: (p: any) => boolean;
+/** A contour's segments drawn the other way round: the same outline, wound as the glyph was drawn. */
+export declare function backwards(segs: any): (string | any[])[][];
 /** Placed parts as one SVG path in a 1000 × 1000 box, y down from the em's top (`compose.svg_path`);
  *  fill it with the nonzero rule. A part whose source runs the other way, or whose flip turns it
  *  over, is drawn backwards as a whole, so overlapping ink adds up and its counters stay holes. */
