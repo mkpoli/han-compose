@@ -2,6 +2,7 @@
 import fangsongZhi from './fangsong-zhi.json' with { type: 'json' }
 import haNine from './ha-nine.json' with { type: 'json' }
 import { yiCrossDonor, yiCrossParts } from './yi-cross.js'
+import { isQiFamily, qiFamilyDonors, qiFamilyParts } from './qi-family.js'
 import { ghostParts, usesGhostForm } from './ghost-form.js'
 import diamondSyllable from './diamond-syllable.json' with { type: 'json' }
 import { grassShape } from './variants.js'
@@ -814,6 +815,7 @@ export const designedSources = (tree, style = 'sans') => {
     const yiHost = yiCrossDonor(node, style)
     if (yiHost) out.add(yiHost)
     if (usesGhostForm(node, style)) out.add('鬼')
+    for (const ch of qiFamilyDonors(node)) out.add(ch)
     if (muKoForms[style] && isMuKo(node)) {
       out.add('む')
       if (style !== 'serif') out.add('子')
@@ -1481,7 +1483,7 @@ export class Composer {
         return
       }
       const cell = target(box)
-      const parts = this.thornRowParts(node, cell) ?? yiCrossParts(this, node, cell) ?? ghostParts(this, node, cell)
+      const parts = this.thornRowParts(node, cell) ?? yiCrossParts(this, node, cell) ?? ghostParts(this, node, cell) ?? this.qiParts(node, cell)
       if (parts) {
         for (const part of parts) {
           if (leafIndices) part.leaf = leaf++
@@ -1612,7 +1614,7 @@ export class Composer {
         return
       }
       const repeated = isGroupedForm(keyOf(node), this.fontStyle) ? componentParts(keyOf(node), region, this.fontStyle, atRoot) : null
-      const designed = repeated ?? birdOutlineParts(this, keyOf(node), region) ?? this.thornRowParts(node, region) ?? yiCrossParts(this, node, region) ?? ghostParts(this, node, region) ?? this.muKoParts(node, region) ?? this.wheatFaceParts(node, region)
+      const designed = repeated ?? birdOutlineParts(this, keyOf(node), region) ?? this.thornRowParts(node, region) ?? yiCrossParts(this, node, region) ?? this.qiParts(node, region) ?? ghostParts(this, node, region) ?? this.muKoParts(node, region) ?? this.wheatFaceParts(node, region)
       if (designed) {
         for (const part of designed) out.push({ index: out.length, box: part.target, empty: false })
         return
@@ -2062,6 +2064,21 @@ export class Composer {
     return parts
   }
 
+  /** The six vessel variants share the native drawing inside each ordinary stack’s ink bounds. */
+  qiParts(node, region) {
+    if (this.readingQiReference || !isQiFamily(node) || node.slice(1).some(ch => this.excluded(ch)) ||
+        this.excluded('吅') || this.excluded('犬')) return null
+    // Measuring the ordinary stack has its own balance, joints and stroke state.
+    const ordinary = new Composer(this.data, { fontStyle: this.fontStyle, exclude: this.exclude, face: this.face, keepBars: this.keepBars })
+    ordinary.readingQiReference = true
+    const measure = sequence => {
+      try { return ordinary.compose(sequence) } catch (error) {
+        if (error instanceof LookupError) return null
+        throw error
+      }
+    }
+    return qiFamilyParts(this, node, region, measure)
+  }
 
   drawNode(node, region, atRoot = false, sideBySide = false) {
     if (Array.isArray(node) && node[0] === '⿱') {
@@ -2076,6 +2093,8 @@ export class Composer {
     if (thorns) return thorns
     const yi = yiCrossParts(this, node, region)
     if (yi) return yi
+    const qi = this.qiParts(node, region)
+    if (qi) return qi
     const ghost = ghostParts(this, node, region)
     if (ghost) return ghost
     const kana = this.muKoParts(node, region)
