@@ -797,7 +797,10 @@ export const designedSources = (tree, style = 'sans') => {
   const visit = node => {
     if (!Array.isArray(node)) return
     const [op, ...children] = node
-    if (brushSweepRoom(node, style)) children.forEach(ch => out.add(ch))
+    if (brushSweepRoom(node, style)) {
+      children.forEach(ch => out.add(ch))
+      if (style === 'fangsong' && node[1] !== '瓦') out.add('尅')
+    }
     if (isThornRow(node)) {
       out.add('棘')
       out.add('企')
@@ -1426,7 +1429,7 @@ export class Composer {
         return
       }
       const cell = target(box)
-      const parts = this.thornRowParts(node, cell) ?? yiCrossParts(this, node, cell) ?? ghostParts(this, node, cell)
+      const parts = brushSweepParts(this, node, cell, depth > 0) ?? this.thornRowParts(node, cell) ?? yiCrossParts(this, node, cell) ?? ghostParts(this, node, cell)
       if (parts) {
         for (const part of parts) {
           if (leafIndices) part.leaf = leaf++
@@ -1557,7 +1560,7 @@ export class Composer {
         return
       }
       const repeated = isGroupedForm(keyOf(node), this.fontStyle) ? componentParts(keyOf(node), region, this.fontStyle, atRoot) : null
-      const designed = repeated ?? brushSweepParts(this, node, region) ?? this.thornRowParts(node, region) ?? yiCrossParts(this, node, region) ?? ghostParts(this, node, region) ?? this.muKoParts(node, region) ?? this.wheatFaceParts(node, region)
+      const designed = repeated ?? brushSweepParts(this, node, region, !atRoot) ?? this.thornRowParts(node, region) ?? yiCrossParts(this, node, region) ?? ghostParts(this, node, region) ?? this.muKoParts(node, region) ?? this.wheatFaceParts(node, region)
       if (designed) {
         for (const part of designed) out.push({ index: out.length, box: part.target, empty: false })
         return
@@ -2009,7 +2012,7 @@ export class Composer {
 
 
   drawNode(node, region, atRoot = false, sideBySide = false) {
-    const sweep = brushSweepParts(this, node, region)
+    const sweep = brushSweepParts(this, node, region, !atRoot)
     if (sweep) return sweep
     if (Array.isArray(node) && node[0] === '⿱') {
       const syllable = this.diamondSyllable(node, region)
