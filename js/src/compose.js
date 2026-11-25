@@ -2,7 +2,7 @@
 import fangsongZhi from './fangsong-zhi.json' with { type: 'json' }
 import haNine from './ha-nine.json' with { type: 'json' }
 import { yiCrossDonor, yiCrossParts } from './yi-cross.js'
-import { isQiFamily, qiFamilyDonors, qiFamilyParts, qiReference } from './qi-family.js'
+import { isQiFamily, qiFamilyDonors, qiFamilyParts } from './qi-family.js'
 import { ghostParts, usesGhostForm } from './ghost-form.js'
 import diamondSyllable from './diamond-syllable.json' with { type: 'json' }
 import { grassShape } from './variants.js'
@@ -2007,24 +2007,20 @@ export class Composer {
     return parts
   }
 
-  /** The four-mouth layout uses the same export cuts and weight as its reference IDS. */
+  /** The six vessel variants share the native drawing inside each ordinary stack’s ink bounds. */
   qiParts(node, region) {
     if (this.readingQiReference || !isQiFamily(node) || node.slice(1).some(ch => this.excluded(ch)) ||
         this.excluded('吅') || this.excluded('犬')) return null
     // Measuring the ordinary stack has its own balance, joints and stroke state.
     const ordinary = new Composer(this.data, { fontStyle: this.fontStyle, exclude: this.exclude, face: this.face, keepBars: this.keepBars })
     ordinary.readingQiReference = true
-    let reference
-    try { reference = ordinary.compose(qiReference) } catch (error) {
-      if (error instanceof LookupError) return null
-      throw error
+    const measure = sequence => {
+      try { return ordinary.compose(sequence) } catch (error) {
+        if (error instanceof LookupError) return null
+        throw error
+      }
     }
-    let original = reference
-    try { original = ordinary.compose(keyOf(node)) } catch (error) {
-      // An export missing an operand uses the reference character's ink extent.
-      if (!(error instanceof LookupError)) throw error
-    }
-    return qiFamilyParts(this, node, region, reference, original)
+    return qiFamilyParts(this, node, region, measure)
   }
 
   drawNode(node, region, atRoot = false, sideBySide = false) {
