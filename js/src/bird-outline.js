@@ -63,18 +63,25 @@ export function birdOutlineParts(composer, key, region) {
   }
   const parts = order.map(group => group === 'dots' ? dots : derived(glyph, pieces[group]))
   const boxes = parts.map(part => part.box)
-  if (dotDonor && char === '鸟') {
-    // The dots come from a right-hand column. Spread them over the width
-    // occupied by the final 一 in the face's full-width 鸟.
-    const bar = pointsBox(glyph.contours[spec.bar].light)
-    boxes[boxes.length - 1] = [bar[0], dots.box[1], bar[2], dots.box[3]]
-  }
-  if (char === '鸡' && dots) {
-    // 鸡 has a shorter lower hook than the traditional bird donors. Leave
-    // daylight at Regular's right wall and above FangSong's rising hook tip.
-    const [left, bottom, right, top] = dots.box
-    if (composer.fontStyle === 'regular') boxes[boxes.length - 1] = [left + 7, bottom, right - 46, top]
-    if (composer.fontStyle === 'fangsong') boxes[boxes.length - 1] = [left + 22, bottom + 27, right + 6, top + 27]
+  if (dots) {
+    let [left, bottom, right, top] = dots.box
+    // Match the gap in 鳮. Each ordinate marks the underside of the frame
+    // directly above the middle of the dot row in its verified outline.
+    let rise = spec.frameUnderside === undefined ? 0 : spec.frameUnderside - specs[dotDonor].frameUnderside
+    if (char === '鸟') {
+      const bar = pointsBox(glyph.contours[spec.bar].light)
+      left = bar[0]
+      right = bar[2]
+    } else if (composer.fontStyle === 'regular') {
+      left += 7
+      right -= 46
+    } else if (composer.fontStyle === 'fangsong') {
+      // Clear 又 on the left and the rising tip of 鸡's hook below.
+      left += 22
+      right += 6
+      rise = 27
+    }
+    boxes[boxes.length - 1] = [left, bottom + rise, right, top + rise]
   }
   const bounds = char === '鸡' ? glyph.box : union(boxes)
   const target = fitted(bounds, region, composer.C.STRETCH)

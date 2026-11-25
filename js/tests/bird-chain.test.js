@@ -1,4 +1,5 @@
 import { expect, it } from 'bun:test'
+import { pathMask } from '../src/geometry.js'
 import { Composer } from '../src/compose.js'
 import { compose, createSource, sketch } from '../src/loader.js'
 import nativeDonors from './fixtures/bird-donors.json'
@@ -78,5 +79,31 @@ it('keeps the five editable bird parts in the native 鸡 silhouette on a cold lo
   for (const [exported, options] of [[source({ ...overrides, 鸡: changed }), {}], [data, { exclude: ['鸡'] }]]) {
     const drawing = await compose(exported, target, options)
     expect(drawing.origins).not.toContain('host 鸡')
+  }
+})
+
+it('fits the Sans four-dot row under the frame in both bird widths', async () => {
+  const data = source(Object.fromEntries(Object.entries(nativeDonors.glyphs).map(([ch, G]) => [ch, { G }])))
+  const foot = `⿹⿴${CHAIN}丶灬`
+  const size = 512
+  for (const sequence of [foot, `⿱丿${foot}`, `⿰又⿱丿${foot}`]) {
+    const { parts } = await compose(data, sequence, { separate: true })
+    const dots = parts.at(-1)
+    const frameInk = pathMask(parts.at(-3).d, size), dotInk = pathMask(dots.d, size)
+    let clearance = Infinity
+    for (let x = 0; x < size; x++) {
+      let lastInk = -1
+      for (let y = 0; y < size; y++) {
+        const pixel = y * size + x
+        if (frameInk[pixel]) lastInk = y
+        if (!dotInk[pixel]) continue
+        if (lastInk >= 0) clearance = Math.min(clearance, y - lastInk - 1)
+        break
+      }
+    }
+    // The smallest vertical gap in Noto Sans 鳮 is 23 units for a
+    // 260-unit dot row. Allow for raster rounding at half an em.
+    const expected = 23 / 260 * dots.box[3] * size / 1000
+    expect(Math.abs(clearance - expected)).toBeLessThan(2)
   }
 })
