@@ -149,6 +149,16 @@ function alignTo(rings) {
   const apart = (/** @type {number[]} */ a, /** @type {number[]} */ b) =>
     (a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2 + heading * (1 - a[2] * b[2] - a[3] * b[3])
   const along = Array.from({ length: count }, (_, i) => feature(0, seam + i / count))
+  const ax = new Float64Array(count),
+    ay = new Float64Array(count),
+    adx = new Float64Array(count),
+    ady = new Float64Array(count)
+  for (let i = 0; i < count; i++) {
+    ax[i] = along[i][0]
+    ay[i] = along[i][1]
+    adx[i] = along[i][2]
+    ady[i] = along[i][3]
+  }
   const matches = rings.map((_, f) => {
     if (!f) return []
     const samples = Array.from({ length: count }, (_, i) => feature(f, i / count))
@@ -162,19 +172,37 @@ function alignTo(rings) {
         offset = k
       }
     }
+    const bx = new Float64Array(count),
+      by = new Float64Array(count),
+      bdx = new Float64Array(count),
+      bdy = new Float64Array(count)
+    for (let j = 0; j < count; j++) {
+      const s = samples[(j + offset) % count]
+      bx[j] = s[0]
+      by[j] = s[1]
+      bdx[j] = s[2]
+      bdy[j] = s[3]
+    }
     const previous = new Float64Array(count + 1).fill(Infinity),
       current = previous.slice()
     const direction = new Uint8Array(count * count)
     previous[0] = 0
     for (let i = 0; i < count; i++) {
+      const x0 = ax[i],
+        y0 = ay[i],
+        dx0 = adx[i],
+        dy0 = ady[i],
+        row = i * count
       current[0] = Infinity
       for (let j = 0; j < count; j++) {
         const diagonal = previous[j],
           above = previous[j + 1] + 0.5,
           left = current[j] + 0.5
-        const low = Math.min(diagonal, above, left)
-        direction[i * count + j] = low === diagonal ? 0 : low === above ? 1 : 2
-        current[j + 1] = low + apart(along[i], samples[(j + offset) % count])
+        const low = diagonal <= above ? (diagonal <= left ? diagonal : left) : above <= left ? above : left
+        direction[row + j] = low === diagonal ? 0 : low === above ? 1 : 2
+        const ux = x0 - bx[j],
+          uy = y0 - by[j]
+        current[j + 1] = low + ux * ux + uy * uy + heading * (1 - dx0 * bdx[j] - dy0 * bdy[j])
       }
       previous.set(current)
     }
@@ -280,7 +308,7 @@ function alignTo(rings) {
     }
     // Long stretches without a shared corner follow the dense alignment.
     const filled = []
-    const stretch = 0.2
+    const stretch = 0.08
     const ends = pairs.length
       ? [...pairs, [pairs[0][0] + 1, pairs[0][1] + 1, 0]]
       : [
@@ -450,14 +478,54 @@ function crosses(ring) {
   const n = ring.length
   const side = (/** @type {number[]} */ a, /** @type {number[]} */ b, /** @type {number[]} */ c) =>
     (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0])
+  if (n <= 96) {
+    for (let i = 0; i < n; i++) {
+      const a = ring[i],
+        b = ring[(i + 1) % n]
+      const ax0 = a[0] < b[0] ? a[0] : b[0],
+        ax1 = a[0] > b[0] ? a[0] : b[0]
+      const ay0 = a[1] < b[1] ? a[1] : b[1],
+        ay1 = a[1] > b[1] ? a[1] : b[1]
+      for (let j = i + 2; j < n; j++) {
+        if (!i && j === n - 1) continue
+        const c = ring[j],
+          d = ring[(j + 1) % n]
+        if (ax1 < (c[0] < d[0] ? c[0] : d[0]) || (c[0] > d[0] ? c[0] : d[0]) < ax0) continue
+        if (ay1 < (c[1] < d[1] ? c[1] : d[1]) || (c[1] > d[1] ? c[1] : d[1]) < ay0) continue
+        if (side(a, b, c) * side(a, b, d) < 0 && side(c, d, a) * side(c, d, b) < 0) return true
+      }
+    }
+    return false
+  }
+  const minX = new Float64Array(n),
+    maxX = new Float64Array(n),
+    minY = new Float64Array(n),
+    maxY = new Float64Array(n)
+  const order = Array.from({ length: n }, (_, i) => i)
   for (let i = 0; i < n; i++) {
     const a = ring[i],
       b = ring[(i + 1) % n]
-    for (let j = i + 2; j < n; j++) {
-      if (!i && j === n - 1) continue
+    minX[i] = a[0] < b[0] ? a[0] : b[0]
+    maxX[i] = a[0] > b[0] ? a[0] : b[0]
+    minY[i] = a[1] < b[1] ? a[1] : b[1]
+    maxY[i] = a[1] > b[1] ? a[1] : b[1]
+  }
+  order.sort((p, q) => minX[p] - minX[q])
+  for (let u = 0; u < n; u++) {
+    const i = order[u],
+      a = ring[i],
+      b = ring[(i + 1) % n]
+    const mx1 = maxX[i],
+      my0 = minY[i],
+      my1 = maxY[i]
+    for (let v = u + 1; v < n; v++) {
+      const j = order[v]
+      if (minX[j] > mx1) break
+      if (minY[j] > my1 || my0 > maxY[j]) continue
+      const diff = i > j ? i - j : j - i
+      if (diff <= 1 || diff === n - 1) continue
       const c = ring[j],
         d = ring[(j + 1) % n]
-      if (Math.max(a[0], b[0]) < Math.min(c[0], d[0]) || Math.max(c[0], d[0]) < Math.min(a[0], b[0])) continue
       if (side(a, b, c) * side(a, b, d) < 0 && side(c, d, a) * side(c, d, b) < 0) return true
     }
   }
@@ -485,28 +553,69 @@ function ringBox(ring) {
   return [x, y, right, bottom]
 }
 
+/** Minimum-cost one-to-one assignment via the Hungarian algorithm (O(n^3)).
+ * @param {number[][]} cost n x n nonnegative cost matrix
+ * @returns {number[]} column index assigned to each row */
+function assignMinCost(cost) {
+  const n = cost.length
+  const u = new Float64Array(n + 1),
+    v = new Float64Array(n + 1)
+  const p = new Int32Array(n + 1),
+    way = new Int32Array(n + 1)
+  for (let i = 1; i <= n; i++) {
+    p[0] = i
+    let j0 = 0
+    const minv = new Float64Array(n + 1).fill(Infinity)
+    const used = new Uint8Array(n + 1)
+    do {
+      used[j0] = 1
+      const i0 = p[j0]
+      let delta = Infinity,
+        j1 = 0
+      for (let j = 1; j <= n; j++) {
+        if (used[j]) continue
+        const cur = cost[i0 - 1][j - 1] - u[i0] - v[j]
+        if (cur < minv[j]) {
+          minv[j] = cur
+          way[j] = j0
+        }
+        if (minv[j] < delta) {
+          delta = minv[j]
+          j1 = j
+        }
+      }
+      for (let j = 0; j <= n; j++) {
+        if (used[j]) {
+          u[p[j]] += delta
+          v[j] -= delta
+        } else minv[j] -= delta
+      }
+      j0 = j1
+    } while (p[j0] !== 0)
+    do {
+      const j1 = way[j0]
+      p[j0] = p[j1]
+      j0 = j1
+    } while (j0)
+  }
+  const result = Array.from({ length: n }, () => 0)
+  for (let j = 1; j <= n; j++) result[p[j] - 1] = j - 1
+  return result
+}
+
 /** Pair islands (or counters) by the distance between their bounding boxes.
+ * Minimizes total squared distance so a uniform shift never swaps two neighbours.
  * @template T @param {T[][]} faces @param {(item:T)=>number[][]} ringOf */
 export function matchRegions(faces, ringOf) {
   const bounds = (/** @type {T} */ item) => ringBox(ringOf(item))
   const refs = faces[0].map(bounds)
-  if (faces.some((f) => f.length !== refs.length)) return null
-  return faces.map((face) => {
-    const costs = face
-      .flatMap((p, j) => {
-        const box = bounds(p)
-        return refs.map((ref, i) => ({ i, j, c: ref.reduce((d, v, k) => d + (v - box[k]) ** 2, 0) }))
-      })
-      .sort((a, b) => a.c - b.c)
-    const assigned = new Set(),
-      available = new Set(face.keys())
-    const ordered = face.slice()
-    for (const { i, j } of costs)
-      if (!assigned.has(i) && available.delete(j)) {
-        assigned.add(i)
-        ordered[i] = face[j]
-      }
-    return ordered
+  const n = refs.length
+  if (faces.some((f) => f.length !== n)) return null
+  return faces.map((face, f) => {
+    if (!f || n <= 1) return face.slice()
+    const boxes = face.map(bounds)
+    const dist = refs.map((ref) => boxes.map((b) => ref.reduce((d, v, k) => d + (v - b[k]) ** 2, 0)))
+    return assignMinCost(dist).map((j) => face[j])
   })
 }
 
@@ -619,14 +728,55 @@ function dense(ring, step) {
 function cutRing(ring, targets, within, cap, clear = []) {
   const points = dense(ring, 3)
   const marks = targets.map((target) => dense(target.ring, 3))
-  const labels = points.map((p) => {
+  const tangents = (/** @type {number[][]} */ pts) => {
+    const n = pts.length
+    return pts.map((_, i) => {
+      const a = pts[(i + n - 1) % n],
+        b = pts[(i + 1) % n]
+      const dx = b[0] - a[0],
+        dy = b[1] - a[1],
+        len = Math.hypot(dx, dy) || 1
+      return [dx / len, dy / len]
+    })
+  }
+  const pTan = within ? null : tangents(points)
+  const mTan = within ? null : marks.map(tangents)
+  const ringSign = turning(ring) > 0 ? 1 : -1
+  const labels = points.map((p, pi) => {
+    const [tx, ty] = pTan ? pTan[pi] : [0, 0]
     let best = 0,
       least = Infinity
     targets.forEach((target, k) => {
-      const d =
-        target.solid && inside(p, target.ring)
-          ? 0
-          : Math.min(...marks[k].map((q) => Math.hypot(q[0] - p[0], q[1] - p[1])))
+      let d = Infinity
+      if (target.solid && within && inside(p, target.ring)) d = 0
+      if (d > 0) {
+        const m = marks[k],
+          mt = mTan?.[k]
+        let nearestDist = Infinity,
+          nearestAlign = 0
+        for (let qi = 0; qi < m.length; qi++) {
+          const q = m[qi]
+          const dist = Math.hypot(q[0] - p[0], q[1] - p[1])
+          if (mt) {
+            const align = tx * mt[qi][0] + ty * mt[qi][1]
+            if (dist < nearestDist) {
+              nearestDist = dist
+              nearestAlign = align
+            }
+            const score = dist + (align < 0 ? 40 * (1 - align) : 8 * (1 - align))
+            if (score < d) d = score
+          } else if (dist < d) {
+            d = dist
+          }
+        }
+        // On an outer frame, exterior stem walls can lie inside a wider donor's counter;
+        // only grant zero distance when the outward normal enters the counter AND the nearest
+        // counter wall runs in the same direction (not reversed on the outside of the stem).
+        if (!within && target.solid && inside(p, target.ring) && nearestAlign > 0) {
+          const outPt = [p[0] + ringSign * ty * 1.5, p[1] - ringSign * tx * 1.5]
+          if (inside(outPt, target.ring)) d = 0
+        }
+      }
       if (d < least) {
         least = d
         best = k
@@ -658,10 +808,10 @@ function cutRing(ring, targets, within, cap, clear = []) {
     for (let i = 0; i < size; i++)
       for (let j = i + 6; j < size; j++) {
         if (size - (j - i) < 6) continue
-        const width = Math.hypot(
-          piece.points[j][0] - piece.points[i][0],
-          piece.points[j][1] - piece.points[i][1]
-        )
+        const dx = piece.points[j][0] - piece.points[i][0],
+          dy = piece.points[j][1] - piece.points[i][1]
+        if (dx > 56 || dx < -56 || dy > 56 || dy < -56) continue
+        const width = Math.hypot(dx, dy)
         if (width > 56) continue
         // Points i..j-1 on one side, the rest on the other; the share of a target left
         // on the wrong side counts against the chord.
@@ -706,7 +856,133 @@ function cutRing(ring, targets, within, cap, clear = []) {
       )
     })
     if (!chord) return null
-    const { i, j } = chord
+    let { i, j } = chord
+    // When cutting an open counter across the gap between a bar tip and a stem wall,
+    // center the chord on the bar tip's midpoint and its perpendicular stem projection
+    // so the blended bar joins symmetrically instead of biting into one flank.
+    if (!cap && chord.width > 1) {
+      const pts = piece.points,
+        n = pts.length
+      const mod = (/** @type {number} */ k) => ((k % n) + n) % n
+      const at = (/** @type {number} */ idx) => pts[mod(idx)]
+      const ux = (pts[j][0] - pts[i][0]) / chord.width,
+        uy = (pts[j][1] - pts[i][1]) / chord.width
+      const findFlank = (
+        /** @type {number} */ idx,
+        /** @type {number} */ dir,
+        /** @type {number} */ cx,
+        /** @type {number} */ cy
+      ) => {
+        let dist = 0
+        for (let step = 0; step < n / 2 && dist <= 24; step++) {
+          const cur = idx + dir * step
+          const p0 = at(cur)
+          if (step > 0) dist += Math.hypot(p0[0] - at(cur - dir)[0], p0[1] - at(cur - dir)[1])
+          if (dist > 24) break
+          let ahead = cur + dir,
+            span = Math.hypot(at(ahead)[0] - p0[0], at(ahead)[1] - p0[1])
+          for (let k = 1; k < 12 && span < 3; k++) {
+            ahead += dir
+            span = Math.hypot(at(ahead)[0] - p0[0], at(ahead)[1] - p0[1])
+          }
+          if (span > 0.5) {
+            const dx = at(ahead)[0] - p0[0],
+              dy = at(ahead)[1] - p0[1]
+            if ((dx * cx + dy * cy) / span < -0.58) return step
+          }
+        }
+        return -1
+      }
+      const findStem = (
+        /** @type {number} */ idx,
+        /** @type {number[]} */ target,
+        /** @type {number} */ cx,
+        /** @type {number} */ cy
+      ) => {
+        const origin = at(idx)
+        const want = (target[0] - origin[0]) * -cy + (target[1] - origin[1]) * cx
+        let bestIdx = idx,
+          bestErr = Math.abs(want)
+        for (const dir of [-1, 1]) {
+          let dist = 0
+          for (let step = 1; step < n / 2; step++) {
+            const p0 = at(idx + dir * (step - 1)),
+              p1 = at(idx + dir * step)
+            dist += Math.hypot(p1[0] - p0[0], p1[1] - p0[1])
+            if (dist > 26) break
+            const along = (p1[0] - origin[0]) * cx + (p1[1] - origin[1]) * cy
+            if (Math.abs(along) > Math.max(6, chord.width * 0.65)) break
+            const perp = (p1[0] - origin[0]) * -cy + (p1[1] - origin[1]) * cx
+            const err = Math.abs(perp - want)
+            if (err < bestErr) {
+              bestErr = err
+              bestIdx = mod(idx + dir * step)
+            }
+          }
+        }
+        return bestIdx
+      }
+      const iFwd = findFlank(i, 1, ux, uy),
+        iBack = findFlank(i, -1, ux, uy)
+      const jFwd = findFlank(j, 1, -ux, -uy),
+        jBack = findFlank(j, -1, -ux, -uy)
+      const iTip = iFwd >= 0 && iBack >= 0,
+        jTip = jFwd >= 0 && jBack >= 0
+      let ni = i,
+        nj = j
+      if (iTip && !jTip) {
+        ni = mod(i + Math.round((iFwd - iBack) / 2))
+        nj = findStem(j, pts[ni], ux, uy)
+      } else if (jTip && !iTip) {
+        nj = mod(j + Math.round((jFwd - jBack) / 2))
+        ni = findStem(i, pts[nj], -ux, -uy)
+      }
+      if (ni !== i || nj !== j) {
+        const lo = Math.min(ni, nj),
+          hi = Math.max(ni, nj)
+        const a = pts[lo],
+          b = pts[hi]
+        let stray = 0,
+          here = 0,
+          there = 0
+        for (const sums of before) {
+          const inner = sums[hi] - sums[lo],
+            outer = sums[size] - inner
+          stray = Math.max(stray, Math.min(inner, outer) / sums[size])
+          if (inner > outer) here++
+          else there++
+        }
+        const side = (/** @type {number[]} */ p, /** @type {number[]} */ q, /** @type {number[]} */ r) =>
+          (q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0])
+        const apart = (/** @type {number[]} */ p, /** @type {number[]} */ q) =>
+          side(a, b, p) * side(a, b, q) > 0 ||
+          side(p, q, a) * side(p, q, b) > 0 ||
+          Math.max(p[0], q[0]) < Math.min(a[0], b[0]) ||
+          Math.min(p[0], q[0]) > Math.max(a[0], b[0]) ||
+          Math.max(p[1], q[1]) < Math.min(a[1], b[1]) ||
+          Math.min(p[1], q[1]) > Math.max(a[1], b[1])
+        if (
+          hi - lo >= 6 &&
+          size - (hi - lo) >= 6 &&
+          here &&
+          there &&
+          stray <= 0.3 &&
+          Math.hypot(b[0] - a[0], b[1] - a[1]) <= 56 &&
+          [1, 2, 3].every((t) => {
+            const p = [a[0] + ((b[0] - a[0]) * t) / 4, a[1] + ((b[1] - a[1]) * t) / 4]
+            return inside(p, ring) === within && !clear.some((other) => inside(p, other))
+          }) &&
+          pts.every((p, k) => {
+            const next = (k + 1) % n
+            return k === lo || k === hi || next === lo || next === hi || apart(p, pts[next])
+          }) &&
+          clear.every((other) => other.every((p, k) => !k || apart(other[k - 1], p)))
+        ) {
+          i = lo
+          j = hi
+        }
+      }
+    }
     const sides = [
       { points: piece.points.slice(i, j + 1), labels: piece.labels.slice(i, j + 1) },
       {
@@ -725,12 +1001,12 @@ function cutRing(ring, targets, within, cap, clear = []) {
     // Each side closes along the chord from its last point to its first. Points along it
     // let a later cut end there, and bow the smaller side's end out over what it left,
     // far enough to stay joined when a lighter weight draws both pieces back.
-    const small = sides[0].points.length <= sides[1].points.length ? 0 : 1
+    const small = Math.abs(turning(sides[0].points)) <= Math.abs(turning(sides[1].points)) ? 0 : 1
     const depth = cap ? Math.min(chord.width / 4, 4) : 0
-    const steps = Math.ceil(chord.width / 3)
     sides.forEach((side, n) => {
       const from = side.points[side.points.length - 1],
         to = side.points[0]
+      const steps = Math.max(1, Math.ceil(Math.hypot(to[0] - from[0], to[1] - from[1]) / 3))
       const centre = [0, 1].map((k) => side.points.reduce((sum, p) => sum + p[k], 0) / side.points.length)
       const mid = [(from[0] + to[0]) / 2, (from[1] + to[1]) / 2]
       const away = Math.hypot(mid[0] - centre[0], mid[1] - centre[1]) || 1
@@ -821,6 +1097,27 @@ export function splitIslands(polygons) {
   return fine.map((_, j) => faces.map((face) => [/** @type {number[][][][]} */ (face)[j]]))
 }
 
+/** Map a group of target counters into the bounding box of the merged counter they
+ * divide, so a face that shifts a counter stack still places each target in its bay.
+ * @param {number[][]} ring @param {number[][][]} targetRings */
+function fitTargets(ring, targetRings) {
+  const dst = ringBox(ring)
+  const boxes = targetRings.map(ringBox)
+  const src = [
+    Math.min(...boxes.map((b) => b[0])),
+    Math.min(...boxes.map((b) => b[1])),
+    Math.max(...boxes.map((b) => b[2])),
+    Math.max(...boxes.map((b) => b[3]))
+  ]
+  const sw = src[2] - src[0] || 1,
+    sh = src[3] - src[1] || 1
+  const dw = dst[2] - dst[0] || 1,
+    dh = dst[3] - dst[1] || 1
+  return targetRings.map((r) =>
+    r.map(([x, y]) => [dst[0] + ((x - src[0]) * dw) / sw, dst[1] + ((y - src[1]) * dh) / sh])
+  )
+}
+
 /** Faces that leave open a counter another face closes (a bar that stops short of its
  * frame) have fewer rings than it. Cut their rings at the gaps, so every face has the
  * counters of the face with most, each blending with its own counterpart.
@@ -829,8 +1126,36 @@ export function splitIslands(polygons) {
 function splitCounters(faces) {
   const finest = faces.reduce((best, rings, f) => (rings.length > faces[best].length ? f : best), 0)
   const fine = faces[finest]
+  const tryOwners = (/** @type {number[][][]} */ rings, /** @type {number[]} */ owners) => {
+    if (owners.includes(-1)) return null
+    /** @type {number[][][]} */
+    const cut = []
+    for (const [x, ring] of rings.entries()) {
+      const mine = owners.flatMap((owner, j) => (owner === x ? [j] : []))
+      if (!mine.length) return null
+      if (mine.length === 1) {
+        cut[mine[0]] = ring
+        continue
+      }
+      const raw = mine.map((j) => fine[j])
+      const mapped = x > 0 ? fitTargets(ring, raw) : raw
+      const pieces = cutRing(
+        ring,
+        mapped.map((r, k) => ({ ring: r, solid: mine[k] > 0 })),
+        x > 0,
+        false
+      )
+      if (!pieces) return null
+      mine.forEach((j, k) => (cut[j] = pieces[k]))
+    }
+    return cut
+  }
   const out = faces.map((rings, f) => {
-    if (f === finest || rings.length === fine.length) return rings
+    if (f === finest) return rings
+    if (rings.length === fine.length) {
+      const matched = matchRegions([fine.slice(1), rings.slice(1)], (r) => r)
+      return matched ? [rings[0], ...matched[1]] : null
+    }
     const owners = fine.map((counter, j) => {
       if (!j) return 0
       const points = counter.slice(0, -1)
@@ -843,26 +1168,33 @@ function splitCounters(faces) {
       }
       return votes.size ? [...votes].sort((x, y) => y[1] - x[1])[0][0] : -1
     })
-    if (owners.includes(-1)) return null
-    /** @type {number[][][]} */
-    const cut = []
-    for (const [x, ring] of rings.entries()) {
-      const mine = owners.flatMap((owner, j) => (owner === x ? [j] : []))
-      if (!mine.length) return null
-      if (mine.length === 1) {
-        cut[mine[0]] = ring
-        continue
-      }
-      const pieces = cutRing(
-        ring,
-        mine.map((j) => ({ ring: fine[j], solid: j > 0 })),
-        x > 0,
-        false
-      )
-      if (!pieces) return null
-      mine.forEach((j, k) => (cut[j] = pieces[k]))
+    const first = tryOwners(rings, owners)
+    if (first) return first
+    // When a shifted counter stack lands outside the coarse counter that actually holds it,
+    // assign every fine counter to its nearest closed counter and cut with registered boxes.
+    if (rings.length > 1) {
+      const closedBoxes = rings.slice(1).map(ringBox)
+      const closedOwners = fine.map((counter, j) => {
+        if (!j) return 0
+        const [x0, y0, x1, y1] = ringBox(counter)
+        const cx = (x0 + x1) / 2,
+          cy = (y0 + y1) / 2
+        let best = 1,
+          least = Infinity
+        closedBoxes.forEach((b, idx) => {
+          const dx = Math.max(0, b[0] - cx, cx - b[2]),
+            dy = Math.max(0, b[1] - cy, cy - b[3])
+          const d = dx * dx + dy * dy + 0.01 * ((cx - (b[0] + b[2]) / 2) ** 2 + (cy - (b[1] + b[3]) / 2) ** 2)
+          if (d < least) {
+            least = d
+            best = idx + 1
+          }
+        })
+        return best
+      })
+      return tryOwners(rings, closedOwners)
     }
-    return cut
+    return null
   })
   return out.every(Boolean) ? /** @type {number[][][][]} */ (out) : null
 }
@@ -890,28 +1222,44 @@ export function prepareCorrespondence(polygons, cut = false) {
     )
   /** Match the rings point for point; how far the even mix strays from the faces.
    * @param {number[][][][]} faces each face's frame and counters, alike in number
-   * @param {boolean} cutTo the counters already stand in one order */
-  const matchOf = (faces, cutTo) => {
-    const holes = matchRegions(
-      faces.map((rings) => rings.slice(1)),
-      (r) => r
-    )
+   * @param {boolean} cutTo the counters already stand in one order
+   * @param {boolean} check compute crossing, ink and turning guards */
+  const matchOf = (faces, cutTo, check) => {
+    const holes = cutTo
+      ? faces.map((rings) => rings.slice(1))
+      : matchRegions(
+          faces.map((rings) => rings.slice(1)),
+          (r) => r
+        )
     if (!holes) return null
     const ordered = faces.map((rings, i) => [rings[0], ...holes[i]])
     const sampled = /** @type {number[][][][]} */ (
       ordered[0].map((_, j) => alignRings(ordered.map((rings) => rings[j])))
     )
     if (sampled.some((ring) => !ring)) return null
+    if (!check) return { sampled, crossed: false, ink: 0, wander: 0 }
     const even = sampled.map((ring) =>
       ring[0].map((_, i) => [0, 1].map((k) => ring.reduce((sum, face) => sum + face[i][k], 0) / faces.length))
     )
     const each = faces.map((_, f) => sampled.map((ring) => ring[f]))
     const mean = (/** @type {(rings: number[][][]) => number} */ of) =>
       each.reduce((sum, rings) => sum + of(rings), 0) / faces.length
+    const settledEven = cutTo ? settledRings(even.map((r) => [...r, r[0]])).map((r) => r.slice(0, -1)) : even
+    const outerSign = Math.sign(turning(even[0]))
+    const outerCount = settledEven.filter((r) => Math.sign(turning(r)) === outerSign).length
+    const signedInk = (/** @type {number[][][]} */ list) =>
+      Math.abs(list.reduce((sum, ring) => sum + turning(ring) * outerSign, 0))
+    const eachArea = cutTo
+      ? each.reduce(
+          (sum, list) =>
+            sum + signedInk(settledRings(list.map((r) => [...r, r[0]])).map((r) => r.slice(0, -1))),
+          0
+        ) / faces.length
+      : mean(held)
     return {
       sampled,
-      crossed: tangled(even),
-      ink: Math.abs(held(even) - mean(held)) / mean(held),
+      crossed: tangled(even) || (cutTo && outerCount !== 1),
+      ink: eachArea ? Math.abs((cutTo ? signedInk(settledEven) : held(even)) - eachArea) / eachArea : 1,
       wander: winding(even) / mean(winding) - 1
     }
   }
@@ -919,7 +1267,7 @@ export function prepareCorrespondence(polygons, cut = false) {
   const alike = rings.every((face) => face.length === rings[0].length)
   // Faces that differ in their counters are brought to the same rings by cutting the open ones.
   const same = alike ? rings : splitCounters(rings)
-  const match = same && matchOf(same, !alike)
+  const match = same && matchOf(same, !alike, cut || !alike)
   // Rings that were cut wind in and out of their gaps. Keep the match only when the even
   // mix does not cross itself and turns about as much as the faces. Cut counters must
   // also hold about the faces' ink; a cut stroke may fairly differ in size from its
@@ -929,20 +1277,26 @@ export function prepareCorrespondence(polygons, cut = false) {
   if (!match) return null
   const { sampled } = match
   const faces = polygons
-  const aligned = faces.map((_, f) => {
-    const rings = sampled.map((ring) => ring[f])
-    const vectors = weightVectors(rings.map((r) => [...r, r[0]]))
-    return rings.map((r, j) => r.map((p, i) => [...p, ...vectors[j][i]]))
-  })
+  /** @type {number[][][][] | undefined} */
+  let vectors
   return (/** @type {number[]} */ shares, /** @type {number} */ weight) => {
-    const rings = aligned[0].map((r, j) => {
-      const mixed = r.map((_, i) => {
+    const dw = weight - 1
+    if (dw && !vectors)
+      vectors = faces.map((_, f) => weightVectors(sampled.map((ring) => [...ring[f], ring[f][0]])))
+    const rings = sampled.map((ring, j) => {
+      const mixed = ring[0].map((_, i) => {
         let x = 0,
           y = 0
         for (let f = 0; f < faces.length; f++) {
-          const [a, b, dx, dy] = aligned[f][j][i]
-          x += shares[f] * (a + dx * (weight - 1))
-          y += shares[f] * (b + dy * (weight - 1))
+          const [a, b] = ring[f][i]
+          if (dw && vectors) {
+            const [dx, dy] = vectors[f][j][i]
+            x += shares[f] * (a + dx * dw)
+            y += shares[f] * (b + dy * dw)
+          } else {
+            x += shares[f] * a
+            y += shares[f] * b
+          }
         }
         return [x, y]
       })
