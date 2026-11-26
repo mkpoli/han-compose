@@ -1,4 +1,7 @@
 // @ts-nocheck: a port of han-compose's Python, kept line for line; its types are the arrays it reads.
+import { hookFloor } from './hook-floor.js'
+import { lowerHookSeat, tallHookSelf } from './hook-seat.js'
+import { stackedHookPart } from './stacked-hook.js'
 import fangsongZhi from './fangsong-zhi.json' with { type: 'json' }
 import haNine from './ha-nine.json' with { type: 'json' }
 import { yiCrossDonor, yiCrossParts } from './yi-cross.js'
@@ -847,6 +850,7 @@ export const designedSources = (tree, style = 'sans') => {
     }
     if (!Array.isArray(node)) return
     const [op, ...children] = node
+    if (op === '⿺' && children[0] === '𡕚') { out.add('夂'); out.add('見') }
     if (isThornRow(node)) {
       out.add('棘')
       out.add('企')
@@ -1583,6 +1587,25 @@ export class Composer {
         }
         return
       }
+      const hooked = this.hookFrame(node, cell, depth === 0)
+      if (hooked) {
+        for (const part of hooked.parts) {
+          if (leafIndices) part.leaf = leaf++
+          out.push(part)
+        }
+        if (hooked.self) {
+          const { part, source, factor } = hooked.self, box = inset(hooked.previous)
+          box[3] += (box[3] - box[1]) * factor
+          emitCell({ ...placed(part, source, box, this.ink(node[2]), `cells ${node[2]}`), fixed: true }, node[2])
+          return
+        }
+        const [x0, y0, x1, y1] = hooked.room
+        const firstInner = out.length
+        walk(node[2], [(x0 - f[0]) / width, 1 - (y1 - f[1]) / height,
+          (x1 - f[0]) / width, 1 - (y0 - f[1]) / height], depth + 1)
+        for (let i = firstInner; i < out.length; i++) out[i].fixed = true
+        return
+      }
       const op = node[0], kids = node.slice(1)
       if (op in this.AXIS) {
         // The top of a stacked description is one part over many; the reference design gives it
@@ -1726,6 +1749,12 @@ export class Composer {
       if (frame) {
         out.push({ index: out.length, box: frame.frame.target, empty: false })
         walk(node[2], (atRoot && metricKeSeat(node, this.fontStyle, frame.frame)) || frame.room, false)
+        return
+      }
+      const hooked = this.hookFrame(node, region, atRoot)
+      if (hooked) {
+        for (const part of hooked.parts) out.push({ index: out.length, box: part.target, empty: false })
+        walk(node[2], hooked.room, false)
         return
       }
       const grid = this.repeatedGrid(node)
@@ -2046,6 +2075,96 @@ export class Composer {
       counter.fixed = true
     }
     return [frame, counter]
+  }
+
+  /** Select a verified low hook only after the face's contextual forms have had priority. */
+  hookFrame(node, region, atRoot) {
+    if (this.measuringHookInk) return null
+    if (!Array.isArray(node) || node.note || node[0] !== '⿺') return null
+    const [, outer] = node
+    const explicit = Array.isArray(outer)
+    if (explicit && (outer.note || outer[0] !== '⿱')) return null
+    if (!explicit && (this.excluded(outer) || this.forced(outer) || lowerLeftFrames.has(outer) ||
+        outer === '几' || outer === '木' || outer === '爪' || ENCLOSURE_TAILS[outer] || enclosureEntry('⿺', outer, this.fontStyle))) return null
+    if (this.bySequence(keyOf(node))) return null
+    let glyph = explicit ? null : this.glyph(outer)
+    let topCount = 0
+    if (!glyph) {
+      // Some exports omit both the outline and its identity. U+2155A is
+      // recorded as ⿱夂見 (G,T) in data/vocab/han-ids.tsv.
+      const sequence = explicit ? null : this.sequenceOf(outer) ?? (outer === '𡕚' ? '⿱夂見' : '')
+      const stack = explicit ? outer : [...sequence]
+      if (stack.length !== 3 || stack[0] !== '⿱' || !stack.slice(1).every(ch =>
+        typeof ch === 'string' && !this.excluded(ch) && !this.forced(ch) && this.own(ch))) return null
+      const cap = this.glyph(stack[1]), base = this.glyph(stack[2])
+      if (!hookFloor(base)) return null
+      glyph = stackedHookPart(cap, base)
+      if (!glyph) return null
+      topCount = cap.contours.length
+    }
+    const hook = hookFloor(glyph)
+    if (!hook) return null
+    const place = (part, char) => {
+      const target = mapped(part.box, glyph.box, region)
+      return { ...placed(part, part.box, target, partInk(part), `enclosing ${char}`), fixed: true }
+    }
+    const parts = explicit ? [
+      place(derived(hook.part, hook.part.contours.slice(0, topCount)), outer[1]),
+      place(derived(hook.part, hook.part.contours.slice(topCount)), outer[2]),
+    ] : [place(hook.part, outer)]
+    let room = mapped(hook.room, glyph.box, region), self = null
+    const inner = typeof node[2] === 'string' && !this.forced(node[2]) && this.glyph(node[2])
+    if (inner) {
+      const ink = tightBox(inner), fit = fitted(ink, room, 1.15)
+      const seat = [fit[0], room[1], fit[2], room[1] + fit[3] - fit[1]]
+      room = lowerHookSeat(hook.part, glyph.box, inner, ink, seat, region, hook.floor)
+      if (node[2] === '自' && !this.excluded(node[2]) && (outer === '𡕚' || keyOf(outer) === '⿱夂見')) {
+        self = tallHookSelf(hook.part, glyph.box, inner, ink, room, region)
+      }
+    }
+    if (atRoot && !hasSlot(node)) {
+      const reference = this.hookInkBounds(node)
+      if (reference) {
+        const actual = union(groupRings(parts, 32).map(pointsBox))
+        if (actual[2] > actual[0] && actual[3] > actual[1]) {
+          for (const part of parts) part.target = mapped(part.target, actual, reference)
+          room = mapped(room, actual, reference)
+        }
+      }
+    }
+    if (self) {
+      const previous = room
+      room = [room[0], room[1], room[2], room[3] + (room[3] - room[1]) * self.factor]
+      return { parts, room, previous, self }
+    }
+    return { parts, room }
+  }
+
+  /** Keep the established root ink extent, including overshoot after stroke weighting.
+   * A fresh composer isolates the ordinary layout's joints and weight adjustments.
+   * The result is local to this loader pass, since more source shards can arrive. */
+  hookInkBounds(node) {
+    const key = keyOf(node)
+    this.hookInkMeasurements ??= new Map()
+    if (!this.hookInkMeasurements.has(key)) {
+      const ordinary = new Composer(this.data, {
+        face: this.face, fontStyle: this.fontStyle, exclude: this.exclude,
+        keepBars: this.keepBars,
+      })
+      ordinary.measuringHookInk = true
+      let bounds = null
+      try {
+        const baseline = ordinary.compose(key)
+        if (baseline.length && baseline.every(part => part.empty === undefined && !part.cut)) {
+          const ink = union(groupRings(baseline, 32).map(pointsBox))
+          if (ink.every(Number.isFinite) && ink[2] > ink[0] && ink[3] > ink[1]) bounds = ink
+        }
+      } catch (error) {
+        if (!(error instanceof LookupError)) throw error
+      }
+      this.hookInkMeasurements.set(key, bounds)
+    }
+    return this.hookInkMeasurements.get(key)
   }
 
   /** Place the enclosing strokes and map their opening into the same cell. */
@@ -2405,6 +2524,16 @@ export class Composer {
     }
     // Native compound forms have no trained layout features; fit their actual outlines. A nested row
     // that holds an unreadable linear compound has no learned box to follow: the crossed shares place it.
+    const hooked = this.hookFrame(node, region, atRoot)
+    if (hooked) {
+      if (hooked.self) {
+        const { part, source } = hooked.self
+        return [...hooked.parts, { ...placed(part, source, hooked.room, this.ink(node[2]), `glyph ${node[2]}`), fixed: true }]
+      }
+      const inner = this.node(node[2], hooked.room)
+      for (const part of inner) part.fixed = true
+      return [...hooked.parts, ...inner]
+    }
     const unreadableRow = !atRoot && op === '⿰' && children.some(child => this.unknownAligned(child, 0))
     if (this.hosted && this.layout && (!hasRepetition || ownFormsOnly(this.fontStyle)) && !unreadableRow && children.length === 2 && this.hasHosts(op, children) && (atRoot ? this.layout.ops.includes(op) : op === '⿰' || op === '⿱')) {
       // A description nothing in the export spells as one character has nothing to integrate a host

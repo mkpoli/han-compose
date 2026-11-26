@@ -798,6 +798,59 @@ it('keeps an open bar at full thickness with a clean open gap halfway and open a
   expect(colInk(100)).toBeGreaterThanOrEqual(14)
 })
 
+it('falls back to whole-island blending when a labelled stroke fuses a perpendicular bar in one face', () => {
+  // Narrow 口-like component (x=100..618, y=120..880) whose unit centres stay within 0.3 * side:
+  // Face A splits it into left stem | (contour 1) and top+right+bottom コ (contour 0).
+  // Face B splits it into left+top ┌ (contour 0), bottom _ (contour 1), and right | (contour 2).
+  // Same stroke IDs [0, 1, 2], but unit 0 is >3x wider in face B, so per-unit blending cracks the top bar.
+  const dA =
+    'M142 120L618 120L618 880L142 880L142 800L562 800L562 200L142 200Z' + 'M100 120L156 120L156 880L100 880Z'
+  const dB =
+    'M100 120L618 120L618 200L156 200L156 880L100 880Z' +
+    'M142 800L618 800L618 880L142 880Z' +
+    'M562 120L618 120L618 880L562 880Z'
+  const faceA = {
+    d: dA,
+    parts: [
+      {
+        leaf: 0,
+        origin: 'fixture',
+        box: [100, 120, 518, 760],
+        d: dA,
+        strokes: [
+          [0, [1]],
+          [1, [0]],
+          [2, [0]]
+        ]
+      }
+    ]
+  }
+  const faceB = {
+    d: dB,
+    parts: [
+      {
+        leaf: 0,
+        origin: 'fixture',
+        box: [100, 120, 518, 760],
+        d: dB,
+        strokes: [
+          [0, [0]],
+          [1, [2]],
+          [2, [1]]
+        ]
+      }
+    ]
+  }
+  const mixed = mixDrawings([faceA, faceB], [0.5, 0.5], 1)
+  const mask = pathMask(mixed.d, 200)
+  // Top bar stays solid and unbroken across its full width (cols 45..100, rows 20..44).
+  for (const col of [45, 60, 75, 85, 100]) {
+    let ink = 0
+    for (let row = 20; row <= 44; row++) ink += mask[row * 200 + col]
+    expect(ink).toBeGreaterThanOrEqual(14)
+  }
+})
+
 it('does not pair distant leftover corners at opposite ends of a long stem wall', () => {
   // Two 口-like outer contours where face A has an extra sharp bottom-left corner at (16, 240)
   // and face B has a gentle extra corner near the top-left at (16, 42) — both turn the same way

@@ -147,15 +147,25 @@ function prepareInk(paths, strokes) {
     present.map((k) => strokes?.[k]),
     present.map((k) => (pathSubpaths(paths[k]) === shapes[k].length ? shapes[k].length : -1))
   )
-  // Faces that number their strokes differently would blend one stroke into another.
-  const middle = (/** @type {number[][]} */ rings) => {
-    const box = union(rings.map(pointsBox))
-    return [(box[0] + box[2]) / 2, (box[1] + box[3]) / 2]
-  }
+  // Faces that number their strokes differently, or fuse a perpendicular stroke into
+  // one unit (such as | vs ┌ on 口 or 門), would tear the shared bar apart if blended per unit.
   const alike =
     units?.every((unit) => {
-      const centres = unit.map((contours, f) => middle(contours.map((c) => registered[f][c])))
-      return centres.every((c) => Math.hypot(c[0] - centres[0][0], c[1] - centres[0][1]) < 0.3 * side)
+      const boxes = unit.map((contours, f) => union(contours.map((c) => pointsBox(registered[f][c]))))
+      const centres = boxes.map(([a, b, c, d]) => [(a + c) / 2, (b + d) / 2])
+      for (let i = 0; i < centres.length; i++)
+        for (let j = i + 1; j < centres.length; j++)
+          if (Math.hypot(centres[i][0] - centres[j][0], centres[i][1] - centres[j][1]) >= 0.3 * side)
+            return false
+      const ws = boxes.map(([a, , c]) => Math.max(1, c - a))
+      const hs = boxes.map(([, b, , d]) => Math.max(1, d - b))
+      const minW = Math.min(...ws),
+        maxW = Math.max(...ws)
+      if (maxW - minW > 0.15 * side && maxW / minW > 3) return false
+      const minH = Math.min(...hs),
+        maxH = Math.max(...hs)
+      if (maxH - minH > 0.15 * side && maxH / minH > 3) return false
+      return true
     }) ?? false
   const regions =
     units && alike
