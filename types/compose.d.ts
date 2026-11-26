@@ -320,7 +320,7 @@ export declare class Composer {
         }[];
         room: any[];
         previous: any[];
-        self: {
+        counterFit: {
             part: {
                 contours: any[];
                 box: number[];
@@ -330,7 +330,7 @@ export declare class Composer {
         };
     } | {
         previous?: undefined;
-        self?: undefined;
+        counterFit?: undefined;
         parts: {
             part: any;
             source: any;
