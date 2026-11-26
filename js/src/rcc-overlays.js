@@ -25,29 +25,29 @@ const forms = new Map([
     ['夂', [0, .08, .52, .74]], ['彳', [.475, .018, .79, .405]],
     ['𠃊', [.47, .37, .88, .72]], ['丨', [.85, .32, .94, .74]], ['乚', [.61, .22, 1, 1]],
   ] }],
-  // Hanyo-Denshi TK01041310 (U+43DC U+E0101). The falling right stroke
+  // The right-hand Hanyo-Denshi IVS in the RCC sighting. The falling right stroke
   // starts in the open space between the two falling-left strokes.
   // https://rare.glyphatlas.org/en/entry/2755#sighting-2919
   ['⿰月⿻#(-丿㇋)乀', { source: 2755, leaves: [0, 1, 1, 2], operands: ['#(-丿㇋)', '乀'], members: [
     ['月', [0, .02, .39, 1]], ['丿', [.37, .01, .60, .99]],
     ['㇋', [.41, 0, .96, .99]], ['八', [.60, .49, 1, .98]],
   ] }],
-  // 笔削鳌头海篇心镜·九部第六, 二音囂聲也. 九 carries the whole upper-right group on its foot.
+  // 笔削鳌头海篇心镜·九部第六, the first of the two forms glossed 囂. 九 carries the whole upper-right group on its foot.
   // https://rare.glyphatlas.org/en/entry/2830#sighting-2994
-  ['⿺九⿸⿻干#(-乛丿)亚', { source: 2830, leaves: [0, 1, 2, 3], operands: ['#(-乛丿)', '乛', '丿'], members: [
-    ['九', [0, .02, 1, 1]], ['干', [.32, .02, .93, .54]],
-    ['丿', [.245, .22, .40, .84]], ['亚', [.43, .45, .89, .82]],
+  ['⿺九⿸⿻干#(-乛丿)亚', { source: 2830, leaves: [0, 1, 2, 2, 3], operands: ['九', '#(-乛丿)', '乛', '丿'], members: [
+    ['旭', [0, .02, 1, 1]], ['干', [.475, .02, .875, .53]],
+    ['乛', [.40, .155, .94, .33]], ['丿', [.305, .18, .465, .78]], ['亚', [.455, .48, .88, .835]],
   ] }],
   // 王荣艳 (2023), 〈古本戏曲丛刊〉俗字研究 p. 378, first head under nǎi. The center
-  // 日 fits between the shoulders of the two upright 鼎 legs, below 乃.
+  // 日 nestles inside 乃, above the shoulders of the two upright 鼎 legs.
   // https://rare.glyphatlas.org/en/entry/2903#sighting-3067
   ['⿱乃⿶⿰#(𠃑-一丨)#(丨-一𠃑)日', { source: 2903, leaves: [0, 1, 2, 3], operands: ['𠃑', '一', '丨', '亞'], members: [
-    ['乃', [.02, 0, .89, .56]], ['#(𠃑-一丨)', [.15, .39, .43, 1]],
-    ['#(丨-一𠃑)', [.60, .41, .97, .97]], ['日', [.365, .29, .615, .575]],
+    ['乃', [0, 0, .89, .575]], ['#(𠃑-一丨)', [.15, .405, .43, 1]],
+    ['#(丨-一𠃑)', [.60, .42, 1, .97]], ['日', [.32, .17, .635, .49]],
   ] }],
 ])
 
-const stroke = new Set([...'丿乚㇄𠃑𠃊丨㇋乀'])
+const stroke = new Set('乛丿乚㇄𠃑𠃊丨㇋乀')
 
 /** @param {string} key @param {string} style */
 export function overlayContextDonors(key, style) {
@@ -137,23 +137,6 @@ function narrowHook(glyph, room) {
   ])
 }
 
-/** Narrow the interior stems of 九 while letting its turned foot extend to the right.
- * @param {any} glyph */
-function enclosingNine(glyph) {
-  const [lo, , hi] = glyph.box
-  const widths = [0, .26, .38, .59, .76, .89, 1]
-  const target = [0, .065, .16, .185, .32, .89, 1]
-  /** @param {Float64Array} points */
-  const move = points => points.map((v, i) => {
-    if (i % 2) return v
-    const t = (v - lo) / (hi - lo)
-    const a = Math.max(0, widths.findIndex((end, j) => j > 0 && t <= end) - 1)
-    const k = t > 1 ? widths.length - 2 : a
-    return lo + (hi - lo) * (target[k] + (target[k + 1] - target[k]) * (t - widths[k]) / (widths[k + 1] - widths[k]))
-  })
-  return derived(glyph, glyph.contours.map((/** @type {any} */ c) => ({ ...c, light: move(c.light), heavy: move(c.heavy) })))
-}
-
 /** @param {import('./compose.js').Composer} composer @param {string} key @param {number[]} region */
 export function overlayContextParts(composer, key, region) {
   const form = forms.get(key)
@@ -163,8 +146,11 @@ export function overlayContextParts(composer, key, region) {
   const parts = []
   for (const [i, [char, [left, top, right, bottom]]] of form.members.entries()) {
     const rccLeaf = form.leaves[i]
-    const origin = `glyph ${char}, R+${form.source.toString(16).toUpperCase().padStart(4, '0')}`
+    const donorLabel = { '旭': '九 from 旭', '叱': '口 from 叱', '彳': '丿 from 彳', '八': '乀 from 八' }[char] ?? `glyph ${char}`
+    const origin = `${donorLabel}, R+${form.source.toString(16).toUpperCase().padStart(4, '0')}`
     let path
+    // R+0A46 has three uprights and two crossbars: ㇄ meets 𠃑
+    // halfway down its left edge, and 𠃊 closes the bottom at its right edge.
     if (form.source === 2630) path = [
       [[32, 880], [32, 615], [735, 615]],
       [[735, 880], [735, 355], [958, 355], [958, 38]],
@@ -185,13 +171,31 @@ export function overlayContextParts(composer, key, region) {
       if (composer.excluded(char)) return null
       const cut = composer.chainParts(char, room)
       if (!cut?.length) return null
-      parts.push(...cut.map((/** @type {any} */ p) => ({ ...p, rccLeaf, fixed: true })))
+      for (const p of cut) {
+        // The upper return of the right leg meets 乃 inside the outer
+        // upright of the foot (the first example on p. 378).
+        const shape = char === '#(丨-一𠃑)' ? remap(p.part, (x, y) => [
+          x - .45 * Math.max(0, Math.min(1, (x - .2) / .55)) * Math.max(0, Math.min(1, (.57 - y) / .18)), y,
+        ]) : p.part
+        parts.push({ ...p, part: shape, rccLeaf, fixed: true })
+      }
     } else {
       let glyph = stroke.has(char) ? composer.chainStroke(char) : composer.drawnGlyph(char)
       if (!glyph) return null
       if (char === '乚') glyph = narrowHook(glyph, room)
-      if (char === '九') glyph = enclosingNine(glyph)
-      if (['八', '叱', '彳'].includes(char) && !composer.own(char)) return null
+      if (char === '干') {
+        // The second bar is below the shelf of 乛, with a clear gap between them.
+        glyph = remap(glyph, (x, y) => [x, y + .115 * Math.max(0, Math.min(1, (y - .12) / .15, (.85 - y) / .3))])
+      }
+      if (['旭', '八', '叱', '彳'].includes(char) && !composer.own(char)) return null
+      if (char === '旭') {
+        // 旭 already has the long carrying foot. Its inner 日 starts beyond
+        // the center in each face, clear of all the 九 contours at the left.
+        const center = (glyph.box[0] + glyph.box[2]) / 2
+        const left = glyph.contours.filter((/** @type {any} */ c) => pointsBox(c.light)[0] < center)
+        if (!left.length || left.length === glyph.contours.length) return null
+        glyph = derived(glyph, left)
+      }
       if (char === '八') {
         const contours = glyph.contours
         if (contours.length < 2) return null
@@ -215,7 +219,7 @@ export function overlayContextParts(composer, key, region) {
         if (pointsBox(top.light)[1] < (glyph.box[1] + glyph.box[3]) / 2) return null
         // A short 撇 in these heads has a broad brush entry. Weight this
         // cut inside its measured ink box, retaining the face's own taper.
-        const amount = form.source === 2603 ? .85 : .45
+        const amount = composer.fontStyle === 'pen-writing' ? 0 : form.source === 2603 ? .60 : .35
         const light = top.light.map((/** @type {number} */ v, /** @type {number} */ j) => v + (top.heavy[j] - v) * amount)
         glyph = derived(glyph, [{ ...top, light }])
       }
