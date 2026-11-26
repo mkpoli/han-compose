@@ -39,6 +39,7 @@ import { hangulLetters } from './hangul-ids.js'
 import { toConjoiningJamo } from './hangul.js'
 import { componentFix } from './component-fixes.js'
 import { isOutbound, markFace, markParts } from './marks.js'
+import { SI_CHAIN, siChainForm, siTerminal } from './si-chain.js'
 import { chainHost, hostChainParts } from './host-chain.js'
 import { birdChainParts } from './bird-chain.js'
 import { birdOutlineDonors, birdOutlineParts } from './bird-outline.js'
@@ -799,6 +800,10 @@ export const wheatFaceHosts = sequence => sequence.includes(WHEAT_FACE) ? wheatH
 export const designedSources = (tree, style = 'sans') => {
   const out = new Set()
   const visit = node => {
+    if (node === SI_CHAIN) {
+      out.add('巳')
+      out.add(siTerminal(style))
+    }
     const host = chainHost(node, style)
     if (host) out.add(host)
     const bird = birdOutlineDonors(keyOf(node), style)
@@ -944,7 +949,13 @@ export class Composer {
   }
   /** A component form's record, which stands in for the export's; a native form's does only where
    *  the export records nothing. */
-  formRecord = key => isNativeForm(key, this.fontStyle) ? null : componentRecord(key, this.fontStyle)
+  formRecord = key => {
+    if (key === SI_CHAIN) {
+      this.siForm ??= siChainForm(this)
+      if (this.siForm) return this.siForm
+    }
+    return isNativeForm(key, this.fontStyle) ? null : componentRecord(key, this.fontStyle)
+  }
   /** What a description's identity is found by: a key's sequence (`s`) and the character it
    *  describes (`e`). A store with an identity table answers from it; without one, and for a
    *  component form, the key's record does. */
@@ -1096,15 +1107,22 @@ export class Composer {
     if (!keep.length) return forms
     return [{ ...native, part: derived(glyph, keep, glyph.box), fixed: true, origin: `glyph ${char} kept` }, ...forms]
   }
-  glyph(ch) { const g = this.glyphRecord(ch); return g ? partOf(g) : null }
+  glyph(ch) {
+    if (ch === SI_CHAIN) {
+      const part = this.formRecord(ch)?.part
+      if (part) return part
+    }
+    const g = this.glyphRecord(ch)
+    return g ? partOf(g) : null
+  }
   /** The glyph a whole character is drawn with: a body the font drew as another shape is replaced
    *  by `BODY_FORMS` where the export carries the glyph that cut was made for. A cut of the glyph
    *  (`pieceOf`) keeps the font's own contours. */
   drawnGlyph(ch, contain = false) {
-    const record = this.glyphRecord(ch)
-    if (!record) return null
+    const glyph = this.glyph(ch)
+    if (!glyph) return null
     const form = BODY_FORMS[ch]
-    const piece = (form ? bodyForm(record, this.glyphRecord(form.host), form) : null) ?? partOf(record)
+    const piece = (form ? bodyForm(this.glyphRecord(ch), this.glyphRecord(form.host), form) : null) ?? glyph
     return contain ? this.pieceFor(ch, piece) : piece
   }
   /** A piece drawn for `key`, a glyph or a host cut, with the bar rule of `CONTAINED_MIDDLE_BARS`
@@ -1244,7 +1262,7 @@ export class Composer {
   // ---------------------------------------------------------------- the composer's entry
   /** A stroke chain (`#(-𠃌㇉)`) joined from the face's own strokes, or null for anything else. */
   chain(node) {
-    if (!isChain(node) || isComponentForm(node, this.fontStyle)) return null
+    if (!isChain(node) || isComponentForm(node, this.fontStyle) || (node === SI_CHAIN && this.formRecord(node)?.part)) return null
     if (!this.chains.has(node)) {
       const missed = this.data.missing?.size ?? 0
       const form = chainForm(node, ch => this.excluded(ch) ? null : this.glyph(ch))
@@ -5133,7 +5151,7 @@ export class Composer {
   balance(group) {
     const C = this.C, stem = this.stem0
     const curve = (density, axis) => C.STEM_CURVE[axis][0] + C.STEM_CURVE[axis][1] * density / 1000
-    const density = group.reduce((s, p) => { const [sx, sy] = scaleOf(p); return s + (p.inkLength ?? partInk(p.part)) * (sx + sy) / 2 }, 0)
+    const density = group.reduce((s, p) => { const [sx, sy] = scaleOf(p); return s + (p.inkLength ?? p.part.inkLength ?? partInk(p.part)) * (sx + sy) / 2 }, 0)
     const ratio = [0, 1].map(axis => stem[axis][1] / stem[axis][0] - 1)
     // The stroke widths the whole drawing is brought to, which a placeholder's outline follows.
     this.stroke = [curve(density, 0), curve(density, 1)]
