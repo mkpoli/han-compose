@@ -307,6 +307,45 @@ export declare class Composer {
         native: any;
         origin: any;
     }[] | null;
+    /** Select a verified low hook only after the face's contextual forms have had priority. */
+    hookFrame(node: any, region: any, atRoot: any): {
+        parts: {
+            part: any;
+            source: any;
+            target: any;
+            weight: number[];
+            native: any;
+            origin: any;
+            fixed: boolean;
+        }[];
+        room: any[];
+        previous: any[];
+        self: {
+            part: {
+                contours: any[];
+                box: number[];
+            };
+            source: any[];
+            factor: number;
+        };
+    } | {
+        previous?: undefined;
+        self?: undefined;
+        parts: {
+            part: any;
+            source: any;
+            target: any;
+            weight: number[];
+            native: any;
+            origin: any;
+            fixed: boolean;
+        }[];
+        room: any[];
+    } | null;
+    /** Keep the established root ink extent, including overshoot after stroke weighting.
+     * A fresh composer isolates the ordinary layout's joints and weight adjustments.
+     * The result is local to this loader pass, since more source shards can arrive. */
+    hookInkBounds(node: any): any;
     /** Place the enclosing strokes and map their opening into the same cell. */
     lowerLeftFrame(node: any, region: any, counterEntry?: null): {
         frame: {
