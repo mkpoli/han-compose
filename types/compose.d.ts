@@ -359,6 +359,15 @@ export declare class Composer {
     }[] | null;
     /** Keep each copy of a repeated glyph at the same size across both rows. */
     penGrid(node: any, region: any, atRoot: any): any[] | null;
+    /** Preserve the weight of the encoded pyramid when extracting its six editable leaves. */
+    yuanParts(node: any, region: any): {
+        part: any;
+        source: any;
+        target: any;
+        weight: number[];
+        native: any;
+        origin: any;
+    }[] | null;
     /** The six vessel variants share the native drawing inside each ordinary stack’s ink bounds. */
     qiParts(node: any, region: any): {
         part: any;

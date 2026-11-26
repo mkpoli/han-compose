@@ -37,6 +37,12 @@ export declare function derived(from: any, contours: any, box: any): {
     contours: any[];
     box: number[];
 };
+export declare function contourSections(contours: any, ...sections: any[]): {
+    ops: any[];
+    light: Float64Array<ArrayBuffer>;
+    heavy: Float64Array<ArrayBuffer>;
+    width: any;
+};
 /** A part record of the export (`b`, `p`, `w`) read as a part, decoded once. */
 export declare function partOf(record: any, quant?: number): any;
 /** A contour as `['M' | 'L' | 'Q', points]` segments, TrueType's implied on-curve points made explicit

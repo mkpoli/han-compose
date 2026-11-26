@@ -4,7 +4,7 @@
 // description it corrects, the SHA-256 outlines of the glyphs it was read against, and the parts it
 // changes; an export drawing other outlines keeps the font's cut. The parts are plain placed pieces,
 // so the corrections work wherever the description is drawn, at any depth.
-import { derived, fitted, makePart, mapped, partOf, placed, pointsBox, union } from './geometry.js'
+import { derived, fitted, groupRings, makePart, mapped, partOf, placed, pointsBox, union } from './geometry.js'
 import { hexOf } from './sha256.js'
 
 // Interpolation factors for the hosted 口 outlines when fitted beside 乎.
@@ -301,6 +301,28 @@ function penDoor(char) {
  * A correction that cannot find the parts it names leaves the drawing as it is.
  */
 export const COMPONENT_FIXES = {
+  '⿸厂𤿁': {
+    glyphs: { '𤿁': ['265b41d9c34f6df9803deb35bcb60c79e090b55b7dac28605f1fa979e15c0435',
+      '04a5aa68d4ac68d4e9f9a3ba91d78abe33e8adc0c8febc265361b35ce190b628'] },
+    apply(parts, composer) {
+      const [shell, inner] = parts, sans = composer.fontStyle === 'sans'
+      if ((!sans && composer.fontStyle !== 'regular') || parts.length !== 2 || inner.origin !== 'glyph 𤿁' ||
+          shell.origin !== (sans ? 'learned 厲' : 'learned 原')) return parts
+      if (!composer.partial) {
+        if (composer.weighted) composer.balance(parts)
+        else if (composer.staticFace) composer.staticBalance(parts)
+      }
+      const [left, bottom, right, top] = union(groupRings([inner], 24).map(pointsBox))
+      const width = sans ? .976 : .94
+      // The six Sans counters close when its horizontal strokes take the full heavy master.
+      const fitted = sans ? { ...inner, weight: [inner.weight[0], Math.min(inner.weight[1], .2)] } : inner
+      const ink = union(groupRings([fitted], 24).map(pointsBox))
+      // The upper 白 grazes the roof, and the lower-left 白 crosses the slope.
+      // Keep the right edge and baseline of the encoded interior in place.
+      const room = [right - width * (right - left), bottom, right, bottom + .97 * (top - bottom)]
+      return [{ ...shell, fixed: true }, { ...fitted, fixed: true, target: mapped(inner.target, ink, room) }]
+    },
+  },
   '⿵门斗': penDoor('斗'),
   '⿵门T': penDoor('T'),
   '⿰𛂦方': {
