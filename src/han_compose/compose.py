@@ -1327,6 +1327,10 @@ CLEARED = frozenset("⿴⿵⿶⿷⿺")
 #: Least gap two neighbouring parts keep where they face each other, side by side and stacked: the
 #: median gap along their facing edges, as 95% of drawn characters keep it (measured on 800).
 FACING = (72.0, 53.0)
+#: Least gap two neighbouring parts keep anywhere along their facing edges: nine in ten drawn
+#: characters keep it at their closest stroke (measured on 2,074 cut cleanly from Nôm Na Tống and
+#: Zhuque Fangsong, side by side and stacked; under 1% of them touch).
+FACING_LEAST = 12.0
 #: Most of its length a part gives up to make room for its neighbour.
 SQUEEZE = 0.15
 #: How far past the heavy master a part squeezed into a narrow box may grow: its stems keep the
@@ -3915,10 +3919,15 @@ class Composer:
         """Neighbouring parts moved apart where they face each other closer than `FACING`, the gap
         nineteen in twenty drawn characters keep: each gives up half the shortfall on its facing side."""
         for a, b in pairwise(groups):
-            gap = _facing(a, b, axis)
-            if gap is None or gap >= FACING[axis]:
+            gaps = _facing_gaps(a, b, axis)
+            if gaps is None:
                 continue
-            half = (FACING[axis] - gap) / 2
+            # The median misses one stroke reaching its neighbour (the foot of 艹 on the head of
+            # 南): the closest pair of strokes keeps `FACING_LEAST` as well.
+            short = max(FACING[axis] - float(np.median(gaps)), FACING_LEAST - float(gaps.min()))
+            if short <= 0:
+                continue
+            half = short / 2
             first, second = (a, b) if axis == 0 else (b, a)  # lower x first; y is up, so the stacked lower part first
             # No part gives up more than `SQUEEZE` of its length: parts drawn into each other are a
             # layout fault this pass does not mend.
@@ -4323,9 +4332,15 @@ def _squeeze(group: list[Placed], axis: int, low: float, high: float) -> None:
 
 
 def _facing(a: list[Placed], b: list[Placed], axis: int, size: int = 250) -> float | None:
-    """The median gap between two groups along their facing edges, in font units: per row (side by
+    """The median gap between two groups along their facing edges (`_facing_gaps`)."""
+    gaps = _facing_gaps(a, b, axis, size)
+    return None if gaps is None else float(np.median(gaps))
+
+
+def _facing_gaps(a: list[Placed], b: list[Placed], axis: int, size: int = 250) -> np.ndarray | None:
+    """The gaps between two groups along their facing edges, in font units: per row (side by
     side) or column (stacked) where both have ink, from the end of the first to the start of the
-    second. `a` is the left or upper group."""
+    second. `a` is the left or upper group. None where fewer than five lines hold both."""
     box = (0.0, ASCENT - EM, EM, ASCENT)
     ma = fill([r for p in a for r in _rings(p.part.contours, p.contours())], size, box)
     mb = fill([r for p in b for r in _rings(p.part.contours, p.contours())], size, box)
@@ -4336,7 +4351,7 @@ def _facing(a: list[Placed], b: list[Placed], axis: int, size: int = 250) -> flo
         ra, rb = np.nonzero(ma[:, line])[0], np.nonzero(mb[:, line])[0]
         if len(ra) and len(rb):
             gaps.append(rb.min() - ra.max())
-    return float(np.median(gaps)) * EM / size if len(gaps) >= 5 else None
+    return np.array(gaps, dtype=float) * EM / size if len(gaps) >= 5 else None
 
 
 # ------------------------------------------------------------------ output
