@@ -126,42 +126,60 @@ function measure(d) {
       // A wiggle is a short run that turns one way and back: over 48 units it turns far
       // more in all than it ends up turned. A corner or a stroke's end turns one way only.
       const span = 8
-      for (let i = 0; i < turns.length; i++) {
+      // Every window of the ring is tried, and windows that hit within a span of each other
+      // are one wiggle, so the count does not depend on where the ring starts.
+      const n = turns.length
+      if (n < 2 * span) continue
+      const hit = turns.map((_, i) => {
         let net = 0,
           gross = 0
         for (let k = 0; k < span; k++) {
-          const angle = turns[(i + k) % turns.length]
-          net += angle
-          gross += Math.abs(angle)
+          net += turns[(i + k) % n]
+          gross += Math.abs(turns[(i + k) % n])
         }
-        if (gross - Math.abs(net) > 1.2) {
-          wiggles.push(walked[(i + span / 2) % walked.length])
-          i += span - 1
-        }
-      }
+        return gross - Math.abs(net) > 1.2
+      })
+      const near = hit.map((_, i) => {
+        for (let k = 0; k < span; k++) if (hit[(i - k + n) % n]) return true
+        return false
+      })
+      const starts = near.flatMap((on, i) => (on && !near[(i - 1 + n) % n] ? [i] : []))
+      if (!starts.length && near[0]) starts.push(0)
+      for (const i of starts) wiggles.push(walked[(i + span / 2) % n])
     }
   return { islands: polygons.length, counters, ink, turning, wiggles }
 }
 
 const outside = (/** @type {number} */ v, /** @type {number} */ a, /** @type {number} */ b) =>
   Math.max(0, Math.min(a, b) - v, v - Math.max(a, b))
-const pathOf = (/** @type {any} */ drawing) => drawing.d + (drawing.cut ?? '')
+const pathOf = (/** @type {any} */ drawing) => drawing.d
 const turn = 2 * Math.PI
 
 /** @type {{ sequence: string, a: string, b: string, share: number, score: number, bumps: number, lost: number, islands: number, counters: number, ink: number, d: string, marks: number[][] }[]} */
 const rows = []
 /** @type {Map<string, ReturnType<typeof measure>>} */
 const faces = new Map()
+/** Sequences left out. @type {Set<string>} */
+const skipped = new Set()
 for (const sequence of sequences)
   for (const [i, a] of FONT_STYLES.entries())
     for (const b of FONT_STYLES.slice(i + 1)) {
       const pair = [a, b].map((style) => drawings[style]?.[sequence])
       if (pair.some((entry) => !entry)) continue
+      // A subtraction mask takes ink away; these measures only add outlines up.
+      if (pair.some((entry) => entry.drawing.cut)) {
+        skipped.add(sequence)
+        continue
+      }
       const [ma, mb] = [a, b].map((style, k) => {
         const key = `${style} ${sequence}`
         if (!faces.has(key)) faces.set(key, measure(pathOf(pair[k].drawing)))
         return /** @type {ReturnType<typeof measure>} */ (faces.get(key))
       })
+      if (!ma.ink || !mb.ink) {
+        skipped.add(sequence)
+        continue
+      }
       for (const share of shares) {
         const active = activeFaces({ shares: { [a]: 1 - share, [b]: share }, weight: 1 })
         const used = active.map((/** @type {{ style: string }} */ face) => drawings[face.style][sequence])
@@ -204,6 +222,7 @@ const total = rows.reduce((sum, row) => sum + row.score, 0)
 console.log(
   `${rows.length} mixes, total score ${total.toFixed(1)}, ${rows.filter((row) => row.score >= 1).length} at 1 or more`
 )
+if (skipped.size) console.log(`left out (subtraction mask or an empty face): ${[...skipped].join(' ')}`)
 console.log('score  bumps  lost  isl  ctr   ink   share  mix')
 for (const row of worst.slice(0, top))
   console.log(
