@@ -203,6 +203,15 @@ export declare class Composer {
         origin: any;
     };
     /** A stroke chain (`#(-𠃌㇉)`) joined from the face's own strokes, or null for anything else. */
+    chainStroke(ch: any): any;
+    recordedParts(node: any, region: any, key: any): {
+        part: any;
+        source: any;
+        target: any;
+        weight: number[];
+        native: any;
+        origin: any;
+    }[] | null;
     chain(node: any): any;
     chainParts(node: any, region: any, atRoot?: boolean): any;
     /** A chain holding a part, or such an enclosure holding another (岛 as ⿹⿴#(-𠃌㇉)丶山): each inner

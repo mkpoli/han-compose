@@ -41,8 +41,8 @@ export declare function solveChain(text: string): {
         find: (i: number) => number;
         join: (a: number, b: number) => void;
     };
-    x: Map<number, number>;
-    y: Map<number, number>;
+    x: Map<any, any>;
+    y: Map<any, any>;
     broken: number;
 } | null;
 /**
