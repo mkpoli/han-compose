@@ -1202,6 +1202,22 @@ def _names_stroke(node: Node) -> bool:
     return any(_names_stroke(n) for n in node[1:])
 
 
+#: Least characters holding an enclosing part whose enclosed parts tell its room (`_enclosed_room`).
+ROOM_HOSTS = 3
+
+
+def _moved_into(box: Box, room: Box) -> Box:
+    """`box` moved the least way that brings it inside `room`, shrunk about its centre in its own
+    proportions first where it is wider or taller than the room."""
+    width, height = box[2] - box[0], box[3] - box[1]
+    scale = min(1.0, (room[2] - room[0]) / max(width, 1e-9), (room[3] - room[1]) / max(height, 1e-9))
+    cx, cy = (box[0] + box[2]) / 2, (box[1] + box[3]) / 2
+    width, height = width * scale, height * scale
+    x0 = min(max(cx - width / 2, room[0]), room[2] - width)
+    y0 = min(max(cy - height / 2, room[1]), room[3] - height)
+    return (x0, y0, x0 + width, y0 + height)
+
+
 #: The least extent a part's scale is measured over: a lone stroke's width says little of its scale.
 EVEN_LEAST = 60.0
 
@@ -3416,6 +3432,64 @@ class Composer:
         _fit_under_cover(op, children, groups)
         return [p for group in groups for p in group]
 
+    def _enclosed_room(self, op: str, outer: Node, placed: list[Placed]) -> Box | None:
+        """The room the characters written `op` round `outer` give what they enclose, carried onto
+        `outer` as placed: the lower quartile of their enclosed parts' left and foot and the upper
+        quartile of their right and head, as shares of the enclosing part's own box. None with fewer than `ROOM_HOSTS` such characters cut
+        cleanly."""
+        share = self._enclosed_share(op, key(outer))
+        if share is None:
+            return None
+        around = (min(p.target[0] for p in placed), min(p.target[1] for p in placed),
+                  max(p.target[2] for p in placed), max(p.target[3] for p in placed))
+        return mapped(share, (0.0, 0.0, 1.0, 1.0), around)
+
+    def _enclosed_share(self, op: str, outer: str) -> Box | None:
+        found = self._enclosed_shares.get((op, outer), False)
+        if found is not False and not self.exclude:
+            return found
+        rooms = []
+        for char in self._written_round.get((op, outer), ()):
+            if char in self.exclude or not self.font.own(char) or self.wrong_cut(char):
+                continue
+            try:
+                host = self._host_node(char, parse(self.sequences[char]), ())
+            except (ValueError, LookupError):
+                continue
+            if host is None or len(host.pieces) != 2:
+                continue
+            around, held = host.pieces[0].box, host.pieces[1].box
+            width, height = around[2] - around[0], around[3] - around[1]
+            if width > 0 and height > 0:
+                rooms.append(((held[0] - around[0]) / width, (held[1] - around[1]) / height,
+                              (held[2] - around[0]) / width, (held[3] - around[1]) / height))
+        share = None
+        if len(rooms) >= ROOM_HOSTS:
+            # The outer quartile of each edge: one character's stray stroke (勿's 丿 past 勹's foot)
+            # widens no room, and the room is no smaller than most of these characters use.
+            share = tuple(float(np.percentile([r[k] for r in rooms], 25 if k < 2 else 75)) for k in range(4))
+        if not self.exclude:
+            self._enclosed_shares[(op, outer)] = share
+        return share
+
+    @cached_property
+    def _enclosed_shares(self) -> dict[tuple[str, str], Box | None]:
+        return {}
+
+    @cached_property
+    def _written_round(self) -> dict[tuple[str, str], list[str]]:
+        """(enclosing operator, enclosing part) → the characters whose sequence is written so."""
+        out: dict[tuple[str, str], list[str]] = {}
+        for char, sequence in self.sequences.items():
+            if sequence[:1] in ENCLOSE:
+                try:
+                    tree = parse(sequence)
+                except (ValueError, StopIteration):
+                    continue
+                if isinstance(tree, tuple) and len(tree) == 3:
+                    out.setdefault((tree[0], key(tree[1])), []).append(char)
+        return out
+
     def _learned_boxes(self, op: str, keys: list[str], region: Box | None) -> list[Box] | None:
         """The boxes the learned layout gives a node's two operands (`_learned`), carried into
         `region` when nested; None when one has no extent."""
@@ -3471,6 +3545,14 @@ class Composer:
                 part = None
             if part is None:
                 if op in ENCLOSE and i == 1:
+                    room = None
+                    if outer_hosted:
+                        # The network places a part it never saw enclosed by guess (龍 hanging out
+                        # of 勹's foot): it stays in the room this enclosing part's own characters
+                        # give what they enclose.
+                        room = self._enclosed_room(op, children[0], groups[0])
+                        if room is not None:
+                            box = _moved_into(box, room)
                     # Drawn into its learned box, then kept clear of the enclosing strokes (面
                     # beside 麦's sweep in 麺), growing up to the opening where that is larger
                     # (目 fills the room under 龵 in 看).
@@ -3478,6 +3560,9 @@ class Composer:
                     opening = self._room(op, groups[0], region or self.face)
                     # The opening already includes stroke clearance from _room.
                     limit = box if opening is None or _area(opening) <= _area(box) else opening
+                    if outer_hosted and room is not None:
+                        # The opening reaches wherever no stroke lies; the part stays in its room.
+                        limit = box
                     feasible = _fit_inside(groups[0], groups[1], region or self.face, self.font.stem[0][0], room=limit)
                     inner_fitted = (feasible and region is None and outer_hosted and self.reuse and self.standalone is not None
                                     and isinstance(child, str) and child not in self.exclude and len(groups[1]) == 1
