@@ -347,6 +347,7 @@ def test_fangsong_keeps_its_hosts_in_zhuque_and_takes_the_rest_from_jigmo() -> N
 def test_woodblock_reads_nom_na_tong_and_no_other_font() -> None:
     style = compose.STYLES["woodblock"]
     assert style.heavy == 400 and style.weighted and style.own_hosts and not style.kindred
+    assert style.part_stems is not None and all(0 < power < 1 for power in style.part_stems)
     assert style.fallbacks == ()
     assert style.font.licence == compose.MIT and style.font.member is None
     assert compose_layout.layout_file("woodblock") == "compose-layout-v4-woodblock.npz"
@@ -419,3 +420,21 @@ def test_a_static_faces_heavy_master_is_wider_whichever_way_it_is_wound(style: s
         contour = max(font.glyph(char).contours, key=lambda c: np.ptp(c.light, axis=0).prod())
         light, heavy = contour.light, np.asarray(contour.heavy)
         assert (heavy.min(axis=0) < light.min(axis=0)).all() and (heavy.max(axis=0) > light.max(axis=0)).all()
+
+
+def test_a_part_weighted_by_scale_takes_the_stem_its_scale_calls_for() -> None:
+    from types import SimpleNamespace
+
+    points = np.array([[0, 0], [0, 800], [800, 800], [800, 0]], dtype=float)
+    square = compose.Part([compose.Contour([("moveTo", 1, False)] + [("lineTo", 1, False)] * 3, points, points.copy())])
+    style = SimpleNamespace(part_stems=(0.25, 0.5), weighted=True)
+    font = SimpleNamespace(style=style, stem=((60.0, 100.0), (30.0, 50.0)), glyph=lambda _: None, has=lambda _: False,
+                           width=lambda density, axis: 1.0)
+    composer = compose.Composer(font, {}, weighted=True)
+    composer.ink = lambda *_: 1.0
+    whole = compose.Placed(square, square.box, square.box)
+    half = compose.Placed(square, square.box, (0.0, 0.0, 400.0, 400.0))
+    composer._balance([whole, half])
+    ratio = (100 / 60 - 1, 50 / 30 - 1)
+    assert whole.weight == (0.0, 0.0)
+    assert half.weight == pytest.approx(((0.5 ** -0.75 - 1) / ratio[0], (0.5 ** -0.5 - 1) / ratio[1]))

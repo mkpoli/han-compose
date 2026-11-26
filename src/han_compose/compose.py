@@ -109,6 +109,10 @@ class Style:
     own_hosts: bool = False
     #: How far up the style's glyphs move to meet the composer's em, in 1000-unit units.
     y_shift: float = 0.0
+    #: For a static face whose parts are weighted: the powers (across x, across y) of a part's scale
+    #: its stroke width follows in the font's own characters, measured by `calibrate-parts`. A part
+    #: drawn at 0.5 of its glyph keeps 0.5 ** k of its stem. None weights by density (`stem_curve`).
+    part_stems: tuple[float, float] | None = None
 
 
 OFL = "SIL OFL 1.1"
@@ -184,9 +188,12 @@ STYLES = {
         ((65.09, -1.129), (28.14, -0.417)),
         heavy=400,
         kindred=False,
-        # A cut Song face, not a brush: a part drawn small inside another keeps the stems of the
-        # parts around it, grown from the one weight the font has (`STATIC_GROW`).
         own_hosts=True,
+        # A cut Song face, not a brush: a part drawn smaller than its glyph is grown from the one
+        # weight the font has (`STATIC_GROW`) to the stem the font gives such a part. Measured on
+        # 1,983 parts of its own characters against their glyphs (`calibrate-parts`): a part at
+        # half size keeps 84% of its verticals and 89% of its horizontals.
+        part_stems=(0.259, 0.171),
         # Its full ideographs span -151 to 848 of the em, Noto Serif's -78 to 837: the lift centres
         # them where Noto Serif's stand. They fill the em's whole height, so a stroke at the top
         # or the foot can pass its edge by a few units.
@@ -3189,6 +3196,7 @@ class Composer:
         narrow box may grow past the heavy master, up to `WEIGHT_GROWTH`."""
         density = sum(self.ink("", p.part) * (p.scale[0] + p.scale[1]) / 2 for p in placed)
         ratio = [self.font.stem[axis][1] / self.font.stem[axis][0] - 1 for axis in (0, 1)]
+        powers = getattr(getattr(self.font, "style", None), "part_stems", None)
         for p in placed:
             if p.fixed:
                 continue
@@ -3196,11 +3204,19 @@ class Composer:
             for axis, s in enumerate(p.scale):
                 extent = p.source[axis + 2] - p.source[axis]
                 if extent <= 2 * self.font.stem[axis][0]:
-                    # A lone stroke across this axis: drawn at the width the density calls for, not scaled.
-                    width = extent * self.font.width(density, axis) / self.font.width(p.native, axis)
+                    # A lone stroke across this axis: drawn at the width the density calls for, not
+                    # scaled; in a face weighted by scale, at the width its length's scale calls for.
+                    if powers is not None:
+                        width = extent * max(p.scale[1 - axis], 1e-6) ** powers[axis]
+                    else:
+                        width = extent * self.font.width(density, axis) / self.font.width(p.native, axis)
                     middle = (target[axis] + target[axis + 2]) / 2
                     target[axis], target[axis + 2] = middle - width / 2, middle + width / 2
                     weight.append(0.0)
+                    continue
+                if powers is not None:
+                    # The stem the font gives a part at this scale, over the stem plain scaling leaves.
+                    weight.append(float(np.clip((max(s, 1e-6) ** (powers[axis] - 1) - 1) / ratio[axis], -0.6, WEIGHT_GROWTH)))
                     continue
                 measured = p.part.contours[0].width
                 own = measured[axis] if measured is not None else self.font.width(p.native, axis)

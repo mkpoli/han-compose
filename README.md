@@ -5,7 +5,7 @@ han-compose draws a Han character from its ideographic description sequence (IDS
 regional form the font does not draw. Each part comes from a character the font already draws,
 cut out of it (along KanjiVG's component groups where KanjiVG has that kanji), set where the
 font's designers put parts like it. The sans and serif styles then bring the parts to one stroke weight;
-woodblock grows each part's strokes from its one weight to do the same; fangsong, regular and pen-writing keep the weight each part has in its font. The result is an SVG path in
+woodblock gives a part drawn smaller than its glyph the stem its font gives such a part; fangsong, regular and pen-writing keep the weight each part has in its font. The result is an SVG path in
 a 1000-unit em, in a sans style from Noto Sans CJK JP, whose ideographs GenZui Sans takes unchanged;
 a serif (明朝) style from Noto Serif CJK JP; a woodblock (刻本明體) style from Nôm Na Tống alone; a fangsong (仿宋) style from Zhuque Fangsong; a regular
 (正楷) style from TW-Kai, the CNS 11643 Kai, whose Extension B and G faces draw what its BMP face
@@ -59,8 +59,8 @@ Every command takes `--style sans` (the default), `--style serif`, `--style wood
 `--style regular` or `--style pen-writing`. Each style has its own fonts and models: a style's model is cached as
 `<name>-<style><ext>` beside the sans one, and `learn --style regular` and `learn-alone --style regular`
 build it. TW-Kai, Kureedo and Zhuque Fangsong are static brush faces, so their styles keep the source
-stroke weights instead of balancing them. Nôm Na Tống is static too; its strokes are balanced by
-growing its one weight.
+stroke weights instead of balancing them. Nôm Na Tống is static too; a part drawn smaller
+than its glyph is grown from its one weight by the law `calibrate-parts` measures on the font.
 
 `bench` redraws characters from their own sequences with nothing taken from them, and scores each
 against the font's real glyph: the overlap of their ink (intersection over union, at 96 px), the same
@@ -212,7 +212,7 @@ uv run ruff check
 | `src/han_compose/vocab.py` | the vocab tables and the cache |
 | `src/han_compose/variants.py` | a character's regional designs, variation sequences and compatibility ideographs |
 | `src/han_compose/web_export.py` | the layout and drawing data for the browser engine |
-| `scripts/compose_ids.py` | `draw`, `draw-many`, `variants`, `bench`, `calibrate`, `learn`, `learn-alone`, `export-web`, `export-web-pack` |
+| `scripts/compose_ids.py` | `draw`, `draw-many`, `variants`, `bench`, `calibrate`, `calibrate-parts`, `learn`, `learn-alone`, `export-web`, `export-web-pack` |
 | `tests/` | tests over cutting, layout, drawn output and the web export |
 | `js/` | `han-compose`, the same composer in the browser, with its own tests |
 | `data/` | the vocab tables, and the outlines the engine draws a part from when no export has it |
