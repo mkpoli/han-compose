@@ -38,9 +38,8 @@ committed.
 - **Nôm Na Tống 5.20** (Nôm Na Group, Vietnamese Nôm Preservation Foundation; copyright line
   "© 2011–2026 The Vietnamese Nom Preservation Foundation — Nom Na Group", **MIT License**), static,
   read at its one weight. Its source repository's licence file reads "Copyright (c) 2019
-  nomfoundation"; the export's `MIT.txt` carries both lines.
-- **Jigmo** (CC0 1.0), static. It draws the ideographs Nôm Na Tống lacks; its strokes keep their own
-  weight.
+  nomfoundation"; the export's `MIT.txt` carries both lines. No other font
+  fills in what it lacks.
 
 `fangsong`:
 
@@ -155,7 +154,7 @@ ships the licence texts beside it.
   contour indices (`c.k`), is outline data of the style's fonts. A `sans` export's are Noto Sans CJK
   JP's (© 2014-2021 Adobe (http://www.adobe.com/), with Reserved Font Name 'Source') or Plangothic P1
   and P2's (Copyright (c) 2024 by Fitzgerald P. Köeingsegg; no Reserved Font Name), under the
-  **SIL OFL 1.1**. A `regular` export's are TW-Kai's, under the **Open Government Data License 1.0**, whose full text is `OGL.txt`. A `pen-writing` export's are Kureedo Full's and GenZui Sans's, under the **SIL OFL 1.1**. A `fangsong` export's are Zhuque Fangsong's, under the **SIL OFL 1.1**, or Jigmo's, under **CC0 1.0**. A `woodblock` export's are Nôm Na Tống's, under the **MIT License**, whose full text is `MIT.txt`, or Jigmo's, under **CC0 1.0**. A `serif` export's are Noto Serif CJK JP's (© 2017-2024 Adobe (http://www.adobe.com/); no
+  **SIL OFL 1.1**. A `regular` export's are TW-Kai's, under the **Open Government Data License 1.0**, whose full text is `OGL.txt`. A `pen-writing` export's are Kureedo Full's and GenZui Sans's, under the **SIL OFL 1.1**. A `fangsong` export's are Zhuque Fangsong's, under the **SIL OFL 1.1**, or Jigmo's, under **CC0 1.0**. A `woodblock` export's are Nôm Na Tống's, under the **MIT License**, whose full text is `MIT.txt`. A `serif` export's are Noto Serif CJK JP's (© 2017-2024 Adobe (http://www.adobe.com/); no
   Reserved Font Name), under the **SIL OFL 1.1**, or Jigmo's, under **CC0 1.0**. `OFL.txt` holds the
   OFL's full text after each OFL font's copyright line, read from the font's `name` table (the text
   is `data/licences/OFL-1.1.txt`, as Noto CJK ships it); a serif export also ships `CC0.txt`

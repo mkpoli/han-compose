@@ -7,11 +7,11 @@ cut out of it (along KanjiVG's component groups where KanjiVG has that kanji), s
 font's designers put parts like it. The sans and serif styles then bring the parts to one stroke weight;
 woodblock, fangsong, regular and pen-writing keep the weight each part has in its font. The result is an SVG path in
 a 1000-unit em, in a sans style from Noto Sans CJK JP, whose ideographs GenZui Sans takes unchanged;
-a serif (明朝) style from Noto Serif CJK JP; a woodblock (刻本明體) style from Nôm Na Tống; a fangsong (仿宋) style from Zhuque Fangsong; a regular
+a serif (明朝) style from Noto Serif CJK JP; a woodblock (刻本明體) style from Nôm Na Tống alone; a fangsong (仿宋) style from Zhuque Fangsong; a regular
 (正楷) style from TW-Kai, the CNS 11643 Kai, whose Extension B and G faces draw what its BMP face
 lacks; or a pen-writing (文楷) style from Kureedo Full, the Klee One design with historical kana and
 LXGW WenKai Light for the characters Klee lacks. Plangothic supplies the sans parts Noto lacks, Jigmo
-the serif ones and the ideographs Nôm Na Tống and Zhuque lack, and GenZui Sans the characters Kureedo Full lacks.
+the serif ones and the ideographs Zhuque lacks, and GenZui Sans the characters Kureedo Full lacks.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/composed-dark.png">
@@ -236,5 +236,5 @@ the same notices for the data it writes.
 reusable strokes and components. Their work is a predecessor to character composition here. The
 serif style also uses [Jigmo](https://kamichikoichi.github.io/jigmo/), generated with KAGE from
 GlyphWiki glyph data and released under CC0 1.0, for parts Noto Serif CJK does not draw; the fangsong
-and woodblock styles use it the same way for ideographs [Zhuque Fangsong](https://github.com/TrionesType/zhuque)
-and [Nôm Na Tống](https://github.com/nomfoundation/font) do not draw.
+style uses it the same way for ideographs [Zhuque Fangsong](https://github.com/TrionesType/zhuque)
+does not draw. The woodblock style reads [Nôm Na Tống](https://github.com/nomfoundation/font) and no other font.

@@ -5,8 +5,7 @@ which in turn draws them as Noto Sans CJK JP does. The composer reads Noto Sans 
 font that draws 30,289 ideographs to Noto Sans JP's 13,742 with the same outlines, so each outline is
 known at weight 400 and at the style's heavy weight with the same points. `serif` reads Noto Serif
 CJK JP, the variable Source Han Serif, the same way. `woodblock` reads Nôm Na Tống, a Song face in
-the manner of woodblock-printed books, at one static weight, with Jigmo drawing the ideographs it
-lacks. `regular` reads TW-Kai, the CNS 11643 Kai, at
+the manner of woodblock-printed books, at one static weight, and draws nothing that font lacks. `regular` reads TW-Kai, the CNS 11643 Kai, at
 one static weight, with its Extension B and G faces drawing what the BMP face lacks. `pen-writing`
 reads Kureedo, the Klee One design extended with historical kana, at one static weight, with GenZui
 Sans drawing characters Kureedo lacks. `fangsong` reads Zhuque Fangsong the same way, with Jigmo
@@ -173,15 +172,15 @@ STYLES = {
         kindred=False,
     ),
     # Nôm Na Tống 5.20 (Nôm Na Group, Vietnamese Nôm Preservation Foundation): a static Song face cut
-    # after woodblock printing, the reference font for Hán-Nôm encoding. Jigmo draws the ideographs it
-    # lacks, in the nearest pinned design.
+    # after woodblock printing, the reference font for Hán-Nôm encoding. No other font fills in
+    # what it lacks.
     "woodblock": Style(
         "woodblock",
         Source("NomNaTong-Regular-5.20.ttf",
                "https://github.com/nomfoundation/font/releases/download/v5.20/NomNaTong-Regular.ttf",
                "67a1a68a85566275bbbf72b3501714bbe24628e74f1762ea812a5bd3a8d606e1", MIT,
                also="Its source repository's licence file: Copyright (c) 2019 nomfoundation (https://github.com/nomfoundation/font)"),
-        _JIGMO,
+        (),
         # Fitted on 1,500 of its ideographs (`calibrate`).
         ((60.57, -0.093), (26.94, -0.393)),
         heavy=400,

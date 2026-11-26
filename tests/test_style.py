@@ -344,10 +344,10 @@ def test_fangsong_keeps_its_hosts_in_zhuque_and_takes_the_rest_from_jigmo() -> N
     assert "Alegreya Project Authors" in style.font.also
 
 
-def test_woodblock_keeps_its_hosts_in_nom_na_tong_and_takes_the_rest_from_jigmo() -> None:
+def test_woodblock_reads_nom_na_tong_and_no_other_font() -> None:
     style = compose.STYLES["woodblock"]
     assert style.heavy == 400 and style.weighted is False and style.own_hosts and not style.kindred
-    assert style.fallbacks == compose.STYLES["serif"].fallbacks
+    assert style.fallbacks == ()
     assert style.font.licence == compose.MIT and style.font.member is None
     assert compose_layout.layout_file("woodblock") == "compose-layout-v4-woodblock.npz"
     assert "woodblock" in web_export.OUTLINE_NOTES
@@ -361,6 +361,7 @@ def test_woodblock_lifts_its_full_ideographs_into_the_em() -> None:
     box = font.glyph("國").box
     assert -compose.EM + compose.ASCENT <= box[1] and box[3] <= compose.ASCENT
     assert font.has("𡨸") and font.own("喃")
+    assert not font.fallbacks and not font.has("\U00031350")
 
 
 def test_regular_reads_tw_kai_and_its_extension_faces() -> None:
