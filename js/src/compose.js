@@ -3,6 +3,7 @@ import fangsongZhi from './fangsong-zhi.json' with { type: 'json' }
 import haNine from './ha-nine.json' with { type: 'json' }
 import { yiCrossDonor, yiCrossParts } from './yi-cross.js'
 import { isQiFamily, qiFamilyDonors, qiFamilyParts } from './qi-family.js'
+import { usesYuan, yuanParts, yuanReference } from './yuan-pyramid.js'
 import { ghostParts, usesGhostForm } from './ghost-form.js'
 import diamondSyllable from './diamond-syllable.json' with { type: 'json' }
 import { grassShape } from './variants.js'
@@ -806,6 +807,15 @@ export const designedSources = (tree, style = 'sans') => {
       bird.forEach(char => out.add(char))
       return
     }
+    if (usesYuan(keyOf(node), style)) {
+      if (style === 'sans' || style === 'regular') {
+        out.add('𤿁')
+        if (keyOf(node).startsWith('⿸厂')) out.add(yuanReference)
+      } else {
+        out.add('原')
+        if (keyOf(node).endsWith('𤿁')) out.add('𤿁')
+      }
+    }
     if (!Array.isArray(node)) return
     const [op, ...children] = node
     if (isThornRow(node)) {
@@ -1447,6 +1457,14 @@ export class Composer {
       out.push(...parts)
     }
     const walk = (node, box, depth) => {
+      const yuan = this.yuanParts(node, target(box))
+      if (yuan) {
+        for (const part of yuan) {
+          if (leafIndices) part.leaf = leaf++
+          out.push(part)
+        }
+        return
+      }
       if (isEmpty(node)) {
         const part = this.placeholder(node, inset(target(box)))
         if (leafIndices) part.leaf = leaf++
@@ -1600,6 +1618,11 @@ export class Composer {
     if (partitioned) return partitioned
     const out = []
     const walk = (node, region, atRoot) => {
+      const yuan = this.yuanParts(node, region)
+      if (yuan) {
+        for (const part of yuan) out.push({ index: out.length, box: part.target, empty: false })
+        return
+      }
       const pyramid = this.pyramid(node)
       if (pyramid) {
         // One box per leaf of the repeated cell, in the cell the pyramid gives it.
@@ -2064,6 +2087,19 @@ export class Composer {
     return parts
   }
 
+  /** Preserve the weight of the encoded pyramid when extracting its six editable leaves. */
+  yuanParts(node, region) {
+    if (!usesYuan(keyOf(node), this.fontStyle)) return null
+    return yuanParts(this, keyOf(node), region, sequence => {
+      try {
+        return new Composer(this.data, { fontStyle: this.fontStyle, exclude: this.exclude, face: this.face }).compose(sequence)
+      } catch (error) {
+        if (error instanceof LookupError) return null
+        throw error
+      }
+    })
+  }
+
   /** The six vessel variants share the native drawing inside each ordinary stack’s ink bounds. */
   qiParts(node, region) {
     if (this.readingQiReference || !isQiFamily(node) || node.slice(1).some(ch => this.excluded(ch)) ||
@@ -2081,6 +2117,8 @@ export class Composer {
   }
 
   drawNode(node, region, atRoot = false, sideBySide = false) {
+    const yuan = this.yuanParts(node, region)
+    if (yuan) return yuan
     if (Array.isArray(node) && node[0] === '⿱') {
       const syllable = this.diamondSyllable(node, region)
       if (syllable) return syllable
