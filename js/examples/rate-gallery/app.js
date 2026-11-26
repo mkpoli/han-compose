@@ -15,6 +15,9 @@ const faces = {
   'pen-writing': { label: '文楷', font: 'Kureedo', originals: pen }
 }
 const sources = [
+  ['许可', '字体版权与许可', './licences/NOTICE.txt'],
+  ['许可', 'Plangothic P1／P2', './licences/OFL-Plangothic.txt'],
+  ['许可', '政府資料開放授權條款', './licences/OGL-1.0.txt'],
   ['字形区分', 'IRG UCV 30', 'https://www.unicode.org/irg/docs/n2978-Complete.pdf'],
   ['异体序列', 'Unicode IVD 2025-07-14', 'https://www.unicode.org/ivd/data/2025-07-14/IVD_Sequences.txt'],
   [
