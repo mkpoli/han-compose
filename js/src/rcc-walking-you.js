@@ -1,5 +1,4 @@
 import { cutContours, derived, mapped, partInk, partOf, placed, segments } from './geometry.js'
-import { reconnectStroke } from './stroke-donors.js'
 import { hexOf } from './sha256.js'
 
 // The five glyphs in RCC sighting 2875 show the sweep crossing the last
@@ -17,139 +16,98 @@ const cuts = {
   'pen-writing': [['廸', 'ef14dfc19db2f5da28a37af260d11ed1a975a5253f58219b5f8878c0523cd00e', [1], [0, 2, 3, 4, 5]]],
 }
 
-// Sans and Serif join the sweep within the descending fold. In the native
-// enclosed 廴 the beginning of the sweep projects past that stem. The first two
-// indices bound the projection. The third marks the end of the contour.
-// Measurements use normalized y downward within each native component.
-/** @typedef {{junction: number[], tail: number, tilt: number, sweep: number[], bars: number[],
- * barTilt: number, wallTaper: number, soleWidth: number, soleAdjust: number}} Landmarks */
-/** @type {Record<string, Landmarks>} */
-const walkingLandmarks = {
-  regular: { junction: [56, 63, 75], tail: .903, tilt: .085,
-    sweep: [.65, .698, .767, .829, .882, .922, .919, .898, .875],
-    bars: [.39, .644, .903], barTilt: .10, wallTaper: .38, soleWidth: .63, soleAdjust: .001 },
-  fangsong: { junction: [8, 17, 65], tail: .979, tilt: .11,
-    sweep: [.68, .725, .773, .820, .866, .907, .939, .917, .900],
-    bars: [.396, .620, .876], barTilt: .07, wallTaper: .17, soleWidth: .68, soleAdjust: -.012 },
-  'pen-writing': { junction: [3, 13, 73], tail: 1, tilt: .05,
-    sweep: [.67, .715, .768, .814, .851, .882, .908, .927, .931],
-    bars: [.356, .606, .884], barTilt: .05, wallTaper: .30, soleWidth: .84, soleAdjust: -.013 },
+// Sighting 2875, sample 00Ad, has a short rising entry before the sweep
+// descends through the folded stroke. IPAmj draws that entry in MJ011106.
+// https://www.unicode.org/ivd/data/2022-09-13/IVD_Sequences.txt
+// Commands run around each verified native contour, passing the sweep,
+// the terminal, and the entry. Kureedo's contour runs in the other direction.
+/** @type {Record<string, { sweep: number[], terminal: number[], entry: number[], tip: number[], origin: number[], joint: number, tail: number, terminalTop: number }>} */
+const outline = {
+  regular: {
+    sweep: [35, 48], terminal: [38, 45], entry: [56, 63], tip: [57, 61],
+    origin: [.056, .595], joint: .66, tail: .903, terminalTop: .857,
+  },
+  fangsong: {
+    sweep: [53, 4], terminal: [58, 2], entry: [8, 17], tip: [10, 15],
+    origin: [.049, .639], joint: .695, tail: .979, terminalTop: .885,
+  },
+  'pen-writing': {
+    sweep: [21, 34], terminal: [25, 31], entry: [3, 13], tip: [5, 10],
+    origin: [.023, .652], joint: .675, tail: 1, terminalTop: .899,
+  },
 }
-
 const unit = [0, 0, 1, 1]
-// Fractions of the Sans/Serif ink bounds. 由 reaches the top and stays clear
-// of the sweeping foot. The enclosing fold almost reaches the same height.
-const slots = [[0, 0, 1, .989], [.365, .165, 1, 1]]
-// Baseline centers measured in the Sans and Serif renderings at tenths
-// of the ink width, from .2 through 1. The contact sits higher at the left.
-const baseline = [.715, .845, .909, .935, .944, .947, .947, .943, .936]
-const referenceBars = [0, .264, .57, .89, 1]
-/** @param {number} value */
-const clamp = value => Math.max(0, Math.min(1, value))
-/** @param {number} a @param {number} b @param {number} t */
-const blend = (a, b, t) => a + (b - a) * t
+const slots = [[0, 0, 1, .975], [.385, .20, .945, 1]]
 
-/** @param {number[]} values @param {number} column */
-function sample(values, column) {
-  const i = Math.floor(column)
-  if (i < 0) return values[0]
-  if (i >= values.length - 1) return values[values.length - 1]
-  return blend(values[i], values[i + 1], column - i)
-}
-
-/** @param {number} y @param {number[]} from @param {number[]} to */
-function registerLevels(y, from, to) {
-  let i = 0
-  while (i < from.length - 2 && y > from[i + 1]) i++
-  return blend(to[i], to[i + 1], (y - from[i]) / (from[i + 1] - from[i]))
-}
-
-// A quadratic restricted to [start, end] has control point B(start,end)
-// and endpoint B(end,end). These three pinned folds use lines and quadratics.
-/** @param {number[]} out @param {number[]} previous @param {number[][]} controls
- * @param {number} start @param {number} end */
-function addSection(out, previous, controls, start, end) {
-  const [first, last] = controls
-  if (!last) {
-    for (let i = 0; i < 2; i++) out.push(blend(previous[i], first[i], end))
-    return
-  }
-  for (const t of [start, end]) {
-    for (let i = 0; i < 2; i++) {
-      out.push(blend(blend(previous[i], first[i], t), blend(first[i], last[i], t), end))
-    }
-  }
-}
-
-// Both masters take the same exact subdivisions. A long straight side that
-// spans the elbow and the baseline then follows each local change of angle.
-/** @param {any} contour @param {number} width */
-function divideSweep(contour, width) {
-  const ops = []
-  /** @type {number[]} */
-  const light = []
-  /** @type {number[]} */
-  const heavy = []
-  const lightSegments = /** @type {[string, number[][]][]} */ (segments(contour.ops, contour.light))
-  const heavySegments = /** @type {[string, number[][]][]} */ (segments(contour.ops, contour.heavy))
-  let previousLight = [0, 0], previousHeavy = [0, 0]
-  for (const [i, [kind, pts]] of lightSegments.entries()) {
-    const heavyPts = heavySegments[i][1], end = pts[pts.length - 1]
-    const count = kind === 'M' ? 1 : Math.max(1, Math.ceil(Math.abs(end[0] - previousLight[0]) / width * 24))
-    for (let j = 0; j < count; j++) {
-      ops.push([kind, pts.length, false])
-      addSection(light, previousLight, pts, j / count, (j + 1) / count)
-      addSection(heavy, previousHeavy, heavyPts, j / count, (j + 1) / count)
-    }
-    previousLight = end
-    previousHeavy = heavyPts[heavyPts.length - 1]
-  }
-  return { ...contour, ops, light: Float64Array.from(light), heavy: Float64Array.from(heavy) }
-}
-
-/** @param {any} part @param {Landmarks} landmarks @param {number} leaf */
-function registerWalking(part, landmarks, leaf) {
-  const [left, bottom, right, top] = part.box
+/** @typedef {[string, number[][]]} Segment */
+/** @param {any} piece @param {string} style */
+function walkingFrame(piece, style) {
+  const contour = piece.contours[0], shape = outline[style], pen = style === 'pen-writing'
+  const [left, bottom, right, top] = piece.box
   const width = right - left, height = top - bottom
-  const [first, last, end] = landmarks.junction
-  const contours = leaf ? part.contours :
-    [divideSweep(reconnectStroke(part.contours, [[0, 0, first], [0, last, end]]), width)]
-  const nativeBars = [0, ...landmarks.bars, 1], nativeFold = [0, .4, .66, landmarks.tail]
-  const referenceFold = [.02, .405, .715, .992]
-  /** @param {Float64Array} points */
-  const register = points => {
-    const result = new Float64Array(points.length)
-    for (let i = 0; i < points.length; i += 2) {
-      const x = (points[i] - left) / width, y = (top - points[i + 1]) / height
-      let newX = x, newY
-      if (leaf) {
-        // Open the lower corners of the tapered body. Register all three
-        // bars on the same coordinate system so their counters stay open.
-        newX += (x - .5) * landmarks.wallTaper * Math.max(0, y - .42)
-        const level = y + landmarks.barTilt * (x - .7) * clamp(y / .25)
-        newY = registerLevels(level, nativeBars, referenceBars)
-      } else {
-        const lift = landmarks.tilt * (.8 - clamp(x / .27)) * clamp((.65 - y) / .18)
-        const foldY = registerLevels(y, nativeFold, referenceFold) - lift
-        const column = (x - .2) * 10
-        const seat = sample(baseline, column) + landmarks.soleAdjust * clamp((x - .30) / .12)
-        const sweepY = seat + (y - sample(landmarks.sweep, column)) * landmarks.soleWidth
-        // Both sides of the fused junction must meet the same downstroke.
-        newY = blend(foldY, sweepY, clamp((x - .18) / .10) * clamp((y - .47) / .17))
-      }
-      result[i] = left + newX * width
-      result[i + 1] = top - newY * height
-    }
-    return result
+  /** @param {number} x @param {number} y */
+  const at = (x, y) => [left + x * width, top - y * height]
+  /** @param {number[]} point */
+  const normalized = point => [(point[0] - left) / width, (top - point[1]) / height]
+  // Retain the angular top, extending the last fold down to the crossing.
+  /** @param {number[]} point */
+  const fold = point => {
+    const [x, y] = normalized(point)
+    if (y < .40) return point
+    return at(x, y < shape.joint
+      ? .40 + (y - .40) * .37 / (shape.joint - .40)
+      : .77 + (y - shape.joint) * .226 / (shape.tail - shape.joint))
   }
-  const shaped = derived(part, contours.map((/** @type {any} */ c) => ({
-    ...c, light: register(c.light), heavy: register(c.heavy),
-  })))
-  return { ...shaped, strokes: part.strokes }
+  // Rotate the donor's entry tip onto the left end of the rising flick.
+  /** @param {number[]} point */
+  const tip = point => {
+    const [x, y] = normalized(point), dx = x - shape.origin[0], dy = y - shape.origin[1]
+    return at(.037 + .63 * dx + .71 * dy, .668 - .80 * dx + .58 * dy)
+  }
+  // Set the brush release along the baseline at its native winding.
+  /** @param {number[]} point */
+  const finish = point => {
+    const [x, y] = normalized(point)
+    return at(1 - (1 - x) * (pen ? 1 : .72), .915 + (y - shape.terminalTop) * (pen ? .75 : .53))
+  }
+  /** @param {'light' | 'heavy'} master @returns {Segment[]} */
+  function draw(master) {
+    const path = /** @type {Segment[]} */ (segments(contour.ops, contour[master]))
+    /** @param {number} index */
+    const end = index => path[index][1][path[index][1].length - 1]
+    /** @param {number[]} run @param {(point: number[]) => number[]} transform @returns {Segment[]} */
+    const copy = ([first, last], transform) => {
+      const run = first <= last ? path.slice(first + 1, last + 1) : [...path.slice(first + 1), ...path.slice(1, last + 1)]
+      return run.map(([op, points]) => [op, points.map(transform)])
+    }
+    /** @param {number} join @param {number} terminal @param {boolean} lower @param {boolean} returning @returns {Segment[]} */
+    const edge = (join, terminal, lower, returning) => {
+      const root = fold(end(join)), stop = finish(end(terminal)), lane = lower ? .968 : .916
+      const [x] = normalized(root), [terminalX] = normalized(stop)
+      const bend = at(x + .07, lane - .019), ease = at(.43, lane), middle = at(.55, lane)
+      const settle = at((.55 + terminalX) / 2, lane)
+      return returning ? [['Q', [settle, middle]], ['C', [ease, bend, root]]]
+        : [['C', [bend, ease, middle]], ['Q', [settle, stop]]]
+    }
+    const [start, stop] = shape.sweep, [first, last] = shape.terminal, [from, to] = shape.entry
+    const [tipStart] = shape.tip, join = fold(end(to))
+    const tipIn = tip(end(tipStart)), nativeTip = copy(shape.tip, tip)
+    const rise = at(.129, .54), turn = at(.105, .596)
+    const hair = at(.087, .606), shoulder = at(.141, .671)
+    const brush = at(.077, .647), heel = at(.145, .718)
+    /** @type {Segment[]} */
+    const flick = pen
+      ? [['Q', [shoulder, rise]], ['Q', [hair, tipIn]], ...nativeTip, ['Q', [brush, turn]], ['Q', [heel, join]]]
+      : [['Q', [heel, turn]], ['Q', [brush, tipIn]], ...nativeTip, ['Q', [hair, rise]], ['Q', [shoulder, join]]]
+    return [['M', [fold(end(start))]], ...edge(start, first, pen, false), ...copy(shape.terminal, finish),
+      ...edge(stop, last, !pen, true), ...copy([stop, from], fold), ...flick, ...copy([to, start], fold)]
+  }
+  const light = draw('light'), heavy = draw('heavy')
+  const frame = { ...contour, ops: light.map(([op, points]) => [op, points.length, false]),
+    light: Float64Array.from(light.flatMap(([, points]) => points.flat())),
+    heavy: Float64Array.from(heavy.flatMap(([, points]) => points.flat())) }
+  return { ...derived(piece, [frame]), strokes: piece.strokes }
 }
-
-/** @type {WeakMap<object, any[]>} */
-const pieces = new WeakMap()
 
 /** @param {string} style */
 export const walkingYouDonors = style => Object.hasOwn(cuts, style) ? cuts[style].map(([char]) => char) : []
@@ -166,12 +124,8 @@ export function walkingYouParts(composer, region) {
     const glyph = partOf(record)
     for (const [rccLeaf, indices] of [outer, inner].entries()) {
       if (!indices.length) continue
-      let leaves = pieces.get(glyph)
-      if (!leaves) {
-        leaves = []
-        pieces.set(glyph, leaves)
-      }
-      const piece = leaves[rccLeaf] ??= registerWalking(cutContours(glyph, indices), walkingLandmarks[composer.fontStyle], rccLeaf)
+      const native = cutContours(glyph, indices)
+      const piece = rccLeaf ? native : walkingFrame(native, composer.fontStyle)
       const target = mapped(slots[rccLeaf], unit, region)
       const origin = (rccLeaf ? '由' : '#(㇋乀)') + ' from ' + char
       parts.push({ ...placed(piece, piece.box, target, partInk(piece), origin), rccLeaf, fixed: true })

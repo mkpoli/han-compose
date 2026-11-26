@@ -1,5 +1,5 @@
 import { expect, it } from 'bun:test'
-import { fill, groupRings, grown } from '../src/geometry.js'
+import { fill, groupRings, grown, partOf } from '../src/geometry.js'
 import { overlayContextDonors, overlayContextParts } from '../src/rcc-overlays.js'
 import records from './fixtures/rcc-walking-you.json' with { type: 'json' }
 
@@ -23,7 +23,7 @@ function bands(mask, x, size = 200) {
   return spans
 }
 
-it('seats the three brush outlines on the low baseline of the printed form', () => {
+it('draws the rising entry, low crossing and level sweep from the RCC specimen', () => {
   for (const style of Object.keys(records)) {
     expect(overlayContextDonors(key, style)).toEqual(Object.keys(records[style]))
     const parts = overlayContextParts(composer(style), key, em)
@@ -34,29 +34,34 @@ it('seats the three brush outlines on the low baseline of the printed form', () 
       expect(contours.every(i => Number.isInteger(i) && i >= 0 && i < part.contours.length)).toBe(true)
     }
     const [frame, inside] = parts.map(p => fill(groupRings([p], 24), 200, em))
-    // The sweep starts within the downstroke. The upper and lower folds,
-    // followed by a low tail, are the only ink to the left of that junction.
-    expect(bands(frame, 20).some(([top, bottom]) => top < 146 && bottom > 115)).toBe(false)
+    // The entry rises from the left, then descends across the last fold.
+    // At the crest the two sides of the bent stroke meet.
+    const entryAt = x => bands(frame, x).find(([top]) => top > 108 && top < 140)
+    const left = entryAt(8), rising = entryAt(18), crest = entryAt(25)
+    expect(left[0] - rising[0]).toBeGreaterThanOrEqual(6)
+    expect(rising[0] - crest[0]).toBeGreaterThanOrEqual(6)
+    expect(crest[1] - crest[0]).toBeGreaterThan(15)
     expect(bands(frame, 5).at(-1)[1]).toBeGreaterThanOrEqual(192)
-    // The entire underline has visible thickness. A line left straight
-    // between two mapped controls can fold over the opposite edge.
+
+    // Both edges settle below the counter by mid-width. The last few
+    // columns taper into the terminal of the donor brush.
     for (let x = 80; x <= 180; x++) {
       const [top, bottom] = bands(frame, x).at(-1)
       expect(bottom - top + 1).toBeGreaterThanOrEqual(6)
-      expect((top + bottom) / 2).toBeGreaterThan(176)
-      expect((top + bottom) / 2).toBeLessThan(193)
+      expect((top + bottom) / 2).toBeGreaterThan(177)
+      expect((top + bottom) / 2).toBeLessThan(194)
+      if (x > 110) expect(top).toBeGreaterThan(180)
     }
-    // The brush terminal can taper. It continues under 由 to the right edge.
-    for (let x = 181; x <= 196; x++) {
-      const terminal = bands(frame, x).at(-1)
-      expect(terminal).toBeDefined()
-      expect(terminal[0]).toBeGreaterThan(170)
-    }
-    const centers = bands(inside, 150).map(([top, bottom]) => (top + bottom) / 2)
-    expect(centers).toHaveLength(3)
-    // Sans and Serif place their three crossbar centers around 22%, 47% and 74%.
-    for (const [i, expected] of [43, 95, 148].entries()) expect(Math.abs(centers[i] - expected)).toBeLessThan(6)
-    expect(grown(frame, 200, 3).some((ink, i) => ink && inside[i])).toBe(false)
+    for (let x = 181; x <= 196; x++) expect(bands(frame, x).at(-1)[0]).toBeGreaterThan(178)
+
+    // The complete 由 stays in its native hand, including its counters.
+    const innerDonor = style === 'fangsong' ? '迪' : '廸'
+    const nativeContours = partOf(records[style][innerDonor]).contours
+    for (const contour of parts[1].part.contours) expect(nativeContours).toContain(contour)
+    expect(bands(inside, 150)).toHaveLength(3)
+    expect(bands(inside, 192)).toHaveLength(0)
+    const [smallFrame, smallInside] = parts.map(p => fill(groupRings([p], 24), 32, em))
+    expect(grown(smallFrame, 32, 1).some((ink, i) => ink && smallInside[i])).toBe(false)
     expect(overlayContextParts({...composer(style), separate: true}, key, em)).toEqual(parts)
     for (const ch of [key, '#(㇋乀)', '㇋', '乀', '由', ...Object.keys(records[style])]) {
       expect(overlayContextParts(composer(style, [ch]), key, em)).toBeNull()
