@@ -841,20 +841,31 @@ function cutRing(ring, targets, within, cap, clear = []) {
         if (dx > 56 || dx < -56 || dy > 56 || dy < -56) continue
         const width = Math.hypot(dx, dy)
         if (width > 56) continue
-        // Points i..j-1 on one side, the rest on the other; the share of a target left
-        // on the wrong side counts against the chord.
+        // Points i..j-1 on one side, the rest on the other; penalize both a target
+        // losing points across the cut (recall) and a piece absorbing points from
+        // another target (contamination), so a small stroke cannot steal half a bar.
         let stray = 0,
           here = 0,
-          there = 0
+          there = 0,
+          wrongInner = 0,
+          wrongOuter = 0
         for (const sums of before) {
           const inner = sums[j] - sums[i],
             outer = sums[size] - inner
           stray = Math.max(stray, Math.min(inner, outer) / sums[size])
-          if (inner > outer) here++
-          else there++
+          if (inner > outer) {
+            here++
+            wrongOuter += outer
+          } else {
+            there++
+            wrongInner += inner
+          }
         }
         if (!here || !there || stray > 0.3) continue
-        chords.push({ i, j, width, cost: width * (1 + 2 * stray) + 30 * stray })
+        // Only penalize substantial piece contamination (>15%) so small boundary noise
+        // does not tilt a clean horizontal cut, while a tiny stroke cannot steal half a bar.
+        const contam = Math.max(0, Math.max(wrongInner / (j - i), wrongOuter / (size - (j - i))) - 0.15)
+        chords.push({ i, j, width, cost: width * (1 + 2 * (stray + contam)) + 30 * (stray + contam) })
       }
     chords.sort((a, b) => a.cost - b.cost)
     const chord = chords.find(({ i, j }) => {

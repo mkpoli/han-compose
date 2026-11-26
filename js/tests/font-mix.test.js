@@ -851,6 +851,64 @@ it('falls back to whole-island blending when a labelled stroke fuses a perpendic
   }
 })
 
+it('cuts a fused top dot at its horizontal neck without stealing the right half of the roof', () => {
+  // 广-like fused island: roof bar (height 16, y=48..64) with a wider vertical dot (width 22, x=122..144) on top.
+  const fused = [
+    [
+      [
+        [16, 48],
+        [122, 48],
+        [122, 16],
+        [144, 16],
+        [144, 48],
+        [234, 48],
+        [234, 64],
+        [36, 64],
+        [36, 240],
+        [16, 240],
+        [16, 48]
+      ]
+    ]
+  ]
+  // Strictly disjoint two-island face (roof y=53..65, slanted dot y=16..51) whose dot spans wider across the roof top.
+  const apart = [
+    [
+      [
+        [16, 53],
+        [234, 53],
+        [234, 65],
+        [36, 65],
+        [36, 240],
+        [16, 240],
+        [16, 53]
+      ]
+    ],
+    [
+      [
+        [108, 16],
+        [136, 16],
+        [164, 51],
+        [132, 51],
+        [108, 16]
+      ]
+    ]
+  ]
+  const regions = splitIslands([fused, apart])
+  expect(regions).toHaveLength(2)
+  // Identify roof vs dot by target maxY, and verify the cut keeps the full roof intact and cuts the dot horizontally.
+  const roof = regions.find((r) => Math.max(...r[1][0][0].map((p) => p[1])) > 150)
+  const dot = regions.find((r) => r !== roof)
+  expect(Math.max(...roof[0][0][0].map((p) => p[0]))).toBeGreaterThan(220)
+  expect(Math.max(...dot[0][0][0].map((p) => p[0]))).toBeLessThan(155)
+  expect(Math.max(...dot[0][0][0].map((p) => p[1]))).toBeLessThan(55)
+  // Three-target fused roof with two dots still splits cleanly into all three regions.
+  const rect = (a, b, c, d) => [a, b, c, b, c, d, a, d]
+  const roofPoly = (y, b) => [16, y, 240, y, 240, b, 37, b, 37, 214, 16, 214]
+  const fused3 = inkPolygons([roofPoly(47, 56), rect(56, 16, 79, 48), rect(115, 21, 158, 48)])
+  const apart3 = inkPolygons([roofPoly(52, 60), rect(56, 16, 77, 46), [100, 33, 118, 33, 97, 43, 80, 43]])
+  expect(splitIslands([fused3, apart3])).toHaveLength(3)
+})
+
 it('does not pair distant leftover corners at opposite ends of a long stem wall', () => {
   // Two 口-like outer contours where face A has an extra sharp bottom-left corner at (16, 240)
   // and face B has a gentle extra corner near the top-left at (16, 42) — both turn the same way
