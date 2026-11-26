@@ -500,6 +500,43 @@ it('cuts a fused island clear of its counter', () => {
   expect(regions.find((region) => region !== windowed)[0][0]).toHaveLength(1)
 })
 
+it('pairs a small island with its counterpart when it overlaps a neighbour', () => {
+  // One face fuses a dot onto a bar. The other face's small island sits over the block's
+  // edge, so by overlap it would go to the block and leave the first face's small island unpaired.
+  const fused = [
+    [box(20, 20, 100, 200)],
+    [box(130, 60, 16, 40)],
+    [
+      [
+        [170, 20],
+        [190, 20],
+        [190, 60],
+        [220, 60],
+        [220, 74],
+        [190, 74],
+        [190, 220],
+        [170, 220],
+        [170, 20]
+      ]
+    ]
+  ]
+  const apart = [
+    [box(20, 20, 100, 200)],
+    [box(104, 60, 16, 40)],
+    [box(170, 20, 20, 200)],
+    [box(196, 60, 24, 14)]
+  ]
+  const regions = splitIslands([fused, apart])
+  expect(regions).toHaveLength(4)
+  const width = (/** @type {number[][]} */ ring) =>
+    Math.max(...ring.map((p) => p[0])) - Math.min(...ring.map((p) => p[0]))
+  // The two small islands go together, and the block stays whole.
+  const small = regions.find((region) => Math.abs(width(region[1][0][0]) - 16) < 1)
+  expect(width(small[0][0][0])).toBeCloseTo(16, 0)
+  const block = regions.find((region) => width(region[1][0][0]) > 90)
+  expect(width(block[0][0][0])).toBeCloseTo(100, 0)
+})
+
 it('drops negligible dust holes while keeping intentional small detached islands', () => {
   // Two kissing strokes leaving a 0.5x0.5 sliver hole, plus a genuine small detached dot.
   const frame = [20, 20, 220, 20, 220, 220, 20, 220]
@@ -907,43 +944,6 @@ it('cuts a fused top dot at its horizontal neck without stealing the right half 
   const fused3 = inkPolygons([roofPoly(47, 56), rect(56, 16, 79, 48), rect(115, 21, 158, 48)])
   const apart3 = inkPolygons([roofPoly(52, 60), rect(56, 16, 77, 46), [100, 33, 118, 33, 97, 43, 80, 43]])
   expect(splitIslands([fused3, apart3])).toHaveLength(3)
-})
-
-it('pairs a small island with its counterpart when it overlaps a neighbour', () => {
-  // One face fuses a dot onto a bar. The other face's small island sits over the block's
-  // edge, so by overlap it would go to the block and leave the first face's small island unpaired.
-  const fused = [
-    [box(20, 20, 100, 200)],
-    [box(130, 60, 16, 40)],
-    [
-      [
-        [170, 20],
-        [190, 20],
-        [190, 60],
-        [220, 60],
-        [220, 74],
-        [190, 74],
-        [190, 220],
-        [170, 220],
-        [170, 20]
-      ]
-    ]
-  ]
-  const apart = [
-    [box(20, 20, 100, 200)],
-    [box(104, 60, 16, 40)],
-    [box(170, 20, 20, 200)],
-    [box(196, 60, 24, 14)]
-  ]
-  const regions = splitIslands([fused, apart])
-  expect(regions).toHaveLength(4)
-  const width = (/** @type {number[][]} */ ring) =>
-    Math.max(...ring.map((p) => p[0])) - Math.min(...ring.map((p) => p[0]))
-  // The two small islands go together, and the block stays whole.
-  const small = regions.find((region) => Math.abs(width(region[1][0][0]) - 16) < 1)
-  expect(width(small[0][0][0])).toBeCloseTo(16, 0)
-  const block = regions.find((region) => width(region[1][0][0]) > 90)
-  expect(width(block[0][0][0])).toBeCloseTo(100, 0)
 })
 
 it('does not pair distant leftover corners at opposite ends of a long stem wall', () => {
