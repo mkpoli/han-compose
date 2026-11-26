@@ -1,8 +1,9 @@
 import { expect, it } from 'bun:test'
-import { pathMask, pathRings, pointsBox, union } from '../src/geometry.js'
+import { partOf, pathMask, pathRings, pointsBox, union } from '../src/geometry.js'
+import { openHookCounters } from '../src/hook-seat.js'
 import { hookFloor } from '../src/hook-floor.js'
 import { compose, createSource, sketch } from '../src/loader.js'
-import { files, shards } from './fixtures/small-export.js'
+import { character, files, shards } from './fixtures/small-export.js'
 // Sans export a83fc941166b: Noto Sans CJK JP and its Plangothic extension fallback.
 // Serif export 8156f838798c: Noto Serif CJK JP 2.003.
 // Pen export ce3eaafda8f9: Kureedo Full 0.5.0. Sources and OFL licences in docs/licensing.md.
@@ -144,19 +145,21 @@ it('seats 自 near the horizontal floor while clearing the upturned tip', async 
   }
 })
 
-it('opens the counters of 自 upward at its established width and baseline', async () => {
+it('opens short counters upward while keeping their baseline, width and crossbar thickness', async () => {
   // Previous placement in font units and vertical stroke sections on a 512-pixel em.
-  for (const [face, style, sequence, top, width, height, bars] of [
-    ['serif', 'serif', '⿺⿱夂見自', 193.16, 365.43, 642.30, [10, 11, 11, 10, 11]],
-    ['pen', 'pen-writing', '⿺𡕚自', 148.99, 389.91, 680.17, [14, 19, 17, 17, 18]],
+  for (const [face, style, sequence, top, width, height, expectedShare, bars] of [
+    ['serif', 'serif', '⿺⿱夂見自', 193.16, 365.43, 642.30, 0.804, [10, 11, 11, 10, 11]],
+    ['pen', 'pen-writing', '⿺𡕚自', 148.99, 389.91, 680.17, 0.804, [14, 19, 17, 17, 18]],
+    ['pen', 'pen-writing', '⿺見自', 162.51, 383.90, 547.51, 0.711, [12, 15, 13, 14, 15]],
+    ['pen', 'pen-writing', '⿺見日', 162.74, 383.68, 547.35, 0.637, [16, 17, 17]],
   ]) {
     const { parts } = await compose(source(face), sequence, { separate: true, fontStyle: style })
     const [x, y, w, h] = parts.at(-1).box
     const frame = union(parts.slice(0, -1).map(({ box: [x, y, w, h] }) => [x, y, x + w, y + h]))
     expect(frame[2] - (x + w)).toBeGreaterThan(40)
     expect(Math.abs(y + h - top - height)).toBeLessThan(0.1)
-    expect(h).toBeGreaterThan(height + 45)
-    expect(h / (frame[3] - frame[1])).toBeCloseTo(0.804, 2)
+    expect(h).toBeGreaterThan(height + 25)
+    expect(h / (frame[3] - frame[1])).toBeCloseTo(expectedShare, 2)
     const size = 512, mask = pathMask(parts.at(-1).d, size)
     const column = Math.round((x + 0.53 * w) * size / 1000)
     const section = Array.from({ length: size }, (_, row) => mask[row * size + column]).join('')
@@ -164,5 +167,22 @@ it('opens the counters of 自 upward at its established width and baseline', asy
     expect(strokes).toHaveLength(bars.length)
     for (let i = 0; i < bars.length; i++) expect(Math.abs(strokes[i] - bars[i])).toBeLessThanOrEqual(1)
     expect(Math.abs(w - width)).toBeLessThan(0.1)
+  }
+})
+
+it('opens three bands for 目 and leaves the gap above the roof intact for 白 and 百', () => {
+  // The same four horizontal strokes expose which bands the fit opens.
+  const frame = partOf(character('', [[0, 0, 80, 1000], [0, 0, 1000, 80]]).G)
+  const rows = [0, 250, 500, 750]
+  const inner = partOf(character('', rows.map(y => [0, y, 400, y + 50])).G)
+  for (const char of ['目', '白', '百']) {
+    const result = openHookCounters(frame, frame.box, inner, inner.box,
+      [500, 120, 850, 600], frame.box, char, 'serif')
+    expect(result).not.toBeNull()
+    const bottoms = result.part.contours.map(c => pointsBox(c.light)[1])
+    const gaps = bottoms.slice(1).map((y, i) => y - bottoms[i] - 50)
+    expect(gaps[0]).toBeGreaterThan(200)
+    expect(gaps[1]).toBeCloseTo(gaps[0])
+    expect(gaps[2]).toBeCloseTo(char === '目' ? gaps[0] : 200)
   }
 })

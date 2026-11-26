@@ -115,14 +115,27 @@ export function lowerHookSeat(frame, frameBox, inner, innerBox, seat, region, fl
   return balanceSides(sums, rows, best, region)
 }
 
-// Open the three counters of 自. Y displacements remain constant across
-// ink bands, so its crossbars and the short stroke above the roof keep
-// their native thickness at the original placement scale.
-export function tallHookSelf(frame, frameBox, inner, box, seat, region) {
+// Median inner / whole ink heights from native lower-left hook enclosures.
+// 日 uses 旭, 𣄽, 𣆥 and 𣆶 where available; 百 uses 兡 and 瓸.
+// Jigmo supplies the missing face measurements for 目 (eight glyphs),
+// 白 (three) and 百. Plangothic 𦤲 supplies the established target for 自.
+const hookCounters = new Map([
+  ['日', { count: 2, height: 0.831, sans: 0.693, serif: 0.758, fangsong: 0.658, regular: 0.566, 'pen-writing': 0.637 }],
+  ['百', { count: 2, height: 0.858, sans: 0.744, serif: 0.795, regular: 0.691, 'pen-writing': 0.813 }],
+  ['目', { count: 3, height: 0.857 }],
+  ['白', { count: 2, height: 0.852 }],
+  ['自', { count: 3, height: 0.804 }],
+])
+
+// Open the counters from the baseline upwards. The short strokes above
+// the roof of 白, 百 and 自 rise with it at the original placement scale.
+export function openHookCounters(frame, frameBox, inner, box, seat, region, char, fontStyle) {
+  const form = hookCounters.get(char)
+  if (!form) return null
   const [x, bottom, right, top] = mapped(seat, region, [0, 0, grid, grid])
   const height = top - bottom
-  // 𦤲 (⿺覺自) in Plangothic: inner ink 731 units / frame ink 909.
-  const growth = Math.min(grid * 0.804 - height, grid * 0.98 - top)
+  const target = form[fontStyle] ?? form.height
+  const growth = Math.min(grid * target - height, grid * 0.98 - top)
   if (growth < 1) return null
 
   const size = 256, mask = silhouette(inner, box, size)
@@ -135,15 +148,15 @@ export function tallHookSelf(frame, frameBox, inner, box, seat, region) {
       entered = true
     } else if (entered && start < 0) start = row
   }
-  if (gaps.length < 3) return null
+  if (gaps.length < form.count) return null
   // Sloping brush bars can extend above or below the centre sample.
   // Use the middle of each white band to leave both edges intact.
-  const counters = gaps.slice(0, 3).map(([lo, hi]) => {
+  const counters = gaps.slice(0, form.count).map(([lo, hi]) => {
     const inset = (hi - lo) * 0.15
     return [lo + inset, hi - inset]
   })
   const stretch = y => counters.reduce((sum, [lo, hi]) =>
-    sum + Math.min(1, Math.max(0, (y - lo) / (hi - lo))), 0) / 3
+    sum + Math.min(1, Math.max(0, (y - lo) / (hi - lo))), 0) / counters.length
   const sums = frameInk(frame, frameBox)
   const sourceHeight = box[3] - box[1]
   for (let gain = growth; gain >= 1; gain -= 2) {
