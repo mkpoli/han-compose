@@ -178,17 +178,17 @@ STYLES = {
         "woodblock",
         Source("NomNaTong-Regular-5.20.ttf",
                "https://github.com/nomfoundation/font/releases/download/v5.20/NomNaTong-Regular.ttf",
-               "67a1a68a85566275bbbf72b3501714bbe24628e74f1762ea812a5bd3a8d606e1", MIT,
-               also="Its source repository's licence file: Copyright (c) 2019 nomfoundation (https://github.com/nomfoundation/font)"),
+               "67a1a68a85566275bbbf72b3501714bbe24628e74f1762ea812a5bd3a8d606e1", MIT),
         (),
         # Fitted on 1,500 of its ideographs (`calibrate`).
-        ((60.57, -0.093), (26.94, -0.393)),
+        ((65.09, -1.129), (28.14, -0.417)),
         heavy=400,
         kindred=False,
         weighted=False,
         own_hosts=True,
         # Its full ideographs span -151 to 848 of the em, Noto Serif's -78 to 837: the lift centres
-        # them where Noto Serif's stand.
+        # them where Noto Serif's stand. They fill the em's whole height, so a stroke at the top
+        # or the foot can pass its edge by a few units.
         y_shift=31.0,
     ),
     # Zhuque Fangsong 0.212 (technical preview), recut from the 1932 南宋 type. It is a static font, so
@@ -853,7 +853,7 @@ class Font:
     def family(self) -> tuple[float, float] | None:
         """The fallbacks' stroke widths against this font's at 400, across x and across y: None where
         the fallbacks are of this font's design. Measured when a fallback glyph is first weighed."""
-        if self.style.kindred:
+        if self.style.kindred or not self.fallbacks:
             return None
         fallback = next(f for f in self.fallbacks if ord("丨") in f.cmap and ord("一") in f.cmap)
         widths = []

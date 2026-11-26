@@ -58,7 +58,7 @@ and lists those it cannot draw.
 Every command takes `--style sans` (the default), `--style serif`, `--style woodblock`, `--style fangsong`,
 `--style regular` or `--style pen-writing`. Each style has its own fonts and models: a style's model is cached as
 `<name>-<style><ext>` beside the sans one, and `learn --style regular` and `learn-alone --style regular`
-build it. TW-Kai, Kureedo, Zhuque Fangsong and Nôm Na Tống are static, so their styles keep the source brush
+build it. TW-Kai, Kureedo, Zhuque Fangsong and Nôm Na Tống are static, so their styles keep the source stroke
 weights instead of balancing them.
 
 `bench` redraws characters from their own sequences with nothing taken from them, and scores each
@@ -223,7 +223,7 @@ uv run ruff check
 
 `docs/licensing.md` states what the code, the fonts and the tables are under. In short: Noto Sans CJK
 JP and Plangothic (SIL OFL 1.1) supply every sans outline, Noto Serif CJK JP (SIL OFL 1.1) and Jigmo
-(CC0 1.0) every serif one, TW-Kai (Open Government Data License 1.0) every regular one; BabelStone IDS and cjkvi-variants supply the
+(CC0 1.0) every serif one, Nôm Na Tống (MIT) every woodblock one, TW-Kai (Open Government Data License 1.0) every regular one; BabelStone IDS and cjkvi-variants supply the
 sequences and the radical forms; editorial sequences replace a BabelStone sequence that draws the
 character wrongly ([`data/vocab/han-ids-drawn.tsv`](data/vocab/han-ids-drawn.tsv));
 hfhchan/ids (MIT) supplies the list of ideographs left

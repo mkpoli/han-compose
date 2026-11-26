@@ -351,15 +351,18 @@ def test_woodblock_reads_nom_na_tong_and_no_other_font() -> None:
     assert style.font.licence == compose.MIT and style.font.member is None
     assert compose_layout.layout_file("woodblock") == "compose-layout-v4-woodblock.npz"
     assert "woodblock" in web_export.OUTLINE_NOTES
-    assert "nomfoundation" in style.font.also
+    licence = Path(__file__).resolve().parents[1] / "data" / "licences" / web_export.LICENCE_TEXTS[compose.MIT][1]
+    assert "Copyright (c) 2019 nomfoundation" in licence.read_text(encoding="utf-8")
 
 
 def test_woodblock_lifts_its_full_ideographs_into_the_em() -> None:
     if not _cached("woodblock"):
         pytest.skip("The woodblock fonts are not cached.")
     font = compose.Font.of("woodblock")
-    box = font.glyph("國").box
-    assert -compose.EM + compose.ASCENT <= box[1] and box[3] <= compose.ASCENT
+    boxes = [font.glyph(char).box for char in compose.FULL]
+    centre = sorted((box[1] + box[3]) / 2 for box in boxes)[len(boxes) // 2]
+    assert abs(centre - (compose.ASCENT - compose.EM / 2)) < 5
+    assert font.family is None
     assert font.has("𡨸") and font.own("喃")
     assert not font.fallbacks and not font.has("\U00031350")
 

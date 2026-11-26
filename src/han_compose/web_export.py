@@ -202,9 +202,10 @@ LICENCE_URLS = {C.OFL: "https://openfontlicense.org/open-font-license-official-t
                 "CC0 1.0": "https://creativecommons.org/publicdomain/zero/1.0/",
                 C.OGL: "https://data.gov.tw/license",
                 C.MIT: "https://opensource.org/licenses/MIT"}
-#: The licence texts an export carries, by licence, from `data/licences/`.
+#: The licence texts an export carries, by licence, from `data/licences/`. The MIT text is Nôm Na
+#: Tống's licence file, with its copyright line.
 LICENCE_TEXTS = {C.OFL: ("OFL.txt", "OFL-1.1.txt"), "CC0 1.0": ("CC0.txt", "CC0-1.0.txt"),
-                 C.OGL: ("OGL.txt", "OGL-1.0.txt"), C.MIT: ("MIT.txt", "MIT.txt")}
+                 C.OGL: ("OGL.txt", "OGL-1.0.txt"), C.MIT: ("MIT.txt", "MIT-NomNaTong.txt")}
 
 
 def _font_notice(path: Path, licence: str) -> dict:

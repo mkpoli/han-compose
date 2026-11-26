@@ -4,7 +4,8 @@ The code is MIT (`LICENSE`). What it reads and what it draws carry their own ter
 
 ## Fonts
 
-Each style (`compose.STYLES`) reads one variable font and static fonts for what it lacks. All are
+Each style (`compose.STYLES`) reads one main font and, where it names any, static fonts for what
+that font lacks. All are
 downloaded and pinned by SHA-256 (`compose.font_file`, `compose.fallback_files`); nothing of them is
 committed.
 
@@ -37,8 +38,9 @@ committed.
 
 - **Nôm Na Tống 5.20** (Nôm Na Group, Vietnamese Nôm Preservation Foundation; copyright line
   "© 2011–2026 The Vietnamese Nom Preservation Foundation — Nom Na Group", **MIT License**), static,
-  read at its one weight. Its source repository's licence file reads "Copyright (c) 2019
-  nomfoundation"; the export's `MIT.txt` carries both lines. No other font
+  read at its one weight. Its source repository's licence file, kept as
+  `data/licences/MIT-NomNaTong.txt`, reads "Copyright (c) 2019 nomfoundation"; the export's
+  `MIT.txt` carries both lines. No other font
   fills in what it lacks.
 
 `fangsong`:
@@ -176,6 +178,7 @@ ships the licence texts beside it.
 
 Publishing a glyph drawn with KanjiVG-assisted cuts publishes a CC BY-SA derivative of KanjiVG's
 component data. Glyphs drawn without those cuts carry only the terms of the fonts they come from:
-the SIL OFL 1.1 for Noto Sans CJK, Noto Serif CJK and Plangothic outlines; none for Jigmo's (CC0).
+the SIL OFL 1.1 for Noto Sans CJK, Noto Serif CJK and Plangothic outlines; the MIT License for Nôm Na Tống's, whose copyright and
+permission notice go with them; none for Jigmo's (CC0).
 
 The Serif drawing of ⿶む子 uses the outline of U+1B127 𛄧 from GenZui Serif Bold 0.118 for its inner operand. The outline in `js/src/genzui-alternate-ne.json` is in the font’s original coordinates. [GenZui Serif 0.118](https://github.com/mkpoli/GenZui/releases/tag/v0.118) · [SIL Open Font License 1.1 and copyright notices](../data/licences/OFL-GenZuiSerif.txt)
