@@ -1172,6 +1172,13 @@ def enclosures(part: Part, op: str) -> list[tuple[Part, Part]]:
             for k in range(1, len(ranked))]
 
 
+def _names_stroke(node: Node) -> bool:
+    """Whether a sequence names a CJK Strokes character (㇇) among its operands."""
+    if isinstance(node, str):
+        return 0x31C0 <= ord(node[0]) <= 0x31EF
+    return any(_names_stroke(n) for n in node[1:])
+
+
 #: The least extent a part's scale is measured over: a lone stroke's width says little of its scale.
 EVEN_LEAST = 60.0
 
@@ -3184,6 +3191,12 @@ class Composer:
                 part.target = mapped(part.target, frame, region)
         return parts
 
+    def _foreign(self, char: str) -> bool:
+        """Whether only a fallback font of another design draws `char`."""
+        style = getattr(self.font, "style", None)
+        own = getattr(self.font, "own", None)
+        return style is not None and own is not None and not getattr(style, "kindred", True) and not own(char)
+
     def _node(self, node: Node, region: Box, at_root: bool = False, regroup: bool = True) -> list[Placed]:
         """`node` drawn into `region`; at the root, the whole character, laid out in the em. A row or
         column of three is also drawn as each pairing of its neighbours (⿲氵木目 as ⿰氵⿰木目 and
@@ -3221,6 +3234,12 @@ class Composer:
             # character (日 as ⿴囗一) is a part in its own right: the glyph stays.
             if tree is not None and (self.stroked(tree) or encoded in self.atomic):
                 squeezed = False
+            if tree is not None and glyph is not None and self.hosted and self._foreign(encoded) and not _names_stroke(tree):
+                # A character only a fallback of another design draws (靇 in Jigmo's Mincho, in a
+                # Fangsong drawing) is drawn from its sequence in the main font; its fallback
+                # glyph stays where the sequence names a CJK stroke or cannot be drawn. `stroked`
+                # is no test here: a brush face draws 走 as one outline.
+                squeezed = True
             if glyph is not None and not (squeezed and tree is not None):
                 return [self._place(glyph, region, self.ink(encoded), f"glyph {encoded}")]
             if tree is None:
@@ -3260,22 +3279,11 @@ class Composer:
             pair = "⿰" if op == "⿲" else "⿱"
             first, middle, last = children
             drawings = [self._node(node, region, at_root, regroup=False)]
-            style = getattr(self.font, "style", None)
             for tree in ((pair, first, (pair, middle, last)), (pair, (pair, first, middle), last)):
-                # A pairing only a fallback of another design draws (⿱日心 as Jigmo's 𢗭 in a
-                # Fangsong drawing) is drawn from its operands in the main font instead.
-                joined = self.by_sequence.get(key(next(c for c in tree[1:] if isinstance(c, tuple) and c[0] == pair and c[1:] in ((middle, last), (first, middle)))))
-                foreign = (joined is not None and style is not None and not style.kindred
-                           and not self.font.own(joined) and joined not in self.exclude)
-                if foreign:
-                    self.exclude.add(joined)
                 try:
                     drawings.append(self._node(tree, region, at_root))
                 except LookupError:
                     continue
-                finally:
-                    if foreign:
-                        self.exclude.discard(joined)
             return max(drawings, key=_evenness)
         if op == VARIANT:
             return self._node(children[0], region, at_root)
