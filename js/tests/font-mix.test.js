@@ -1081,9 +1081,20 @@ it('leaves no stub on a stem where a slanted dot was cut from it', () => {
 })
 
 it('keeps the outline blend of a cut piece that turns more than its faces without kinking', async () => {
-  // Two pieces cut from 銀 (Serif against Fangsong), in the registered square. Both turn
-  // more at the even mix than their faces do; only the second folds back on itself.
+  // A piece cut from 陽 (Sans against Serif) and one from 答 (Sans against Fangsong), in the
+  // registered square. Both turn more at the even mix than their faces do; only the second
+  // folds back on itself.
   const { smooth, kinked } = await Bun.file(new URL('./fixtures/cut-pieces.json', import.meta.url)).json()
-  expect(prepareCorrespondence(smooth, true)).not.toBeNull()
-  expect(prepareCorrespondence(kinked, true)).toBeNull()
+  // The verdict holds wherever a ring happens to start.
+  const turned = (/** @type {number[][][][][]} */ faces) => {
+    const copy = structuredClone(faces)
+    for (const face of copy) {
+      const ring = face[0][0]
+      ring.shift()
+      ring.push(ring[0])
+    }
+    return copy
+  }
+  for (const faces of [smooth, turned(smooth)]) expect(prepareCorrespondence(faces, true)).not.toBeNull()
+  for (const faces of [kinked, turned(kinked)]) expect(prepareCorrespondence(faces, true)).toBeNull()
 })

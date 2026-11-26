@@ -1754,7 +1754,7 @@ export function prepareCorrespondence(polygons, cut = false) {
     for (const ring of rings) {
       const pts = dense([...ring, ring[0]], 1.5),
         n = pts.length
-      if (n < 12) continue
+      if (n < 16) continue
       const turns = pts.map((p, i) => {
         const a = pts[(i + n - 1) % n],
           b = pts[(i + 1) % n]
@@ -1764,19 +1764,24 @@ export function prepareCorrespondence(polygons, cut = false) {
           vy = b[1] - p[1]
         return Math.atan2(ux * vy - uy * vx, ux * vx + uy * vy)
       })
+      // Every window of the ring is tried, and windows that hit within a span of each
+      // other are one wiggle, so the count does not depend on where the ring starts.
       const span = 8
-      for (let i = 0; i < n; i++) {
+      const hit = turns.map((_, i) => {
         let net = 0,
           gross = 0
         for (let k = 0; k < span; k++) {
           net += turns[(i + k) % n]
           gross += Math.abs(turns[(i + k) % n])
         }
-        if (gross - Math.abs(net) > 1.2) {
-          count++
-          i += span - 1
-        }
-      }
+        return gross - Math.abs(net) > 1.2
+      })
+      const near = hit.map((_, i) => {
+        for (let k = 0; k < span; k++) if (hit[(i - k + n) % n]) return true
+        return false
+      })
+      const runs = near.filter((on, i) => on && !near[(i - 1 + n) % n]).length
+      count += runs || (near[0] ? 1 : 0)
     }
     return count
   }
