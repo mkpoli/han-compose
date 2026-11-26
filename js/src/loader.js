@@ -3,6 +3,7 @@
 // key) loaded as a sequence needs it, and the sequence drawn from it as an SVG path. A file is
 // fetched once a page; a gzipped one (the export writes them so) is unpacked with DecompressionStream.
 import { APPROXIMATE, Composer, EMPTY, LookupError, designedSources, keyOf, leafCutChar, wheatFaceHosts, mapOperands, parseTree } from './compose.js'
+import { qiReference } from './qi-family.js'
 import { splitDescription } from './tree.js'
 import { hangulOfIds } from './hangul-ids.js'
 import { composeJamo } from './hangul.js'
@@ -13,6 +14,8 @@ import { readLayout } from './layout.js'
 import { isComponentForm, isAtomicForm, isGroupedForm } from './component-forms.js'
 import { hexOf } from './sha256.js'
 import { pyramidOnBase, pyramidRows } from './pyramid-rows.js'
+import { birdChainChar } from './bird-chain.js'
+import { isChain, parseChain } from './stroke-chain.js'
 import { unicodeSource } from './unicode.js'
 import { download } from './retry.js'
 
@@ -272,6 +275,10 @@ function keysOf(tree, out = [], separate = false, fontStyle = 'sans', root = tru
   if (!keyOf(tree).includes(EMPTY)) out.push(keyOf(tree))
   const designed = leafCutChar(keyOf(tree))
   if (designed) out.push(designed)
+  const bird = !separate && birdChainChar(tree)
+  if (bird) out.push(bird)
+  // A stroke chain is drawn from its strokes' glyphs.
+  if (isChain(tree)) out.push(...(parseChain(tree)?.strokes ?? []).map(stroke => stroke.char))
   if (Array.isArray(tree)) tree.slice(1).forEach(n => keysOf(n, out, separate, fontStyle, false))
   return out
 }
@@ -334,14 +341,16 @@ export async function sketch(source, sequence, { fontStyle = 'sans' } = {}) {
   const tree = parseTree(description, arity, true)
   const donors = [...wheatFaceHosts(description), ...designedSources(tree, fontStyle)]
   await source.load([...modelOf(source, tree), ...(donors.length ? source.filesOf(donors) : [])])
-  // A description that asked for the layout or the table after all is sketched again with them.
-  for (let again = false; ; again = true) {
+  // The 器 family measures composed ink, including contextual cuts discovered in later shards.
+  const measured = donors.includes(qiReference)
+  for (let round = 0; round < ROUNDS; round++) {
     const store = source.store()
     const leaves = new Composer(store, { fontStyle }).sketch(description, marks)
-    const model = source.modelFiles().filter(name => store.missing.has(name))
-    if (again || !model.length) return leaves.map(leaf => ({ ...leaf, box: svgBox(leaf.box) }))
-    await source.load(model)
+    const missing = measured ? [...store.missing] : source.modelFiles().filter(name => store.missing.has(name))
+    if (!missing.length || (!measured && round > 0)) return leaves.map(leaf => ({ ...leaf, box: svgBox(leaf.box) }))
+    await source.load(missing)
   }
+  throw new LookupError(`${sequence} needs more data than ${ROUNDS} rounds load.`)
 }
 
 /**

@@ -5,14 +5,14 @@ import constants from './constants.json' with { type: 'json' }
 /**
  * `under` lets the export answer first, with these records filling only what it lacks.
  */
-export function bundledSource({ load, matches, fallback = null, under = false, drawable = record => Boolean(record?.G), alias = key => key }) {
+export function bundledSource({ load, matches, fallback = null, under = false, nativeFirst = false, drawable = record => Boolean(record?.G), alias = key => key }) {
   // `ready()` fills `records`; callers ask for files and records after it resolves.
   let ready = null, records = null
   // `alias` names the record a key falls back to when it has none of its own.
   const keyOf = key => records?.[key] != null ? key : alias(key)
   const owns = key => matches(key) && records?.[keyOf(key)] != null
   // A record with no outline cannot draw, whatever else it says of the key.
-  const answers = (key, remote) => owns(key) && !(under && drawable(remote?.rec(key)))
+  const answers = (key, remote) => owns(key) && !(nativeFirst ? remote?.rec(key)?.G?.v === 1 : under && drawable(remote?.rec(key)))
   const source = {
     manifest: null,
     get layout() { return fallback?.layout ?? null },
@@ -24,7 +24,7 @@ export function bundledSource({ load, matches, fallback = null, under = false, d
     },
     modelFiles: options => fallback?.modelFiles(options) ?? [],
     load: names => fallback ? fallback.load(names) : Promise.resolve(),
-    filesOf: keys => fallback ? fallback.filesOf(under ? keys : keys.filter(key => !owns(key))) : new Set(),
+    filesOf: keys => fallback ? fallback.filesOf(under || nativeFirst ? keys : keys.filter(key => !owns(key))) : new Set(),
     store() {
       const remote = fallback?.store()
       return {
