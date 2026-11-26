@@ -44,10 +44,19 @@ def catalogue(original, history):
     export = json.loads(original)
     rows = []
     matches = [row for audit in history for row in audit["matching"]]
+    by_entry = {}
+    for change in sorted(matches, key=lambda row: row["revision"]):
+        values = [claim["value"] for claim in change["claims"]]
+        if change["snapshot_ids"]:
+            values.append(change["snapshot_ids"])
+        for value in values:
+            if CHAIN.search(value):
+                by_entry.setdefault(change["entry"], {}).setdefault(value, []).append(change["revision"])
     for entry in export["entries"]:
         claims = [claim for claim in entry["claims"] if claim["kind"] in ("ids", "composition")
                   and CHAIN.search(claim["value"])]
-        if not claims:
+        previous = by_entry.pop(entry["id"], {})
+        if not claims and not previous:
             continue
         url = f"{RCC}/en/entry/{entry['id']}"
         rows.append({
@@ -60,8 +69,17 @@ def catalogue(original, history):
             "primary_ids": entry["ids"],
             "claims": [{"ids": claim["value"], "chains": CHAIN.findall(claim["value"]),
                         "layout": (claim["data"] or {}).get("layout")} for claim in claims],
+            "historical_claims": [{"ids": ids, "chains": CHAIN.findall(ids), "revisions": sorted(set(revs))}
+                                  for ids, revs in previous.items()],
             "sightings": [evidence(sighting, url) for sighting in entry["evidence"]],
         })
+    for entry_id, previous in by_entry.items():
+        url = f"{RCC}/en/entry/{entry_id}"
+        rows.append({"code": f"R+{entry_id:04X}", "url": url, "history": f"{url}/history",
+                     "primary_ids": None, "claims": [], "sightings": [],
+                     "historical_revisions": sorted({r for revs in previous.values() for r in revs}),
+                     "historical_claims": [{"ids": ids, "chains": CHAIN.findall(ids), "revisions": sorted(set(revs))}
+                                           for ids, revs in previous.items()]})
     revision = export["dataset"]["revision"]
     audit = {
         "url": f"{RCC}/en/history",

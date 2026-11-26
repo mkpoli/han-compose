@@ -2,6 +2,7 @@ import { access, mkdir, readFile, writeFile } from 'node:fs/promises'
 import { join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { parseArgs } from 'node:util'
+import { contexts, malformed, spellings } from './recorded-chain-corpus.mjs'
 
 const root = fileURLToPath(new URL('../..', import.meta.url))
 const styles = new Set(['sans', 'serif', 'regular', 'fangsong', 'pen-writing'])
@@ -38,12 +39,6 @@ for (const arg of positionals) {
 const renderer = resolve(values.renderer)
 const bundled = join(renderer, 'js', 'data')
 await access(join(bundled, 'custom-forms.json.gz'))
-const json = async path => JSON.parse(await readFile(path, 'utf8'))
-const catalogue = await json(join(root, 'js', 'src', 'recorded-chains.json'))
-const rcc = await json(join(root, 'data', 'rcc-chain-evidence.json'))
-const corpus = Object.keys(catalogue.chains)
-const contexts = [...new Set(rcc.records.flatMap(record => record.claims.map(claim => claim.ids)))]
-
 /** A missing local shard has the same status as a missing export shard. */
 async function localFile(directory, path) {
   const inside = relative(directory, path)
@@ -76,6 +71,10 @@ for (const [fontStyle, directory] of exports) {
   async function audit(keys) {
     const rows = {}
     for (const raw of keys) {
+      if (malformed.has(raw)) {
+        rows[raw] = { ok: false, status: 'invalid-source', path: null, origins: [], missing: [], error: malformed.get(raw) }
+        continue
+      }
       try {
         const source = sourceFor(raw, { fontStyle, exported, base, fetch, read })
         const drawing = await compose(source, raw, { fontStyle })
@@ -88,12 +87,12 @@ for (const [fontStyle, directory] of exports) {
     return rows
   }
 
-  const rows = await audit(corpus)
+  const rows = await audit(spellings)
   const rccRows = await audit(contexts)
   if (networkAttempts.size) throw new Error(`Audit attempted network access: ${[...networkAttempts].join(', ')}`)
   for (const [prefix, result] of [[values.prefix, rows], [`rcc-${values.prefix}`, rccRows]]) {
     await writeFile(join(out, `${prefix}-${fontStyle}.json`), JSON.stringify(result) + '\n')
   }
   const ok = results => Object.values(results).filter(row => row.ok).length
-  console.log(`${fontStyle}: ${ok(rows)}/${corpus.length} chains, ${ok(rccRows)}/${contexts.length} RCC contexts`)
+  console.log(`${fontStyle}: ${ok(rows)}/${spellings.length} chains, ${ok(rccRows)}/${contexts.length - malformed.size} complete RCC contexts, ${malformed.size} invalid source`)
 }
