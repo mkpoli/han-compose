@@ -65,9 +65,9 @@ python3 js/scripts/recorded-chains.py --ids /path/to/ids --guide /path/to/bai-id
 ```
 
 Audit 444 standalone spellings with local format-7 exports. These comprise 436
-Bai IDS spellings and eight additional RCC spellings. The 21 distinct current
-and historical RCC descriptions include 20 complete descriptions and one
-truncated source string, reported as `invalid-source`.
+Bai IDS spellings and eight additional RCC spellings. The 29 distinct current
+and historical RCC strings include 27 complete descriptions and two fragments
+of the current R+0C34 entry, both reported as `invalid-source`.
 Run `node js/scripts/data.mjs` in each renderer checkout first to populate its
 bundled data, then pass one `style=path` argument per export.
 
@@ -94,7 +94,8 @@ The audit reads
 only local files and writes one result file per face and corpus.
 
 The standalone ink metrics use the five shipped format-7 exports and the renderer
-at `b1893d86`. They apply only to a previously drawable spelling in its matching
+at `b1893d86`. The 16 source-drawn RCC forms use the ink bounds of each
+complete spelling on `dff29daa`. They apply only to a previously drawable spelling in its matching
 export. For 33 chains, the interior proportions come from zi.tools’ drawing on
 2026-11-25. The measurement matches each directed segment and its endpoints and
 rejects ambiguous mappings and duplicate drawing programs. To regenerate, save
@@ -130,8 +131,9 @@ python3 js/scripts/recorded-arcs.py --dump /path/to/dump_newest_only.txt \
 
 ## `recorded-native.json`
 
-Whole glyphs for attested stroke-chain descriptions and the regional walking
-radicals ⻌ and ⻎ missing from format 7. The shapes come from the selected primary face, including TW-Kai's
+Whole glyphs for attested stroke-chain descriptions, including the regional walking
+radicals ⻌ and ⻎, Suzhou numerals 〤, 〥, 〧, and the symbols △ and ？ missing
+from format 7. The shapes come from the selected primary face, including TW-Kai's
 Extension B font for its supplementary characters. The asset records each
 source font's checksum, copyright and release.
 
