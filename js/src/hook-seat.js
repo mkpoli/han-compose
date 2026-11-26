@@ -137,7 +137,8 @@ export function fitHookDonor(frame, frameBox, { part, heightShare }, seat, regio
   // Keep the floor and right margin visible and move only as far as needed.
   const maxDrop = grid / 16, rightLimit = grid * 0.97
   const offsets = [0, 3, -3, 6, -6, 9, -9, 12, -12]
-  const target = Math.min(grid * heightShare, grid * 0.98 - bottom + maxDrop)
+  const inkHeight = grid * (frame.box[3] - frame.box[1]) / (frameBox[3] - frameBox[1])
+  const target = Math.min(inkHeight * heightShare, grid * 0.98 - bottom + maxDrop)
   const minimum = original ? original[3] - original[1] : Math.min(top - bottom, fullHeight)
   for (let height = target; height > minimum + 1; height -= 2) {
     const half = 0.5 * width * height / naturalHeight
