@@ -18,8 +18,8 @@ const cuts = {
 }
 
 // Sans and Serif join the sweep within the descending fold. In the native
-// enclosed 廴 the beginning of the sweep projects past that stem. The two
-// junction indices bound that projection in the verified source contour.
+// enclosed 廴 the beginning of the sweep projects past that stem. The first two
+// indices bound the projection. The third marks the end of the contour.
 // Measurements use normalized y downward within each native component.
 /** @typedef {{junction: number[], tail: number, tilt: number, sweep: number[], bars: number[],
  * barTilt: number, wallTaper: number, soleWidth: number, soleAdjust: number}} Landmarks */
