@@ -790,6 +790,17 @@ function trimStub(body, width, ring, clear) {
         const p = [a[0] + ((b[0] - a[0]) * t) / steps, a[1] + ((b[1] - a[1]) * t) / steps]
         sound = inside(p, ring) && !clear.some((other) => inside(p, other))
       }
+      // A counter thinner than the sampling step still may not be crossed.
+      const side = (/** @type {number[]} */ p, /** @type {number[]} */ q, /** @type {number[]} */ r) =>
+        (q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0])
+      sound &&= clear.every((other) =>
+        other.every(
+          (q, k) =>
+            !k ||
+            side(a, b, other[k - 1]) * side(a, b, q) > 0 ||
+            side(other[k - 1], q, a) * side(other[k - 1], q, b) > 0
+        )
+      )
       if (!sound) continue
       least = worst
       head = lo
