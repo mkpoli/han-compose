@@ -1046,7 +1046,7 @@ export class Composer {
       return haNine[this.fontStyle]
     // A Fangsong drawing takes no outline another face drew: a record its own font lacks (v 0)
     // stays missing rather than standing in as a Mincho.
-    if (glyph && this.fontStyle === 'fangsong' && glyph.v === 0) return null
+    if (glyph && this.fontStyle === 'fangsong' && glyph.v === 0 && !/^&GW-[A-Za-z0-9_+-]+;$/.test(record.k ?? ch)) return null
     if (glyph && record.sg && !glyph.sg) glyph.sg = record.sg
     // The offline Unicode shard carries the connected radical at U+2EBE.
     return glyph ?? (ch === '艹' && !this.excluded('⺾') ? this.glyphRecord('⺾') : null)

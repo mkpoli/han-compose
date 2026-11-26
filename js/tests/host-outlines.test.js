@@ -75,3 +75,12 @@ describe('outlines a host supplies', () => {
     expect(source.store().rec(NAME)).toBeNull()
   })
 })
+
+it('draws an explicitly requested reference for a registered form the export lacks', async () => {
+  const sequence = '壬\u{E0100}'
+  const records = { [NAME]: { ...borrowed, k: NAME, G: { ...borrowed.G, v: 0 } } }
+  const loaders = { [HOST_OUTLINES]: 'http://host/ucv' }
+  const source = sourceFor(sequence, { bundled: true, fontStyle: 'fangsong', loaders,
+    read: async () => new Response(gzipSync(JSON.stringify({ records, aliases: { [sequence]: NAME } }))) })
+  expect((await compose(source, sequence, { fontStyle: 'fangsong' })).parts[0].d).toBeTruthy()
+})
