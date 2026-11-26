@@ -1,6 +1,6 @@
 // @ts-nocheck: a port of han-compose's Python, kept line for line; its types are the arrays it reads.
 import { hookFloor } from './hook-floor.js'
-import { lowerHookSeat, openHookCounters } from './hook-seat.js'
+import { fitHookDonor, lowerHookSeat, openHookCounters } from './hook-seat.js'
 import { stackedHookPart } from './stacked-hook.js'
 import fangsongZhi from './fangsong-zhi.json' with { type: 'json' }
 import haNine from './ha-nine.json' with { type: 'json' }
@@ -850,6 +850,7 @@ export const designedSources = (tree, style = 'sans') => {
     }
     if (!Array.isArray(node)) return
     const [op, ...children] = node
+    if (op === '⿺' && children[1] === '首') out.add('馗')
     if (op === '⿺' && children[0] === '𡕚') { out.add('夂'); out.add('見') }
     if (isThornRow(node)) {
       out.add('棘')
@@ -1597,7 +1598,7 @@ export class Composer {
         if (hooked.counterFit) {
           const { part, source, factor } = hooked.counterFit, box = inset(hooked.previous)
           box[3] += (box[3] - box[1]) * factor
-          emitCell({ ...placed(part, source, box, this.ink(node[2]), `cells ${node[2]}`), fixed: true }, node[2])
+          emitCell({ ...placed(part, source, box, this.ink(node[2]), hooked.counterFit.origin ?? `cells ${node[2]}`), fixed: true }, node[2])
           return
         }
         const [x0, y0, x1, y1] = hooked.room
@@ -2081,6 +2082,18 @@ export class Composer {
     return [frame, counter]
   }
 
+  /** The enclosed form of 首 keeps its native head, shoulder and eye together. */
+  enclosedShou() {
+    if (this.excluded('馗') || this.forced('馗')) return null
+    const record = this.glyphRecord('馗')
+    const indices = record?.ls?.首, frame = record?.ls?.九
+    if (record?.v !== 1 || !indices?.length || !frame?.length) return null
+    const glyph = partOf(record)
+    if (glyph.contours.length !== indices.length + frame.length ||
+        !glyph.contours.every((_, i) => indices.includes(i) !== frame.includes(i))) return null
+    return derived(glyph, indices.map(i => glyph.contours[i]))
+  }
+
   /** Select a verified low hook only after the face's contextual forms have had priority. */
   hookFrame(node, region, atRoot) {
     if (this.measuringHookInk) return null
@@ -2123,7 +2136,12 @@ export class Composer {
       const seat = [fit[0], room[1], fit[2], room[1] + fit[3] - fit[1]]
       room = lowerHookSeat(hook.part, glyph.box, inner, ink, seat, region, hook.floor)
       if (!this.excluded(node[2])) {
-        counterFit = openHookCounters(hook.part, glyph.box, inner, ink, room, region, node[2], this.fontStyle)
+        if (node[2] === '首') {
+          const donor = this.enclosedShou()
+          if (donor) counterFit = fitHookDonor(hook.part, glyph.box, donor, room, region)
+        } else {
+          counterFit = openHookCounters(hook.part, glyph.box, inner, ink, room, region, node[2], this.fontStyle)
+        }
       }
     }
     if (atRoot && !hasSlot(node)) {
@@ -2532,7 +2550,7 @@ export class Composer {
     if (hooked) {
       if (hooked.counterFit) {
         const { part, source } = hooked.counterFit
-        return [...hooked.parts, { ...placed(part, source, hooked.room, this.ink(node[2]), `glyph ${node[2]}`), fixed: true }]
+        return [...hooked.parts, { ...placed(part, source, hooked.room, this.ink(node[2]), hooked.counterFit.origin ?? `glyph ${node[2]}`), fixed: true }]
       }
       const inner = this.node(node[2], hooked.room)
       for (const part of inner) part.fixed = true

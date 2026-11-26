@@ -115,6 +115,23 @@ export function lowerHookSeat(frame, frameBox, inner, innerBox, seat, region, fl
   return balanceSides(sums, rows, best, region)
 }
 
+// The contour cut of 首 in 馗 carries the relative heights of its horns,
+// shoulder and eye. Fit all three together at the established width.
+export function fitHookDonor(frame, frameBox, part, seat, region) {
+  const source = part.box
+  const natural = (seat[2] - seat[0]) * (source[3] - source[1]) / (source[2] - source[0])
+  const [x, bottom, right, top] = mapped(seat, region, [0, 0, grid, grid])
+  const height = top - bottom
+  const requested = Math.min(natural * grid / (region[3] - region[1]), grid * 0.98 - bottom)
+  const sums = frameInk(frame, frameBox), rows = innerProfile(part, source)
+  for (let h = requested; h >= Math.min(height, requested); h -= 1) {
+    if (fits(sums, rows, x, grid - bottom - h, right - x, h)) {
+      return { part, source, factor: h / height - 1, origin: 'host 馗' }
+    }
+  }
+  return null
+}
+
 // Median inner / whole ink heights from native lower-left hook enclosures.
 // 日 uses 旭, 𣄽, 𣆥 and 𣆶 where available; 百 uses 兡 and 瓸.
 // Jigmo supplies the missing face measurements for 目 (eight glyphs),
@@ -122,8 +139,6 @@ export function lowerHookSeat(frame, frameBox, inner, innerBox, seat, region, fl
 const hookCounters = new Map([
   ['日', { count: 2, height: 0.831, sans: 0.693, serif: 0.758, fangsong: 0.658, regular: 0.566, 'pen-writing': 0.637 }],
   ['百', { count: 2, height: 0.858, sans: 0.744, serif: 0.795, regular: 0.691, 'pen-writing': 0.813 }],
-  // 首 in 馗.
-  ['首', { count: 3, height: 0.878, sans: 0.803, serif: 0.843, fangsong: 0.855, regular: 0.843, 'pen-writing': 0.826 }],
   // 田 in 乪; Jigmo supplies its height where the face lacks 乪.
   ['田', { divided: true, count: 2, height: 0.810, sans: 0.788, serif: 0.853, regular: 0.580, 'pen-writing': 0.789 }],
   // 由 in 鼬; Fangsong draws this enclosure in 迪.
@@ -157,7 +172,7 @@ function sharedCounterGaps(mask, size, count) {
 }
 
 // Open the counters from the baseline upwards. Strokes above the roof,
-// including the head of 首 and the upright tip of 由, rise with it.
+// including the upright tip of 由, rise with it.
 export function openHookCounters(frame, frameBox, inner, box, seat, region, char, fontStyle) {
   const form = hookCounters.get(char)
   if (!form) return null

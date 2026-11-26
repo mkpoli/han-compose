@@ -1,5 +1,5 @@
 import { expect, it } from 'bun:test'
-import { partOf, pathMask, pathRings, pointsBox, union } from '../src/geometry.js'
+import { derived, partOf, pathMask, pathRings, placed, pointsBox, svgPath, union } from '../src/geometry.js'
 import { openHookCounters } from '../src/hook-seat.js'
 import { hookFloor } from '../src/hook-floor.js'
 import { compose, createSource, sketch } from '../src/loader.js'
@@ -207,19 +207,12 @@ it('opens the editable cells for 見自 and 見日 above their original inset ba
   }
 })
 
-it('opens both sides of 田 and 由 and the lower three counters of 首 in composed and editable layouts', async () => {
+it('opens both sides of 田 and 由 in composed and editable layouts', async () => {
   const control = '\uE001'
-  for (const char of ['田', '由', '首']) {
-    const divided = char !== '首'
-    const roof = divided ? 480 : 420
-    const strokes = [[0, 0, 50, roof], [750, 0, 800, roof], [0, 0, 800, 50], [0, roof, 800, roof + 50]]
-    if (divided) {
-      // Different crossbar levels on each side force a fit to respect both white bands.
-      strokes.push([0, 215, 400, 265], [400, 270, 800, 320], [355, 0, 445, char === '由' ? 630 : 530])
-    } else {
-      strokes.push([0, 140, 800, 190], [0, 280, 800, 330], [0, 570, 800, 620],
-        [270, 620, 335, 690], [470, 620, 535, 690])
-    }
+  for (const char of ['田', '由']) {
+    // Different crossbar levels on each side force a fit to respect both white bands.
+    const strokes = [[0, 0, 50, 480], [750, 0, 800, 480], [0, 0, 800, 50], [0, 480, 800, 530],
+      [0, 215, 400, 265], [400, 270, 800, 320], [355, 0, 445, char === '由' ? 630 : 530]]
     const record = character(char, strokes)
     const src = source('pen', { [char]: record, [control]: record })
     for (const layout of ['composed', 'cells']) {
@@ -243,17 +236,50 @@ it('opens both sides of 田 and 由 and the lower three counters of 首 in compo
       for (const side of [0.30, 0.70]) {
         const runs = mask => section(mask, side).replace(/^0+|0+$/g, '').match(/1+|0+/g)
         const oldRows = runs(oldMask), newRows = runs(newMask)
-        expect(newRows).toHaveLength(divided ? 5 : 9)
+        expect(newRows).toHaveLength(5)
         for (let i = 0; i < oldRows.length; i++) {
-          if (i % 2 && (divided || i > 1)) expect(newRows[i].length).toBeGreaterThan(oldRows[i].length)
+          if (i % 2) expect(newRows[i].length).toBeGreaterThan(oldRows[i].length)
           else expect(Math.abs(newRows[i].length - oldRows[i].length)).toBeLessThanOrEqual(1)
         }
       }
-      if (divided) expect(section(newMask, 0.50).match(/1+/g)).toHaveLength(1)
+      expect(section(newMask, 0.50).match(/1+/g)).toHaveLength(1)
       if (char === '由') {
         const tip = mask => section(mask, 0.30).indexOf('1') - section(mask, 0.50).indexOf('1')
         expect(Math.abs(tip(oldMask) - tip(newMask))).toBeLessThanOrEqual(1)
       }
     }
+  }
+})
+
+it('uses the proportions of 首 in the face’s 馗 and respects donor exclusion', async () => {
+  const src = source('pen')
+  const record = donors.pen.馗.G, glyph = partOf(record)
+  const cut = derived(glyph, record.ls.首.map(index => glyph.contours[index]))
+  const native = svgPath([placed(cut, cut.box, cut.box, 1, '馗')])
+  const expected = normalizedOutline(native)
+  const [left, bottom, right, top] = inkBounds(native)
+  for (const layout of ['composed', 'cells']) {
+    const draw = async (input, exclude = []) => (await compose(input, '⿺見首', {
+      separate: true, fontStyle: 'pen-writing', layout, exclude,
+    })).parts
+    const [frame, inner] = await draw(src)
+    expect(inner.origin).toBe('host 馗')
+    const actual = normalizedOutline(inner.d)
+    expect(actual.map(ring => ring.length)).toEqual(expected.map(ring => ring.length))
+    for (let i = 0; i < actual.length; i++) {
+      const error = Math.max(...actual[i].map((coordinate, j) => Math.abs(coordinate - expected[i][j])))
+      expect(error).toBeLessThan(0.001)
+    }
+    const [x0, y0, x1, y1] = inkBounds(inner.d)
+    // The root fit preserves the ordinary whole glyph's ink bounds.
+    const nativeAspect = (top - bottom) / (right - left)
+    expect(Math.abs((y1 - y0) / (x1 - x0) / nativeAspect - 1)).toBeLessThan(0.02)
+    const mask = pathMask(frame.d, 256)
+    expect(pathMask(inner.d, 256).some((ink, i) => ink && mask[i])).toBe(false)
+    if (layout === 'cells') expect([frame.leaf, inner.leaf]).toEqual([0, 1])
+    const [, fallback] = await draw(src, ['馗'])
+    expect(fallback.d).not.toBe(inner.d)
+    const [, unlabeled] = await draw(source('pen', { 馗: { ...donors.pen.馗, G: { ...record, ls: {} } } }))
+    expect(unlabeled.d).toBe(fallback.d)
   }
 })
