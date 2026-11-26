@@ -909,6 +909,43 @@ it('cuts a fused top dot at its horizontal neck without stealing the right half 
   expect(splitIslands([fused3, apart3])).toHaveLength(3)
 })
 
+it('pairs a small island with its counterpart when it overlaps a neighbour', () => {
+  // One face fuses a dot onto a bar. The other face's small island sits over the block's
+  // edge, so by overlap it would go to the block and leave the first face's small island unpaired.
+  const fused = [
+    [box(20, 20, 100, 200)],
+    [box(130, 60, 16, 40)],
+    [
+      [
+        [170, 20],
+        [190, 20],
+        [190, 60],
+        [220, 60],
+        [220, 74],
+        [190, 74],
+        [190, 220],
+        [170, 220],
+        [170, 20]
+      ]
+    ]
+  ]
+  const apart = [
+    [box(20, 20, 100, 200)],
+    [box(104, 60, 16, 40)],
+    [box(170, 20, 20, 200)],
+    [box(196, 60, 24, 14)]
+  ]
+  const regions = splitIslands([fused, apart])
+  expect(regions).toHaveLength(4)
+  const width = (/** @type {number[][]} */ ring) =>
+    Math.max(...ring.map((p) => p[0])) - Math.min(...ring.map((p) => p[0]))
+  // The two small islands go together, and the block stays whole.
+  const small = regions.find((region) => Math.abs(width(region[1][0][0]) - 16) < 1)
+  expect(width(small[0][0][0])).toBeCloseTo(16, 0)
+  const block = regions.find((region) => width(region[1][0][0]) > 90)
+  expect(width(block[0][0][0])).toBeCloseTo(100, 0)
+})
+
 it('does not pair distant leftover corners at opposite ends of a long stem wall', () => {
   // Two 口-like outer contours where face A has an extra sharp bottom-left corner at (16, 240)
   // and face B has a gentle extra corner near the top-left at (16, 42) — both turn the same way

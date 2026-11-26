@@ -1106,6 +1106,30 @@ export function splitIslands(polygons) {
       )
       return apart.indexOf(Math.min(...apart))
     })
+    // Registration can lay a small island over a neighbour's ink, which then takes its vote
+    // and leaves its real counterpart with none. That island takes back the nearest of the
+    // finer islands its neighbours can spare.
+    const middle = (/** @type {number[][]} */ ring) => {
+      const [x, y, right, bottom] = ringBox(ring)
+      return [(x + right) / 2, (y + bottom) / 2]
+    }
+    for (const [x, island] of islands.entries()) {
+      if (owners.includes(x)) continue
+      const at = middle(island[0])
+      let nearest = -1,
+        least = Infinity
+      for (const [j, owner] of owners.entries()) {
+        if (owners.filter((other) => other === owner).length < 2) continue
+        const mid = middle(fine[j][0])
+        const d = Math.hypot(mid[0] - at[0], mid[1] - at[1])
+        if (d < least) {
+          least = d
+          nearest = j
+        }
+      }
+      if (nearest < 0) return null
+      owners[nearest] = x
+    }
     /** @type {number[][][][]} */
     const out = []
     for (const [x, island] of islands.entries()) {
