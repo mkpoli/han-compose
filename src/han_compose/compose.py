@@ -1172,6 +1172,18 @@ def enclosures(part: Part, op: str) -> list[tuple[Part, Part]]:
             for k in range(1, len(ranked))]
 
 
+#: The least extent a part's scale is measured over: a lone stroke's width says little of its scale.
+EVEN_LEAST = 60.0
+
+
+def _evenness(parts: list[Placed]) -> float:
+    """How evenly a drawing scales its parts: the least scale any part takes along x or y over the
+    greatest, 1 where every part keeps the proportions and the relative size its source drew."""
+    scales = [(p.target[k + 2] - p.target[k]) / (p.source[k + 2] - p.source[k])
+              for p in parts if not p.cut for k in (0, 1) if p.source[k + 2] - p.source[k] >= EVEN_LEAST]
+    return min(scales) / max(scales) if scales and min(scales) > 0 else 0.0
+
+
 def mapped(box: Box, frame: Box, region: Box) -> Box:
     """`box`, drawn within `frame`, carried into `region` in proportion."""
     sx = (region[2] - region[0]) / max(frame[2] - frame[0], 1)
@@ -3172,8 +3184,10 @@ class Composer:
                 part.target = mapped(part.target, frame, region)
         return parts
 
-    def _node(self, node: Node, region: Box, at_root: bool = False) -> list[Placed]:
-        """`node` drawn into `region`; at the root, the whole character, laid out in the em."""
+    def _node(self, node: Node, region: Box, at_root: bool = False, regroup: bool = True) -> list[Placed]:
+        """`node` drawn into `region`; at the root, the whole character, laid out in the em. A row or
+        column of three is also drawn as each pairing of its neighbours (⿲氵木目 as ⿰氵⿰木目 and
+        ⿰⿰氵木目) unless `regroup` is off, and the drawing that scales its parts most evenly is kept."""
         if node == ("⿺", ("⿱", "𡗗", "夂"), "面") and (parts := self._wheat_face(region)):
             return parts
         if isinstance(node, str) and is_jamo_run(node):
@@ -3238,6 +3252,20 @@ class Composer:
         # Resolve each node's original identity before changing its rendering layout.
         node = self._respelled(node)
         op, children = node[0], list(node[1:])
+        if (regroup and self.hosted and op in ("⿲", "⿳") and len(children) == 3
+                and not all(key(c) == key(children[0]) for c in children[1:])):
+            # Few characters hold a part in the middle of three, so it often has no host and its
+            # whole glyph is squeezed into the slot (木 a third as wide in ⿲氵木目). Two operands
+            # have hosts and a learned layout: the same row is drawn through them as well.
+            pair = "⿰" if op == "⿲" else "⿱"
+            first, middle, last = children
+            drawings = [self._node(node, region, at_root, regroup=False)]
+            for tree in ((pair, first, (pair, middle, last)), (pair, (pair, first, middle), last)):
+                try:
+                    drawings.append(self._node(tree, region, at_root))
+                except LookupError:
+                    continue
+            return max(drawings, key=_evenness)
         if op == VARIANT:
             return self._node(children[0], region, at_root)
         if op in ("⿾", "⿿"):
