@@ -115,16 +115,53 @@ export function lowerHookSeat(frame, frameBox, inner, innerBox, seat, region, fl
   return balanceSides(sums, rows, best, region)
 }
 
+// Optical size and position of 首 alongside 先, 龜 and 亀.
+const xianShou = {
+  sans: { dx: 0.009, dy: 0.043 },
+  serif: { scale: 1.065, dy: -0.009 },
+  fangsong: { scale: 1.105, dx: 0.032, dy: -0.043 },
+  'pen-writing': { scale: 1.070, dx: 0.015, dy: -0.047 },
+}
+const turtleShou = {
+  sans: { dy: 0.053 },
+  serif: { dy: 0.055 },
+  fangsong: { scale: 1.05, dy: -0.010 },
+  regular: { dx: -0.021, dy: 0.016 },
+}
+
+const shouFrames = { 先: xianShou, 龜: turtleShou, 亀: { ...turtleShou, serif: { dx: 0.014, dy: 0.055 } } }
+
+// Start with the requested translation and uniform enlargement. Shorten
+// the adjustment if it would touch the frame or exceed its ink bounds.
+function adjustHookSeat(seat, sums, rows, { scale = 1, dx = 0, dy = 0 }) {
+  const [l, b, r, t] = seat
+  for (let step = 12; step > 0; step--) {
+    const progress = step / 12
+    const grow = (scale - 1) * progress
+    const extraX = (r - l) * grow / 2, extraY = (t - b) * grow / 2
+    const x = (l + r) / 2 + dx * grid * progress
+    const left = x - (r - l) / 2 - extraX, right = x + (r - l) / 2 + extraX
+    const bottom = b + dy * grid * progress - extraY, top = t + dy * grid * progress + extraY
+    if (left < 0 || bottom < 0 || right > grid * 0.985 || top > grid * 0.99) continue
+    if (fits(sums, rows, left, grid - top, right - left, top - bottom, 2, 2)) {
+      return [left, bottom, right, top]
+    }
+  }
+  return seat
+}
+
 // The contour cut of 首 in 馗 carries the relative heights of its horns,
 // shoulder and eye. Aim for its native share of the frame height.
-export function fitHookDonor(frame, frameBox, { part, heightShare }, seat, region) {
+export function fitHookDonor(frame, frameBox, { part, heightShare }, seat, region, outer, fontStyle) {
   const box = part.box, gridBox = [0, 0, grid, grid]
   const [left, bottom, right, top] = mapped(seat, region, gridBox)
   const width = right - left, center = (left + right) / 2
+  const tuning = shouFrames[outer]?.[fontStyle]
   const naturalHeight = (seat[2] - seat[0]) * (box[3] - box[1]) / (box[2] - box[0]) *
     grid / (region[3] - region[1])
   const fullHeight = Math.min(naturalHeight, grid * 0.98 - bottom)
   const sums = frameInk(frame, frameBox), rows = innerProfile(part, box)
+  const finish = seat => mapped(tuning ? adjustHookSeat(seat, sums, rows, tuning) : seat, gridBox, region)
   let original = null
   for (let height = fullHeight; height >= Math.min(top - bottom, fullHeight); height -= 1) {
     const half = 0.5 * width * height / naturalHeight
@@ -151,12 +188,12 @@ export function fitHookDonor(frame, frameBox, { part, heightShare }, seat, regio
         const mid = start + shift
         if (mid - half < 0 || mid + half > rightLimit) continue
         if (fits(sums, rows, mid - half, grid - base - height, 2 * half, height, 4, 4)) {
-          return mapped([mid - half, base, mid + half, base + height], gridBox, region)
+          return finish([mid - half, base, mid + half, base + height])
         }
       }
     }
   }
-  return original && mapped(original, gridBox, region)
+  return original && finish(original)
 }
 
 // Median inner / whole ink heights from native lower-left hook enclosures.

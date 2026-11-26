@@ -2159,9 +2159,18 @@ export class Composer {
     // native donor after that remap so its head and eye keep their proportions.
     if (inner && node[2] === '首' && !this.excluded('首')) {
       const donor = this.enclosedShou()
-      const fittedSeat = donor && fitHookDonor(hook.part, glyph.box, donor, room, region)
-      if (fittedSeat) return { parts, room: fittedSeat, previous: room,
-        counterFit: { part: donor.part, source: donor.part.box, origin: 'host 馗' } }
+      const fittedSeat = donor && fitHookDonor(hook.part, glyph.box, donor, room, region, outer, this.fontStyle)
+      if (fittedSeat) {
+        let part = donor.part
+        if (this.fontStyle === 'pen-writing' && (outer === '龜' || outer === '亀')) {
+          // Kureedo's inward master lightens the bars of 首 beside the dense turtle frame.
+          part = derived(part, part.contours.map(c => ({
+            ...c, light: c.light.map((v, i) => v + 0.14 * (c.heavy[i] - v)),
+          })))
+        }
+        return { parts, room: fittedSeat, previous: room,
+          counterFit: { part, source: part.box, origin: 'host 馗' } }
+      }
     }
     if (counterFit) {
       const previous = room

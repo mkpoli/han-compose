@@ -1,5 +1,5 @@
 import { expect, it } from 'bun:test'
-import { derived, partOf, pathMask, pathRings, placed, pointsBox, svgPath, union } from '../src/geometry.js'
+import { ASCENT, derived, partOf, pathMask, pathRings, placed, pointsBox, svgPath, union } from '../src/geometry.js'
 import { openHookCounters } from '../src/hook-seat.js'
 import { hookFloor } from '../src/hook-floor.js'
 import { compose, createSource, sketch } from '../src/loader.js'
@@ -7,6 +7,7 @@ import { character, files, shards } from './fixtures/small-export.js'
 // Sans export a83fc941166b: Noto Sans CJK JP and its Plangothic extension fallback.
 // Serif export 8156f838798c: Noto Serif CJK JP 2.003.
 // Regular export c14ee5e08798: CNS11643 TW-Kai.
+// Additional 先/亀/龜 fixtures use the Sans, Serif and Zhuque Fangsong exports.
 // Pen export ce3eaafda8f9: Kureedo Full 0.5.0. Sources and OFL licences in docs/licensing.md.
 import donors from './fixtures/hook-floor.json' with { type: 'json' }
 
@@ -291,3 +292,44 @@ for (const [face, style, outer, priorHeight] of [
     }
   })
 }
+
+// Prior revision (cc86b525) inner ink measurements in a 1000-unit em. Compare centres
+// separately from widths so a bigger drawing cannot stand in for a shift.
+it('positions 首 for the face and the silhouette of its hook', async () => {
+  for (const [face, style, outer, x, y, w, h, changes] of [
+    ['sans', 'sans', '先', 477.5, 173.6, 458.5, 630.4, ['up']],
+    ['sans', 'sans', '亀', 475.9, 174.2, 469.3, 645.4, ['up']],
+    ['serif', 'serif', '先', 476.2, 140.9, 461.5, 639.8, ['larger']],
+    ['serif', 'serif', '龜', 477.2, 184.1, 461.5, 639.6, ['up']],
+    ['fang', 'fangsong', '先', 455.2, 43.4, 438.7, 711.8, ['larger', 'right', 'down']],
+    ['fang', 'fangsong', '亀', 457.4, 44.0, 484.5, 786.2, ['larger']],
+    ['reg', 'regular', '先', 438.1, 46.9, 425.5, 771.1, ['unchanged']],
+    ['reg', 'regular', '亀', 465.5, 42.0, 444.6, 805.8, ['left', 'up']],
+    ['pen', 'pen-writing', '先', 453.5, 62.9, 445.3, 689.0, ['larger', 'down']],
+    ['pen', 'pen-writing', '龜', 464.3, 70.2, 478.8, 740.8, ['lighter']],
+  ]) {
+    const { parts: [frame, inner] } = await compose(source(face), '⿺' + outer + '首', {
+      fontStyle: style, separate: true, layout: 'composed',
+    })
+    expect(inner.origin).toBe('host 馗')
+    const [left, bottom, right, top] = inkBounds(inner.d)
+    const width = right - left, height = top - bottom
+    const dx = (right + left) / 2 - (x + w / 2)
+    const dy = ASCENT - (bottom + top) / 2 - (y + h / 2)
+    const mask = pathMask(inner.d, 512), outline = pathMask(frame.d, 512)
+    expect(mask.some((ink, i) => ink && outline[i])).toBe(false)
+    expect(Math.abs(height / width - h / w)).toBeLessThan(0.005)
+    if (changes.includes('up')) expect(dy).toBeLessThan(-2)
+    if (changes.includes('down')) expect(dy).toBeGreaterThan(2)
+    if (changes.includes('left')) expect(dx).toBeLessThan(-2)
+    if (changes.includes('right')) expect(dx).toBeGreaterThan(2)
+    if (changes.includes('larger')) expect(width).toBeGreaterThan(w + 2)
+    else expect(Math.abs(width - w)).toBeLessThan(0.5)
+    if (changes.includes('unchanged')) expect(Math.max(Math.abs(dx), Math.abs(dy))).toBeLessThan(0.2)
+    if (changes.includes('lighter')) {
+      // Kureedo's prior 首 fills 29.6% of its own ink box.
+      const density = mask.reduce((sum, ink) => sum + ink, 0) / (width * height * (512 / 1000) ** 2)
+      expect(density).toBeLessThan(0.29)
+    }
+  }
+})
