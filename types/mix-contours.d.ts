@@ -10,6 +10,7 @@ export declare function alignRings(rings: number[][][]): number[][][] | null;
  * @param {number[][][]} rings the frame first, without the repeated closing point */
 export declare function tangled(rings: number[][][]): boolean;
 /** Pair islands (or counters) by the distance between their bounding boxes.
+ * Minimizes total squared distance so a uniform shift never swaps two neighbours.
  * @template T @param {T[][]} faces @param {(item:T)=>number[][]} ringOf */
 export declare function matchRegions<T>(faces: T[][], ringOf: (item: T) => number[][]): T[][] | null;
 /** Group islands across faces whose island counts differ. Islands whose boxes mostly
