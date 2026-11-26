@@ -25,8 +25,9 @@ export declare function groupRegions<T>(faces: T[][], ringOf: (item: T) => numbe
  * fused island is cut at the junction, so each stroke blends with its own counterpart.
  * Null when the faces split the ink in ways that are not one a coarser form of the other.
  * @param {number[][][][][]} polygons each face's islands
+ * @param {boolean} [anchored] cut at the notches of a fused island in preference to its narrowest neck
  * @returns {number[][][][][][] | null} per island, each face's one island */
-export declare function splitIslands(polygons: number[][][][][]): number[][][][][][] | null;
+export declare function splitIslands(polygons: number[][][][][], anchored?: boolean): number[][][][][][] | null;
 /** Compute correspondences and local stroke widths once, independently of the controls.
  * @param {number[][][][][]} polygons each face's one island
  * @param {boolean} [cut] the islands were cut from larger ones */

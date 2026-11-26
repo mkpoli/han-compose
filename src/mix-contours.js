@@ -820,8 +820,9 @@ function trimStub(body, width, ring, clear) {
  * @param {boolean} within whether a chord runs inside the ring (through its ink or its counter) or outside it (across a bay)
  * @param {boolean} cap bow the smaller piece's cut end outward, so it overlaps what it left
  * @param {number[][][]} [clear] rings no chord may touch
+ * @param {boolean} [anchored] prefer a chord that ends at notches of the outline, where a stroke leaves the ink it ran into, over a narrower one across a stroke's run
  * @returns {number[][][] | null} per target, a closed ring */
-function cutRing(ring, targets, within, cap, clear = []) {
+function cutRing(ring, targets, within, cap, clear = [], anchored = false) {
   const points = dense(ring, 3)
   const marks = targets.map((target) => dense(target.ring, 3))
   const tangents = (/** @type {number[][]} */ pts) => {
@@ -901,6 +902,22 @@ function cutRing(ring, targets, within, cap, clear = []) {
     })
     /** @type {{ i: number, j: number, width: number, cost: number }[]} */
     const chords = []
+    // Points at or beside a notch: a sharp turn against the way the piece's outline runs.
+    /** @type {boolean[] | null} */
+    let notched = null
+    if (anchored) {
+      const sign = turning(piece.points) > 0 ? 1 : -1
+      const notch = piece.points.map((p, k) => {
+        const a = piece.points[(k + size - 2) % size],
+          b = piece.points[(k + 2) % size]
+        const ux = p[0] - a[0],
+          uy = p[1] - a[1],
+          vx = b[0] - p[0],
+          vy = b[1] - p[1]
+        return sign * Math.atan2(ux * vy - uy * vx, ux * vx + uy * vy) < -0.5
+      })
+      notched = notch.map((_, k) => [-1, 0, 1].some((step) => notch[(k + step + size) % size]))
+    }
     for (let i = 0; i < size; i++)
       for (let j = i + 6; j < size; j++) {
         if (size - (j - i) < 6) continue
@@ -934,7 +951,13 @@ function cutRing(ring, targets, within, cap, clear = []) {
         // A stroke fused along its neighbour carries that neighbour's label near the join,
         // and its neck is still the cut to make.
         const contam = Math.max(0, Math.max(wrongInner / (j - i), wrongOuter / (size - (j - i))) - 0.5)
-        chords.push({ i, j, width, cost: width * (1 + 2 * (stray + contam)) + 30 * (stray + contam) })
+        const loose = notched ? (notched[i] ? 0 : 1) + (notched[j] ? 0 : 1) : 0
+        chords.push({
+          i,
+          j,
+          width,
+          cost: width * (1 + 2 * (stray + contam)) + 30 * (stray + contam) + 6 * loose
+        })
       }
     chords.sort((a, b) => a.cost - b.cost)
     const chord = chords.find(({ i, j }) => {
@@ -1148,8 +1171,9 @@ function cutRing(ring, targets, within, cap, clear = []) {
  * fused island is cut at the junction, so each stroke blends with its own counterpart.
  * Null when the faces split the ink in ways that are not one a coarser form of the other.
  * @param {number[][][][][]} polygons each face's islands
+ * @param {boolean} [anchored] cut at the notches of a fused island in preference to its narrowest neck
  * @returns {number[][][][][][] | null} per island, each face's one island */
-export function splitIslands(polygons) {
+export function splitIslands(polygons, anchored = false) {
   const finest = polygons.reduce((best, islands, f) => (islands.length > polygons[best].length ? f : best), 0)
   const fine = polygons[finest]
   if (!fine.length || polygons.some((islands) => !islands.length)) return null
@@ -1175,6 +1199,30 @@ export function splitIslands(polygons) {
       )
       return apart.indexOf(Math.min(...apart))
     })
+    // Registration can lay a small island over a neighbour's ink, which then takes its vote
+    // and leaves its real counterpart with none. That island takes back the nearest of the
+    // finer islands its neighbours can spare.
+    const middle = (/** @type {number[][]} */ ring) => {
+      const [x, y, right, bottom] = ringBox(ring)
+      return [(x + right) / 2, (y + bottom) / 2]
+    }
+    for (const [x, island] of islands.entries()) {
+      if (owners.includes(x)) continue
+      const at = middle(island[0])
+      let nearest = -1,
+        least = Infinity
+      for (const [j, owner] of owners.entries()) {
+        if (owners.filter((other) => other === owner).length < 2) continue
+        const mid = middle(fine[j][0])
+        const d = Math.hypot(mid[0] - at[0], mid[1] - at[1])
+        if (d < least) {
+          least = d
+          nearest = j
+        }
+      }
+      if (nearest < 0) return null
+      owners[nearest] = x
+    }
     /** @type {number[][][][]} */
     const out = []
     for (const [x, island] of islands.entries()) {
@@ -1189,7 +1237,8 @@ export function splitIslands(polygons) {
         mine.map((j) => ({ ring: fine[j][0], solid: true })),
         true,
         true,
-        island.slice(1)
+        island.slice(1),
+        anchored
       )
       if (!pieces) return null
       mine.forEach((j, k) => (out[j] = [pieces[k]]))
