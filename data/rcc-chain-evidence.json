@@ -1,0 +1,251 @@
+{
+  "source": {
+    "name": "Rare Character Compendium",
+    "version": 2,
+    "publisher": "Glyph Atlas",
+    "homepage": "https://rare.glyphatlas.org/",
+    "license": "CC BY-SA 4.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/4.0/",
+    "image_rights": "Images keep the rights of their sources.",
+    "generated_at": "2026-11-25T14:19:57.950Z",
+    "revision": 7525,
+    "counts": {
+      "records": 2397,
+      "evidence": 2563
+    },
+    "url": "https://rare.glyphatlas.org/api/export?format=json",
+    "sha256": "e5ee5f06954f7488fe725e629577f3b2ac82560dc8996dce98e9c6d830ebf1cb"
+  },
+  "history": {
+    "url": "https://rare.glyphatlas.org/en/history",
+    "through": 7525,
+    "pages": 126,
+    "public_rows": 7517,
+    "matching_rows": 9
+  },
+  "records": [
+    {
+      "code": "R+01BC",
+      "url": "https://rare.glyphatlas.org/en/entry/444",
+      "created": "2026-11-14T12:58:21.571Z",
+      "credited_to": "Misura",
+      "history": "https://rare.glyphatlas.org/en/entry/444/history",
+      "historical_revisions": [
+        903,
+        3767
+      ],
+      "primary_ids": "⿰氵⿱亠⿶#(𠃍-𠃊一)凵",
+      "claims": [
+        {
+          "ids": "⿰氵⿱亠⿶#(𠃍-𠃊一)凵",
+          "chains": [
+            "#(𠃍-𠃊一)"
+          ],
+          "layout": null
+        }
+      ],
+      "sightings": [
+        {
+          "url": "https://rare.glyphatlas.org/en/entry/444#sighting-449",
+          "title": "兴宁客家话词典",
+          "author": "饶秉才",
+          "date": "2017",
+          "publisher": "广东人民出版社",
+          "page": null,
+          "source": "https://book.douban.com/subject/35020099/",
+          "images": []
+        }
+      ]
+    },
+    {
+      "code": "R+06F3",
+      "url": "https://rare.glyphatlas.org/en/entry/1779",
+      "created": "2026-11-18T08:05:58.909Z",
+      "credited_to": "ZERH x KSIRP",
+      "history": "https://rare.glyphatlas.org/en/entry/1779/history",
+      "historical_revisions": [
+        5188,
+        6136
+      ],
+      "primary_ids": "⿸㇯虍七노",
+      "claims": [
+        {
+          "ids": "⿱⺊⿸#(-乛丿)노",
+          "chains": [
+            "#(-乛丿)"
+          ],
+          "layout": null
+        }
+      ],
+      "sightings": [
+        {
+          "url": "https://rare.glyphatlas.org/en/entry/1779#sighting-1857",
+          "title": null,
+          "author": "@PonChak_mania",
+          "date": null,
+          "publisher": "X",
+          "page": null,
+          "source": "https://x.com/PonChak_mania/status/2046116465171104250",
+          "images": [
+            {
+              "url": "https://rare.glyphatlas.org/media/v2/2d4cbda006de7e859bdb279451e62fc665bda58f75f426334fd07cf0a2407101.png",
+              "mark": [
+                [
+                  86,
+                  87,
+                  39,
+                  44
+                ]
+              ]
+            },
+            {
+              "url": "https://rare.glyphatlas.org/media/v2/f252807cf9a66510c4fe0ae1bfa8d498b317f2a0a48779e1e09f62255938a5da.png",
+              "mark": [
+                [
+                  579,
+                  611,
+                  44,
+                  38
+                ]
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "code": "R+07B4",
+      "url": "https://rare.glyphatlas.org/en/entry/1972",
+      "created": "2026-11-20T07:51:04.911Z",
+      "credited_to": "ZERH x KSIRP",
+      "history": "https://rare.glyphatlas.org/en/entry/1972/history",
+      "historical_revisions": [
+        6346
+      ],
+      "primary_ids": "⿱㇯馬灬乙",
+      "claims": [
+        {
+          "ids": "⿱⿷#(-一丨b𠃌)𰀁乙",
+          "chains": [
+            "#(-一丨b𠃌)"
+          ],
+          "layout": null
+        }
+      ],
+      "sightings": [
+        {
+          "url": "https://rare.glyphatlas.org/en/entry/1972#sighting-2072",
+          "title": "1642년 이채(李埰) 준호구(準戶口)",
+          "author": "이채 (李埰) from 광양현 (光陽縣)",
+          "date": "1642",
+          "publisher": null,
+          "page": null,
+          "source": "http://203.254.129.108/structure/save_img/KCIS_U038+CBNHNKSMC+KSM-XD.1642.4623-20090730.BUK19057-IMG.jpg",
+          "images": [
+            {
+              "url": "https://rare.glyphatlas.org/media/v2/2598d4e1a46a36e5cf513b28770a3a542510b543539d6fb3f1d09378400ca01d.webp",
+              "mark": [
+                [
+                  1134,
+                  1411,
+                  48,
+                  55
+                ]
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "code": "R+0848",
+      "url": "https://rare.glyphatlas.org/en/entry/2120",
+      "created": "2026-11-22T09:11:00.979Z",
+      "credited_to": "介之慊瘥",
+      "history": "https://rare.glyphatlas.org/en/entry/2120/history",
+      "historical_revisions": [
+        6774,
+        6791
+      ],
+      "primary_ids": "⿰讠⿹⿸⿻#(-亅一)一犬丶",
+      "claims": [
+        {
+          "ids": "⿰讠⿹⿸⿻#(-亅一)一犬丶",
+          "chains": [
+            "#(-亅一)"
+          ],
+          "layout": null
+        }
+      ],
+      "sightings": [
+        {
+          "url": "https://rare.glyphatlas.org/en/entry/2120#sighting-2240",
+          "title": "网上收集一些仓颉胡言乱语的造字",
+          "author": "momo（小红书号：407753148）",
+          "date": "2024-03-28",
+          "publisher": "小红书",
+          "page": null,
+          "source": "https://www.xiaohongshu.com/explore/6604dd2b0000000012034862",
+          "images": [
+            {
+              "url": "https://rare.glyphatlas.org/media/v2/1a956a152c8ce2b897185e53e3402e1320778fa2fe96e6ccb2d1acc0ddc12f81.webp",
+              "mark": [
+                [
+                  240,
+                  164,
+                  133,
+                  156
+                ]
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "code": "R+0919",
+      "url": "https://rare.glyphatlas.org/en/entry/2329",
+      "created": "2026-11-24T05:27:37.537Z",
+      "credited_to": "介之慊瘥",
+      "history": "https://rare.glyphatlas.org/en/entry/2329/history",
+      "historical_revisions": [
+        7291,
+        7293
+      ],
+      "primary_ids": "⿰又⿱丿⿹⿴#(-𠃌㇉)丶灬",
+      "claims": [
+        {
+          "ids": "⿰又⿱丿⿹⿴#(-𠃌㇉)丶灬",
+          "chains": [
+            "#(-𠃌㇉)"
+          ],
+          "layout": null
+        }
+      ],
+      "sightings": [
+        {
+          "url": "https://rare.glyphatlas.org/en/entry/2329#sighting-2467",
+          "title": "俗体字寻觅之旅",
+          "author": "🌐昭和亡太郎🌐",
+          "date": "2020-06-16",
+          "publisher": "百度贴吧",
+          "page": null,
+          "source": "https://tieba.baidu.com/p/6753472055",
+          "images": [
+            {
+              "url": "https://rare.glyphatlas.org/media/v2/969d1237d9f7095c2291583d9958dbed74ee28f4393c3d1dce8bea97cb318ec4.png",
+              "mark": [
+                [
+                  745,
+                  505,
+                  106,
+                  127
+                ]
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
