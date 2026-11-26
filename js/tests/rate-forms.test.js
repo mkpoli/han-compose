@@ -33,3 +33,24 @@ test('one nested choice leaves its sibling independently selectable', () => {
   const b = svgPath(c.compose('⿰'+second.text+second.text))
   expect(a).not.toEqual(b)
 })
+
+test('every spelling owns one editable subtree and leaves its sibling in place', async () => {
+  const { compose, sketch } = await import('../src/loader.js')
+  const { sourceFor } = await import('../src/source.js')
+  const { groupParts } = await import('../src/group-parts.js')
+  for (const host of ['率', '蟀', '𳅀']) {
+    const forms = rateFormsFor(host)
+    for (const operator of ['⿰', '⿱']) {
+      const boxes = []
+      for (const form of forms) {
+        const text = operator + form.text + forms[0].text
+        const source = sourceFor(text)
+        const { parts } = await compose(source, text, { separate: true })
+        const leaves = await sketch(source, text)
+        expect(groupParts(parts, leaves)?.map(group => group.parts)).toEqual([[0], [1]])
+        boxes.push(parts[1].box)
+      }
+      expect(boxes).toEqual(Array(4).fill(boxes[0]))
+    }
+  }
+})
