@@ -1,0 +1,70 @@
+[
+  {
+    "face": "Plangothic P1",
+    "hostfile": "PlangothicP1-Regular-2.9.5795.ttf",
+    "cmap": "U+26932",
+    "hostbox": [
+      32,
+      -86,
+      951,
+      823
+    ],
+    "selected_indices": [
+      0,
+      8,
+      9,
+      10
+    ],
+    "innerbox": [
+      590,
+      87,
+      890,
+      818
+    ],
+    "em": 1000,
+    "standalone_em": 1000,
+    "standalone_box": [
+      163,
+      -80,
+      853,
+      843
+    ],
+    "height_ratio": 0.8041804180418042,
+    "inner_aspect": 2.4366666666666665,
+    "standalone_aspect": 1.3376811594202898
+  },
+  {
+    "face": "Jigmo",
+    "hostfile": "Jigmo-20250912-Jigmo2.ttf",
+    "cmap": "U+26932",
+    "hostbox": [
+      42,
+      -74,
+      992,
+      871
+    ],
+    "selected_indices": [
+      1,
+      2,
+      5,
+      8
+    ],
+    "innerbox": [
+      602,
+      35,
+      959,
+      871
+    ],
+    "em": 1024,
+    "standalone_em": 1024,
+    "standalone_box": [
+      189,
+      -78,
+      861,
+      871
+    ],
+    "height_ratio": 0.8846560846560847,
+    "inner_aspect": 2.3417366946778713,
+    "standalone_aspect": 1.412202380952381
+  }
+]
