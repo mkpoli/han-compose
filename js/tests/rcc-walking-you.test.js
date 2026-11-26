@@ -77,3 +77,31 @@ it('keeps the existing faces with the native crossed walking radical and other s
   }
   expect(overlayContextParts(composer('regular'), '⿺#(㇋乀)田', em)).toBeNull()
 })
+
+it('carries the native weight change through the entry and sweep', () => {
+  const size = 400
+  for (const style of Object.keys(records)) {
+    const parts = overlayContextParts(composer(style), key, em)
+    const pen = style === 'pen-writing'
+    const samples = (pen ? [-1, 0, .5, 1] : [0, .5, 1]).map(weight => {
+      const [frame, inside] = parts.map(p => fill(groupRings([{ ...p, weight: [weight, weight] }], 24), size, em))
+      // The sweep stays continuous and clear of 由 at both master extremes.
+      for (let x = 155; x <= 360; x++) {
+        const band = bands(frame, x, size).at(-1)
+        expect(band).toBeDefined()
+        expect(band[1] - band[0]).toBeGreaterThanOrEqual(3)
+        expect(band[0]).toBeGreaterThan((bands(inside, x, size).at(-1) ?? [-1, -1])[1])
+      }
+      const entry = bands(frame, 36, size).find(([top, bottom]) => bottom > 224 && top < 265)
+      const sole = bands(frame, 240, size).at(-1)
+      return [entry, sole].map(([top, bottom]) => bottom - top + 1)
+    })
+    for (let i = 1; i < samples.length; i++) {
+      for (const k of [0, 1]) {
+        // Kureedo's second master moves inward. Its outward weight is negative.
+        const growth = samples[i][k] - samples[i - 1][k]
+        expect(pen ? -growth : growth).toBeGreaterThan(1)
+      }
+    }
+  }
+})

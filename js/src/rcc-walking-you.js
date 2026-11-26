@@ -68,33 +68,54 @@ function walkingFrame(piece, style) {
   /** @param {number[]} point */
   const finish = point => {
     const [x, y] = normalized(point)
-    return at(1 - (1 - x) * (pen ? 1 : .72), .915 + (y - shape.terminalTop) * (pen ? .75 : .53))
+    return at(1 - (1 - x) * (pen ? 1 : .80), .910 + (y - shape.terminalTop) * (pen ? .75 : .60))
   }
+  const lightPath = /** @type {Segment[]} */ (segments(contour.ops, contour.light))
+  // Kureedo's second master moves inward. The shortened entry and leveled
+  // sweep need only a fraction of its original displacement.
+  const tipShare = pen ? .30 : 1, sweepShare = pen ? .60 : 1
   /** @param {'light' | 'heavy'} master @returns {Segment[]} */
   function draw(master) {
-    const path = /** @type {Segment[]} */ (segments(contour.ops, contour[master]))
+    const path = master === 'light' ? lightPath : /** @type {Segment[]} */ (segments(contour.ops, contour.heavy))
     /** @param {number} index */
     const end = index => path[index][1][path[index][1].length - 1]
-    /** @param {number[]} run @param {(point: number[]) => number[]} transform @returns {Segment[]} */
-    const copy = ([first, last], transform) => {
-      const run = first <= last ? path.slice(first + 1, last + 1) : [...path.slice(first + 1), ...path.slice(1, last + 1)]
+    // Each side inherits the movement of its adjoining native brush edge.
+    /** @param {number} index @param {(point: number[]) => number[]} transform */
+    const movement = (index, transform) => {
+      const points = lightPath[index][1], base = transform(points[points.length - 1]), actual = transform(end(index))
+      return [actual[0] - base[0], actual[1] - base[1]]
+    }
+    /** @param {number} x @param {number} y @param {number[]} delta @param {number} [share] */
+    const offset = (x, y, delta, share = 1) => [left + x * width + share * delta[0], top - y * height + share * delta[1]]
+    /** @param {number[]} run @param {(point: number[]) => number[]} transform @param {Segment[]} [source] @returns {Segment[]} */
+    const copy = ([first, last], transform, source = path) => {
+      const run = first <= last ? source.slice(first + 1, last + 1) : [...source.slice(first + 1), ...source.slice(1, last + 1)]
       return run.map(([op, points]) => [op, points.map(transform)])
     }
     /** @param {number} join @param {number} terminal @param {boolean} lower @param {boolean} returning @returns {Segment[]} */
     const edge = (join, terminal, lower, returning) => {
-      const root = fold(end(join)), stop = finish(end(terminal)), lane = lower ? .968 : .916
-      const [x] = normalized(root), [terminalX] = normalized(stop)
-      const bend = at(x + .07, lane - .019), ease = at(.43, lane), middle = at(.55, lane)
-      const settle = at((.55 + terminalX) / 2, lane)
+      const root = fold(end(join)), stop = finish(end(terminal)), lane = lower ? .955 : .905
+      const [x, y] = normalized(root), [terminalX] = normalized(stop)
+      const delta = movement(terminal, finish)
+      const bend = at(x + .075, y + .105)
+      const ease = offset(.45, lane - .008, delta, sweepShare), middle = offset(.56, lane, delta, sweepShare)
+      const settle = offset((.56 + terminalX) / 2, lane + .009, [delta[0] / 2, delta[1]], sweepShare)
       return returning ? [['Q', [settle, middle]], ['C', [ease, bend, root]]]
         : [['C', [bend, ease, middle]], ['Q', [settle, stop]]]
     }
     const [start, stop] = shape.sweep, [first, last] = shape.terminal, [from, to] = shape.entry
     const [tipStart] = shape.tip, join = fold(end(to))
-    const tipIn = tip(end(tipStart)), nativeTip = copy(shape.tip, tip)
-    const rise = at(.129, .54), turn = at(.105, .596)
-    const hair = at(.087, .606), shoulder = at(.141, .671)
-    const brush = at(.077, .647), heel = at(.145, .718)
+    const tipPath = pen && master === 'heavy'
+      ? /** @type {Segment[]} */ (segments(contour.ops, contour.light.map(
+          /** @param {number} point @param {number} i */ (point, i) => point + tipShare * (contour.heavy[i] - point))))
+      : path
+    const tipIn = tip(tipPath[tipStart][1][tipPath[tipStart][1].length - 1])
+    const nativeTip = copy(shape.tip, tip, tipPath)
+    const [low, high] = (pen ? [...shape.tip].reverse() : shape.tip)
+      .map(index => movement(index, tip).map(delta => delta * tipShare))
+    const rise = offset(.129, .54, high, .65), turn = offset(.105, .596, low, .65)
+    const hair = offset(.087, .606, high), shoulder = offset(.141, .671, high, .65)
+    const brush = offset(.077, .647, low), heel = offset(.145, .718, low, .65)
     /** @type {Segment[]} */
     const flick = pen
       ? [['Q', [shoulder, rise]], ['Q', [hair, tipIn]], ...nativeTip, ['Q', [brush, turn]], ['Q', [heel, join]]]
@@ -109,6 +130,9 @@ function walkingFrame(piece, style) {
   return { ...derived(piece, [frame]), strokes: piece.strokes }
 }
 
+/** @type {WeakMap<object, any[]>} */
+const pieces = new WeakMap()
+
 /** @param {string} style */
 export const walkingYouDonors = style => Object.hasOwn(cuts, style) ? cuts[style].map(([char]) => char) : []
 
@@ -122,10 +146,15 @@ export function walkingYouParts(composer, region) {
     const record = composer.glyphRecord(char)
     if (record?.v !== 1 || hexOf(JSON.stringify(record.p)) !== digest) return null
     const glyph = partOf(record)
+    let leaves = pieces.get(glyph)
+    if (!leaves) pieces.set(glyph, leaves = [])
     for (const [rccLeaf, indices] of [outer, inner].entries()) {
       if (!indices.length) continue
-      const native = cutContours(glyph, indices)
-      const piece = rccLeaf ? native : walkingFrame(native, composer.fontStyle)
+      let piece = leaves[rccLeaf]
+      if (!piece) {
+        const native = cutContours(glyph, indices)
+        piece = leaves[rccLeaf] = rccLeaf ? native : walkingFrame(native, composer.fontStyle)
+      }
       const target = mapped(slots[rccLeaf], unit, region)
       const origin = (rccLeaf ? '由' : '#(㇋乀)') + ' from ' + char
       parts.push({ ...placed(piece, piece.box, target, partInk(piece), origin), rccLeaf, fixed: true })
