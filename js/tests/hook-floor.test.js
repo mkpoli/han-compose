@@ -186,3 +186,23 @@ it('opens three bands for 目 and leaves the gap above the roof intact for 白 a
     expect(gaps[2]).toBeCloseTo(char === '目' ? gaps[0] : 200)
   }
 })
+
+it('opens the editable cells for 見自 and 見日 above their original inset baselines', async () => {
+  // Cell left, width and baseline in the Kureedo export on main (37c86487).
+  for (const [char, left, width, baseline, heightShare] of [
+    ['自', 487.42, 370.08, 700.17, 0.686],
+    ['日', 487.43, 369.87, 700.24, 0.614],
+  ]) {
+    const { parts: [frame, inner] } = await compose(source('pen'), '⿺見' + char, {
+      fontStyle: 'pen-writing', layout: 'cells', separate: true,
+    })
+    const [x, y, w, h] = inner.box
+    expect([frame.leaf, inner.leaf]).toEqual([0, 1])
+    expect(x).toBeCloseTo(left, 1)
+    expect(w).toBeCloseTo(width, 1)
+    expect(y + h).toBeCloseTo(baseline, 1)
+    expect(h / frame.box[3]).toBeCloseTo(heightShare, 2)
+    const outline = pathMask(frame.d, 256)
+    expect(pathMask(inner.d, 256).some((ink, i) => ink && outline[i])).toBe(false)
+  }
+})
