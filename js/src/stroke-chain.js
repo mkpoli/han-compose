@@ -4,6 +4,12 @@
 // stroke's glyph onto that grid, its bars moved rigidly and the room between them stretched.
 // Notation: NightFurySL2001, （白式）IDS 延展语法导论, <https://nightfurySl2001.github.io/bai-ids/>, §5.
 import { derived, fill, partInk, rings, union } from './geometry.js'
+import { fitChainJoins } from './stroke-joins.js'
+import { risingSweepMap, sweepMap } from './chain-stroke-width.js'
+import { guideLoopTurns } from './guide-loop.js'
+import { drawingChain } from './chain-corrections.js'
+import { historicalChainGraph } from './historical-chains.js'
+import landmarks from './chain-landmarks.json' with { type: 'json' }
 import { STROKE_CHAINS, customAt } from './tree.js'
 
 /**
@@ -13,14 +19,18 @@ import { STROKE_CHAINS, customAt } from './tree.js'
  */
 const SEGMENTS = {
   一: 'H', 丨: 'S', 丿: 'P', 乀: 'N', 丶: 'N', '㇀': 'T', '㇂': 'N', '㇄': 'SH', '㇅': 'HSH', '㇇': 'HP',
-  '㇈': 'HSH', '㇉': 'SHS', '㇋': 'HPHP', '㇍': 'HSH', '㇎': 'HSHS', '㇝': 'PN', 乁: 'HN', 乙: 'HPH', 乚: 'SH',
+  '㇈': 'HSH', '㇉': 'SHS', '㇊': 'HST', '㇌': 'HPN', '㇘': 'SL', '㇢': 'P', '㇁': 'N', '㇋': 'HPHP', '㇍': 'HSH', '㇎': 'HSHS', '㇝': 'N', 乁: 'HN', 乙: 'HPH', 乚: 'SH',
   乛: 'H', 亅: 'S', 𠃊: 'SH', 𠃋: 'PH', 𠃌: 'HS', 𠃍: 'HS', 𠃑: 'SHS', 𠄌: 'ST', 𠄎: 'HSHS', '⺄': 'HN',
   '◝': 'a', '◞': 'b', '◟': 'c', '◜': 'd',
 }
 /** A segment's direction, x then y, y up. @type {Record<string, [number, number]>} */
-const STEP = { H: [1, 0], S: [0, -1], P: [-1, -1], N: [1, -1], T: [1, 1], a: [1, -1], b: [-1, -1], c: [-1, 1], d: [1, 1] }
+const STEP = { L: [-1, 0], H: [1, 0], S: [0, -1], P: [-1, -1], N: [1, -1], T: [1, 1], a: [1, -1], b: [-1, -1], c: [-1, 1], d: [1, 1] }
 /** How many orderings of one axis are tried. */
 const MOST_ORDERS = 400
+/** Directed vertex measurements from independent zi.tools drawings, keyed by
+ * the raw chain. See js/scripts/measure-chain-landmarks.mjs.
+ * @type {Record<string, number[]>} */
+const measured = landmarks
 /** The room between two grid lines: full where strokes stand across it, less where they only pass. */
 const OPEN = 1, PASS = 0.45, OFFSET = 0.28
 /** The em box a chain's strokes fill, in font units. */
@@ -35,6 +45,11 @@ const BOX = [100, -20, 900, 790]
  * @param {string} text @returns {{ strokes: ChainStroke[], closed: boolean } | null}
  */
 export function parseChain(text) {
+  text = drawingChain(text)
+  const historic = historicalChainGraph(text)
+  if (historic && historic.strokes.every(char => Object.hasOwn(SEGMENTS, char))) {
+    return { strokes: historic.strokes.map(char => ({ char, reversed: false, cross: null, at: [] })), closed: false }
+  }
   const chars = [...text], custom = customAt(chars)
   if (custom?.kind !== 'chain' || custom.end !== chars.length) return null
   const body = chars.slice(2, -1)
@@ -48,7 +63,7 @@ export function parseChain(text) {
     let char = body[at], end = at + 1
     if (/[A-Z]/.test(char ?? '')) {
       let stop = at
-      while (/[A-Za-z]/.test(body[stop] ?? '') && !/[bxz]/.test(body[stop])) stop++
+      while (/[A-Za-z]/.test(body[stop] ?? '')) stop++
       for (; stop > at; stop--) {
         const named = STROKE_CHAINS[body.slice(at, stop).join('')]
         if (named && SEGMENTS[named]) { char = named; end = stop; break }
@@ -122,6 +137,7 @@ function meeting(a, b) {
  * @param {string} text
  */
 export function solveChain(text) {
+  text = drawingChain(text)
   if (!solved.has(text)) {
     if (solved.size >= MOST_SOLVED) solved.clear()
     solved.set(text, solve(text))
@@ -150,8 +166,18 @@ function solve(text) {
   const xs = classes(count), ys = classes(count), points = classes(count)
   /** @param {number} a @param {number} b */
   const meet = (a, b) => { xs.join(a, b); ys.join(a, b); points.join(a, b) }
-  for (let i = 1; i < strokes.length; i++) meet(last(strokes[i - 1]), first(strokes[i]))
-  if (closed) meet(last(strokes[strokes.length - 1]), first(strokes[0]))
+  const graph = historicalChainGraph(text)
+  if (graph) {
+    // Early editions specify pairs of stroke endpoints. Some paths branch or share
+    // two ends, so adjacent strokes need not be joined in their listed order.
+    const endpoint = (/** @type {number[]} */ [i, end]) => end ? last(strokes[i]) : first(strokes[i])
+    for (const [left, right] of graph.joins) meet(endpoint(left), endpoint(right))
+  } else {
+    for (let i = 1; i < strokes.length; i++) meet(last(strokes[i - 1]), first(strokes[i]))
+    if (closed) meet(last(strokes[strokes.length - 1]), first(strokes[0]))
+  }
+  const crossings = new Set((graph?.crossings ?? strokes.flatMap((s, i) => s.cross === null ? [] : [[i, s.cross]]))
+    .map(([a, b]) => a < b ? `${a},${b}` : `${b},${a}`))
   for (const s of segments) {
     if (STEP[s.kind][0] === 0) xs.join(s.from, s.to)
     if (STEP[s.kind][1] === 0) ys.join(s.from, s.to)
@@ -162,6 +188,19 @@ function solve(text) {
     // Down is later, so both axes run the way they are written.
     return (d === 0 ? STEP[s.kind][0] > 0 : STEP[s.kind][1] < 0) ? [a, b] : [b, a]
   })
+  // The guide illustrates the loop beneath 人 and 二 in 𠆭. Its turns have
+  // unequal radii and the tail overshoots the loop. Keep those extrema when
+  // placing each face's strokes. Coordinates are measured in the guide font.
+  // NightFurySL2001, 白式 IDS §5, example.woff2 U+E00B, revision 104501af.
+  if (text === '#(丨x4◞◟◜◝◞◝◞◝)') {
+    const ends = guideLoopTurns
+    const x = new Map(), y = new Map()
+    strokes.forEach((s, i) => s.at.forEach((v, k) => {
+      x.set(xs.find(v), (ends[i + k][0] - 174) / (873 - 174))
+      y.set(ys.find(v), (803 - ends[i + k][1]) / (803 + 18))
+    }))
+    return { strokes, segments, xs, ys, points, x, y, broken: 0 }
+  }
   const bx = order(xs, 0), by = order(ys, 1)
   if ([...bx, ...by].some(([a, b]) => a === b)) return null
   // An axis's lines, in the order the strokes reach them.
@@ -169,7 +208,7 @@ function solve(text) {
   const ox = orders(idsOf(xs), bx), oy = orders(idsOf(ys), by)
   if (!ox.length || !oy.length) return null
   const bandX = new Set(segments.filter(s => s.kind === 'S').map(s => xs.find(s.from)))
-  const bandY = new Set(segments.filter(s => s.kind === 'H').map(s => ys.find(s.from)))
+  const bandY = new Set(segments.filter(s => STEP[s.kind][1] === 0).map(s => ys.find(s.from)))
   // Strokes written one after another are laid out left to right and top to bottom; bars keep lines
   // of their own, while loose ends line up.
   const cost = (/** @type {Map<number, number>} */ levels, /** @type {Set<number>} */ bands, /** @type {{ find: (i: number) => number }} */ axis) => {
@@ -197,7 +236,7 @@ function solve(text) {
       if (sa.stroke === sb.stroke && b === a + 1) continue
       const how = meeting(rings[a], rings[b])
       if (!how) continue
-      const declared = strokes[sa.stroke].cross === sb.stroke || strokes[sb.stroke].cross === sa.stroke
+      const declared = crossings.has(`${sa.stroke},${sb.stroke}`)
       if (how === 'cross' && declared) { crossed.add(`${sa.stroke},${sb.stroke}`); continue }
       if (joined(sa, sb) && how === 'touch' && (sa.stroke !== sb.stroke)) {
         // Ends that meet may touch there; lying along each other is an overlap.
@@ -210,9 +249,7 @@ function solve(text) {
       }
       sum++
     }
-    strokes.forEach((s, k) => {
-      if (s.cross !== null && ![`${s.cross},${k}`, `${k},${s.cross}`].some(key => crossed.has(key))) sum++
-    })
+    for (const pair of crossings) if (!crossed.has(pair)) sum++
     return sum
   }
   let best = null, broken = Infinity, least = Infinity
@@ -241,6 +278,27 @@ function solve(text) {
       at.push(at[k] + (facing || joins && !(a.length && b.length) ? OPEN : a.length && b.length ? OFFSET : PASS))
     }
     return new Map([...levels].map(([id, level]) => [id, most ? at[level] / at[most] : 0.5]))
+  }
+  // Retain proportions from the reference only if every endpoint, turn, and
+  // crossing still holds after horizontal and vertical bars have been aligned.
+  const source = measured[text]
+  if (source && source.length === count * 2) {
+    const coords = (/** @type {typeof xs} */ axis, /** @type {number} */ d) => {
+      const sums = new Map(), counts = new Map()
+      for (let i = 0; i < count; i++) {
+        const id = axis.find(i)
+        sums.set(id, (sums.get(id) ?? 0) + source[2 * i + d])
+        counts.set(id, (counts.get(id) ?? 0) + 1)
+      }
+      const values = [...sums].map(([id, sum]) => [id, sum / counts.get(id)])
+      const lo = Math.min(...values.map(v => v[1])), hi = Math.max(...values.map(v => v[1]))
+      return new Map(values.map(([id, value]) => [id, hi === lo ? 0.5 : (value - lo) / (hi - lo)]))
+    }
+    const x = coords(xs, 0), y = coords(ys, 1)
+    if (bx.every(([a, b]) => (x.get(a) ?? Infinity) < (x.get(b) ?? -Infinity)) && by.every(([a, b]) => (y.get(a) ?? Infinity) < (y.get(b) ?? -Infinity)) &&
+        breaks(segments.map(s => ringOf(s, x, y))) === 0) {
+      return { strokes, segments, xs, ys, points, x, y, broken: 0 }
+    }
   }
   // Uneven steps turn a diagonal, and may carry it over another stroke: such a chain keeps even ones.
   const [x, y] = [spread(lx, 0), spread(ly, 1)]
@@ -276,7 +334,7 @@ function linesOf(part, d, bars) {
     return [lo + a * unit, lo + (b + 1) * unit]
   }
   const n = bars.length
-  return bars.map((isBar, i) => {
+  const lines = bars.map((isBar, i) => {
     const at = n === 1 ? 0.5 : i / (n - 1)
     if (!isBar) return [lo + (hi - lo) * at, lo + (hi - lo) * at]
     if (n === 1) return bar(0, RASTER)
@@ -286,6 +344,49 @@ function linesOf(part, d, bars) {
     const mid = Math.round(RASTER * at), reach = Math.round(RASTER / n)
     return bar(Math.max(0, mid - reach), Math.min(RASTER, mid + reach))
   })
+  if (lines.every((line, i) => !i || line[0] >= lines[i - 1][1])) return lines
+
+  // Overlapping search windows can pick the same strong stem twice. In ㇎
+  // that stretches one edge of the right stem across an entire counter.
+  // Partition the projection at the valleys between distinct native stems.
+  const peaks = []
+  for (let i = 0; i < RASTER;) {
+    let end = i
+    while (end + 1 < RASTER && runs[end + 1] === runs[i]) end++
+    if (runs[i] > (runs[i - 1] ?? 0) && runs[i] > (runs[end + 1] ?? 0)) peaks.push(Math.floor((i + end) / 2))
+    i = end + 1
+  }
+  const options = peaks.map(peak => {
+    let a = peak, b = peak
+    while (a > 0 && runs[a - 1] > runs[peak] * 0.55) a--
+    while (b < RASTER - 1 && runs[b + 1] > runs[peak] * 0.55) b++
+    return { bounds: [lo + a * unit, lo + (b + 1) * unit], strength: runs[peak] / RASTER }
+  })
+  // Keep the best ordered, disjoint assignment. There are normally only two
+  // or three bars; the tip of a hook and its serifs can also produce peaks.
+  let previous = [{ edge: -Infinity, score: 0, choice: /** @type {number[][]} */ ([]) }]
+  for (let i = 0; i < n; i++) {
+    const candidates = bars[i] ? options : [{ bounds: lines[i], strength: 0 }]
+    const next = []
+    for (const { bounds, strength } of candidates) {
+      let best = null
+      for (const state of previous) {
+        if (state.edge > bounds[0] || (best && best.score >= state.score)) continue
+        best = state
+      }
+      if (best) {
+        const relative = ((bounds[0] + bounds[1]) / 2 - lo) / (hi - lo)
+        next.push({ edge: bounds[1], score: best.score + strength - 0.15 * Math.abs(relative - i / (n - 1)),
+          choice: [...best.choice, bounds] })
+      }
+    }
+    previous = next
+  }
+  if (previous.length) return previous.reduce((a, b) => a.score >= b.score ? a : b).choice
+  // A fused stroke can lack an independent peak. Disjoint windows still give
+  // a monotone map; their edges fall halfway between neighboring stations.
+  return lines.map((line, i) => bars[i] ? bar(Math.max(0, Math.round((i - 0.5) * RASTER / (n - 1))),
+    Math.min(RASTER, Math.round((i + 0.5) * RASTER / (n - 1)))) : line)
 }
 
 /** A coordinate carried through matching anchors, straight between them. @param {number[][]} anchors */
@@ -318,37 +419,56 @@ export function chainForm(text, glyphOf) {
       const axis = d ? solved.ys : solved.xs, place = d ? solved.y : solved.x
       const at = (/** @type {number} */ id) => (d ? 1 - (place.get(id) ?? 0) : place.get(id) ?? 0)
       const ids = [...new Set(stroke.at.map(v => axis.find(v)))].sort((a, b) => at(a) - at(b))
-      const bars = ids.map(id => own.some(s => STEP[s.kind][d] === 0 && axis.find(s.from) === id))
-      return { ids, bars, lines: linesOf(glyphs[i], /** @type {0 | 1} */ (d), bars), at }
+      // Independent grid lines can coincide in the selected solution, e.g.
+      // both left turns of 乙. Give them one station in the donor outline.
+      const stations = [...new Set(ids.map(at))].map(position => ids.filter(id => at(id) === position))
+      const bars = stations.map(station => own.some(s => STEP[s.kind][d] === 0 && station.includes(axis.find(s.from))))
+      return { stations, bars, lines: linesOf(glyphs[i], /** @type {0 | 1} */ (d), bars), at }
     })
   })
   const half = [new Map(), new Map()]
-  for (const axes of strokes) axes.forEach(({ ids, bars, lines }, d) => ids.forEach((id, k) => {
-    if (bars[k]) half[d].set(id, Math.max(half[d].get(id) ?? 0, (lines[k][1] - lines[k][0]) / 2))
+  for (const axes of strokes) axes.forEach(({ stations, bars, lines }, d) => stations.forEach((ids, k) => {
+    if (bars[k]) for (const id of ids) half[d].set(id, Math.max(half[d].get(id) ?? 0, (lines[k][1] - lines[k][0]) / 2))
   }))
-  const parts = strokes.map((axes, i) => {
-    const maps = axes.map(({ ids, bars, lines, at }, d) => {
-      const anchors = ids.flatMap((id, k) => {
-        const centre = BOX[d] + (BOX[d + 2] - BOX[d]) * at(id), [lo, hi] = lines[k]
+  const placed = strokes.map((axes, i) => {
+    const maps = axes.map(({ stations, bars, lines, at }, d) => {
+      const anchors = stations.flatMap((ids, k) => {
+        const centre = BOX[d] + (BOX[d + 2] - BOX[d]) * at(ids[0]), [lo, hi] = lines[k]
         if (bars[k]) return [[lo, centre - (hi - lo) / 2], [hi, centre + (hi - lo) / 2]]
         // A loose end meets the far edge of the bar it joins, so the corner is whole.
-        const edge = half[d].get(id) ?? 0
-        return [[lo, centre + (ids.length === 1 ? 0 : k === 0 ? -edge : k === ids.length - 1 ? edge : 0)]]
+        const edge = Math.max(...ids.map(id => half[d].get(id) ?? 0))
+        return [[lo, centre + (stations.length === 1 ? 0 : k === 0 ? -edge : k === stations.length - 1 ? edge : 0)]]
       })
       // Two bars too close to stretch between keep their order.
       for (let k = 1; k < anchors.length; k++) anchors[k][1] = Math.max(anchors[k][1], anchors[k - 1][1] + 1)
       return through(anchors)
     })
+    const char = solved.strokes[i].char
+    // ㇝ begins with a short 提 before its main 捺. Keep that entry from
+    // the donor, including the shallow sweep cut from FangSong 辶.
+    const vertex = (/** @type {number} */ v) => [
+      BOX[0] + (BOX[2] - BOX[0]) * (solved.x.get(solved.xs.find(v)) ?? 0),
+      BOX[3] - (BOX[3] - BOX[1]) * (solved.y.get(solved.ys.find(v)) ?? 0),
+    ]
+    const ends = solved.strokes[i].at
+    const sweep = char === '㇝' ? risingSweepMap(glyphs[i], vertex(ends[0]), vertex(ends[ends.length - 1]))
+      : char === '丶' && sweepMap(glyphs[i], maps, -1)
     const contours = glyphs[i].contours.map((/** @type {any} */ c) => {
       const light = new Float64Array(c.light.length), heavy = new Float64Array(c.light.length)
-      for (let k = 0; k < light.length; k++) {
-        light[k] = maps[k % 2](c.light[k])
-        heavy[k] = light[k] + c.heavy[k] - c.light[k]
+      for (let k = 0; k < light.length; k += 2) {
+        const x = c.light[k], y = c.light[k + 1]
+        const point = sweep ? sweep(x, y) : [maps[0](x), maps[1](y)]
+        light[k] = point[0]
+        light[k + 1] = point[1]
+        const weighted = sweep ? sweep(c.heavy[k], c.heavy[k + 1]) : [light[k] + c.heavy[k] - x, light[k + 1] + c.heavy[k + 1] - y]
+        heavy[k] = weighted[0]
+        heavy[k + 1] = weighted[1]
       }
       return { ...c, light, heavy }
     })
     return derived(glyphs[i], contours)
   })
+  const parts = fitChainJoins(placed, solved, BOX)
   return { parts, frame: union(parts.map(p => p.box)), ink: parts.reduce((n, p) => n + partInk(p), 0), solved }
 }
 

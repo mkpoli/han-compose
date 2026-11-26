@@ -15,15 +15,23 @@ export function inkPolygons(rings) {
   engine.AddPaths(paths, clipper.PolyType.ptSubject, true)
   const tree = new clipper.PolyTree()
   engine.Execute(clipper.ClipType.ctUnion, tree, clipper.PolyFillType.pftNonZero, clipper.PolyFillType.pftNonZero)
-  return clipper.JS.PolyTreeToExPolygons(tree).map((p) =>
-    [p.outer, ...p.holes].map((r) => {
+  const areaOf = (/** @type {number[][]} */ ring) => {
+    let twice = 0
+    for (let i = 0; i + 1 < ring.length; i++)
+      twice += ring[i][0] * ring[i + 1][1] - ring[i + 1][0] * ring[i][1]
+    return Math.abs(twice) / 2
+  }
+  return clipper.JS.PolyTreeToExPolygons(tree).map((p) => {
+    const rings = [p.outer, ...p.holes].map((r) => {
       const ring = r
         .slice()
         .reverse()
-        .map((p) => [p.X / 4096, p.Y / 4096])
+        .map((pt) => [pt.X / 4096, pt.Y / 4096])
       return [...ring, ring[0]]
     })
-  )
+    // Drop sub-pixel dust holes left where two strokes barely kiss, while keeping every outer island.
+    return [rings[0], ...rings.slice(1).filter((hole) => areaOf(hole) >= 0.5)]
+  })
 }
 
 /** Rings whose counters may overlap one another, redrawn so that ink is only where the

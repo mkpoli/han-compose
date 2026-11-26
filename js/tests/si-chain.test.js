@@ -1,19 +1,21 @@
 import { expect, test } from 'bun:test'
-import { pathMask } from '../src/geometry.js'
-import { compose, createSource } from '../src/loader.js'
+import { pathMask, pathRings, pointsBox, union } from '../src/geometry.js'
+import { compose, createSource, sketch } from '../src/loader.js'
 import { SI_CHAIN } from '../src/si-chain.js'
 import faces from './fixtures/si-chain.json'
+import metrics from '../src/chain-ink-metrics.json'
 import { character, files, records, shards } from './fixtures/small-export.js'
 
 // Native 巳 and terminal outlines, from the versioned exports at
 // https://ids-input-composer.mkpoli.workers.dev/ (Sans 0bd3ee83a5e2, Regular c14ee5e08798,
 // Serif, Fangsong and Pen-writing b53713c2da0e). The printed straight-foot form is in
 // https://rare.glyphatlas.org/en/entry/3156
-function sourceFor(glyphs) {
+function sourceFor(glyphs, commit) {
   const native = Object.fromEntries(Object.entries(glyphs).map(([char, G]) => [char, { G, o: G.p.length, ink: 7000 }]))
   const inputs = { ...records, 一: character('一', [[100, 350, 900, 420]]),
     𠃍: character('𠃍', [[100, 740, 900, 800], [840, 0, 900, 800]]), ...native }
   const data = { ...files, ...shards('g', Object.entries(inputs)) }
+  if (commit) data['manifest.json'] = JSON.stringify({ ...JSON.parse(files['manifest.json']), composer: { commit } })
   return createSource(async name => data[name] === undefined ? null : Uint8Array.from(Buffer.from(data[name])).buffer)
 }
 
@@ -37,7 +39,7 @@ for (const [fontStyle, glyphs] of Object.entries(faces)) {
     for (const ids of [`⿰口${SI_CHAIN}`, `⿱口${SI_CHAIN}`, `⿰${SI_CHAIN}口`]) {
       expect((await draw(ids)).origins).toContain(`glyph ${SI_CHAIN}`)
     }
-    expect((await draw(`⿰口${SI_CHAIN}`, { layout: 'cells' })).origins).toContain(`cells ${SI_CHAIN}`)
+    expect((await draw(`⿰口${SI_CHAIN}`, { layout: 'cells' })).origins).toContain(`cells ${SI_CHAIN} (glyph ${SI_CHAIN})`)
     for (const char of ['一', '𠃍', '㇄']) await expect(draw(SI_CHAIN, { exclude: [char] })).rejects.toThrow(SI_CHAIN)
     const fallback = draw(SI_CHAIN, { exclude: ['巳'] })
     if (fontStyle === 'fangsong') {
@@ -53,5 +55,20 @@ test('falls back to the constituent strokes when either cut has a different cont
     const changed = { ...original, p: [...original.p, original.p[0]] }
     const source = sourceFor({ ...faces.sans, [char]: changed })
     expect((await compose(source, SI_CHAIN)).origins).toEqual(Array(3).fill(`chain ${SI_CHAIN}`))
+  }
+})
+
+test('keeps the recorded standalone ink frame and single editable chain in all five exports', async () => {
+  const versions = { sans: 'a83fc941166b', serif: '8156f838798c', fangsong: '9f797e2322d2',
+    regular: 'c14ee5e08798', 'pen-writing': 'ce3eaafda8f9' }
+  for (const [fontStyle, commit] of Object.entries(versions)) {
+    const source = sourceFor(faces[fontStyle], commit)
+    const normal = await compose(source, SI_CHAIN, { fontStyle })
+    const edited = await compose(source, SI_CHAIN, { fontStyle, separate: true })
+    const box = union(pathRings(normal.d, 64).map(pointsBox))
+    expect(edited.d).toEqual(normal.d)
+    expect(edited.parts).toHaveLength(1)
+    expect(await sketch(source, SI_CHAIN, { fontStyle })).toHaveLength(1)
+    for (const [i, edge] of box.entries()) expect(Math.abs(edge - metrics[commit][SI_CHAIN][i])).toBeLessThan(0.16)
   }
 })

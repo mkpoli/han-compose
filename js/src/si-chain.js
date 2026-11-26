@@ -46,8 +46,9 @@ const end = ([, points]) => points[points.length - 1]
 /** @param {import('./compose.js').Composer} composer */
 export function siChainForm(composer) {
   const style = composer.fontStyle, terminal = siTerminal(style)
+  if (!Object.hasOwn(cuts, style)) return null
   const cut = cuts[style]
-  if (!cut || [SI_CHAIN, '巳', '一', '𠃍', '㇄', terminal].some(char => composer.excluded(char))) return null
+  if ([SI_CHAIN, '巳', '一', '𠃍', '㇄', terminal].some(char => composer.excluded(char))) return null
   const host = composer.glyphRecord('巳'), stroke = composer.glyphRecord(terminal)
   if (host?.v !== 1 || stroke?.v !== 1 ||
       hexOf(JSON.stringify(host.p)) !== cut.host || hexOf(JSON.stringify(stroke.p)) !== cut.donor) return null
