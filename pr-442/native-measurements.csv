@@ -1,0 +1,29 @@
+glyph,ids,codepoint,face,inner,region,contours,height_ratio,inner_box,whole_box,source
+乪,⿺乙田,U+4E6A,sans,田,GHT,2 3 4 5,0.788,"[435.8, 104.3, 880.5, 757.3]","[58.8, 104.3, 949.0, 933.0]",https://github.com/mkpoli/han-compose/blob/dff29daa/docs/licensing.md
+乪,⿺乙田,U+4E6A,serif,田,GHT,0 1 2 3,0.8529,"[425.3, 83.8, 863.0, 784.0]","[67.07117647058823, 83.8, 944.3, 904.8]",https://github.com/mkpoli/han-compose/blob/dff29daa/docs/licensing.md
+乪,⿺乙田,U+4E6A,reg,田,GHT,0 1 2 3 4,0.5797,"[357.5, 306.8, 797.0, 717.8]","[107.5, 141.5, 899.5, 850.5]",https://github.com/mkpoli/han-compose/blob/dff29daa/docs/licensing.md
+乪,⿺乙田,U+4E6A,pen,田,GHT,0 2 3 4 5,0.7888,"[468.0, 189.0, 888.0, 768.0]","[81.25, 176.0, 924.0714285714286, 910.0]",https://github.com/mkpoli/han-compose/blob/dff29daa/docs/licensing.md
+乪,⿺乙田,U+4E6A,jigmo,田,GHT,0 1 2 4 5,0.8103,"[412.109375, 80.1953125, 924.8046875, 768.671875]","[38.0859375, 80.1953125, 961.9140625, 929.8046875]",https://kamichikoichi.github.io/jigmo/Jigmo-20250912.zip
+馗,⿺九首,U+9997,sans,首,GHTJKP,1 3 4 5 7 8 9 10,0.8025,"[408.8, 35.5, 950.5, 780.5]","[30.0, 35.5, 968.5, 963.8]",https://github.com/mkpoli/han-compose/blob/dff29daa/docs/licensing.md
+馗,⿺九首,U+9997,serif,首,GHTJKP,0 1 2 3 6 7 8 9 10,0.8429,"[400.5, 40.3, 960.0, 815.8]","[35.0, 40.3, 962.0, 960.3]",https://github.com/mkpoli/han-compose/blob/dff29daa/docs/licensing.md
+馗,⿺九首,U+9997,fang,首,GHTJKP,1 2 3,0.8551,"[446.0, 75.0, 915.0, 836.0]","[34.0, 75.0, 941.0, 965.0]",https://github.com/mkpoli/han-compose/blob/dff29daa/docs/licensing.md
+馗,⿺九首,U+9997,reg,首,GHTJKP,0 1 2 3 5 6,0.8434,"[495.0, 123.0, 854.5, 774.5]","[53.8, 123.0, 953.0, 895.5]",https://github.com/mkpoli/han-compose/blob/dff29daa/docs/licensing.md
+馗,⿺九首,U+9997,pen,首,GHTJKP,0 2 3 4 5,0.8259,"[445.0, 100.0, 902.0, 807.0]","[44.0, 100.0, 949.0, 956.0]",https://github.com/mkpoli/han-compose/blob/dff29daa/docs/licensing.md
+馗,⿺九首,U+9997,jigmo,首,GHTJKP,1 2 3 4 5,0.878,"[408.203125, 24.53125, 942.3828125, 839.9609375]","[40.0390625, 24.53125, 957.03125, 953.2421875]",https://kamichikoichi.github.io/jigmo/Jigmo-20250912.zip
+鼬,⿺鼠由,U+9F2C,sans,由,HTJK,7 15 16 17,0.8094,"[556.3, 46.0, 929.8, 790.0]","[37.8, 38.8, 966.3, 958.0123762376238]",https://github.com/mkpoli/han-compose/blob/dff29daa/docs/licensing.md
+鼬,⿺鼠由,U+9F2C,serif,由,HTJK,15 16 17 18 19,0.811,"[552.3, 59.5, 952.0, 802.8]","[36.8, 43.0, 963.71125, 959.5]",https://github.com/mkpoli/han-compose/blob/dff29daa/docs/licensing.md
+鼬,⿺鼠由,U+9F2C,reg,由,HTJK,4 5 6 7 8,0.7583,"[457.0, 144.5, 848.8, 729.5]","[78.0, 116.3, 921.0, 887.8]",https://github.com/mkpoli/han-compose/blob/dff29daa/docs/licensing.md
+鼬,⿺鼠由,U+9F2C,pen,由,HTJK,0 2 3 7 8,0.7934,"[544.0, 90.0, 900.0, 785.0]","[60.0, 90.0, 951.0, 966.0]",https://github.com/mkpoli/han-compose/blob/dff29daa/docs/licensing.md
+鼬,⿺鼠由,U+9F2C,jigmo,由,HTJK,1 2 3 4 5,0.8219,"[521.484375, 33.3203125, 958.984375, 795.0390625]","[37.109375, 25.5078125, 966.796875, 952.265625]",https://kamichikoichi.github.io/jigmo/Jigmo-20250912.zip
+廸,⿺廴由,U+5EF8,sans,由,GHMTJK,0 1 2 3,0.8123,"[396.8, 46.0, 908.0, 792.5]","[32.0, 46.0, 967.3, 965.0]",https://github.com/mkpoli/han-compose/blob/dff29daa/docs/licensing.md
+廸,⿺廴由,U+5EF8,serif,由,GHMTJK,0 1 2 3 4,0.84,"[403.0, 42.3, 939.8, 811.5]","[34.3, 42.3, 965.3, 958.0]",https://github.com/mkpoli/han-compose/blob/dff29daa/docs/licensing.md
+廸,⿺廴由,U+5EF8,reg,由,GHMTJK,1 2 3 4 5,0.7316,"[391.5, 97.8, 880.8, 699.3]","[60.5, 97.8, 967.8, 920.0]",https://github.com/mkpoli/han-compose/blob/dff29daa/docs/licensing.md
+廸,⿺廴由,U+5EF8,pen,由,GHMTJK,0 2 3 4 5,0.7546,"[405.0, 104.0, 863.0, 756.0]","[56.0, 104.0, 972.0, 968.0]",https://github.com/mkpoli/han-compose/blob/dff29daa/docs/licensing.md
+廸,⿺廴由,U+5EF8,jigmo,由,GHMTJK,1 2 3 4 5,0.8682,"[428.7109375, 24.53125, 958.984375, 822.3828125]","[45.8984375, 24.53125, 971.6796875, 943.4765625]",https://kamichikoichi.github.io/jigmo/Jigmo-20250912.zip
+迪,⿺辶由,U+8FEA,sans,由,GHTJKP,3 4 5 6,0.7965,"[349.8, 46.5, 906.3, 767.3]","[33.3, 46.5, 963.5, 951.5]",https://github.com/mkpoli/han-compose/blob/dff29daa/docs/licensing.md
+迪,⿺辶由,U+8FEA,serif,由,GHTJKP,0 1 2 3 4,0.8434,"[354.8, 42.5, 929.3, 812.5]","[36.8, 42.5, 966.8, 955.5]",https://github.com/mkpoli/han-compose/blob/dff29daa/docs/licensing.md
+迪,⿺辶由,U+8FEA,fang,由,GHTJKP,1 3 4 5,0.8022,"[390.0, 82.0, 847.0, 800.0]","[55.714285714285715, 82.0, 958.0, 977.0]",https://github.com/mkpoli/han-compose/blob/dff29daa/docs/licensing.md
+迪,⿺辶由,U+8FEA,reg,由,GHTJKP,0 1 2 3 4,0.7398,"[359.5, 122.0, 859.5, 721.8]","[51.8, 122.0, 951.3, 932.8]",https://github.com/mkpoli/han-compose/blob/dff29daa/docs/licensing.md
+迪,⿺辶由,U+8FEA,pen,由,GHTJKP,0 2 3 5 6,0.8109,"[377.0, 94.0, 861.0, 776.0]","[52.0, 94.0, 967.0, 935.0]",https://github.com/mkpoli/han-compose/blob/dff29daa/docs/licensing.md
+迪,⿺辶由,U+8FEA,jigmo,由,GHTJKP,1 2 3 4 5,0.8497,"[373.046875, 48.9453125, 941.40625, 799.921875]","[36.1328125, 48.9453125, 966.796875, 932.734375]",https://kamichikoichi.github.io/jigmo/Jigmo-20250912.zip
+𰚓,⿺毛由,U+30693,jigmo,由,G,1 2 3 4 5,0.9021,"[436.5234375, 32.34375, 930.6640625, 841.9140625]","[30.2734375, 32.34375, 961.9140625, 929.8046875]",https://kamichikoichi.github.io/jigmo/Jigmo-20250912.zip
