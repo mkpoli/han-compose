@@ -15,11 +15,12 @@ const pairs = [
   ['⿱⿰〧〥△', '⿱⿰⿱丄一' + five + '#(-𠃋丶z)'],
   ['⿱⿰〥〤元', '⿱⿰' + five + '乂元'],
   ['⿵巾１', '⿵巾⿱#(㇀丨)一'],
+  ['⿵巾２', '⿵巾#(◜◝𠃋)'],
 ]
 const host = character('日', [[30, 80, 470, 750]]).G
 function composer(fontStyle) {
   return { fontStyle, excluded: () => false,
-    glyphRecord: char => char === '題' ? topic : ['1', '１'].includes(char) && digits[fontStyle] ? digits[fontStyle] : '一丨丿丄乂刁元日冂1１'.includes(char) ? host : null,
+    glyphRecord: char => char === '題' ? topic : ['1', '１'].includes(char) && digits[fontStyle] ? digits[fontStyle] : '一丨丿丄乂刁元日冂1１2２'.includes(char) ? host : null,
     chainStroke: char => nativeStroke(char === '㇀' ? '◞' : char, fontStyle),
   }
 }
@@ -94,20 +95,24 @@ it('ignores excluded syntax and loads the FangSong lift donor only when needed',
   expect(numeralParts({ ...face, glyphRecord: c => c === '㇀' ? host : face.glyphRecord(c) }, key, em)).not.toBeNull()
 })
 
-it('draws the FangSong 問2 abbreviation when the export has only the halfwidth digit', () => {
-  const key = '⿵巾２', fangsong = composer('fangsong')
-  const face = { ...fangsong, glyphRecord: char => char === '2' ? host : fangsong.glyphRecord(char) }
-  expect(numeralDonors(key, 'fangsong')).toEqual(['冂', '丨', '2'])
-  expect(numeralParts(face, key, em).map(p => [p.rccLeaf, p.origin])).toEqual([
-    [0, 'glyph 冂'], [0, 'upper staff of 巾 from 丨'], [1, 'glyph 2'],
-  ])
-  expect(numeralParts({ ...face, glyphRecord: char => char === '２' ? host : face.glyphRecord(char) }, key, em)).toBeNull()
-  for (const excluded of ['巾', '２', '2', '冂', '丨', key]) {
-    expect(numeralParts({ ...face, excluded: c => c === excluded }, key, em)).toBeNull()
+it('fits both spellings of the second exercise sign inside its frame and joins the projecting staff', () => {
+  for (const style of ['sans', 'serif', 'regular', 'fangsong', 'pen-writing']) {
+    const digit = style === 'fangsong' ? '2' : '２'
+    const face = composer(style)
+    for (const key of ['⿵巾２', '⿵巾#(◜◝𠃋)']) {
+      expect(numeralDonors(key, style)).toEqual(['冂', '丨', digit])
+      const [frame, staff, two] = numeralParts(face, key, em)
+      expect([frame.rccLeaf, staff.rccLeaf, two.rccLeaf]).toEqual([0, 0, 1])
+      expect(two.origin).toBe('glyph ' + digit)
+      expect(two.target[0]).toBeGreaterThan(frame.target[0])
+      expect(two.target[2]).toBeLessThan(frame.target[2])
+      expect(two.target[1]).toBeGreaterThan(frame.target[1])
+      expect(two.target[3]).toBeLessThan(frame.target[3])
+      expect(staff.target[3]).toBeGreaterThan(frame.target[3])
+      expect(staff.target[1]).toBeLessThan(two.target[3])
+      const excluded = key.includes('#') ? ['#(◜◝𠃋)', '◜', '◝', '𠃋'] : ['２']
+      for (const operand of ['巾', '冂', '丨', digit, key, ...excluded])
+        expect(numeralParts({ ...face, excluded: c => c === operand }, key, em)).toBeNull()
+    }
   }
-  for (const style of ['sans', 'serif', 'regular', 'pen-writing']) {
-    expect(numeralDonors(key, style)).toEqual([])
-    expect(numeralParts(composer(style), key, em)).toBeNull()
-  }
-  expect(numeralDonors('⿵巾#(◜◝𠃋)', 'fangsong')).toEqual([])
 })
