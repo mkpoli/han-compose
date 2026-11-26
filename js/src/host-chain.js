@@ -1,4 +1,5 @@
 import { derived, mapped, partInk, partOf, placed } from './geometry.js'
+import { recordedInkBox } from './chain-ink.js'
 import cuts from './host-chain-cuts.json' with { type: 'json' }
 import { recordedNativeRecord } from './recorded-native.js'
 import { reconnectStroke } from './stroke-donors.js'
@@ -31,17 +32,31 @@ const hosts = new Map([
 // https://github.com/yi-bai/ids/blob/2597437b/ids_lv0.txt
 // Numbers select whole contours. Runs join the original light and heavy
 // outline across the two ends of an attached stroke or bar.
-const nativeCuts = /** @type {Record<string, {host: string, faces: Record<string, [string, string | string[], (number | number[][])[]]>}>} */ (/** @type {unknown} */ (cuts))
+const nativeCuts = /** @type {Record<string, {host: string, uprightGap?: Record<string, number[]>, faces: Record<string, [string, string | string[], (number | number[][])[]]>}>} */ (/** @type {unknown} */ (cuts))
 
 /** @param {any} node @param {string} style */
 export function chainHost(node, style) {
   return nativeCuts[node]?.faces[style]?.[0] ?? (style === 'sans' || style === 'serif' ? hosts.get(node)?.char : undefined)
 }
 
+/** The two 亞 cuts have an upright on each side of a clear vertical strip.
+ * Enlarge that strip to reach the standalone aspect ratio. The native strokes
+ * outside it keep one scale in x and y, including their caps and serifs.
+ * @param {any} piece @param {number[]} gap @param {number[]} box */
+function widenUprightGap(piece, [left, right], box) {
+  const [x0, y0, x1, y1] = piece.box
+  const extra = (y1 - y0) * (box[2] - box[0]) / (box[3] - box[1]) - (x1 - x0)
+  if (extra <= 0) return piece
+  const spread = (/** @type {Float64Array} */ points) => points.map((v, i) =>
+    i % 2 ? v : v + extra * Math.max(0, Math.min(1, (v - left) / (right - left))))
+  return derived(piece, piece.contours.map((/** @type {any} */ c) =>
+    ({ ...c, light: spread(c.light), heavy: spread(c.heavy) })))
+}
+
 /** Place a leaf drawn from an attested host whose frame has its own contours.
  * @param {import('./compose.js').Composer} composer
- * @param {any} node @param {number[]} region @param {boolean} atRoot */
-export function hostChainParts(composer, node, region, atRoot) {
+ * @param {any} node @param {number[]} region @param {boolean} atRoot @param {string} [written] */
+export function hostChainParts(composer, node, region, atRoot, written = node) {
   const host = hosts.get(node)
   const source = nativeCuts[node]
   const cut = source?.faces[composer.fontStyle]
@@ -58,7 +73,10 @@ export function hostChainParts(composer, node, region, atRoot) {
   if (!outlines) return null
   const glyph = partOf(record)
   const contours = outlines.map(index => typeof index === 'number' ? glyph.contours[index] : reconnectStroke(glyph.contours, index))
-  const piece = derived(glyph, contours)
-  const target = atRoot ? mapped(piece.box, composer.C.face, region) : region
+  const native = derived(glyph, contours)
+  const gap = source?.uprightGap?.[composer.fontStyle]
+  const frame = gap && atRoot ? recordedInkBox(composer, written) : null
+  const piece = gap && frame ? widenUprightGap(native, gap, frame) : native
+  const target = atRoot ? mapped(frame ?? piece.box, composer.C.face, region) : region
   return [placed(piece, piece.box, target, partInk(piece), `chain ${node}, cut from ${char}`)]
 }

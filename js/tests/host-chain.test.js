@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { mapped, partOf } from '../src/geometry.js'
+import { mapped, partOf, pointsBox } from '../src/geometry.js'
 import { chainHost, hostChainParts } from '../src/host-chain.js'
 
 const horse = '#(-一丨b𠃌)'
@@ -99,5 +99,25 @@ test('loads the native regional walking base when format 7 omits the radical', (
     const [part] = hostChainParts(composer, key, region, true)
     expect(part.origin).toContain(chainHost(key, fontStyle))
     expect(part.part.box[3]).toBeLessThan(650)
+  }
+})
+
+// Noto Sans CJK JP 2.004 亞 (SIL OFL 1.1).
+test('widens the space between 亞 uprights only in the saved standalone frame', () => {
+  const record = {"b": [51.98, -35.48, 949.02, 776.28], "p": [["MLLL", "OAEhDHcOIQx3DgwLOAEMCw==", "nP9/AF0AfwBdAIj/nP+I/w=="], ["MLLL", "0ACFANQOhQDUDnL/0ABy/w==", "1P+rACwAqwAsALL/1P+y/w=="], ["MLLLLL", "ngJtBJcGbQSXBvD/eAXw/3gFZAOeAmQD", "YgCXAIkAlwCJACAAfP8gAHz/tP9iALT/"], ["MLLLLL", "7AGkCJYGpAiWBp8HEwOfBxMDwwLsAcMC", "vP9kAI4AZACOAIH/zQCB/80A2f+8/9n/"], ["MLLL", "lgagC5YGIQh1BSEIdQWgCw==", "jgAUAI4A+/9///v/f/8UAA=="], ["MLLL", "7gicCxAKnAsQChwI7ggcCA==", "bv8AAHwAAAB8AOj/bv/o/w=="], ["MLLLLL", "7gipCK8NqQivDd0CgAzdAoAMpAfuCKQH", "bv9fAEkAXwBJANv/LP/b/yz/fP9u/3z/"], ["MLLLLL", "7ghtBB8NbQQfDWQDEApkAxAK6v/uCOr/", "bv+XAMH/lwDB/7T/fAC0/3wAFgBu/xYA"]], "v": 1}
+  const composer = {
+    fontStyle: 'sans', excluded: () => false, glyphRecord: () => record, C: { face: region },
+    data: { manifest: { composer: { commit: 'a83fc941166b' } } },
+  }
+  const metrics = (contour, master) => { const [x0, , x1] = pointsBox(contour[master]); return x1 - x0 }
+  for (const [key, upright] of [['#(丨-一𠃑)', 2], ['#(𠃑-一丨)', 0]]) {
+    const [nested] = hostChainParts(composer, key, region, false)
+    const [root] = hostChainParts(composer, key, region, true)
+    const width = piece => piece.box[2] - piece.box[0]
+    expect(width(root.part)).toBeGreaterThan(2 * width(nested.part))
+    for (const master of ['light', 'heavy']) {
+      expect(metrics(root.part.contours[upright], master)).toBeCloseTo(metrics(nested.part.contours[upright], master), 6)
+    }
+    expect(nested.target).toEqual(region)
   }
 })

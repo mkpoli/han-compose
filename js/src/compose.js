@@ -1322,7 +1322,7 @@ export class Composer {
   chainParts(node, region, atRoot = false) {
     if (!isChain(node) || this.excluded(node)) return null
     const key = drawingChain(node)
-    const cut = guideChainParts(this, key, region, atRoot) ?? hostChainParts(this, key, region, atRoot) ?? youChainParts(this, key, region, atRoot) ?? recordedArcParts(this, key, region, atRoot, node)
+    const cut = guideChainParts(this, key, region, atRoot) ?? hostChainParts(this, key, region, atRoot, node) ?? youChainParts(this, key, region, atRoot) ?? recordedArcParts(this, key, region, atRoot, node)
     if (cut) return cut
     const form = this.chain(node)
     if (!form) return null
@@ -2259,7 +2259,7 @@ export class Composer {
     // A bundled Plangothic cut remains available when the current face lacks
     // the exact attested native outline. Check that outline before the fallback.
     if (isChain(node) && !this.excluded(node) && isComponentForm(key, this.fontStyle)) {
-      const own = hostChainParts(this, drawingChain(node), region, atRoot)
+      const own = hostChainParts(this, drawingChain(node), region, atRoot, node)
       if (own) return own
     }
     const repeated = (!nativeSource || !this.excluded(nativeSource)) && (!this.separate || isGroupedForm(key, this.fontStyle)) && !ivdRecord

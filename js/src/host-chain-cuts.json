@@ -29,6 +29,7 @@
   },
   "#(丨-一𠃑)": {
     "host": "亞",
+    "uprightGap": {"sans": [260, 309], "serif": [270, 306], "regular": [285, 332], "fangsong": [289, 338], "pen-writing": [266, 349]},
     "faces": {
       "sans": ["亞", "517c4013924a1a59fa991093bac70ab9a608f39a568496d838b67ef6c148df33", [2, 3, 4]],
       "serif": ["亞", "38bb4203b25e33143597f06b3e4b72d98c293790e10d26e7febc8b5ed3f9462a", [2, 3, 6, 10]],
@@ -39,6 +40,7 @@
   },
   "#(𠃑-一丨)": {
     "host": "亞",
+    "uprightGap": {"sans": [691, 731], "serif": [690, 719], "regular": [651, 691], "fangsong": [662, 710], "pen-writing": [648, 730]},
     "faces": {
       "sans": ["亞", "517c4013924a1a59fa991093bac70ab9a608f39a568496d838b67ef6c148df33", [5, 6, 7]],
       "serif": ["亞", "38bb4203b25e33143597f06b3e4b72d98c293790e10d26e7febc8b5ed3f9462a", [4, 5, 7, 8, 9]],
