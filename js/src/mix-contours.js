@@ -1745,6 +1745,41 @@ export function prepareCorrespondence(polygons, cut = false) {
    * @param {number[][][]} rings */
   const held = (rings) =>
     Math.abs(rings.slice(1).reduce((sum, ring) => sum - Math.abs(turning(ring)), Math.abs(turning(rings[0]))))
+  /** How often an outline turns one way and straight back within a short run: the bumps
+   * and kinks of points matched to the wrong place. A corner or a stroke's end turns one
+   * way only and does not count.
+   * @param {number[][][]} rings open */
+  const wiggles = (rings) => {
+    let count = 0
+    for (const ring of rings) {
+      const pts = dense([...ring, ring[0]], 1.5),
+        n = pts.length
+      if (n < 12) continue
+      const turns = pts.map((p, i) => {
+        const a = pts[(i + n - 1) % n],
+          b = pts[(i + 1) % n]
+        const ux = p[0] - a[0],
+          uy = p[1] - a[1],
+          vx = b[0] - p[0],
+          vy = b[1] - p[1]
+        return Math.atan2(ux * vy - uy * vx, ux * vx + uy * vy)
+      })
+      const span = 8
+      for (let i = 0; i < n; i++) {
+        let net = 0,
+          gross = 0
+        for (let k = 0; k < span; k++) {
+          net += turns[(i + k) % n]
+          gross += Math.abs(turns[(i + k) % n])
+        }
+        if (gross - Math.abs(net) > 1.2) {
+          count++
+          i += span - 1
+        }
+      }
+    }
+    return count
+  }
   const winding = (/** @type {number[][][]} */ rings) =>
     rings.reduce(
       (sum, ring) =>
@@ -1774,7 +1809,7 @@ export function prepareCorrespondence(polygons, cut = false) {
       ordered[0].map((_, j) => alignRings(ordered.map((rings) => rings[j])))
     )
     if (sampled.some((ring) => !ring)) return null
-    if (!check) return { sampled, crossed: false, ink: 0, wander: 0 }
+    if (!check) return { sampled, crossed: false, ink: 0, wander: 0, kinks: 0 }
     const blendAt = (/** @type {number[]} */ shares) =>
       sampled.map((ring) =>
         ring[0].map((_, i) =>
@@ -1852,7 +1887,15 @@ export function prepareCorrespondence(polygons, cut = false) {
       sampled,
       crossed,
       ink: eachArea ? Math.abs((cutTo ? signedInk(settledEven) : held(even)) - eachArea) / eachArea : 1,
-      wander: winding(even) / mean(winding) - 1
+      wander: winding(even) / mean(winding) - 1,
+      // A mismatch can lie flat at the even mix and kink to either side of it.
+      kinks:
+        Math.max(
+          wiggles(even),
+          ...faces.map((_, f) =>
+            wiggles(blendAt(faces.map((__, k) => (k === f ? 0.7 : 0.3 / (faces.length - 1)))))
+          )
+        ) - Math.max(...each.map(wiggles))
     }
   }
   const rings = polygons.map((p) => p[0])
@@ -1863,7 +1906,9 @@ export function prepareCorrespondence(polygons, cut = false) {
   let match = null
   if (alike) {
     match = matchOf(rings, false, cut)
-    if (match && cut && (match.crossed || match.wander > 0.05)) return null
+    // A cut piece turns more than its faces at the cut itself. That alone is no fault; a
+    // mismatch shows as kinks neither face has.
+    if (match && cut && (match.crossed || (match.wander > 0.05 && match.kinks > 0))) return null
   } else {
     for (const candidate of mergeCounterCandidates(rings)) {
       const m = matchOf(candidate, true, true)

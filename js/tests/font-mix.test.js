@@ -1079,3 +1079,11 @@ it('leaves no stub on a stem where a slanted dot was cut from it', () => {
   expect(Math.max(...stem[0][0][0].map((p) => p[0]))).toBeLessThan(52.5)
   expect(Math.max(...dot[0][0][0].map((p) => p[1]))).toBeGreaterThan(108)
 })
+
+it('keeps the outline blend of a cut piece that turns more than its faces without kinking', async () => {
+  // Two pieces cut from 銀 (Serif against Fangsong), in the registered square. Both turn
+  // more at the even mix than their faces do; only the second folds back on itself.
+  const { smooth, kinked } = await Bun.file(new URL('./fixtures/cut-pieces.json', import.meta.url)).json()
+  expect(prepareCorrespondence(smooth, true)).not.toBeNull()
+  expect(prepareCorrespondence(kinked, true)).toBeNull()
+})
