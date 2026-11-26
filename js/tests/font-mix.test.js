@@ -946,6 +946,38 @@ it('cuts a fused top dot at its horizontal neck without stealing the right half 
   expect(splitIslands([fused3, apart3])).toHaveLength(3)
 })
 
+it('cuts a stroke at the notches where it leaves a stem when asked to', () => {
+  // An arm leaves a stem's right wall, 16 thick at its root and 12 at a waist further out;
+  // the other face draws only the outer end of it as a separate island.
+  const fused = [
+    [
+      [
+        [40, 20],
+        [60, 20],
+        [60, 100],
+        [85, 102],
+        [130, 100],
+        [130, 116],
+        [85, 114],
+        [60, 116],
+        [60, 230],
+        [40, 230],
+        [40, 20]
+      ]
+    ]
+  ]
+  const apart = [[box(40, 20, 20, 210)], [box(100, 100, 30, 16)]]
+  const reach = (/** @type {boolean} */ anchored) => {
+    const regions = splitIslands([fused, apart], anchored)
+    expect(regions).toHaveLength(2)
+    const stem = regions.find((region) => Math.min(...region[1][0][0].map((p) => p[0])) < 50)
+    return Math.max(...stem[0][0][0].map((p) => p[0]))
+  }
+  // The narrowest cut leaves the root of the arm on the stem; the anchored one takes it off by the wall.
+  expect(reach(false)).toBeGreaterThan(75)
+  expect(reach(true)).toBeLessThan(67)
+})
+
 it('does not pair distant leftover corners at opposite ends of a long stem wall', () => {
   // Two 口-like outer contours where face A has an extra sharp bottom-left corner at (16, 240)
   // and face B has a gentle extra corner near the top-left at (16, 42) — both turn the same way
