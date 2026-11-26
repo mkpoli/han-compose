@@ -184,7 +184,8 @@ STYLES = {
         ((65.09, -1.129), (28.14, -0.417)),
         heavy=400,
         kindred=False,
-        weighted=False,
+        # A cut Song face, not a brush: a part drawn small inside another keeps the stems of the
+        # parts around it, grown from the one weight the font has (`STATIC_GROW`).
         own_hosts=True,
         # Its full ideographs span -151 to 848 of the em, Noto Serif's -78 to 837: the lift centres
         # them where Noto Serif's stand. They fill the em's whole height, so a stroke at the top
@@ -972,7 +973,10 @@ class Font:
         font is static."""
         width = None
         if self.static:
-            heavy, width = [_grown(c.light, (STATIC_GROW, STATIC_GROW)) for c in contours], self._measured(contours)
+            # `_grown` moves a point to its contour's left, outward where ink lies to the right. A
+            # face wound the other way (Nôm Na Tống, Kureedo) grows by the same amount to the right.
+            by = -STATIC_GROW if _ink_on_left(contours) else STATIC_GROW
+            heavy, width = [_grown(c.light, (by, by)) for c in contours], self._measured(contours)
         else:
             pen = DecomposingRecordingPen(self.heavy)
             self.heavy[name].draw(pen)
@@ -1002,6 +1006,17 @@ def _across(rings: list[np.ndarray], axis: int) -> float:
     if not widths:
         raise ValueError("No line across the stroke's middle meets its outline twice.")
     return float(np.median(widths))
+
+
+def _ink_on_left(contours: list[Contour]) -> bool:
+    """Whether a glyph's ink lies to the left of its contours' direction: its largest contour, an
+    outer one, runs anticlockwise with y up. TrueType winds outer contours clockwise, PostScript
+    anticlockwise, and a font converted from one keeps the other's direction."""
+    def area(points: np.ndarray) -> float:
+        x, y = points[:, 0], points[:, 1]
+        return 0.5 * float(np.sum(x * np.roll(y, -1) - np.roll(x, -1) * y))
+    areas = [area(c.light) for c in contours if len(c.light) >= 3]
+    return bool(areas) and max(areas, key=abs) > 0
 
 
 def _grown(points: np.ndarray, by: tuple[float, float]) -> np.ndarray:

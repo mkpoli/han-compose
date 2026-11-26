@@ -346,7 +346,7 @@ def test_fangsong_keeps_its_hosts_in_zhuque_and_takes_the_rest_from_jigmo() -> N
 
 def test_woodblock_reads_nom_na_tong_and_no_other_font() -> None:
     style = compose.STYLES["woodblock"]
-    assert style.heavy == 400 and style.weighted is False and style.own_hosts and not style.kindred
+    assert style.heavy == 400 and style.weighted and style.own_hosts and not style.kindred
     assert style.fallbacks == ()
     assert style.font.licence == compose.MIT and style.font.member is None
     assert compose_layout.layout_file("woodblock") == "compose-layout-v4-woodblock.npz"
@@ -395,3 +395,27 @@ def test_pen_writing_reads_a_static_face_and_keeps_its_brush_weight(pen_writing:
     assert part is not None and part.contours
     # GenZui Sans supplies what Klee One lacks.
     assert pen_writing.own("口") and pen_writing.has("㐆")
+
+
+def _ring(points: list[tuple[float, float]]) -> compose.Contour:
+    array = np.array(points, dtype=float)
+    return compose.Contour([("moveTo", 1, False)] + [("lineTo", 1, False)] * (len(points) - 1), array, array.copy())
+
+
+def test_ink_lies_left_of_an_anticlockwise_outer_contour() -> None:
+    clockwise = [(0, 0), (0, 100), (100, 100), (100, 0)]
+    hole = [(40, 40), (60, 40), (60, 60), (40, 60)]
+    assert not compose._ink_on_left([_ring(clockwise), _ring(hole)])
+    assert compose._ink_on_left([_ring(clockwise[::-1]), _ring(hole[::-1])])
+    assert not compose._ink_on_left([])
+
+
+@pytest.mark.parametrize("style", ["woodblock", "fangsong", "regular", "pen-writing"])
+def test_a_static_faces_heavy_master_is_wider_whichever_way_it_is_wound(style: str) -> None:
+    if not _cached(style):
+        pytest.skip(f"The {style} fonts are not cached.")
+    font = compose.Font.of(style)
+    for char in "一國":
+        contour = max(font.glyph(char).contours, key=lambda c: np.ptp(c.light, axis=0).prod())
+        light, heavy = contour.light, np.asarray(contour.heavy)
+        assert (heavy.min(axis=0) < light.min(axis=0)).all() and (heavy.max(axis=0) > light.max(axis=0)).all()

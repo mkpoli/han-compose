@@ -5,7 +5,7 @@ han-compose draws a Han character from its ideographic description sequence (IDS
 regional form the font does not draw. Each part comes from a character the font already draws,
 cut out of it (along KanjiVG's component groups where KanjiVG has that kanji), set where the
 font's designers put parts like it. The sans and serif styles then bring the parts to one stroke weight;
-woodblock, fangsong, regular and pen-writing keep the weight each part has in its font. The result is an SVG path in
+woodblock grows each part's strokes from its one weight to do the same; fangsong, regular and pen-writing keep the weight each part has in its font. The result is an SVG path in
 a 1000-unit em, in a sans style from Noto Sans CJK JP, whose ideographs GenZui Sans takes unchanged;
 a serif (明朝) style from Noto Serif CJK JP; a woodblock (刻本明體) style from Nôm Na Tống alone; a fangsong (仿宋) style from Zhuque Fangsong; a regular
 (正楷) style from TW-Kai, the CNS 11643 Kai, whose Extension B and G faces draw what its BMP face
@@ -58,8 +58,9 @@ and lists those it cannot draw.
 Every command takes `--style sans` (the default), `--style serif`, `--style woodblock`, `--style fangsong`,
 `--style regular` or `--style pen-writing`. Each style has its own fonts and models: a style's model is cached as
 `<name>-<style><ext>` beside the sans one, and `learn --style regular` and `learn-alone --style regular`
-build it. TW-Kai, Kureedo, Zhuque Fangsong and Nôm Na Tống are static, so their styles keep the source stroke
-weights instead of balancing them.
+build it. TW-Kai, Kureedo and Zhuque Fangsong are static brush faces, so their styles keep the source
+stroke weights instead of balancing them. Nôm Na Tống is static too; its strokes are balanced by
+growing its one weight.
 
 `bench` redraws characters from their own sequences with nothing taken from them, and scores each
 against the font's real glyph: the overlap of their ink (intersection over union, at 96 px), the same
