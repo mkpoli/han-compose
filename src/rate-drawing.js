@@ -13,8 +13,8 @@ const faces = {sans, serif, regular, 'pen-writing':pen, fangsong}
 /** @type {Map<string, ReturnType<typeof makePart>>} */
 const cache = new Map()
 
-/** @param {string} text @param {string} style @param {number[]} region @param {boolean} atRoot */
-export function rateParts(text, style, region, atRoot) {
+/** @param {string} text @param {string} style */
+export function ratePart(text, style) {
   const choice = exactRateForm(text)
   const data = faces[style]
   if (!choice || !data) return null
@@ -30,6 +30,14 @@ export function rateParts(text, style, region, atRoot) {
     part = /** @type {ReturnType<typeof makePart>} */ (wound(makePart(contours)))
     cache.set(key, part)
   }
+  return part
+}
+
+/** @param {string} text @param {string} style @param {number[]} region @param {boolean} atRoot */
+export function rateParts(text, style, region, atRoot) {
+  const part = ratePart(text, style)
+  const choice = exactRateForm(text)
+  if (!part || !choice) return null
   const target = atRoot ? mapped(part.box, constants.face, region) : region
   return [{...placed(part, part.box, target, partInk(part), choice.host + ' · ' + choice.label), fixed:true}]
 }
