@@ -13,6 +13,11 @@ it('carries 由 above the crossed lower-left strokes in the three brush faces', 
     expect(overlayContextDonors(key, style)).toEqual(Object.keys(records[style]))
     const parts = overlayContextParts(composer(style), key, em)
     expect(parts.map(p => p.rccLeaf)).toEqual([0, 1])
+    expect(parts.map(p => p.part.strokes.length)).toEqual([3, 5])
+    expect(parts[1].part.strokes.map(([id]) => id)).toEqual([0, 1, 2, 3, 4])
+    for (const { part } of parts) for (const [, contours] of part.strokes) {
+      expect(contours.every(i => Number.isInteger(i) && i >= 0 && i < part.contours.length)).toBe(true)
+    }
     const [frame, inside] = parts.map(p => fill(groupRings([p], 24), 128, em))
     // Below the crossing, the end of the falling stroke appears at the left,
     // with a clear interval before the broad sweep to the right.

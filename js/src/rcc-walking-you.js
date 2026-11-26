@@ -1,4 +1,4 @@
-import { derived, mapped, partInk, partOf, placed } from './geometry.js'
+import { cutContours, mapped, partInk, partOf, placed } from './geometry.js'
 import { hexOf } from './sha256.js'
 
 // The five glyphs in RCC sighting 2875 show the sweep crossing the last
@@ -37,7 +37,7 @@ export function walkingYouParts(composer, region) {
     const glyph = partOf(record)
     for (const [rccLeaf, indices] of [outer, inner].entries()) {
       if (!indices.length) continue
-      const piece = derived(glyph, indices.map(i => glyph.contours[i]))
+      const piece = cutContours(glyph, indices)
       const target = mapped(slots[rccLeaf], frame, region)
       const origin = (rccLeaf ? '由' : '#(㇋乀)') + ' from ' + char
       parts.push({ ...placed(piece, piece.box, target, partInk(piece), origin), rccLeaf, fixed: true })
