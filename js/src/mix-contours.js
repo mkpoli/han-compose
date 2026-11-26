@@ -862,9 +862,10 @@ function cutRing(ring, targets, within, cap, clear = []) {
           }
         }
         if (!here || !there || stray > 0.3) continue
-        // Only penalize substantial piece contamination (>15%) so small boundary noise
-        // does not tilt a clean horizontal cut, while a tiny stroke cannot steal half a bar.
-        const contam = Math.max(0, Math.max(wrongInner / (j - i), wrongOuter / (size - (j - i))) - 0.15)
+        // A piece counts as contaminated once most of its points belong to another target.
+        // A stroke fused along its neighbour carries that neighbour's label near the join,
+        // and its neck is still the cut to make.
+        const contam = Math.max(0, Math.max(wrongInner / (j - i), wrongOuter / (size - (j - i))) - 0.5)
         chords.push({ i, j, width, cost: width * (1 + 2 * (stray + contam)) + 30 * (stray + contam) })
       }
     chords.sort((a, b) => a.cost - b.cost)
