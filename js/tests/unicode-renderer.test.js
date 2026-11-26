@@ -143,17 +143,18 @@ it('leaves Jurchen to its own bundle', () => {
   }
 })
 
-it('prefers vector fonts over GNU Unifont for CJK, hieroglyph and symbol fallbacks', () => {
+it('prefers vector fonts including Plangothic over GNU Unifont for CJK, hieroglyph and symbol fallbacks', () => {
   const files = metadata.sources.map(s => s.file)
   const unifontIndices = files.flatMap((file, index) => file.startsWith('unifont') ? [index] : [])
   expect(unifontIndices).toHaveLength(2)
   const firstUnifont = Math.min(...unifontIndices)
-  for (const vector of ['UniHieroglyphica.ttf', 'Jigmo-20250912-Jigmo.ttf', 'Jigmo-20250912-Jigmo2.ttf', 'Jigmo-20250912-Jigmo3.ttf', 'Iosevka-Regular.ttf']) {
+  for (const vector of ['UniHieroglyphica.ttf', 'PlangothicP1-Regular.ttf', 'PlangothicP2-Regular.ttf', 'Iosevka-Regular.ttf']) {
     const index = files.indexOf(vector)
     expect(index).toBeGreaterThanOrEqual(0)
     expect(index).toBeLessThan(firstUnifont)
   }
-  // 𠉀 (U+20240) and 𬺢 (U+2CEA2) must carry vector outlines from Jigmo2 rather than 16x16 Unifont staircases.
+  expect(files.indexOf('NotoSansCJKjp-VF-2.004.ttf')).toBeLessThan(files.indexOf('PlangothicP1-Regular.ttf'))
+  // 𠉀 (U+20240) and 𬺢 (U+2CEA2) must carry vector outlines from Plangothic rather than 16x16 Unifont staircases.
   const isUnifontGrid = record =>
     record.G.b.every(v => Math.abs(v / 62.5 - Math.round(v / 62.5)) < 1e-3) &&
     record.G.p.every(([ops]) => !ops.includes('Q') && !ops.includes('C'))
