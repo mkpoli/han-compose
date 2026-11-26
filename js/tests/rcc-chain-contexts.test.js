@@ -71,3 +71,30 @@ it('places the short crossbar high across the hook and the separate dot to its l
   expect(crossbar.target[1]).toBeGreaterThan(dot.target[3])
   expect(dot.target[2]).toBeLessThan(dog.target[0])
 })
+
+it('retains component pen widths inside the narrow slots in Sans', () => {
+  const face = composer('sans')
+  const [speechRadical, hook, , , dog] = rccChainContextParts(face, speech, em)
+  const [drops, , inner] = rccChainContextParts(face, water, em)
+  expect([drops.origin, speechRadical.origin, dog.origin]).toEqual(['氵 from 汴', '讠 from 讨', '犬 from 狀'])
+  const rowWidths = (part, y) => {
+    const size = 200, mask = pathMask(svgPath([part]), size)
+    const row = Array.from(mask.slice(y * size, (y + 1) * size), ink => ink ? '#' : ' ').join('')
+    return [...row.matchAll(/#+/g)].map(match => match[0].length)
+  }
+  expect(rowWidths(speechRadical, 90)).toEqual([15])
+  expect(rowWidths(hook, 90)).toEqual([16])
+  expect(rowWidths(dog, 150)).toEqual([14, 13])
+  expect(rowWidths(inner, 90)).toEqual([16, 16])
+})
+
+it('associates each editable outline with its original IDS leaf', () => {
+  const separate = { ...composer('sans'), separate: true }
+  for (const [key, expected] of [[water, [0, 1, 3, 2]], [speech, [0, 1, 1, 2, 3, 4]], [horse, [0, 1, 2]]]) {
+    expect(rccChainContextParts(separate, key, em).map(p => p.rccLeaf)).toEqual(expected)
+  }
+  for (const key of [tiger, '⿸㇯虍七노', '⿱㇯馬灬乙']) {
+    expect(rccChainContextParts(separate, key, em)).toBeNull()
+  }
+  expect(rccChainContextParts({ ...separate, fontStyle: 'pen-writing' }, horse, em)).toBeNull()
+})

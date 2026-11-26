@@ -3,6 +3,7 @@
 // key) loaded as a sequence needs it, and the sequence drawn from it as an SVG path. A file is
 // fetched once a page; a gzipped one (the export writes them so) is unpacked with DecompressionStream.
 import { APPROXIMATE, Composer, EMPTY, LookupError, designedSources, keyOf, leafCutChar, wheatFaceHosts, mapOperands, parseTree } from './compose.js'
+import { rccDonors } from './rcc-forms.js'
 import { yuanReference } from './yuan-pyramid.js'
 import { qiReference } from './qi-family.js'
 import { splitDescription } from './tree.js'
@@ -343,10 +344,15 @@ export async function sketch(source, sequence, { fontStyle = 'sans' } = {}) {
   const donors = [...wheatFaceHosts(description), ...designedSources(tree, fontStyle)]
   await source.load([...modelOf(source, tree), ...(donors.length ? source.filesOf(donors) : [])])
   // These layouts read actual ink, including contextual glyphs discovered in later shards.
-  const measured = donors.includes(qiReference) || donors.includes(yuanReference) || description.includes('⿺')
+  const recorded = node => Array.isArray(node) && (rccDonors(keyOf(node), fontStyle).length > 0 || node.slice(1).some(recorded))
+  const measured = recorded(tree) || donors.includes(qiReference) || donors.includes(yuanReference) || description.includes('⿺')
   for (let round = 0; round < ROUNDS; round++) {
     const store = source.store()
-    const leaves = new Composer(store, { fontStyle }).sketch(description, marks)
+    let leaves
+    try { leaves = new Composer(store, { fontStyle }).sketch(description, marks) }
+    catch (error) {
+      if (!(error instanceof LookupError) || !measured || !store.missing.size) throw error
+    }
     const missing = measured ? [...store.missing] : source.modelFiles().filter(name => store.missing.has(name))
     if (!missing.length || (!measured && round > 0)) return leaves.map(leaf => ({ ...leaf, box: svgBox(leaf.box) }))
     await source.load(missing)

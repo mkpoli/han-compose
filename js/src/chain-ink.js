@@ -11,13 +11,13 @@ const exportsByCommit = metrics
 export function recordedInkBox(composer, key) {
   if (composer.exclude?.size || composer.data?.missing?.size) return null
   const faceMetrics = exportsByCommit[composer.data?.manifest?.composer?.commit]
-  return faceMetrics?.[key] ?? faceMetrics?.[drawingChain(key)] ?? null
+  return faceMetrics?.[key] ?? (key.startsWith('#(') ? faceMetrics?.[drawingChain(key)] : null) ?? null
 }
 
 /** Preserve a previously drawable form's ink extent at its original em scale.
  * @param {any} composer @param {string} key @param {any[]} parts */
 export function fitRecordedInk(composer, key, parts) {
-  if (!key.includes('#(') || !parts.length) return
+  if (!parts.length) return
   const box = recordedInkBox(composer, key)
   if (!Array.isArray(box) || parts.some(p => p.empty !== undefined || p.cut)) return
   const target = mapped(box, composer.C.face, composer.face)

@@ -45,20 +45,33 @@ function middleContours(whole, indices, style) {
 /** @param {string} key */
 export const k5Donors = key => key === spelling ? donors : []
 
-/** @param {import('./compose.js').Composer} composer @param {string} key @param {number[]} region */
+/** @param {import('./compose.js').Composer} composer @param {string} key @param {number[]} region @returns {any[] | null} */
 export function k5Parts(composer, key, region) {
   if (key !== spelling || [key, ...leaves, ...donors].some(ch => composer.excluded(ch))) return null
+  if (!Object.hasOwn(faces, composer.fontStyle)) return null
   const spec = faces[composer.fontStyle]
-  if (!spec) return null
   const parts = []
   for (const [i, donor] of donors.entries()) {
+    if (composer.separate && i > 0) break
     const record = composer.glyphRecord(donor)
     const [digest, indices] = spec[donor]
     if (record?.v !== 1 || hexOf(JSON.stringify(record.p)) !== digest) return null
     const whole = partOf(record)
     const contours = donor === '奴' ? middleContours(whole, indices, composer.fontStyle) : indices.map(index => whole.contours[index])
     const piece = derived(whole, contours)
-    parts.push(placed(piece, piece.box, mapped(slots[i], frame, region), partInk(piece), `K5H00030 cut from ${donor}`))
+    parts.push({ ...placed(piece, piece.box, mapped(slots[i], frame, region), partInk(piece), `K5H00030 cut from ${donor}`), fixed: true, rccLeaf: 0 })
+  }
+  if (composer.separate) {
+    // The printed middle and bird each cross several IDS operands. Use their
+    // individual font outlines when the editor must move those operands.
+    const editable = ['𡿨', '㇇', '丿', '𠃍', '㇉', '二', '一', '灬']
+    const owners = [1, 2, 3, 4, 4, 5, 6, 7]
+    const boxes = [[38, -114, 71, -8], [36, -121, 72, -39], [80, -25, 101, -3],
+      [74, -57, 112, -20], [72, -122, 126, -52], [77, -53, 103, -34], [76, -68, 118, -60], [72, -114, 113, -89]]
+    for (const [i, leaf] of editable.entries()) {
+      const drawn = composer.node(leaf, mapped(boxes[i], frame, region))
+      for (const p of drawn) parts.push({ ...p, fixed: true, rccLeaf: owners[i] })
+    }
   }
   return parts
 }

@@ -1,3 +1,4 @@
+import componentCuts from './rcc-component-cuts.json' with { type: 'json' }
 import { derived, mapped, partInk, partOf, placed, rings, segments, union } from './geometry.js'
 import { hexOf } from './sha256.js'
 
@@ -87,6 +88,19 @@ function native(composer, char, digest) {
   return partOf(record)
 }
 
+/** The left radicals in 讨 and 汴 and the compact right-hand 犬 in 狀.
+ * Their contour indices belong to the pinned primary-face glyph records.
+ * https://github.com/yi-bai/ids/blob/2597437b928e8d530b7ae09cf53fe5ec7868569c/ids_lv0.txt
+ * @type {Record<string, Record<string, [string, number[]]>>} */
+const sides = /** @type {any} */ (componentCuts)
+
+/** @param {import('./compose.js').Composer} composer @param {string} host @param {string} fallback */
+function sideGlyph(composer, host, fallback) {
+  const cut = sides[host]?.[composer.fontStyle]
+  const glyph = cut && native(composer, host, cut[0])
+  return glyph ? { ...derived(glyph, cut[1].map(i => glyph.contours[i])), sourceHost: host } : native(composer, fallback)
+}
+
 /** @param {number[]} box @param {number[]} fractions */
 const subBox = (box, fractions) => mapped(fractions, [0, 0, 1, 1], box)
 
@@ -98,8 +112,8 @@ const design = new Map([[water, water], [speech, speech], [tiger, tiger], [tiger
 /** @param {string} key @param {string} style */
 export function rccChainDonors(key, style) {
   switch (design.get(key)) {
-  case water: return ['氵', '亠', '凵']
-  case speech: return ['讠', '亅', '一', '丶', '犬', ...(style === 'fangsong' ? ['小'] : [])]
+  case water: return ['氵', '亠', '凵', '汴']
+  case speech: return ['讠', '亅', '一', '丶', '犬', '讨', '狀', ...(style === 'fangsong' ? ['小'] : [])]
   case tiger: return style === 'fangsong' ? ['虍', '凵', '丄'] : ['虍', 'ㄴ', 'ㅗ']
   case horse: return ['馬', '乙']
   default: return []
@@ -159,11 +173,11 @@ function spanMap(lo, hi, left, right, hits, pen) {
 }
 
 /** @param {any} glyph @param {number[]} target @param {number} pen
- * @param {((x: number) => number | null) | null} ceiling */
-function narrow(glyph, target, pen, ceiling = null) {
+ * @param {((x: number) => number | null) | null} ceiling @param {number} height */
+function narrow(glyph, target, pen, ceiling = null, height = 0.57) {
   const [l, b, r, t] = glyph.box, [x0, y0, x1, y1] = target
   const lines = /** @type {number[][]} */ (rings(glyph.contours, glyph.contours.map((/** @type {any} */ c) => c.light), 12))
-  const upright = intersections(lines, 1, b + 0.57 * (t - b))
+  const upright = intersections(lines, 1, b + height * (t - b))
   const foot = intersections(lines, 0, l + 0.71 * (r - l))
   const mapX = spanMap(l, r, x0, x1, upright, pen)
   const mapY = spanMap(b, t, y0, y1, foot, pen)
@@ -214,18 +228,19 @@ function horseFoot(glyph) {
 export function rccChainContextParts(composer, key, region) {
   const id = design.get(key)
   if (!id) return null
+  if (composer.separate && (id === tiger || key === horseSubtraction || (id === horse && composer.fontStyle === 'pen-writing'))) return null
   const donors = rccChainDonors(key, composer.fontStyle)
   if ([key, ...donors, ...(operands.get(id) ?? [])].some(char => composer.excluded(char))) return null
-  /** @param {any} part @param {number[]} target @param {string} origin */
-  const draw = (part, target, origin) => ({ ...placed(part, part.box, target, partInk(part), origin), fixed: true })
-  /** @param {any} part @param {number[]} at @param {string} origin */
-  const set = (part, at, origin) => draw(part, subBox(region, at), origin)
+  /** @param {any} part @param {number[]} target @param {string} origin @param {number} rccLeaf */
+  const draw = (part, target, origin, rccLeaf) => ({ ...placed(part, part.box, target, partInk(part), origin), fixed: true, rccLeaf })
+  /** @param {any} part @param {number[]} at @param {string} origin @param {number} leaf */
+  const set = (part, at, origin, leaf) => draw(part, subBox(region, at), origin, leaf)
 
   if (id === water) {
     // 饶秉才, 兴宁客家话词典 (2017), p. 103, index p. 71. The inner U
     // hangs directly from 亠; the outer U rises beside it from the baseline.
     // https://rare.glyphatlas.org/en/entry/444#sighting-449
-    const drops = native(composer, '氵'), lid = native(composer, '亠'), cup = native(composer, '凵')
+    const drops = sideGlyph(composer, '汴', '氵'), lid = native(composer, '亠'), cup = native(composer, '凵')
     if (!drops || !lid || !cup) return null
     const roof = subBox(region, [0.27, 0.77, 1, 0.99])
     const lines = /** @type {number[][]} */ (rings(lid.contours, lid.contours.map((/** @type {any} */ c) => c.light), 12))
@@ -235,22 +250,25 @@ export function rccChainContextParts(composer, key, region) {
       return y === undefined ? null : roof[1] + (y - lid.box[1]) / (lid.box[3] - lid.box[1]) * (roof[3] - roof[1])
     }
     const pen = (region[2] - region[0]) / 1000
-    const inner = narrow(cup, subBox(region, [0.46, 0.23, 0.84, 0.80]), pen * 0.82, ceiling)
-    const outer = narrow(cup, subBox(region, [0.31, 0.01, 0.99, 0.63]), pen * 0.9)
-    return [set(drops, [0, 0, 0.31, 1], 'glyph 氵'), draw(lid, roof, 'glyph 亠'),
-      draw(inner, inner.box, 'inner 凵'), draw(outer, outer.box, 'outer 凵')]
+    const inner = narrow(cup, subBox(region, [0.46, 0.23, 0.84, 0.80]), pen, ceiling)
+    const outer = narrow(cup, subBox(region, [0.31, 0.01, 0.99, 0.63]), pen)
+    return [set(drops, [0, 0, 0.31, 1], drops.sourceHost ? '氵 from 汴' : 'glyph 氵', 0), draw(lid, roof, 'glyph 亠', 1),
+      draw(inner, inner.box, 'inner 凵', 3), draw(outer, outer.box, 'outer 凵', 2)]
   }
 
   if (id === speech) {
     // The photographed 讨厌 ligature shares its long vertical hook. A short
     // horizontal crosses the upright below the roof; the dot lies on its left.
     // https://rare.glyphatlas.org/en/entry/2120#sighting-2240
-    const radical = native(composer, '讠'), hook = composer.chainStroke('亅'), bar = native(composer, '一')
-    const dot = composer.chainStroke('丶'), dog = native(composer, '犬')
+    const radical = sideGlyph(composer, '讨', '讠'), hook = composer.chainStroke('亅'), bar = native(composer, '一')
+    const dot = composer.chainStroke('丶'), dog = sideGlyph(composer, '狀', '犬')
     if (!radical || !hook || !bar || !dot || !dog) return null
-    return [set(radical, [0, 0, 0.27, 1], 'glyph 讠'), set(hook, [0.29, 0.01, 0.51, 0.96], 'vertical 亅'),
-      set(bar, [0.45, 0.91, 1, 0.98], 'roof 一'), set(bar, [0.20, 0.71, 0.55, 0.79], 'crossing 一'),
-      set(dog, [0.47, 0, 1, 0.84], 'glyph 犬'), set(dot, [0.23, 0.35, 0.39, 0.62], 'glyph 丶')]
+    const pen = (region[2] - region[0]) / 1000
+    const left = narrow(radical, subBox(region, [0, 0, 0.27, 1]), pen, null, 0.35)
+    const upright = narrow(hook, subBox(region, [0.29, 0.01, 0.51, 0.96]), pen)
+    return [draw(left, left.box, radical.sourceHost ? '讠 from 讨' : 'glyph 讠', 0), draw(upright, upright.box, 'vertical 亅', 1),
+      set(bar, [0.45, 0.91, 1, 0.98], 'roof 一', 1), set(bar, [0.20, 0.71, 0.55, 0.79], 'crossing 一', 2),
+      set(dog, [0.47, 0, 1, 0.84], dog.sourceHost ? '犬 from 狀' : 'glyph 犬', 3), set(dot, [0.23, 0.35, 0.39, 0.62], 'glyph 丶', 4)]
   }
 
   if (id === tiger) {
@@ -266,7 +284,7 @@ export function rccChainContextParts(composer, key, region) {
     const pen = (region[2] - region[0]) / 1000 * 0.85
     const initial = narrow(consonant, subBox(region, [0.35, 0.29, 0.69, 0.58]), pen)
     const final = narrow(vowel, subBox(region, [0.19, 0.025, 0.80, 0.35]), pen)
-    return [draw(body, region, '虍 without 七'), draw(initial, initial.box, 'ㄴ of 노'), draw(final, final.box, 'ㅗ of 노')]
+    return [draw(body, region, '虍 without 七', 0), draw(initial, initial.box, 'ㄴ of 노', 2), draw(final, final.box, 'ㅗ of 노', 2)]
   }
 
   const cut = horseCuts.get(composer.fontStyle)
@@ -278,7 +296,7 @@ export function rccChainContextParts(composer, key, region) {
   const body = horsePiece(glyph, cut.outer), inner = cut.inner.length ? horsePiece(glyph, cut.inner) : null
   const box = inner ? union([body.box, inner.box]) : body.box
   const target = subBox(region, [0.16, 0.28, 0.88, 1])
-  return [draw(body, mapped(body.box, box, target), '#(-一丨b𠃌) from 馬'),
-    ...(inner ? [draw(inner, mapped(inner.box, box, target), '𰀁 from 馬')] : []),
-    set(horseFoot(foot), [0, 0, 1, 0.43], '乙 beneath 馬')]
+  return [draw(body, mapped(body.box, box, target), '#(-一丨b𠃌) from 馬', 0),
+    ...(inner ? [draw(inner, mapped(inner.box, box, target), '𰀁 from 馬', 1)] : []),
+    set(horseFoot(foot), [0, 0, 1, 0.43], '乙 beneath 馬', 2)]
 }

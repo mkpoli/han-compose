@@ -51,7 +51,7 @@ import { fitRecordedInk } from './chain-ink.js'
 import { correctedChain, drawingChain } from './chain-corrections.js'
 import { historicalNativeChar } from './historical-chains.js'
 import { guideChainParts, guideChainDonor } from './guide-chain-cuts.js'
-import { rccParts, rccDonors } from './rcc-forms.js'
+import { rccParts, rccDonors, rccLeafBoxes, numberRccLeaves } from './rcc-forms.js'
 import { recordedNativeGlyph } from './recorded-native.js'
 import { recordedArcParts, recordedArcDonors } from './recorded-arcs.js'
 import { recordedChainNative } from './recorded-chains.js'
@@ -1414,6 +1414,7 @@ export class Composer {
           else part.leaf = before[i]
         })
       }
+      if (this.separate) numberRccLeaves(tree, out, keyOf, leafTexts)
       if (!this.partial && this.weighted) {
         this.balance(out)
         this.settleSweeps()
@@ -1711,6 +1712,8 @@ export class Composer {
 
   /** The leaves of `sequence` laid out in the current face. */
   sketched(sequence) {
+    const editable = Object.create(this)
+    editable.separate = true
     const partitioned = this.leafCutSketch(sequence)
     if (partitioned) return partitioned
     const out = []
@@ -1734,9 +1737,10 @@ export class Composer {
         return
       }
       const repeated = isGroupedForm(keyOf(node), this.fontStyle) ? componentParts(keyOf(node), region, this.fontStyle, atRoot) : null
-      const designed = repeated ?? rccParts(this, keyOf(node), region) ?? birdOutlineParts(this, keyOf(node), region) ?? this.thornRowParts(node, region) ?? yiCrossParts(this, node, region) ?? this.qiParts(node, region) ?? ghostParts(this, node, region) ?? this.muKoParts(node, region) ?? this.wheatFaceParts(node, region)
+      const designed = repeated ?? rccParts(editable, keyOf(node), region) ?? birdOutlineParts(this, keyOf(node), region) ?? this.thornRowParts(node, region) ?? yiCrossParts(this, node, region) ?? this.qiParts(node, region) ?? ghostParts(this, node, region) ?? this.muKoParts(node, region) ?? this.wheatFaceParts(node, region)
       if (designed) {
-        for (const part of designed) out.push({ index: out.length, box: part.target, empty: false })
+        const boxes = designed[0]?.rccGroup && rccLeafBoxes(designed, leafTexts(node).length)
+        for (const box of boxes || designed.map(part => part.target)) out.push({ index: out.length, box, empty: false })
         return
       }
       if (!Array.isArray(node)) { out.push({ index: out.length, box: region, empty: node === EMPTY }); return }

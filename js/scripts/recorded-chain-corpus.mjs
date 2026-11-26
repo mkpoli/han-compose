@@ -1,11 +1,13 @@
 // Current and retired RCC claims can preserve spellings absent from the Bai IDS catalogue.
 import catalogue from '../src/recorded-chains.json' with { type: 'json' }
 import evidence from '../../data/rcc-chain-evidence.json' with { type: 'json' }
+import { rccDonors } from '../src/rcc-forms.js'
 import { parseDescription } from '../src/tree.js'
 
 const chains = new Set(Object.keys(catalogue.chains))
 const ids = new Set()
 for (const record of evidence.records) {
+  if (record.primary_ids && rccDonors(record.primary_ids, 'sans').length) ids.add(record.primary_ids)
   for (const claim of [...record.claims, ...record.historical_claims]) {
     ids.add(claim.ids)
     for (const chain of claim.chains) chains.add(chain)
