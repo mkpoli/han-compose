@@ -65,9 +65,9 @@ python3 js/scripts/recorded-chains.py --ids /path/to/ids --guide /path/to/bai-id
 ```
 
 Audit 444 standalone spellings with local format-7 exports. These comprise 436
-Bai IDS spellings and eight additional RCC spellings. The 27 distinct current
-and historical RCC descriptions include 26 complete descriptions and one
-truncated source string, reported as `invalid-source`.
+Bai IDS spellings and eight additional RCC spellings. The 29 distinct current
+and historical RCC strings include 27 complete descriptions and two fragments
+of the current R+0C34 entry, both reported as `invalid-source`.
 Run `node js/scripts/data.mjs` in each renderer checkout first to populate its
 bundled data, then pass one `style=path` argument per export.
 
