@@ -109,6 +109,10 @@ class Style:
     own_hosts: bool = False
     #: How far up the style's glyphs move to meet the composer's em, in 1000-unit units.
     y_shift: float = 0.0
+    #: Least gap two neighbouring parts keep at their closest strokes, side by side and stacked:
+    #: the gap three in four of the font's own characters keep there (`calibrate-gaps`). A touching
+    #: pair reads 4, one raster cell: Noto's stacked parts interlock, a brush face's stand apart.
+    facing_least: tuple[float, float] = (12.0, 8.0)
 
 
 OFL = "SIL OFL 1.1"
@@ -170,6 +174,7 @@ STYLES = {
         ((67.77, -0.463), (22.31, 0.164)),
         synthetic_y=True,
         kindred=False,
+        facing_least=(8.0, 4.0),
     ),
     # Nôm Na Tống 5.20 (Nôm Na Group, Vietnamese Nôm Preservation Foundation): a static Song face cut
     # after woodblock printing, the reference font for Hán-Nôm encoding. No other font fills in
@@ -190,6 +195,7 @@ STYLES = {
         # them where Noto Serif's stand. They fill the em's whole height, so a stroke at the top
         # or the foot can pass its edge by a few units.
         y_shift=31.0,
+        facing_least=(24.0, 21.0),
     ),
     # Zhuque Fangsong 0.212 (technical preview), recut from the 1932 南宋 type. It is a static font, so
     # 400 is also the heavy master; Jigmo draws the ideographs it lacks, in the nearest pinned design.
@@ -208,6 +214,7 @@ STYLES = {
         kindred=False,
         weighted=False,
         own_hosts=True,
+        facing_least=(16.0, 16.0),
     ),
     # TW-Kai (CNS 11643 Kai, fonts version 11510.1): a static brush face whose Extension B and G
     # faces draw the ideographs the BMP face lacks, in the same design.
@@ -223,6 +230,7 @@ STYLES = {
         own_hosts=True,
         # TW-Kai's typographic ascent is 820 on its 1024-unit em: 880 - 820 * 1000 / 1024.
         y_shift=79.2,
+        facing_least=(24.0, 20.0),
     ),
     # Kureedo 0.5.0 Full: Klee One's kaisho and historical kana, with every public code point LXGW
     # WenKai Light 1.530 has and Klee lacks. It is a static font, so 400 is also the heavy master;
@@ -243,6 +251,7 @@ STYLES = {
         kindred=False,
         weighted=False,
         own_hosts=True,
+        facing_least=(25.0, 24.0),
     ),
 
 }
@@ -1357,10 +1366,9 @@ CLEARED = frozenset("⿴⿵⿶⿷⿺")
 #: Least gap two neighbouring parts keep where they face each other, side by side and stacked: the
 #: median gap along their facing edges, as 95% of drawn characters keep it (measured on 800).
 FACING = (72.0, 53.0)
-#: Least gap two neighbouring parts keep anywhere along their facing edges: nine in ten drawn
-#: characters keep it at their closest stroke (measured on 2,074 cut cleanly from Nôm Na Tống and
-#: Zhuque Fangsong, side by side and stacked; under 1% of them touch).
-FACING_LEAST = 12.0
+#: Least gap two neighbouring parts keep at their closest strokes, side by side and stacked, where
+#: a style measures none of its own (`Style.facing_least`).
+FACING_LEAST = (12.0, 12.0)
 #: Most of its length a part gives up to make room for its neighbour.
 SQUEEZE = 0.15
 #: How far past the heavy master a part squeezed into a narrow box may grow: its stems keep the
@@ -3954,8 +3962,9 @@ class Composer:
             if gaps is None:
                 continue
             # The median misses one stroke reaching its neighbour (the foot of 艹 on the head of
-            # 南): the closest pair of strokes keeps `FACING_LEAST` as well.
-            short = max(FACING[axis] - float(np.median(gaps)), FACING_LEAST - float(gaps.min()))
+            # 南): the closest pair of strokes keeps the style's least gap as well.
+            least = getattr(getattr(self.font, "style", None), "facing_least", FACING_LEAST)[axis]
+            short = max(FACING[axis] - float(np.median(gaps)), least - float(gaps.min()))
             if short <= 0:
                 continue
             half = short / 2
