@@ -42,6 +42,75 @@ function middleContours(whole, indices, style) {
   return [shortened, ...others.map(i => whole.contours[i])]
 }
 
+/** @typedef {[number, number, number]} Run */
+/** @typedef {(number | Run[])[]} Cut */
+
+// Indices are local to the already shortened 奴 and the right component of 鳴.
+// A number keeps a complete contour. Runs follow one contour from a junction
+// to the next, wrapping through its start when necessary. The adjoining stroke
+// follows the same closing chord in reverse, so the assembled ink stays exact.
+// 奴 contributes 𡿨 and ㇇. 鳴 contributes 丿, the hooked frame, 二, 一 and 灬.
+/** @type {Record<string, { middle: Cut[], bird: Cut[] }>} */
+const partitions = {
+  sans: {
+    middle: [[1, 2], [0, 3]],
+    bird: [[10], [0, 3, 4, [[9, 5, 2]]], [2, [[9, 2, 5]]], [1], [5, 6, 7, 8]],
+  },
+  serif: {
+    middle: [[1, 2], [0, 3]],
+    bird: [[1], [2, 3, 4, 7, 8], [5, 6], [0], [9, 10, 11, 12]],
+  },
+  regular: {
+    middle: [
+      [[[0, 57, 0], [1, 1, 8]], [[0, 25, 39]]],
+      [[[0, 0, 25], [0, 39, 57], [1, 8, 1]]],
+    ],
+    bird: [
+      [[[0, 107, 126]]],
+      [[[0, 29, 107], [0, 126, 0], [1, 7, 8], [2, 7, 0], [1, 14, 0], [0, 7, 8]]],
+      [[[1, 8, 14], [2, 0, 7]], [[0, 0, 7], [1, 0, 7]]],
+      [[[0, 8, 29]]], [3, 4, 5, 6],
+    ],
+  },
+  fangsong: {
+    middle: [
+      [[[0, 0, 19], [1, 1, 5]], [[0, 32, 43]]],
+      [[[0, 19, 32], [0, 43, 0], [1, 5, 1]]],
+    ],
+    bird: [
+      [[[0, 28, 41]]],
+      [[[0, 70, 28], [0, 41, 57], [5, 4, 9], [5, 20, 21], [0, 58, 59]]],
+      [[[5, 9, 20]], [[0, 57, 58], [5, 21, 4]]],
+      [[[0, 59, 70]]], [1, 2, 3, 4],
+    ],
+  },
+  'pen-writing': {
+    middle: [
+      [[[0, 22, 44], [1, 2, 6]], [[0, 53, 60]]],
+      [[[0, 44, 53], [0, 60, 22], [1, 6, 2]]],
+    ],
+    bird: [
+      [[[0, 42, 51]]],
+      [[[0, 35, 42], [0, 51, 21], [0, 30, 31], [2, 2, 3], [1, 2, 1], [2, 0, 1]]],
+      [[[1, 1, 2], [2, 3, 0]], [[0, 31, 35], [2, 1, 2]]],
+      [[[0, 21, 30]]], [3, 4, 5, 6],
+    ],
+  },
+}
+
+/** @param {any} glyph @param {Cut} cut */
+function partition(glyph, cut) {
+  return derived(glyph, cut.map(contour => {
+    if (typeof contour === 'number') return glyph.contours[contour]
+    const runs = contour.flatMap(([i, start, end]) => {
+      if (start <= end) return [[i, start, end]]
+      const c = glyph.contours[i], last = segments(c.ops, c.light).length - 1
+      return [[i, start, last], [i, 0, end]]
+    })
+    return reconnectStroke(glyph.contours, /** @type {Run[]} */ (runs))
+  }))
+}
+
 /** @param {string} key */
 export const k5Donors = key => key === spelling ? donors : []
 
@@ -52,25 +121,24 @@ export function k5Parts(composer, key, region) {
   const spec = faces[composer.fontStyle]
   const parts = []
   for (const [i, donor] of donors.entries()) {
-    if (composer.separate && i > 0) break
     const record = composer.glyphRecord(donor)
     const [digest, indices] = spec[donor]
     if (record?.v !== 1 || hexOf(JSON.stringify(record.p)) !== digest) return null
     const whole = partOf(record)
     const contours = donor === '奴' ? middleContours(whole, indices, composer.fontStyle) : indices.map(index => whole.contours[index])
     const piece = derived(whole, contours)
-    parts.push({ ...placed(piece, piece.box, mapped(slots[i], frame, region), partInk(piece), `K5H00030 cut from ${donor}`), fixed: true, rccLeaf: 0 })
-  }
-  if (composer.separate) {
-    // The printed middle and bird each cross several IDS operands. Use their
-    // individual font outlines when the editor must move those operands.
-    const editable = ['𡿨', '㇇', '丿', '𠃍', '㇉', '二', '一', '灬']
-    const owners = [1, 2, 3, 4, 4, 5, 6, 7]
-    const boxes = [[38, -114, 71, -8], [36, -121, 72, -39], [80, -25, 101, -3],
-      [74, -57, 112, -20], [72, -122, 126, -52], [77, -53, 103, -34], [76, -68, 118, -60], [72, -114, 113, -89]]
-    for (const [i, leaf] of editable.entries()) {
-      const drawn = composer.node(leaf, mapped(boxes[i], frame, region))
-      for (const p of drawn) parts.push({ ...p, fixed: true, rccLeaf: owners[i] })
+    const target = mapped(slots[i], frame, region)
+    if (composer.separate && i > 0) {
+      const groups = partitions[composer.fontStyle]
+      const cuts = i === 1 ? groups.middle : groups.bird
+      const start = i === 1 ? 1 : 3
+      for (const [j, cut] of cuts.entries()) {
+        const leaf = partition(piece, cut)
+        parts.push({ ...placed(leaf, leaf.box, mapped(leaf.box, piece.box, target), partInk(leaf), `K5H00030 cut from ${donor}`),
+          fixed: true, rccLeaf: start + j })
+      }
+    } else {
+      parts.push({ ...placed(piece, piece.box, target, partInk(piece), `K5H00030 cut from ${donor}`), fixed: true, rccLeaf: 0 })
     }
   }
   return parts

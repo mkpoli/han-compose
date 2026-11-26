@@ -1,7 +1,7 @@
 import { expect, it } from 'bun:test'
 import { fill, groupRings } from '../src/geometry.js'
 import { k5Donors, k5Parts } from '../src/k5h00030.js'
-// Format-7 Noto Sans CJK and Zhuque FangSong native outlines (both SIL OFL).
+// Format-7 native records for the five primary faces used by K5H00030.
 import records from './fixtures/k5h00030.json' with { type: 'json' }
 
 const spelling = '⿲牛⿻𡿨㇇⿱丿⿹⿷⿴#(-𠃍㇉)二一灬'
@@ -35,4 +35,20 @@ it('falls back for excluded operands, other revisions and incomplete RCC text', 
   expect(k5Parts({ ...composer('sans'), glyphRecord: () => ({ v: 1, p: [] }) }, spelling, region)).toBeNull()
   expect(k5Parts(composer('sans'), '⿲牛⿻[x', region)).toBeNull()
   expect(k5Donors('⿲牛女鳥')).toEqual([])
+})
+
+it('partitions the composed outlines into eight movable IDS leaves in all five faces', () => {
+  for (const style of Object.keys(records)) {
+    const face = composer(style)
+    const ordinary = k5Parts(face, spelling, region)
+    const editable = k5Parts({ ...face, separate: true }, spelling, region)
+    expect(editable.map(p => p.rccLeaf)).toEqual([0, 1, 2, 3, 4, 5, 6, 7])
+    const raster = parts => fill(groupRings(parts), 320, region)
+    const original = raster(ordinary)
+    expect(Buffer.from(raster(editable)).equals(Buffer.from(original))).toBe(true)
+    for (const leaf of editable) {
+      const moved = editable.map(p => p === leaf ? { ...p, target: p.target.map((v, i) => v + (i % 2 ? 0 : 60)) } : p)
+      expect(raster(moved).some((ink, i) => ink !== original[i])).toBe(true)
+    }
+  }
 })
