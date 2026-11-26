@@ -16,6 +16,8 @@ committed.
 - **Plangothic P1 and P2** (SIL OFL 1.1), static. They draw the CJK extensions in the Source Han
   Sans design Noto Sans CJK shares, so they are the source of components Noto lacks. A part taken
   from here is thinned and thickened synthetically to match the main font's weight.
+- **Jigmo 2025-09-12** (CC0 1.0), static. Fallback for code points neither Noto Sans CJK nor
+  Plangothic maps.
 
 `regular`:
 
@@ -48,12 +50,18 @@ committed.
   Font Name), the variable Source Han Serif, read at weight 400 and at 900. Its horizontals keep
   about 30 units at every weight, so the heavy master's horizontals are grown synthetically in the
   proportion its verticals grow (`Style.synthetic_y`).
+- **WenJin Mincho 2.101** (Takushun Wu and upstream authors, SIL OFL 1.1; Reserved Font Names
+  `'WenJin Mincho'`, `'文津宋体'`, `'文津宋體'`, `'文津明朝'`, `'문진(文津) 명조'`, with upstream
+  Source Han Serif `'Source'`, Chiron Sung HK, Shanggu Fonts, GlyphWiki and Noto notices), static,
+  1,000 units to the em across Plane 0, Plane 2 and Plane 3 through Extension J. Derived from Source
+  Han Serif and modified KAGE outlines, matching Noto Serif CJK's em and stem proportions; strokes
+  are thinned and thickened synthetically per family (`Font._family_ratio`).
 - **Jigmo 2025-09-12** (Kamichi Koichi and GlyphWiki's contributors, CC0 1.0), static, 1,024 units
   to the em, brought to 1,000. A Mincho drawn by the KAGE engine from GlyphWiki's data, covering
   every unified ideograph through Extension J: Jigmo2 (B to F, I), Jigmo3 (G, H, J), Jigmo (BMP).
   Fetched from https://kamichikoichi.github.io/jigmo/Jigmo-20250912.zip, whose SHA-1 the site
-  lists. Its strokes are lighter than Noto Serif's; a part taken from it is thinned and thickened
-  synthetically, as Plangothic's are.
+  lists. Used as a last-resort fallback after WenJin Mincho; its strokes are lighter than Noto
+  Serif's and calibrated separately per family (`Font._family_ratio`).
 
 `variants` (`han_compose.variants`) reads fonts of its own, in `sans` and in `serif`:
 
@@ -146,11 +154,14 @@ ships the licence texts beside it.
   contour indices (`c.k`), is outline data of the style's fonts. A `sans` export's are Noto Sans CJK
   JP's (© 2014-2021 Adobe (http://www.adobe.com/), with Reserved Font Name 'Source') or Plangothic P1
   and P2's (Copyright (c) 2024 by Fitzgerald P. Köeingsegg; no Reserved Font Name), under the
-  **SIL OFL 1.1**. A `regular` export's are TW-Kai's, under the **Open Government Data License 1.0**, whose full text is `OGL.txt`. A `pen-writing` export's are Kureedo Full's and GenZui Sans's, under the **SIL OFL 1.1**. A `fangsong` export's are Zhuque Fangsong's, under the **SIL OFL 1.1**, or Jigmo's, under **CC0 1.0**. A `serif` export's are Noto Serif CJK JP's (© 2017-2024 Adobe (http://www.adobe.com/); no
-  Reserved Font Name), under the **SIL OFL 1.1**, or Jigmo's, under **CC0 1.0**. `OFL.txt` holds the
-  OFL's full text after each OFL font's copyright line, read from the font's `name` table (the text
-  is `data/licences/OFL-1.1.txt`, as Noto CJK ships it); a serif export also ships `CC0.txt`
-  (`data/licences/CC0-1.0.txt`, the Creative Commons legal code) for Jigmo. Each style's export
+  **SIL OFL 1.1**, or Jigmo's (for code points neither covers), under **CC0 1.0**. A `regular` export's are TW-Kai's, under the **Open Government Data License 1.0**, whose full text is `OGL.txt`. A `pen-writing` export's are Kureedo Full's and GenZui Sans's, under the **SIL OFL 1.1**. A `fangsong` export's are Zhuque Fangsong's, under the **SIL OFL 1.1**, or Jigmo's, under **CC0 1.0**. A `serif` export's are Noto Serif CJK JP's (© 2017-2024 Adobe (http://www.adobe.com/); no
+  Reserved Font Name) or WenJin Mincho's (Takushun Wu and upstream authors, with its Reserved Font
+  Names and upstream Source Han Serif, Chiron Sung HK, Shanggu Fonts, GlyphWiki and Noto notices),
+  under the **SIL OFL 1.1**, or Jigmo's, under **CC0 1.0**. `OFL.txt` holds the
+  OFL's full text after each OFL font's copyright line, read from the font's `name` table and
+  `Source.also` (the text is `data/licences/OFL-1.1.txt`, as Noto CJK ships it); `sans`, `serif` and
+  `fangsong` exports also ship `CC0.txt` (`data/licences/CC0-1.0.txt`, the Creative Commons legal
+  code) for Jigmo. Each style's export
   has its own version (`<commit>-<style>-<layout>-f<format>`).
 - **Sequences** (`s`, `e`): BabelStone IDS (Andrew West), public domain as its header states, with
   the editorial sequences of `data/vocab/han-ids-drawn.tsv` (MIT, this project).
@@ -168,6 +179,6 @@ ships the licence texts beside it.
 
 Publishing a glyph drawn with KanjiVG-assisted cuts publishes a CC BY-SA derivative of KanjiVG's
 component data. Glyphs drawn without those cuts carry only the terms of the fonts they come from:
-the SIL OFL 1.1 for Noto Sans CJK, Noto Serif CJK and Plangothic outlines; none for Jigmo's (CC0).
+the SIL OFL 1.1 for Noto Sans CJK, Noto Serif CJK, Plangothic and WenJin Mincho outlines; none for Jigmo's (CC0).
 
 The Serif drawing of ⿶む子 uses the outline of U+1B127 𛄧 from GenZui Serif Bold 0.118 for its inner operand. The outline in `js/src/genzui-alternate-ne.json` is in the font’s original coordinates. [GenZui Serif 0.118](https://github.com/mkpoli/GenZui/releases/tag/v0.118) · [SIL Open Font License 1.1 and copyright notices](../data/licences/OFL-GenZuiSerif.txt)

@@ -671,6 +671,23 @@ def own_letters(font: C.Font) -> set[str]:
     return {chr(point) for point in font.cmap if unicodedata.category(chr(point))[0] == "L"}
 
 
+#: CJK ideograph, radical, stroke and compatibility blocks a style's fallback fonts may supply even
+#: when a character has no usable sequence in `han-ids.tsv` (𠉀, 𬺢, Extension J).
+CJK_BLOCKS = ((0x2E80, 0x2FDF), (0x31C0, 0x31EF), (0x3400, 0x4DBF), (0x4E00, 0x9FFF),
+              (0xF900, 0xFAFF), (0x20000, 0x3347F), (0x2F800, 0x2FA1F))
+
+
+def fallback_cjk(font: C.Font) -> set[str]:
+    """Every CJK ideograph, radical, stroke or compatibility character a style's fallback fonts
+    draw, including extensions newer than Python's `unicodedata` table (𬺢, Extension J)."""
+    out = set()
+    for fallback in font.fallbacks:
+        for point in fallback.cmap:
+            if any(lo <= point <= hi for lo, hi in CJK_BLOCKS):
+                out.add(chr(point))
+    return out
+
+
 def _leaf(key: str) -> bool:
     return len(key) == 1 or (len(key) == 2 and C._selector(key[1]))
 
@@ -1016,8 +1033,8 @@ PATHS = {
 
 #: What the outline data of each style's export is under.
 OUTLINE_NOTES = {
-    "sans": "Glyph outlines (G in g/ records) and the pieces host-list entries name by their contours' indices (c.k, or c.p where a piece holds its own outlines) are the fonts' outline data under the SIL Open Font License 1.1, whose full text with each font's copyright line is OFL.txt. Noto Sans CJK JP reserves the font name 'Source'; Plangothic declares no Reserved Font Name.",
-    "serif": "Glyph outlines (G in g/ records) and the pieces host-list entries name by their contours' indices (c.k, or c.p where a piece holds its own outlines) are the fonts' outline data. Noto Serif CJK JP's are under the SIL Open Font License 1.1, whose full text with its copyright line is OFL.txt; its copyright line names no Reserved Font Name. Jigmo's (a record's G with v 0) are dedicated to the public domain under CC0 1.0 (CC0.txt), drawn from GlyphWiki by its contributors.",
+    "sans": "Glyph outlines (G in g/ records) and the pieces host-list entries name by their contours' indices (c.k, or c.p where a piece holds its own outlines) are the fonts' outline data. Noto Sans CJK JP's and Plangothic's are under the SIL Open Font License 1.1, whose full text with each font's copyright line is OFL.txt; Noto Sans CJK JP reserves the font name 'Source' and Plangothic declares no Reserved Font Name. Jigmo's (a fallback for code points neither covers) are dedicated to the public domain under CC0 1.0 (CC0.txt), drawn from GlyphWiki by its contributors.",
+    "serif": "Glyph outlines (G in g/ records) and the pieces host-list entries name by their contours' indices (c.k, or c.p where a piece holds its own outlines) are the fonts' outline data. Noto Serif CJK JP's and WenJin Mincho's are under the SIL Open Font License 1.1, whose full text with each font's copyright line is OFL.txt; Noto Serif CJK JP's copyright line names no Reserved Font Name and WenJin Mincho reserves 'WenJin Mincho', '文津宋体', '文津宋體', '文津明朝', '문진(文津) 명조' (carrying upstream Source Han Serif 'Source' notices). Jigmo's are dedicated to the public domain under CC0 1.0 (CC0.txt), drawn from GlyphWiki by its contributors.",
     "fangsong": "Glyph outlines (G in g/ records) and the pieces host-list entries name by their contours' indices (c.k, or c.p where a piece holds its own outlines) are the fonts' outline data. Zhuque Fangsong's, whose Latin, Cyrillic and Greek glyphs are Alegreya's, are under the SIL Open Font License 1.1, whose full text with both copyright lines is OFL.txt; neither names a Reserved Font Name. Jigmo's (a record's G with v 0) are dedicated to the public domain under CC0 1.0 (CC0.txt), drawn from GlyphWiki by its contributors.",
     "regular": "Glyph outlines (G in g/ records) and the pieces host-list entries name by their contours' indices (c.k, or c.p where a piece holds its own outlines) are the fonts' outline data. TW-Kai's, from 數位發展部's CNS11643中文標準交換碼全字庫 (fonts version 11510.1, https://www.cns11643.gov.tw), are under the Open Government Data License 1.0, whose full text is OGL.txt.",
     "pen-writing": "Glyph outlines (G in g/ records) and the pieces host-list entries name by their contours' indices (c.k, or c.p where a piece holds its own outlines) are the fonts' outline data. Kureedo Full's, including the LXGW WenKai Light outlines it carries for code points Klee One lacks, and GenZui Sans's are under the SIL Open Font License 1.1, whose full text with each font's copyright line and reserved names is OFL.txt. GenZui Sans declares no Reserved Font Name.",
@@ -1139,8 +1156,9 @@ def _export(composer: C.Composer, out: Path, joyo: list[str] | None = None, pari
     # positional form, the parity drawings' leaves, every sequence the font draws, every variation
     # sequence the main font draws with a glyph of its own (`variants`), every operand of
     # the layout table, every operand with a host list, every letter the fonts draw (`letters`), and
-    # every letter the main font maps (`own_letters`).
-    chars = {w for _, w in composer.operands if _leaf(w)} | set(composer.by_sequence.values()) | letters(composer.font) | own_letters(composer.font)
+    # every letter the main font maps (`own_letters`), and every CJK character a fallback font draws (`fallback_cjk`).
+    chars = ({w for _, w in composer.operands if _leaf(w)} | set(composer.by_sequence.values())
+             | letters(composer.font) | own_letters(composer.font) | fallback_cjk(composer.font))
     chars |= variants(composer.font)
     chars |= {form for forms in composer.forms.values() for form, _ in forms}
     chars |= {written for _, written in _INJECT if _leaf(written)}

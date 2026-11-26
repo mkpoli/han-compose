@@ -38,6 +38,15 @@ def test_a_letter_the_main_font_maps_has_a_record_with_no_sequence() -> None:
     assert web_export.own_letters(font) == {"帰", "A", "あ", "ʰ"}
 
 
+def test_fallback_cjk_includes_extension_ideographs_and_excludes_non_cjk_letters() -> None:
+    from types import SimpleNamespace
+
+    fb1 = SimpleNamespace(cmap={ord("𠉀"): "g1", ord("⺅"): "g2", ord("ا"): "ar", ord("A"): "lat"})
+    fb2 = SimpleNamespace(cmap={ord("𬺢"): "g3", 0x323B0: "g4", ord("あ"): "kana"})
+    font = SimpleNamespace(fallbacks=[fb1, fb2])
+    assert web_export.fallback_cjk(font) == {"𠉀", "⺅", "𬺢", "\U000323B0"}
+
+
 def test_every_host_glyph_and_its_ownership_are_read_before_the_workers_fork() -> None:
     from types import SimpleNamespace
 
@@ -228,8 +237,8 @@ def test_the_export_has_a_manifest_a_layout_records_and_host_lists(exported, com
     assert manifest["format"] == web_export.FORMAT
     assert manifest["version"].endswith(f"-sans-{Path(compose_layout.LAYOUT_FILE).stem}-f{web_export.FORMAT}")
     assert manifest["style"] == "sans" and manifest["constants"]["HEAVY"] == compose.STYLES["sans"].heavy
-    assert [f["licence"] for f in manifest["licences"]["outlines"]["fonts"]] == ["SIL OFL 1.1"] * 3
-    assert manifest["files"]["licences"] == ["OFL.txt", "MIT-hfhchan-ids.txt"] and not (out / "CC0.txt").exists()
+    assert [f["licence"] for f in manifest["licences"]["outlines"]["fonts"]] == ["SIL OFL 1.1"] * 3 + ["CC0 1.0"] * 3
+    assert manifest["files"]["licences"] == ["OFL.txt", "CC0.txt", "MIT-hfhchan-ids.txt"] and (out / "CC0.txt").exists()
     assert manifest["composer"]["layout_file"] == compose_layout.LAYOUT_FILE
     assert manifest["constants"]["STRETCH"] == compose.STRETCH and manifest["constants"]["HOST_SNAP"] == compose.HOST_SNAP
     assert manifest["constants"]["SHARES"]["⿳,3"] == list(compose.SHARES[("⿳", 3)])
@@ -305,9 +314,10 @@ def test_the_manifest_carries_every_licence_notice(exported) -> None:
     licences = manifest["licences"]
     assert licences["code"]["licence"] == "MIT"
     fonts = licences["outlines"]["fonts"]
-    assert licences["outlines"]["licence"] == "SIL OFL 1.1" and all(f["licence"] == "SIL OFL 1.1" for f in fonts)
+    assert licences["outlines"]["licence"] == "CC0 1.0 and SIL OFL 1.1"
     assert fonts[0]["name"] == "Noto Sans CJK JP" and "Adobe" in fonts[0]["copyright"]
-    assert {f["name"] for f in fonts[1:]} == {"Plangothic P1", "Plangothic P2"} and all(f["copyright"] for f in fonts[1:])
+    assert {f["name"] for f in fonts[1:3]} == {"Plangothic P1", "Plangothic P2"} and all(f["licence"] == "SIL OFL 1.1" and f["copyright"] for f in fonts[1:3])
+    assert all(f["licence"] == "CC0 1.0" and "Jigmo" in f["name"] for f in fonts[3:])
     assert licences["cuts"]["licence"] == "CC BY-SA 3.0" and "Ulrich Apel" in licences["cuts"]["attribution"]
 
 
@@ -327,15 +337,19 @@ def test_a_sequence_a_character_draws_carries_what_the_layout_reads_and_its_char
 def test_the_licence_texts_and_every_source_ship_with_the_export(exported) -> None:
     out, _, manifest = exported
     ofl = (out / "OFL.txt").read_text()
+    cc0 = (out / "CC0.txt").read_text()
     assert "SIL OPEN FONT LICENSE Version 1.1" in ofl and "PERMISSION & CONDITIONS" in ofl
     for font in manifest["licences"]["outlines"]["fonts"]:
-        assert font["copyright"] in ofl
-    assert manifest["licences"]["outlines"]["texts"] == ["OFL.txt"]
+        if font["licence"] == "SIL OFL 1.1":
+            assert font["copyright"] in ofl
+        else:
+            assert font["name"] in cc0 and font["name"] not in ofl
+    assert manifest["licences"]["outlines"]["texts"] == ["OFL.txt", "CC0.txt"]
     assert "'Source'" in manifest["licences"]["outlines"]["note"] and "Plangothic declares no Reserved Font Name" in manifest["licences"]["outlines"]["note"]
     assert "Henry Chan" in (out / "MIT-hfhchan-ids.txt").read_text()
     covered = {field for source in manifest["licences"]["sources"] for field in source["fields"]}
     assert {"s", "e", "a", "at", "hand", "p/ hosts[].c.kv", "p/ hosts[].hd"} <= covered
-    assert set(manifest["files"]["licences"]) == {"OFL.txt", "MIT-hfhchan-ids.txt"}
+    assert set(manifest["files"]["licences"]) == {"OFL.txt", "CC0.txt", "MIT-hfhchan-ids.txt"}
 
 
 def test_a_serif_export_names_its_style_and_ships_each_fonts_licence(tmp_path) -> None:
@@ -349,15 +363,21 @@ def test_a_serif_export_names_its_style_and_ships_each_fonts_licence(tmp_path) -
     c = compose.Composer(compose.Font.of("serif"), compose.japanese_sequences())
     c.layout = compose_layout.LayoutModel.load(layout)
     c.kvg = kanjivg_cuts.Cutter(c)
-    manifest = web_export.export(c, tmp_path, only={"亻", "可", "何", "⿰亻可"}, pairs={("L", "可")}, log=lambda _: None)
+    manifest = web_export.export(c, tmp_path, only={"亻", "可", "何", "⿰亻可", "𠉀", "𬺢"}, pairs={("L", "可")}, log=lambda _: None)
     assert manifest["style"] == "serif" and manifest["composer"]["layout_file"] == "compose-layout-v4-serif.npz"
     assert manifest["weighted"] is True and manifest["heavy"] == style.heavy
     assert "-serif-compose-layout-v4-serif-f" in manifest["version"]
     assert set(manifest["composer"]["font_sha256"]) == {s.file for s in (style.font, *style.fallbacks)}
     assert manifest["files"]["licences"] == ["OFL.txt", "CC0.txt", "MIT-hfhchan-ids.txt"]
-    assert "Noto Serif CJK JP" in (tmp_path / "OFL.txt").read_text() and "Jigmo" not in (tmp_path / "OFL.txt").read_text()
+    ofl = (tmp_path / "OFL.txt").read_text()
+    assert "Noto Serif CJK JP" in ofl and "WenJin Mincho" in ofl and "Jigmo" not in ofl
+    for holder in ("Tamcy", "Shanggu Fonts", "But Ko", "CMEX", "Night Koo"):
+        assert holder in ofl
     assert "CC0 1.0 Universal" in (tmp_path / "CC0.txt").read_text() and "Jigmo" in (tmp_path / "CC0.txt").read_text()
     assert manifest["constants"]["GROW_Y"] > 0 and manifest["constants"]["STEM_CURVE"] == [list(v) for v in style.stem_curve]
+    for ch in ("𠉀", "𬺢"):
+        rec = _record(tmp_path, ch)
+        assert rec["G"]["v"] == 0 and rec["G"]["p"] and rec["G"]["w"]
 
 
 def test_parity_sets_are_written_apart_and_only_the_injected_one_joins_the_export(exported) -> None:

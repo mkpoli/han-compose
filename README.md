@@ -10,8 +10,9 @@ a 1000-unit em, in a sans style from Noto Sans CJK JP, whose ideographs GenZui S
 a serif (明朝) style from Noto Serif CJK JP; a fangsong (仿宋) style from Zhuque Fangsong; a regular
 (正楷) style from TW-Kai, the CNS 11643 Kai, whose Extension B and G faces draw what its BMP face
 lacks; or a pen-writing (文楷) style from Kureedo Full, the Klee One design with historical kana and
-LXGW WenKai Light for the characters Klee lacks. Plangothic supplies the sans parts Noto lacks, Jigmo
-the serif ones and the ideographs Zhuque lacks, and GenZui Sans the characters Kureedo Full lacks.
+LXGW WenKai Light for the characters Klee lacks. Plangothic (then Jigmo) supplies the sans parts
+Noto lacks, WenJin Mincho (then Jigmo) the serif ones, Jigmo the ideographs Zhuque lacks, and GenZui
+Sans the characters Kureedo Full lacks.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/composed-dark.png">
@@ -221,8 +222,8 @@ uv run ruff check
 ## Sources
 
 `docs/licensing.md` states what the code, the fonts and the tables are under. In short: Noto Sans CJK
-JP and Plangothic (SIL OFL 1.1) supply every sans outline, Noto Serif CJK JP (SIL OFL 1.1) and Jigmo
-(CC0 1.0) every serif one, TW-Kai (Open Government Data License 1.0) every regular one; BabelStone IDS and cjkvi-variants supply the
+JP, Plangothic (SIL OFL 1.1) and Jigmo (CC0 1.0) supply every sans outline, Noto Serif CJK JP, WenJin
+Mincho (SIL OFL 1.1) and Jigmo (CC0 1.0) every serif one, TW-Kai (Open Government Data License 1.0) every regular one; BabelStone IDS and cjkvi-variants supply the
 sequences and the radical forms; editorial sequences replace a BabelStone sequence that draws the
 character wrongly ([`data/vocab/han-ids-drawn.tsv`](data/vocab/han-ids-drawn.tsv));
 hfhchan/ids (MIT) supplies the list of ideographs left

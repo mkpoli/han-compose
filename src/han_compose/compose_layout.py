@@ -223,7 +223,7 @@ def examples(composer: C.Composer, workers: int = 3) -> list[dict]:
     len(composer._index[0])
     composer.font.open_fallbacks()
     # Characters of fallbacks drawn in another design teach another designer's layout: left out.
-    drawn = composer.font.has if composer.font.style.kindred else composer.font.own
+    drawn = getattr(composer.font, "kindred", composer.font.has if composer.font.style.kindred else composer.font.own)
     chars = sorted(ch for ch, seq in composer.sequences.items() if drawn(ch) and seq[0] in OPS)
     if getattr(composer, "kvg", None) is not None:
         # KanjiVG read before the workers fork, so that they share it.
