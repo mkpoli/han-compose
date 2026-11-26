@@ -1,3 +1,8 @@
+/** @param {string} text @param {string} style */
+export declare function ratePart(text: string, style: string): {
+    contours: any[];
+    box: number[];
+} | null;
 /** @param {string} text @param {string} style @param {number[]} region @param {boolean} atRoot */
 export declare function rateParts(text: string, style: string, region: number[], atRoot: boolean): {
     part: any;

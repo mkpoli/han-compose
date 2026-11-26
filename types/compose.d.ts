@@ -96,6 +96,11 @@ export declare class Composer {
         separate?: boolean | undefined;
     });
     arity: (ch: any) => any;
+    rateLeaves(node: any): any;
+    rateMetric(text: any): {
+        contours: any[];
+        box: number[];
+    } | null;
     parse: (sequence: any) => any;
     rec: (key: any) => any;
     /** A component form's record, which stands in for the export's; a native form's does only where
