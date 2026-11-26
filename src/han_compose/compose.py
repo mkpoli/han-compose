@@ -1,10 +1,12 @@
-"""Draw a character Unicode lacks from its Ideographic Description Sequence, in one of five styles.
+"""Draw a character Unicode lacks from its Ideographic Description Sequence, in one of six styles.
 
 `sans` draws in GenZui Sans, which takes its ideographs unchanged from Noto Sans JP at weight 400,
 which in turn draws them as Noto Sans CJK JP does. The composer reads Noto Sans CJK JP, the variable
 font that draws 30,289 ideographs to Noto Sans JP's 13,742 with the same outlines, so each outline is
 known at weight 400 and at the style's heavy weight with the same points. `serif` reads Noto Serif
-CJK JP, the variable Source Han Serif, the same way. `regular` reads TW-Kai, the CNS 11643 Kai, at
+CJK JP, the variable Source Han Serif, the same way. `woodblock` reads Nôm Na Tống, a Song face in
+the manner of woodblock-printed books, at one static weight, with Jigmo drawing the ideographs it
+lacks. `regular` reads TW-Kai, the CNS 11643 Kai, at
 one static weight, with its Extension B and G faces drawing what the BMP face lacks. `pen-writing`
 reads Kureedo, the Klee One design extended with historical kana, at one static weight, with GenZui
 Sans drawing characters Kureedo lacks. `fangsong` reads Zhuque Fangsong the same way, with Jigmo
@@ -114,6 +116,7 @@ OFL = "SIL OFL 1.1"
 #: The licence Taiwan's open data platform applies by default; its Exhibit asks for the provider,
 #: the release and its version, and the licence's address where a work derived from the data is used.
 OGL = "Open Government Data License 1.0"
+MIT = "MIT"
 #: Plangothic P1 and P2 draw the CJK extensions in the Source Han Sans design Noto Sans CJK shares:
 #: the source of components Noto lacks (𦒱, 𡉵). Pinned as `scripts/build_vi_hani.py` pins them.
 PLANGOTHIC_URL = "https://github.com/Fitzgerald-Porthmouth-Koenigsegg/Plangothic-Project/releases/download/V2.9.5795"
@@ -169,6 +172,26 @@ STYLES = {
         synthetic_y=True,
         kindred=False,
     ),
+    # Nôm Na Tống 5.20 (Nôm Na Group, Vietnamese Nôm Preservation Foundation): a static Song face cut
+    # after woodblock printing, the reference font for Hán-Nôm encoding. Jigmo draws the ideographs it
+    # lacks, in the nearest pinned design.
+    "woodblock": Style(
+        "woodblock",
+        Source("NomNaTong-Regular-5.20.ttf",
+               "https://github.com/nomfoundation/font/releases/download/v5.20/NomNaTong-Regular.ttf",
+               "67a1a68a85566275bbbf72b3501714bbe24628e74f1762ea812a5bd3a8d606e1", MIT,
+               also="Its source repository's licence file: Copyright (c) 2019 nomfoundation (https://github.com/nomfoundation/font)"),
+        _JIGMO,
+        # Fitted on 1,500 of its ideographs (`calibrate`).
+        ((60.57, -0.093), (26.94, -0.393)),
+        heavy=400,
+        kindred=False,
+        weighted=False,
+        own_hosts=True,
+        # Its full ideographs span -151 to 848 of the em, Noto Serif's -78 to 837: the lift centres
+        # them where Noto Serif's stand.
+        y_shift=31.0,
+    ),
     # Zhuque Fangsong 0.212 (technical preview), recut from the 1932 南宋 type. It is a static font, so
     # 400 is also the heavy master; Jigmo draws the ideographs it lacks, in the nearest pinned design.
     "fangsong": Style(
@@ -186,7 +209,8 @@ STYLES = {
         kindred=False,
         weighted=False,
         own_hosts=True,
-    ),    # TW-Kai (CNS 11643 Kai, fonts version 11510.1): a static brush face whose Extension B and G
+    ),
+    # TW-Kai (CNS 11643 Kai, fonts version 11510.1): a static brush face whose Extension B and G
     # faces draw the ideographs the BMP face lacks, in the same design.
     "regular": Style(
         "regular",
