@@ -41,13 +41,13 @@ function innerProfile(part, box) {
   return rows
 }
 
-function fits(sums, rows, left, top, width, height, leftClearance = 1) {
+function fits(sums, rows, left, top, width, height, leftClearance = 1, clearance = 1) {
   const stride = grid + 1
   for (const [y, first, last] of rows) {
     const x0 = Math.max(0, Math.floor(left + first * width / innerGrid) - leftClearance)
-    const x1 = Math.min(grid, Math.ceil(left + last * width / innerGrid) + 1)
-    const y0 = Math.max(0, Math.floor(top + y * height / innerGrid) - 1)
-    const y1 = Math.min(grid, Math.ceil(top + (y + 1) * height / innerGrid) + 1)
+    const x1 = Math.min(grid, Math.ceil(left + last * width / innerGrid) + clearance)
+    const y0 = Math.max(0, Math.floor(top + y * height / innerGrid) - clearance)
+    const y1 = Math.min(grid, Math.ceil(top + (y + 1) * height / innerGrid) + clearance)
     if (sums[y1 * stride + x1] - sums[y1 * stride + x0] -
         sums[y0 * stride + x1] + sums[y0 * stride + x0] > 0) return false
   }
@@ -149,7 +149,7 @@ export function fitHookDonor(frame, frameBox, { part, heightShare }, seat, regio
       for (const shift of offsets) {
         const mid = start + shift
         if (mid - half < 0 || mid + half > rightLimit) continue
-        if (fits(sums, rows, mid - half, grid - base - height, 2 * half, height, 3)) {
+        if (fits(sums, rows, mid - half, grid - base - height, 2 * half, height, 4, 4)) {
           return mapped([mid - half, base, mid + half, base + height], gridBox, region)
         }
       }
