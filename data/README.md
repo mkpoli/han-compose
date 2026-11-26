@@ -144,6 +144,18 @@ uv run python js/scripts/recorded-native.py --cache /path/to/cache \
   --output js/src/recorded-native.json
 ```
 
+## `plain-variants.json`
+
+The variation sequences Noto Sans CJK JP 2.004 and Noto Serif CJK JP 2.003 register with the base
+character's own glyph, per face and selector: 13,319 in each, such as 丑 U+E0100. An export records
+only the sequences a font draws with a glyph of its own, so the engine draws these as the base
+character. The file lists code points alone, read from the fonts' format 14 `cmap` subtables.
+
+```sh
+uv run --with fonttools python scripts/build_plain_variants.py /path/to/fonts \
+  js/src/plain-variants.json
+```
+
 ## `babelstone-ids.tsv.gz`
 
 BabelStone IDS (Ideographic Description Sequences for CJK Unified Ideographs) by Andrew West (魏安),
