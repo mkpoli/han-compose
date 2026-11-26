@@ -53,7 +53,7 @@ export type Drawing = {
      */
     kanjivg?: boolean;
     /**
-     * Each drawn part: the leaf it stands under, where it came from, its box and its path, and the source stroke groups it was cut along.
+     * Each drawn part: the leaf it stands under, where it came from, its box and its path, and the source stroke groups it was cut along. An operandOnly piece belongs to an editable subtraction and is already accounted for in the visible path.
      */
     parts?: {
         leaf: number;
@@ -61,6 +61,7 @@ export type Drawing = {
         box: number[];
         d: string;
         cut?: boolean;
+        operandOnly?: boolean;
         strokes?: [number, number[]][];
     }[];
     /**
@@ -126,7 +127,7 @@ export type PreviewOptions = {
  * @property {number[] | null} [stroke] The stroke widths the drawing is weighted to, across x and y.
  * @property {string[]} [approximate] Operators drawn by rooms and turns of this port's own choosing.
  * @property {boolean} [kanjivg] Whether a part was cut along KanjiVG's groups, so the drawing is shared alike (CC BY-SA 3.0).
- * @property {{ leaf: number, origin: string, box: number[], d: string, cut?: boolean, strokes?: [number, number[]][] }[]} [parts] Each drawn part: the leaf it stands under, where it came from, its box and its path, and the source stroke groups it was cut along.
+ * @property {{ leaf: number, origin: string, box: number[], d: string, cut?: boolean, operandOnly?: boolean, strokes?: [number, number[]][] }[]} [parts] Each drawn part: the leaf it stands under, where it came from, its box and its path, and the source stroke groups it was cut along. An operandOnly piece belongs to an editable subtraction and is already accounted for in the visible path.
  * @property {string[]} [origins] Where each drawn part came from, in reading order.
  * @property {{ capped: boolean }} [normalization] Whether operand normalization hit its limit.
  * @property {boolean} [cells] Whether the composition uses cell layout.

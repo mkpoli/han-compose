@@ -31,6 +31,7 @@ export type DrawingForSvg = {
         d: string;
         cut?: boolean;
         leaf?: number;
+        operandOnly?: boolean;
     }[];
     transforms?: (string | null)[];
     emoji?: {
@@ -48,7 +49,7 @@ export type DrawingForSvg = {
  * @property {string} [cut]
  * @property {{ index: number, box: number[] }[]} [slots]
  * @property {number[] | null} [stroke]
- * @property {{ d: string, cut?: boolean, leaf?: number }[]} [parts]
+ * @property {{ d: string, cut?: boolean, leaf?: number, operandOnly?: boolean }[]} [parts]
  * @property {(string | null)[]} [transforms]
  * @property {{ text: string, box: number[], part?: number, flip?: [boolean, boolean], cut?: boolean, restored?: boolean }[]} [emoji]
  */
