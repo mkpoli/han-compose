@@ -797,3 +797,62 @@ it('keeps an open bar at full thickness with a clean open gap halfway and open a
   expect(colInk(55)).toBeGreaterThanOrEqual(14)
   expect(colInk(100)).toBeGreaterThanOrEqual(14)
 })
+
+it('does not pair distant leftover corners at opposite ends of a long stem wall', () => {
+  // Two 口-like outer contours where face A has an extra sharp bottom-left corner at (16, 240)
+  // and face B has a gentle extra corner near the top-left at (16, 42) — both turn the same way
+  // between the top-left and bottom-foot anchors, so an unguarded leftover-corner match collapses
+  // the entire left vertical wall onto (16, 42).
+  const ringA = [
+    [16, 18],
+    [16, 240],
+    [40, 234],
+    [40, 207],
+    [140, 207],
+    [140, 236],
+    [164, 230],
+    [164, 39],
+    [181, 34],
+    [150, 16],
+    [136, 28],
+    [16, 18]
+  ]
+  const ringB = [
+    [20, 36],
+    [16, 42],
+    [51, 240],
+    [58, 224],
+    [154, 212],
+    [160, 206],
+    [166, 98],
+    [180, 52],
+    [140, 20],
+    [44, 42],
+    [20, 36]
+  ]
+  const aligned = alignRings([ringA, ringB])
+  expect(aligned).not.toBeNull()
+  const [a, b] = aligned
+  // Every point along face A's lower-left wall (x < 22, y > 180) must pair with the lower half of face B,
+  // never jumping up to the top-left corner at y=42.
+  const lowerLeft = a.map((p, i) => [p, b[i]]).filter(([p]) => p[0] < 22 && p[1] > 180)
+  expect(lowerLeft.length).toBeGreaterThan(0)
+  for (const [, pb] of lowerLeft) expect(pb[1]).toBeGreaterThan(140)
+  // Uniformly scaled rings still pair every leftover corner cleanly and reach their exact midpoint extent.
+  const lShape = [
+    [0, 0],
+    [110, 0],
+    [100, 12],
+    [20, 12],
+    [10, 100],
+    [0, 110],
+    [0, 0]
+  ]
+  const scaled = alignRings([lShape, lShape.map(([x, y]) => [1.5 * x, 1.5 * y])])
+  expect(scaled).not.toBeNull()
+  const [sa, sb] = scaled
+  const maxX = Math.max(...sa.map((p, i) => (p[0] + sb[i][0]) / 2))
+  const maxY = Math.max(...sa.map((p, i) => (p[1] + sb[i][1]) / 2))
+  expect(maxX).toBeCloseTo(137.5, 1)
+  expect(maxY).toBeCloseTo(137.5, 1)
+})
