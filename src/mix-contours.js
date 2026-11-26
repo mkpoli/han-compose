@@ -114,9 +114,13 @@ function alignTo(rings) {
     corners(ring, lines[f]).map((c) => ({ ...c, q: [c.p[0] - mids[f][0], c.p[1] - mids[f][1]] }))
   )
   const ref = lines[0]
-  const size = Math.hypot(
-    ...[0, 1].map((k) => Math.max(...rings[0].map((p) => p[k])) - Math.min(...rings[0].map((p) => p[k])))
+  const sizes = rings.map(
+    (ring) =>
+      Math.hypot(
+        ...[0, 1].map((k) => Math.max(...ring.map((p) => p[k])) - Math.min(...ring.map((p) => p[k])))
+      ) || 1
   )
+  const size = sizes[0]
   // Open the reference at a seam in its widest corner-free stretch.
   const own = turns[0].map((c) => c.s / ref.length).sort((a, b) => a - b)
   let seam = 0,
@@ -283,12 +287,13 @@ function alignTo(rings) {
     }
     while (pairs.length > 1 && pairs[pairs.length - 1][1] >= pairs[0][1] + 1 - 1e-4) pairs.pop()
     // Between two anchors, corners left over on both sides pair up in order when
-    // each side has as many, turning the same way.
+    // each side has as many, turning the same way, and sitting near each other in
+    // both space and span position (so opposite ends of a long wall cannot collapse).
     if (pairs.length) {
       const free = (/** @type {number} */ from, /** @type {number} */ to, /** @type {0|1} */ side) =>
         (side
-          ? turns[f].map((c) => ({ at: c.s / line.length, turn: c.turn }))
-          : base.map((c) => ({ at: c.u, turn: c.turn }))
+          ? turns[f].map((c) => ({ at: c.s / line.length, turn: c.turn, q: c.q }))
+          : base.map((c) => ({ at: c.u, turn: c.turn, q: c.q }))
         )
           .map((c) => ({ ...c, at: from + wrapped(c.at - from) }))
           .filter((c) => c.at > from + 1e-4 && c.at < to - 1e-4)
@@ -300,8 +305,31 @@ function alignTo(rings) {
           to = k + 1 < pairs.length ? pairs[k + 1] : [pairs[0][0] + 1, pairs[0][1] + 1]
         const ours = free(from[0], to[0], 0),
           theirs = free(from[1], to[1], 1)
-        if (ours.length && ours.length === theirs.length && ours.every((c, i) => c.turn * theirs[i].turn > 0))
-          ours.forEach((c, i) => extra.push([c.at, theirs[i].at, reach]))
+        const spanU = to[0] - from[0],
+          spanV = to[1] - from[1]
+        const near = (
+          /** @type {{ at: number, turn: number, q: number[] }} */ c,
+          /** @type {{ at: number, turn: number, q: number[] }} */ t
+        ) => {
+          if (c.turn * t.turn <= 0) return false
+          const normDist = Math.hypot(
+            c.q[0] / sizes[0] - t.q[0] / sizes[f],
+            c.q[1] / sizes[0] - t.q[1] / sizes[f]
+          )
+          if (normDist > 0.25) return false
+          const slip =
+            Math.abs((c.at - from[0]) / (spanU || 1) - (t.at - from[1]) / (spanV || 1)) *
+            Math.max(spanU, spanV)
+          return slip <= 2 * reach
+        }
+        if (ours.length && ours.length === theirs.length && ours.every((c, i) => near(c, theirs[i])))
+          ours.forEach((c, i) => {
+            const normDist = Math.hypot(
+              c.q[0] / sizes[0] - theirs[i].q[0] / sizes[f],
+              c.q[1] / sizes[0] - theirs[i].q[1] / sizes[f]
+            )
+            extra.push([c.at, theirs[i].at, Math.max(reach, (normDist / 0.1) ** 2)])
+          })
       }
       pairs.push(...extra)
       pairs.sort((a, b) => a[0] - b[0])
