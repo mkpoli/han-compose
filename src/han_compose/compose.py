@@ -50,7 +50,7 @@ import numpy as np
 from fontTools.pens.recordingPen import DecomposingRecordingPen
 from fontTools.ttLib import TTFont
 
-from .rate_forms import rate_part
+from .rate_forms import contains_rate_form, rate_part
 
 from ._raster import fill
 from ._raster import ring as _ring
@@ -728,6 +728,10 @@ class Contour:
     @cached_property
     def box(self) -> Box:
         return (*self.light.min(axis=0), *self.light.max(axis=0))
+
+    @cached_property
+    def has_cubic(self) -> bool:
+        return any(op == "curveTo" for op, _, _ in self.ops)
 
     @cached_property
     def length(self) -> float:
@@ -1925,9 +1929,22 @@ class Composer:
             return tuple(float(v) for v in np.median(np.array(boxes), axis=0)) if boxes else (0.0, ASCENT - EM, EM, ASCENT)
         return self._memo(self._faces, None, median)
 
+    def _rate_metric(self, node: Node) -> Part | None:
+        style = getattr(getattr(self.font, "style", None), "name", None)
+        return rate_part(key(node), style, self.exclude, metric=True)
+
+    def _rate_leaves(self, node: Node) -> Node:
+        if isinstance(node, str):
+            return node
+        if self._rate_metric(node) is not None:
+            return key(node)
+        return renoded(node, (self._rate_leaves(child) for child in node[1:]))
+
     def ink(self, node: Node, part: Part | None = None, seen: frozenset[str] = frozenset()) -> float:
         """Permitted outline length, or an IDS estimate for missing and excluded glyphs. Unknown
         analyses use permitted 永, or one em of nominal outline when it is unavailable."""
+        if part is None:
+            part = self._rate_metric(node)
         if part is not None:
             return sum(c.length for c in part.contours)
         self._reference_context()
@@ -1955,6 +1972,8 @@ class Composer:
         glyph to read adds its operands' along that axis, and takes the most of operands side by
         side across it; an enclosed or overlaid part adds to its enclosing one. Unknown analyses
         count as 永."""
+        if (rate := self._rate_metric(node)) is not None:
+            return _crossings(rate, axis)
         self._reference_context()
         if isinstance(node, tuple):
             encoded = self.by_sequence.get(key(node))
@@ -1979,7 +1998,7 @@ class Composer:
 
     def _unknown(self, node: Node) -> bool:
         """Whether a compound operand has no permitted glyph encoding."""
-        if not isinstance(node, tuple):
+        if not isinstance(node, tuple) or self._rate_metric(node) is not None:
             return False
         encoded = self.by_sequence.get(key(node))
         return encoded is None or encoded in self.exclude or self.font.glyph(encoded) is None
@@ -1992,6 +2011,8 @@ class Composer:
     def aspect(self, node: Node, seen: frozenset[str] = frozenset()) -> float:
         """An operand's natural width over height: its glyph's, or for a sequence the operands'
         put side by side or stacked; an enclosure takes its enclosing operand's."""
+        if (rate := self._rate_metric(node)) is not None:
+            return max(rate.box[2] - rate.box[0], 1) / max(rate.box[3] - rate.box[1], 1)
         self._reference_context()
         if isinstance(node, str):
             glyph = self.font.glyph(node) if node not in self.exclude else None
@@ -3005,6 +3026,8 @@ class Composer:
         if marks:
             from .marks import marked
             return marked(self, key(tree), marks)
+        if contains_rate_form(sequence):
+            tree = self._rate_leaves(tree)
         tree = self._standalone_expanded_overlay(self._standalone_pyramid(
             self._standalone_repeated_grid(self._normalize_repeated_grids(
                 self._normalize_requested_enclosures(self._cancel_transforms(tree))))))
@@ -3572,6 +3595,8 @@ class Composer:
 
     def _outlines(self, node: Node, seen: frozenset[str] = frozenset()) -> int:
         """Total permitted outline count; zero means that at least one operand is unknown."""
+        if (rate := self._rate_metric(node)) is not None:
+            return len(rate.contours)
         self._reference_context()
         if isinstance(node, str):
             if node not in self.exclude:
@@ -4299,7 +4324,7 @@ def _facing(a: list[Placed], b: list[Placed], axis: int, size: int = 250) -> flo
 
 # ------------------------------------------------------------------ output
 def _segments(ops: list[tuple[str, int, bool]], points: np.ndarray) -> list[tuple[str, list[np.ndarray]]]:
-    """A contour as ('M' | 'L' | 'Q', points) segments, with TrueType's implied on-curve points made explicit."""
+    """A contour as SVG path segments, with TrueType's implied on-curve points made explicit."""
     at, out = 0, []
     for op, n, implied in ops:
         pts = [np.asarray(p) for p in points[at:at + n]]
@@ -4308,6 +4333,8 @@ def _segments(ops: list[tuple[str, int, bool]], points: np.ndarray) -> list[tupl
             out.append(("M", [pts[0]]))
         elif op == "lineTo":
             out.append(("L", [pts[0]]))
+        elif op == "curveTo":
+            out.append(("C", pts))
         elif op == "qCurveTo":
             if implied:
                 # Only off-curve points: the contour starts midway between the last and the first.
@@ -4398,6 +4425,20 @@ def _rings(contours: list[Contour], points: list[np.ndarray], steps: int = 6) ->
     rings = []
     t = _steps(steps).ravel()
     for contour, pts in zip(contours, points):
+        if contour.has_cubic:
+            ring = []
+            for command, points_in_segment in _segments(contour.ops, pts):
+                if command in ("M", "L"):
+                    ring.append(points_in_segment[0])
+                    continue
+                # De Casteljau evaluates both quadratic and cubic Béziers.
+                controls = np.stack([ring[-1], *points_in_segment])[:, None, :]
+                for _ in points_in_segment:
+                    controls = (1 - t[:, None]) * controls[:-1] + t[:, None] * controls[1:]
+                ring.extend(controls[0])
+            if len(ring) >= 3:
+                rings.append(np.asarray(ring))
+            continue
         first, second, curved, offs, lines, samples, size = _ring_plan(tuple(contour.ops), steps)
         if size >= 3:
             rings.append(_ring(pts, first, second, curved, offs, lines, samples, size, t))

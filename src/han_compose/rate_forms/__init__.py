@@ -16,6 +16,10 @@ for host, template in _CATALOGUE["hosts"].items():
         _HOST[host + selector] = host
 
 
+def contains_rate_form(text: str) -> bool:
+    return any(root in text for root in _CATALOGUE["shapes"].values())
+
+
 def rate_forms_for(text: str) -> dict[str, str]:
     """Four shape IDs mapped to their persistable IDS spellings, or an empty mapping."""
     return dict(_OPTIONS.get(_HOST.get(text), {}))
@@ -43,8 +47,8 @@ def _part(style, host, cell):
     return Part(contours)
 
 
-def rate_part(text, style, exclude):
+def rate_part(text, style, exclude, *, metric=False):
     selected = _EXACT.get(text)
     if selected and selected[0] not in exclude and style in {"sans", "serif", "fangsong", "pen-writing", "regular"}:
-        return _part(style, *selected)
+        return _part(style, selected[0], 0 if metric else selected[1])
     return None
