@@ -51,3 +51,11 @@ def test_the_middle_of_three_is_not_a_whole_glyph_squeezed_into_its_slot(fangson
 def test_three_of_the_same_part_stay_a_row_of_three(fangsong: compose.Composer) -> None:
     tree = compose.parse("⿲木木木")
     assert fangsong._node(tree, fangsong.face, at_root=True) == fangsong._node(tree, fangsong.face, at_root=True, regroup=False)
+
+
+def test_a_pairing_only_the_fallback_draws_is_drawn_from_the_main_font(fangsong: compose.Composer) -> None:
+    # Zhuque has no 𢗭 (⿱日心); Jigmo does, in a Mincho design.
+    assert not fangsong.font.own("𢗭") and fangsong.font.has("𢗭")
+    drawn = fangsong._node(compose.parse("⿳艹日心"), fangsong.face, at_root=True)
+    assert all(fangsong.font.own(part.origin.split()[-1]) for part in drawn)
+    assert "𢗭" not in fangsong.exclude

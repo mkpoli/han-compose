@@ -3260,11 +3260,22 @@ class Composer:
             pair = "⿰" if op == "⿲" else "⿱"
             first, middle, last = children
             drawings = [self._node(node, region, at_root, regroup=False)]
+            style = getattr(self.font, "style", None)
             for tree in ((pair, first, (pair, middle, last)), (pair, (pair, first, middle), last)):
+                # A pairing only a fallback of another design draws (⿱日心 as Jigmo's 𢗭 in a
+                # Fangsong drawing) is drawn from its operands in the main font instead.
+                joined = self.by_sequence.get(key(next(c for c in tree[1:] if isinstance(c, tuple) and c[0] == pair and c[1:] in ((middle, last), (first, middle)))))
+                foreign = (joined is not None and style is not None and not style.kindred
+                           and not self.font.own(joined) and joined not in self.exclude)
+                if foreign:
+                    self.exclude.add(joined)
                 try:
                     drawings.append(self._node(tree, region, at_root))
                 except LookupError:
                     continue
+                finally:
+                    if foreign:
+                        self.exclude.discard(joined)
             return max(drawings, key=_evenness)
         if op == VARIANT:
             return self._node(children[0], region, at_root)
