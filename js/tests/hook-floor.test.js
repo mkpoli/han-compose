@@ -144,19 +144,25 @@ it('seats 自 near the horizontal floor while clearing the upturned tip', async 
   }
 })
 
-it('gives 自 lateral clearance inside the hook without shortening or lifting it', async () => {
-  // At the preceding floor position these two specimens left only 22–23 units
-  // of the hook projecting to the right. Retain their exact vertical fit.
-  for (const [face, style, sequence, top, width, height] of [
-    ['serif', 'serif', '⿺⿱夂見自', 193.16, 365.43, 642.30],
-    ['pen', 'pen-writing', '⿺𡕚自', 148.99, 389.91, 680.17],
+it('opens the counters of 自 upward at its established width and baseline', async () => {
+  // Previous placement in font units and vertical stroke sections on a 512-pixel em.
+  for (const [face, style, sequence, top, width, height, bars] of [
+    ['serif', 'serif', '⿺⿱夂見自', 193.16, 365.43, 642.30, [10, 11, 11, 10, 11]],
+    ['pen', 'pen-writing', '⿺𡕚自', 148.99, 389.91, 680.17, [14, 19, 17, 17, 18]],
   ]) {
     const { parts } = await compose(source(face), sequence, { separate: true, fontStyle: style })
     const [x, y, w, h] = parts.at(-1).box
-    const edge = Math.max(...parts.slice(0, -1).map(p => p.box[0] + p.box[2]))
-    expect(edge - (x + w)).toBeGreaterThan(40)
-    expect(Math.abs(y - top)).toBeLessThan(0.1)
-    expect(Math.abs(h - height)).toBeLessThan(0.1)
+    const frame = union(parts.slice(0, -1).map(({ box: [x, y, w, h] }) => [x, y, x + w, y + h]))
+    expect(frame[2] - (x + w)).toBeGreaterThan(40)
+    expect(Math.abs(y + h - top - height)).toBeLessThan(0.1)
+    expect(h).toBeGreaterThan(height + 45)
+    expect(h / (frame[3] - frame[1])).toBeCloseTo(0.804, 2)
+    const size = 512, mask = pathMask(parts.at(-1).d, size)
+    const column = Math.round((x + 0.53 * w) * size / 1000)
+    const section = Array.from({ length: size }, (_, row) => mask[row * size + column]).join('')
+    const strokes = section.match(/1+/g).map(run => run.length)
+    expect(strokes).toHaveLength(bars.length)
+    for (let i = 0; i < bars.length; i++) expect(Math.abs(strokes[i] - bars[i])).toBeLessThanOrEqual(1)
     expect(Math.abs(w - width)).toBeLessThan(0.1)
   }
 })
