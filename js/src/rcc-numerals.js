@@ -166,7 +166,8 @@ function smallCounter(glyph, fraction, centerY) {
   }))
 }
 
-/** 胡懷琛，《簡易字表》，1928，頁102. 「圕」新字之商榷（第三次）.
+/** R+09D2: 胡懷琛《簡易字表》 (1928), p. 102.
+ * R+09D4 and R+09D6: 「圕」新字之商榷（第三次）.
  * https://rare.glyphatlas.org/en/entry/2514#sighting-2678
  * https://rare.glyphatlas.org/en/entry/2516#sighting-2680
  * https://rare.glyphatlas.org/en/entry/2518#sighting-2682

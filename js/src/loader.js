@@ -414,12 +414,13 @@ export async function compose(source, sequence, { exclude = [], face = null, sep
     if (store.missing.size) { await source.load(store.missing); continue }
     if (failure) throw failure
     const ink = drawn.filter(p => p.empty === undefined)
-    return { d: svgPath(ink.filter(p => !p.cut)), cut: svgPath(ink.filter(p => p.cut)),
+    const visible = ink.filter(p => !p.operandOnly)
+    return { d: svgPath(visible.filter(p => !p.cut)), cut: svgPath(visible.filter(p => p.cut)),
       slots: drawn.filter(p => p.empty !== undefined).map(p => ({ index: p.empty, box: svgBox(drawnBox(p)) })),
       missing: [...(composer.missingGlyphs ?? [])],
       normalization: { capped: [...composer.resolutions.values()].some(plan => plan.capped) },
       stroke: composer.stroke ?? null,
-      parts: ink.map(p => ({ ...(p.leaf === undefined ? {} : { leaf: p.leaf }), origin: p.origin, box: svgBox(drawnBox(p)), d: svgPath([p]), cut: Boolean(p.cut), ...(p.part.strokes ? { strokes: p.part.strokes.map(([id, contours]) => [id, [...contours]]) } : {}) })), origins: ink.map(p => p.origin),
+      parts: ink.map(p => ({ ...(p.leaf === undefined ? {} : { leaf: p.leaf }), ...(p.operandOnly ? { operandOnly: true } : {}), origin: p.origin, box: svgBox(drawnBox(p)), d: svgPath([p]), cut: Boolean(p.cut), ...(p.part.strokes ? { strokes: p.part.strokes.map(([id, contours]) => [id, [...contours]]) } : {}) })), origins: ink.map(p => p.origin),
       kanjivg: Boolean(composer.handForms) || drawn.some(p => p.part.kv),
       approximate: [...new Set([...extraOperators(composer.cancelTransforms(tree), composer), ...composer.approximate, ...modifiedOperators(sequence)])],
       ...(cells ? { cells: true } : {}) }

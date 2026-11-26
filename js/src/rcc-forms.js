@@ -43,29 +43,29 @@ export function rccLeafBoxes(parts, count) {
 export function numberRccLeaves(tree, parts, keyOf, leafTexts) {
   if (!parts.some(p => p.rccGroup)) return
   const groups = [...new Set(parts.map(p => p.rccGroup).filter(Boolean))]
-  let g = 0, next = 0, cursor = 0, ordinaryStart = 0
-  const ordinary = (/** @type {number} */ end) => {
-    const first = cursor
-    while (cursor < parts.length && !parts[cursor].rccGroup) cursor++
-    if (cursor - first === end - ordinaryStart) {
-      for (let i = first; i < cursor; i++) parts[i].leaf = ordinaryStart + i - first
+  let groupIndex = 0, leafIndex = 0, partIndex = 0, firstPlainLeaf = 0
+  const assignPlain = (/** @type {number} */ endLeaf) => {
+    const first = partIndex
+    while (partIndex < parts.length && !parts[partIndex].rccGroup) partIndex++
+    if (partIndex - first === endLeaf - firstPlainLeaf) {
+      for (let i = first; i < partIndex; i++) parts[i].leaf = firstPlainLeaf + i - first
     }
   }
   const visit = (/** @type {any} */ node) => {
-    if (!Array.isArray(node)) { next++; return }
-    const group = groups[g]
+    if (!Array.isArray(node)) { leafIndex++; return }
+    const group = groups[groupIndex]
     if (group && keyOf(node) === group.key) {
-      ordinary(next)
+      assignPlain(leafIndex)
       const count = leafTexts(node).length
-      while (parts[cursor]?.rccGroup === group) {
-        const part = parts[cursor++]
-        if (part.rccLeaf >= 0 && part.rccLeaf < count) part.leaf = next + part.rccLeaf
+      while (parts[partIndex]?.rccGroup === group) {
+        const part = parts[partIndex++]
+        if (part.rccLeaf >= 0 && part.rccLeaf < count) part.leaf = leafIndex + part.rccLeaf
       }
-      next += count
-      ordinaryStart = next
-      g++
+      leafIndex += count
+      firstPlainLeaf = leafIndex
+      groupIndex++
     } else node.slice(1).forEach(visit)
   }
   visit(tree)
-  ordinary(next)
+  assignPlain(leafIndex)
 }

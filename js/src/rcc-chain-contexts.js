@@ -13,43 +13,49 @@ const horse = '⿱⿷#(-一丨b𠃌)𰀁乙'
 // R+06F3 describes its exterior as ㇯虍七. The native upper and side
 // strokes of 虍 surround the Korean syllable in the photographed character.
 // https://rare.glyphatlas.org/en/entry/1779#sighting-1857
-/** @type {Map<string, [string, number[]]>} */
+/** @type {Map<string, {digest: string, head: (number | Run)[], cliff: (number | Run)[], removed: number[]}>} */
 const tigerCuts = new Map([
-  ['sans', ['b384e70877dd6886c56d027c80ad717ad1b27bd7c3708b2c32b94aed1d2d4cd4', [0, 1, 2, 5, 6]]],
-  ['serif', ['1cf7532f70a87e2e425b9b6026c62f250339a690cc9806693624dffa366d307c', [2, 3, 4, 5, 6]]],
-  ['regular', ['326bc25a5f31bc4f817fd3c199b8f65e944048975fcb8133403901f8a8241fc1', [0]]],
-  ['fangsong', ['3b8fd4d245463e60cf88b2a35f714681b84af49a310d446aa7b76f443706f3d2', [0]]],
-  ['pen-writing', ['f838989212785c13290143cd877ea982a63feb9360ffc031a5cfa7a4d70f3492', [0]]],
+  ['sans', { digest: 'b384e70877dd6886c56d027c80ad717ad1b27bd7c3708b2c32b94aed1d2d4cd4',
+    head: [0, 2], cliff: [1, 5, 6], removed: [3, 4] }],
+  ['serif', { digest: '1cf7532f70a87e2e425b9b6026c62f250339a690cc9806693624dffa366d307c',
+    head: [4, 6], cliff: [2, 3, 5], removed: [0, 1] }],
+  ['regular', { digest: '326bc25a5f31bc4f817fd3c199b8f65e944048975fcb8133403901f8a8241fc1',
+    head: [[0, 0, 32]], cliff: [[0, 32, 0]], removed: [1] }],
+  ['fangsong', { digest: '3b8fd4d245463e60cf88b2a35f714681b84af49a310d446aa7b76f443706f3d2',
+    head: [[0, 13, 36]], cliff: [[0, 36, 13]], removed: [1] }],
+  ['pen-writing', { digest: 'f838989212785c13290143cd877ea982a63feb9360ffc031a5cfa7a4d70f3492',
+    head: [[0, 15, 34]], cliff: [[0, 34, 15]], removed: [1] }],
 ])
 
 // R+07B4 gives ⿱㇯馬灬乙. The cut keeps the exterior and 𰀁 of 馬,
 // partitioned along the joins between their strokes, with all four dots omitted.
 // https://rare.glyphatlas.org/en/entry/1972#sighting-2072
 // https://github.com/yi-bai/ids/blob/2597437b928e8d530b7ae09cf53fe5ec7868569c/ids_lv2.txt
-/** @type {Map<string, {digest: string, outer: (number | Run)[], inner: (number | Run)[]}>} */
+/** @type {Map<string, {digest: string, outer: (number | Run)[], inner: (number | Run)[], removed: number[]}>} */
 const horseCuts = new Map([
   ['sans', {
     digest: 'ad7319b40dc5b3cc8fd77149c8a10c231b9afe2d390d9a941a5fb13db62224b5',
-    outer: [2, 3, 9], inner: [0, 1, 8],
+    outer: [2, 3, 9], inner: [0, 1, 8], removed: [4, 5, 6, 7],
   }],
   ['serif', {
     digest: '20e002be87558b3701c769ea6c31884cc31615386f0a895aee0de57eb846d07d',
-    outer: [0, 3, 4, 9], inner: [1, 2, 10],
+    outer: [0, 3, 4, 9], inner: [1, 2, 10], removed: [5, 6, 7, 8],
   }],
   ['pen-writing', {
     digest: '3d9c015a2ed603c84a951b5c19d4654b79a317b5c4151b56cc0f981b2ce7c97e',
-    // One continuous body, with three counters enclosed by the bars.
-    outer: [0, 1, 2, 3], inner: [],
+    // The two bars meet the left stem along three enclosed counters.
+    outer: [[0, 40, 20], [3, 1, 3], [2, 2, 3], [1, 2, 0]],
+    inner: [[0, 20, 40], [1, 0, 2], [2, 3, 2], [3, 3, 1]], removed: [4, 5, 6, 7],
   }],
   ['fangsong', {
     digest: '997aafc290221658dc9ea3208cc7cd815a9b5069b651062f2080768792924be1',
     outer: [[0, 71, 47], [5, 15, 0]],
-    inner: [[0, 47, 71], [5, 0, 15]],
+    inner: [[0, 47, 71], [5, 0, 15]], removed: [1, 2, 3, 4],
   }],
   ['regular', {
     digest: '9dbb41716e381d96f861222bfcbfe322b521b912873ad2fae37ebbe6ae95bd1c',
     outer: [[0, 29, 0], [3, 5, 0], [2, 4, 0], [1, 6, 0]],
-    inner: [[0, 0, 29], [1, 0, 6], [2, 0, 4], [3, 0, 5]],
+    inner: [[0, 0, 29], [1, 0, 6], [2, 0, 4], [3, 0, 5]], removed: [4, 5, 6, 7],
   }],
 ])
 
@@ -128,7 +134,7 @@ const operands = new Map([
 ])
 
 /** @param {any} glyph @param {(number | Run)[]} cut */
-function horsePiece(glyph, cut) {
+function piece(glyph, cut) {
   const runs = cut.filter((/** @type {any} */ index) => Array.isArray(index))
   return runs.length ? outlineThrough(glyph, /** @type {Run[]} */ (runs))
     : derived(glyph, cut.map(index => glyph.contours[/** @type {number} */ (index)]))
@@ -228,13 +234,24 @@ function horseFoot(glyph) {
 export function rccChainContextParts(composer, key, region) {
   const id = design.get(key)
   if (!id) return null
-  if (composer.separate && (id === tiger || key === horseSubtraction || (id === horse && composer.fontStyle === 'pen-writing'))) return null
   const donors = rccChainDonors(key, composer.fontStyle)
   if ([key, ...donors, ...(operands.get(id) ?? [])].some(char => composer.excluded(char))) return null
   /** @param {any} part @param {number[]} target @param {string} origin @param {number} rccLeaf */
   const draw = (part, target, origin, rccLeaf) => ({ ...placed(part, part.box, target, partInk(part), origin), fixed: true, rccLeaf })
   /** @param {any} part @param {number[]} at @param {string} origin @param {number} leaf */
   const set = (part, at, origin, leaf) => draw(part, subBox(region, at), origin, leaf)
+
+  /** The document renderer scopes ㇯ to its two operands. Restore the removed
+   * strokes to the left operand and give the right operand the matching shapes.
+   * Their cancellation is already reflected in the visible cut-host outlines.
+   * @param {any[]} kept @param {any} glyph @param {number[]} removed @param {number[]} frame
+   * @param {number[]} target @param {string} char @param {string} subtract */
+  const subtraction = (kept, glyph, removed, frame, target, char, subtract) => {
+    const take = piece(glyph, removed), box = mapped(take.box, frame, target)
+    return [...kept.map(p => ({ ...p, rccLeaf: 0 })),
+      { ...draw(take, box, `${subtract} of ${char}`, 0), operandOnly: true },
+      { ...draw(take, box, `${subtract} from ${char}`, 1), operandOnly: true }]
+  }
 
   if (id === water) {
     // 饶秉才, 兴宁客家话词典 (2017), p. 103, index p. 71. The inner U
@@ -274,17 +291,22 @@ export function rccChainContextParts(composer, key, region) {
   if (id === tiger) {
     const cut = tigerCuts.get(composer.fontStyle)
     if (!cut) return null
-    const glyph = native(composer, '虍', cut[0])
+    const glyph = native(composer, '虍', cut.digest)
     if (!glyph) return null
     const fang = composer.fontStyle === 'fangsong'
     const consonant = fang ? composer.chainStroke('𠃊') : native(composer, 'ㄴ')
     const vowel = native(composer, fang ? '丄' : 'ㅗ')
     if (!consonant || !vowel) return null
-    const body = derived(glyph, cut[1].map(i => glyph.contours[i]))
+    const head = piece(glyph, cut.head), cliff = piece(glyph, cut.cliff)
+    const frame = union([head.box, cliff.box])
     const pen = (region[2] - region[0]) / 1000 * 0.85
     const initial = narrow(consonant, subBox(region, [0.35, 0.29, 0.69, 0.58]), pen)
     const final = narrow(vowel, subBox(region, [0.19, 0.025, 0.80, 0.35]), pen)
-    return [draw(body, region, '虍 without 七', 0), draw(initial, initial.box, 'ㄴ of 노', 2), draw(final, final.box, 'ㅗ of 노', 2)]
+    const kept = [draw(head, mapped(head.box, frame, region), '⺊ from 虍', 0),
+      draw(cliff, mapped(cliff.box, frame, region), '#(-乛丿) from 虍', 1)]
+    const exterior = composer.separate && key === tigerSubtraction
+      ? subtraction(kept, glyph, cut.removed, frame, region, '虍', '七') : kept
+    return [...exterior, draw(initial, initial.box, 'ㄴ of 노', 2), draw(final, final.box, 'ㅗ of 노', 2)]
   }
 
   const cut = horseCuts.get(composer.fontStyle)
@@ -293,10 +315,12 @@ export function rccChainContextParts(composer, key, region) {
   if (!glyph) return null
   const foot = native(composer, '乙')
   if (!foot) return null
-  const body = horsePiece(glyph, cut.outer), inner = cut.inner.length ? horsePiece(glyph, cut.inner) : null
-  const box = inner ? union([body.box, inner.box]) : body.box
+  const body = piece(glyph, cut.outer), inner = piece(glyph, cut.inner)
+  const box = union([body.box, inner.box])
   const target = subBox(region, [0.16, 0.28, 0.88, 1])
-  return [draw(body, mapped(body.box, box, target), '#(-一丨b𠃌) from 馬', 0),
-    ...(inner ? [draw(inner, mapped(inner.box, box, target), '𰀁 from 馬', 1)] : []),
-    set(horseFoot(foot), [0, 0, 1, 0.43], '乙 beneath 馬', 2)]
+  const kept = [draw(body, mapped(body.box, box, target), '#(-一丨b𠃌) from 馬', 0),
+    draw(inner, mapped(inner.box, box, target), '𰀁 from 馬', 1)]
+  const exterior = composer.separate && key === horseSubtraction
+    ? subtraction(kept, glyph, cut.removed, box, target, '馬', '灬') : kept
+  return [...exterior, set(horseFoot(foot), [0, 0, 1, 0.43], '乙 beneath 馬', 2)]
 }

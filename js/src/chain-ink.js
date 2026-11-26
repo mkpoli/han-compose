@@ -2,7 +2,7 @@ import { drawingChain } from './chain-corrections.js'
 import metrics from './chain-ink-metrics.json' with { type: 'json' }
 import { groupRings, mapped, pointsBox, union } from './geometry.js'
 
-/** Standalone ink boxes for the five published exports on b1893d86.
+/** Standalone ink boxes for the five published exports. Baselines are documented in data/README.md.
  * @type {Record<string, Record<string, number[]>>} */
 const exportsByCommit = metrics
 
@@ -21,7 +21,7 @@ export function fitRecordedInk(composer, key, parts) {
   const box = recordedInkBox(composer, key)
   if (!Array.isArray(box) || parts.some(p => p.empty !== undefined || p.cut)) return
   const target = mapped(box, composer.C.face, composer.face)
-  const actual = union(groupRings(parts, 64).map(pointsBox))
+  const actual = union(groupRings(parts.filter(p => !p.operandOnly), 64).map(pointsBox))
   if (!actual.every(Number.isFinite) || actual.every((v, i) => Math.abs(v - target[i]) < 0.04)) return
   for (const part of parts) {
     part.target = mapped(part.target, actual, target)

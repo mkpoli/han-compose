@@ -1,4 +1,7 @@
 import { expect, it } from 'bun:test'
+import { createSource, compose, sketch } from '../src/loader.js'
+import { documentSource } from '../src/document-source.js'
+import { files, shards } from './fixtures/small-export.js'
 import { partOf, pathMask, svgPath } from '../src/geometry.js'
 import { rccChainContextParts, rccChainDonors } from '../src/rcc-chain-contexts.js'
 // The format-7 Noto Sans CJK and TW-Kai records retain the primary faces' own strokes.
@@ -90,11 +93,31 @@ it('retains component pen widths inside the narrow slots in Sans', () => {
 
 it('associates each editable outline with its original IDS leaf', () => {
   const separate = { ...composer('sans'), separate: true }
-  for (const [key, expected] of [[water, [0, 1, 3, 2]], [speech, [0, 1, 1, 2, 3, 4]], [horse, [0, 1, 2]]]) {
+  for (const [key, expected] of [[water, [0, 1, 3, 2]], [speech, [0, 1, 1, 2, 3, 4]], [horse, [0, 1, 2]], [tiger, [0, 1, 2, 2]]]) {
     expect(rccChainContextParts(separate, key, em).map(p => p.rccLeaf)).toEqual(expected)
   }
-  for (const key of [tiger, '⿸㇯虍七노', '⿱㇯馬灬乙']) {
-    expect(rccChainContextParts(separate, key, em)).toBeNull()
+})
+
+it('exposes the exact subtraction operands while preserving the assembled preview', async () => {
+  const exportFiles = { ...files, ...shards('g', Object.entries(donors.sans).map(([char, G]) => [char, { G }])) }
+  const source = createSource(async name => exportFiles[name] ? Uint8Array.from(Buffer.from(exportFiles[name])).buffer : null)
+  const component = char => ({ kind: 'component', id: char, char })
+  for (const [op, base, cut, inner] of [['⿸', '虍', '七', '노'], ['⿱', '馬', '灬', '乙']]) {
+    const key = `${op}㇯${base}${cut}${inner}`
+    const normal = await compose(source, key), split = await compose(source, key, { separate: true })
+    expect(split.d).toBe(normal.d)
+    expect(split.cut).toBe('')
+    const operands = split.parts.filter(p => p.operandOnly)
+    expect(operands.map(p => p.leaf)).toEqual([0, 1])
+    expect(operands[0].d).toBe(operands[1].d)
+    const right = component(cut)
+    const doc = { root: { id: 'root', kind: 'operator', op, children: [
+      { id: 'difference', kind: 'operator', op: '㇯', children: [component(base), right] }, component(inner),
+    ] } }
+    const made = documentSource(doc, split, await sketch(source, key))
+    expect(made.issues).toEqual([])
+    const [removed] = made.source.geometry(right).pieces
+    expect(removed.d.length).toBeGreaterThan(20)
+    expect(removed.cut).toBe(false)
   }
-  expect(rccChainContextParts({ ...separate, fontStyle: 'pen-writing' }, horse, em)).toBeNull()
 })
