@@ -1,6 +1,6 @@
 // @ts-nocheck: a port of han-compose's Python, kept line for line; its types are the arrays it reads.
 import { hookFloor } from './hook-floor.js'
-import { lowerHookSeat, tallHookSelf } from './hook-seat.js'
+import { lowerHookSeat, openHookCounters } from './hook-seat.js'
 import { stackedHookPart } from './stacked-hook.js'
 import fangsongZhi from './fangsong-zhi.json' with { type: 'json' }
 import haNine from './ha-nine.json' with { type: 'json' }
@@ -1594,8 +1594,8 @@ export class Composer {
           if (leafIndices) part.leaf = leaf++
           out.push(part)
         }
-        if (hooked.self) {
-          const { part, source, factor } = hooked.self, box = inset(hooked.previous)
+        if (hooked.counterFit) {
+          const { part, source, factor } = hooked.counterFit, box = inset(hooked.previous)
           box[3] += (box[3] - box[1]) * factor
           emitCell({ ...placed(part, source, box, this.ink(node[2]), `cells ${node[2]}`), fixed: true }, node[2])
           return
@@ -2116,14 +2116,14 @@ export class Composer {
       place(derived(hook.part, hook.part.contours.slice(0, topCount)), outer[1]),
       place(derived(hook.part, hook.part.contours.slice(topCount)), outer[2]),
     ] : [place(hook.part, outer)]
-    let room = mapped(hook.room, glyph.box, region), self = null
+    let room = mapped(hook.room, glyph.box, region), counterFit = null
     const inner = typeof node[2] === 'string' && !this.forced(node[2]) && this.glyph(node[2])
     if (inner) {
       const ink = tightBox(inner), fit = fitted(ink, room, 1.15)
       const seat = [fit[0], room[1], fit[2], room[1] + fit[3] - fit[1]]
       room = lowerHookSeat(hook.part, glyph.box, inner, ink, seat, region, hook.floor)
-      if (node[2] === '自' && !this.excluded(node[2]) && (outer === '𡕚' || keyOf(outer) === '⿱夂見')) {
-        self = tallHookSelf(hook.part, glyph.box, inner, ink, room, region)
+      if (!this.excluded(node[2])) {
+        counterFit = openHookCounters(hook.part, glyph.box, inner, ink, room, region, node[2], this.fontStyle)
       }
     }
     if (atRoot && !hasSlot(node)) {
@@ -2136,10 +2136,10 @@ export class Composer {
         }
       }
     }
-    if (self) {
+    if (counterFit) {
       const previous = room
-      room = [room[0], room[1], room[2], room[3] + (room[3] - room[1]) * self.factor]
-      return { parts, room, previous, self }
+      room = [room[0], room[1], room[2], room[3] + (room[3] - room[1]) * counterFit.factor]
+      return { parts, room, previous, counterFit }
     }
     return { parts, room }
   }
@@ -2530,8 +2530,8 @@ export class Composer {
     // that holds an unreadable linear compound has no learned box to follow: the crossed shares place it.
     const hooked = this.hookFrame(node, region, atRoot)
     if (hooked) {
-      if (hooked.self) {
-        const { part, source } = hooked.self
+      if (hooked.counterFit) {
+        const { part, source } = hooked.counterFit
         return [...hooked.parts, { ...placed(part, source, hooked.room, this.ink(node[2]), `glyph ${node[2]}`), fixed: true }]
       }
       const inner = this.node(node[2], hooked.room)
