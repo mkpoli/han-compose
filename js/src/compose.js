@@ -1,4 +1,6 @@
 // @ts-nocheck: a port of han-compose's Python, kept line for line; its types are the arrays it reads.
+import { hookFloor } from './hook-floor.js'
+import { stackedHookPart } from './stacked-hook.js'
 import fangsongZhi from './fangsong-zhi.json' with { type: 'json' }
 import haNine from './ha-nine.json' with { type: 'json' }
 import { yiCrossDonor, yiCrossParts } from './yi-cross.js'
@@ -846,6 +848,7 @@ export const designedSources = (tree, style = 'sans') => {
     }
     if (!Array.isArray(node)) return
     const [op, ...children] = node
+    if (op === '⿺' && children[0] === '𡕚') { out.add('夂'); out.add('見') }
     if (isThornRow(node)) {
       out.add('棘')
       out.add('企')
@@ -1577,6 +1580,17 @@ export class Composer {
         }
         return
       }
+      const hooked = this.hookFrame(node, cell)
+      if (hooked) {
+        for (const part of hooked.parts) {
+          if (leafIndices) part.leaf = leaf++
+          out.push(part)
+        }
+        const [x0, y0, x1, y1] = hooked.room
+        walk(node[2], [(x0 - f[0]) / width, 1 - (y1 - f[1]) / height,
+          (x1 - f[0]) / width, 1 - (y0 - f[1]) / height], depth + 1)
+        return
+      }
       const op = node[0], kids = node.slice(1)
       if (op in this.AXIS) {
         // The top of a stacked description is one part over many; the reference design gives it
@@ -1720,6 +1734,12 @@ export class Composer {
       if (frame) {
         out.push({ index: out.length, box: frame.frame.target, empty: false })
         walk(node[2], (atRoot && metricKeSeat(node, this.fontStyle, frame.frame)) || frame.room, false)
+        return
+      }
+      const hooked = this.hookFrame(node, region)
+      if (hooked) {
+        for (const part of hooked.parts) out.push({ index: out.length, box: part.target, empty: false })
+        walk(node[2], hooked.room, false)
         return
       }
       const grid = this.repeatedGrid(node)
@@ -2040,6 +2060,50 @@ export class Composer {
       counter.fixed = true
     }
     return [frame, counter]
+  }
+
+  /** Select a verified low hook only after the face's contextual forms have had priority. */
+  hookFrame(node, region) {
+    if (!Array.isArray(node) || node.note || node[0] !== '⿺') return null
+    const [, outer] = node
+    const explicit = Array.isArray(outer)
+    if (explicit && (outer.note || outer[0] !== '⿱')) return null
+    if (!explicit && (this.excluded(outer) || this.forced(outer) || lowerLeftFrames.has(outer) ||
+        outer === '几' || outer === '木' || outer === '爪' || ENCLOSURE_TAILS[outer] || enclosureEntry('⿺', outer, this.fontStyle))) return null
+    if (this.bySequence(keyOf(node))) return null
+    let glyph = explicit ? null : this.glyph(outer)
+    let topCount = 0
+    if (!glyph) {
+      // Some exports omit both the outline and its identity. U+2155A is
+      // recorded as ⿱夂見 (G,T) in data/vocab/han-ids.tsv.
+      const sequence = explicit ? null : this.sequenceOf(outer) ?? (outer === '𡕚' ? '⿱夂見' : '')
+      const stack = explicit ? outer : [...sequence]
+      if (stack.length !== 3 || stack[0] !== '⿱' || !stack.slice(1).every(ch =>
+        typeof ch === 'string' && !this.excluded(ch) && !this.forced(ch) && this.own(ch))) return null
+      const cap = this.glyph(stack[1]), base = this.glyph(stack[2])
+      if (!hookFloor(base)) return null
+      glyph = stackedHookPart(cap, base)
+      if (!glyph) return null
+      topCount = cap.contours.length
+    }
+    const hook = hookFloor(glyph)
+    if (!hook) return null
+    const place = (part, char) => {
+      const target = mapped(part.box, glyph.box, region)
+      return { ...placed(part, part.box, target, partInk(part), `enclosing ${char}`), fixed: true }
+    }
+    const parts = explicit ? [
+      place(derived(hook.part, hook.part.contours.slice(0, topCount)), outer[1]),
+      place(derived(hook.part, hook.part.contours.slice(topCount)), outer[2]),
+    ] : [place(hook.part, outer)]
+    let room = mapped(hook.room, glyph.box, region)
+    const inner = typeof node[2] === 'string' && !this.forced(node[2]) && this.glyph(node[2])
+    if (inner) {
+      const seat = fitted(tightBox(inner), room, 1.15)
+      const height = seat[3] - seat[1]
+      room = [seat[0], room[1], seat[2], room[1] + height]
+    }
+    return { parts, room }
   }
 
   /** Place the enclosing strokes and map their opening into the same cell. */
@@ -2393,6 +2457,12 @@ export class Composer {
     }
     // Native compound forms have no trained layout features; fit their actual outlines. A nested row
     // that holds an unreadable linear compound has no learned box to follow: the crossed shares place it.
+    const hooked = this.hookFrame(node, region)
+    if (hooked) {
+      const inner = this.node(node[2], hooked.room)
+      for (const part of inner) part.fixed = true
+      return [...hooked.parts, ...inner]
+    }
     const unreadableRow = !atRoot && op === '⿰' && children.some(child => this.unknownAligned(child, 0))
     if (this.hosted && this.layout && (!hasRepetition || ownFormsOnly(this.fontStyle)) && !unreadableRow && children.length === 2 && this.hasHosts(op, children) && (atRoot ? this.layout.ops.includes(op) : op === '⿰' || op === '⿱')) {
       // A description nothing in the export spells as one character has nothing to integrate a host

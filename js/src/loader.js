@@ -342,8 +342,8 @@ export async function sketch(source, sequence, { fontStyle = 'sans' } = {}) {
   const tree = parseTree(description, arity, true)
   const donors = [...wheatFaceHosts(description), ...designedSources(tree, fontStyle)]
   await source.load([...modelOf(source, tree), ...(donors.length ? source.filesOf(donors) : [])])
-  // The 器 family measures composed ink, including contextual cuts discovered in later shards.
-  const measured = donors.includes(qiReference) || donors.includes(yuanReference)
+  // These layouts read actual ink, including contextual glyphs discovered in later shards.
+  const measured = donors.includes(qiReference) || donors.includes(yuanReference) || description.includes('⿺')
   for (let round = 0; round < ROUNDS; round++) {
     const store = source.store()
     const leaves = new Composer(store, { fontStyle }).sketch(description, marks)

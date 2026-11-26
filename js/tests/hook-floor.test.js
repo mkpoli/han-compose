@@ -1,0 +1,95 @@
+import { expect, it } from 'bun:test'
+import { pathMask } from '../src/geometry.js'
+import { hookFloor } from '../src/hook-floor.js'
+import { compose, createSource, sketch } from '../src/loader.js'
+import { files, shards } from './fixtures/small-export.js'
+// Sans export a83fc941166b: Noto Sans CJK JP and its Plangothic extension fallback.
+// Serif export 8156f838798c: Noto Serif CJK JP 2.003.
+// Pen export ce3eaafda8f9: Kureedo Full 0.5.0. Sources and OFL licences in docs/licensing.md.
+import donors from './fixtures/hook-floor.json' with { type: 'json' }
+
+function source(face) {
+  const input = { ...files, ...shards('g', Object.entries(donors[face])) }
+  return createSource(async k => input[k] === undefined ? null : new Uint8Array(Buffer.from(input[k])).buffer)
+}
+
+it('preserves the three white counters of 見 in encoded and reconstructed 𡕚', async () => {
+  for (const [face, fontStyle] of [['sans', 'sans'], ['pen', 'pen-writing']]) {
+    const src = source(face)
+    const preview = await sketch(src, '⿺𡕚自', { fontStyle })
+    for (const layout of ['composed', 'cells']) {
+      const { parts } = await compose(src, '⿺𡕚自', { separate: true, layout, fontStyle })
+      expect(parts).toHaveLength(2)
+      const [frame, inner] = parts
+      expect(frame.origin).toBe('enclosing 𡕚')
+      if (layout === 'composed') expect(preview.map(p => p.box)).toEqual(parts.map(p => p.box))
+      expect(inner.box[2]).toBeGreaterThan(frame.box[2] * 0.24)
+      expect(inner.box[3]).toBeGreaterThan(frame.box[3] * 0.40)
+
+      // A vertical section through 目 passes its roof, three white counters,
+      // and its floor. Bracket each counter with ink in the actual SVG fill.
+      const mask = pathMask(frame.d, 128)
+      const eye = Array.from({ length: 49 }, (_, y) => mask[(y + 51) * 128 + 35]).join('')
+      expect(eye).toMatch(/1+0{2,}1+0{2,}1+0{2,}1+/)
+    }
+  }
+})
+
+it('uses the same enclosure for different contents and independent outer glyphs', async () => {
+  for (const [face, fontStyle, char, second] of [['pen', 'pen-writing', '見', '日'], ['sans', 'sans', '𡕚', '口']]) {
+    const src = source(face)
+    const draw = inner => compose(src, '⿺' + char + inner, { separate: true, layout: 'composed', fontStyle })
+    const preview = await sketch(src, '⿺' + char + second, { fontStyle })
+    const first = await draw('自'), next = await draw(second)
+    expect(next.parts.map(p => p.box)).toEqual(preview.map(p => p.box))
+    expect(first.parts[0].origin).toBe('enclosing ' + char)
+    expect(next.parts[0].d).toBe(first.parts[0].d)
+    expect(next.parts[1].d).not.toBe(first.parts[1].d)
+  }
+})
+
+it('carries 自 on the hook of an explicit ⿱夂見 with each stroke group editable', async () => {
+  const src = source('serif')
+  const ids = '⿺⿱夂見自'
+  const preview = await sketch(src, ids, { fontStyle: 'serif' })
+  for (const layout of ['composed', 'cells']) {
+    const options = { fontStyle: 'serif', layout }
+    const whole = await compose(src, ids, options)
+    const { parts, d } = await compose(src, ids, { ...options, separate: true })
+    expect(parts).toHaveLength(3)
+    const [top, eye, inner] = parts
+    if (layout === 'cells') expect(parts.map(p => p.leaf)).toEqual([0, 1, 2])
+    if (layout === 'composed') expect(preview.map(p => p.box)).toEqual(parts.map(p => p.box))
+    expect(top.box[0] + top.box[2]).toBeLessThan(inner.box[0])
+    expect(eye.box[0] + eye.box[2]).toBeGreaterThan(inner.box[0] + inner.box[2])
+    expect(eye.box[1] + eye.box[3]).toBeGreaterThan(inner.box[1] + inner.box[3])
+    expect(inner.box[2]).toBeGreaterThan(250)
+    expect(inner.box[3]).toBeGreaterThan(400)
+
+    const side = 128
+    const frameMasks = [top, eye].map(p => pathMask(p.d, side))
+    const fill = pathMask(inner.d, side)
+    expect(fill.some((ink, i) => ink && frameMasks.some(mask => mask[i]))).toBe(false)
+    expect(pathMask(whole.d, side)).toEqual(pathMask(d, side))
+  }
+})
+
+it('respects the exclusion of a stacked donor or the frame', async () => {
+  for (const char of ['夂', '見', '𡕚']) {
+    await expect(compose(source('pen'), '⿺𡕚自', {
+      separate: true, fontStyle: 'pen-writing', exclude: [char],
+    })).rejects.toThrow('𡕚')
+  }
+})
+
+it('requires a low returning tip on the floor', () => {
+  function outline(tipHeight, verticalOffset) {
+    const points = Float64Array.from([0, 1000, 400, 1000, 400, 100 + verticalOffset,
+      890, 100 + verticalOffset, 960, tipHeight + verticalOffset, 1000, 5 + verticalOffset, 0, 0])
+    const ops = Array.from({ length: points.length / 2 }, (_, i) => [i ? 'L' : 'M', 1, false])
+    return { box: [0, 0, 1000, 1000], contours: [{ ops, light: points, heavy: points }] }
+  }
+  expect(hookFloor(outline(220, 0))).not.toBeNull()
+  expect(hookFloor(outline(100, 0))).toBeNull()
+  expect(hookFloor(outline(220, 400))).toBeNull()
+})
