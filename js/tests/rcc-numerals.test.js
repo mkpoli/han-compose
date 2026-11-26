@@ -116,3 +116,18 @@ it('fits both spellings of the second exercise sign inside its frame and joins t
     }
   }
 })
+
+it('seats the staff within the native numeral crown when its inner edge is high', () => {
+  // Both outlines have the same ink bounds. Only the thickness of the crown differs.
+  for (const inner of [870, 960]) {
+    const digit = character('２', [[0, 0, 500, 60], [0, inner, 500, 1000]]).G
+    const face = composer('serif')
+    const source = { ...face, glyphRecord: char => char === '２' ? digit : face.glyphRecord(char) }
+    const [, staff, two] = numeralParts(source, '⿵巾２', em)
+    const [bottom, top] = [two.target[1], two.target[3]]
+    const crownBottom = bottom + (top - bottom) * inner / 1000
+    expect(staff.target[1]).toBeGreaterThan(crownBottom)
+    expect(staff.target[1]).toBeLessThan(top)
+    if (inner === 870) expect(staff.target[1]).toBeCloseTo(em[1] + 570)
+  }
+})
