@@ -16,14 +16,14 @@ for (const [style, commit] of Object.entries(commits)) {
     if (!existsSync(path)) continue
     for (const [key, result] of Object.entries(JSON.parse(readFileSync(path)))) {
       if (!result.path) continue
-      entries[key] = union(pathRings(result.path, 32).map(pointsBox)).map(v => Math.round(v * 10) / 10)
+      entries[key] = union(pathRings(result.path, 64).map(pointsBox)).map(v => Math.round(v * 100) / 100)
     }
   }
   // Historical spellings that shared the same ink can use the canonical box.
   // A historical form with its own proportions retains its own measurements.
   for (const [key, box] of Object.entries(entries)) {
     const canonical = drawingChain(key)
-    if (key !== canonical && entries[canonical]?.every((v, i) => Math.abs(v - box[i]) < 0.05)) delete entries[key]
+    if (key !== canonical && entries[canonical]?.every((v, i) => Math.abs(v - box[i]) < 0.005)) delete entries[key]
   }
   metrics[commit] = entries
 }
