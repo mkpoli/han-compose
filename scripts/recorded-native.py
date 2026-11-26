@@ -12,9 +12,9 @@ from han_compose import compose as composer
 from han_compose.web_export import part_record
 
 GLYPHS = {
-    "sans": "凫卍𠒎𡷊",
-    "serif": "凫卍𠒎𡷊",
-    "regular": "𠒎𡷊",
+    "sans": "凫卍𠒎𡷊⻎",
+    "serif": "凫卍𠒎𡷊⻎",
+    "regular": "𠒎𡷊⻌",
     "pen-writing": "凫卍凸裊鳬",
 }
 
