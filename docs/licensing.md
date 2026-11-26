@@ -20,8 +20,8 @@ committed.
 
 `regular`:
 
-- **TW-Kai** (數位發展部 (Ministry of Digital Affairs), CNS11643中文標準交換碼全字庫, fonts version
-  11510.1), static, 1,024 units to the em, brought to 1,000, read at its one weight. Its BMP face
+- **TW-Kai** (數位發展部 (Ministry of Digital Affairs), CNS11643中文標準交換碼全字庫, BMP version
+  11510.1, Extension B version 11510.2), static, 1,024 units to the em, brought to 1,000, read at its one weight. Its BMP face
   and its Extension B and G faces draw the ideographs. The data set offers either the **Open
   Government Data License 1.0** (the licence taken here, whose Exhibit asks for the provider, the
   release and its version) or the SIL OFL 1.1.

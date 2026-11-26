@@ -8,7 +8,7 @@ import {
   splitIslands,
   tangled
 } from '../src/mix-contours.js'
-import { limitDisplacement } from '../src/mix-outline.js'
+import { inkPolygons, limitDisplacement } from '../src/mix-outline.js'
 import { count, pathMask } from '../src/geometry.js'
 import { compose } from '../src/loader.js'
 import { files } from './fixtures/small-export.js'
@@ -474,13 +474,14 @@ it('opens a counter where a face stops its bar short of the frame', () => {
   ]
   const blend = prepareCorrespondence([closed, open])
   expect(blend).not.toBeNull()
-  // The open face's one counter is cut at the gap into the two the closed face has.
-  expect(blend([0.5, 0.5], 1)).toHaveLength(3)
+  // The closed face's bar is slit at the open end so both faces share the open-bar topology.
+  const halfwayRings = blend([0.5, 0.5], 1)
+  expect(halfwayRings).toHaveLength(2)
   const closedInk = 200 * 200 - 2 * 160 * 70,
     openInk = 200 * 200 - 160 * 160 + 130 * 20
   expect(Math.abs(inkOf(blend([1, 0], 1)))).toBeCloseTo(closedInk, -2)
   expect(Math.abs(inkOf(blend([0, 1], 1)))).toBeCloseTo(openInk, -2)
-  const halfway = Math.abs(inkOf(blend([0.5, 0.5], 1)))
+  const halfway = Math.abs(inkOf(halfwayRings))
   expect(halfway).toBeGreaterThan(openInk)
   expect(halfway).toBeLessThan(closedInk)
 })
@@ -497,4 +498,361 @@ it('cuts a fused island clear of its counter', () => {
   const xs = windowed[0][0][0].map((p) => p[0])
   expect(Math.max(...xs)).toBeGreaterThan(150)
   expect(regions.find((region) => region !== windowed)[0][0]).toHaveLength(1)
+})
+
+it('drops negligible dust holes while keeping intentional small detached islands', () => {
+  // Two kissing strokes leaving a 0.5x0.5 sliver hole, plus a genuine small detached dot.
+  const frame = [20, 20, 220, 20, 220, 220, 20, 220]
+  const realHole = [50, 50, 50, 190, 190, 190, 190, 50]
+  const dustHole = [200, 140, 200, 140.5, 200.5, 140.5, 200.5, 140]
+  const polygons = inkPolygons([frame, realHole, dustHole])
+  expect(polygons).toHaveLength(1)
+  expect(polygons[0]).toHaveLength(2)
+  // A 3x3 detached dot in font units survives mixing intact and keeps its horizontal extent.
+  const dot = 'M800 500L803 500L803 503L800 503Z'
+  const a = { d: 'M100 100L700 100L700 900L100 900Z' + dot }
+  const b = { d: 'M100 101L700 101L700 900L100 900Z' + dot }
+  const mixed = mixDrawings([a, b], [0.5, 0.5], 1)
+  const mask = pathMask(mixed.d, 250)
+  let maxCol = 0
+  for (let y = 0; y < 250; y++) for (let x = 0; x < 250; x++) if (mask[y * 250 + x] && x > maxCol) maxCol = x
+  expect(maxCol).toBeGreaterThan(190)
+})
+
+it('keeps open bars full thickness without a connecting thread when exterior overlaps a wider donor counter', () => {
+  // Closed frame (月-like) with two closed counters spanning x=50..190.
+  const closed = [
+    [
+      [
+        [20, 20],
+        [210, 20],
+        [210, 230],
+        [190, 230],
+        [190, 160],
+        [50, 160],
+        [50, 230],
+        [20, 230],
+        [20, 20]
+      ],
+      box(50, 40, 140, 45, true),
+      box(50, 100, 140, 45, true)
+    ]
+  ]
+  // Narrower open frame whose exterior right wall (x=175) runs inside the closed face's counters (x=50..190),
+  // and both bars stop 15 units short of its inner right wall (x=155).
+  const open = [
+    [
+      [
+        [35, 20],
+        [175, 20],
+        [175, 230],
+        [155, 230],
+        [155, 40],
+        [55, 40],
+        [55, 85],
+        [140, 85],
+        [140, 100],
+        [55, 100],
+        [55, 145],
+        [140, 145],
+        [140, 160],
+        [55, 160],
+        [55, 230],
+        [35, 230],
+        [35, 20]
+      ]
+    ]
+  ]
+  const blend = prepareCorrespondence([closed, open])
+  expect(blend).not.toBeNull()
+  const rings = blend([0.5, 0.5], 1)
+  expect(rings).toHaveLength(1)
+  // Both bars slide at full thickness (x=155 is inside the blended bar) and leave a clean open gap at x=169.
+  const insideRing = ([x, y], ring) => {
+    let hit = false
+    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+      const a = ring[i],
+        b = ring[j]
+      if (a[1] > y !== b[1] > y && x < a[0] + ((y - a[1]) * (b[0] - a[0])) / (b[1] - a[1])) hit = !hit
+    }
+    return hit
+  }
+  const inkSpan = (x, y0, y1) => {
+    let countInk = 0
+    for (let y = y0; y <= y1; y += 0.5)
+      if (insideRing([x, y], rings[0]) && !rings.slice(1).some((h) => insideRing([x, y], h))) countInk += 0.5
+    return countInk
+  }
+  expect(inkSpan(155, 80, 105)).toBeGreaterThan(12)
+  expect(inkSpan(155, 140, 165)).toBeGreaterThan(12)
+  expect(inkSpan(169, 80, 105)).toBe(0)
+  expect(inkSpan(169, 140, 165)).toBe(0)
+})
+
+it('merges a shifted counter stack into the open-bar counter of the coarser face regardless of counter order', () => {
+  // Three stacked counters in face A (y=60..210) vs one merged counter shifted down in face B (y=95..215, open on left).
+  const frame = box(30, 20, 180, 210)
+  const holes = [box(50, 60, 140, 40, true), box(50, 115, 140, 40, true), box(50, 170, 140, 40, true)]
+  const shifted = [
+    [
+      frame,
+      [
+        [55, 95],
+        [55, 215],
+        [185, 215],
+        [185, 180],
+        [75, 180],
+        [75, 170],
+        [185, 170],
+        [185, 140],
+        [75, 140],
+        [75, 130],
+        [185, 130],
+        [185, 95],
+        [55, 95]
+      ]
+    ]
+  ]
+  const insideRing = ([x, y], ring) => {
+    let hit = false
+    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+      const a = ring[i],
+        b = ring[j]
+      if (a[1] > y !== b[1] > y && x < a[0] + ((y - a[1]) * (b[0] - a[0])) / (b[1] - a[1])) hit = !hit
+    }
+    return hit
+  }
+  const hasInk = (rings, pt) => insideRing(pt, rings[0]) && !rings.slice(1).some((h) => insideRing(pt, h))
+  for (const ordered of [holes, holes.slice().reverse()]) {
+    const blend = prepareCorrespondence([[[frame, ...ordered]], shifted])
+    expect(blend).not.toBeNull()
+    const half = blend([0.5, 0.5], 1)
+    expect(half).toHaveLength(2)
+    // Open on the left (x=58 clear of ink across both bars), solid bar on the right (x=150).
+    expect(hasInk(half, [58, 120])).toBe(false)
+    expect(hasInk(half, [58, 168])).toBe(false)
+    expect(hasInk(half, [150, 120])).toBe(true)
+    expect(hasInk(half, [150, 168])).toBe(true)
+  }
+  // Right-opening bar shifted down by 25 units chooses the right stem identically under either counter order.
+  const rightFrame = box(0, 0, 200, 140)
+  const rightHoles = [box(20, 15, 160, 20, true), box(20, 45, 160, 20, true)]
+  const rightOpen = [
+    [
+      rightFrame,
+      [
+        [20, 40],
+        [20, 60],
+        [150, 60],
+        [150, 70],
+        [20, 70],
+        [20, 90],
+        [180, 90],
+        [180, 40],
+        [20, 40]
+      ]
+    ]
+  ]
+  for (const ordered of [rightHoles, rightHoles.slice().reverse()]) {
+    const blend = prepareCorrespondence([[[rightFrame, ...ordered]], rightOpen])
+    expect(blend).not.toBeNull()
+    const half = blend([0.5, 0.5], 1)
+    expect(half).toHaveLength(2)
+    // Solid bar near left stem (x=50), clean open gap near right stem (x=172).
+    expect(hasInk(half, [50, 52])).toBe(true)
+    expect(hasInk(half, [172, 52])).toBe(false)
+  }
+})
+
+it('keeps counter stacks in order across three faces and large shifted stacks without swapping holes', () => {
+  // Face A: two counters at y=36..42 and y=54..60.
+  // Face B: one counter joining them through a narrow channel.
+  // Face C: two counters shifted down to y=56..62 and y=74..80 (greedy matching swaps 36->74, 54->56).
+  const frame = box(10, 10, 200, 110)
+  const faceA = [[frame, box(30, 36, 140, 6, true), box(30, 54, 140, 6, true)]]
+  const faceB = [
+    [
+      frame,
+      [
+        [30, 36],
+        [30, 60],
+        [170, 60],
+        [170, 54],
+        [44, 54],
+        [44, 42],
+        [170, 42],
+        [170, 36],
+        [30, 36]
+      ]
+    ]
+  ]
+  const faceC = [[frame, box(30, 56, 140, 6, true), box(30, 74, 140, 6, true)]]
+  const blend = prepareCorrespondence([faceA, faceB, faceC])
+  expect(blend).not.toBeNull()
+  expect(blend([0.25, 0.25, 0.5], 1)).toHaveLength(2)
+  // Even with 13 uniformly shifted counters (>12), optimal assignment preserves every hole.
+  const tallFrame = box(0, 0, 950, 950)
+  const stackA = [tallFrame, ...Array.from({ length: 13 }, (_, k) => box(400, 100 + 50 * k, 100, 10, true))]
+  const stackB = [tallFrame, ...Array.from({ length: 13 }, (_, k) => box(400, 145 + 50 * k, 100, 10, true))]
+  const stackBlend = prepareCorrespondence([[stackA], [stackB]])
+  expect(stackBlend).not.toBeNull()
+  expect(stackBlend([12 / 13, 1 / 13], 1)).toHaveLength(14)
+})
+
+it('rejects a counter cut correspondence when a moving counter would sever the exterior frame', () => {
+  // Dumbell frame: left block (0,40)-(25,75), bridge (25,48)-(35,52), right block (35,0)-(200,190).
+  const dumbell = [
+    [0, 40],
+    [25, 40],
+    [25, 48],
+    [35, 48],
+    [35, 0],
+    [200, 0],
+    [200, 190],
+    [35, 190],
+    [35, 52],
+    [25, 52],
+    [25, 75],
+    [0, 75],
+    [0, 40]
+  ]
+  const faceA = [[dumbell, box(5, 45, 15, 10, true), box(5, 60, 15, 10, true)]]
+  const faceB = [
+    [
+      dumbell,
+      [
+        [40, 45],
+        [40, 70],
+        [55, 70],
+        [55, 60],
+        [44, 60],
+        [44, 55],
+        [55, 55],
+        [55, 45],
+        [40, 45]
+      ]
+    ]
+  ]
+  expect(prepareCorrespondence([faceA, faceB])).toBeNull()
+  // Shifted further right so the counter clears the bridge at 50/50 but would sever it at 75% A / 25% B.
+  const faceBShifted = [[dumbell, faceB[0][1].map(([x, y]) => [x + 35, y])]]
+  expect(prepareCorrespondence([faceA, faceBShifted])).toBeNull()
+  // Narrow 4x3 bridge cleared at 25%, 50%, and 75% yet severed around 37% as a small counter crosses it.
+  const narrowBridge = [
+    [0, 0],
+    [48, 0],
+    [48, 55],
+    [52, 55],
+    [52, 0],
+    [210, 0],
+    [210, 110],
+    [52, 110],
+    [52, 58],
+    [48, 58],
+    [48, 110],
+    [0, 110],
+    [0, 0]
+  ]
+  const leftClosed = [[narrowBridge, box(10, 43, 10, 11, true), box(10, 59, 10, 11, true)]]
+  const rightOpenFar = [
+    [
+      narrowBridge,
+      [
+        [117, 43],
+        [117, 70],
+        [127, 70],
+        [127, 59],
+        [121, 59],
+        [121, 54],
+        [127, 54],
+        [127, 43],
+        [117, 43]
+      ]
+    ]
+  ]
+  expect(prepareCorrespondence([leftClosed, rightOpenFar])).toBeNull()
+})
+
+it('keeps an open bar at full thickness with a clean open gap halfway and open at bold weight near the open pole', () => {
+  const closed = {
+    d: 'M100 100L900 100L900 900L100 900ZM180 180L180 460L820 460L820 180ZM180 540L180 820L820 820L820 540Z'
+  }
+  const open = {
+    d: 'M100 100L900 100L900 900L100 900ZM180 180L180 820L820 820L820 540L300 540L300 460L820 460L820 180Z'
+  }
+  // Near the open face (5% closed) at bold weight 1.35, the open gap stays open.
+  const bold = mixDrawings([closed, open], [0.05, 0.95], 1.35)
+  const boldMask = pathMask(bold.d, 200)
+  expect(boldMask[100 * 200 + 46]).toBe(0)
+  // Halfway at neutral weight, the open gap (col 42) stays completely clear with no thin connecting line,
+  // while the bar keeps full thickness right behind the moving tip (col 55) and in the body (col 100).
+  const half = mixDrawings([closed, open], [0.5, 0.5], 1)
+  const halfMask = pathMask(half.d, 200)
+  const colInk = (col) => {
+    let s = 0
+    for (let row = 85; row <= 115; row++) s += halfMask[row * 200 + col]
+    return s
+  }
+  expect(colInk(42)).toBe(0)
+  expect(colInk(55)).toBeGreaterThanOrEqual(14)
+  expect(colInk(100)).toBeGreaterThanOrEqual(14)
+})
+
+it('does not pair distant leftover corners at opposite ends of a long stem wall', () => {
+  // Two 口-like outer contours where face A has an extra sharp bottom-left corner at (16, 240)
+  // and face B has a gentle extra corner near the top-left at (16, 42) — both turn the same way
+  // between the top-left and bottom-foot anchors, so an unguarded leftover-corner match collapses
+  // the entire left vertical wall onto (16, 42).
+  const ringA = [
+    [16, 18],
+    [16, 240],
+    [40, 234],
+    [40, 207],
+    [140, 207],
+    [140, 236],
+    [164, 230],
+    [164, 39],
+    [181, 34],
+    [150, 16],
+    [136, 28],
+    [16, 18]
+  ]
+  const ringB = [
+    [20, 36],
+    [16, 42],
+    [51, 240],
+    [58, 224],
+    [154, 212],
+    [160, 206],
+    [166, 98],
+    [180, 52],
+    [140, 20],
+    [44, 42],
+    [20, 36]
+  ]
+  const aligned = alignRings([ringA, ringB])
+  expect(aligned).not.toBeNull()
+  const [a, b] = aligned
+  // Every point along face A's lower-left wall (x < 22, y > 180) must pair with the lower half of face B,
+  // never jumping up to the top-left corner at y=42.
+  const lowerLeft = a.map((p, i) => [p, b[i]]).filter(([p]) => p[0] < 22 && p[1] > 180)
+  expect(lowerLeft.length).toBeGreaterThan(0)
+  for (const [, pb] of lowerLeft) expect(pb[1]).toBeGreaterThan(140)
+  // Uniformly scaled rings still pair every leftover corner cleanly and reach their exact midpoint extent.
+  const lShape = [
+    [0, 0],
+    [110, 0],
+    [100, 12],
+    [20, 12],
+    [10, 100],
+    [0, 110],
+    [0, 0]
+  ]
+  const scaled = alignRings([lShape, lShape.map(([x, y]) => [1.5 * x, 1.5 * y])])
+  expect(scaled).not.toBeNull()
+  const [sa, sb] = scaled
+  const maxX = Math.max(...sa.map((p, i) => (p[0] + sb[i][0]) / 2))
+  const maxY = Math.max(...sa.map((p, i) => (p[1] + sb[i][1]) / 2))
+  expect(maxX).toBeCloseTo(137.5, 1)
+  expect(maxY).toBeCloseTo(137.5, 1)
 })
