@@ -1,5 +1,5 @@
 import { expect, it } from 'bun:test'
-import { pathMask } from '../src/geometry.js'
+import { pathMask, pathRings, pointsBox, union } from '../src/geometry.js'
 import { hookFloor } from '../src/hook-floor.js'
 import { compose, createSource, sketch } from '../src/loader.js'
 import { files, shards } from './fixtures/small-export.js'
@@ -11,6 +11,16 @@ import donors from './fixtures/hook-floor.json' with { type: 'json' }
 function source(face) {
   const input = { ...files, ...shards('g', Object.entries(donors[face])) }
   return createSource(async k => input[k] === undefined ? null : new Uint8Array(Buffer.from(input[k])).buffer)
+}
+
+function inkBounds(d) {
+  return union(pathRings(d, 48).map(pointsBox))
+}
+
+function normalizedOutline(d) {
+  const [left, bottom, right, top] = inkBounds(d)
+  return pathRings(d).map(ring => ring.map((value, i) =>
+    i % 2 ? (value - bottom) / (top - bottom) : (value - left) / (right - left)))
 }
 
 it('preserves the three white counters of 見 in encoded and reconstructed 𡕚', async () => {
@@ -43,7 +53,12 @@ it('uses the same enclosure for different contents and independent outer glyphs'
     const first = await draw('自'), next = await draw(second)
     expect(next.parts.map(p => p.box)).toEqual(preview.map(p => p.box))
     expect(first.parts[0].origin).toBe('enclosing ' + char)
-    expect(next.parts[0].d).toBe(first.parts[0].d)
+    // The enclosing outline is reusable even if the whole composition's ink
+    // dimensions differ between the two source glyphs.
+    const a = normalizedOutline(first.parts[0].d), b = normalizedOutline(next.parts[0].d)
+    expect(b.map(ring => ring.length)).toEqual(a.map(ring => ring.length))
+    const differences = a.flatMap((ring, i) => ring.map((v, j) => Math.abs(v - b[i][j])))
+    expect(Math.max(...differences)).toBeLessThan(0.001)
     expect(next.parts[1].d).not.toBe(first.parts[1].d)
   }
 })
@@ -71,6 +86,24 @@ it('carries 自 on the hook of an explicit ⿱夂見 with each stroke group edit
     const fill = pathMask(inner.d, side)
     expect(fill.some((ink, i) => ink && frameMasks.some(mask => mask[i]))).toBe(false)
     expect(pathMask(whole.d, side)).toEqual(pathMask(d, side))
+  }
+})
+
+it('keeps the rendered footprint of the ordinary root drawing', async () => {
+  // Independent measurements of the same fixtures on main (b1893d86), in font
+  // coordinates. Where 𡕚 is absent, the reconstructed Pen glyph uses the face.
+  for (const [face, fontStyle, ids, expected] of [
+    ['sans', 'sans', '⿺𡕚自', [43.6, -88.7, 978.6, 847.4]],
+    ['serif', 'serif', '⿺⿱夂見自', [27.9, -90.1, 898, 850.7]],
+    ['pen', 'pen-writing', '⿺𡕚自', [38.4, -81.5, 966.8, 840.1]],
+  ]) {
+    for (const separate of [false, true]) {
+      const { d } = await compose(source(face), ids, { layout: 'composed', separate, fontStyle })
+      const bounds = inkBounds(d)
+      for (let i = 0; i < expected.length; i++) {
+        expect(Math.abs(bounds[i] - expected[i])).toBeLessThan(0.2)
+      }
+    }
   }
 })
 
