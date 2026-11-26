@@ -116,8 +116,8 @@ export function lowerHookSeat(frame, frameBox, inner, innerBox, seat, region, fl
 }
 
 // The contour cut of 首 in 馗 carries the relative heights of its horns,
-// shoulder and eye. Fit all three together at the established width.
-export function fitHookDonor(frame, frameBox, part, seat, region) {
+// shoulder and eye. Aim for its native share of the frame height.
+export function fitHookDonor(frame, frameBox, { part, heightShare }, seat, region) {
   const box = part.box, gridBox = [0, 0, grid, grid]
   const [left, bottom, right, top] = mapped(seat, region, gridBox)
   const width = right - left, center = (left + right) / 2
@@ -125,13 +125,37 @@ export function fitHookDonor(frame, frameBox, part, seat, region) {
     grid / (region[3] - region[1])
   const fullHeight = Math.min(naturalHeight, grid * 0.98 - bottom)
   const sums = frameInk(frame, frameBox), rows = innerProfile(part, box)
+  let original = null
   for (let height = fullHeight; height >= Math.min(top - bottom, fullHeight); height -= 1) {
     const half = 0.5 * width * height / naturalHeight
     if (fits(sums, rows, center - half, grid - bottom - height, 2 * half, height)) {
-      return mapped([center - half, bottom, center + half, bottom + height], gridBox, region)
+      original = [center - half, bottom, center + half, bottom + height]
+      break
     }
   }
-  return null
+  // A wider outline can use the space beside the standalone leaf's seat.
+  // Keep the floor and right margin visible and move only as far as needed.
+  const maxDrop = grid / 16, rightLimit = grid * 0.97
+  const offsets = [0, 3, -3, 6, -6, 9, -9, 12, -12]
+  const target = Math.min(grid * heightShare, grid * 0.98 - bottom + maxDrop)
+  const minimum = original ? original[3] - original[1] : Math.min(top - bottom, fullHeight)
+  for (let height = target; height > minimum + 1; height -= 2) {
+    const half = 0.5 * width * height / naturalHeight
+    const start = Math.min(center, rightLimit - half)
+    if (start < center - 15) continue
+    const drop = Math.max(0, bottom + height - grid * 0.98)
+    for (let down = drop; down <= maxDrop; down += 3) {
+      const base = bottom - down
+      for (const shift of offsets) {
+        const mid = start + shift
+        if (mid - half < 0 || mid + half > rightLimit) continue
+        if (fits(sums, rows, mid - half, grid - base - height, 2 * half, height, 3)) {
+          return mapped([mid - half, base, mid + half, base + height], gridBox, region)
+        }
+      }
+    }
+  }
+  return original && mapped(original, gridBox, region)
 }
 
 // Median inner / whole ink heights from native lower-left hook enclosures.

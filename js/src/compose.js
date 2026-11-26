@@ -1597,8 +1597,8 @@ export class Composer {
         }
         if (hooked.counterFit) {
           const { part, source } = hooked.counterFit, box = inset(hooked.room)
-          // Inset the final outline uniformly and retain the leaf's original baseline.
-          const baseline = inset(hooked.previous)[1]
+          // Carry the fitted baseline shift into the cell with the original bottom inset.
+          const baseline = inset(hooked.previous)[1] + (hooked.room[1] - hooked.previous[1])
           box[3] += baseline - box[1]
           box[1] = baseline
           emitCell({ ...placed(part, source, box, this.ink(node[2]), hooked.counterFit.origin ?? `cells ${node[2]}`), fixed: true }, node[2])
@@ -2094,7 +2094,9 @@ export class Composer {
     const glyph = partOf(record)
     if (glyph.contours.length !== indices.length + frame.length ||
         !glyph.contours.every((_, i) => indices.includes(i) !== frame.includes(i))) return null
-    return derived(glyph, indices.map(i => glyph.contours[i]))
+    const part = derived(glyph, indices.map(i => glyph.contours[i]))
+    const host = tightBox(glyph)
+    return { part, heightShare: (part.box[3] - part.box[1]) / (host[3] - host[1]) }
   }
 
   /** Select a verified low hook only after the face's contextual forms have had priority. */
@@ -2159,7 +2161,7 @@ export class Composer {
       const donor = this.enclosedShou()
       const fittedSeat = donor && fitHookDonor(hook.part, glyph.box, donor, room, region)
       if (fittedSeat) return { parts, room: fittedSeat, previous: room,
-        counterFit: { part: donor, source: donor.box, origin: 'host 馗' } }
+        counterFit: { part: donor.part, source: donor.part.box, origin: 'host 馗' } }
     }
     if (counterFit) {
       const previous = room

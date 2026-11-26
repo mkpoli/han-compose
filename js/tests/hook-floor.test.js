@@ -252,7 +252,12 @@ it('opens both sides of 田 and 由 in composed and editable layouts', async () 
   }
 })
 
-for (const [face, style, outer] of [['pen', 'pen-writing', '見'], ['reg', 'regular', '先'], ['reg', 'regular', '亀']]) {
+// Inner ink heights from the width-limited fit (adf3d8ba), per 1000 em.
+for (const [face, style, outer, priorHeight] of [
+  ['pen', 'pen-writing', '見', { composed: 598.6, cells: 577.0 }],
+  ['reg', 'regular', '先', { composed: 712.0, cells: 686.4 }],
+  ['reg', 'regular', '亀', { composed: 711.6, cells: 686.0 }],
+]) {
   it(`fits the native 首 in ${style} ⿺${outer}首 after the root layout`, async () => {
     const src = source(face)
     const record = donors[face].馗.G, glyph = partOf(record)
@@ -273,6 +278,7 @@ for (const [face, style, outer] of [['pen', 'pen-writing', '見'], ['reg', 'regu
         expect(error).toBeLessThan(0.001)
       }
       const [x0, y0, x1, y1] = inkBounds(inner.d)
+      expect(y1 - y0).toBeGreaterThan(priorHeight[layout] * 1.05)
       const nativeAspect = (top - bottom) / (right - left)
       expect(Math.abs((y1 - y0) / (x1 - x0) / nativeAspect - 1)).toBeLessThan(0.001)
       const mask = pathMask(frame.d, 256)
