@@ -5,9 +5,9 @@ han-compose draws a Han character from its ideographic description sequence (IDS
 regional form the font does not draw. Each part comes from a character the font already draws,
 cut out of it (along KanjiVG's component groups where KanjiVG has that kanji), set where the
 font's designers put parts like it. The sans and serif styles then bring the parts to one stroke weight;
-fangsong, regular and pen-writing keep the weight each part has in its font. The result is an SVG path in
+woodblock, fangsong, regular and pen-writing keep the weight each part has in its font. The result is an SVG path in
 a 1000-unit em, in a sans style from Noto Sans CJK JP, whose ideographs GenZui Sans takes unchanged;
-a serif (明朝) style from Noto Serif CJK JP; a fangsong (仿宋) style from Zhuque Fangsong; a regular
+a serif (明朝) style from Noto Serif CJK JP; a woodblock (刻本明體) style from Nôm Na Tống alone; a fangsong (仿宋) style from Zhuque Fangsong; a regular
 (正楷) style from TW-Kai, the CNS 11643 Kai, whose Extension B and G faces draw what its BMP face
 lacks; or a pen-writing (文楷) style from Kureedo Full, the Klee One design with historical kana and
 LXGW WenKai Light for the characters Klee lacks. Plangothic supplies the sans parts Noto lacks, Jigmo
@@ -45,6 +45,7 @@ uv sync
 uv run scripts/compose_ids.py draw ⿰亻哥 > 亻哥.svg
 uv run scripts/compose_ids.py bench
 uv run scripts/compose_ids.py draw --style serif ⿰亻哥 > 亻哥-serif.svg
+uv run scripts/compose_ids.py draw --style woodblock ⿰亻哥 > 亻哥-woodblock.svg
 uv run scripts/compose_ids.py draw --style fangsong ⿰亻哥 > 亻哥-fangsong.svg
 uv run scripts/compose_ids.py draw --style regular ⿰亻哥 > 亻哥-regular.svg
 uv run scripts/compose_ids.py draw --style pen-writing ⿰亻哥 > 亻哥-pen-writing.svg
@@ -54,10 +55,10 @@ uv run scripts/compose_ids.py draw-many sequences.txt out/
 `draw-many` draws every sequence in a file, one a line, into `out/` as `<sha256 of its NFC form>.svg`,
 and lists those it cannot draw.
 
-Every command takes `--style sans` (the default), `--style serif`, `--style fangsong`, `--style regular`
-or `--style pen-writing`. Each style has its own fonts and models: a style's model is cached as
+Every command takes `--style sans` (the default), `--style serif`, `--style woodblock`, `--style fangsong`,
+`--style regular` or `--style pen-writing`. Each style has its own fonts and models: a style's model is cached as
 `<name>-<style><ext>` beside the sans one, and `learn --style regular` and `learn-alone --style regular`
-build it. TW-Kai, Kureedo and Zhuque Fangsong are static, so their styles keep the source brush
+build it. TW-Kai, Kureedo, Zhuque Fangsong and Nôm Na Tống are static, so their styles keep the source stroke
 weights instead of balancing them.
 
 `bench` redraws characters from their own sequences with nothing taken from them, and scores each
@@ -222,7 +223,7 @@ uv run ruff check
 
 `docs/licensing.md` states what the code, the fonts and the tables are under. In short: Noto Sans CJK
 JP and Plangothic (SIL OFL 1.1) supply every sans outline, Noto Serif CJK JP (SIL OFL 1.1) and Jigmo
-(CC0 1.0) every serif one, TW-Kai (Open Government Data License 1.0) every regular one; BabelStone IDS and cjkvi-variants supply the
+(CC0 1.0) every serif one, Nôm Na Tống (MIT) every woodblock one, TW-Kai (Open Government Data License 1.0) every regular one; BabelStone IDS and cjkvi-variants supply the
 sequences and the radical forms; editorial sequences replace a BabelStone sequence that draws the
 character wrongly ([`data/vocab/han-ids-drawn.tsv`](data/vocab/han-ids-drawn.tsv));
 hfhchan/ids (MIT) supplies the list of ideographs left
@@ -236,4 +237,4 @@ reusable strokes and components. Their work is a predecessor to character compos
 serif style also uses [Jigmo](https://kamichikoichi.github.io/jigmo/), generated with KAGE from
 GlyphWiki glyph data and released under CC0 1.0, for parts Noto Serif CJK does not draw; the fangsong
 style uses it the same way for ideographs [Zhuque Fangsong](https://github.com/TrionesType/zhuque)
-does not draw.
+does not draw. The woodblock style reads [Nôm Na Tống](https://github.com/nomfoundation/font) and no other font.

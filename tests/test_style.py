@@ -16,7 +16,7 @@ from han_compose import compose, compose_layout, compose_standalone, web_export
 
 
 def test_every_style_pins_each_of_its_fonts_by_sha256_and_licence() -> None:
-    assert compose.DEFAULT_STYLE == "sans" and set(compose.STYLES) == {"sans", "serif", "regular", "pen-writing", "fangsong"}
+    assert compose.DEFAULT_STYLE == "sans" and set(compose.STYLES) == {"sans", "serif", "woodblock", "regular", "pen-writing", "fangsong"}
     files = {}
     for name, style in compose.STYLES.items():
         assert style.name == name
@@ -32,7 +32,7 @@ def test_every_style_pins_each_of_its_fonts_by_sha256_and_licence() -> None:
 
 
 def test_styles_are_listed_in_the_switch_order() -> None:
-    assert list(compose.STYLES) == ["sans", "serif", "fangsong", "regular", "pen-writing"]
+    assert list(compose.STYLES) == ["sans", "serif", "woodblock", "fangsong", "regular", "pen-writing"]
 
 
 def test_fangsong_indexes_the_right_halves_of_lian_as_jian() -> None:
@@ -57,7 +57,7 @@ def test_only_fallbacks_of_the_main_fonts_design_teach_the_layout() -> None:
 
     import multiprocessing as mp
 
-    for style, expected in (("sans", {"一", "𠀀"}), ("serif", {"一"}), ("regular", {"一", "𠀀"}), ("pen-writing", {"一"}), ("fangsong", {"一"})):
+    for style, expected in (("sans", {"一", "𠀀"}), ("serif", {"一"}), ("regular", {"一", "𠀀"}), ("pen-writing", {"一"}), ("fangsong", {"一"}), ("woodblock", {"一"})):
         seen.clear()
         font = SimpleNamespace(style=compose.STYLES[style], has=lambda ch: True, own=lambda ch: ch == "一",
                                open_fallbacks=lambda: None)
@@ -342,6 +342,29 @@ def test_fangsong_keeps_its_hosts_in_zhuque_and_takes_the_rest_from_jigmo() -> N
     assert compose_layout.layout_file("fangsong") == "compose-layout-v4-fangsong.npz"
     assert "fangsong" in web_export.OUTLINE_NOTES
     assert "Alegreya Project Authors" in style.font.also
+
+
+def test_woodblock_reads_nom_na_tong_and_no_other_font() -> None:
+    style = compose.STYLES["woodblock"]
+    assert style.heavy == 400 and style.weighted is False and style.own_hosts and not style.kindred
+    assert style.fallbacks == ()
+    assert style.font.licence == compose.MIT and style.font.member is None
+    assert compose_layout.layout_file("woodblock") == "compose-layout-v4-woodblock.npz"
+    assert "woodblock" in web_export.OUTLINE_NOTES
+    licence = Path(__file__).resolve().parents[1] / "data" / "licences" / web_export.LICENCE_TEXTS[compose.MIT][1]
+    assert "Copyright (c) 2019 nomfoundation" in licence.read_text(encoding="utf-8")
+
+
+def test_woodblock_lifts_its_full_ideographs_into_the_em() -> None:
+    if not _cached("woodblock"):
+        pytest.skip("The woodblock fonts are not cached.")
+    font = compose.Font.of("woodblock")
+    boxes = [font.glyph(char).box for char in compose.FULL]
+    centre = sorted((box[1] + box[3]) / 2 for box in boxes)[len(boxes) // 2]
+    assert abs(centre - (compose.ASCENT - compose.EM / 2)) < 5
+    assert font.family is None
+    assert font.has("𡨸") and font.own("喃")
+    assert not font.fallbacks and not font.has("\U00031350")
 
 
 def test_regular_reads_tw_kai_and_its_extension_faces() -> None:
