@@ -1,21 +1,33 @@
 import { expect, it } from 'bun:test'
+import { partOf, pathMask, svgPath } from '../src/geometry.js'
 import { rccChainContextParts, rccChainDonors } from '../src/rcc-chain-contexts.js'
+// The format-7 Noto Sans CJK and TW-Kai records retain the primary faces' own strokes.
+import donors from './fixtures/rcc-early-strokes.json' with { type: 'json' }
 
+const water = '⿰氵⿱亠⿶#(𠃍-𠃊一)凵'
 const tiger = '⿱⺊⿸#(-乛丿)노'
 const horse = '⿱⿷#(-一丨b𠃌)𰀁乙'
+const speech = '⿰讠⿹⿸⿻#(-亅一)一犬丶'
 const em = [0, -120, 1000, 880]
+const composer = fontStyle => ({
+  fontStyle,
+  excluded: () => false,
+  glyphRecord: ch => donors[fontStyle][ch],
+  chainStroke: ch => partOf(donors[fontStyle][ch]),
+})
 
-it('derives donors only for the two RCC spellings in the faces that need them', () => {
-  expect(rccChainDonors(tiger, 'fangsong')).toEqual(['虍', '丨', '一', '丄'])
-  expect(rccChainDonors(horse, 'fangsong')).toEqual(['馬', '乙'])
+it('preloads the same native sources for both attested forms of the Korean entries', () => {
+  for (const face of ['sans', 'serif', 'regular', 'fangsong', 'pen-writing']) {
+    expect(rccChainDonors(tiger, face)).toEqual(rccChainDonors('⿸㇯虍七노', face))
+    expect(rccChainDonors(horse, face)).toEqual(rccChainDonors('⿱㇯馬灬乙', face))
+  }
+  expect(rccChainDonors(tiger, 'fangsong')).toEqual(['虍', '凵', '丄'])
   expect(rccChainDonors(horse, 'regular')).toEqual(['馬', '乙'])
-  expect(rccChainDonors(tiger, 'regular')).toEqual([])
-  expect(rccChainDonors(horse, 'serif')).toEqual([])
   expect(rccChainDonors('⿷#(-一丨b𠃌)𰀁', 'fangsong')).toEqual([])
 })
 
 it('rejects an excluded donor or operand before fetching contextual outlines', () => {
-  for (const [key, excluded] of [[tiger, '虍'], [tiger, '노'], [horse, '𠃌'], [horse, '𰀁']]) {
+  for (const [key, excluded] of [[tiger, '虍'], [tiger, '노'], [horse, '𠃌'], [horse, '𰀁'], [water, '凵'], [speech, '犬']]) {
     const composer = {
       fontStyle: 'fangsong',
       excluded: char => char === excluded,
@@ -30,4 +42,32 @@ it('requires the recorded donor outline and its own face', () => {
     const composer = { fontStyle: 'fangsong', excluded: () => false, glyphRecord: () => ({ v, p: [] }) }
     expect(rccChainContextParts(composer, horse, em)).toBeNull()
   }
+})
+
+it('suspends both inner uprights from 亠 in the dictionary’s water character', () => {
+  for (const face of ['sans', 'regular']) {
+    const [, roof, inner, outer] = rccChainContextParts(composer(face), water, em)
+    const size = 256, lid = pathMask(svgPath([roof]), size), uprights = pathMask(svgPath([inner]), size)
+    const overlap = [...lid.keys()].filter(i => lid[i] && uprights[i]).map(i => i % size)
+    expect(overlap.some(x => x < size * 0.64)).toBe(true)
+    expect(overlap.some(x => x > size * 0.64)).toBe(true)
+    expect(outer.target[0]).toBeLessThan(inner.target[0])
+    expect(outer.target[1]).toBeLessThan(inner.target[1])
+    expect(outer.target[3]).toBeLessThan(inner.target[3])
+  }
+})
+
+it('uses the same cut body and lower stroke for both source transcriptions', () => {
+  for (const [key, current] of [[tiger, '⿸㇯虍七노'], [horse, '⿱㇯馬灬乙']]) {
+    const draw = id => svgPath(rccChainContextParts(composer('sans'), id, em))
+    expect(draw(key)).toBe(draw(current))
+  }
+})
+
+it('places the short crossbar high across the hook and the separate dot to its left', () => {
+  const [, hook, roof, crossbar, dog, dot] = rccChainContextParts(composer('sans'), speech, em)
+  expect(crossbar.target[0]).toBeLessThan(hook.target[0])
+  expect(crossbar.target[2]).toBeGreaterThan(roof.target[0])
+  expect(crossbar.target[1]).toBeGreaterThan(dot.target[3])
+  expect(dot.target[2]).toBeLessThan(dog.target[0])
 })
