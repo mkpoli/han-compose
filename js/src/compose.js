@@ -1,6 +1,6 @@
 // @ts-nocheck: a port of han-compose's Python, kept line for line; its types are the arrays it reads.
 import { hookFloor } from './hook-floor.js'
-import { lowerHookSeat, tallHookSelf } from './hook-seat.js'
+import { lowerHookSeat, openHookCounters } from './hook-seat.js'
 import { stackedHookPart } from './stacked-hook.js'
 import fangsongZhi from './fangsong-zhi.json' with { type: 'json' }
 import haNine from './ha-nine.json' with { type: 'json' }
@@ -51,7 +51,7 @@ import { fitRecordedInk } from './chain-ink.js'
 import { correctedChain, drawingChain } from './chain-corrections.js'
 import { historicalNativeChar } from './historical-chains.js'
 import { guideChainParts, guideChainDonor } from './guide-chain-cuts.js'
-import { rccChainContextParts, rccChainDonors } from './rcc-chain-contexts.js'
+import { rccParts, rccDonors, rccLeafBoxes, numberRccLeaves } from './rcc-forms.js'
 import { recordedNativeGlyph } from './recorded-native.js'
 import { recordedArcParts, recordedArcDonors } from './recorded-arcs.js'
 import { recordedChainNative } from './recorded-chains.js'
@@ -823,8 +823,8 @@ export const designedSources = (tree, style = 'sans') => {
   const out = new Set()
   const visit = node => {
     const key = keyOf(node)
+    for (const char of rccDonors(key, style)) out.add(char)
     if (key.includes('#(')) {
-      for (const char of rccChainDonors(key, style)) out.add(char)
       const reference = recordedDonor(key)
       if (reference) out.add(reference)
       if (isChain(node)) {
@@ -1414,6 +1414,7 @@ export class Composer {
           else part.leaf = before[i]
         })
       }
+      if (this.separate) numberRccLeaves(tree, out, keyOf, leafTexts)
       if (!this.partial && this.weighted) {
         this.balance(out)
         this.settleSweeps()
@@ -1593,8 +1594,8 @@ export class Composer {
           if (leafIndices) part.leaf = leaf++
           out.push(part)
         }
-        if (hooked.self) {
-          const { part, source, factor } = hooked.self, box = inset(hooked.previous)
+        if (hooked.counterFit) {
+          const { part, source, factor } = hooked.counterFit, box = inset(hooked.previous)
           box[3] += (box[3] - box[1]) * factor
           emitCell({ ...placed(part, source, box, this.ink(node[2]), `cells ${node[2]}`), fixed: true }, node[2])
           return
@@ -1711,6 +1712,8 @@ export class Composer {
 
   /** The leaves of `sequence` laid out in the current face. */
   sketched(sequence) {
+    const editable = Object.create(this)
+    editable.separate = true
     const partitioned = this.leafCutSketch(sequence)
     if (partitioned) return partitioned
     const out = []
@@ -1734,9 +1737,10 @@ export class Composer {
         return
       }
       const repeated = isGroupedForm(keyOf(node), this.fontStyle) ? componentParts(keyOf(node), region, this.fontStyle, atRoot) : null
-      const designed = repeated ?? rccChainContextParts(this, keyOf(node), region) ?? birdOutlineParts(this, keyOf(node), region) ?? this.thornRowParts(node, region) ?? yiCrossParts(this, node, region) ?? this.qiParts(node, region) ?? ghostParts(this, node, region) ?? this.muKoParts(node, region) ?? this.wheatFaceParts(node, region)
+      const designed = repeated ?? rccParts(editable, keyOf(node), region) ?? birdOutlineParts(this, keyOf(node), region) ?? this.thornRowParts(node, region) ?? yiCrossParts(this, node, region) ?? this.qiParts(node, region) ?? ghostParts(this, node, region) ?? this.muKoParts(node, region) ?? this.wheatFaceParts(node, region)
       if (designed) {
-        for (const part of designed) out.push({ index: out.length, box: part.target, empty: false })
+        const boxes = designed[0]?.rccGroup && rccLeafBoxes(designed, leafTexts(node).length)
+        for (const box of boxes || designed.map(part => part.target)) out.push({ index: out.length, box, empty: false })
         return
       }
       if (!Array.isArray(node)) { out.push({ index: out.length, box: region, empty: node === EMPTY }); return }
@@ -2112,14 +2116,14 @@ export class Composer {
       place(derived(hook.part, hook.part.contours.slice(0, topCount)), outer[1]),
       place(derived(hook.part, hook.part.contours.slice(topCount)), outer[2]),
     ] : [place(hook.part, outer)]
-    let room = mapped(hook.room, glyph.box, region), self = null
+    let room = mapped(hook.room, glyph.box, region), counterFit = null
     const inner = typeof node[2] === 'string' && !this.forced(node[2]) && this.glyph(node[2])
     if (inner) {
       const ink = tightBox(inner), fit = fitted(ink, room, 1.15)
       const seat = [fit[0], room[1], fit[2], room[1] + fit[3] - fit[1]]
       room = lowerHookSeat(hook.part, glyph.box, inner, ink, seat, region, hook.floor)
-      if (node[2] === '自' && !this.excluded(node[2]) && (outer === '𡕚' || keyOf(outer) === '⿱夂見')) {
-        self = tallHookSelf(hook.part, glyph.box, inner, ink, room, region)
+      if (!this.excluded(node[2])) {
+        counterFit = openHookCounters(hook.part, glyph.box, inner, ink, room, region, node[2], this.fontStyle)
       }
     }
     if (atRoot && !hasSlot(node)) {
@@ -2132,10 +2136,10 @@ export class Composer {
         }
       }
     }
-    if (self) {
+    if (counterFit) {
       const previous = room
-      room = [room[0], room[1], room[2], room[3] + (room[3] - room[1]) * self.factor]
-      return { parts, room, previous, self }
+      room = [room[0], room[1], room[2], room[3] + (room[3] - room[1]) * counterFit.factor]
+      return { parts, room, previous, counterFit }
     }
     return { parts, room }
   }
@@ -2319,7 +2323,7 @@ export class Composer {
     const grid = this.penGrid(node, region, atRoot)
     if (grid) return grid
     const key = keyOf(node), hasChain = key.includes('#(')
-    const rcc = hasChain && rccChainContextParts(this, key, region)
+    const rcc = rccParts(this, key, region)
     if (rcc) return rcc
     const bird = birdChainParts(this, node, region, atRoot) ?? birdOutlineParts(this, key, region)
     if (bird) return bird
@@ -2526,8 +2530,8 @@ export class Composer {
     // that holds an unreadable linear compound has no learned box to follow: the crossed shares place it.
     const hooked = this.hookFrame(node, region, atRoot)
     if (hooked) {
-      if (hooked.self) {
-        const { part, source } = hooked.self
+      if (hooked.counterFit) {
+        const { part, source } = hooked.counterFit
         return [...hooked.parts, { ...placed(part, source, hooked.room, this.ink(node[2]), `glyph ${node[2]}`), fixed: true }]
       }
       const inner = this.node(node[2], hooked.room)
