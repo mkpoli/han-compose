@@ -13,6 +13,7 @@ const sequences = new Map([
   ['⿱⿰〧〥△', 'sevenFive'], ['⿱⿰' + seven + five + triangle, 'sevenFive'],
   ['⿱⿰〥〤元', 'fiveFour'], ['⿱⿰' + five + '乂元', 'fiveFour'],
   ['⿺是？', 'question'], ['⿺是⿱#(◜◝◞-◜)丶', 'question'],
+  ['⿵巾２', 'exerciseTwo'],
   ['⿵巾１', 'exercise'], ['⿵巾⿱#(㇀丨)一', 'exercise'],
 ])
 
@@ -26,6 +27,7 @@ const donors = { weekday: '〥日', sevenFive: '〧〥△', fiveFour: '〥〤元
 export function numeralDonors(key, style) {
   const form = sequences.get(key)
   if (!form) return []
+  if (form === 'exerciseTwo') return style === 'fangsong' ? ['冂', '丨', '2'] : []
   let chars = donors[form]
   if (style === 'fangsong') chars = chars.replace('〥', '〇丿一').replace('〧', '丄㇀刁').replace('〤', '乂').replace('１', '1')
   if (style === 'pen-writing' && form === 'exercise') chars += '一'
@@ -177,6 +179,7 @@ export function numeralParts(composer, key, region) {
   if (!form || composer.excluded(key)) return null
   const historic = key.includes('#(')
   const source = numeralDonors(key, composer.fontStyle).filter(char => char !== '刁')
+  if (!source.length || (form === 'exerciseTwo' && composer.glyphRecord('２'))) return null
   const usesExcluded = operands.get(key)?.some(leaf => composer.excluded(leaf) ||
     (leaf.startsWith('#(') && parseChain(leaf)?.strokes.some(stroke => composer.excluded(stroke.char))))
   if (usesExcluded || source.some(c => composer.excluded(c))) return null
@@ -191,6 +194,13 @@ export function numeralParts(composer, key, region) {
     glyphs[char] = glyph
   }
   if (form === 'question') return questionParts(composer, region, glyphs['？'], historic)
+  // Sasahara, p. 161: the top of 2 meets the projecting staff of 巾.
+  // https://rare.glyphatlas.org/en/entry/3120#sighting-3284
+  if (form === 'exerciseTwo') return [
+    place(glyphs.冂, region, [0, 0, 1, 0.80], 'glyph 冂', 0),
+    place(glyphs.丨, region, [0.44, 0.57, 0.52, 1], 'upper staff of 巾 from 丨', 0),
+    place(glyphs['2'], region, [0.27, 0.11, 0.72, 0.61], 'glyph 2', 1),
+  ]
   if (form === 'exercise') return exerciseParts(composer, glyphs, region, historic)
   const fiveRoom = form === 'weekday' ? [0, 0, 0.49, 1] : form === 'sevenFive' ? [0.53, 0.38, 1, 1] : [0, 0.48, 0.46, 1]
   const target = mapped(fiveRoom, unit, region)

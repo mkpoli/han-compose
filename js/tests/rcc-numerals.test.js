@@ -93,3 +93,21 @@ it('ignores excluded syntax and loads the FangSong lift donor only when needed',
   expect(numeralParts(face, key, em)).toBeNull()
   expect(numeralParts({ ...face, glyphRecord: c => c === '㇀' ? host : face.glyphRecord(c) }, key, em)).not.toBeNull()
 })
+
+it('draws the FangSong 問2 abbreviation when the export has only the halfwidth digit', () => {
+  const key = '⿵巾２', fangsong = composer('fangsong')
+  const face = { ...fangsong, glyphRecord: char => char === '2' ? host : fangsong.glyphRecord(char) }
+  expect(numeralDonors(key, 'fangsong')).toEqual(['冂', '丨', '2'])
+  expect(numeralParts(face, key, em).map(p => [p.rccLeaf, p.origin])).toEqual([
+    [0, 'glyph 冂'], [0, 'upper staff of 巾 from 丨'], [1, 'glyph 2'],
+  ])
+  expect(numeralParts({ ...face, glyphRecord: char => char === '２' ? host : face.glyphRecord(char) }, key, em)).toBeNull()
+  for (const excluded of ['巾', '２', '2', '冂', '丨', key]) {
+    expect(numeralParts({ ...face, excluded: c => c === excluded }, key, em)).toBeNull()
+  }
+  for (const style of ['sans', 'serif', 'regular', 'pen-writing']) {
+    expect(numeralDonors(key, style)).toEqual([])
+    expect(numeralParts(composer(style), key, em)).toBeNull()
+  }
+  expect(numeralDonors('⿵巾#(◜◝𠃋)', 'fangsong')).toEqual([])
+})
