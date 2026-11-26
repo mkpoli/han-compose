@@ -2,6 +2,7 @@
 // em. Arguments: directory of main-{style}.json and optional rcc-main-{style}.json.
 import { readFileSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
+import { drawingChain } from '../src/chain-corrections.js'
 import { pathRings, pointsBox, union } from '../src/geometry.js'
 
 const directory = process.argv[2]
@@ -17,6 +18,12 @@ for (const [style, commit] of Object.entries(commits)) {
       if (!result.path) continue
       entries[key] = union(pathRings(result.path, 32).map(pointsBox)).map(v => Math.round(v * 10) / 10)
     }
+  }
+  // Historical spellings that shared the same ink can use the canonical box.
+  // A historical form with its own proportions retains its own measurements.
+  for (const [key, box] of Object.entries(entries)) {
+    const canonical = drawingChain(key)
+    if (key !== canonical && entries[canonical]?.every((v, i) => Math.abs(v - box[i]) < 0.05)) delete entries[key]
   }
   metrics[commit] = entries
 }
