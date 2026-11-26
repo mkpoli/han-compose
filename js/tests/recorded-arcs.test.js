@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 import { recordedArcDonors, recordedArcParts } from '../src/recorded-arcs.js'
-import { drawnBox, svgPath } from '../src/geometry.js'
+import { drawnBox, raster, svgPath } from '../src/geometry.js'
 import constants from '../src/constants.json' with { type: 'json' }
 import data from '../src/recorded-arcs.json' with { type: 'json' }
 
@@ -13,7 +13,7 @@ const composer = {
 const loop = '#(◞x3◟◜◝-◟)'
 
 test('draws each selected source centerline in the root chain frame', () => {
-  expect(Object.keys(data.entries)).toHaveLength(14)
+  expect(Object.keys(data.entries)).toHaveLength(33)
   for (const chain of Object.keys(data.entries)) {
     const parts = recordedArcParts(composer, chain, constants.face, true)
     expect(parts[0].origin).toContain('GlyphWiki')
@@ -34,4 +34,15 @@ test('keeps separate attested variants and honours exclusions', () => {
   const variant = chain => recordedArcParts(composer, chain, constants.face, true)
   expect(variant('#(-◝◟◜◝◞-◜)')[0].origin).toContain('u20ab3-j')
   expect(variant('#(◟◜◝◞x0)')[0].origin).toContain('u20ab3-t')
+})
+
+test('preserves a clear central counter and mitered corners for diamond and triangle', () => {
+  for (const [key, sides] of [['#(-乀-丿乀丿z)', 4], ['#(-𠃋丶z)', 3]]) {
+    const parts = recordedArcParts(composer, key, constants.face, true)
+    expect(parts[0].part.contours.map(c => c.ops.length)).toEqual([sides, sides])
+    const mask = raster(parts, 96)
+    const center = mask.slice(48 * 96, 49 * 96)
+    expect(center[48]).toBe(0)
+    expect(center.slice(1).filter((pixel, i) => pixel && !center[i])).toHaveLength(2)
+  }
 })

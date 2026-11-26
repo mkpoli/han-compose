@@ -15,7 +15,8 @@
       "font": "TW-Kai 11510.1",
       "export": "c14ee5e08798-regular-compose-layout-v4-regular-f7"
     },
-    "exampleStrokes": "https://www.unicode.org/versions/Unicode18.0.0/core-spec/appendix-f/"
+    "exampleStrokes": "https://www.unicode.org/versions/Unicode18.0.0/core-spec/appendix-f/",
+    "riverComponent": "https://github.com/yi-bai/ids/blob/2597437b/ids_lv0.txt#L4060"
   },
   "styles": {
     "fangsong": {
@@ -336,6 +337,13 @@
             ]
           ]
         }
+      },
+      "𡿨": {
+        "host": "巛",
+        "digest": "6ac66604c142f64696e4ba81ba16a95ec9ce6ffc86d9bd1db768e00231c8f75c",
+        "contours": [
+          1
+        ]
       }
     },
     "regular": {

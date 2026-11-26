@@ -1,4 +1,7 @@
 import { derived, mapped, partInk, partOf, placed } from './geometry.js'
+import cuts from './host-chain-cuts.json' with { type: 'json' }
+import { recordedNativeRecord } from './recorded-native.js'
+import { reconnectStroke } from './stroke-donors.js'
 import { hexOf } from './sha256.js'
 import { parseChain } from './stroke-chain.js'
 
@@ -22,9 +25,17 @@ const hosts = new Map([
   }],
 ])
 
+// Yi Bai, ids_lv0.txt at 2597437b, identifies the two sides of 亞, the
+// frame of 臼, the triangle in 㐃, unhooked 了(s), the lower part of 之, and the two 辶
+// forms. ⻎ in the Noto faces carries the bent stroke used by the H record.
+// https://github.com/yi-bai/ids/blob/2597437b/ids_lv0.txt
+// Numbers select whole contours. Runs join the original light and heavy
+// outline across the two ends of an attached stroke or bar.
+const nativeCuts = /** @type {Record<string, {host: string, faces: Record<string, [string, string | string[], (number | number[][])[]]>}>} */ (/** @type {unknown} */ (cuts))
+
 /** @param {any} node @param {string} style */
 export function chainHost(node, style) {
-  return style === 'sans' || style === 'serif' ? hosts.get(node)?.char : undefined
+  return nativeCuts[node]?.faces[style]?.[0] ?? (style === 'sans' || style === 'serif' ? hosts.get(node)?.char : undefined)
 }
 
 /** Place a leaf drawn from an attested host whose frame has its own contours.
@@ -32,15 +43,22 @@ export function chainHost(node, style) {
  * @param {any} node @param {number[]} region @param {boolean} atRoot */
 export function hostChainParts(composer, node, region, atRoot) {
   const host = hosts.get(node)
-  if (!host || composer.excluded(node) || composer.excluded(host.char)) return null
+  const source = nativeCuts[node]
+  const cut = source?.faces[composer.fontStyle]
+  const char = cut?.[0] ?? host?.char
+  if (!char || composer.excluded(node) || composer.excluded(char) || (source && composer.excluded(source.host))) return null
   const chain = parseChain(node)
   if (!chain || chain.strokes.some(({ char }) => composer.excluded(char))) return null
-  const record = composer.glyphRecord(host.char)
-  if (record?.v !== 1) return null
-  const indices = host.cuts.get(hexOf(JSON.stringify(record.p)))
-  if (!indices) return null
+  const live = composer.glyphRecord(char)
+  const record = live?.v === 1 ? live : cut && recordedNativeRecord(composer.fontStyle, char)
+  if (!record) return null
+  const digest = hexOf(JSON.stringify(record.p))
+  const matches = cut && (Array.isArray(cut[1]) ? cut[1].includes(digest) : cut[1] === digest)
+  const outlines = matches ? cut[2] : host?.cuts.get(digest)
+  if (!outlines) return null
   const glyph = partOf(record)
-  const piece = derived(glyph, indices.map(i => glyph.contours[i]))
+  const contours = outlines.map(index => typeof index === 'number' ? glyph.contours[index] : reconnectStroke(glyph.contours, index))
+  const piece = derived(glyph, contours)
   const target = atRoot ? mapped(piece.box, composer.C.face, region) : region
-  return [placed(piece, piece.box, target, partInk(piece), `chain ${node}, cut from ${host.char}`)]
+  return [placed(piece, piece.box, target, partInk(piece), `chain ${node}, cut from ${char}`)]
 }

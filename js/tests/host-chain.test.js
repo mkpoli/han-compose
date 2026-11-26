@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 import { mapped, partOf } from '../src/geometry.js'
-import { hostChainParts } from '../src/host-chain.js'
+import { chainHost, hostChainParts } from '../src/host-chain.js'
 
 const horse = '#(-一丨b𠃌)'
 const island = '#(一-𠃍丨b𠃌)'
@@ -64,4 +64,30 @@ test('preserves the host contours and native placement of its frame', () => {
   expect(custom.target).toEqual(mapped(root.source, region, slot))
   const [nested] = hostChainParts(composer, horse, slot, false)
   expect(nested.target).toEqual(slot)
+})
+
+test('uses the corresponding angular or bent walking base in each native face', () => {
+  expect(['sans', 'serif', 'regular', 'fangsong', 'pen-writing'].map(style => chainHost('#(㇋乀)', style)))
+    .toEqual(['⻎', '⻎', '辶', '辶', '辶'])
+  expect(chainHost('#(𠃍乀)', 'regular')).toBe('⻌')
+  expect(chainHost('#(𠃍乀)', 'pen-writing')).toBeUndefined()
+  for (const excluded of ['辶', '⻎', '㇋']) {
+    expect(hostChainParts({
+      fontStyle: 'sans', excluded: char => char === excluded,
+      glyphRecord() { throw Error('Excluded reference was requested') },
+    }, '#(㇋乀)', region, true)).toBeNull()
+  }
+})
+
+// Kureedo 之 from the Pen Writing export (SIL OFL 1.1).
+test('cuts the attached dot of 之 while preserving the pen-written sweep', () => {
+  const record = {"v": 1, "b": [65.0, -53.0, 954.0, 746.0], "p": [["MLQ4Q2Q4Q3Q4Q3Q3LLLQ3Q2Q2Q2LLQ3Q3Q3Q2Q2Q3Q3LQ3Q3Q5Q3Q2Q3Q2Q3", "JA4s/zwOLP9sDiz/uA6M/+gO8P/oDvT/6A4QAKwOEADkDBwAYAm4ABwGqAGwBDACoAQ4AngERAJkBEgCwAX8AogIxAQ0C8QGWAzQB2gM3AeMDAwIjAwsCIwMYAgcDMQIzAvECKALxAgICHgICAhECwgIcAuAB6gLPAeoCwAHqAsAB5ALAAeICwgHeAswBzQLMAcECzgHaAiwAxwInAMcCHADGAhYAxgIOAMYCPACIAjQAigIzAIoCMQCLAi8AiwIqAIsCKgCGAioAgwIrAIECNgCjAc4A1gHYANYB3gDWAe8A2AH7ANkB2ALBAjUCawGvAXEA1wDhAI4A4gC8AKMAswCjAKsAowCGAKEAngBaAIEATACBAEAAgQB0AE4AYQBZAGEAXABhAGIAYwB2AGsAYgCzAHkAswBsAPMAaAEcAG4BpwApAto/yQOLP8=", "BABQAAAAUADZ/1AAvP8rALD/EgCw/wAAsP+w////sP/4/7D/7v+y/+f/tP/g/7f/4v+1/+3/sv8e/+D/2P9FANL/QgDN/z4Azf8+AMf/OQCw/xsAsP8AALD/3P/h/7D/AACw/wMAsP+w/6n/sP8AALD/yv/w/7D/AACw/1AAsP9QAAAAUAATAEYAJgBQABYAUAAAAFEAt/8DALD/BACw/wQAsP8AALD//P+w//L/sf/2/7D/7f+w/+3/sP8AALD/UACw/1AAAABQABMASgAgAEEAOAAUAFAAAABQAPv/UAD4/1AA+f9QANMAWQAyAMH/KgC8/xAArv/5/7D//v+w/wAAsP8CALD/CQCw/xkAs/9QAM7/UAAAAFAAGQAqAFAAAABQAPP/UADk/0sA6v9NAPn/UAAAAFAADwBQAB0ASwAYAEwADQBPAAQAUAA="]]}
+  const composer = { fontStyle: 'pen-writing', excluded: () => false, glyphRecord: () => record, C: { face: region } }
+  const [cut] = hostChainParts(composer, '#(㇇乀)', region, true)
+  const original = partOf(record)
+  expect(cut.part.contours).toHaveLength(1)
+  expect(cut.part.box.slice(0, 3).map(Math.round)).toEqual(original.box.slice(0, 3).map(Math.round))
+  expect(cut.part.box[3]).toBeLessThan(570)
+  expect(original.box[3]).toBeGreaterThan(740)
+  expect(hostChainParts({ ...composer, fontStyle: 'regular' }, '#(㇇乀)', region, true)).toBeNull()
 })

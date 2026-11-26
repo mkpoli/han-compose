@@ -1,9 +1,11 @@
 import data from './recorded-arcs.json' with { type: 'json' }
 import { fitted, makePart, mapped, partInk, placed, pointsBox, rings, union } from './geometry.js'
+import { meetsSourceStroke, nativeAxisContours } from './recorded-axis.js'
+import { recordedInkBox } from './chain-ink.js'
 import { guideLoop } from './guide-loop.js'
 import { parseChain } from './stroke-chain.js'
 
-const chains = /** @type {Record<string, [string, string | null, string, number[][]]>} */ (/** @type {unknown} */ (data.entries))
+const chains = /** @type {Record<string, [string, string | null, string, number[][], ("polygon" | "stems")?]>} */ (/** @type {unknown} */ (data.entries))
 const guideKey = '#(丨x4◞◟◜◝◞◝◞◝)'
 const references = ['丨', '一']
 const frame = [100, -20, 900, 790]
@@ -59,13 +61,42 @@ function contour(line, radii) {
   return Float64Array.from(points)
 }
 
+/** Offset both sides of a closed polygon in stroke-radius coordinates. Adjacent
+ * edges meet in a miter, including where the KAGE centerlines extend past it.
+ * @param {number[]} points @param {number[]} radius */
+function polygonRings(points, radius) {
+  const n = points.length / 2
+  const normals = Array.from({ length: n }, (_, i) => {
+    const j = (i + 1) % n
+    const dx = (points[2 * j] - points[2 * i]) / radius[0]
+    const dy = (points[2 * j + 1] - points[2 * i + 1]) / radius[1]
+    const length = Math.hypot(dx, dy)
+    return [-dy / length, dx / length]
+  })
+  return [1, -1].map(side => {
+    const vertices = normals.map(([x, y], i) => {
+      const [u, v] = normals[(i + n - 1) % n]
+      const miter = side / Math.max(1 / 16, 1 + x * u + y * v)
+      return [points[2 * i] + radius[0] * (x + u) * miter, points[2 * i + 1] + radius[1] * (y + v) * miter]
+    })
+    if (side < 0) vertices.reverse()
+    return Float64Array.from(vertices.flat())
+  })
+}
+
+/** @param {Float64Array} light @param {Float64Array} heavy */
+function outline(light, heavy) {
+  const ops = Array.from({ length: light.length / 2 }, (_, i) => [i ? 'L' : 'M', 1, false])
+  return { ops, light, heavy, width: null }
+}
+
 /** Draw a source-attested arc component using the selected face's stem widths.
  * @param {import('./compose.js').Composer} composer @param {string} key
  * @param {number[]} region @param {boolean} atRoot */
 export function recordedArcParts(composer, key, region, atRoot) {
   const guide = key === guideKey
   if ((!guide && !Object.hasOwn(chains, key)) || composer.excluded(key)) return null
-  const [host, variant, donor, lines] = guide ? ['𠆭', null, 'U+E00B', [guideLoop]] : chains[key]
+  const [host, variant, donor, lines, shape] = guide ? ['𠆭', null, 'U+E00B', [guideLoop]] : chains[key]
   if (composer.excluded(host)) return null
   const chain = parseChain(key)
   if (!chain || chain.strokes.some(stroke => composer.excluded(stroke.char))) return null
@@ -80,19 +111,32 @@ export function recordedArcParts(composer, key, region, atRoot) {
   const heavy = radius(true).map((width, axis) => Math.min(width, light[axis] * 1.45))
   const box = union(lines.map(pointsBox))
   const limit = [Math.max(light[0], heavy[0]), Math.max(light[1], heavy[1])]
-  const room = [frame[0] + limit[0], frame[1] + limit[1], frame[2] - limit[0], frame[3] - limit[1]]
-  const target = fitted(box, room, 1)
-  const contours = lines.map(line => {
+  // Fit the centerlines first. Stretching an outlined shallow canopy into a
+  // tall standalone frame would also stretch the thickness of its top bar.
+  const original = atRoot ? recordedInkBox(composer, key) : null
+  const bounds = original ?? frame
+  const room = [bounds[0] + limit[0], bounds[1] + limit[1], bounds[2] - limit[0], bounds[3] - limit[1]]
+  const target = original ? room : fitted(box, room, 1)
+  const contours = lines.flatMap(line => {
     const path = line.flatMap((value, i) => {
       if (i % 2) return []
       return mapped([value, line[i + 1], value, line[i + 1]], box, target).slice(0, 2)
     })
-    const lo = contour(path, light), hi = contour(path, heavy)
-    const ops = Array.from({ length: lo.length / 2 }, (_, i) => [i ? 'L' : 'M', 1, false])
-    return { ops, light: lo, heavy: hi, width: null }
+    if (shape === 'polygon') {
+      const lo = polygonRings(path, light), hi = polygonRings(path, heavy)
+      return lo.map((ring, i) => outline(ring, hi[i]))
+    }
+    if (shape === 'stems') {
+      const neighbors = lines.filter(other => other !== line)
+      const joins = [line.slice(0, 2), line.slice(-2)].map(tip => meetsSourceStroke(tip, neighbors))
+      const native = nativeAxisContours(path, stems, light, heavy, joins)
+      if (native) return native
+    }
+    return [outline(contour(path, light), contour(path, heavy))]
   })
   const part = makePart(contours)
-  const slot = atRoot ? mapped(part.box, composer.C.face, region) : fitted(part.box, region, composer.C.STRETCH)
+  const rootBox = shape === 'polygon' ? fitted(part.box, bounds, 1) : part.box
+  const slot = atRoot ? mapped(rootBox, composer.C.face, region) : fitted(part.box, region, composer.C.STRETCH)
   const source = guide ? `Bai IDS, guide ${donor}` : `GlyphWiki ${donor} (${host}${variant ? ` ${variant}` : ''})`
   return [placed(part, part.box, slot, partInk(part), `chain ${key}, ${source}`)]
 }

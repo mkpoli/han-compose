@@ -1140,7 +1140,11 @@ export class Composer {
    *  (`pieceOf`) keeps the font's own contours. */
   drawnGlyph(ch, contain = false) {
     const record = this.glyphRecord(ch)
-    if (!record) return null
+    if (!record) {
+      const donor = strokeDonor(ch, this.fontStyle)
+      if (!donor || this.excluded(ch) || this.excluded(donor)) return null
+      return nativeStroke(ch, this.fontStyle, key => this.glyphRecord(key))
+    }
     const form = BODY_FORMS[ch]
     const piece = (form ? bodyForm(record, this.glyphRecord(form.host), form) : null) ?? partOf(record)
     return contain ? this.pieceFor(ch, piece) : piece
@@ -1337,8 +1341,9 @@ export class Composer {
     const frame = held.form.frame
     const cell = chainRoom(held.form.solved, this.ENCLOSE[op], held.taken)
     let room
-    const cutRoom = typeof outer === 'string' && guideChainDonor(drawingChain(outer)) &&
-      held.parts[0]?.origin?.includes('cut from') && this.room(op, held.parts, region)
+    const origin = held.parts[0]?.origin ?? ''
+    const cutRoom = typeof outer === 'string' && (origin.includes('cut from') || origin.includes('GlyphWiki')) &&
+      this.room(op, held.parts, region)
     if (cutRoom) room = cutRoom
     else if (cell) {
       const box = mapped(cell, frame, region)
