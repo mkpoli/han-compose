@@ -1596,8 +1596,11 @@ export class Composer {
           out.push(part)
         }
         if (hooked.counterFit) {
-          const { part, source, factor } = hooked.counterFit, box = inset(hooked.previous)
-          box[3] += (box[3] - box[1]) * factor
+          const { part, source } = hooked.counterFit, box = inset(hooked.room)
+          // Inset the final outline uniformly and retain the leaf's original baseline.
+          const baseline = inset(hooked.previous)[1]
+          box[3] += baseline - box[1]
+          box[1] = baseline
           emitCell({ ...placed(part, source, box, this.ink(node[2]), hooked.counterFit.origin ?? `cells ${node[2]}`), fixed: true }, node[2])
           return
         }
@@ -2135,13 +2138,8 @@ export class Composer {
       const ink = tightBox(inner), fit = fitted(ink, room, 1.15)
       const seat = [fit[0], room[1], fit[2], room[1] + fit[3] - fit[1]]
       room = lowerHookSeat(hook.part, glyph.box, inner, ink, seat, region, hook.floor)
-      if (!this.excluded(node[2])) {
-        if (node[2] === '首') {
-          const donor = this.enclosedShou()
-          if (donor) counterFit = fitHookDonor(hook.part, glyph.box, donor, room, region)
-        } else {
-          counterFit = openHookCounters(hook.part, glyph.box, inner, ink, room, region, node[2], this.fontStyle)
-        }
+      if (node[2] !== '首' && !this.excluded(node[2])) {
+        counterFit = openHookCounters(hook.part, glyph.box, inner, ink, room, region, node[2], this.fontStyle)
       }
     }
     if (atRoot && !hasSlot(node)) {
@@ -2151,8 +2149,17 @@ export class Composer {
         if (actual[2] > actual[0] && actual[3] > actual[1]) {
           for (const part of parts) part.target = mapped(part.target, actual, reference)
           room = mapped(room, actual, reference)
+          region = mapped(region, actual, reference)
         }
       }
+    }
+    // Root ink restoration can scale the two axes differently. Place the
+    // native donor after that remap so its head and eye keep their proportions.
+    if (inner && node[2] === '首' && !this.excluded('首')) {
+      const donor = this.enclosedShou()
+      const fittedSeat = donor && fitHookDonor(hook.part, glyph.box, donor, room, region)
+      if (fittedSeat) return { parts, room: fittedSeat, previous: room,
+        counterFit: { part: donor, source: donor.box, origin: 'host 馗' } }
     }
     if (counterFit) {
       const previous = room

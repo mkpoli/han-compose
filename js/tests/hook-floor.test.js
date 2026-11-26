@@ -6,6 +6,7 @@ import { compose, createSource, sketch } from '../src/loader.js'
 import { character, files, shards } from './fixtures/small-export.js'
 // Sans export a83fc941166b: Noto Sans CJK JP and its Plangothic extension fallback.
 // Serif export 8156f838798c: Noto Serif CJK JP 2.003.
+// Regular export c14ee5e08798: CNS11643 TW-Kai.
 // Pen export ce3eaafda8f9: Kureedo Full 0.5.0. Sources and OFL licences in docs/licensing.md.
 import donors from './fixtures/hook-floor.json' with { type: 'json' }
 
@@ -251,35 +252,36 @@ it('opens both sides of 田 and 由 in composed and editable layouts', async () 
   }
 })
 
-it('uses the proportions of 首 in the face’s 馗 and respects donor exclusion', async () => {
-  const src = source('pen')
-  const record = donors.pen.馗.G, glyph = partOf(record)
-  const cut = derived(glyph, record.ls.首.map(index => glyph.contours[index]))
-  const native = svgPath([placed(cut, cut.box, cut.box, 1, '馗')])
-  const expected = normalizedOutline(native)
-  const [left, bottom, right, top] = inkBounds(native)
-  for (const layout of ['composed', 'cells']) {
-    const draw = async (input, exclude = []) => (await compose(input, '⿺見首', {
-      separate: true, fontStyle: 'pen-writing', layout, exclude,
-    })).parts
-    const [frame, inner] = await draw(src)
-    expect(inner.origin).toBe('host 馗')
-    const actual = normalizedOutline(inner.d)
-    expect(actual.map(ring => ring.length)).toEqual(expected.map(ring => ring.length))
-    for (let i = 0; i < actual.length; i++) {
-      const error = Math.max(...actual[i].map((coordinate, j) => Math.abs(coordinate - expected[i][j])))
-      expect(error).toBeLessThan(0.001)
+for (const [face, style, outer] of [['pen', 'pen-writing', '見'], ['reg', 'regular', '先'], ['reg', 'regular', '亀']]) {
+  it(`fits the native 首 in ${style} ⿺${outer}首 after the root layout`, async () => {
+    const src = source(face)
+    const record = donors[face].馗.G, glyph = partOf(record)
+    const cut = derived(glyph, record.ls.首.map(index => glyph.contours[index]))
+    const native = svgPath([placed(cut, cut.box, cut.box, 1, '馗')])
+    const expected = normalizedOutline(native)
+    const [left, bottom, right, top] = inkBounds(native)
+    for (const layout of ['composed', 'cells']) {
+      const draw = async (input, exclude = []) => (await compose(input, '⿺' + outer + '首', {
+        separate: true, fontStyle: style, layout, exclude,
+      })).parts
+      const [frame, inner] = await draw(src)
+      expect(inner.origin).toBe('host 馗')
+      const actual = normalizedOutline(inner.d)
+      expect(actual.map(ring => ring.length)).toEqual(expected.map(ring => ring.length))
+      for (let i = 0; i < actual.length; i++) {
+        const error = Math.max(...actual[i].map((coordinate, j) => Math.abs(coordinate - expected[i][j])))
+        expect(error).toBeLessThan(0.001)
+      }
+      const [x0, y0, x1, y1] = inkBounds(inner.d)
+      const nativeAspect = (top - bottom) / (right - left)
+      expect(Math.abs((y1 - y0) / (x1 - x0) / nativeAspect - 1)).toBeLessThan(0.001)
+      const mask = pathMask(frame.d, 256)
+      expect(pathMask(inner.d, 256).some((ink, i) => ink && mask[i])).toBe(false)
+      if (layout === 'cells') expect([frame.leaf, inner.leaf]).toEqual([0, 1])
+      const [, fallback] = await draw(src, ['馗'])
+      expect(fallback.d).not.toBe(inner.d)
+      const [, unlabeled] = await draw(source(face, { 馗: { ...donors[face].馗, G: { ...record, ls: {} } } }))
+      expect(unlabeled.d).toBe(fallback.d)
     }
-    const [x0, y0, x1, y1] = inkBounds(inner.d)
-    // The root fit preserves the ordinary whole glyph's ink bounds.
-    const nativeAspect = (top - bottom) / (right - left)
-    expect(Math.abs((y1 - y0) / (x1 - x0) / nativeAspect - 1)).toBeLessThan(0.02)
-    const mask = pathMask(frame.d, 256)
-    expect(pathMask(inner.d, 256).some((ink, i) => ink && mask[i])).toBe(false)
-    if (layout === 'cells') expect([frame.leaf, inner.leaf]).toEqual([0, 1])
-    const [, fallback] = await draw(src, ['馗'])
-    expect(fallback.d).not.toBe(inner.d)
-    const [, unlabeled] = await draw(source('pen', { 馗: { ...donors.pen.馗, G: { ...record, ls: {} } } }))
-    expect(unlabeled.d).toBe(fallback.d)
-  }
-})
+  })
+}

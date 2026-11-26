@@ -118,15 +118,17 @@ export function lowerHookSeat(frame, frameBox, inner, innerBox, seat, region, fl
 // The contour cut of 首 in 馗 carries the relative heights of its horns,
 // shoulder and eye. Fit all three together at the established width.
 export function fitHookDonor(frame, frameBox, part, seat, region) {
-  const source = part.box
-  const natural = (seat[2] - seat[0]) * (source[3] - source[1]) / (source[2] - source[0])
-  const [x, bottom, right, top] = mapped(seat, region, [0, 0, grid, grid])
-  const height = top - bottom
-  const requested = Math.min(natural * grid / (region[3] - region[1]), grid * 0.98 - bottom)
-  const sums = frameInk(frame, frameBox), rows = innerProfile(part, source)
-  for (let h = requested; h >= Math.min(height, requested); h -= 1) {
-    if (fits(sums, rows, x, grid - bottom - h, right - x, h)) {
-      return { part, source, factor: h / height - 1, origin: 'host 馗' }
+  const box = part.box, gridBox = [0, 0, grid, grid]
+  const [left, bottom, right, top] = mapped(seat, region, gridBox)
+  const width = right - left, center = (left + right) / 2
+  const naturalHeight = (seat[2] - seat[0]) * (box[3] - box[1]) / (box[2] - box[0]) *
+    grid / (region[3] - region[1])
+  const fullHeight = Math.min(naturalHeight, grid * 0.98 - bottom)
+  const sums = frameInk(frame, frameBox), rows = innerProfile(part, box)
+  for (let height = fullHeight; height >= Math.min(top - bottom, fullHeight); height -= 1) {
+    const half = 0.5 * width * height / naturalHeight
+    if (fits(sums, rows, center - half, grid - bottom - height, 2 * half, height)) {
+      return mapped([center - half, bottom, center + half, bottom + height], gridBox, region)
     }
   }
   return null
