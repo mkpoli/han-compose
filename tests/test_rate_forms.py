@@ -14,3 +14,15 @@ def test_rate_choices_round_trip_and_distinguish_both_axes():
             assert all(parts)
             assert len({tuple(c.light.tobytes() for c in p.contours) for p in parts}) == 4
     assert not rate_forms_for("木")
+
+
+def test_composer_draws_each_selected_host_without_a_font_fallback():
+    from types import SimpleNamespace
+    from han_compose.compose import Composer
+
+    font = SimpleNamespace(style=STYLES["serif"], glyph=lambda char: None, has=lambda char: False)
+    composer = Composer(font, {}, weighted=False)
+    for host in ("率", "䔞", "蟀", "𳅀"):
+        for text in rate_forms_for(host).values():
+            placed, = composer.compose(text)
+            assert placed.part is rate_part(text, "serif", set())
