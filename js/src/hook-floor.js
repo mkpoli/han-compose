@@ -149,7 +149,7 @@ function fitHook(glyph, tip, [left, bottom, right, top]) {
     }
     return { ...contour, ops, light: Float64Array.from(light), heavy: Float64Array.from(heavy) }
   })
-  return { part: derived(glyph, contours), room: [
+  return { part: derived(glyph, contours), floor: tip.floor, room: [
     left + width * (bodyShare + 0.035), Math.max(tip.high + 0.025 * height, tip.floor + 0.05 * height),
     right - 0.025 * width, top - 0.035 * height,
   ] }

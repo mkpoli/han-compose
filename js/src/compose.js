@@ -1,5 +1,6 @@
 // @ts-nocheck: a port of han-compose's Python, kept line for line; its types are the arrays it reads.
 import { hookFloor } from './hook-floor.js'
+import { lowerHookSeat } from './hook-seat.js'
 import { stackedHookPart } from './stacked-hook.js'
 import fangsongZhi from './fangsong-zhi.json' with { type: 'json' }
 import haNine from './ha-nine.json' with { type: 'json' }
@@ -2102,9 +2103,9 @@ export class Composer {
     let room = mapped(hook.room, glyph.box, region)
     const inner = typeof node[2] === 'string' && !this.forced(node[2]) && this.glyph(node[2])
     if (inner) {
-      const seat = fitted(tightBox(inner), room, 1.15)
-      const height = seat[3] - seat[1]
-      room = [seat[0], room[1], seat[2], room[1] + height]
+      const ink = tightBox(inner), fit = fitted(ink, room, 1.15)
+      const seat = [fit[0], room[1], fit[2], room[1] + fit[3] - fit[1]]
+      room = lowerHookSeat(hook.part, glyph.box, inner, ink, seat, region, hook.floor)
     }
     if (atRoot && !hasSlot(node)) {
       const reference = this.hookInkBounds(node)

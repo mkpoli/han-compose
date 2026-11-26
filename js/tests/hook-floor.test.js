@@ -126,3 +126,20 @@ it('requires a low returning tip on the floor', () => {
   expect(hookFloor(outline(100, 0))).toBeNull()
   expect(hookFloor(outline(220, 400))).toBeNull()
 })
+
+it('seats 自 near the horizontal floor while clearing the upturned tip', async () => {
+  for (const [face, fontStyle] of [['sans', 'sans'], ['pen', 'pen-writing']]) {
+    const { parts: [frame, inner] } = await compose(source(face), '⿺𡕚自', {
+      separate: true, fontStyle, layout: 'composed',
+    })
+    const size = 256, outline = pathMask(frame.d, size), contents = pathMask(inner.d, size)
+    const x = Math.floor((inner.box[0] + inner.box[2] / 2) * size / 1000)
+    let floor = size - 1, base = size - 1
+    while (floor > 0 && !outline[floor * size + x]) floor--
+    while (floor > 0 && outline[floor * size + x]) floor--
+    while (base > 0 && !contents[base * size + x]) base--
+    expect((floor - base) / size).toBeLessThan(0.16)
+    expect((floor - base) / size).toBeGreaterThan(0.07)
+    expect(contents.some((ink, i) => ink && outline[i])).toBe(false)
+  }
+})
