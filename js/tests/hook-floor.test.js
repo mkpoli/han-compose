@@ -143,3 +143,20 @@ it('seats 自 near the horizontal floor while clearing the upturned tip', async 
     expect(contents.some((ink, i) => ink && outline[i])).toBe(false)
   }
 })
+
+it('gives 自 lateral clearance inside the hook without shortening or lifting it', async () => {
+  // At the preceding floor position these two specimens left only 22–23 units
+  // of the hook projecting to the right. Retain their exact vertical fit.
+  for (const [face, style, sequence, top, width, height] of [
+    ['serif', 'serif', '⿺⿱夂見自', 193.16, 365.43, 642.30],
+    ['pen', 'pen-writing', '⿺𡕚自', 148.99, 389.91, 680.17],
+  ]) {
+    const { parts } = await compose(source(face), sequence, { separate: true, fontStyle: style })
+    const [x, y, w, h] = parts.at(-1).box
+    const edge = Math.max(...parts.slice(0, -1).map(p => p.box[0] + p.box[2]))
+    expect(edge - (x + w)).toBeGreaterThan(40)
+    expect(Math.abs(y - top)).toBeLessThan(0.1)
+    expect(Math.abs(h - height)).toBeLessThan(0.1)
+    expect(Math.abs(w - width)).toBeLessThan(0.1)
+  }
+})

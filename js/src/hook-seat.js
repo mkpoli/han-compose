@@ -41,10 +41,10 @@ function innerProfile(part, box) {
   return rows
 }
 
-function fits(sums, rows, left, top, width, height) {
+function fits(sums, rows, left, top, width, height, leftClearance = 1) {
   const stride = grid + 1
   for (const [y, first, last] of rows) {
-    const x0 = Math.max(0, Math.floor(left + first * width / innerGrid) - 1)
+    const x0 = Math.max(0, Math.floor(left + first * width / innerGrid) - leftClearance)
     const x1 = Math.min(grid, Math.ceil(left + last * width / innerGrid) + 1)
     const y0 = Math.max(0, Math.floor(top + y * height / innerGrid) - 1)
     const y1 = Math.min(grid, Math.ceil(top + (y + 1) * height / innerGrid) + 1)
@@ -54,13 +54,46 @@ function fits(sums, rows, left, top, width, height) {
   return true
 }
 
+// Each occupied row of the inner glyph faces a different part of the body.
+// Measure the facing gap at its ink edge. The outermost extent of the hook
+// supplies the opposite edge of the open room above the tip.
+function balanceSides(sums, rows, seat, region) {
+  const [left, bottom, right, high] = mapped(seat, region, [0, 0, grid, grid])
+  const width = right - left, height = high - bottom, top = grid - high, stride = grid + 1
+  const offsets = []
+  for (const [row, first, last] of rows) {
+    const y = Math.floor(top + (row + 0.5) * height / innerGrid)
+    if (y < 0 || y >= grid) continue
+    const l = left + first * width / innerGrid, r = left + last * width / innerGrid
+    const upper = y * stride, lower = upper + stride
+    let x = Math.min(grid, Math.floor(l))
+    const count = sums[lower + x] - sums[upper + x]
+    if (!count) continue
+    while (x > 0 && sums[lower + x - 1] - sums[upper + x - 1] === count) x--
+    offsets.push((l - x - (grid - r)) / 2)
+  }
+  if (!offsets.length) return seat
+  offsets.sort((a, b) => a - b)
+  const target = Math.round(offsets[Math.floor(offsets.length / 2)])
+  for (let shift = Math.min(target, Math.floor(left)); shift > 0; shift -= 0.5) {
+    if (fits(sums, rows, left - shift, top, width, height, 2)) {
+      // When the nearest body stroke limits the move, retain breathing room
+      // there even though the broader central gap could accommodate more.
+      const eased = shift * 0.8
+      const offset = shift < target && fits(sums, rows, left - eased, top, width, height, 2) ? eased : shift
+      return mapped([left - offset, bottom, right - offset, high], [0, 0, grid, grid], region)
+    }
+  }
+  return seat
+}
+
 /** Lower a fitted leaf toward the hook floor while keeping its strokes clear of the bend and tip. */
 export function lowerHookSeat(frame, frameBox, inner, innerBox, seat, region, floor) {
   const floorY = region[1] + (floor - frameBox[1]) * (region[3] - region[1]) / (frameBox[3] - frameBox[1])
   const drop = Math.min(grid * 0.093, grid * ((seat[1] - floorY) / (region[3] - region[1]) - 0.09))
-  if (!(drop >= 1)) return seat
   const [x, y, right, high] = mapped(seat, region, [0, 0, grid, grid])
   const sums = frameInk(frame, frameBox), rows = innerProfile(inner, innerBox)
+  if (!(drop >= 1)) return balanceSides(sums, rows, seat, region)
   let best = seat, bestScore = 0
   for (const scale of [1, 0.965, 0.93]) {
     const width = (right - x) * scale, height = high - y
@@ -79,5 +112,5 @@ export function lowerHookSeat(frame, frameBox, inner, innerBox, seat, region, fl
       }
     }
   }
-  return best
+  return balanceSides(sums, rows, best, region)
 }
