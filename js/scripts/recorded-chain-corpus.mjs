@@ -1,11 +1,12 @@
 // Current and retired RCC claims can preserve spellings absent from the Bai IDS catalogue.
 import catalogue from '../src/recorded-chains.json' with { type: 'json' }
 import evidence from '../../data/rcc-chain-evidence.json' with { type: 'json' }
-import { parseDescription } from '../src/tree.js'
+import { descriptionEnd, parseDescription } from '../src/tree.js'
 
 const chains = new Set(Object.keys(catalogue.chains))
 const ids = new Set()
 for (const record of evidence.records) {
+  if (record.primary_ids) ids.add(record.primary_ids)
   for (const claim of [...record.claims, ...record.historical_claims]) {
     ids.add(claim.ids)
     for (const chain of claim.chains) chains.add(chain)
@@ -20,6 +21,9 @@ export const malformed = new Map()
 for (const raw of contexts) {
   try {
     parseDescription(raw)
+    // parseDescription accepts unfinished editor input and inserts empty slots.
+    const chars = [...raw]
+    if (descriptionEnd(chars) !== chars.length) throw new SyntaxError(`Incomplete recorded description: ${raw}.`)
   } catch (error) {
     if (!(error instanceof SyntaxError)) throw error
     malformed.set(raw, error.message)
