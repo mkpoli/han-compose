@@ -108,7 +108,7 @@ The illustrated loop under 𠆭 follows the guide font’s U+E00B.
 
 ## `recorded-arcs.json`
 
-Centerlines for 33 stroke chains cut from their recorded hosts' GlyphWiki KAGE
+Centerlines for 34 stroke chains cut from their recorded hosts' GlyphWiki KAGE
 programs. The selection lists the host, regional variant when specified, component
 record and zero-based source stroke indices. The composer draws these centerlines
 at the selected face's stem weights. Straight frame segments can use the face's

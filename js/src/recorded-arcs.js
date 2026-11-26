@@ -92,8 +92,8 @@ function outline(light, heavy) {
 
 /** Draw a source-attested arc component using the selected face's stem widths.
  * @param {import('./compose.js').Composer} composer @param {string} key
- * @param {number[]} region @param {boolean} atRoot */
-export function recordedArcParts(composer, key, region, atRoot) {
+ * @param {number[]} region @param {boolean} atRoot @param {string} [written] */
+export function recordedArcParts(composer, key, region, atRoot, written = key) {
   const guide = key === guideKey
   if ((!guide && !Object.hasOwn(chains, key)) || composer.excluded(key)) return null
   const [host, variant, donor, lines, shape] = guide ? ['𠆭', null, 'U+E00B', [guideLoop]] : chains[key]
@@ -113,7 +113,7 @@ export function recordedArcParts(composer, key, region, atRoot) {
   const limit = [Math.max(light[0], heavy[0]), Math.max(light[1], heavy[1])]
   // Fit the centerlines first. Stretching an outlined shallow canopy into a
   // tall standalone frame would also stretch the thickness of its top bar.
-  const original = atRoot ? recordedInkBox(composer, key) : null
+  const original = atRoot ? recordedInkBox(composer, written) : null
   const bounds = original ?? frame
   const room = [bounds[0] + limit[0], bounds[1] + limit[1], bounds[2] - limit[0], bounds[3] - limit[1]]
   const target = original ? room : fitted(box, room, 1)

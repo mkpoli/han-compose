@@ -13,7 +13,7 @@ const composer = {
 const loop = '#(◞x3◟◜◝-◟)'
 
 test('draws each selected source centerline in the root chain frame', () => {
-  expect(Object.keys(data.entries)).toHaveLength(33)
+  expect(Object.keys(data.entries)).toHaveLength(34)
   for (const chain of Object.keys(data.entries)) {
     const parts = recordedArcParts(composer, chain, constants.face, true)
     expect(parts[0].origin).toContain('GlyphWiki')
@@ -45,4 +45,22 @@ test('preserves a clear central counter and mitered corners for diamond and tria
     expect(center[48]).toBe(0)
     expect(center.slice(1).filter((pixel, i) => pixel && !center[i])).toHaveLength(2)
   }
+})
+
+test('fits a shallow source canopy into the published frame before applying stem width', () => {
+  const realFrame = { ...composer, data: { manifest: { composer: { commit: 'a83fc941166b' } } } }
+  const parts = recordedArcParts(realFrame, '#(-乛丨)', constants.face, true)
+  const midColumn = raster(parts, 96).filter((pixel, i) => pixel && i % 96 === 48)
+  expect(parts[0].origin).toContain('u2ced2-j')
+  expect(midColumn.length).toBeGreaterThan(1)
+  expect(midColumn.length).toBeLessThan(12)
+})
+
+test('fits a historical spelling in its own measured frame before drawing strokes', () => {
+  const kai = { ...composer, data: { manifest: { composer: { commit: 'c14ee5e08798' } } } }
+  const canonical = '#(㇇◝◞)'
+  const written = '#(HPQaQb)'
+  const width = parts => { const b = drawnBox(parts[0]); return b[2] - b[0] }
+  expect(width(recordedArcParts(kai, canonical, constants.face, true, written))).toBeLessThan(300)
+  expect(width(recordedArcParts(kai, canonical, constants.face, true))).toBeGreaterThan(740)
 })

@@ -68,7 +68,7 @@ export const traitKey = traits => Object.entries(traits).map(([name, on]) => `${
 export function sourceFor(sequence, { base, fontStyle = 'sans', separate = false, bundled = false, remote = false, loaders = {}, traits = null, exported = null, fetch: get, read } = {}) {
   traits = traits ?? traitsOf(sequence ?? '')
   const nativeBopomofo = fontStyle === 'fangsong' && traits.bopomofo && (base || exported)
-  const local = !remote && (bundled || traits.empty || (!nativeBopomofo && onlyBundled(sequence, separate, false, fontStyle)))
+  const local = !remote && (bundled || traits.empty || (!nativeBopomofo && onlyBundled(sequence, separate, false, fontStyle, Boolean(base || exported))))
   /** The source of one script or palette, over `fallback`, reading its file by path or URL. A kind
    *  that reads one file asks for it by no name and gets `path`; the Unicode fallback asks for the
    *  shard it needs, so the name a kind passes is the file that is read. A host that lists none of

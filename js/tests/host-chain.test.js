@@ -91,3 +91,13 @@ test('cuts the attached dot of 之 while preserving the pen-written sweep', () =
   expect(original.box[3]).toBeGreaterThan(740)
   expect(hostChainParts({ ...composer, fontStyle: 'regular' }, '#(㇇乀)', region, true)).toBeNull()
 })
+
+test('loads the native regional walking base when format 7 omits the radical', () => {
+  for (const fontStyle of ['sans', 'serif', 'regular']) {
+    const key = fontStyle === 'regular' ? '#(𠃍乀)' : '#(㇋乀)'
+    const composer = { fontStyle, excluded: () => false, glyphRecord: () => null, C: { face: region } }
+    const [part] = hostChainParts(composer, key, region, true)
+    expect(part.origin).toContain(chainHost(key, fontStyle))
+    expect(part.part.box[3]).toBeLessThan(650)
+  }
+})

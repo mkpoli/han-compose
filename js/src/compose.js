@@ -40,6 +40,7 @@ import { hangulLetters } from './hangul-ids.js'
 import { toConjoiningJamo } from './hangul.js'
 import { componentFix } from './component-fixes.js'
 import { isOutbound, markFace, markParts } from './marks.js'
+import { youChainDonors, youChainParts } from './you-chain.js'
 import { chainHost, hostChainParts } from './host-chain.js'
 import { birdChainParts } from './bird-chain.js'
 import { birdOutlineDonors, birdOutlineParts } from './bird-outline.js'
@@ -825,7 +826,7 @@ export const designedSources = (tree, style = 'sans') => {
       if (reference) out.add(reference)
       if (isChain(node)) {
         const chain = drawingChain(node)
-        for (const donor of [guideChainDonor(chain), chainHost(chain, style), ...recordedArcDonors(chain, style)]) {
+        for (const donor of [guideChainDonor(chain), chainHost(chain, style), ...youChainDonors(chain, style), ...recordedArcDonors(chain, style)]) {
           if (donor) out.add(donor)
         }
       }
@@ -1321,7 +1322,7 @@ export class Composer {
   chainParts(node, region, atRoot = false) {
     if (!isChain(node) || this.excluded(node)) return null
     const key = drawingChain(node)
-    const cut = guideChainParts(this, key, region, atRoot) ?? hostChainParts(this, key, region, atRoot) ?? recordedArcParts(this, key, region, atRoot)
+    const cut = guideChainParts(this, key, region, atRoot) ?? hostChainParts(this, key, region, atRoot) ?? youChainParts(this, key, region, atRoot) ?? recordedArcParts(this, key, region, atRoot, node)
     if (cut) return cut
     const form = this.chain(node)
     if (!form) return null
@@ -2254,6 +2255,12 @@ export class Composer {
     if (ivd && ivdRecord && (!this.separate || isGroupedForm(key, this.fontStyle))) {
       const variant = ivdParts(ivd, key, ivdRecord, this.fontStyle, region, atRoot)
       if (variant) return variant
+    }
+    // A bundled Plangothic cut remains available when the current face lacks
+    // the exact attested native outline. Check that outline before the fallback.
+    if (isChain(node) && !this.excluded(node) && isComponentForm(key, this.fontStyle)) {
+      const own = hostChainParts(this, drawingChain(node), region, atRoot)
+      if (own) return own
     }
     const repeated = (!nativeSource || !this.excluded(nativeSource)) && (!this.separate || isGroupedForm(key, this.fontStyle)) && !ivdRecord
       ? componentParts(key, region, this.fontStyle, atRoot) : null
