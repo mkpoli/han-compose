@@ -3,6 +3,7 @@
 // key) loaded as a sequence needs it, and the sequence drawn from it as an SVG path. A file is
 // fetched once a page; a gzipped one (the export writes them so) is unpacked with DecompressionStream.
 import { APPROXIMATE, Composer, EMPTY, LookupError, designedSources, keyOf, leafCutChar, wheatFaceHosts, mapOperands, parseTree } from './compose.js'
+import { yuanReference } from './yuan-pyramid.js'
 import { qiReference } from './qi-family.js'
 import { splitDescription } from './tree.js'
 import { hangulOfIds } from './hangul-ids.js'
@@ -342,7 +343,7 @@ export async function sketch(source, sequence, { fontStyle = 'sans' } = {}) {
   const donors = [...wheatFaceHosts(description), ...designedSources(tree, fontStyle)]
   await source.load([...modelOf(source, tree), ...(donors.length ? source.filesOf(donors) : [])])
   // The 器 family measures composed ink, including contextual cuts discovered in later shards.
-  const measured = donors.includes(qiReference)
+  const measured = donors.includes(qiReference) || donors.includes(yuanReference)
   for (let round = 0; round < ROUNDS; round++) {
     const store = source.store()
     const leaves = new Composer(store, { fontStyle }).sketch(description, marks)
