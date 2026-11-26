@@ -2,6 +2,13 @@
 
 The code is MIT (`LICENSE`). What it reads and what it draws carry their own terms.
 
+## 率 drawings and reference gallery
+
+The five sets of reviewed outlines carry their [font notices](../src/han_compose/rate_forms/NOTICE.txt).
+The gallery names the source of each whole-glyph reference. Its Plangothic outlines come from
+[P1 and P2 release 2.9.5795](https://github.com/Fitzgerald-Porthmouth-Koenigsegg/Plangothic-Project)
+and carry the [Plangothic font licence](../data/licences/OFL-Plangothic.txt).
+
 ## Fonts
 
 Each style (`compose.STYLES`) reads one variable font and static fonts for what it lacks. All are

@@ -5,7 +5,7 @@ from pathlib import Path
 import re
 
 _DIR = Path(__file__).parent
-_CATALOGUE = json.loads((_DIR / "catalogue.json").read_text())
+_CATALOGUE = json.loads((_DIR / "catalogue.json").read_text(encoding="utf-8"))
 _OPTIONS = {host: {shape: template.replace("@", root) for shape, root in _CATALOGUE["shapes"].items()}
             for host, template in _CATALOGUE["hosts"].items()}
 _EXACT = {text: (host, i) for host, choices in _OPTIONS.items() for i, text in enumerate(choices.values())}
@@ -23,7 +23,7 @@ def rate_forms_for(text: str) -> dict[str, str]:
 
 @cache
 def _face(style):
-    return json.loads((_DIR / f"{style}.json").read_text())
+    return json.loads((_DIR / f"{style}.json").read_text(encoding="utf-8"))
 
 
 @cache
