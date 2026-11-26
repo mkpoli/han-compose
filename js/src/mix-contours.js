@@ -743,6 +743,63 @@ function dense(ring, step) {
   return out
 }
 
+/** Trim the stub a cut leaves on the body. A stroke that lands on the body at a slant is
+ * narrowest short of its tip, so the cut there leaves the tip on the body as a stub, which
+ * stands proud once the stroke blends away. Each end of the body's cut slides back along its
+ * outline to where the closing line meets the outline at the gentlest angle. The stroke keeps
+ * the cut it had: its outline is the one that matches its counterpart in the other faces.
+ * @param {{ points: number[][], labels: number[] }} body open run of points, closed from its last to its first
+ * @param {number} width the cut's length
+ * @param {number[][]} ring the ring being cut, whose ink the closing line stays in
+ * @param {number[][][]} clear rings the closing line may not enter */
+function trimStub(body, width, ring, clear) {
+  const pts = body.points,
+    size = pts.length
+  // A stub is a nub a few points long; a longer run past the cut is a stroke of the body's own.
+  const reach = 4
+  if (size < 2 * reach + 12) return
+  /** Unsigned turn from one direction to the next. */
+  const bend = (/** @type {number[]} */ a, /** @type {number[]} */ b, /** @type {number[]} */ c) => {
+    const ux = b[0] - a[0],
+      uy = b[1] - a[1],
+      vx = c[0] - b[0],
+      vy = c[1] - b[1]
+    return Math.abs(Math.atan2(ux * vy - uy * vx, ux * vx + uy * vy))
+  }
+  /** The sharper of the turns onto and off the line closing `pts[hi]` to `pts[lo]`. */
+  const sharpest = (/** @type {number} */ lo, /** @type {number} */ hi) =>
+    Math.max(bend(pts[hi - 2], pts[hi], pts[lo]), bend(pts[hi], pts[lo], pts[lo + 2]))
+  // The slide has to leave the outline running nearly straight through the closing line,
+  // and clearly straighter than the cut did.
+  let least = Math.min(0.4, sharpest(0, size - 1) - 0.3),
+    head = 0,
+    tail = 0
+  for (let lo = 0; lo <= reach; lo++)
+    for (let back = 0; back <= reach; back++) {
+      if (!lo && !back) continue
+      const hi = size - 1 - back
+      const a = pts[hi],
+        b = pts[lo]
+      const length = Math.hypot(b[0] - a[0], b[1] - a[1])
+      if (length < 1 || length > 3 * width) continue
+      const worst = sharpest(lo, hi)
+      if (worst >= least) continue
+      const steps = Math.max(4, Math.ceil(length / 1.5))
+      let sound = true
+      for (let t = 1; t < steps && sound; t++) {
+        const p = [a[0] + ((b[0] - a[0]) * t) / steps, a[1] + ((b[1] - a[1]) * t) / steps]
+        sound = inside(p, ring) && !clear.some((other) => inside(p, other))
+      }
+      if (!sound) continue
+      least = worst
+      head = lo
+      tail = back
+    }
+  if (!head && !tail) return
+  body.points = pts.slice(head, size - tail)
+  body.labels = body.labels.slice(head, size - tail)
+}
+
 /** Cut a ring at its necks into one ring per target. Each point goes with the target it
  * lies in or nearest to; the ring is then cut along the narrowest chord that leaves the
  * points of every target together on one side, until each piece holds one target. Null
@@ -1031,6 +1088,7 @@ function cutRing(ring, targets, within, cap, clear = []) {
     // far enough to stay joined when a lighter weight draws both pieces back.
     const small = Math.abs(turning(sides[0].points)) <= Math.abs(turning(sides[1].points)) ? 0 : 1
     const depth = cap ? Math.min(chord.width / 4, 4) : 0
+    if (cap) trimStub(sides[1 - small], chord.width, ring, clear)
     sides.forEach((side, n) => {
       const from = side.points[side.points.length - 1],
         to = side.points[0]
