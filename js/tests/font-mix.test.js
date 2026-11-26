@@ -967,3 +967,46 @@ it('does not pair distant leftover corners at opposite ends of a long stem wall'
   expect(maxX).toBeCloseTo(137.5, 1)
   expect(maxY).toBeCloseTo(137.5, 1)
 })
+
+it('leaves no stub on a stem where a slanted dot was cut from it', () => {
+  // A dot lands on a stem's right wall at a slant; it is narrowest just short of its foot,
+  // which runs on down the wall for a few units.
+  const fused = [
+    [
+      [
+        [40, 20],
+        [52, 20],
+        [52, 110],
+        [78, 50],
+        [92, 56],
+        [56, 112],
+        [56, 116],
+        [52, 119],
+        [52, 230],
+        [40, 230],
+        [40, 20]
+      ]
+    ]
+  ]
+  const apart = [
+    [box(40, 20, 12, 210)],
+    [
+      [
+        [84, 50],
+        [98, 56],
+        [72, 112],
+        [66, 108],
+        [84, 50]
+      ]
+    ]
+  ]
+  const regions = splitIslands([fused, apart])
+  expect(regions).toHaveLength(2)
+  const height = (/** @type {number[][]} */ ring) =>
+    Math.max(...ring.map((p) => p[1])) - Math.min(...ring.map((p) => p[1]))
+  const stem = regions.find((region) => height(region[1][0][0]) > 150)
+  const dot = regions.find((region) => region !== stem)
+  // The stem's wall runs straight past the join, and the dot still reaches down to it.
+  expect(Math.max(...stem[0][0][0].map((p) => p[0]))).toBeLessThan(52.5)
+  expect(Math.max(...dot[0][0][0].map((p) => p[1]))).toBeGreaterThan(108)
+})
