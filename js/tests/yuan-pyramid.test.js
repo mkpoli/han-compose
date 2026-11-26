@@ -4,6 +4,7 @@ import { pathMask, pathRings, pointsBox } from '../src/geometry.js'
 import { files, records, shards } from './fixtures/small-export.js'
 // 原 in the hosted Zhuque FangSong and pen-writing exports (SIL OFL).
 import donors from './fixtures/yuan-pyramid.json' with { type: 'json' }
+// 𤿁 in the Sans (SIL OFL 1.1) and TW-Kai (CNS11643, OGDL 1.0) exports.
 import encoded from './fixtures/yuan-encoded.json' with { type: 'json' }
 
 const expanded = '⿳白小⿰⿱白小⿱白小'
