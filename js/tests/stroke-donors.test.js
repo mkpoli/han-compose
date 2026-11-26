@@ -1,7 +1,8 @@
 import { expect, it } from 'bun:test'
-import { partOf } from '../src/geometry.js'
+import { fill, partOf, rings, union } from '../src/geometry.js'
+import { chainForm } from '../src/stroke-chain.js'
 import { nativeStroke, reconstructStroke, strokeDonor } from '../src/stroke-donors.js'
-// Zhuque FangSong 0.212 (SIL OFL 1.1), pinned outline of 刁 used by the FangSong export.
+// Zhuque FangSong 0.212 (SIL OFL 1.1), pinned donor outlines used by the FangSong export.
 import glyphs from './fixtures/fangsong-stroke-donor.json' with { type: 'json' }
 
 const styles = ['sans', 'serif', 'regular', 'fangsong', 'pen-writing']
@@ -45,4 +46,20 @@ it('labels a reconstruction and leaves it unavailable when its constituent is ex
   expect(result.box).toEqual(donor.box)
   expect(reconstructStroke('㇘', 'fangsong', () => null)).toBeNull()
   expect(reconstructStroke('㇘', 'sans', glyphOf)).toBeNull()
+})
+
+it('keeps the FangSong 凸 sidewall narrow below its shoulder', () => {
+  const glyph = char => nativeStroke(char, 'fangsong', donor => glyphs[donor])
+  const { parts } = chainForm('#(-𠃊㇎z)', glyph)
+  const frame = union(parts.map(part => part.box))
+  const ink = parts.flatMap(part => rings(part.contours, part.contours.map(c => c.light)))
+  const row = fill(ink, 100, frame).slice(6500, 6600)
+  expect(Array.from(row).lastIndexOf(1)).toBeGreaterThan(85)
+  expect(row.slice(45, 85).some(Boolean)).toBe(false)
+})
+
+it('uses the attested first bend of FangSong 巛 for 𡿨', () => {
+  const glyph = nativeStroke('𡿨', 'fangsong', char => glyphs[char])
+  expect(strokeDonor('𡿨', 'fangsong')).toBe('巛')
+  expect(glyph.contours).toEqual([partOf(glyphs.巛).contours[1]])
 })

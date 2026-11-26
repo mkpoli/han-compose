@@ -44,23 +44,36 @@ def catalogue(original, history):
     export = json.loads(original)
     rows = []
     matches = [row for audit in history for row in audit["matching"]]
-    for entry in export["entries"]:
-        claims = [claim for claim in entry["claims"] if claim["kind"] in ("ids", "composition")
+    by_entry = {}
+    for change in sorted(matches, key=lambda row: row["revision"]):
+        values = [claim["value"] for claim in change["claims"]]
+        if change["snapshot_ids"]:
+            values.append(change["snapshot_ids"])
+        for value in values:
+            if CHAIN.search(value):
+                by_entry.setdefault(change["entry"], {}).setdefault(value, []).append(change["revision"])
+    entries = {entry["id"]: entry for entry in export["entries"]}
+    for entry_id in dict.fromkeys([*entries, *by_entry]):
+        entry = entries.get(entry_id, {})
+        claims = [claim for claim in entry.get("claims", []) if claim["kind"] in ("ids", "composition")
                   and CHAIN.search(claim["value"])]
-        if not claims:
+        previous = by_entry.get(entry_id, {})
+        if not claims and not previous:
             continue
-        url = f"{RCC}/en/entry/{entry['id']}"
+        url = f"{RCC}/en/entry/{entry_id}"
         rows.append({
-            "code": entry["code"],
+            "code": entry.get("code", f"R+{entry_id:04X}"),
             "url": url,
-            "created": entry["created_at"],
-            "credited_to": entry["created_by_name"],
+            "created": entry.get("created_at"),
+            "credited_to": entry.get("created_by_name"),
             "history": f"{url}/history",
-            "historical_revisions": sorted(row["revision"] for row in matches if row["entry"] == entry["id"]),
-            "primary_ids": entry["ids"],
+            "historical_revisions": sorted({rev for revisions in previous.values() for rev in revisions}),
+            "primary_ids": entry.get("ids"),
             "claims": [{"ids": claim["value"], "chains": CHAIN.findall(claim["value"]),
                         "layout": (claim["data"] or {}).get("layout")} for claim in claims],
-            "sightings": [evidence(sighting, url) for sighting in entry["evidence"]],
+            "historical_claims": [{"ids": ids, "chains": CHAIN.findall(ids), "revisions": sorted(set(revs))}
+                                  for ids, revs in previous.items()],
+            "sightings": [evidence(sighting, url) for sighting in entry.get("evidence", [])],
         })
     revision = export["dataset"]["revision"]
     audit = {

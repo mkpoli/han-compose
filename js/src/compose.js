@@ -43,6 +43,7 @@ import { hangulLetters } from './hangul-ids.js'
 import { toConjoiningJamo } from './hangul.js'
 import { componentFix } from './component-fixes.js'
 import { isOutbound, markFace, markParts } from './marks.js'
+import { youChainDonors, youChainParts } from './you-chain.js'
 import { chainHost, hostChainParts } from './host-chain.js'
 import { birdChainParts } from './bird-chain.js'
 import { birdOutlineDonors, birdOutlineParts } from './bird-outline.js'
@@ -828,7 +829,7 @@ export const designedSources = (tree, style = 'sans') => {
       if (reference) out.add(reference)
       if (isChain(node)) {
         const chain = drawingChain(node)
-        for (const donor of [guideChainDonor(chain), chainHost(chain, style), ...recordedArcDonors(chain, style)]) {
+        for (const donor of [guideChainDonor(chain), chainHost(chain, style), ...youChainDonors(chain, style), ...recordedArcDonors(chain, style)]) {
           if (donor) out.add(donor)
         }
       }
@@ -1144,7 +1145,11 @@ export class Composer {
    *  (`pieceOf`) keeps the font's own contours. */
   drawnGlyph(ch, contain = false) {
     const record = this.glyphRecord(ch)
-    if (!record) return null
+    if (!record) {
+      const donor = strokeDonor(ch, this.fontStyle)
+      if (!donor || this.excluded(ch) || this.excluded(donor)) return null
+      return nativeStroke(ch, this.fontStyle, key => this.glyphRecord(key))
+    }
     const form = BODY_FORMS[ch]
     const piece = (form ? bodyForm(record, this.glyphRecord(form.host), form) : null) ?? partOf(record)
     return contain ? this.pieceFor(ch, piece) : piece
@@ -1321,7 +1326,7 @@ export class Composer {
   chainParts(node, region, atRoot = false) {
     if (!isChain(node) || this.excluded(node)) return null
     const key = drawingChain(node)
-    const cut = guideChainParts(this, key, region, atRoot) ?? hostChainParts(this, key, region, atRoot) ?? recordedArcParts(this, key, region, atRoot)
+    const cut = guideChainParts(this, key, region, atRoot) ?? hostChainParts(this, key, region, atRoot, node) ?? youChainParts(this, key, region, atRoot) ?? recordedArcParts(this, key, region, atRoot, node)
     if (cut) return cut
     const form = this.chain(node)
     if (!form) return null
@@ -1341,8 +1346,9 @@ export class Composer {
     const frame = held.form.frame
     const cell = chainRoom(held.form.solved, this.ENCLOSE[op], held.taken)
     let room
-    const cutRoom = typeof outer === 'string' && guideChainDonor(drawingChain(outer)) &&
-      held.parts[0]?.origin?.includes('cut from') && this.room(op, held.parts, region)
+    const origin = held.parts[0]?.origin ?? ''
+    const cutRoom = typeof outer === 'string' && (origin.includes('cut from') || origin.includes('GlyphWiki')) &&
+      this.room(op, held.parts, region)
     if (cutRoom) room = cutRoom
     else if (cell) {
       const box = mapped(cell, frame, region)
@@ -2354,6 +2360,12 @@ export class Composer {
     if (ivd && ivdRecord && (!this.separate || isGroupedForm(key, this.fontStyle))) {
       const variant = ivdParts(ivd, key, ivdRecord, this.fontStyle, region, atRoot)
       if (variant) return variant
+    }
+    // A bundled Plangothic cut remains available when the current face lacks
+    // the exact attested native outline. Check that outline before the fallback.
+    if (isChain(node) && !this.excluded(node) && isComponentForm(key, this.fontStyle)) {
+      const own = hostChainParts(this, drawingChain(node), region, atRoot, node)
+      if (own) return own
     }
     const repeated = (!nativeSource || !this.excluded(nativeSource)) && (!this.separate || isGroupedForm(key, this.fontStyle)) && !ivdRecord
       ? componentParts(key, region, this.fontStyle, atRoot) : null
