@@ -851,47 +851,62 @@ it('falls back to whole-island blending when a labelled stroke fuses a perpendic
   }
 })
 
-it('leaves no stub on a stem where a slanted dot was cut from it', () => {
-  // A dot lands on a stem's right wall at a slant; it is narrowest just short of its foot,
-  // which runs on down the wall for a few units.
+it('cuts a fused top dot at its horizontal neck without stealing the right half of the roof', () => {
+  // 广-like fused island: roof bar (height 16, y=48..64) with a wider vertical dot (width 22, x=122..144) on top.
   const fused = [
     [
       [
-        [40, 20],
-        [52, 20],
-        [52, 110],
-        [78, 50],
-        [92, 56],
-        [56, 112],
-        [56, 116],
-        [52, 119],
-        [52, 230],
-        [40, 230],
-        [40, 20]
+        [16, 48],
+        [122, 48],
+        [122, 16],
+        [144, 16],
+        [144, 48],
+        [234, 48],
+        [234, 64],
+        [36, 64],
+        [36, 240],
+        [16, 240],
+        [16, 48]
       ]
     ]
   ]
+  // Strictly disjoint two-island face (roof y=53..65, slanted dot y=16..51) whose dot spans wider across the roof top.
   const apart = [
-    [box(40, 20, 12, 210)],
     [
       [
-        [84, 50],
-        [98, 56],
-        [72, 112],
-        [66, 108],
-        [84, 50]
+        [16, 53],
+        [234, 53],
+        [234, 65],
+        [36, 65],
+        [36, 240],
+        [16, 240],
+        [16, 53]
+      ]
+    ],
+    [
+      [
+        [108, 16],
+        [136, 16],
+        [164, 51],
+        [132, 51],
+        [108, 16]
       ]
     ]
   ]
   const regions = splitIslands([fused, apart])
   expect(regions).toHaveLength(2)
-  const height = (/** @type {number[][]} */ ring) =>
-    Math.max(...ring.map((p) => p[1])) - Math.min(...ring.map((p) => p[1]))
-  const stem = regions.find((region) => height(region[1][0][0]) > 150)
-  const dot = regions.find((region) => region !== stem)
-  // The stem's wall runs straight past the join, and the dot still reaches down to it.
-  expect(Math.max(...stem[0][0][0].map((p) => p[0]))).toBeLessThan(52.5)
-  expect(Math.max(...dot[0][0][0].map((p) => p[1]))).toBeGreaterThan(108)
+  // Identify roof vs dot by target maxY, and verify the cut keeps the full roof intact and cuts the dot horizontally.
+  const roof = regions.find((r) => Math.max(...r[1][0][0].map((p) => p[1])) > 150)
+  const dot = regions.find((r) => r !== roof)
+  expect(Math.max(...roof[0][0][0].map((p) => p[0]))).toBeGreaterThan(220)
+  expect(Math.max(...dot[0][0][0].map((p) => p[0]))).toBeLessThan(155)
+  expect(Math.max(...dot[0][0][0].map((p) => p[1]))).toBeLessThan(55)
+  // Three-target fused roof with two dots still splits cleanly into all three regions.
+  const rect = (a, b, c, d) => [a, b, c, b, c, d, a, d]
+  const roofPoly = (y, b) => [16, y, 240, y, 240, b, 37, b, 37, 214, 16, 214]
+  const fused3 = inkPolygons([roofPoly(47, 56), rect(56, 16, 79, 48), rect(115, 21, 158, 48)])
+  const apart3 = inkPolygons([roofPoly(52, 60), rect(56, 16, 77, 46), [100, 33, 118, 33, 97, 43, 80, 43]])
+  expect(splitIslands([fused3, apart3])).toHaveLength(3)
 })
 
 it('does not pair distant leftover corners at opposite ends of a long stem wall', () => {
@@ -951,4 +966,47 @@ it('does not pair distant leftover corners at opposite ends of a long stem wall'
   const maxY = Math.max(...sa.map((p, i) => (p[1] + sb[i][1]) / 2))
   expect(maxX).toBeCloseTo(137.5, 1)
   expect(maxY).toBeCloseTo(137.5, 1)
+})
+
+it('leaves no stub on a stem where a slanted dot was cut from it', () => {
+  // A dot lands on a stem's right wall at a slant; it is narrowest just short of its foot,
+  // which runs on down the wall for a few units.
+  const fused = [
+    [
+      [
+        [40, 20],
+        [52, 20],
+        [52, 110],
+        [78, 50],
+        [92, 56],
+        [56, 112],
+        [56, 116],
+        [52, 119],
+        [52, 230],
+        [40, 230],
+        [40, 20]
+      ]
+    ]
+  ]
+  const apart = [
+    [box(40, 20, 12, 210)],
+    [
+      [
+        [84, 50],
+        [98, 56],
+        [72, 112],
+        [66, 108],
+        [84, 50]
+      ]
+    ]
+  ]
+  const regions = splitIslands([fused, apart])
+  expect(regions).toHaveLength(2)
+  const height = (/** @type {number[][]} */ ring) =>
+    Math.max(...ring.map((p) => p[1])) - Math.min(...ring.map((p) => p[1]))
+  const stem = regions.find((region) => height(region[1][0][0]) > 150)
+  const dot = regions.find((region) => region !== stem)
+  // The stem's wall runs straight past the join, and the dot still reaches down to it.
+  expect(Math.max(...stem[0][0][0].map((p) => p[0]))).toBeLessThan(52.5)
+  expect(Math.max(...dot[0][0][0].map((p) => p[1]))).toBeGreaterThan(108)
 })

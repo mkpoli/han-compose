@@ -909,20 +909,32 @@ function cutRing(ring, targets, within, cap, clear = []) {
         if (dx > 56 || dx < -56 || dy > 56 || dy < -56) continue
         const width = Math.hypot(dx, dy)
         if (width > 56) continue
-        // Points i..j-1 on one side, the rest on the other; the share of a target left
-        // on the wrong side counts against the chord.
+        // Points i..j-1 on one side, the rest on the other; penalize both a target
+        // losing points across the cut (recall) and a piece absorbing points from
+        // another target (contamination), so a small stroke cannot steal half a bar.
         let stray = 0,
           here = 0,
-          there = 0
+          there = 0,
+          wrongInner = 0,
+          wrongOuter = 0
         for (const sums of before) {
           const inner = sums[j] - sums[i],
             outer = sums[size] - inner
           stray = Math.max(stray, Math.min(inner, outer) / sums[size])
-          if (inner > outer) here++
-          else there++
+          if (inner > outer) {
+            here++
+            wrongOuter += outer
+          } else {
+            there++
+            wrongInner += inner
+          }
         }
         if (!here || !there || stray > 0.3) continue
-        chords.push({ i, j, width, cost: width * (1 + 2 * stray) + 30 * stray })
+        // A piece counts as contaminated once most of its points belong to another target.
+        // A stroke fused along its neighbour carries that neighbour's label near the join,
+        // and its neck is still the cut to make.
+        const contam = Math.max(0, Math.max(wrongInner / (j - i), wrongOuter / (size - (j - i))) - 0.5)
+        chords.push({ i, j, width, cost: width * (1 + 2 * (stray + contam)) + 30 * (stray + contam) })
       }
     chords.sort((a, b) => a.cost - b.cost)
     const chord = chords.find(({ i, j }) => {
