@@ -14,59 +14,11 @@ import { exportSource, sourceFor, traitKey, traitsOf } from './source.js'
 // A source for each kind of sequence, all over one source of the export they draw from: what a
 // warming or an earlier drawing read of the export is there for the next, whatever its traits.
 const sources = new Map(), exported = new Map()
-// One completed drawing per pole lets a slider reuse the same five source outlines.
-const lastFace = new Map()
-self.onmessage = async ({ data }) => {
-  const { id } = data
-  const sendSketch = sketch => self.postMessage({ id, sketch })
-  try {
-    if (!data.faces) {
-      const drawn = await drawFace(data, sendSketch)
-      self.postMessage(data.warm ? { id, warm:true } : { id, drawn })
-      return
-    }
-    const shares = data.faces.map(face => face.share)
-    const sketches = new Map()
-    function heard(index, leaves) {
-      sketches.set(index, leaves)
-      if (sketches.size !== shares.length || !sketches.get(0)) return
-      sendSketch(sketches.get(0).map((leaf,i) => ({...leaf,
-        box:leaf.box.map((_,k) => shares.reduce((v,share,j) =>
-          v + share*(sketches.get(j)?.[i]?.box[k] ?? leaf.box[k]),0))})))
-    }
-    const results = await Promise.all(data.faces.map(async ({style, base}, index) => {
-      const key = JSON.stringify([data.sequence,base,data.separate,data.loaders,data.preferExport])
-      const cached = lastFace.get(style)
-      if (cached?.key === key) {
-        heard(index,cached.leaves)
-        return cached
-      }
-      let leaves
-      const drawing = await drawFace({...data, base, fontStyle:style}, sketch => {
-        leaves = sketch
-        heard(index,leaves)
-      })
-      const result = {key,drawing,leaves}
-      lastFace.set(style,result)
-      return result
-    }))
-    const weight = data.weight ?? 1
-    let drawn = results[0].drawing
-    if (results.length > 1 || weight !== 1) {
-      const { mixDrawings } = await import('./mix-drawings.js')
-      drawn = mixDrawings(results.map(r => r.drawing), shares, weight, results.map(r => r.leaves))
-    }
-    self.postMessage({ id, drawn })
-  } catch (error) {
-    self.postMessage({id, error:String(error?.message ?? error), ...(data.warm ? {warm:true} : error?.unavailable ? {unavailable:true} : {})})
-  }
-}
-
-async function drawFace({ sequence, base, separate, fontStyle, warm, preferExport, loaders, faces }, sendSketch) {
+self.onmessage = async ({ data: { id, sequence, base, separate, fontStyle, warm, preferExport, loaders } }) => {
   const traits = !warm ? traitsOf(sequence) : null
   // Whether the sequence draws from bundled outlines is part of the key: `onlyBundled` reads the
   // sequence, which the traits alone do not cover.
-  const local = !warm && !preferExport && (traits.empty || onlyBundled(sequence, separate, false, fontStyle, Boolean(base)))
+  const local = !warm && !preferExport && (traits.empty || onlyBundled(sequence, separate, false, fontStyle))
   // Where the bundled files are read from is part of the key: a later `loaders` must reach its source.
   const key = `${JSON.stringify(loaders ?? {})}:${base}:${warm ? 'warm' : `${local ? 'local' : 'remote'}:${traitKey(traits)}`}:${separate}:${fontStyle}:${preferExport ? 'export' : 'any'}`
   if (!sources.has(key)) {
@@ -80,30 +32,35 @@ async function drawFace({ sequence, base, separate, fontStyle, warm, preferExpor
     if (warm) await source.load(source.modelFiles())
   } catch (error) {
     // The export could not be read: the bundled outlines alone still draw what they cover.
-    if (!faces && !warm && onlyBundled(sequence, false, true, fontStyle)) {
+    if (!warm && onlyBundled(sequence, false, true, fontStyle)) {
       source = sourceFor(sequence, { base, fontStyle, separate, traits, loaders, bundled: true })
       await source.ready()
     } else {
-      throw Object.assign(new Error(String(error?.message ?? error)), { unavailable:true })
+      self.postMessage(warm ? { id, warm: true, error: String(error?.message ?? error) } : { id, error: String(error?.message ?? error), unavailable: true })
+      return
     }
   }
-  if (warm) return
+  if (warm) { self.postMessage({ id, warm: true }); return }
   /** The sketch and then the drawing of the sequence, from one source. */
   const draw = async from => {
-    sendSketch(await sketch(from, sequence, { fontStyle, loaders }))
+    self.postMessage({ id, sketch: await sketch(from, sequence, { fontStyle, loaders }) })
     const drawn = await compose(from, sequence, { separate, fontStyle, loaders })
     // The leaves in reading order and the leaf of each slot, so a view can place parts beside the
     // drawing without a tree of its own.
     let leaves = null
     try { leaves = leafTexts(parseTree(sequence, arityOf(from))) } catch { /* drawn as text alone */ }
-    return { ...drawn, ...(leaves ? { leaves, slots: slotsByLeaf(leaves, drawn.slots) } : {}) }
+    self.postMessage({ id, drawn: { ...drawn, ...(leaves ? { leaves, slots: slotsByLeaf(leaves, drawn.slots) } : {}) } })
   }
-  try { return await draw(source) } catch (error) {
-    if (faces || !error?.unavailable || !onlyBundled(sequence, false, true, fontStyle)) throw error
-    const bundled = sourceFor(sequence, { base, fontStyle, separate, traits, loaders, bundled: true })
-    await bundled.ready()
-    return draw(bundled)
-  }
+  try {
+    try { await draw(source) } catch (error) {
+      // The layout or the identity table could not be read: as when the manifest cannot, the
+      // bundled outlines alone still draw what they cover.
+      if (!error?.unavailable || !onlyBundled(sequence, false, true, fontStyle)) throw error
+      const bundled = sourceFor(sequence, { base, fontStyle, separate, traits, loaders, bundled: true })
+      await bundled.ready()
+      await draw(bundled)
+    }
+  } catch (error) { self.postMessage({ id, error: String(error?.message ?? error), ...(error?.unavailable ? { unavailable: true } : {}) }) }
 }
 
 /** How many operands the export's own operators take. */

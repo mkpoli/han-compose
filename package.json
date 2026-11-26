@@ -34,10 +34,6 @@
       "types": "./types/index.d.ts",
       "default": "./src/index.js"
     },
-    "./font-mix": {
-      "types": "./types/font-mix.d.ts",
-      "default": "./src/font-mix.js"
-    },
     "./rate-drawing": {
       "types": "./types/rate-drawing.d.ts",
       "default": "./src/rate-drawing.js"
@@ -212,9 +208,5 @@
     "LICENSE",
     "examples"
   ],
-  "dependencies": {
-    "clipper-lib": "6.4.2",
-    "d3-contour": "4.0.2"
-  },
-  "gitHead": "a3054d00d8f14d8a26df89c706954afdbe075982"
+  "gitHead": "4c388b26e77d0da14405ccc12ee7aee288ad5550"
 }

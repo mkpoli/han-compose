@@ -75,7 +75,6 @@ export declare class Composer {
         resolve: (node: import("./normalization.js").RenderNode) => import("./normalization.js").RenderPlan;
     };
     resolutions: Map<any, any>;
-    chains: Map<any, any>;
     joints: any[];
     sweeps: any[];
     /** How much smaller than it was laid out the character is drawn, beside marks that take a margin. */
@@ -99,13 +98,6 @@ export declare class Composer {
     arity: (ch: any) => any;
     parse: (sequence: any) => any;
     rec: (key: any) => any;
-    /**
-     * The record of a character under a variation selector: its own outline, laid out as its base is.
-     * The export records a variation sequence's outline alone, so what the layout reads of it (its
-     * features, its usual boxes, its places) is the base's. Null where the font draws no such sequence
-     * or the export records a layout of its own for it.
-     */
-    variantRecord(key: any): any;
     /** A component form's record, which stands in for the export's; a native form's does only where
      *  the export records nothing. */
     formRecord: (key: any) => any;
@@ -202,21 +194,6 @@ export declare class Composer {
         native: any;
         origin: any;
     };
-    /** A stroke chain (`#(-𠃌㇉)`) joined from the face's own strokes, or null for anything else. */
-    chainStroke(ch: any): any;
-    recordedParts(node: any, region: any, key: any): {
-        part: any;
-        source: any;
-        target: any;
-        weight: number[];
-        native: any;
-        origin: any;
-    }[] | null;
-    chain(node: any): any;
-    chainParts(node: any, region: any, atRoot?: boolean): any;
-    /** A chain holding a part, or such an enclosure holding another (岛 as ⿹⿴#(-𠃌㇉)丶山): each inner
-     *  part goes into the cell of the chain its operator names. Null for any other enclosure. */
-    chainEnclosure(node: any, region: any): any;
     /** The parts drawing `sequence`, weighted, and the loose `marks` its text carries after it. */
     compose(sequence: any, marks?: string): any;
     /** Whether `tree` is drawn in cells (`compose`'s `layout: 'auto'`): no character spells it as a
@@ -286,7 +263,6 @@ export declare class Composer {
      *  such construct, and for one left to the composer, where a glyph it is drawn from is excluded or
      *  missing or the export draws another. */
     constructed(node: any, region: any, atRoot?: boolean): any[] | null;
-    fitMetricKeInterior(parts: any, tree: any): void;
     /** A narrow borrowed cut of 口 or 日 may have been stretched already. Use
      * the leaf's native proportions when fitting it in the space taken by 百. */
     baiSeat(inner: any, room: any): any[] | null;
@@ -299,55 +275,8 @@ export declare class Composer {
         native: any;
         origin: any;
     } | null;
-    counterInFrame(node: any, region: any, nested: any): {
-        part: any;
-        source: any;
-        target: any;
-        weight: number[];
-        native: any;
-        origin: any;
-    }[] | null;
-    /** Select a verified low hook only after the face's contextual forms have had priority. */
-    hookFrame(node: any, region: any, atRoot: any): {
-        parts: {
-            part: any;
-            source: any;
-            target: any;
-            weight: number[];
-            native: any;
-            origin: any;
-            fixed: boolean;
-        }[];
-        room: any[];
-        previous: any[];
-        counterFit: {
-            part: {
-                contours: any[];
-                box: number[];
-            };
-            source: any[];
-            factor: number;
-        };
-    } | {
-        previous?: undefined;
-        counterFit?: undefined;
-        parts: {
-            part: any;
-            source: any;
-            target: any;
-            weight: number[];
-            native: any;
-            origin: any;
-            fixed: boolean;
-        }[];
-        room: any[];
-    } | null;
-    /** Keep the established root ink extent, including overshoot after stroke weighting.
-     * A fresh composer isolates the ordinary layout's joints and weight adjustments.
-     * The result is local to this loader pass, since more source shards can arrive. */
-    hookInkBounds(node: any): any;
-    /** Place the enclosing strokes and map their opening into the same cell. */
-    lowerLeftFrame(node: any, region: any, counterEntry?: null): {
+    /** Fit the donor's 克 before placing a cell in its opening. */
+    keFrame(node: any, region: any): {
         frame: {
             part: any;
             source: any;
@@ -367,56 +296,6 @@ export declare class Composer {
     /** Three native cuts for the described wheat enclosure. 麺 supplies the frame and right-hand 面,
      *  榛 the narrow 𡗗. The sweep is 处’s in Zhuque and 麵’s in TW-Kai. */
     wheatFaceParts(node: any, region: any): any[] | null;
-    /** R+06D8, 出土文獻與古文字教程 p. 15. The two sides of 棘 flank a shorter 企. */
-    thornRowParts(node: any, region: any): {
-        part: any;
-        source: any;
-        target: any;
-        weight: number[];
-        native: any;
-        origin: any;
-        fixed: boolean;
-    }[] | null;
-    /** Fit the two editable operands in the opening of the face's own む. */
-    muKoParts(node: any, region: any): {
-        part: any;
-        source: any;
-        target: any;
-        weight: number[];
-        native: any;
-        origin: any;
-        fixed: boolean;
-    }[] | null;
-    diamondSyllable(node: any, region: any): {
-        part: any;
-        source: any;
-        target: any;
-        weight: number[];
-        native: any;
-        origin: any;
-        fixed: boolean;
-    }[] | null;
-    /** Keep each copy of a repeated glyph at the same size across both rows. */
-    penGrid(node: any, region: any, atRoot: any): any[] | null;
-    /** Preserve the weight of the encoded pyramid when extracting its six editable leaves. */
-    yuanParts(node: any, region: any): {
-        part: any;
-        source: any;
-        target: any;
-        weight: number[];
-        native: any;
-        origin: any;
-    }[] | null;
-    /** The six vessel variants share the native drawing inside each ordinary stack’s ink bounds. */
-    qiParts(node: any, region: any): {
-        part: any;
-        source: any;
-        target: any;
-        weight: number[];
-        native: any;
-        origin: any;
-        fixed: boolean;
-    }[] | null;
     drawNode(node: any, region: any, atRoot?: boolean, sideBySide?: boolean): any;
     /** The letters of one Bopomofo syllable stacked in the block, centered and separated by a small
      *  gap. The letters come from the bundled Bopomofo outlines; without this a three-letter spelling
@@ -437,22 +316,9 @@ export declare class Composer {
      *  right, and the marks stand at the left as the tone of the syllable is written.
      *  @param {string} base @param {string} tones @param {number[]} region */
     toneLeaf(base: string, tones: string, region: number[], cell?: boolean): any[];
-    /** The brush exports have no 𮇇. The two upper strokes of their own 米
-     * sit on either side of the tall stem of their enclosing 木. */
-    brushRiceFrame(rice: any, [left, right]: [any, any]): {
-        record: {
-            h: string;
-        };
-        piece: any;
-    } | null;
     /** A designed enclosing form of a whole operand, where the export has no cut of it: 电 as ⿺'s
      *  enclosing part from 𫌷. Answers a host-like `{ record, piece }`, or null. */
-    enclosureForm(op: any, node: any, counterEntry?: null): {
-        record: {
-            h: string;
-        };
-        piece: any;
-    } | {
+    enclosureForm(op: any, node: any): {
         record: {
             h: any;
         };
@@ -461,9 +327,6 @@ export declare class Composer {
             box: number[];
         };
     } | null;
-    /** Intersect a donor's interior with the ink-free space above its foot.
-     * A rectangular replacement fills corners the original inner glyph left open. */
-    clearLowerLeftRoom(piece: any, char: any): any;
     /** The kin an enclosing part is drawn as (`_kin`): of the characters written over the same lower
      *  part that many hold in that place (走 for 足, 麥 for ⿱𡗗夂), the one with most hosts there, as
      *  `{ char, own }` with the outer's own tree; null when the outer is written otherwise, has no such
@@ -751,24 +614,6 @@ export declare class Composer {
         native: any;
         origin: any;
     }[] | null;
-    /** The middle left-falling stroke of 豕 branches from a single contour. Follow its outline
-     *  from one junction on the curved spine to the other; the closing segment restores the spine. */
-    pigStroke(region: any): ({
-        part: any;
-        source: any;
-        target: any;
-        weight: number[];
-        native: any;
-        origin: any;
-    } | {
-        part: any;
-        source: any;
-        target: any;
-        weight: number[];
-        native: any;
-        origin: any;
-        cut: boolean;
-    })[] | null;
     /** ㇯ the first operand less the second: its own outlines where the export cut them, else the
      *  glyph without what KanjiVG names so (`less`, which knows no index), else what is left of its
      *  description, else the second operand cut out of it. */

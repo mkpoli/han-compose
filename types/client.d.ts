@@ -53,16 +53,10 @@ export declare function createDrawer(makeWorker: () => WorkerLike, base: string,
     loaders?: Loaders;
     timeout?: number;
 }): {
-    draw: (sequence: string, onSketch?: ((leaves: SketchLeaf[]) => void) | null, { separate, fontStyle, preferExport, faces, weight, loaders }?: {
+    draw: (sequence: string, onSketch?: ((leaves: SketchLeaf[]) => void) | null, { separate, fontStyle, preferExport, loaders }?: {
         separate?: boolean;
         fontStyle?: 'sans' | 'serif' | 'regular' | 'fangsong' | 'pen-writing';
         preferExport?: boolean;
-        faces?: {
-            style: string;
-            base: string;
-            share: number;
-        }[];
-        weight?: number;
         loaders?: Loaders;
     }) => Promise<Answer>;
     cancel: () => void;

@@ -37,12 +37,6 @@ export declare function derived(from: any, contours: any, box: any): {
     contours: any[];
     box: number[];
 };
-export declare function contourSections(contours: any, ...sections: any[]): {
-    ops: any[];
-    light: Float64Array<ArrayBuffer>;
-    heavy: Float64Array<ArrayBuffer>;
-    width: any;
-};
 /** A part record of the export (`b`, `p`, `w`) read as a part, decoded once. */
 export declare function partOf(record: any, quant?: number): any;
 /** A contour as `['M' | 'L' | 'Q', points]` segments, TrueType's implied on-curve points made explicit
@@ -101,8 +95,6 @@ export declare function raster(group: any, size?: number): Uint8Array<ArrayBuffe
 /** Whether a placed part's contours, as drawn, run against `WINDING`: the part was marked at its
  *  source, and its flips turn them over once more. */
 export declare const runsBack: (p: any) => boolean;
-/** A contour's segments drawn the other way round: the same outline, wound as the glyph was drawn. */
-export declare function backwards(segs: any): (string | any[])[][];
 /** Placed parts as one SVG path in a 1000 × 1000 box, y down from the em's top (`compose.svg_path`);
  *  fill it with the nonzero rule. A part whose source runs the other way, or whose flip turns it
  *  over, is drawn backwards as a whole, so overlapping ink adds up and its counters stay holes. */

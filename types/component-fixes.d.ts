@@ -1,5 +1,3 @@
-/** Close the gap after 忄 without stretching its dots or the neighbouring glyph. */
-declare function heartColumnSpacing(parts: any, composer: any): any;
 /** `part` with the named contours' top (y above `yTarget`) cut off at that height. */
 export declare function clippedAbove(part: any, indices: any, yTarget: any): any;
 /** `part` with the named contours lowered by `drop` in the target, along y, keeping their columns;
@@ -27,52 +25,6 @@ export declare function dotIn(composer: any, band: any): {
  * A correction that cannot find the parts it names leaves the drawing as it is.
  */
 export declare const COMPONENT_FIXES: {
-    '\u2FF8\u5382\uD853\uDFC1': {
-        glyphs: {
-            𤿁: string[];
-        };
-        apply(parts: any, composer: any): any;
-    };
-    '\u2FF5\u95E8\u6597': {
-        glyphs: {
-            闭: string;
-        };
-        apply(parts: any, composer: any, region: any): any;
-    };
-    '\u2FF5\u95E8T': {
-        glyphs: {
-            闭: string;
-        };
-        apply(parts: any, composer: any, region: any): any;
-    };
-    '\u2FF0\uD82C\uDCA6\u65B9': {
-        glyphs: {};
-        apply(parts: any, composer: any, region: any): any;
-    };
-    '\u2FF0\u5FC4\u5B9F': {
-        glyphs: {};
-        apply: typeof heartColumnSpacing;
-    };
-    '\u2FF0\u5FC4\u5BE6': {
-        glyphs: {};
-        apply: typeof heartColumnSpacing;
-    };
-    '\u2FF1\u4E00\u4E1B': {
-        glyphs: {
-            丛: string[];
-        };
-        apply(parts: any, composer: any): any;
-    };
-    '\u2FF0\u672A\u2FF1\u6210\u516C': {
-        glyphs: {
-            未: string;
-        };
-        apply(parts: any, composer: any): any;
-    };
-    '\u2FF0\u751F\u610F': {
-        glyphs: {};
-        apply(parts: any, composer: any): any;
-    };
     '\u2FFB\u53E3\u571F': {
         glyphs: {
             口: string;
@@ -157,4 +109,3 @@ export declare const COMPONENT_FIXES: {
 /** `parts`, with the correction a description carries applied where the outlines are the ones it
  *  was read against. */
 export declare function componentFix(sequence: any, parts: any, composer: any, region?: any): any;
-export {};

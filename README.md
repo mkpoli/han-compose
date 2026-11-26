@@ -17,7 +17,7 @@ Node and Bun.
 npm install han-compose
 ```
 
-ES modules with type declarations. The font mixer uses Clipper to unite overlapping outlines and d3-contour to trace distance fields. Node needs 20.16 or later.
+ES modules with type declarations and no dependencies. Node needs 20.16 or later.
 
 ## Draw a sequence
 
@@ -63,27 +63,6 @@ An export's files never change under its URL. `export-web` in the
 [repository](https://github.com/mkpoli/han-compose#run) writes an export from the fonts, to serve
 from any static host.
 
-## Five-face mixing
-
-Supply the export URLs once. An editor can then change the face proportions and stroke weight on each preview request.
-
-```js
-import { composerPreview } from 'han-compose'
-
-const preview = composerPreview({ base: EXPORTS.sans, faceBases: EXPORTS, separate: true })
-const mix = {
-  shares: { sans: 3, serif: 2, fangsong: 1, regular: 2, 'pen-writing': 2 },
-  weight: 1.15,
-}
-const drawing = await preview('⿰木口', { mix })
-```
-
-The shares are relative and at least one must be positive. Only faces with a positive share are read. Weight ranges from 0.65 to 1.50 and defaults to 1. A single pole at neutral weight returns its original drawing. The same mix works with local sources using `composeMixed(sources, sequence, mix, { separate: true })`, where `sources` maps the style names to `createSource` or `fromUrl` results.
-
-For intermediate settings the mixer registers the outlines of corresponding operands. It pairs connected strokes and counters, then matches their vector boundaries. Where the faces differ in topology, it aligns their ink profiles and interpolates on a subpixel-sampled distance grid. Changing weight moves each boundary according to the local stroke thickness. The example queues the latest slider position while the worker finishes the previous draw, so successive frames share prepared outlines. Replacing an in-flight preview resets that worker. Differences in stroke structure can soften fine details. Interpolated parts retain their operand identity and omit the original stroke groups. When sources cannot separate the same operands, the result has a whole-glyph outline and no editable parts. Any KanjiVG attribution requirement from an active face carries through to the mix.
-
-The [interactive font mixer](examples/font-mixer/) has a five-pole pad, independent face controls, a stroke-weight slider and SVG export.
-
 ## The drawing
 
 `compose` answers a plain object in a 1000-unit box, y down.
@@ -119,12 +98,10 @@ nothing may be taken from.
 |---|---|
 | `⿰亻哥` `⿵門⿰亻哥` | The operators `⿰ ⿱ ⿲ ⿳ ⿴ ⿵ ⿶ ⿷ ⿸ ⿹ ⿺ ⿻`, up to 24 in a sequence and 8 deep. |
 | `⿼叵口` `⿾可` `㇯口丨` | `⿼ ⿽`, the reflection `⿾`, the half-turn `⿿`, the subtraction `㇯` and `〾`. |
-| `⿰又⿱丿⿹⿴#(-𠃌㇉)丶灬` | The face’s 鸡 supplies 又 and the bird frame. The four dots come from 鳮 or, in FangSong, 鴨. Other zi.tools chains can use strokes joined from the face. |
 | `⿱艹⬚` | `⬚` (U+2B1A), an empty slot: the layout keeps its room and reports its box. |
 | `⿸广⿰KO` | Letters and digits of Latin, Greek, Cyrillic, kana and Hangul as parts. |
 | `⿰ㄱㅏ` | Hangul letters, drawn as the syllable they spell. |
 | `者󠄁` | A variation sequence, drawn as the glyph the font maps it to. The sans and serif exports hold them. |
-| `⿺辶󠄁禺󠄁` | A variation sequence as a part: laid out as its base character is, in the sequence's own shape. |
 
 ## In a page
 
@@ -276,13 +253,6 @@ https://kanjivg.tagaini.net/".
 The prepared form in `src/mu-net-forms.json` takes 氵 from 河, the left 木 from 林, the sweeping stroke from 木, and 罒 from 罪 (買 in Fangsong). ⿺沐罒 groups the first two components as 沐. The outlines are adapted from GenZui Sans 0.105, Noto Serif CJK JP 2.003, Zhuque Fangsong 0.212 and Kureedo Full 0.5.0 under SIL OFL 1.1. The Regular Kai outlines are adapted from TW-Kai 11510.1, 數位發展部 (Ministry of Digital Affairs), CNS11643中文標準交換碼全字庫, under the Open Government Data License 1.0. [Font sources and notices](https://github.com/mkpoli/han-compose/blob/main/docs/licensing.md)
 
 For ⿺木 followed by another operand, the same enclosing 木 holds the operand in the opening above its final stroke. 术 and its spelling ⿺木丶 retain their ordinary 木.
-
-The FangSong form of 貭 uses the joined upper body of 盾 and the feet of 貝 from Zhuque Fangsong 0.212, © 2023 JadeFoci, SIL OFL 1.1. [Font source and license](../docs/licensing.md)
-
-Noto Serif Hentaigana supplies 𛂦 (hentaigana HA-9) for the FangSong and Regular pairings when the selected font lacks it. The two columns of ⿰𛂦方 follow the encoded form 𭤪. [Noto Serif Hentaigana](https://github.com/notofonts/hentaigana) · [SIL Open Font License 1.1](../data/licences/OFL-NotoSerifHentaigana.txt)
-
-The ㅏ and ㄴ in the FangSong drawing of ⿱⿰◇ㅏㄴ retain their positions in Gowun Batang’s 안, with a diamond from Zhuque Fangsong in the initial position. [Gowun Batang source](https://github.com/yangheeryu/Gowun-Batang) · [SIL Open Font License 1.1](../data/licences/OFL-GowunBatang.txt)
-
 ### 率 form selection
 
 `rateFormsFor(text)` from `han-compose/rate-forms` returns four choices for 率 and 36 compounds. Each has an `id`, `host`, `label`, and `text`. Store the chosen `text` in place of the selected IDS subtree. Calling the function on that subtree recovers the same choices.

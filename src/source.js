@@ -15,8 +15,7 @@ import { hasShuishu, shuishuSource } from './shuishu.js'
 import { hasJurchen, jurchenSource } from './jurchen.js'
 import { hasPaletteGlyph, paletteSource } from './palette.js'
 import { CUSTOM_FORMS, customFormsSource, hasCustomComponent } from './custom-forms.js'
-import { HOST_OUTLINES, hasEntity, hostSource } from './host.js'
-import { hasPlainVariants, hasVariationSelector, plainVariantSource } from './plain-variants.js'
+import { HOST_OUTLINES, hasEntity, hasIdeographicSelector, hostSource, hostVariantSource } from './host.js'
 import { isEmpty, isNode, parseDescription as parse, splitDescription, tonesOf } from './tree.js'
 
 /**
@@ -46,6 +45,7 @@ export function traitsOf(sequence) {
     palette: [...sequence].some(hasPaletteGlyph),
     custom: hasCustomComponent(sequence),
     entity: hasEntity(sequence),
+    ideographicSelector: hasIdeographicSelector(sequence),
   }
 }
 
@@ -68,8 +68,7 @@ export const traitKey = traits => Object.entries(traits).map(([name, on]) => `${
  */
 export function sourceFor(sequence, { base, fontStyle = 'sans', separate = false, bundled = false, remote = false, loaders = {}, traits = null, exported = null, fetch: get, read } = {}) {
   traits = traits ?? traitsOf(sequence ?? '')
-  const nativeBopomofo = fontStyle === 'fangsong' && traits.bopomofo && (base || exported)
-  const local = !remote && (bundled || traits.empty || (!nativeBopomofo && onlyBundled(sequence, separate, false, fontStyle, Boolean(base || exported))))
+  const local = !remote && (bundled || traits.empty || onlyBundled(sequence, separate, false, fontStyle))
   /** The source of one script or palette, over `fallback`, reading its file by path or URL. A kind
    *  that reads one file asks for it by no name and gets `path`; the Unicode fallback asks for the
    *  shard it needs, so the name a kind passes is the file that is read. A host that lists none of
@@ -80,12 +79,10 @@ export function sourceFor(sequence, { base, fontStyle = 'sans', separate = false
   }
   // A bundled sequence needs no export: a failing one is not asked for at all.
   let source = local ? null : exported ?? exportSource(base, { loaders, fetch: get, read })
-  // A sequence the face's font draws with its plain glyph has no record of its own in the export.
-  if (source && hasPlainVariants(fontStyle) && hasVariationSelector(sequence ?? '')) source = plainVariantSource({ fallback: source, style: fontStyle })
   // Bundled alone, a leaf may be one only the Unicode outlines hold; they load only what is asked for.
   if (local && (traits.loose || bundled)) source = overlay(unicodeSource, source, UNICODE)
   if (traits.tangut) source = overlay(tangutSource, source, 'sources/tangut/outlines.json.gz')
-  if (traits.bopomofo) source = overlay(bopomofoSource, source, 'sources/bopomofo/outlines.json.gz', { style: fontStyle })
+  if (traits.bopomofo) source = overlay(bopomofoSource, source, 'sources/bopomofo/outlines.json.gz')
   if (traits.seal) source = overlay(smallSealSource, source, 'sources/small-seal/outlines.json.gz')
   if (traits.newKorean) source = overlay(newKoreanSource, source, 'sources/new-korean/outlines.json.gz')
   if (traits.shuishu) source = overlay(shuishuSource, source, 'sources/shuishu/outlines.json.gz')
@@ -98,6 +95,9 @@ export function sourceFor(sequence, { base, fontStyle = 'sans', separate = false
   }
   if (traits.custom) source = overlay(customFormsSource, source, CUSTOM_FORMS, { style: fontStyle })
   // A host's own outlines answer for the entity references they hold; without the file, nothing changes.
+  if (traits.ideographicSelector && (!local || !onlyBundled(sequence, separate, false, fontStyle)) && HOST_OUTLINES in loaders) {
+    source = overlay(hostVariantSource, source, HOST_OUTLINES, { style: fontStyle })
+  }
   if (traits.entity && HOST_OUTLINES in loaders) source = overlay(hostSource, source, HOST_OUTLINES)
   return source ?? bundledSource({ load: async () => ({ records: {} }), matches: () => false })
 }
