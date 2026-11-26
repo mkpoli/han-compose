@@ -38,6 +38,14 @@
       "types": "./types/font-mix.d.ts",
       "default": "./src/font-mix.js"
     },
+    "./rate-drawing": {
+      "types": "./types/rate-drawing.d.ts",
+      "default": "./src/rate-drawing.js"
+    },
+    "./rate-forms": {
+      "types": "./types/rate-forms.d.ts",
+      "default": "./src/rate-forms.js"
+    },
     "./compose": {
       "types": "./types/compose.d.ts",
       "default": "./src/compose.js"
@@ -208,5 +216,5 @@
     "clipper-lib": "6.4.2",
     "d3-contour": "4.0.2"
   },
-  "gitHead": "be08cec38c8101ae7717b101d34a9db637d11a58"
+  "gitHead": "a3054d00d8f14d8a26df89c706954afdbe075982"
 }

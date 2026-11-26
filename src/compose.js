@@ -1,4 +1,6 @@
 // @ts-nocheck: a port of han-compose's Python, kept line for line; its types are the arrays it reads.
+import { rateParts } from './rate-drawing.js'
+import { containsRateForm, exactRateForm } from './rate-forms.js'
 import { hookFloor } from './hook-floor.js'
 import { lowerHookSeat, openHookCounters } from './hook-seat.js'
 import { stackedHookPart } from './stacked-hook.js'
@@ -1458,7 +1460,7 @@ export class Composer {
     // Cell scaffolds already have a complete layout; searching every repeated subtree adds no evidence.
     if (this.pyramid(tree) || this.pyramidWithBase(tree)) return false
     const key = keyOf(tree)
-    if (this.bySequence(key) || this.spelled.has(key)) return false
+    if (containsRateForm(key) || this.bySequence(key) || this.spelled.has(key)) return false
     if (isGroupedForm(key, this.fontStyle) || isComponentForm(key, this.fontStyle)) return false
     let leaves = 0, supported = true
     const walk = node => {
@@ -1907,6 +1909,8 @@ export class Composer {
   /** The parts drawing `node` in `region`, with the correction its description carries, where the
    *  component is one the font cuts wrong (`COMPONENT_FIXES`). */
   node(node, region, atRoot = false, sideBySide = false) {
+    const rate = rateParts(keyOf(node), this.fontStyle, region, atRoot)
+    if (rate && !this.excluded(exactRateForm(keyOf(node)).host)) return rate
     return this.constructed(node, region, atRoot) ?? componentFix(keyOf(node), this.drawNode(node, region, atRoot, sideBySide), this, region)
   }
 
