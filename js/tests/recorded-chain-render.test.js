@@ -1,4 +1,5 @@
 import { expect, it } from 'bun:test'
+import { drawingChain } from '../src/chain-corrections.js'
 import catalogue from '../src/recorded-chains.json'
 import { parseChain, solveChain } from '../src/stroke-chain.js'
 import { compose, createSource } from '../src/loader.js'
@@ -57,4 +58,15 @@ it('keeps every stroke of an unencoded chain in its single editable cell', async
   expect(result.cells).toBe(true)
   expect(result.parts).toHaveLength(2)
   expect(result.parts.map(p => p.leaf)).toEqual([0, 0])
+})
+
+it('reads the historical 𢏽(T) and 𤕈(T) components in their attested positions', async () => {
+  for (const [old, modern, evidence] of [
+    ['#(𠄌一𠃑v^)', '#(𠃑-一𠄌)', 'u2ffb-cdp-8bbf-u531a-01-var-002'],
+    ['#(丿丿乀乀^>v,0>3)', '#(-乀-丿乀丿z)', 'small-diamond'],
+  ]) {
+    expect(drawingChain(old)).toBe(modern)
+    const form = await compose(source(), old, { fontStyle: 'fangsong' })
+    expect(form.origins[0]).toContain(evidence)
+  }
 })
