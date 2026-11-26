@@ -122,13 +122,42 @@ export function lowerHookSeat(frame, frameBox, inner, innerBox, seat, region, fl
 const hookCounters = new Map([
   ['日', { count: 2, height: 0.831, sans: 0.693, serif: 0.758, fangsong: 0.658, regular: 0.566, 'pen-writing': 0.637 }],
   ['百', { count: 2, height: 0.858, sans: 0.744, serif: 0.795, regular: 0.691, 'pen-writing': 0.813 }],
+  // 首 in 馗.
+  ['首', { count: 3, height: 0.878, sans: 0.803, serif: 0.843, fangsong: 0.855, regular: 0.843, 'pen-writing': 0.826 }],
+  // 田 in 乪; Jigmo supplies its height where the face lacks 乪.
+  ['田', { divided: true, count: 2, height: 0.810, sans: 0.788, serif: 0.853, regular: 0.580, 'pen-writing': 0.789 }],
+  // 由 in 鼬; Fangsong draws this enclosure in 迪.
+  ['由', { divided: true, count: 2, height: 0.822, sans: 0.809, serif: 0.811, fangsong: 0.802, regular: 0.758, 'pen-writing': 0.793 }],
   ['目', { count: 3, height: 0.857 }],
   ['白', { count: 2, height: 0.852 }],
   ['自', { count: 3, height: 0.804 }],
 ])
 
-// Open the counters from the baseline upwards. The short strokes above
-// the roof of 白, 百 and 自 rise with it at the original placement scale.
+function columnGaps(mask, size, fraction) {
+  const column = Math.floor(size * fraction), gaps = []
+  let start = -1, entered = false
+  for (let row = 0; row < size; row++) {
+    if (mask[(size - 1 - row) * size + column]) {
+      if (start >= 0) gaps.push([start / size, row / size])
+      start = -1
+      entered = true
+    } else if (entered && start < 0) start = row
+  }
+  return gaps
+}
+
+// On each side of the central upright, locate the gap above the same bar.
+// Only their shared vertical span may expand without thickening either half.
+function sharedCounterGaps(mask, size, count) {
+  const left = columnGaps(mask, size, 0.30), right = columnGaps(mask, size, 0.70)
+  if (left.length < count || right.length < count) return []
+  const shared = left.slice(0, count).map(([lo, hi], i) =>
+    [Math.max(lo, right[i][0]), Math.min(hi, right[i][1])])
+  return shared.every(([lo, hi]) => hi > lo) ? shared : []
+}
+
+// Open the counters from the baseline upwards. Strokes above the roof,
+// including the head of 首 and the upright tip of 由, rise with it.
 export function openHookCounters(frame, frameBox, inner, box, seat, region, char, fontStyle) {
   const form = hookCounters.get(char)
   if (!form) return null
@@ -139,17 +168,9 @@ export function openHookCounters(frame, frameBox, inner, box, seat, region, char
   if (growth < 1) return null
 
   const size = 256, mask = silhouette(inner, box, size)
-  const column = Math.floor(size * 0.53), gaps = []
-  let start = -1, entered = false
-  for (let row = 0; row < size; row++) {
-    if (mask[(size - 1 - row) * size + column]) {
-      if (start >= 0) gaps.push([start / size, row / size])
-      start = -1
-      entered = true
-    } else if (entered && start < 0) start = row
-  }
+  const gaps = form.divided ? sharedCounterGaps(mask, size, form.count) : columnGaps(mask, size, 0.53)
   if (gaps.length < form.count) return null
-  // Sloping brush bars can extend above or below the centre sample.
+  // Sloping brush bars can extend above or below the sampled gaps.
   // Use the middle of each white band to leave both edges intact.
   const counters = gaps.slice(0, form.count).map(([lo, hi]) => {
     const inset = (hi - lo) * 0.15

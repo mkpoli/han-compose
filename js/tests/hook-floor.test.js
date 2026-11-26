@@ -9,8 +9,8 @@ import { character, files, shards } from './fixtures/small-export.js'
 // Pen export ce3eaafda8f9: Kureedo Full 0.5.0. Sources and OFL licences in docs/licensing.md.
 import donors from './fixtures/hook-floor.json' with { type: 'json' }
 
-function source(face) {
-  const input = { ...files, ...shards('g', Object.entries(donors[face])) }
+function source(face, extra = {}) {
+  const input = { ...files, ...shards('g', Object.entries({ ...donors[face], ...extra })) }
   return createSource(async k => input[k] === undefined ? null : new Uint8Array(Buffer.from(input[k])).buffer)
 }
 
@@ -204,5 +204,56 @@ it('opens the editable cells for 見自 and 見日 above their original inset ba
     expect(h / frame.box[3]).toBeCloseTo(heightShare, 2)
     const outline = pathMask(frame.d, 256)
     expect(pathMask(inner.d, 256).some((ink, i) => ink && outline[i])).toBe(false)
+  }
+})
+
+it('opens both sides of 田 and 由 and the lower three counters of 首 in composed and editable layouts', async () => {
+  const control = '\uE001'
+  for (const char of ['田', '由', '首']) {
+    const divided = char !== '首'
+    const roof = divided ? 480 : 420
+    const strokes = [[0, 0, 50, roof], [750, 0, 800, roof], [0, 0, 800, 50], [0, roof, 800, roof + 50]]
+    if (divided) {
+      // Different crossbar levels on each side force a fit to respect both white bands.
+      strokes.push([0, 215, 400, 265], [400, 270, 800, 320], [355, 0, 445, char === '由' ? 630 : 530])
+    } else {
+      strokes.push([0, 140, 800, 190], [0, 280, 800, 330], [0, 570, 800, 620],
+        [270, 620, 335, 690], [470, 620, 535, 690])
+    }
+    const record = character(char, strokes)
+    const src = source('pen', { [char]: record, [control]: record })
+    for (const layout of ['composed', 'cells']) {
+      const draw = async ch => (await compose(src, '⿺見' + ch, { fontStyle: 'pen-writing', separate: true, layout })).parts
+      // The control puts the identical outline through the ordinary leaf fit.
+      const [, before] = await draw(control)
+      const [frame, after] = await draw(char)
+      const [x, y, w, h] = after.box
+      expect(x).toBeCloseTo(before.box[0], 1)
+      expect(w).toBeCloseTo(before.box[2], 1)
+      expect(y + h).toBeCloseTo(before.box[1] + before.box[3], 1)
+      expect(h).toBeGreaterThan(before.box[3] + 100)
+
+      const size = 512, outline = pathMask(frame.d, size)
+      const oldMask = pathMask(before.d, size), newMask = pathMask(after.d, size)
+      expect(newMask.some((ink, i) => ink && outline[i])).toBe(false)
+      const section = (mask, fraction) => {
+        const column = Math.floor((x + fraction * w) * size / 1000)
+        return Array.from({ length: size }, (_, row) => mask[row * size + column]).join('')
+      }
+      for (const side of [0.30, 0.70]) {
+        const runs = mask => section(mask, side).replace(/^0+|0+$/g, '').match(/1+|0+/g)
+        const oldRows = runs(oldMask), newRows = runs(newMask)
+        expect(newRows).toHaveLength(divided ? 5 : 9)
+        for (let i = 0; i < oldRows.length; i++) {
+          if (i % 2 && (divided || i > 1)) expect(newRows[i].length).toBeGreaterThan(oldRows[i].length)
+          else expect(Math.abs(newRows[i].length - oldRows[i].length)).toBeLessThanOrEqual(1)
+        }
+      }
+      if (divided) expect(section(newMask, 0.50).match(/1+/g)).toHaveLength(1)
+      if (char === '由') {
+        const tip = mask => section(mask, 0.30).indexOf('1') - section(mask, 0.50).indexOf('1')
+        expect(Math.abs(tip(oldMask) - tip(newMask))).toBeLessThanOrEqual(1)
+      }
+    }
   }
 })
