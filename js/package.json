@@ -34,6 +34,14 @@
       "types": "./types/index.d.ts",
       "default": "./src/index.js"
     },
+    "./rate-drawing": {
+      "types": "./types/rate-drawing.d.ts",
+      "default": "./src/rate-drawing.js"
+    },
+    "./rate-forms": {
+      "types": "./types/rate-forms.d.ts",
+      "default": "./src/rate-forms.js"
+    },
     "./compose": {
       "types": "./types/compose.d.ts",
       "default": "./src/compose.js"

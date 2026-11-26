@@ -10,6 +10,7 @@ import { withoutMarks } from './tree.js'
 import { ASCENT } from './geometry.js'
 import { drawnBox, svgPath } from './geometry.js'
 import { readLayout } from './layout.js'
+import { exactRateForm } from './rate-forms.js'
 import { isComponentForm, isAtomicForm, isGroupedForm } from './component-forms.js'
 import { hexOf } from './sha256.js'
 import { pyramidOnBase, pyramidRows } from './pyramid-rows.js'
@@ -268,7 +269,7 @@ function keysOf(tree, out = [], separate = false, fontStyle = 'sans', root = tru
       return out
     }
   }
-  if (isAtomicForm(keyOf(tree), fontStyle) || (separate ? isGroupedForm : isComponentForm)(keyOf(tree), fontStyle)) return out
+  if (exactRateForm(keyOf(tree)) || isAtomicForm(keyOf(tree), fontStyle) || (separate ? isGroupedForm : isComponentForm)(keyOf(tree), fontStyle)) return out
   if (!keyOf(tree).includes(EMPTY)) out.push(keyOf(tree))
   const designed = leafCutChar(keyOf(tree))
   if (designed) out.push(designed)
@@ -288,7 +289,7 @@ function modifiedOperators(sequence) {
 function extraOperators(tree, { fontStyle, separate, nativeEnclosures }) {
   if (typeof tree === 'string') return []
   const key = keyOf(tree)
-  if (isAtomicForm(key, fontStyle) || (separate ? isGroupedForm : isComponentForm)(key, fontStyle)) return []
+  if (exactRateForm(key) || isAtomicForm(key, fontStyle) || (separate ? isGroupedForm : isComponentForm)(key, fontStyle)) return []
   const op = nativeEnclosures.has(key) ? [] : [tree[0]]
   // A subtraction is approximate only where the composer says so: drawn from a character's own
   // outlines or from what is left of its description, it is not.

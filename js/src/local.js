@@ -1,5 +1,6 @@
 // @ts-check
 import { isNode, parseDescription as parse, splitDescription, tonesOf, withoutMarks, writeDescription as write } from './tree.js'
+import { exactRateForm } from './rate-forms.js'
 import { isComponentForm, isAtomicForm, isGroupedForm } from './component-forms.js'
 import { hasPaletteGlyph } from './palette.js'
 import { hasBundledGlyph } from './bundled-coverage.js'
@@ -25,7 +26,7 @@ export function onlyBundled(sequence, separate = false, unicode = false, fontSty
     if (part === null) return true
     const bare = isNode(part) ? part : /** @type {string} */ (withoutMarks(part))
     const node = typeof bare === 'string' ? grassShape(bare) ?? bare : bare
-    if (isAtomicForm(write(node), fontStyle) || (separate ? isGroupedForm : isComponentForm)(write(node), fontStyle)) { filled = true; return true }
+    if (exactRateForm(write(node)) || isAtomicForm(write(node), fontStyle) || (separate ? isGroupedForm : isComponentForm)(write(node), fontStyle)) { filled = true; return true }
     // What ㇯ leaves of a character is read from the character's description and cuts, which only
     // the export holds: its outlines alone do not draw it.
     if (isNode(node) && node.op === '㇯') return false

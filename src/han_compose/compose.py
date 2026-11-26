@@ -50,6 +50,8 @@ import numpy as np
 from fontTools.pens.recordingPen import DecomposingRecordingPen
 from fontTools.ttLib import TTFont
 
+from .rate_forms import rate_part
+
 from ._raster import fill
 from ._raster import ring as _ring
 from .vocab import BINARY, ROOT, TERNARY, UNARY, read_rows
@@ -3165,6 +3167,10 @@ class Composer:
 
     def _node(self, node: Node, region: Box, at_root: bool = False) -> list[Placed]:
         """`node` drawn into `region`; at the root, the whole character, laid out in the em."""
+        text = key(node)
+        style = getattr(getattr(self.font, "style", None), "name", None)
+        if (part := rate_part(text, style, self.exclude)) is not None:
+            return [Placed(part, part.box, part.box if at_root else region, origin=f"率 {text}", fixed=True)]
         if node == ("⿺", ("⿱", "𡗗", "夂"), "面") and (parts := self._wheat_face(region)):
             return parts
         if isinstance(node, str) and is_jamo_run(node):

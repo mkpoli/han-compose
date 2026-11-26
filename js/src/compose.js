@@ -1,4 +1,6 @@
 // @ts-nocheck: a port of han-compose's Python, kept line for line; its types are the arrays it reads.
+import { rateParts } from './rate-drawing.js'
+import { containsRateForm, exactRateForm } from './rate-forms.js'
 import { grassShape } from './variants.js'
 // A port of han-compose's composer (`compose.py`, `Composer.compose`) over its web export: a sequence
 // drawn from parts other characters' designers drew. The export carries what the composer reads
@@ -1002,7 +1004,7 @@ export class Composer {
     // Cell scaffolds already have a complete layout; searching every repeated subtree adds no evidence.
     if (this.pyramid(tree) || this.pyramidWithBase(tree)) return false
     const key = keyOf(tree)
-    if (this.bySequence(key) || this.spelled.has(key)) return false
+    if (containsRateForm(key) || this.bySequence(key) || this.spelled.has(key)) return false
     if (isGroupedForm(key, this.fontStyle) || isComponentForm(key, this.fontStyle)) return false
     let leaves = 0, supported = true
     const walk = node => {
@@ -1368,6 +1370,11 @@ export class Composer {
   /** The parts drawing `node` in `region`, with the correction its description carries, where the
    *  component is one the font cuts wrong (`COMPONENT_FIXES`). */
   node(node, region, atRoot = false, sideBySide = false) {
+    const key = keyOf(node), choice = exactRateForm(key)
+    if (choice && !this.excluded(choice.host)) {
+      const rate = rateParts(key, this.fontStyle, region, atRoot)
+      if (rate) return rate
+    }
     return this.constructed(node, region, atRoot) ?? componentFix(keyOf(node), this.drawNode(node, region, atRoot, sideBySide), this, region)
   }
 
