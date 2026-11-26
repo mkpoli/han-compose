@@ -8,6 +8,7 @@ const frame = '#(-𠃌㇉)'
 const eye = `⿴${frame}丶`
 const feet = `⿹${eye}灬`
 const bird = `⿱丿${feet}`
+const chicken = `⿰又${bird}`
 
 // The frame and eye appear in Yi Bai's description of 岛. For the four-dot
 // composition, 鸡 supplies the compact right-hand 鸟 as well as its neighbouring 又.
@@ -15,7 +16,7 @@ const bird = `⿱丿${feet}`
 const groups = new Map([
   [frame, ['frame']], [eye, ['frame', 'eye']], [feet, ['frame', 'eye', 'dots']],
   [bird, ['crest', 'frame', 'eye', 'dots']],
-  [`⿰又${bird}`, ['left', 'crest', 'frame', 'eye', 'dots']],
+  [chicken, ['left', 'crest', 'frame', 'eye', 'dots']],
 ])
 const donorsForDots = style => style === 'fangsong' ? '鴨' : '鳮'
 
@@ -35,9 +36,53 @@ function verified(composer, char, spec) {
   return digests.get(record) === spec.digest ? partOf(record) : null
 }
 
+// Bounds in pixels, y upwards, within the marked 106 × 127 photograph of the shop sign.
+// 🌐昭和亡太郎🌐, 俗体字寻觅之旅, 2020-06-16.
+// https://rare.glyphatlas.org/en/entry/2329#sighting-2467
+const signBox = [15, -118, 94, -17]
+const signFrame = [51, -118, 94, -37]
+const signDots = [[34, -109, 44, -93], [47, -105, 59, -89],
+  [57, -100, 68, -86], [68, -95, 80, -81]]
+
+// The hand-painted row begins under 又. All four marks fall right, and their tops rise
+// toward the hook. The native bird’s second mark supplies the first right-falling dot.
+function signDotRow(dots) {
+  const ordered = dots.contours.slice().sort((a, b) => pointsBox(a.light)[0] - pointsBox(b.light)[0])
+  const contours = signDots.map((slot, i) => {
+    const original = ordered[Math.max(i, 1)]
+    const [x0, y0, x1, y1] = pointsBox(original.light)
+    const fit = points => points.map((v, j) => j % 2
+      ? slot[1] + (v - y0) * (slot[3] - slot[1]) / (y1 - y0)
+      : slot[0] + (v - x0) * (slot[2] - slot[0]) / (x1 - x0))
+    return { ...original, light: fit(original.light), heavy: fit(original.heavy) }
+  })
+  return derived(dots, contours)
+}
+
+function signParts(glyph, pieces, dots, dotDonor, region) {
+  const framePart = derived(glyph, pieces.frame), frameBox = framePart.box
+  const crestPart = derived(glyph, pieces.crest), nativeTop = crestPart.box[3]
+  const nativeFrameTop = frameBox[3]
+  // Carry the portion above the head to the sign's higher crest. Points in the shared
+  // crest/frame junction keep the same transform on both sides of the cut.
+  const factor = (signBox[3] - signFrame[3]) / (signFrame[3] - signFrame[1]) *
+    (frameBox[3] - frameBox[1]) / (nativeTop - nativeFrameTop)
+  const extend = points => points.map((v, i) => i % 2 && v > nativeFrameTop
+    ? nativeFrameTop + (v - nativeFrameTop) * factor : v)
+  const crest = derived(glyph, pieces.crest.map(c => ({ ...c, light: extend(c.light), heavy: extend(c.heavy) })))
+  const row = signDotRow(dots)
+  const parts = [derived(glyph, pieces.left), crest, framePart, derived(glyph, pieces.eye), row]
+  const slots = [[15, -98, 49, -38], mapped(crest.box, frameBox, signFrame), signFrame, [54, -62, 70, -46], row.box]
+  return parts.map((part, i) => ({
+    ...placed(part, part.box, mapped(slots[i], signBox, region), partInk(part),
+      `host ${i === 4 ? dotDonor : '鸡'}`), fixed: true,
+  }))
+}
+
 // Index cuts follow the exact contour order of the five font exports. A joined
 // crest is divided at its two junctions so 丿 and the frame can be edited separately.
 export function birdOutlineParts(composer, key, region) {
+  if (key === chicken && [key, '又', '丿', '丶', '灬'].some(ch => composer.excluded(ch))) return null
   const [char, dotDonor] = birdOutlineDonors(key, composer.fontStyle)
   if (!char || [frame, '𠃌', '㇉'].some(stroke => composer.excluded(stroke))) return null
   const specs = cuts[composer.fontStyle], spec = specs[char]
@@ -61,29 +106,17 @@ export function birdOutlineParts(composer, key, region) {
     if (!source) return null
     dots = derived(source, cut.dots.map(i => source.contours[i]))
   }
+  if (key === chicken) return signParts(glyph, pieces, dots, dotDonor, fitted(glyph.box, region, composer.C.STRETCH))
   const parts = order.map(group => group === 'dots' ? dots : derived(glyph, pieces[group]))
   const boxes = parts.map(part => part.box)
   if (dots) {
-    let [left, bottom, right, top] = dots.box
-    // Match the gap in 鳮. Each ordinate marks the underside of the frame
-    // directly above the middle of the dot row in its verified outline.
-    let rise = spec.frameUnderside === undefined ? 0 : spec.frameUnderside - specs[dotDonor].frameUnderside
-    if (char === '鸟') {
-      const bar = pointsBox(glyph.contours[spec.bar].light)
-      left = bar[0]
-      right = bar[2]
-    } else if (composer.fontStyle === 'regular') {
-      left += 7
-      right -= 46
-    } else if (composer.fontStyle === 'fangsong') {
-      // Clear 又 on the left and the rising tip of 鸡's hook below.
-      left += 22
-      right += 6
-      rise = 27
-    }
+    const [, bottom, , top] = dots.box
+    // The standalone bird keeps the footprint of its original horizontal bar.
+    const [left, , right] = pointsBox(glyph.contours[spec.bar].light)
+    const rise = spec.frameUnderside === undefined ? 0 : spec.frameUnderside - specs[dotDonor].frameUnderside
     boxes[boxes.length - 1] = [left, bottom + rise, right, top + rise]
   }
-  const bounds = char === '鸡' ? glyph.box : union(boxes)
+  const bounds = union(boxes)
   const target = fitted(bounds, region, composer.C.STRETCH)
   return parts.map((part, i) => ({
     ...placed(part, part.box, mapped(boxes[i], bounds, target), partInk(part),

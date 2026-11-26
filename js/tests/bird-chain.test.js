@@ -1,5 +1,5 @@
 import { expect, it } from 'bun:test'
-import { pathMask } from '../src/geometry.js'
+import { pathMask, pathRings, pointsBox } from '../src/geometry.js'
 import { Composer } from '../src/compose.js'
 import { compose, createSource, sketch } from '../src/loader.js'
 import nativeDonors from './fixtures/bird-donors.json'
@@ -62,7 +62,7 @@ it('places a nested whole glyph through the ordinary component placement', () =>
   expect(birdChainParts(composer, composer.parse(DAO), region, false)).toEqual(composer.node('岛', region))
 })
 
-it('keeps the five editable bird parts in the native 鸡 silhouette on a cold load', async () => {
+it('keeps the shop sign’s five editable bird parts on a cold load', async () => {
   const native = nativeDonors.glyphs
   const overrides = Object.fromEntries(Object.entries(native).map(([ch, G]) => [ch, { G }]))
   const target = `⿰又⿱丿⿹⿴${CHAIN}丶灬`
@@ -82,11 +82,11 @@ it('keeps the five editable bird parts in the native 鸡 silhouette on a cold lo
   }
 })
 
-it('fits the Sans four-dot row under the frame in both bird widths', async () => {
+it('fits the Sans four-dot row under the standalone frame', async () => {
   const data = source(Object.fromEntries(Object.entries(nativeDonors.glyphs).map(([ch, G]) => [ch, { G }])))
   const foot = `⿹⿴${CHAIN}丶灬`
   const size = 512
-  for (const sequence of [foot, `⿱丿${foot}`, `⿰又⿱丿${foot}`]) {
+  for (const sequence of [foot, `⿱丿${foot}`]) {
     const { parts } = await compose(data, sequence, { separate: true })
     const dots = parts.at(-1)
     const frameInk = pathMask(parts.at(-3).d, size), dotInk = pathMask(dots.d, size)
@@ -105,5 +105,28 @@ it('fits the Sans four-dot row under the frame in both bird widths', async () =>
     // 260-unit dot row. Allow for raster rounding at half an em.
     const expected = 23 / 260 * dots.box[3] * size / 1000
     expect(Math.abs(clearance - expected)).toBeLessThan(2)
+  }
+})
+
+it('places the four right-falling marks on the ascending row of the R+0919 sign', async () => {
+  const data = source(Object.fromEntries(Object.entries(nativeDonors.glyphs).map(([ch, G]) => [ch, { G }])))
+  const sequence = `⿰又⿱丿⿹⿴${CHAIN}丶灬`
+  const { parts } = await compose(data, sequence)
+  const [left, crest, frame, , row] = parts
+  const dots = pathRings(row.d).map(pointsBox)
+  expect(dots).toHaveLength(4)
+  expect(dots[0][2]).toBeLessThan(left.box[0] + left.box[2])
+  expect(frame.box[1] - crest.box[1]).toBeGreaterThan(frame.box[3] / 5)
+  for (let i = 1; i < dots.length; i++) {
+    expect(dots[i][0]).toBeGreaterThan(dots[i - 1][0])
+    expect(dots[i][3]).toBeGreaterThan(dots[i - 1][3])
+  }
+  // In the sign all four dots descend to the right, including the one under 又.
+  for (const ring of pathRings(row.d)) {
+    const [, bottom, , top] = pointsBox(ring)
+    const middle = (top + bottom) / 2
+    const high = [], low = []
+    for (let j = 0; j < ring.length; j += 2) (ring[j + 1] > middle ? high : low).push(ring[j])
+    expect(Math.min(...low) + Math.max(...low)).toBeGreaterThan(Math.min(...high) + Math.max(...high))
   }
 })
