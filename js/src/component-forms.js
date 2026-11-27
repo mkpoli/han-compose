@@ -38,7 +38,7 @@ const styles = Object.fromEntries(Object.entries(data.forms).map(([style, forms]
 for (const [style, groups] of Object.entries(splitGrass)) styles[style].set('⺿', formOf(groups))
 for (const [style, groups] of Object.entries(inwardGrass)) styles[style].set('⻀', formOf(groups))
 // Adobe-Japan1 and Hanyo-Denshi register each of the two dot orientations.
-for (const [style, characters] of Object.entries(dotForms)) {
+for (const [style, characters] of Object.entries(dotForms.dots)) {
   for (const [char, pair] of Object.entries(characters)) {
     pair.forEach((contours, i) => {
       const form = { ...formOf([contours]), atomic: true }
@@ -48,6 +48,7 @@ for (const [style, characters] of Object.entries(dotForms)) {
     })
   }
 }
+styles.fangsong.set('八', { ...formOf([dotForms.fangsongEight]), atomic: true })
 // The manuscript's water, enclosing 木 and net. Both descriptions share the same outlines.
 for (const [style, groups] of Object.entries(muNet)) {
   const form = formOf(groups)
