@@ -4,7 +4,8 @@
 import { describe, expect, it } from 'bun:test'
 import { COMPONENT_FIXES, clippedAbove, componentFix, dotIn, respanned, withoutContours } from 'han-compose/component-fixes'
 import { Composer } from 'han-compose/compose'
-import { drawnContours, makePart, mapped, partOf, placed, pointsBox } from 'han-compose/geometry'
+import { drawnContours, groupRings, makePart, mapped, partOf, placed, pointsBox, union } from 'han-compose/geometry'
+import kuruma from './fixtures/kuruma-to.json' with { type: 'json' }
 import { hexOf } from 'han-compose/sha256'
 
 /** A placed part of rectangular contours: `boxes` in font units, drawn from `source` into `target`. */
@@ -123,25 +124,31 @@ describe('⿱呼乙', () => {
   })
 })
 
-it('lightens the final Regular 車 column of ⿰車ト within its original ink edges', () => {
+it('fits the native left 車 from 軋 and the kana ト into their final Regular ink bounds', () => {
   const car = part('learned 䡎', [0, 0, 160, 300], [40, 60, 200, 360], [[10, 20, 150, 280]])
-  const contour = car.part.contours[0]
-  contour.ops = [['M', 1], ['L', 1], ['L', 1], ['L', 1]]
-  contour.heavy = Float64Array.from([0, 5, 160, 5, 160, 295, 0, 295])
-  const kana = part('glyph ト', [0, 0, 100, 300], [230, 60, 330, 360], [[20, 0, 80, 300]])
-  const pair = [car, kana], face = { fontStyle: 'regular', staticFace: true }
-  const fix = COMPONENT_FIXES['⿰車ト'].apply
-  const [scheduled, right] = fix(pair, face)
-  expect(right).toBe(kana)
-  const nested = { ...scheduled, target: [10, 20, 90, 170], weight: [0.7, 0.75] }
-  const result = { ...nested, ...scheduled.finishOutline(nested) }
-  expect(result.weight[0]).toBeCloseTo(0.42)
-  expect(result.weight[1]).toBeCloseTo(0.45)
-  const before = pointsBox(drawnContours(nested)[0]), after = pointsBox(drawnContours(result)[0])
-  for (const [i, edge] of before.entries()) expect(after[i]).toBeCloseTo(edge)
-  expect(scheduled.finishOutline({ ...nested, weight: [0, -0.2] })).toEqual({})
-  expect(fix(pair, { ...face, partial: true })).toBe(pair)
-  expect(fix(pair, { ...face, fontStyle: 'pen-writing' })).toBe(pair)
+  car.part.contours[0].ops = [['M', 1], ['L', 1], ['L', 1], ['L', 1]]
+  const glyph = partOf(kuruma.ト)
+  const kana = placed(glyph, glyph.box, [230, 60, 330, 360], 0, 'glyph ト')
+  const pair = [car, kana], face = {
+    fontStyle: 'regular', staticFace: true, excluded: () => false, glyphRecord: ch => kuruma[ch],
+  }
+  const fixed = componentFix('⿰車ト', pair, face)
+  const box = p => union(groupRings([p], 24).map(pointsBox))
+  const [left, right] = fixed.map((p, i) => {
+    const nested = { ...p, target: [10 + 120 * i, 20, 90 + 120 * i, 170], flips: [{ x: true, about: [100, 0] }] }
+    const result = { ...nested, ...p.finishOutline(nested) }
+    for (const [axis, edge] of box(nested).entries()) expect(box(result)[axis]).toBeCloseTo(edge)
+    expect(p.finishOutline({ ...nested, fixed: true })).toEqual({})
+    return result
+  })
+  expect(left.origin).toBe('車 from 軋')
+  expect(left.part.contours).toEqual(partOf(kuruma.軋).contours.slice(0, 5))
+  expect(right.part).toBe(glyph)
+  expect(right.weight).toEqual([-0.8, -0.6])
+  for (const override of [{ partial: true }, { fontStyle: 'pen-writing' }, { excluded: ch => ch === '軋' },
+    { glyphRecord: ch => ch === '軋' ? null : kuruma[ch] }]) {
+    expect(componentFix('⿰車ト', pair, { ...face, ...override })).toBe(pair)
+  }
 })
 
 describe('⿱一心', () => {
