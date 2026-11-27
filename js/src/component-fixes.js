@@ -68,20 +68,31 @@ function barsOf(part) {
     .sort((a, b) => a.box[1] - b.box[1])
 }
 
-/** The lowest ink on the vertical line through `xTarget`: under a roof's legs, its bar's underside. */
-function inkBottomAt(part, xTarget) {
-  const [sx, sy] = scaleOf(part), x = part.source[0] + (xTarget - part.target[0]) / sx
-  let low = Infinity
-  for (const contour of part.part.contours) {
-    const light = contour.light, n = light.length / 2
-    for (let i = 0; i < n; i++) {
-      const j = (i + 1) % n, x1 = light[i * 2], y1 = light[i * 2 + 1], x2 = light[j * 2], y2 = light[j * 2 + 1]
-      if (x1 === x2 || (x1 - x) * (x2 - x) > 0) continue
-      const y = y1 + (y2 - y1) * (x - x1) / (x2 - x1)
-      if (y < low) low = y
+/** Fit 工 into a shallow row by shortening its stem between the two brush strokes. */
+function shortenGong(placedGong, gong, mouthWidth) {
+  const { target } = placedGong
+  const box = gong.box, fullHeight = heightOf(box)
+  const sx = widthOf(target) / widthOf(box)
+  const sy = Math.min(sx, mouthWidth / gong.contours[0].width[1])
+  const height = Math.min(fullHeight, heightOf(target) / sy)
+  if (!(height > 0 && height < fullHeight)) return { ...placedGong, part: gong, source: box, target }
+  // Each crossbar, including its brush tip, occupies the outer 18% of the native outline.
+  const end = Math.min(fullHeight * 0.18, height * 0.45)
+  // The lower bar rises about 1 in 20. Scale its thickness about that incline.
+  const shear = 0.05 * (sx / sy - 1)
+  const cx = centreX(box)
+  const contours = gong.contours.map(contour => {
+    const light = contour.light.slice(), heavy = contour.heavy.slice()
+    for (let i = 1; i < light.length; i += 2) {
+      const alongStem = (light[i] - box[1] - end) / (fullHeight - 2 * end)
+      const shift = (fullHeight - height) * Math.max(0, Math.min(1, alongStem))
+      light[i] += shear * (light[i - 1] - cx) - shift
+      heavy[i] += shear * (heavy[i - 1] - cx) - shift
     }
-  }
-  return low === Infinity ? boxOf(part)[1] : part.target[1] + (low - part.source[1]) * sy
+    return { ...contour, light, heavy }
+  })
+  const source = [box[0], box[1], box[2], box[1] + height]
+  return { ...placedGong, part: { ...gong, contours, box: source }, source, target }
 }
 
 /** The lowest edge of a part's wide ink: its lowest bar, under any thin stroke that runs past it. */
@@ -580,35 +591,37 @@ export const COMPONENT_FIXES = {
     },
   },
   '⿳吅工吅': {
-    glyphs: {},
+    glyphs: { '工': '681e3af08c44f984ad14700a49907b9839eb996d42adde52e2e86b6ea4a35277' },
     apply(parts, composer) {
       if (composer.fontStyle !== 'fangsong') return parts
       const middle = parts.findIndex(p => p.origin === 'glyph 工')
       const below = parts.length - middle - 1
       if (middle < 1 || middle > 2 || below < 1 || below > 2) return parts
-      const frame = union(parts.map(part => part.target))
+      if (parts.every(p => p.fixed)) return parts
+      const gong = composer.glyph('工')
+      if (!(gong.contours[0]?.width?.[1] > 0) || parts.some(p => !p.part?.contours?.length)) return parts
+      const frame = union(parts.map(p => p.target))
       // Each 吅 can be one host cut or two separately drawn mouths.
       const rows = [parts.slice(0, middle), [parts[middle]], parts.slice(middle + 1)]
-      const bands = [[0.10, 0.67, 0.90, 1], [0, 0.39, 1, 0.62], [0.10, 0, 0.90, 0.33]]
-      return rows.flatMap((row, index) => {
-        const bounds = union(row.map(p => p.target))
+      const bands = [[0.10, 0.67, 0.90, 1], [0, 0.37, 1, 0.64], [0.10, 0, 0.90, 0.33]]
+      const fitted = rows.flatMap((row, index) => {
         const band = mapped(bands[index], [0, 0, 1, 1], frame)
-        return row.map(p => {
-          const out = { ...p, target: mapped(p.target, bounds, band) }
-          if (index !== 1) return out
-          // The shallow band flattens both bars of 工. Restore the rise of the adjacent mouth bars.
-          const x1 = band[0] + 0.25 * widthOf(band), x2 = band[0] + 0.7 * widthOf(band)
-          const slope = (inkBottomAt(out, x2) - inkBottomAt(out, x1)) / (x2 - x1)
-          const [sx, sy] = scaleOf(out), rise = (0.08 - slope) * sx / sy
-          if (!Number.isFinite(rise)) return out
-          const centre = centreX(p.source)
-          const incline = points => points.map((v, i) => i % 2 ? v + (points[i - 1] - centre) * rise : v)
-          out.part = derived(p.part, p.part.contours.map(c => ({
-            ...c, light: incline(c.light), heavy: incline(c.heavy ?? c.light),
-          })))
-          return out
-        })
+        const bounds = union(row.map(p => p.target))
+        return row.map(p => ({ ...p, target: mapped(p.target, bounds, band) }))
       })
+      // Use the heaviest mouth horizontal as the weight of the two long bars.
+      const mouths = fitted.filter((_, i) => i !== middle)
+      const widths = mouths.map(p => (p.part.contours[0]?.width?.[1] ?? gong.contours[0].width[1]) * scaleOf(p)[1])
+      fitted[middle] = shortenGong(fitted[middle], gong, Math.max(...widths))
+      const original = parts.map(p => ({ ...p }))
+      // Balance the two layouts before measuring their visible extents.
+      for (const group of [original, fitted]) {
+        if (!composer.partial && composer.weighted) composer.balance(group)
+        else if (!composer.partial && composer.staticFace) composer.staticBalance(group)
+      }
+      const ink = group => union(groupRings(group, 24).map(pointsBox))
+      const before = ink(original), after = ink(fitted)
+      return fitted.map(p => ({ ...p, fixed: true, target: mapped(p.target, after, before) }))
     },
   },
   // As in 堇's lower body, 口 crosses the stem above both of 土's horizontal bars.

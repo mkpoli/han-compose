@@ -4,8 +4,9 @@
 import { describe, expect, it } from 'bun:test'
 import { COMPONENT_FIXES, clippedAbove, componentFix, dotIn, respanned, withoutContours } from 'han-compose/component-fixes'
 import { Composer } from 'han-compose/compose'
-import { drawnContours, groupRings, makePart, mapped, partOf, placed, pointsBox, union } from 'han-compose/geometry'
+import { drawnContours, fill, groupRings, makePart, mapped, partOf, placed, pointsBox, union } from 'han-compose/geometry'
 import zhou from './fixtures/zhou-miao.json' with { type: 'json' }
+import gongRecord from './fixtures/fangsong-gong.json' with { type: 'json' }
 import kuruma from './fixtures/kuruma-to.json' with { type: 'json' }
 import { hexOf } from 'han-compose/sha256'
 
@@ -64,21 +65,44 @@ describe('a composition fix', () => {
   })
 })
 
-it('aligns the FangSong 工 in ⿳吅工吅 when 吅 is a host cut or two separate mouths', () => {
-  const source = [0, 0, 100, 100]
-  const gong = part('glyph 工', source, [0, 40, 100, 60], [[0, 0, 100, 6], [45, 6, 55, 94], [15, 94, 85, 100]])
-  const row = (y, split) => (split ? [[0, 45], [55, 100]] : [[0, 100]])
-    .map(([left, right]) => part('mouth', source, [left, y, right, y + 35], [source]))
+describe('FangSong ⿳吅工吅', () => {
+  const gong = partOf(gongRecord)
+  const composer = { fontStyle: 'fangsong', glyphRecord: () => gongRecord, glyph: () => gong }
+  const ink = group => union(groupRings(group, 24).map(pointsBox))
   for (const split of [false, true]) {
-    const top = row(65, split), bottom = row(0, split)
-    const composer = { fontStyle: 'fangsong' }
-    const parts = componentFix('⿳吅工吅', [...top, gong, ...bottom], composer)
-    // An encoded glyph can expand to the same IDS, visiting the fix twice.
-    for (const drawing of [parts, componentFix('⿳吅工吅', parts, composer)]) {
-      const fixed = drawing[top.length], [x0, y0, x1, y1] = fixed.target
-      const [ax, ay, bx, by] = fixed.part.contours[0].light
-      expect(((by - ay) * (y1 - y0)) / ((bx - ax) * (x1 - x0))).toBeCloseTo(0.08, 6)
-    }
+    it(`fits the two bars to the stroke weight of ${split ? 'separate mouths' : 'paired mouth cuts'}`, () => {
+      const row = y => (split ? [[0, 450], [550, 1000]] : [[0, 1000]]).map(([left, right]) => {
+        const source = [0, 0, right - left, 330]
+        const mouth = part('mouth', source, [left, y, right, y + 330], [source])
+        Object.assign(mouth.part.contours[0], {
+          ops: [['M', 1], ['L', 1], ['L', 1], ['L', 1]], width: [50, split ? 30 : 50],
+        })
+        return mouth
+      })
+      const upper = row(670), lower = row(0)
+      const input = [...upper, placed(gong, gong.box, [0, 410, 1000, 590], 0, 'glyph 工'), ...lower]
+      const result = componentFix('⿳吅工吅', input, composer)
+      const bar = result[upper.length], mask = fill(groupRings([bar], 24), 1000, [0, 0, 1000, 1000])
+      // Sample each stroke through its body, away from the terminals and centre stem.
+      const edges = x => Array.from({ length: 999 }, (_, i) => i + 1)
+        .filter(y => mask[y * 1000 + x] !== mask[(y - 1) * 1000 + x])
+      const left = edges(300), right = edges(700)
+      expect(left).toHaveLength(4)
+      expect(right).toHaveLength(4)
+      for (const i of [0, 2]) {
+        const thickness = left[i + 1] - left[i]
+        const rise = ((left[i] + left[i + 1]) - (right[i] + right[i + 1])) / 800
+        expect(rise).toBeGreaterThan(0.025)
+        expect(rise).toBeLessThan(0.077)
+        expect(thickness).toBeGreaterThan(split ? 22 : 38)
+        expect(thickness).toBeLessThan(split ? 34 : 56)
+      }
+      expect(ink([bar])[3]).toBeLessThan(ink(result.slice(0, upper.length))[1])
+      expect(ink([bar])[1]).toBeGreaterThan(ink(result.slice(upper.length + 1))[3])
+      ink(result).forEach((edge, i) => expect(edge).toBeCloseTo(ink(input)[i], 5))
+      expect(componentFix('⿳吅工吅', result, composer)).toEqual(result)
+      expect(bar.part.strokes).toEqual(gong.strokes)
+    })
   }
 })
 
