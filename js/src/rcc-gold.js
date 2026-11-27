@@ -15,7 +15,7 @@ const spellings = new Map([[sequence, [sequence, right, lower, crossed]],
 // Each group belongs to one editable IDS operand. In brush faces 兎 joins the walls,
 // falling stroke and hook. The triples follow the Bézier commands between their junctions.
 // The two inner edges of the native windows supply the sides of the crossing stroke.
-/** @type {Record<string,{ roofDonor: string, hashes: string[], gold: number[], cover: number[], dots: (number | number[])[], leftScale?: number, dotInset: number, rightTip: number, join: number[], lower: (number | number[][])[][], frame: number[] }>} */
+/** @type {Record<string,{ roofDonor: string, hashes: string[], gold: number[], cover: number[], dots: (number | number[])[], dotScale?: number[], dotWeight?: number[], leftRaise?: number, rightDrop?: number, dotInset: number, rightTip: number, join: number[], lower: (number | number[][])[][], frame: number[] }>} */
 const faces = {
   'sans': {
     roofDonor: '䤟',
@@ -25,7 +25,7 @@ const faces = {
       'a27e274012b4ebfa64512fbd66766ac8db59c637af78596306e30d0ff87c8ce3',
     ],
     gold: [5,6,7,8,9,10,12,13], cover: [0], dots: [0, 1],
-    leftScale: .52, dotInset: 32, rightTip: 797,
+    dotScale: [.52, .76], dotWeight: [.94, .36], leftRaise: 18, rightDrop: 16, dotInset: 14, rightTip: 756,
     join: [490, 590, 1],
     lower: [
       [0],
@@ -42,7 +42,7 @@ const faces = {
       '7429d1c52a5eb6f45d38f2ebdf7fe36e5dc9c300d8727d1f35879318b59c14b5',
     ],
     gold: [6,7,8,9,10,11,12,13], cover: [8, 9, 10], dots: [2, 3],
-    dotInset: 27, rightTip: 725,
+    dotScale: [.56, .71], dotWeight: [.58, .42], leftRaise: 18, dotInset: 30, rightTip: 724,
     join: [488, 600, 8],
     lower: [
       [6],
@@ -136,14 +136,15 @@ export function goldParts(composer, key, region) {
   const rooms = base.map(g => mapped(g.box, box, baseRoom))
   rooms[2][3] += 9 // Extend the start of the hook into the bottom rail.
   // In 鋭 the dabs sit directly above 口. Keep both native angles; rightTip is
-  // the native 鋭 x-coordinate aligned to jx. In FangSong and Pen the right dab
-  // joins 口, so take its section between the two junctions.
+  // the native 鋭 x-coordinate aligned to jx. In Sans and Serif blend toward the
+  // heavy master before scaling so the shrunk strokes keep the face’s weight.
+  // In FangSong and Pen the right dab joins 口, so take its section between junctions.
   const left = rooms[1][0] + leftInset
   const dabs = derived(sharp, face.dots.map((index, i) => {
-    const contour = typeof index === 'number' ? sharp.contours[index] : contourSections(sharp.contours, index)
-    const dot = derived(sharp, [contour])
-    const scale = i ? .76 : face.leftScale ?? .61
-    const ax = i ? jx : jx - face.dotInset, ay = i ? jy - 12 : jy + 24
+    const raw = typeof index === 'number' ? sharp.contours[index] : contourSections(sharp.contours, index)
+    const dot = derived(sharp, [weighted(raw, face.dotWeight?.[i] ?? 0)])
+    const scale = face.dotScale?.[i] ?? (i ? .76 : .61)
+    const ax = i ? jx : jx - face.dotInset, ay = i ? jy - (face.rightDrop ?? 12) : jy + (face.leftRaise ?? 24)
     const tip = i ? face.rightTip : dot.box[2]
     return bend(dot, (a, b) => [ax + (a - tip) * scale, ay + (b - dot.box[1]) * scale]).contours[0]
   }))
@@ -173,4 +174,12 @@ function bend(glyph, move) {
     return out
   }
   return derived(glyph, glyph.contours.map((/** @type {any} */ c) => ({ ...c, light: remap(c.light), heavy: remap(c.heavy) })))
+}
+
+/** @param {any} contour @param {number} weight */
+function weighted(contour, weight) {
+  if (!weight) return contour
+  const out = new Float64Array(contour.light.length)
+  for (let i = 0; i < out.length; i++) out[i] = contour.light[i] + (contour.heavy[i] - contour.light[i]) * weight
+  return { ...contour, light: out, heavy: out }
 }

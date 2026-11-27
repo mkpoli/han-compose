@@ -10,6 +10,7 @@ const dotContours = {
   sans: [0, 1], serif: [2, 3], regular: [4, 3],
   fangsong: [4, [0, 18, 31]], 'pen-writing': [2, [1, 16, 21]],
 }
+const dotWeights = { sans: [.94, .36], serif: [.58, .42] }
 const aspect = ([left, bottom, right, top]) => (top - bottom) / (right - left)
 const touches = (a, b) => a.some((ink, i) => ink && b[i])
 
@@ -31,13 +32,18 @@ for (const [fontStyle, glyphs] of Object.entries(records)) {
       const sharp = partOf(glyphs['鋭'].G), drawn = pathRings(parts[2].d, 24).map(pointsBox)
       for (const [i, k] of dotContours[fontStyle].entries()) {
         const contour = Array.isArray(k) ? contourSections(sharp.contours, k) : sharp.contours[k]
-        const native = pointsBox(rings([contour], [contour.light], 24)[0])
+        const w = dotWeights[fontStyle]?.[i] ?? 0
+        const pts = w ? contour.light.map((v, j) => v + (contour.heavy[j] - v) * w) : contour.light
+        const native = pointsBox(rings([contour], [pts], 24)[0])
         expect(Math.abs(aspect(drawn[i]) / aspect(native) - 1)).toBeLessThan(.05)
       }
       expect(drawn[1][1]).toBeLessThan(drawn[0][1]) // Right dab rises higher than left dab (SVG y down).
       expect(parts[2].box[0]).toBeGreaterThan(parts[1].box[0])
       expect(parts[2].box[0] + parts[2].box[2]).toBeLessThan(parts[1].box[0] + parts[1].box[2])
       expect(touches(dots, gold)).toBe(false)
+      if (fontStyle === 'sans' || fontStyle === 'serif') {
+        expect(drawn[1][0] - drawn[0][2]).toBeGreaterThan(4)
+      }
       const donor = fontStyle === 'fangsong' ? '暝' : '䤟'
       const indices = fontStyle === 'serif' ? [8, 9, 10] : fontStyle === 'fangsong' ? [7] : [0]
       const [l, b, r, t] = cutContours(partOf(glyphs[donor].G), indices).box
