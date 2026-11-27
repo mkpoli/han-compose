@@ -123,6 +123,27 @@ describe('⿱呼乙', () => {
   })
 })
 
+it('lightens the final Regular 車 column of ⿰車ト within its original ink edges', () => {
+  const car = part('learned 䡎', [0, 0, 160, 300], [40, 60, 200, 360], [[10, 20, 150, 280]])
+  const contour = car.part.contours[0]
+  contour.ops = [['M', 1], ['L', 1], ['L', 1], ['L', 1]]
+  contour.heavy = Float64Array.from([0, 5, 160, 5, 160, 295, 0, 295])
+  const kana = part('glyph ト', [0, 0, 100, 300], [230, 60, 330, 360], [[20, 0, 80, 300]])
+  const pair = [car, kana], face = { fontStyle: 'regular', staticFace: true }
+  const fix = COMPONENT_FIXES['⿰車ト'].apply
+  const [scheduled, right] = fix(pair, face)
+  expect(right).toBe(kana)
+  const nested = { ...scheduled, target: [10, 20, 90, 170], weight: [0.7, 0.75] }
+  const result = { ...nested, ...scheduled.finishOutline(nested) }
+  expect(result.weight[0]).toBeCloseTo(0.42)
+  expect(result.weight[1]).toBeCloseTo(0.45)
+  const before = pointsBox(drawnContours(nested)[0]), after = pointsBox(drawnContours(result)[0])
+  for (const [i, edge] of before.entries()) expect(after[i]).toBeCloseTo(edge)
+  expect(scheduled.finishOutline({ ...nested, weight: [0, -0.2] })).toEqual({})
+  expect(fix(pair, { ...face, partial: true })).toBe(pair)
+  expect(fix(pair, { ...face, fontStyle: 'pen-writing' })).toBe(pair)
+})
+
 describe('⿱一心', () => {
   it('lowers Regular Kai’s 一 within its band at its own bar height', () => {
     const top = part('host 亍', [0, 0, 1000, 1000], [100, 544, 900, 880], [[100, 544, 900, 880]])

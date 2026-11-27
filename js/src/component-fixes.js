@@ -472,6 +472,24 @@ export const COMPONENT_FIXES = {
   // 𠷃 (BabelStone: ⿰口⿳穴𠆢又) has a broad, shallow 又. Its component's
   // proportions also occur in 𥔉. Keep both inner parts within 穴's outer span.
 
+  '⿰車ト': {
+    glyphs: { ト: 'ab453d8c58c4b817de9f562aaec9f1a600d347b59257584f93ff451e3d087c93' },
+    apply(parts, composer) {
+      if (composer.fontStyle !== 'regular' || !composer.staticFace || composer.partial || parts.length !== 2) return parts
+      const [car, kana] = parts
+      if (car.fixed || car.origin !== 'learned 䡎' || kana.origin !== 'glyph ト') return parts
+      const finishOutline = part => {
+        if (part.fixed || !part.weight.some(w => w > 0)) return {}
+        // Three fifths of the synthetic lift matches the median ink run of ト.
+        // Refit the lighter cut to its final ink edges so the column keeps its size.
+        const weight = part.weight.map(w => w > 0 ? w * 0.6 : w)
+        const fitted = { ...part, weight }
+        const ink = p => union(groupRings([p], 24).map(pointsBox))
+        return { weight, target: mapped(part.target, ink(fitted), ink(part)) }
+      }
+      return [{ ...car, finishOutline }, kana]
+    },
+  },
   '⿰生意': {
     glyphs: {},
     apply(parts, composer) {
