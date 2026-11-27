@@ -10,6 +10,7 @@ export declare function traitsOf(sequence: any): {
     palette: boolean;
     custom: boolean;
     entity: boolean;
+    variation: boolean;
 };
 /** A cache key for the traits a source depends on. @param {ReturnType<typeof traitsOf>} traits */
 export declare const traitKey: (traits: ReturnType<typeof traitsOf>) => string;
