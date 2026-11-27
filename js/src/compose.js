@@ -48,7 +48,7 @@ import { toConjoiningJamo } from './hangul.js'
 import { componentFix } from './component-fixes.js'
 import { isOutbound, markFace, markParts } from './marks.js'
 import { youChainDonors, youChainParts } from './you-chain.js'
-import { chainHost, hostChainParts } from './host-chain.js'
+import { chainHost, hostChainParts, fitNestedHostChains } from './host-chain.js'
 import { birdChainParts } from './bird-chain.js'
 import { birdOutlineDonors, birdOutlineParts } from './bird-outline.js'
 import { fitRecordedInk } from './chain-ink.js'
@@ -1355,6 +1355,18 @@ export class Composer {
     }
     return this.chains.get(node)
   }
+  /** A registered native cut takes precedence over the bundled form at every placement. */
+  declaredParts(key, region, atRoot = false, allowBundled = true) {
+    if (!isComponentForm(key, this.fontStyle)) return null
+    if (isChain(key)) {
+      const canonical = drawingChain(key)
+      if (this.excluded(key) || this.excluded(canonical) ||
+          (this.exclude.size && parseChain(canonical)?.strokes.some(stroke => this.excluded(stroke.char)))) return null
+      const own = hostChainParts(this, canonical, region, atRoot, key)
+      if (own) return own
+    }
+    return allowBundled ? componentParts(key, region, this.fontStyle, atRoot) : null
+  }
   chainParts(node, region, atRoot = false) {
     if (!isChain(node) || this.excluded(node)) return null
     const key = drawingChain(node)
@@ -1392,7 +1404,14 @@ export class Composer {
       const w = region[2] - region[0], h = region[3] - region[1]
       room = [region[0] + x0 * w, region[1] + y0 * h, region[0] + x1 * w, region[1] + y1 * h]
     }
-    return { form: held.form, taken: cell ? [...held.taken, cell] : held.taken, parts: [...held.parts, ...this.node(inner, room)] }
+    const inside = this.node(inner, room)
+    if (this.separate && form && typeof inner === 'string' && !isEmpty(inner) && !this.expanding.size) {
+      // Each written operand owns all its pieces, including a character rebuilt from its IDS.
+      const group = { key: keyOf(node) }
+      for (const part of held.parts) Object.assign(part, { rccGroup: group, rccLeaf: 0 })
+      for (const part of inside) Object.assign(part, { rccGroup: group, rccLeaf: 1 })
+    }
+    return { form: held.form, taken: cell ? [...held.taken, cell] : held.taken, parts: [...held.parts, ...inside] }
   }
 
   /** The parts drawing `sequence`, weighted, and the loose `marks` its text carries after it. */
@@ -1451,6 +1470,7 @@ export class Composer {
         })
       }
       if (this.separate) numberRccLeaves(tree, out, keyOf, leafTexts)
+      fitNestedHostChains(out)
       if (!this.partial && this.weighted) {
         this.balance(out)
         this.settleSweeps()
@@ -1729,6 +1749,8 @@ export class Composer {
       throw new LookupError(`${op} is not laid out.`)
     }
     walk(numbered, [0, 0, 1, 1], 0)
+    // Internal cell groups use leafIndices: false. Their outer layout fits the final slot.
+    if (leafIndices) fitNestedHostChains(out)
     if (!this.partial && this.weighted) this.balance(out)
     else if (!this.partial && this.staticFace) this.staticBalance(out)
     this.fitMetricKeInterior(out, tree)
@@ -2477,14 +2499,8 @@ export class Composer {
       const variant = ivdParts(ivd, key, ivdRecord, this.fontStyle, region, atRoot)
       if (variant) return variant
     }
-    // A bundled Plangothic cut remains available when the current face lacks
-    // the exact attested native outline. Check that outline before the fallback.
-    if (isChain(node) && !this.excluded(node) && isComponentForm(key, this.fontStyle)) {
-      const own = hostChainParts(this, drawingChain(node), region, atRoot, node)
-      if (own) return own
-    }
-    const repeated = (!nativeSource || !this.excluded(nativeSource)) && (!this.separate || isGroupedForm(key, this.fontStyle)) && !ivdRecord
-      ? componentParts(key, region, this.fontStyle, atRoot) : null
+    const allowBundled = (!nativeSource || !this.excluded(nativeSource)) && (!this.separate || isGroupedForm(key, this.fontStyle)) && !ivdRecord
+    const repeated = this.declaredParts(key, region, atRoot, allowBundled)
     if (repeated) return repeated
     const hasRepetition = containsComponentForm(key, this.fontStyle)
     const C = this.C
@@ -2616,7 +2632,7 @@ export class Composer {
     // what it holds, so the part fills the room the form's own ink leaves, as a surround construct's does.
     const cutFrame = this.separate || !(op in this.ENCLOSE) || typeof children[0] !== 'string' ? null
       : isComponentForm(children[0], this.fontStyle) && !this.data.rec(children[0])?.G
-        ? componentParts(children[0], region, this.fontStyle, false) : null
+        ? this.declaredParts(children[0], region) : null
     if (cutFrame) {
       const [x0, y0, x1, y1] = this.INSIDE[op]
       const w = region[2] - region[0], h = region[3] - region[1]
@@ -3927,7 +3943,7 @@ export class Composer {
       }
       // A component with a form of its own is drawn from it wherever it stands, before any host cut.
       const declared = typeof child === 'string'
-        ? componentParts(child, box, this.fontStyle, false)
+        ? this.declaredParts(child, box)
         : null
       if (declared) { groups.push(declared); continue }
       if (typeof child === 'string' && child !== '艹' && this.forced(child)) { groups.push(this.node(child, box)); continue }
@@ -4416,7 +4432,7 @@ export class Composer {
       // ⿲彳⿱山一攵), leaving the rest empty for the column beside it to fill.
       const top = op === '⿲' && axis === 0 ? this.shortStackBox(child, box) : null
       const target = top ?? box
-      const declared = typeof child === 'string' ? componentParts(child, target, this.fontStyle, false) : null
+      const declared = typeof child === 'string' ? this.declaredParts(child, target) : null
       if (declared) { groups.push(declared); return }
       const part = contextualFive ? null : this.host(op, i, child, [...children.slice(0, i), ...children.slice(i + 1)], target)
       // A cut of 丑 carries the font's bar out past its right vertical, as its own glyph does; and a

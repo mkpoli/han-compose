@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 import { hostChainParts } from '../src/host-chain.js'
-import { partOf, pathMask, pointsBox, svgPath } from '../src/geometry.js'
+import { fill, partOf, pathMask, pathRings, pointsBox, rings, svgPath, union } from '../src/geometry.js'
 import { compose, createSource } from '../src/loader.js'
 import { files, shards } from './fixtures/small-export.js'
 // Format-7 Noto Sans CJK and Zhuque FangSong outlines from the primary exports.
@@ -59,5 +59,28 @@ test('keeps the FangSong stems at native weight when standalone components fill 
       expect(band.length).toBeGreaterThanOrEqual(27)
       expect(band.length).toBeLessThanOrEqual(31)
     }
+  }
+})
+
+test('preserves the foot and stem proportions of 乐 in nested slots', async () => {
+  const key = '#(丿𠃊)', input = { ...files, ...shards('g', [['乐', { G: records.sans.乐 }]]) }
+  // Compare placement at the same master in the donor and both layouts.
+  input['manifest.json'] = JSON.stringify({ ...JSON.parse(input['manifest.json']), heavy: 400 })
+  const source = createSource(async name => input[name] ? Uint8Array.from(Buffer.from(input[name])).buffer : null)
+  const ratio = contours => {
+    const box = union(contours.map(pointsBox)), size = 300
+    const mask = fill(contours, size, box)
+    const start = size * (size / 2)
+    const stem = mask.subarray(start, start + size).reduce((n, ink) => n + ink, 0) * (box[2] - box[0]) / size
+    const foot = pointsBox(contours.at(-1))
+    return (foot[3] - foot[1]) / stem
+  }
+  const host = partOf(records.sans.乐), native = [1, 4, 5].map(i => host.contours[i])
+  const expected = ratio(rings(native, native.map(c => c.light)))
+  for (const layout of ['auto', 'cells']) for (const ids of ['⿰' + key + '木', '⿲木' + key + '木']) {
+    const { parts } = await compose(source, ids, { layout })
+    const frame = parts.find(p => p.origin.includes('cut from 乐'))
+    expect(frame).toBeDefined()
+    expect(Math.abs(ratio(pathRings(frame.d)) / expected - 1)).toBeLessThan(0.08)
   }
 })

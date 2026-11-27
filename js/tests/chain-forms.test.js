@@ -2,7 +2,8 @@ import { expect, it } from 'bun:test'
 import data from '../src/component-forms.json'
 import { componentDrawing, isComponentForm } from '../src/component-forms.js'
 import { compose, createSource } from '../src/loader.js'
-import { files } from './fixtures/small-export.js'
+import { character, files, records, shards } from './fixtures/small-export.js'
+import donors from './fixtures/chain-component-donors.json' with { type: 'json' }
 
 // The frame of 马 as zi.tools writes it, cut from 马 in each Noto face.
 const CHAIN = '#(-𠃍㇉)'
@@ -33,5 +34,26 @@ it('fits an enclosed part into the room a cut form leaves', async () => {
     expect(ix + iw).toBeLessThan(fx + fw)
     expect(iy).toBeGreaterThan(fy)
     expect(iy + ih).toBeLessThan(fy + fh / 2)
+  }
+})
+
+it('keeps the frame and the enclosed character selectable when either leaf draws several parts', async () => {
+  const enclosed = '⿵#(-丿𠃌)𠮷'
+  for (const fontStyle of ['sans', 'fangsong']) {
+    const brush = fontStyle === 'fangsong'
+    const data = { ...files, ...shards('g', [
+      ['丿', character('丿', [[95, 0, 245, 760]])], ['𠃌', character('𠃌', [[240, 670, 820, 750], [760, 0, 820, 750]])],
+      ['周', { G: donors.fangsong.周 }], ['土', records.三], ['𠮷', brush ? { s: '⿱土口' } : records.口],
+    ]) }
+    const source = createSource(async name => data[name] === undefined ? null : new Uint8Array(Buffer.from(data[name])).buffer)
+    const owners = brush ? [0, 1, 1] : [0, 0, 1]
+    for (const [ids, expected] of [
+      [enclosed, owners],
+      ['⿰木' + enclosed, [0, ...owners.map(i => i + 1)]],
+      ['⿰' + enclosed + enclosed, [...owners, ...owners.map(i => i + 2)]],
+    ]) {
+      const { parts } = await compose(source, ids, { fontStyle, separate: true })
+      expect(parts.map(p => p.leaf)).toEqual(expected)
+    }
   }
 })

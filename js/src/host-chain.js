@@ -66,6 +66,33 @@ function fitStrokeSpans(piece, spans, box) {
     ({ ...c, light: stretch(c.light), heavy: stretch(c.heavy) })))
 }
 
+/** A nested frame can be narrowed or stacked again after its first placement.
+ * Fit the finished slot with one pen scale. Keep at least half of every free span
+ * so shortening the bars leaves room between their joins and terminals.
+ * @param {any} part @param {number[][][]} spans */
+function fitNestedStrokeSpans(part, spans) {
+  const widths = [part.target[2] - part.target[0], part.target[3] - part.target[1]]
+  if (widths.some(width => width <= 0)) return {}
+  const native = part.part
+  const scale = Math.min(1, ...spans.map((ranges, axis) => {
+    const extent = native.box[axis + 2] - native.box[axis]
+    const shortest = Math.min(...ranges.map(([lo, hi]) => hi - lo))
+    return widths[axis] / (extent - ranges.length * shortest / 2)
+  }))
+  const outline = fitStrokeSpans(native, spans, [0, 0, widths[0] / scale, widths[1] / scale])
+  return { part: outline, source: outline.box }
+}
+
+/** Apply registered span adjustments once, when the final slot is known and
+ * before the composer chooses weights for the resulting proportions.
+ * @param {any[]} parts */
+export function fitNestedHostChains(parts) {
+  for (const part of parts) if (part.strokeSpans) {
+    Object.assign(part, fitNestedStrokeSpans(part, part.strokeSpans))
+    delete part.strokeSpans
+  }
+}
+
 /** @param {string} node @param {string} style @param {string} digest @param {boolean} allowNoto */
 function cutFace(node, style, digest, allowNoto) {
   const faces = nativeCuts[node].faces
@@ -118,5 +145,7 @@ export function hostChainParts(composer, node, region, atRoot, written = node) {
   if (spans && frame) piece = fitStrokeSpans(native, spans, frame)
   else if (gap && frame) piece = widenUprightGap(native, gap, frame)
   const target = atRoot ? mapped(frame ?? piece.box, composer.C.face, region) : region
-  return [placed(piece, piece.box, target, partInk(piece), `chain ${node}, cut from ${char}`)]
+  const placedFrame = placed(piece, piece.box, target, partInk(piece), `chain ${node}, cut from ${char}`)
+  if (spans && !atRoot) return [{ ...placedFrame, strokeSpans: spans }]
+  return [placedFrame]
 }
