@@ -1,13 +1,16 @@
 import { expect, it } from 'bun:test'
 import { Composer } from '../src/compose.js'
 import { clearHookContacts } from '../src/directional-enclosures.js'
-import { fill, groupRings, partOf, placed, pathMask, pathRings, pointsBox, union } from '../src/geometry.js'
+import { fill, grown, groupRings, partOf, placed, pathMask, pathRings, pointsBox, union } from '../src/geometry.js'
 import { compose, createSource, sketch } from '../src/loader.js'
 import { character, files, shards } from './fixtures/small-export.js'
 // Noto Serif CJK JP export b53713c2da0e. Sources and licence in docs/licensing.md.
 import records from './fixtures/directional-enclosures.json' with { type: 'json' }
 // Zhuque Fangsong b53713c2da0e (OFL), 勹・百・訇.
 import fangsong from './fixtures/fangsong-hook-bai.json' with { type: 'json' }
+// Same-face 勹, 百 and 匍 from Noto Sans/Serif CJK JP, CNS11643 TW-Kai and Kureedo.
+// Sources and OFL licences in docs/licensing.md.
+import openings from './fixtures/hook-bai-openings.json' with { type: 'json' }
 
 function source(box = [0.15, -0.03, 0.70, 0.55], extra = {}) {
   // A fixed layout prediction makes the learned opening reproducible. The PUA
@@ -132,3 +135,26 @@ it('declines a wider hook stroke when it would meet a neighbouring mark', async 
   expect(parts[0].origin).toBe('glyph 勹')
   expect(parts.map(p => p.target)).toEqual(before)
 })
+
+for (const [face, fontStyle] of [['sans', 'sans'], ['serif', 'serif'], ['reg', 'regular'], ['pen', 'pen-writing']]) {
+  it(`uses the verified ${fontStyle} opening of 匍 with visible clearance around 百`, async () => {
+    const native = openings[face], opts = { fontStyle, separate: true }
+    const revised = await compose(source(undefined, native), '⿹勹百', opts)
+    expect(revised.origins).toEqual(['host 匍', 'glyph 百'])
+    const frame = grown(pathMask(revised.parts[0].d, 256), 256, 5)
+    expect(pathMask(revised.parts[1].d, 256).some((value, i) => value && frame[i])).toBe(false)
+    const original = await compose(source(undefined, native), '⿹勹百', { ...opts, exclude: ['匍'] })
+    expect(Math.max(...bounds(revised.d).map((v, i) => Math.abs(v - bounds(original.d)[i])))).toBeLessThan(0.2)
+    const boxes = await sketch(source(undefined, native), '⿹勹百', opts)
+    expect(boxes.map(p => p.box)).toEqual(revised.parts.map(p => p.box))
+    const donor = native.匍, g = donor.G
+    for (const G of [{ ...g, v: 0 }, { ...g, p: g.p.toReversed() }, { ...g, ls: { 甫: g.ls.勹, 勹: g.ls.甫 } }]) {
+      const unsupported = source(undefined, { ...native, 匍: { ...donor, G } })
+      expect((await compose(unsupported, '⿹勹百', opts)).d).toBe(original.d)
+    }
+    expect((await compose(source(undefined, { ...native, 匍: {} }), '⿹勹百', opts)).d).toBe(original.d)
+    expect((await compose(source(undefined, native), '⿹勹百', { ...opts, exclude: ['甫'] })).d).toBe(original.d)
+    const direct = await compose(source(undefined, native), '匍', opts)
+    expect(direct.origins).toEqual(['glyph 匍'])
+  })
+}
