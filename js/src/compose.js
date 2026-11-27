@@ -7,6 +7,7 @@ import { hookFloor } from './hook-floor.js'
 import { fitHookDonor, lowerHookSeat, openHookCounters } from './hook-seat.js'
 import { stackedHookPart } from './stacked-hook.js'
 import fangsongZhi from './fangsong-zhi.json' with { type: 'json' }
+import extensionJ from './extension-j-ids.json' with { type: 'json' }
 import haNine from './ha-nine.json' with { type: 'json' }
 import { yiCrossDonor, yiCrossParts } from './yi-cross.js'
 import { isQiFamily, qiFamilyDonors, qiFamilyParts } from './qi-family.js'
@@ -887,6 +888,9 @@ export const designedSources = (tree, style = 'sans') => {
 }
 
 // Left components the export carries no host cuts for, taken from a designed character's glyph.
+/** The sequences of the CJK Extension J ideographs whose parts a face can cut from its own
+ *  characters (`scripts/build_extension_j_ids.py`). */
+const EXTENSION_J = /** @type {Record<string, string>} */ (extensionJ.sequences)
 const DESIGNED_CUTS = {
   氵: ['𭰲', {
     '345749510c894ac303898cacbbd71bc35880cb6179990632d00b1ffe463f2d71': [0, 1, 2],
@@ -1116,6 +1120,9 @@ export class Composer {
     // Extension J character only Jigmo draws).
     if (glyph && this.fontStyle === 'fangsong' && glyph.v === 0 &&
         (record.s || record.P?.length || Object.hasOwn(DESIGNED_CUTS, ch))) return null
+    // An Extension J ideograph only a fallback font draws (Jigmo's Mincho, in every face) is
+    // likewise drawn from its bundled sequence, its parts cut from the face's own characters.
+    if (glyph && glyph.v === 0 && !record.s && Object.hasOwn(EXTENSION_J, ch)) return null
     if (glyph && record.sg && !glyph.sg) glyph.sg = record.sg
     // The offline Unicode shard carries the connected radical at U+2EBE.
     return glyph ?? (ch === '艹' && !this.excluded('⺾') ? this.glyphRecord('⺾') : null)
@@ -1212,7 +1219,9 @@ export class Composer {
   bySequence(key) {
     try { return this.resolution(this.parse(key)).encoded } catch { return null }
   }
-  sequenceOf(ch) { return this.rec(ch)?.s ?? null }
+  /** A character's sequence: the export's, else the bundled one of an Extension J ideograph, which
+   *  the exports' source table does not reach. */
+  sequenceOf(ch) { return this.rec(ch)?.s ?? (Object.hasOwn(EXTENSION_J, ch) ? EXTENSION_J[ch] : null) }
   atomic(ch) { return this.rec(ch)?.at === 1 }
 
   /** Outline length: a glyph's, or for an excluded or glyphless character its sequence's operands'. */
@@ -1408,13 +1417,27 @@ export class Composer {
   }
 
   /** The parts drawing `sequence`, weighted, and the loose `marks` its text carries after it. */
-  compose(sequence, marks = '') {
+  /** `node` with each Extension J ideograph the face does not draw written out as its bundled
+   *  sequence, so its parts are laid out as the same sequence written by hand is. */
+  writtenOut(node, seen = new Set()) {
+    if (Array.isArray(node)) return mapOperands(node, operand => this.writtenOut(operand, seen))
+    if (typeof node !== 'string' || !Object.hasOwn(EXTENSION_J, node) || seen.has(node)) return node
+    if (this.rec(node)?.s || this.glyphRecord(node)) return node
+    return this.writtenOut(this.parse(EXTENSION_J[node]), new Set([...seen, node]))
+  }
+
+  /** What one drawing gathers as it goes, emptied before it starts. */
+  resetDrawing() {
     this.approximate.clear()
     this.nativeEnclosures.clear()
     this.columns.length = 0
     this.joints.length = 0
     this.sweeps.length = 0
     this.carried = 1
+  }
+
+  compose(sequence, marks = '') {
+    this.resetDrawing()
     let slots = 0
     const number = node => node === EMPTY ? `${EMPTY}${slots++}` : Array.isArray(node) ? mapOperands(node, number) : node
     const tree = this.normalizeYan(number(this.cancelTransforms(this.parse(sequence))))
@@ -1425,7 +1448,23 @@ export class Composer {
     const face = this.faceBeside(marks)
     const previous = this.face
     try {
-      let out = this.node(this.standaloneExpandedOverlay(rendered) ?? this.standalonePyramid(rendered) ?? this.standaloneRepeatedGrid(rendered) ?? this.normalizeRepeatedGrids(rendered), this.face.slice(), true)
+      const draw = drawn => this.node(this.standaloneExpandedOverlay(drawn) ?? this.standalonePyramid(drawn) ?? this.standaloneRepeatedGrid(drawn) ?? this.normalizeRepeatedGrids(drawn), this.face.slice(), true)
+      // An Extension J ideograph is drawn written out. Where that cannot be drawn, or leaves an
+      // enclosing part as its bare glyph around a small inside (⿺乙母), the sequence is drawn as
+      // written, and each such ideograph settles for itself.
+      const written = this.writtenOut(rendered)
+      let out = null
+      if (written !== rendered && keyOf(written) !== keyOf(rendered)) {
+        const missing = new Set(this.missingGlyphs)
+        try { out = draw(written) } catch (error) { if (!(error instanceof LookupError)) throw error }
+        if (out?.some(part => part.origin?.startsWith('enclosing '))) out = null
+        if (!out) {
+          this.resetDrawing()
+          this.missingGlyphs.clear()
+          for (const key of missing) this.missingGlyphs.add(key)
+        }
+      }
+      out ??= draw(rendered)
       // The character is laid out in the whole face and carried into what its marks leave: whatever
       // placed its parts (a glyph, hosts, the learned layout's em-unit boxes), it shrinks as one.
       if (face.some((edge, at) => edge !== frame[at])) {
@@ -1631,7 +1670,7 @@ export class Composer {
             return
           }
         }
-        const glyph = this.glyph(node)
+        const glyph = this.glyph(node) ?? this.borrowedGlyph(node)
         if (!glyph) throw new LookupError(`No glyph draws ${node}.`)
         // A cell allows a little more stretch than a composed part, so the glyph fills it; a
         // narrow cell still keeps the glyph's proportions instead of turning it into a sliver.
@@ -2555,11 +2594,21 @@ export class Composer {
       }
       if (!glyph) this.missingGlyphs.add(encoded)
       this.expanding.add(encoded)
-      try { return this.node(tree, region, atRoot) } catch (error) {
+      try {
+        const parts = this.node(tree, region, atRoot)
+        // An enclosing part no character of the face holds is its bare glyph around a small
+        // inside (⿺乙母): the whole glyph stays.
+        const whole = !glyph && parts.some(part => part.origin?.startsWith('enclosing ')) ? this.borrowedGlyph(encoded, !atRoot) : null
+        if (!whole) return parts
+        this.missingGlyphs.delete(encoded)
+        return [this.place(whole, region, this.ink(encoded), `glyph ${encoded}`)]
+      } catch (error) {
         if (!(error instanceof LookupError)) throw error
         const designed = glyph ? null : this.designedCut(encoded)
         if (designed) return [this.place(designed.piece, region, this.ink(encoded), `designed ${designed.record.h}`)]
         const whole = glyph ?? this.borrowedGlyph(encoded, !atRoot)
+        // A bundled sequence is not what was written: the failure names the character itself.
+        if (!whole && typeof node === 'string' && !this.rec(encoded)?.s) throw new LookupError(`No glyph or sequence draws ${encoded}.`)
         if (!whole) throw error
         this.missingGlyphs.delete(encoded)
         return [this.place(whole, region, this.ink(encoded), `glyph ${encoded}`)]

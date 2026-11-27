@@ -98,6 +98,24 @@ it('draws a character only another face draws, with no sequence, in every style'
   }
 })
 
+// 𲖀 is ⿰口推 in the bundled Extension J sequences; the export holds Jigmo's outline alone.
+it('draws an Extension J character from its sequence, in the parts of the face', async () => {
+  const foreign = character('𲖀', [[100, 0, 900, 800]])
+  foreign.G.v = 0
+  const push = character('推', [[400, 0, 900, 800]])
+  const entries = { '𲖀': foreign, 推: push }
+  const input = { ...files, 'identity.json': identityOf(Object.entries({ ...records, ...entries })), ...shards('g', Object.entries(entries)) }
+  for (const fontStyle of ['sans', 'serif', 'fangsong', 'regular', 'pen-writing']) {
+    for (const sequence of ['𲖀', '⿱木𲖀', '⿰木𲖀']) {
+      const out = await compose(sourceOf(input), sequence, { separate: true, fontStyle })
+      expect(out.origins).toContain('glyph 推')
+      expect(out.origins).not.toContain('glyph 𲖀')
+    }
+  }
+  // Without 推 the sequence cannot be drawn, and the outline stays.
+  const alone = { ...files, 'identity.json': identityOf(Object.entries({ ...records, '𲖀': foreign })), ...shards('g', [['𲖀', foreign]]) }
+  expect((await compose(sourceOf(alone), '⿰木𲖀', { separate: true })).origins).toContain('glyph 𲖀')
+})
 it('keeps the outline of another face when the sequence of its character cannot be drawn', async () => {
   const foreign = { ...character('𲎰', [[100, 0, 300, 800]]), s: '⿰木牙' }
   foreign.G.v = 0
