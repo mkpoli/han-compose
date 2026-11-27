@@ -59,9 +59,9 @@ and lists those it cannot draw.
 Every command takes `--style sans` (the default), `--style serif`, `--style woodblock`, `--style fangsong`,
 `--style regular` or `--style pen-writing`. Each style has its own fonts and models: a style's model is cached as
 `<name>-<style><ext>` beside the sans one, and `learn --style regular` and `learn-alone --style regular`
-build it. TW-Kai, Kureedo and Zhuque Fangsong are static brush faces, so their styles keep the source
-stroke weights instead of balancing them. Nôm Na Tống is static too; a part drawn smaller
-than its glyph is grown from its one weight by the law `calibrate-parts` measures on the font.
+build it. In every style a part drawn smaller than its glyph takes the stroke width the font gives such
+a part in its own characters, by the law `calibrate-parts` measures on the font. TW-Kai, Kureedo,
+Zhuque Fangsong and Nôm Na Tống are static, and their parts are grown from the one weight they have.
 
 `bench` redraws characters from their own sequences with nothing taken from them, and scores each
 against the font's real glyph: the overlap of their ink (intersection over union, at 96 px), the same

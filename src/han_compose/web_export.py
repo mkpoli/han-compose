@@ -161,7 +161,7 @@ def _r(values: Iterable[float], digits: int = 2) -> list[float]:
 def part_record(part: C.Part) -> dict:
     """A part's outlines: its box, and per contour its pen commands, its points at weight 400 and
     their move to the heavy weight (`HEAVY` in the constants), int16 in 1 / `QUANT` units, little-endian, x and y interleaved (an
-    outline outside int16's range is refused). A part a fallback font draws carries the stroke width measured on its glyph (`Contour.width`)."""
+    outline outside int16's range is refused). A part a fallback font or a static face draws carries the stroke width measured on its glyph (`Contour.width`), and one a fallback draws is marked `f` (another design than the style's font) or `k` (the same design)."""
     contours = []
     for c in part.contours:
         light, heavy = np.round(c.light * QUANT), np.round(c.heavy * QUANT)
@@ -172,6 +172,10 @@ def part_record(part: C.Part) -> dict:
     out = {"b": _r(part.box), "p": contours}
     if part.contours and part.contours[0].width is not None:
         out["w"] = _r(part.contours[0].width)
+    if part.contours and part.contours[0].foreign:
+        out["f"] = 1
+    if part.contours and part.contours[0].kindred:
+        out["k"] = 1
     return out
 
 
@@ -217,6 +221,18 @@ def _font_notice(path: Path, licence: str) -> dict:
             "licence": licence, "licence_url": LICENCE_URLS[licence], "file": path.name}
 
 
+def rooms(composer: C.Composer) -> dict[str, list[float]]:
+    """Operator TAB enclosing part → the room that part's own characters give what they enclose, as
+    shares of the enclosing part's box (`Composer._enclosed_share`): what a port moves an enclosed
+    part with no host into. Only the parts enough characters are written round."""
+    out = {}
+    for op, outer in sorted(composer._written_round):
+        share = composer._enclosed_share(op, outer)
+        if share is not None:
+            out[f"{op}\t{outer}"] = [round(v, 4) for v in share]
+    return out
+
+
 def constants(composer: C.Composer) -> dict:
     """Every module constant of `compose` the composer draws with, by name, the style's (`STEM_CURVE`,
     `HEAVY`, `GROW_Y`), and the font's stems and face: (width at 400, width at heavy) of 丨 across x
@@ -238,7 +254,13 @@ def constants(composer: C.Composer) -> dict:
         out[name] = value
     style = composer.font.style
     out["STEM_CURVE"] = [list(v) for v in style.stem_curve]
+    out["FACING_LEAST"] = list(style.facing_least)
     out["HEAVY"] = style.heavy
+    if style.part_stems is not None:
+        out["PART_STEMS"] = list(style.part_stems)
+    if style.part_spread is not None:
+        out["PART_SPREAD"] = list(style.part_spread)
+    out["STATIC"] = bool(composer.font.static)
     out["GROW_Y"] = round(composer.font.grow_y, 3)
     out["stem"] = [_r(s, 3) for s in composer.font.stem]
     out["face"] = _r(composer.face)
@@ -670,7 +692,8 @@ def own_letters(font: C.Font) -> set[str]:
     sequence (帰) is still written, on its own and as an operand."""
     import unicodedata
 
-    return {chr(point) for point in font.cmap if unicodedata.category(chr(point))[0] == "L"}
+    return {chr(point) for point in font.cmap
+            if point == 0x3007 or unicodedata.category(chr(point))[0] == "L"}
 
 
 #: CJK ideograph, radical, stroke and compatibility blocks a style's fallback fonts may supply even
@@ -1227,10 +1250,11 @@ def _export(composer: C.Composer, out: Path, joyo: list[str] | None = None, pari
         "composer": {"repository": "https://github.com/mkpoli/han-compose", "commit": commit, "dirty": dirty,
                      "style": style.name, "layout_file": layout_file, **inputs},
         "style": style.name,
-        "em": C.EM, "ascent": C.ASCENT, "heavy": style.heavy, "weighted": style.weighted, "quant": QUANT,
+        "em": C.EM, "ascent": C.ASCENT, "heavy": style.heavy, "weighted": bool(composer.weighted), "quant": QUANT,
         "constants": constants(composer),
         "constants_note": "tuple keys are joined with a comma: SHARES[('⿳', 3)] is SHARES['⿳,3']",
         "spelled": sorted(composer.spelled),
+        "rooms": rooms(composer),
         "not_exported": NOT_EXPORTED,
         "paths": PATHS,
         "record": RECORD,

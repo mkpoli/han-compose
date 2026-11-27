@@ -34,8 +34,8 @@ def test_host_cache_batches_preserve_every_rank_and_failed_cut(monkeypatch) -> N
 def test_a_letter_the_main_font_maps_has_a_record_with_no_sequence() -> None:
     from types import SimpleNamespace
 
-    font = SimpleNamespace(cmap={ord("帰"): "g", ord("A"): "a", ord("!"): "b", ord("あ"): "k", ord("ʰ"): "h"})
-    assert web_export.own_letters(font) == {"帰", "A", "あ", "ʰ"}
+    font = SimpleNamespace(cmap={ord("帰"): "g", ord("A"): "a", ord("!"): "b", ord("あ"): "k", ord("ʰ"): "h", ord("〇"): "zero"})
+    assert web_export.own_letters(font) == {"帰", "A", "あ", "ʰ", "〇"}
 
 
 def test_fallback_cjk_includes_extension_ideographs_and_excludes_non_cjk_letters() -> None:
@@ -762,7 +762,9 @@ def test_a_characters_record_lists_what_kanjivg_lets_subtraction_take_out(compos
     gone = record["G"]["ls"]
     glyph = composer.font.glyph("兵")
     # 兵 has one 丶 and two ㇒: the dot is listed, by its type and by its character; the ㇒ is not.
-    assert gone["丶"] == gone["㇔"] and len(gone["丶"]) == 1 and "㇒" not in gone and "丿" not in gone
+    assert gone["丶"] == gone["㇔"] and len(gone["丶"]) == 1 and "㇒" not in gone
+    # KanjiVG groups the first stroke of 斤 as 丿: that one is listed by the group's name.
+    assert len(gone["丿"]) == 1 and set(gone["丿"]) < set(gone["斤"])
     kept = composer.kvg.less("兵", "丶").contours
     assert kept == [c for k, c in enumerate(glyph.contours) if k not in gone["丶"]]
     # What the drawing takes out is what the record lists.
