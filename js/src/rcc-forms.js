@@ -1,3 +1,4 @@
+import { goldDonors, goldParts } from './rcc-gold.js'
 import { rccChainContextParts, rccChainDonors } from './rcc-chain-contexts.js'
 import { numeralDonors, numeralParts } from './rcc-numerals.js'
 import { overlayContextDonors, overlayContextParts } from './rcc-overlays.js'
@@ -6,14 +7,14 @@ import { union } from './geometry.js'
 
 /** @param {string} key @param {string} style */
 export const rccDonors = (key, style) => [
-  ...rccChainDonors(key, style), ...numeralDonors(key, style), ...overlayContextDonors(key, style), ...k5Donors(key),
+  ...rccChainDonors(key, style), ...numeralDonors(key, style), ...overlayContextDonors(key, style), ...k5Donors(key), ...goldDonors(key, style),
 ]
 
 /** @param {import('./compose.js').Composer} composer @param {string} key @param {number[]} region @returns {any[] | null} */
 export function rccParts(composer, key, region) {
   /** @type {any[] | null} */
   const parts = rccChainContextParts(composer, key, region) ?? numeralParts(composer, key, region) ??
-    overlayContextParts(composer, key, region) ?? k5Parts(composer, key, region)
+    overlayContextParts(composer, key, region) ?? k5Parts(composer, key, region) ?? goldParts(composer, key, region)
   if (parts && composer.separate && parts.every(p => Number.isInteger(p.rccLeaf))) {
     // Equal spellings can occur several times in one IDS. Each occurrence
     // owns its own group, including contours emitted in paint order.
