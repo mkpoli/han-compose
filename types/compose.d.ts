@@ -48,6 +48,7 @@ export declare class Composer {
     C: any;
     exclude: Set<any>;
     footlessCuts: Map<any, any>;
+    footlessPieces: WeakMap<WeakKey, any>;
     _forced: Map<any, any>;
     spelled: Set<any>;
     AXIS: any;
