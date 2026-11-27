@@ -149,6 +149,20 @@ it('draws 𲐬 from the 巫 of the face with a second 人 under each 人', async
   }
 })
 
+// Beside another part the face draws 五 narrow, as in 伍: 𲎰 there is cut from that narrow 五.
+it('cuts 𲎰 from the form 五 takes in the place it stands in', async () => {
+  const foreign = character('𲎰', [[100, 0, 900, 800]])
+  foreign.G.v = 0
+  const five = character('五', [[100, 0, 900, 80], [200, 80, 280, 700], [600, 80, 680, 700], [100, 700, 900, 780]])
+  const host = character('伍', [[600, 0, 900, 80], [640, 80, 680, 700], [820, 80, 860, 700], [600, 700, 900, 780], [100, 0, 400, 800]])
+  const entries = { '𲎰': foreign, 五: five, 伍: host }
+  const cut = { h: '伍', i: 1, op: '⿰', ok: ['亻'], v: 1, c: { k: [0, 1, 2, 3], b: [600, 0, 900, 780], fr: [0, 0, 1000, 1000] } }
+  const input = { ...files, 'identity.json': identityOf(Object.entries({ ...records, ...entries })), ...shards('g', Object.entries(entries)), ...shards('p', [['R\t五', [cut]]]) }
+  const out = await compose(sourceOf(input), '⿰口𲎰', { fontStyle: 'sans' })
+  expect(out.origins.some(origin => origin.endsWith(' 伍'))).toBe(true)
+  expect(out.origins).not.toContain('glyph 𲎰')
+})
+
 it('keeps the outline of another face when the sequence of its character cannot be drawn', async () => {
   const foreign = { ...character('𲎰', [[100, 0, 300, 800]]), s: '⿰木牙' }
   foreign.G.v = 0

@@ -346,8 +346,8 @@ def test_a_ring_holds_exactly_the_samples_of_its_segments() -> None:
 
 def test_a_ring_refuses_outlines_it_cannot_read() -> None:
     points = np.zeros((3, 2))
-    with pytest.raises(ValueError, match="curveTo outlines are not read"):
-        compose._rings([compose.Contour([("curveTo", 3, False)], points, points)], [points])
+    with pytest.raises(ValueError, match="arcTo outlines are not read"):
+        compose._rings([compose.Contour([("arcTo", 3, False)], points, points)], [points])
 
 
 def test_a_description_under_a_cover_is_no_instance(composer: compose.Composer) -> None:

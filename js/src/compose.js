@@ -50,6 +50,7 @@ import { hangulLetters } from './hangul-ids.js'
 import { toConjoiningJamo } from './hangul.js'
 import { componentFix } from './component-fixes.js'
 import { isOutbound, markFace, markParts } from './marks.js'
+import { SI_CHAIN, siChainForm, siBendDonor } from './si-chain.js'
 import { youChainDonors, youChainParts } from './you-chain.js'
 import { chainHost, hostChainParts, standaloneHostParts, fitNestedHostChains } from './host-chain.js'
 import { birdChainParts } from './bird-chain.js'
@@ -831,6 +832,11 @@ function recordedDonor(key) {
 export const designedSources = (tree, style = 'sans') => {
   const out = new Set()
   const visit = node => {
+    if (node === SI_CHAIN) {
+      out.add('巳')
+      const bend = siBendDonor(style)
+      if (bend) out.add(bend)
+    }
     const key = keyOf(node)
     if (key === '⿰舟苗' && style === 'regular') out.add('舳')
     if (key === '⿰車ト' && style === 'regular') { out.add('軋'); out.add('卜') }
@@ -899,6 +905,8 @@ export const designedSources = (tree, style = 'sans') => {
  *  is 五 above its lower 一. 𲐬 is 巫 above its, with a second 人 under each 人 beside the stem
  *  (`doubled`), as the code chart draws its 𠈌. No sequence says so; the cut is made in the face's
  *  own glyph. */
+/** How many of a character's cuts for a place are tried for a foot to cut away. */
+const FOOTLESS_HOSTS = 6
 const FOOTLESS = { '𲎰': { host: '五' }, '𲐬': { host: '巫', doubled: true } }
 /** The sequences of the CJK Extension J ideographs whose parts a face can cut from its own
  *  characters (`scripts/build_extension_j_ids.py`). */
@@ -945,6 +953,7 @@ export class Composer {
     this.C = c
     this.exclude = new Set(exclude)
     this.footlessCuts = new Map()
+    this.footlessPieces = new WeakMap()
     this._forced = new Map()
     this.spelled = new Set(m.spelled)
     this.AXIS = c.AXIS
@@ -985,6 +994,7 @@ export class Composer {
     this.chains = new Map()
     // Stacked operand pairs, settled against their ink once the drawing is weighted.
     this.columns = []
+    this.spaced = []
     this.joints = []
     // Swept glyphs with the part each holds over its foot, refitted once the drawing is weighted.
     this.sweeps = []
@@ -1027,7 +1037,13 @@ export class Composer {
   }
   /** A component form's record, which stands in for the export's; a native form's does only where
    *  the export records nothing. */
-  formRecord = key => isNativeForm(key, this.fontStyle) ? null : componentRecord(key, this.fontStyle)
+  formRecord = key => {
+    if (key === SI_CHAIN) {
+      this.siForm ??= siChainForm(this) ?? false
+      if (this.siForm) return this.siForm
+    }
+    return isNativeForm(key, this.fontStyle) ? null : componentRecord(key, this.fontStyle)
+  }
   /** What a description's identity is found by: a key's sequence (`s`) and the character it
    *  describes (`e`). A store with an identity table answers from it; without one, and for a
    *  component form, the key's record does. */
@@ -1185,7 +1201,14 @@ export class Composer {
     if (!keep.length) return forms
     return [{ ...native, part: derived(glyph, keep, glyph.box), fixed: true, origin: `glyph ${char} kept` }, ...forms]
   }
-  glyph(ch) { const g = this.glyphRecord(ch); return g ? partOf(g) : this.footless(ch) }
+  glyph(ch) {
+    if (ch === SI_CHAIN) {
+      const part = this.formRecord(ch)?.part
+      if (part) return part
+    }
+    const g = this.glyphRecord(ch)
+    return g ? partOf(g) : this.footless(ch)
+  }
   /** An ideograph of `FOOTLESS` cut from the face's own character, or null where the face draws
    *  the ideograph itself, lacks the character, or the character's foot cannot be found. */
   footless(ch) {
@@ -1203,6 +1226,10 @@ export class Composer {
    *  by `BODY_FORMS` where the export carries the glyph that cut was made for. A cut of the glyph
    *  (`pieceOf`) keeps the font's own contours. */
   drawnGlyph(ch, contain = false) {
+    if (ch === SI_CHAIN) {
+      const glyph = this.formRecord(ch)?.part
+      if (glyph) return glyph
+    }
     const record = this.glyphRecord(ch)
     if (!record) {
       const cut = this.footless(ch)
@@ -1399,7 +1426,7 @@ export class Composer {
   }
 
   chain(node) {
-    if (!isChain(node) || isComponentForm(node, this.fontStyle)) return null
+    if (!isChain(node) || isComponentForm(node, this.fontStyle) || (node === SI_CHAIN && this.formRecord(node)?.part)) return null
     if (!this.chains.has(node)) {
       const missed = this.data.missing?.size ?? 0
       const form = chainForm(node, ch => this.chainStroke(ch))
@@ -1496,6 +1523,7 @@ export class Composer {
     this.approximate.clear()
     this.nativeEnclosures.clear()
     this.columns.length = 0
+    this.spaced.length = 0
     this.joints.length = 0
     this.sweeps.length = 0
     this.carried = 1
@@ -1570,6 +1598,7 @@ export class Composer {
       fitNestedHostChains(out)
       if (!this.partial && this.weighted) {
         this.balance(out)
+        this.clear(out)
         this.settleSweeps()
       }
       if (!this.partial && this.staticFace) this.staticBalance(out)
@@ -3822,6 +3851,23 @@ export class Composer {
     // A forced operand is drawn from its own IDS, not replaced by a host's cut. A direct 艹 is
     // exempt: its form is placed by the caller, or the face's own cut is the connected component.
     if (!(typeof node === 'string' && node === '艹') && this.forced(node)) return null
+    // An ideograph of `FOOTLESS` is cut from the form its character takes in this place, which the
+    // face draws at the width and weight of the place, before its whole glyph is squeezed into it.
+    if (typeof node === 'string' && Object.hasOwn(FOOTLESS, node) && !this.glyphRecord(node)) {
+      const form = FOOTLESS[node]
+      if (this.excluded(form.host) || this.excluded(node)) return null
+      // The closest cut whose foot can be found: a cut joined to its neighbour's ink has none.
+      for (const [, found] of this.ranked(op, index, form.host, siblings, box, isPlaced).slice(0, FOOTLESS_HOSTS)) {
+        if (found.record.v !== 1) continue
+        if (!this.footlessPieces.has(found.piece)) {
+          const cut = withoutFoot(found.piece)
+          this.footlessPieces.set(found.piece, cut && form.doubled ? doubledFlanks(cut) : cut)
+        }
+        const piece = this.footlessPieces.get(found.piece)
+        if (piece) return { record: found.record, piece }
+      }
+      return null
+    }
     // The 齒-family cuts filed as 丛 put 一 above 从. Use the native 丛
     // in this stack so its baseline stays below both people.
     if (op === '⿱' && index === 1 && node === '丛' && siblings[0] === '一'
@@ -5277,13 +5323,25 @@ export class Composer {
       if (axis === 1 && a?.length && b?.length && this.closed(b, a, nested ? CLOSED_NESTED : 1)) continue
       const gaps = facing(a, b, axis)
       if (!gaps) continue
+      this.spaced.push([axis, a, b])
       const gap = gaps.min <= 0 ? gaps.min : gaps.median
       if (gap >= C.FACING[axis]) continue
-      const half = (C.FACING[axis] - gap) / 2
-      const [first, second] = axis === 0 ? [a, b] : [b, a]
-      const limit = group => C.SQUEEZE * (Math.max(...group.map(p => p.target[axis + 2])) - Math.min(...group.map(p => p.target[axis])))
-      squeeze(first, axis, 0, -Math.min(half, limit(first)))
-      squeeze(second, axis, Math.min(half, limit(second)), 0)
+      apart(a, b, axis, C.FACING[axis] - gap, C.SQUEEZE)
+    }
+  }
+
+  /** The style's least gap kept between neighbouring parts once they carry their weights (`_clear`):
+   *  `space` measures them as laid out, and a part weighted afterwards grows into the gap. */
+  clear(out) {
+    const least = this.C.FACING_LEAST
+    if (!least) return
+    const drawn = new Set(out)
+    for (const [axis, a, b] of this.spaced) {
+      const parts = [...a, ...b]
+      if (!parts.every(p => drawn.has(p) && !p.fixed && !p.cut)) continue
+      if (!parts.some(p => p.weight?.some(Boolean))) continue
+      const gaps = facing(a, b, axis)
+      if (gaps && least[axis] > gaps.min) apart(a, b, axis, least[axis] - gaps.min, this.C.SQUEEZE)
     }
   }
 
@@ -5727,7 +5785,7 @@ export class Composer {
   balance(group) {
     const C = this.C, stem = this.stem0
     const curve = (density, axis) => C.STEM_CURVE[axis][0] + C.STEM_CURVE[axis][1] * density / 1000
-    const density = group.reduce((s, p) => { const [sx, sy] = scaleOf(p); return s + (p.inkLength ?? partInk(p.part)) * (sx + sy) / 2 }, 0)
+    const density = group.reduce((s, p) => { const [sx, sy] = scaleOf(p); return s + (p.inkLength ?? p.part.inkLength ?? partInk(p.part)) * (sx + sy) / 2 }, 0)
     const ratio = [0, 1].map(axis => stem[axis][1] / stem[axis][0] - 1)
     // The stroke widths the whole drawing is brought to, which a placeholder's outline follows.
     this.stroke = [curve(density, 0), curve(density, 1)]
@@ -6169,6 +6227,16 @@ function centredIn(group, region) {
 }
 
 /** A group moved in from its low and high edges along `axis`, together. */
+/** Two neighbouring groups moved `short` apart, each giving up half on its facing side, and none
+ *  more than `most` of its length (`_apart`). `a` is the left or upper group. */
+function apart(a, b, axis, short, most) {
+  const half = short / 2
+  const [first, second] = axis === 0 ? [a, b] : [b, a]
+  const limit = group => most * (Math.max(...group.map(p => p.target[axis + 2])) - Math.min(...group.map(p => p.target[axis])))
+  squeeze(first, axis, 0, -Math.min(half, limit(first)))
+  squeeze(second, axis, Math.min(half, limit(second)), 0)
+}
+
 function squeeze(group, axis, low, high) {
   const lo = Math.min(...group.map(p => p.target[axis])), hi = Math.max(...group.map(p => p.target[axis + 2]))
   const newLo = lo + low, newHi = hi + high, scale = (newHi - newLo) / Math.max(hi - lo, 1)

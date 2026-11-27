@@ -1889,6 +1889,7 @@ class Composer:
     _reference_only: bool = field(default=False, init=False, repr=False)
     _rank_pick: int = field(default=0, init=False, repr=False)
     _columns: list = field(default_factory=list, init=False, repr=False)
+    _spaced: list = field(default_factory=list, init=False, repr=False)
     _root_ranks: list[float] = field(default_factory=list, init=False, repr=False)
     _expanding: set[str] = field(default_factory=set, init=False, repr=False)
     _inks: dict[str, float] = field(default_factory=dict, init=False, repr=False)
@@ -3147,6 +3148,7 @@ class Composer:
         beside the drawing takes a margin the character shrinks out of, and none takes part in its
         layout or weight. LookupError when an operand can be drawn no way."""
         self._columns.clear()
+        self._spaced.clear()
         tree, marks = described(sequence)
         if marks:
             from .marks import marked
@@ -3191,9 +3193,11 @@ class Composer:
             # whatever placed its parts (a glyph, hosts, the learned layout), it shrinks as one.
             carried = {id(p): replace(p, target=mapped(p.target, self.face, self._beside)) for p in placed}
             self._columns = [[[carried.get(id(p), p) for p in group] for group in row] for row in self._columns]
+            self._spaced = [(axis, *([carried.get(id(p), p) for p in group] for group in pair)) for axis, *pair in self._spaced]
             placed = type(placed)(carried[id(p)] for p in placed)
         if self.weighted:
             self._balance(placed)
+            self._clear(placed)
         # The guide's ink is the character in the whole face, not in what marks beside it leave.
         if self.guide is not None and self._beside is None:
             placed = self.guide.fit(self, key(tree), placed)
@@ -4240,6 +4244,7 @@ class Composer:
         if axis == 0 and getattr(getattr(self.font, "style", None), "name", None) in COLUMN_CLEARANCE:
             self._columns.append(groups)
         for a, b in pairwise(groups):
+            self._spaced.append((axis, a, b))
             gaps = _facing_gaps(a, b, axis)
             if gaps is None:
                 continue
@@ -4249,13 +4254,21 @@ class Composer:
             short = max(FACING[axis] - float(np.median(gaps)), least - float(gaps.min()))
             if short <= 0:
                 continue
-            half = short / 2
-            first, second = (a, b) if axis == 0 else (b, a)  # lower x first; y is up, so the stacked lower part first
-            # No part gives up more than `SQUEEZE` of its length: parts drawn into each other are a
-            # layout fault this pass does not mend.
-            limit = lambda group: SQUEEZE * (max(p.target[axis + 2] for p in group) - min(p.target[axis] for p in group))
-            _squeeze(first, axis, 0.0, -min(half, limit(first)))
-            _squeeze(second, axis, min(half, limit(second)), 0.0)
+            _apart(a, b, axis, short)
+
+    def _clear(self, placed: list[Placed]) -> None:
+        """The style's least gap kept between neighbouring parts once they carry their weights:
+        `_space` measures them as laid out, and a part weighted afterwards grows into the gap."""
+        drawn = {id(p) for p in placed}
+        least = getattr(getattr(self.font, "style", None), "facing_least", FACING_LEAST)
+        for axis, a, b in self._spaced:
+            if not all(id(p) in drawn and not p.fixed and not p.cut for p in (*a, *b)):
+                continue
+            if not any(any(p.weight) for p in (*a, *b)):
+                continue
+            gaps = _facing_gaps(a, b, axis)
+            if gaps is not None and least[axis] > gaps.min():
+                _apart(a, b, axis, least[axis] - float(gaps.min()))
 
     @staticmethod
     def _stretch(source: Box, target: Box) -> float:
@@ -4763,6 +4776,18 @@ def _facing(a: list[Placed], b: list[Placed], axis: int, size: int = 250) -> flo
     """The median gap between two groups along their facing edges (`_facing_gaps`)."""
     gaps = _facing_gaps(a, b, axis, size)
     return None if gaps is None else float(np.median(gaps))
+
+
+def _apart(a: list[Placed], b: list[Placed], axis: int, short: float) -> None:
+    """Two neighbouring groups moved `short` apart, each giving up half on its facing side. `a` is
+    the left or upper group."""
+    half = short / 2
+    first, second = (a, b) if axis == 0 else (b, a)  # lower x first; y is up, so the stacked lower part first
+    # No part gives up more than `SQUEEZE` of its length: parts drawn into each other are a
+    # layout fault this pass does not mend.
+    limit = lambda group: SQUEEZE * (max(p.target[axis + 2] for p in group) - min(p.target[axis] for p in group))
+    _squeeze(first, axis, 0.0, -min(half, limit(first)))
+    _squeeze(second, axis, min(half, limit(second)), 0.0)
 
 
 def _facing_gaps(a: list[Placed], b: list[Placed], axis: int, size: int = 250) -> np.ndarray | None:

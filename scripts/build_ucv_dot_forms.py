@@ -240,8 +240,10 @@ def main():
                 # Keep the native 倘 body, including the centre upright and 亻.
                 host = face.contours("倘")
                 donor = face.contours("倞")
-                dots_at_top = (fit([donor[1]], bounds([host[4]]))
-                               + fit([donor[3]], (654, 495, 845, 680)))
+                left, bottom, right, top = bounds([host[4]])
+                # Both strokes sit 8 units above the native dot.
+                dots_at_top = (fit([donor[1]], (left, bottom + 8, right, top + 8))
+                               + fit([donor[3]], (654, 503, 845, 688)))
                 ids[style] = {"⿰亻⿱&GW-u21b54-03;冋": encode(host[:4] + dots_at_top)}
     result = {"dots": dots, "ids": ids}
     args.output.write_text(json.dumps(result, ensure_ascii=False, separators=(",", ":")) + "\n")
