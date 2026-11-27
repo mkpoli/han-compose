@@ -69,6 +69,9 @@ class Face:
         name = self.cmap[ord(char)]
         for mapping in self.locales.get(lang, ()):
             name = mapping.get(name, name)
+        return self.glyph_contours(name)
+
+    def glyph_contours(self, name):
         pen = DecomposingRecordingPen(self.glyphs)
         self.glyphs[name].draw(pen)
         contours = []
