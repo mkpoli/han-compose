@@ -37,7 +37,7 @@ import { grassShape } from './variants.js'
 // before drawing again). A store that holds the export's identity table also answers
 // `data.identity(key)`: the key's sequence and the character it describes, without its record; one
 // over an export with a kin table answers `data.kin()` with it (`kin`, `kinOuter`).
-import { EM_BOX, area, centre, contourSections, count, cutContours, derived, drawnBox, drawnContours, fill, fitted, grown, groupRings, makePart, mapped, partInk, partOf,
+import { EM_BOX, area, centre, contourSections, count, cutContours, derived, drawnBox, drawnContours, fill, fitted, grown, groupRings, joinedDrawing, makePart, mapped, partInk, partOf,
   placed, pointsBox, pyRound, raster, rings, scaleOf, shrunk, square, stretchOf, targetFor, union, windingOf, within } from './geometry.js'
 import { grassPairs, connectedGrass, contextualGrass } from './grass-forms.js'
 import { brushFace, ownFormsOnly, componentParts, componentPosition, componentPositionBox, componentRecord, containsComponentForm, hasForcedForms, containsForcedForm, isComponentForm, isForcedCharacter, isAtomicForm, isGroupedForm, isNativeForm } from './component-forms.js'
@@ -48,6 +48,7 @@ import { pyramidRows, pyramidOnBase } from './pyramid-rows.js'
 import { hangulClusterAt, jamoClass } from './hangul.js'
 import { hangulLetters } from './hangul-ids.js'
 import { toConjoiningJamo } from './hangul.js'
+import { referenceLayout, referenceBoxes, referenceSources } from './reference-layout.js'
 import { tileHost } from './fangsong-tile.js'
 import { brushSweepRoom, brushSweepParts } from './brush-sweep-rooms.js'
 import { componentFix, enclosedZeroTarget, INCOME_IDS, incomeBoxes } from './component-fixes.js'
@@ -887,6 +888,15 @@ export const designedSources = (tree, style = 'sans') => {
     }
     if (!Array.isArray(node)) return
     const [op, ...children] = node
+    const entry = referenceLayout(node, style)
+    if (entry) {
+      if (entry.encoded) out.add(entry.encoded)
+      for (const [char] of entry.cells) {
+        out.add(char)
+        for (const [source] of referenceSources(char, style) ?? []) out.add(source)
+      }
+      for (const donor of Object.values(entry.donors ?? {})) out.add(donor.char)
+    }
     if (brushSweepRoom(node, style)) {
       children.forEach(ch => out.add(ch))
       if (style === 'fangsong') out.add(node[1] === '瓦' ? tileHost(node[2]) : '尅')
@@ -2031,7 +2041,7 @@ export class Composer {
         return
       }
       const repeated = isGroupedForm(keyOf(node), this.fontStyle) ? componentParts(keyOf(node), region, this.fontStyle, atRoot, this.exclude) : null
-      const designed = repeated ?? rccParts(editable, keyOf(node), region) ?? birdOutlineParts(this, keyOf(node), region) ?? this.doubleTurnParts(node, region) ?? brushSweepParts(this, node, region, !atRoot) ?? this.thornRowParts(node, region) ?? yiCrossParts(this, node, region) ?? this.qiParts(node, region) ?? ghostParts(this, node, region) ?? this.muKoParts(node, region) ?? this.wheatFaceParts(node, region)
+      const designed = repeated ?? rccParts(editable, keyOf(node), region) ?? birdOutlineParts(this, keyOf(node), region) ?? this.doubleTurnParts(node, region) ?? brushSweepParts(this, node, region, !atRoot) ?? this.thornRowParts(node, region) ?? yiCrossParts(this, node, region) ?? this.qiParts(node, region) ?? ghostParts(this, node, region) ?? this.referenceParts(node, region) ?? this.muKoParts(node, region) ?? this.wheatFaceParts(node, region)
       if (designed) {
         const boxes = designed[0]?.rccGroup && rccLeafBoxes(designed, leafTexts(node).length)
         for (const box of boxes || designed.map(part => part.target)) out.push({ index: out.length, box, empty: false })
@@ -2550,6 +2560,58 @@ export class Composer {
     return parts.length ? parts : null
   }
 
+  /** Native brush drawings at the operand bounds recorded for a particular character. */
+  referenceParts(node, region) {
+    const entry = referenceLayout(node, this.fontStyle)
+    if (!entry || (entry.encoded && this.own(entry.encoded)) || node.slice(1).some(child => typeof child === 'string' && this.excluded(child))) return null
+    const { cells, donors } = entry
+    const cuts = donors && cells.map(([source]) => {
+      const donor = donors[source]
+      if (!donor || this.excluded(donor.char)) return null
+      const record = this.glyphRecord(donor.char)
+      if (record?.v !== 1 || hexOf(JSON.stringify(record.p)) !== donor.digest) return null
+      const parent = partOf(record)
+      return {
+        glyph: derived(parent, donor.indices.map(k => parent.contours[k])),
+        box: mapped(donor.box, EM_BOX, region),
+        origin: `${source} from ${donor.char}`,
+      }
+    })
+    // The two contextual cuts share a placement. Standalone forms have their own pair of boxes.
+    const useCuts = cuts?.every(Boolean)
+    const boxes = referenceBoxes(cells, region)
+    const parts = []
+    for (const [i, [source, , weight]] of cells.entries()) {
+      if (this.excluded(source)) return null
+      const cut = useCuts ? cuts[i] : null
+      let glyph = cut?.glyph ?? this.glyph(source), origin = cut?.origin ?? `glyph ${source}`
+      if (!glyph && source === '𭕄') {
+        const [host, digest, indices] = this.fontStyle === 'fangsong'
+          ? ['脳', 'f937dce6dd7e1605c22ec245ba082ea03c4aa15bf225553056332c8f0fb934e5', [3, 4, 5]] : ['巣', '6f947f2ce7bf188981c71dbe42c21792117c0d979527cf84c4af737e36243386', [5, 6, 7]]
+        const record = !this.excluded(host) && this.glyphRecord(host)
+        if (record && hexOf(JSON.stringify(record.p)) === digest) {
+          const native = partOf(record)
+          glyph = derived(native, indices.map(i => native.contours[i]))
+          origin = `host ${host}`
+        }
+      }
+      if (!glyph) {
+        const fragments = []
+        for (const [ch, box] of referenceSources(source, this.fontStyle) ?? []) {
+          if (this.excluded(ch)) return null
+          const part = this.glyph(ch)
+          if (!part) return null
+          fragments.push(placed(part, part.box, box, partInk(part), `glyph ${ch}`))
+        }
+        if (!fragments.length) return null
+        glyph = joinedDrawing(fragments, source).part
+        origin = `${source} from ${fragments.map(part => part.origin.slice(6)).join('')}`
+      }
+      parts.push({ ...placed(glyph, glyph.box, cut?.box ?? boxes[i], partInk(glyph), origin, weight), fixed: true })
+    }
+    return parts
+  }
+
   /** R+06D8, 出土文獻與古文字教程 p. 15. The two sides of 棘 flank a shorter 企. */
   thornRowParts(node, region) {
     if (!isThornRow(node) || ['棘', '企', '朿'].some(ch => this.excluded(ch))) return null
@@ -2680,6 +2742,8 @@ export class Composer {
     if (qi) return qi
     const ghost = ghostParts(this, node, region)
     if (ghost) return ghost
+    const reference = this.referenceParts(node, region)
+    if (reference) return reference
     const kana = this.muKoParts(node, region)
     if (kana) return kana
     // Use an encoded glyph first when the donor is specific to a rectangular counter.
