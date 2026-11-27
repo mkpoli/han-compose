@@ -69,9 +69,10 @@ function innerPart(glyph, strokeShift) {
     const fromEdge = Math.min(value - left, right - value)
     return value - strokeShift * Math.min(width, 4 * Math.max(0, fromEdge - 0.04 * width))
   })
-  return derived(glyph, glyph.contours.map(contour => ({
+  const contours = glyph.contours.map(contour => ({
     ...contour, light: fit(contour.light), heavy: fit(contour.heavy),
-  })))
+  }))
+  return { ...glyph, contours }
 }
 
 export function tileParts(composer, node, region) {
