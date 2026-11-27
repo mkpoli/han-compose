@@ -1,6 +1,7 @@
 /** Faces whose bundled forms come only from their own font: Noto's must not stand in for them. @param {string} style */
 export declare const ownFormsOnly: (style: string) => style is "fangsong" | "pen-writing" | "regular";
 export declare const containsComponentForm: (text: any, style?: string) => boolean;
+export declare const isAtomicForm: (text: any, style: any) => boolean;
 export declare const isGroupedForm: (text: any, style?: string) => boolean;
 export declare const isComponentForm: (text: any, style?: string) => boolean;
 /** Whether `text` has a native form in `style`: one that keeps what the export knows of it. */
