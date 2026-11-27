@@ -823,6 +823,7 @@ export const designedSources = (tree, style = 'sans') => {
   const out = new Set()
   const visit = node => {
     const key = keyOf(node)
+    if (key === '⿰水行' && (style === 'regular' || style === 'pen-writing')) out.add('沀')
     for (const char of rccDonors(key, style)) out.add(char)
     if (key.includes('#(')) {
       const reference = recordedDonor(key)
