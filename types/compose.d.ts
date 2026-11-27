@@ -307,8 +307,36 @@ export declare class Composer {
         native: any;
         origin: any;
     }[] | null;
+    /** The enclosed form of 首 keeps its native head, shoulder and eye together. */
+    enclosedShou(): {
+        part: {
+            contours: any[];
+            box: number[];
+        };
+        heightShare: number;
+    } | null;
     /** Select a verified low hook only after the face's contextual forms have had priority. */
     hookFrame(node: any, region: any, atRoot: any): {
+        parts: {
+            part: any;
+            source: any;
+            target: any;
+            weight: number[];
+            native: any;
+            origin: any;
+            fixed: boolean;
+        }[];
+        room: any[];
+        previous: any[];
+        counterFit: {
+            part: {
+                contours: any[];
+                box: number[];
+            };
+            source: number[];
+            origin: string;
+        };
+    } | {
         parts: {
             part: any;
             source: any;
