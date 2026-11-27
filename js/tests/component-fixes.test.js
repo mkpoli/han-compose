@@ -2,7 +2,7 @@
 // and tied to the outlines it was read against, so these tests exercise the correction itself on
 // the shapes it was written for, and the guard that leaves another export's drawing alone.
 import { describe, expect, it } from 'bun:test'
-import { COMPONENT_FIXES, clippedAbove, componentFix, dotIn, respanned, withoutContours } from 'han-compose/component-fixes'
+import { COMPONENT_FIXES, INCOME_IDS, clippedAbove, componentFix, dotIn, incomeBoxes, respanned, withoutContours } from 'han-compose/component-fixes'
 import { Composer } from 'han-compose/compose'
 import { drawnContours, fill, groupRings, makePart, mapped, partOf, placed, pointsBox, union } from 'han-compose/geometry'
 import zhou from './fixtures/zhou-miao.json' with { type: 'json' }
@@ -795,4 +795,72 @@ it('opens both gaps around 从 while preserving the bars of ⿱一丛', () => {
       expect(box(contour)[3]).toBeLessThan(884)
     }
   }
+})
+
+describe('日進斗金 ⿱⿰日斗⿺辶⿰隹金', () => {
+  const frame = [0, 0, 1000, 1000]
+  const sample = origin => part(origin, frame, frame, [[100, 100, 900, 900]])
+  const five = () => ['host 旰', 'host 枓', 'glyph 辶', 'learned 䳡', 'learned 唫'].map(sample)
+
+  it('places all five leaves in reading order across all five faces and nested regions', () => {
+    for (const fontStyle of ['sans', 'serif', 'fangsong', 'regular', 'pen-writing']) {
+      for (const region of [[38, -81, 967, 840], [450, 0, 950, 800]]) {
+        const boxes = incomeBoxes(INCOME_IDS, fontStyle, region)
+        expect(boxes).toHaveLength(5)
+        const out = COMPONENT_FIXES[INCOME_IDS].apply(five(), { fontStyle }, region)
+        expect(out.map(p => p.target)).toEqual(boxes)
+        const [day, dou, walk, bird, gold] = out.map(p => p.target)
+        // 日 beside 斗 on the top row, clear of 辶, 隹 and 金 below.
+        expect(day[2]).toBeLessThan(dou[0])
+        expect(day[1]).toBeGreaterThan(walk[3])
+        expect(dou[1]).toBeGreaterThan(bird[3])
+        expect(dou[1]).toBeGreaterThan(gold[3])
+        // 辶 spans beneath both 隹 and 金, with 隹 clear of 金 horizontally.
+        expect(walk[0]).toBeLessThan(bird[0])
+        expect(walk[2]).toBeGreaterThan(gold[2])
+        expect(walk[1]).toBeLessThan(bird[1])
+        expect(walk[1]).toBeLessThan(gold[1])
+        expect(bird[2]).toBeLessThan(gold[0])
+      }
+    }
+  })
+
+  it('insets left and top edges when nested inside a larger face', () => {
+    const face = [38, -81, 967, 840]
+    const rightRegion = [450, -81, 967, 840]
+    const lowerRegion = [38, -81, 967, 580]
+    const rightBoxes = incomeBoxes(INCOME_IDS, 'sans', rightRegion, face)
+    const rootRight = incomeBoxes(INCOME_IDS, 'sans', rightRegion)
+    expect(rightBoxes[2][0]).toBeGreaterThan(rootRight[2][0])
+    expect(rightBoxes[1][3]).toBeCloseTo(rootRight[1][3], 6)
+    const lowerBoxes = incomeBoxes(INCOME_IDS, 'sans', lowerRegion, face)
+    const rootLower = incomeBoxes(INCOME_IDS, 'sans', lowerRegion)
+    expect(lowerBoxes[1][3]).toBeLessThan(rootLower[1][3])
+    expect(lowerBoxes[2][0]).toBeCloseTo(rootLower[2][0], 6)
+  })
+
+  it('handles encoded 𪰍 top pair and ignores unrecognized layouts or the swapped IDS', () => {
+    const region = [89, -56, 915, 800]
+    const four = ['glyph 𪰍', 'glyph 辶', 'learned 䳡', 'learned 唫'].map(sample)
+    const out = COMPONENT_FIXES[INCOME_IDS].apply(four, { fontStyle: 'regular' }, region)
+    const boxes = incomeBoxes(INCOME_IDS, 'regular', region)
+    expect(out[0].target).toEqual(union([boxes[0], boxes[1]]))
+    expect(out.slice(1).map(p => p.target)).toEqual(boxes.slice(2))
+
+    const splitComposer = {
+      fontStyle: 'regular',
+      face: region,
+      drawNode: () => [sample('learned 㫑'), sample('learned 斘')],
+    }
+    const splitOut = COMPONENT_FIXES[INCOME_IDS].apply(four, splitComposer, region)
+    expect(splitOut).toHaveLength(5)
+    expect(splitOut.map(p => p.target)).toEqual(boxes)
+
+    const misshapedFive = ['glyph 𪰍', 'glyph 辶', 'learned 䳡', 'learned 唫', 'glyph 一'].map(sample)
+    expect(COMPONENT_FIXES[INCOME_IDS].apply(misshapedFive, { fontStyle: 'regular' }, region)).toBe(misshapedFive)
+
+    const unrelated = ['glyph 日', 'glyph 辶', 'learned 䳡', 'learned 唫'].map(sample)
+    expect(COMPONENT_FIXES[INCOME_IDS].apply(unrelated, { fontStyle: 'regular' }, region)).toBe(unrelated)
+    expect(incomeBoxes('⿰⿱日斗⿱進金', 'regular', region)).toBeNull()
+  })
 })
