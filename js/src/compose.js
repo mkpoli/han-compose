@@ -1042,7 +1042,12 @@ export class Composer {
     const surgical = this.surgicalYao(text)
     if (surgical) {
       const glyph = atRoot ? surgical.glyph : (this.drawnGlyph(surgical.host, true) ?? surgical.glyph)
-      return replaceYaoInPart(glyph, surgical.host, surgical.paths, surgical.edits, region, atRoot)
+      const isPrimary = this.glyphRecord(surgical.host)?.v === 1
+      return replaceYaoInPart(glyph, surgical.host, surgical.paths, surgical.edits, region, atRoot, {
+        fontStyle: this.fontStyle,
+        isPrimary,
+        nativeInk: this.ink(surgical.host),
+      })
     }
     return null
   }

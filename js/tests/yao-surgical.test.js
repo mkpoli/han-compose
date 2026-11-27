@@ -1,8 +1,9 @@
 import { expect, test } from 'bun:test'
-import { alignedYaoGroups, classifyDetachedYao5, collapseYaoHost, collectYaoHosts, findYaoGroups, replaceYaoInPart } from '../src/yao-surgical.js'
+import { alignedYaoGroups, classifyDetachedYao5, collapseYaoHost, collectYaoHosts, decomposedYaoGroups, findYaoGroups, replaceYaoInPart } from '../src/yao-surgical.js'
+import decomposeCuts from '../src/yao-decompose-cuts.json' with { type: 'json' }
 import { selectYao, yaoOccurrences } from '../src/yao-occurrences.js'
 import { Composer } from '../src/compose.js'
-import { placed, svgPath } from '../src/geometry.js'
+import { fitted, placed, svgPath } from '../src/geometry.js'
 import { yaoPart } from '../src/u26201-part.js'
 import { constants, records } from './fixtures/small-export.js'
 
@@ -84,10 +85,38 @@ test('selecting detached on a native 5-contour detached 幺 preserves the origin
   expect(detached).not.toBeNull()
   expect(folded).not.toBeNull()
   expect(returning).not.toBeNull()
-  // Native detached stays bit-for-bit identical in its contours; folded and returning each differ.
+  // Native detached stays bit-for-bit identical in outline and placement; folded and returning each differ.
   expect(detached[0].part).toBe(native5)
+  expect(svgPath(detached)).toBe(svgPath([placed(native5, native5.box, fitted(native5.box, constants.face, constants.STRETCH), 0, '')]))
   expect(svgPath(folded)).not.toBe(svgPath(detached))
   expect(svgPath(returning)).not.toBe(svgPath(detached))
   expect(svgPath(returning)).not.toBe(svgPath(folded))
   expect(original.length).toBeGreaterThan(20)
+})
+
+test('decomposedYaoGroups consumes han-decompose verified cuts on primary serif glyphs', () => {
+  expect(decomposeCuts.source).toBe('han-decompose')
+  expect(decomposeCuts.font).toBe('noto-serif-cjk-jp@2.003')
+  expect(Object.keys(decomposeCuts.cuts).length).toBeGreaterThan(800)
+  for (const ch of ['紅', '絲', '繁', '玄', '幼', '慈', '變', '牽', '後', '系', '緣']) {
+    const entry = decomposeCuts.cuts[ch]
+    expect(entry).toBeDefined()
+    expect(entry[1].every(g => g.length === 5)).toBe(true)
+  }
+  const [n, groups] = decomposeCuts.cuts['牽']
+  const dummy = {
+    contours: Array.from({ length: n }, (_, i) => ({
+      ops: [['M', 1, false], ['L', 1, false], ['L', 1, false], ['L', 1, false]],
+      light: [i * 20, 0, i * 20 + 10, 0, i * 20 + 10, 10, i * 20, 10],
+      heavy: [i * 20, 0, i * 20 + 10, 0, i * 20 + 10, 10, i * 20, 10],
+    })),
+    box: [0, 0, 1000, 1000],
+  }
+  const got = decomposedYaoGroups(dummy, '牽', 1, 'serif', true)
+  expect(got).toHaveLength(1)
+  expect(got[0].indices).toEqual(groups[0])
+  // Never applied to non-serif or fallback (v=0) glyphs, or contour count mismatches.
+  expect(decomposedYaoGroups(dummy, '牽', 1, 'sans', true)).toBeNull()
+  expect(decomposedYaoGroups(dummy, '牽', 1, 'serif', false)).toBeNull()
+  expect(decomposedYaoGroups({ contours: dummy.contours.slice(0, -1), box: dummy.box }, '牽', 1, 'serif', true)).toBeNull()
 })
