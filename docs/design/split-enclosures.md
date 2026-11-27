@@ -52,3 +52,5 @@ operators and similar hosts do not use this rule.
 
 - BabelStone IDS, Andrew West (魏安), <https://www.babelstone.co.uk/CJK/IDS.TXT>, File Date 2025-06-27 (public domain): the records for the components and examples above. Regional labels describe the source forms; X labels alternative analyses.
 - @zoenshiueh_lieu, report of 2026-10-26 on the 行 enclosure and the preferred forms `⿶𩰲米` and `⿹𣪊几` (X/Twitter).
+
+For native ink-box measurements of ⿹勹, see [Native ink boxes inside 勹](hook-ink-boxes.md).

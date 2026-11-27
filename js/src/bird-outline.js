@@ -8,6 +8,7 @@ const frame = '#(-𠃌㇉)'
 const eye = `⿴${frame}丶`
 const feet = `⿹${eye}灬`
 const bird = `⿱丿${feet}`
+const chicken = `⿰又${bird}`
 
 // The frame and eye appear in Yi Bai's description of 岛. For the four-dot
 // composition, 鸡 supplies the compact right-hand 鸟 as well as its neighbouring 又.
@@ -15,7 +16,7 @@ const bird = `⿱丿${feet}`
 const groups = new Map([
   [frame, ['frame']], [eye, ['frame', 'eye']], [feet, ['frame', 'eye', 'dots']],
   [bird, ['crest', 'frame', 'eye', 'dots']],
-  [`⿰又${bird}`, ['left', 'crest', 'frame', 'eye', 'dots']],
+  [chicken, ['left', 'crest', 'frame', 'eye', 'dots']],
 ])
 const donorsForDots = style => style === 'fangsong' ? '鴨' : '鳮'
 
@@ -38,6 +39,7 @@ function verified(composer, char, spec) {
 // Index cuts follow the exact contour order of the five font exports. A joined
 // crest is divided at its two junctions so 丿 and the frame can be edited separately.
 export function birdOutlineParts(composer, key, region) {
+  if (key === chicken && [key, '又', '丿', '丶', '灬'].some(ch => composer.excluded(ch))) return null
   const [char, dotDonor] = birdOutlineDonors(key, composer.fontStyle)
   if (!char || [frame, '𠃌', '㇉'].some(stroke => composer.excluded(stroke))) return null
   const specs = cuts[composer.fontStyle], spec = specs[char]
