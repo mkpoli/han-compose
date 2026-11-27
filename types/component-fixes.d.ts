@@ -28,6 +28,10 @@ export declare function dotIn(composer: any, band: any): {
  * A correction that cannot find the parts it names leaves the drawing as it is.
  */
 export declare const COMPONENT_FIXES: {
+    '\u2FF1\u6295\u77F3': {
+        glyphs: {};
+        apply(parts: any, composer: any): any;
+    };
     '\u2FF0\u8C9D\u4E26': {
         glyphs: {
             賦: string;
