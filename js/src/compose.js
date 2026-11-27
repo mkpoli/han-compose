@@ -1177,6 +1177,15 @@ export class Composer {
     const piece = (form ? bodyForm(record, this.glyphRecord(form.host), form) : null) ?? partOf(record)
     return contain ? this.pieceFor(ch, piece) : piece
   }
+  /** The outline another face's font drew for a character this face lacks, which `glyphRecord`
+   *  withholds: what draws the character when no sequence or designed cut does (an Extension J
+   *  character only Jigmo draws, in a Fangsong drawing). */
+  borrowedGlyph(ch, contain = false) {
+    const record = this.rec(ch)?.G
+    if (!record || record.v !== 0 || this.glyphRecord(ch)) return null
+    const piece = partOf(record)
+    return contain ? this.pieceFor(ch, piece) : piece
+  }
   /** A piece drawn for `key`, a glyph or a host cut, with the bar rule of `CONTAINED_MIDDLE_BARS`
    *  applied. */
   pieceFor(key, piece) {
@@ -2538,17 +2547,21 @@ export class Composer {
         // A character the face does not draw may still be a designed cut of one it does.
         const designed = this.designedCut(encoded)
         if (designed) return [this.place(designed.piece, region, this.ink(encoded), `designed ${designed.record.h}`)]
+        const borrowed = this.borrowedGlyph(encoded, !atRoot)
+        if (borrowed) return [this.place(borrowed, region, this.ink(encoded), `glyph ${encoded}`)]
         throw new LookupError(`No glyph or sequence draws ${encoded}.`)
       }
       if (!glyph) this.missingGlyphs.add(encoded)
       this.expanding.add(encoded)
       try { return this.node(tree, region, atRoot) } catch (error) {
-        if (!glyph || !(error instanceof LookupError)) throw error
-        return [this.place(glyph, region, this.ink(encoded), `glyph ${encoded}`)]
+        if (!(error instanceof LookupError)) throw error
+        const whole = glyph ?? this.borrowedGlyph(encoded, !atRoot)
+        if (!whole) throw error
+        return [this.place(whole, region, this.ink(encoded), `glyph ${encoded}`)]
       } finally { this.expanding.delete(encoded) }
     }
     if (typeof node === 'string') {
-      const glyph = this.drawnGlyph(node, !atRoot)
+      const glyph = this.drawnGlyph(node, !atRoot) ?? this.borrowedGlyph(node, !atRoot)
       if (!glyph) throw new LookupError(`No glyph or sequence draws ${node}.`)
       return [this.place(glyph, region, this.ink(node), `glyph ${node}`)]
     }

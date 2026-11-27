@@ -85,6 +85,17 @@ it('cuts a component the face does not draw from the same axis of another place'
   expect(out.origins).not.toContain('glyph 䒑')
 })
 
+// 𲎰 is Extension J: Jigmo alone draws it, no sequence describes it and no host holds a cut of it.
+it('draws a character only another face draws, with no sequence, in every style', async () => {
+  const foreign = character('𲎰', [[100, 0, 300, 800]])
+  foreign.G.v = 0
+  const input = { ...files, 'identity.json': identityOf(Object.entries({ ...records, '𲎰': foreign })), ...shards('g', [['𲎰', foreign]]) }
+  for (const fontStyle of ['sans', 'serif', 'fangsong', 'regular', 'pen-writing']) {
+    const out = await compose(sourceOf(input), '⿰𲎰口', { separate: true, fontStyle })
+    expect(out.origins).toContain('glyph 𲎰')
+  }
+})
+
 it('keeps the baseline of 丛 when a dental host offers a bar above 从', async () => {
   const people = [[200, 180, 270, 680], [600, 180, 670, 680]]
   const bar = [120, 0, 820, 80]
