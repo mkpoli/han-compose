@@ -7,13 +7,13 @@ import { hexOf } from './sha256.js'
 // join its upright to the low stroke and upturned tip from 尅.
 const KE_DONOR = '59500d3d2cfd9d7852b3ae0ae80801610a2c76d676c333efed708021f9443979'
 const forms = {
-  巴: { inner: '三', room: [508, 204, 875, 668],
+  巴: { inner: '三', room: [515, 186, 882, 650],
     digest: '7b094ea2c516dd35dda099e75a0ccc9c4f28fc06323157702835d524abc018b9',
     contour: 0, join: [54, 83], left: 104, width: 363, tip: 950, floor: -49 },
-  竜: { inner: '内', room: [539, 178, 846, 766],
+  竜: { inner: '内', room: [559, 80, 866, 752],
     digest: 'e4b19e281efb1551db14b62c9cc96badbab08656a79a6a41e37832ee75284efe',
     contour: 1, join: [59, 87], left: 48, width: 445, tip: 946, floor: -92 },
-  克: { inner: '千', room: [508, 120, 913, 738] },
+  克: { inner: '千', room: [523, 45, 928, 738] },
 }
 
 // These offsets count points at command boundaries in the quadratic contours.
