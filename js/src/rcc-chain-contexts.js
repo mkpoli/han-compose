@@ -1,11 +1,13 @@
 import componentCuts from './rcc-component-cuts.json' with { type: 'json' }
 import { derived, mapped, partInk, partOf, placed, rings, segments, union } from './geometry.js'
+import { horseFrameCut } from './host-chain.js'
 import { hexOf } from './sha256.js'
 
 const water = '⿰氵⿱亠⿶#(𠃍-𠃊一)凵'
 const speech = '⿰讠⿹⿸⿻#(-亅一)一犬丶'
 const tiger = '⿱⺊⿸#(-乛丿)노'
 const horse = '⿱⿷#(-一丨b𠃌)𰀁乙'
+const completeHorse = '⿹⿷#(-一丨b𠃌)𰀁灬'
 
 /** @typedef {[number, number, number]} Run */
 /** @typedef {[string, number[][]]} Segment */
@@ -31,30 +33,22 @@ const tigerCuts = new Map([
 // partitioned along the joins between their strokes, with all four dots omitted.
 // https://rare.glyphatlas.org/en/entry/1972#sighting-2072
 // https://github.com/yi-bai/ids/blob/2597437b928e8d530b7ae09cf53fe5ec7868569c/ids_lv2.txt
-/** @type {Map<string, {digest: string, outer: (number | Run)[], inner: (number | Run)[], removed: number[]}>} */
+/** @type {Map<string, {inner: (number | Run)[], removed: number[]}>} */
 const horseCuts = new Map([
   ['sans', {
-    digest: 'ad7319b40dc5b3cc8fd77149c8a10c231b9afe2d390d9a941a5fb13db62224b5',
-    outer: [2, 3, 9], inner: [0, 1, 8], removed: [4, 5, 6, 7],
+    inner: [0, 1, 8], removed: [4, 5, 6, 7],
   }],
   ['serif', {
-    digest: '20e002be87558b3701c769ea6c31884cc31615386f0a895aee0de57eb846d07d',
-    outer: [0, 3, 4, 9], inner: [1, 2, 10], removed: [5, 6, 7, 8],
+    inner: [1, 2, 10], removed: [5, 6, 7, 8],
   }],
   ['pen-writing', {
-    digest: '3d9c015a2ed603c84a951b5c19d4654b79a317b5c4151b56cc0f981b2ce7c97e',
     // The two bars meet the left stem along three enclosed counters.
-    outer: [[0, 40, 20], [3, 1, 3], [2, 2, 3], [1, 2, 0]],
     inner: [[0, 20, 40], [1, 0, 2], [2, 3, 2], [3, 3, 1]], removed: [4, 5, 6, 7],
   }],
   ['fangsong', {
-    digest: '997aafc290221658dc9ea3208cc7cd815a9b5069b651062f2080768792924be1',
-    outer: [[0, 71, 47], [5, 15, 0]],
     inner: [[0, 47, 71], [5, 0, 15]], removed: [1, 2, 3, 4],
   }],
   ['regular', {
-    digest: '9dbb41716e381d96f861222bfcbfe322b521b912873ad2fae37ebbe6ae95bd1c',
-    outer: [[0, 29, 0], [3, 5, 0], [2, 4, 0], [1, 6, 0]],
     inner: [[0, 0, 29], [1, 0, 6], [2, 0, 4], [3, 0, 5]], removed: [4, 5, 6, 7],
   }],
 ])
@@ -113,7 +107,7 @@ const subBox = (box, fractions) => mapped(fractions, [0, 0, 1, 1], box)
 const tigerSubtraction = '⿸㇯虍七노'
 const horseSubtraction = '⿱㇯馬灬乙'
 const design = new Map([[water, water], [speech, speech], [tiger, tiger], [tigerSubtraction, tiger],
-  [horse, horse], [horseSubtraction, horse]])
+  [horse, horse], [horseSubtraction, horse], [completeHorse, horse]])
 
 /** @param {string} key @param {string} style */
 export function rccChainDonors(key, style) {
@@ -121,7 +115,7 @@ export function rccChainDonors(key, style) {
   case water: return ['氵', '亠', '凵', '汴']
   case speech: return ['讠', '亅', '一', '丶', '犬', '讨', '狀', ...(style === 'fangsong' ? ['小'] : [])]
   case tiger: return style === 'fangsong' ? ['虍', '凵', '丄'] : ['虍', 'ㄴ', 'ㅗ']
-  case horse: return ['馬', '乙']
+  case horse: return key === completeHorse ? ['馬'] : ['馬', '乙']
   default: return []
   }
 }
@@ -233,7 +227,7 @@ function horseFoot(glyph) {
 /** @param {import('./compose.js').Composer} composer @param {string} key @param {number[]} region */
 export function rccChainContextParts(composer, key, region) {
   const id = design.get(key)
-  if (!id) return null
+  if (!id || (key === completeHorse && !composer.separate)) return null
   const donors = rccChainDonors(key, composer.fontStyle)
   if ([key, ...donors, ...(operands.get(id) ?? [])].some(char => composer.excluded(char))) return null
   /** @param {any} part @param {number[]} target @param {string} origin @param {number} rccLeaf */
@@ -309,13 +303,24 @@ export function rccChainContextParts(composer, key, region) {
     return [...exterior, draw(initial, initial.box, 'ㄴ of 노', 2), draw(final, final.box, 'ㅗ of 노', 2)]
   }
 
-  const cut = horseCuts.get(composer.fontStyle)
+  const record = composer.glyphRecord('馬')
+  const hostCut = horseFrameCut(record, composer.fontStyle, key === completeHorse)
+  if (!hostCut) return null
+  const cut = horseCuts.get(hostCut.face)
   if (!cut) return null
-  const glyph = native(composer, '馬', cut.digest)
-  if (!glyph) return null
+  const glyph = partOf(record)
+  if (key === completeHorse) {
+    const host = composer.place(glyph, region, partInk(glyph), `chain ${key}, glyph 馬`)
+    // Layout and weight balancing act on the complete native host. Cut its
+    // final contours so a bar narrowed under a cover stays narrowed.
+    const leafParts = (/** @type {any} */ final) => [
+      [hostCut.frame(final), '#(-一丨b𠃌) from 馬'], [piece(final, cut.inner), '𰀁 from 馬'], [piece(final, cut.removed), '灬 from 馬'],
+    ]
+    return [{ ...host, rccLeaf: 0, rccLeafCount: 3, leafParts }]
+  }
+  const body = hostCut.frame(glyph), inner = piece(glyph, cut.inner)
   const foot = native(composer, '乙')
   if (!foot) return null
-  const body = piece(glyph, cut.outer), inner = piece(glyph, cut.inner)
   const box = union([body.box, inner.box])
   const target = subBox(region, [0.16, 0.28, 0.88, 1])
   const kept = [draw(body, mapped(body.box, box, target), '#(-一丨b𠃌) from 馬', 0),
