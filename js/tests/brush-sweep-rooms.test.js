@@ -1,5 +1,6 @@
 import { expect, it } from 'bun:test'
 import { compose, createSource, sketch } from '../src/loader.js'
+import { fill, pathRings, pointsBox, union } from '../src/geometry.js'
 import { brushSweepParts } from '../src/brush-sweep-rooms.js'
 import { files, shards } from './fixtures/small-export.js'
 // Zhuque Fangsong 0.212, TrionesType, SIL OFL 1.1.
@@ -40,4 +41,29 @@ it('keeps adjacent brush enclosures inside their cells', async () => {
   const rightEdge = Math.max(...parts.slice(0, 2).map(part => part.box[2]))
   const leftEdge = Math.min(...parts.slice(2).map(part => part.box[0]))
   expect(rightEdge).toBeLessThan(leftEdge)
+})
+
+it('matches the middle left gap of the five encoded FangSong tile measures', async () => {
+  // Median horizontal ink-to-ink distance in the middle third of the filling,
+  // divided by whole glyph width. References: ZhongYi 瓩, 甅, 瓧, 瓲, 瓸.
+  const references = { 千: 0.285, 厘: 0.112, 十: 0.258, 屯: 0.092, 百: 0.131 }
+  const src = source(), size = 256
+  for (const [inner, reference] of Object.entries(references)) {
+    const { parts } = await compose(src, '⿺瓦' + inner, { fontStyle: 'fangsong', separate: true })
+    const rings = parts.map(p => pathRings(p.d, 24))
+    const box = union(rings.flat().map(pointsBox))
+    const [frame, body] = rings.map(r => fill(r, size, box))
+    const top = Math.floor(body.findIndex(Boolean) / size)
+    const bottom = Math.floor(body.findLastIndex(Boolean) / size)
+    const gaps = []
+    for (let row = Math.ceil(top + (bottom - top) / 3); row <= top + 2 * (bottom - top) / 3; row++) {
+      const start = row * size
+      const left = body.subarray(start, start + size).indexOf(1)
+      if (left < 0) continue
+      const wall = frame.subarray(start, start + left).lastIndexOf(1)
+      if (wall >= 0) gaps.push((left - wall - 1) / size)
+    }
+    gaps.sort((a, b) => a - b)
+    expect(Math.abs(gaps[Math.floor(gaps.length / 2)] - reference)).toBeLessThan(0.035)
+  }
 })
