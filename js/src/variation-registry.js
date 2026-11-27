@@ -119,7 +119,13 @@ export function createVariationRegistry(families) {
       if (family.evidenceOnly && !asReplacement) throw new RangeError(`Evidence requires explicit replacement: ${familyId}`)
       const form = family.forms.find(option => option.id === formId)
       if (!form) throw new RangeError(`Unknown form: ${familyId}/${formId}`)
-      return sequence.slice(0, span.start) + form.text + sequence.slice(span.end)
+      const result = sequence.slice(0, span.start) + form.text + sequence.slice(span.end)
+      // Marks and jamo can join adjacent operands when their raw spellings are concatenated.
+      const written = occurrence(result, path)
+      if (!written || written.start !== span.start || written.end !== span.start + form.text.length) {
+        throw new RangeError(`Form changes operand boundaries: ${familyId}/${formId}`)
+      }
+      return result
     },
   })
 }

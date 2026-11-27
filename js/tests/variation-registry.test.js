@@ -97,3 +97,8 @@ test('each axis can point to a pair of witnesses holding the other difference fi
   const axes = [{ ...first, examples: { '1': '2.1' } }, family.axes[1]]
   expect(() => createVariationRegistry([{ ...family, axes }])).toThrow('Invalid value witness')
 })
+
+test('an operand cannot absorb a selected mark from its neighbour', () => {
+  const r = createVariationRegistry([{ id: 'marks', subjects: ['水'], forms: [{ id: 'tone', text: '〮' }] }])
+  expect(() => r.select('⿰木水', [1], 'marks', 'tone')).toThrow('operand boundaries')
+})
