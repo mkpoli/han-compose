@@ -5,8 +5,8 @@
 // changes; an export drawing other outlines keeps the font's cut. The parts are plain placed pieces,
 // so the corrections work wherever the description is drawn, at any depth.
 import { contourSections, derived, fitted, groupRings, makePart, mapped, partOf, placed, pointsBox, union } from './geometry.js'
-import { penGrassKu } from './grass-ku.js'
 import { hexOf } from './sha256.js'
+import { penGrassKu } from './grass-ku.js'
 
 // Interpolation factors for the hosted 口 outlines when fitted beside 乎.
 const mouthWeights = {
