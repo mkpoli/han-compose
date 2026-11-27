@@ -50,7 +50,7 @@ import { hangulLetters } from './hangul-ids.js'
 import { toConjoiningJamo } from './hangul.js'
 import { tileHost } from './fangsong-tile.js'
 import { brushSweepRoom, brushSweepParts } from './brush-sweep-rooms.js'
-import { componentFix, enclosedZeroTarget } from './component-fixes.js'
+import { componentFix, enclosedZeroTarget, INCOME_IDS, incomeBoxes } from './component-fixes.js'
 import { isOutbound, markFace, markParts } from './marks.js'
 import { SI_CHAIN, siChainForm, siBendDonor } from './si-chain.js'
 import { youChainDonors, youChainParts } from './you-chain.js'
@@ -1665,6 +1665,7 @@ export class Composer {
     // Cell scaffolds already have a complete layout; searching every repeated subtree adds no evidence.
     if (this.pyramid(tree) || this.pyramidWithBase(tree)) return false
     const key = keyOf(tree)
+    if (key.includes(INCOME_IDS)) return false
     if (containsRateForm(key) || this.bySequence(key) || this.spelled.has(key)) return false
     if (isGroupedForm(key, this.fontStyle) || isComponentForm(key, this.fontStyle)) return false
     let leaves = 0, supported = true
@@ -1978,6 +1979,13 @@ export class Composer {
     if (partitioned) return partitioned
     const out = []
     const walk = (node, region, atRoot) => {
+      if (Array.isArray(node) && node[0] === '⿱') {
+        const boxes = incomeBoxes(keyOf(node), this.fontStyle, region, this.face)
+        if (boxes) {
+          for (const box of boxes) out.push({ index: out.length, box, empty: false })
+          return
+        }
+      }
       const yuan = this.yuanParts(node, region)
       if (yuan) {
         for (const part of yuan) out.push({ index: out.length, box: part.target, empty: false })

@@ -316,6 +316,72 @@ export function dotIn(composer, band) {
   return placed(glyph, glyph.box, target, composer.ink('丶'), 'dot 丶')
 }
 
+// The second inscription in UHK 港生活's photograph of four red fai chun (日進斗金, 2015-02-12,
+// https://hk.ulifestyle.com.hk/topic/detail/200474/). Bounds are in reading order of the five
+// leaves of ⿱⿰日斗⿺辶⿰隹金: 日, 斗, 辶, 隹, 金.
+export const INCOME_IDS = '⿱⿰日斗⿺辶⿰隹金'
+const incomeFaceBounds = {
+  sans: [
+    [0.31, 0.62, 0.58, 0.96],
+    [0.62, 0.59, 0.94, 0.99],
+    [0.01, 0.01, 0.99, 0.57],
+    [0.31, 0.14, 0.59, 0.55],
+    [0.63, 0.14, 0.96, 0.55],
+  ],
+  serif: [
+    [0.30, 0.62, 0.57, 0.96],
+    [0.62, 0.59, 0.94, 0.99],
+    [0.01, 0.01, 0.99, 0.57],
+    [0.31, 0.15, 0.59, 0.55],
+    [0.63, 0.15, 0.96, 0.55],
+  ],
+  fangsong: [
+    [0.32, 0.62, 0.58, 0.95],
+    [0.61, 0.58, 0.94, 0.99],
+    [0.01, 0.01, 0.99, 0.55],
+    [0.345, 0.175, 0.605, 0.545],
+    [0.63, 0.16, 0.96, 0.545],
+  ],
+  regular: [
+    [0.28, 0.63, 0.55, 0.94],
+    [0.58, 0.60, 0.91, 0.99],
+    [0.01, 0.01, 0.99, 0.58],
+    [0.28, 0.20, 0.57, 0.56],
+    [0.60, 0.19, 0.96, 0.56],
+  ],
+  'pen-writing': [
+    [0.30, 0.62, 0.57, 0.95],
+    [0.61, 0.59, 0.93, 0.99],
+    [0.01, 0.01, 0.99, 0.57],
+    [0.31, 0.15, 0.59, 0.55],
+    [0.62, 0.15, 0.95, 0.55],
+  ],
+}
+const inIncome = (box, region) => mapped(box, [0, 0, 1, 1], region)
+
+/**
+ * The five leaf boxes of `⿱⿰日斗⿺辶⿰隹金` mapped into `region` for `style`, with clearance on
+ * any edge that sits strictly inside `face` (when nested beside or below another component).
+ * @param {string} key
+ * @param {string} style
+ * @param {number[]} region
+ * @param {number[] | null} [face]
+ * @returns {number[][] | null}
+ */
+export function incomeBoxes(key, style, region, face = null) {
+  if (key !== INCOME_IDS) return null
+  const table = incomeFaceBounds[style] ?? incomeFaceBounds['pen-writing']
+  let frame = region
+  if (face) {
+    const fw = face[2] - face[0], fh = face[3] - face[1]
+    const rw = region[2] - region[0], rh = region[3] - region[1]
+    const leftInset = region[0] > face[0] + 0.02 * fw ? 0.04 * rw : 0
+    const topInset = region[3] < face[3] - 0.02 * fh ? 0.05 * rh : 0
+    if (leftInset || topInset) frame = [region[0] + leftInset, region[1], region[2], region[3] - topInset]
+  }
+  return table.map(box => inIncome(box, frame))
+}
+
 export function enclosedZeroTarget(zero, opening) {
   return targetFor(zero, mapped([0.16, 0.14, 0.84, 0.86], [0, 0, 1, 1], opening))
 }
@@ -343,6 +409,85 @@ function penDoor(char) {
  * A correction that cannot find the parts it names leaves the drawing as it is.
  */
 export const COMPONENT_FIXES = {
+  '⿱龹幸': {
+    glyphs: {},
+    apply(parts, composer) {
+      if (parts.length !== 2 || composer.excluded('幸')) return parts
+      const xing = composer.glyph('幸')
+      if (!xing) return parts
+      const [top, bottom] = parts, frame = union([top.target, bottom.target])
+      const upperBox = composer.fontStyle === 'pen-writing'
+        ? mapped([.06, .50, .94, 1], [0, 0, 1, 1], frame)
+        : composer.fontStyle === 'serif'
+          ? mapped([.04, .50, .96, 1], [0, 0, 1, 1], frame)
+          : top.target
+      const upper = { ...top, target: upperBox }
+      const fw = frame[2] - frame[0], fh = frame[3] - frame[1], cx = (frame[0] + frame[2]) / 2
+      const minW = composer.fontStyle === 'pen-writing' ? 0.84 : 0.78
+      const bw = Math.min(fw * 0.90, Math.max(bottom.target[2] - bottom.target[0], fw * minW))
+      const size = 200, mid = size >> 1
+      const mt = fill(groupRings([{ ...upper, flips: [] }], 16), size, frame)
+      // Raise the unstretched 幸 from the baseline until it meets 龹's left and right legs
+      // without driving its central stem across 龹's lower bar.
+      const probe = frac => {
+        const box = [cx - bw / 2, frame[1], cx + bw / 2, frame[1] + frac * fh]
+        const cand = placed(xing, xing.box, box, composer.ink('幸'), 'glyph 幸')
+        const mb = fill(groupRings([cand], 16), size, frame)
+        let left = 0, right = 0, center = 0
+        for (let r = 0; r < size; r++) {
+          for (let c = 0; c < size; c++) {
+            if (!mt[r * size + c] || !mb[r * size + c]) continue
+            if (Math.abs(c - mid) <= 8) center++
+            else if (c < mid) left++
+            else right++
+          }
+        }
+        return { cand, left, right, center }
+      }
+      let best = null
+      for (let step = 520; step <= 780; step += 5) {
+        const res = probe(step / 1000)
+        if (res.center > 0) {
+          if (!best) best = probe((step - 5) / 1000).cand
+          break
+        }
+        if (res.left > 0 && res.right > 0) {
+          best = res.cand
+          break
+        }
+      }
+      return [upper, best ?? probe(0.64).cand]
+    },
+  },
+  [INCOME_IDS]: {
+    glyphs: {},
+    apply(parts, composer, region) {
+      const boxes = incomeBoxes(INCOME_IDS, composer.fontStyle, region, composer.face)
+      if (!boxes) return parts
+      if (parts.length === 5 && parts[0].origin !== 'glyph 𪰍') {
+        return parts.map((part, i) => ({ ...part, target: boxes[i] }))
+      }
+      // Exports that carry encoded 𪰍 collapse ⿰日斗 into one glyph in non-separated mode;
+      // draw 日 and 斗 separately so normal and separated modes match at any nesting depth.
+      if (parts.length === 4 && parts[0].origin === 'glyph 𪰍') {
+        const top = union([boxes[0], boxes[1]])
+        if (typeof composer.drawNode === 'function') {
+          const split = Object.create(composer)
+          split.separate = true
+          const pair = split.drawNode(['⿰', '日', '斗'], top, false)
+          if (pair.length === 2) {
+            return [
+              { ...pair[0], target: boxes[0] },
+              { ...pair[1], target: boxes[1] },
+              ...parts.slice(1).map((part, i) => ({ ...part, target: boxes[i + 2] })),
+            ]
+          }
+        }
+        return [{ ...parts[0], target: top }, ...parts.slice(1).map((part, i) => ({ ...part, target: boxes[i + 2] }))]
+      }
+      return parts
+    },
+  },
   '⿱投石': {
     glyphs: {},
     apply(parts, composer) {
