@@ -1,4 +1,5 @@
 // @ts-nocheck: a port of han-compose's Python, kept line for line; its types are the arrays it reads.
+import { fangsongDottedHe, fitDottedHe, isDottedHe, markDottedHe } from './dotted-bopomofo.js'
 import { columnClearance, settleColumns } from './column-spacing.js'
 import { finishGrassTang, isGrassTang, markGrassTang } from './grass-tang.js'
 import { ratePart, rateParts } from './rate-drawing.js'
@@ -1526,6 +1527,7 @@ export class Composer {
       if (marks) out.push(...markParts(this, marks, frame, face))
       clearHookContacts(this, out)
       if (this.fontStyle === 'pen-writing') finishGrassTang(out, this)
+      if (out.some(p => p.dottedHe)) fitDottedHe(out, this.fontStyle)
       return this.separate ? editableRccParts(out) : out
     } finally { this.face = previous }
   }
@@ -1609,7 +1611,15 @@ export class Composer {
     }
     const walk = (node, box, depth) => {
       const start = out.length
-      place(node, box, depth)
+      const dotted = isDottedHe(node)
+      const pair = dotted && fangsongDottedHe(this, target(box), depth === 0)
+      if (pair) {
+        for (const p of pair) {
+          if (leafIndices) p.leaf = leaf++
+          out.push(p)
+        }
+      } else place(node, box, depth)
+      if (dotted) markDottedHe(out.slice(start), this)
       if (checkedHook(node)) markHook(this, node, out.slice(start))
     }
     const place = (node, box, depth) => {
@@ -1786,6 +1796,7 @@ export class Composer {
     fitClawInterior(out, tree, this.fontStyle, true)
     clearHookContacts(this, out)
     if (this.fontStyle === 'pen-writing') finishGrassTang(out, this)
+    if (out.some(p => p.dottedHe)) fitDottedHe(out, this.fontStyle)
     return out
   }
 
@@ -2021,7 +2032,10 @@ export class Composer {
   node(node, region, atRoot = false, sideBySide = false) {
     const rate = rateParts(keyOf(node), this.fontStyle, region, atRoot)
     if (rate && !this.excluded(exactRateForm(keyOf(node)).host)) return rate
-    const parts = this.constructed(node, region, atRoot) ?? componentFix(keyOf(node), this.drawNode(node, region, atRoot, sideBySide), this, region)
+    const dotted = isDottedHe(node)
+    const pair = dotted ? fangsongDottedHe(this, region, atRoot) : null
+    const parts = pair ?? this.constructed(node, region, atRoot) ?? componentFix(keyOf(node), this.drawNode(node, region, atRoot, sideBySide), this, region)
+    if (dotted) markDottedHe(parts, this)
     if (this.fontStyle === 'pen-writing' && isGrassTang(keyOf(node))) return markGrassTang(parts, keyOf(node))
     if (checkedHook(node)) markHook(this, node, parts)
     return parts
