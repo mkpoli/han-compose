@@ -1,6 +1,8 @@
 """Build the two registered top-dot orientations of 半 and 肖 in each composer face."""
 import argparse
 import json
+import math
+import statistics
 from pathlib import Path
 
 import pathops
@@ -104,6 +106,62 @@ def japanese_moon(face, contours):
     return result + dots
 
 
+# The outward pair (left ↙, right ↘ contour) in characters of each built face that write two
+# dots or short strokes splayed like 八.
+REFERENCES = {
+    "fangsong": {
+        "小": (1, 2), "六": (0, 1), "只": (1, 2), "兵": (1, 2), "共": (1, 2), "谷": (3, 4), "父": (1, 2),
+        "少": (1, 3), "尖": (1, 3), "京": (1, 2), "示": (1, 2), "赤": (1, 2), "糸": (1, 2), "貝": (1, 2),
+        "其": (1, 2), "典": (1, 3), "真": (1, 2), "具": (1, 2), "尒": (1, 3),
+    },
+    "regular": {
+        "小": (0, 2), "六": (1, 2), "只": (0, 3), "兵": (2, 3), "共": (2, 3), "谷": (3, 4), "父": (1, 2),
+        "少": (1, 3), "尖": (2, 3), "京": (1, 4), "示": (1, 3), "赤": (2, 1), "糸": (2, 1),
+        "其": (4, 5), "典": (7, 8), "真": (5, 6), "具": (5, 6), "尒": (3, 2),
+    },
+    "pen-writing": {
+        "小": (1, 2), "六": (1, 2), "只": (3, 2), "兵": (3, 2), "共": (2, 3), "谷": (1, 0), "父": (0, 1),
+        "少": (1, 2), "尖": (1, 2), "京": (4, 3), "示": (3, 2), "赤": (2, 1), "糸": (2, 1), "貝": (4, 5),
+        "其": (4, 5), "典": (8, 7), "真": (5, 6), "具": (5, 6), "尒": (3, 2),
+    },
+}
+# Pairs that flank an upright, as the dots of 半 and 肖 do.
+FLANKING = "小少尖京示赤糸尒"
+
+
+def length(contour):
+    x, y, x1, y1 = bounds([contour])
+    return math.hypot(x1 - x, y1 - y)
+
+
+def outward_pair(face, style):
+    """The flanking pair whose dots are closest in length to the median of the face's references.
+
+    An outward pair is longer than the inward one: swapping the native dots leaves the right dot
+    as short as the native left dot.
+    """
+    pairs = {char: [face.contours(char)[i] for i in index] for char, index in REFERENCES[style].items()}
+    lengths = {char: [length(c) for c in pair] for char, pair in pairs.items()}
+    median = [statistics.median(lengths[char][i] for char in pairs) for i in (0, 1)]
+    return pairs[min((char for char in FLANKING if char in pairs),
+                     key=lambda char: math.dist(lengths[char], median))]
+
+
+def outline(contours):
+    path = pathops.Path()
+    for contour in contours:
+        contour.replay(path.getPen())
+    return path
+
+
+def clearance(body, dots):
+    """How far `dots` can move down before they touch `body`."""
+    shape = outline(body)
+    x, y, x1, y1 = bounds(dots)
+    return next(d for d in range(0, 400) if pathops.op(
+        shape, outline(moved(dots, (x, y - d, x1, y1 - d))), pathops.PathOp.INTERSECTION).area > 1)
+
+
 def forms(face, char, style):
     tables = [table for table in face.font["cmap"].tables if table.format == 14]
     if tables:
@@ -118,18 +176,21 @@ def forms(face, char, style):
                    for test in (lambda b: b[2] < 460, lambda b: b[0] > 510))
     if len(left) != 1 or len(right) != 1:
         raise ValueError(f"Expected one separate dot on each side of {char}")
-    body = encode([c for c in contours if c not in left + right])
+    body = [c for c in contours if c not in left + right]
     # Identify the native direction by the horizontal displacement of the left
     # dot from its bottom to its top, using the ends of its on-curve segments.
     points = [coords[-1] for op, coords in left[0].value if coords]
     points.sort(key=lambda xy: xy[1])
     n = max(1, len(points) // 4)
-    inward = sum(x for x, _ in points[-n:]) < sum(x for x, _ in points[:n])
-    native = encode(left + right)
-    # Each dot moves to the other's place at its own size: stretching it into the other's box
-    # thickens it.
-    swapped = encode(moved(right, bounds(left)) + moved(left, bounds(right)))
-    return [(native if inward else swapped) + body, (swapped if inward else native) + body]
+    if sum(x for x, _ in points[-n:]) >= sum(x for x, _ in points[:n]):
+        raise ValueError(f"Expected the native dots of {char} to point inward")
+    # The face's own outward pair, centred on the native dots and set as close to the body as
+    # they are.
+    pair = moved(outward_pair(face, style), bounds(left + right))
+    x, y, x1, y1 = bounds(pair)
+    drop = clearance(body, pair) - clearance(body, left + right)
+    pair = moved(pair, (x, y - drop, x1, y1 - drop))
+    return [encode(left + right + body), encode(pair + body)]
 
 
 def main():
