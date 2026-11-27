@@ -197,14 +197,12 @@ export function horseFrameCut(record, style, allowNoto) {
 }
 
 /** The same flat foot serves as its own component and as the second operand in 乐.
- * @param {any} record */
-export function leFrameCut(record) {
+ * @param {any} record @param {string} style */
+export function leFrameCut(record, style) {
   if (record?.v !== 1) return null
-  const digest = hexOf(JSON.stringify(record.p))
-  for (const [face, [host, hash, indices]] of Object.entries(nativeCuts['#(丿𠃊)'].faces)) {
-    if (host === '乐' && hash === digest) return { face, indices }
-  }
-  return null
+  const node = '#(丿𠃊)', face = cutFace(node, style, hexOf(JSON.stringify(record.p)), false)
+  const cut = face && nativeCuts[node].faces[face]
+  return cut && cut[0] === '乐' ? { face, indices: cut[2] } : null
 }
 
 /** Place a leaf drawn from an attested host whose frame has its own contours.

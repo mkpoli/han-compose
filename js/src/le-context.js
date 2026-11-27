@@ -18,7 +18,7 @@ export function leContextParts(composer, key, region) {
   if (!written || [key, `⿻[1:]亅⿱${frame}八`, `⿱${written}八`, `⿱${frame}八`,
     '乐', '亅', written, frame, '八', '丿', '𠃊'].some(k => composer.excluded(k))) return null
   const record = composer.glyphRecord('乐')
-  const cut = leFrameCut(record)
+  const cut = leFrameCut(record, composer.fontStyle)
   if (!cut) return null
   const glyph = partOf(record), leaves = ['亅', written, '八']
   composer.nativeEnclosures.add(key)
