@@ -4,7 +4,8 @@
 import { describe, expect, it } from 'bun:test'
 import { COMPONENT_FIXES, clippedAbove, componentFix, dotIn, respanned, withoutContours } from 'han-compose/component-fixes'
 import { Composer } from 'han-compose/compose'
-import { drawnContours, makePart, mapped, partOf, placed, pointsBox } from 'han-compose/geometry'
+import { drawnContours, groupRings, makePart, mapped, partOf, placed, pointsBox, union } from 'han-compose/geometry'
+import kuruma from './fixtures/kuruma-to.json' with { type: 'json' }
 import { hexOf } from 'han-compose/sha256'
 
 /** A placed part of rectangular contours: `boxes` in font units, drawn from `source` into `target`. */
@@ -121,6 +122,40 @@ describe('⿱呼乙', () => {
       expect(componentFix('⿱呼乙', layout, composer)).toBe(layout)
     }
   })
+})
+
+it('fits the native left 車 from 軋 and native 卜 into the final Regular ink bounds of ⿰車ト', () => {
+  const car = part('learned 䡎', [0, 0, 160, 300], [40, 60, 200, 360], [[10, 20, 150, 280]])
+  car.part.contours[0].ops = [['M', 1], ['L', 1], ['L', 1], ['L', 1]]
+  const glyph = partOf(kuruma.ト)
+  const kana = placed(glyph, glyph.box, [230, 60, 330, 360], 0, 'glyph ト')
+  const pair = [car, kana], face = {
+    fontStyle: 'regular', staticFace: true, excluded: () => false, glyphRecord: ch => kuruma[ch],
+  }
+  const fixed = componentFix('⿰車ト', pair, face)
+  const box = p => union(groupRings([p], 24).map(pointsBox))
+  const [left, right] = fixed.map((p, i) => {
+    const nested = { ...p, target: [10 + 120 * i, 20, 90 + 120 * i, 170], flips: [{ x: true, about: [100, 0] }] }
+    const result = { ...nested, ...p.finishOutline(nested) }
+    for (const [axis, edge] of box(nested).entries()) expect(box(result)[axis]).toBeCloseTo(edge)
+    expect(p.finishOutline({ ...nested, fixed: true })).toEqual({})
+    return result
+  })
+  expect(left.origin).toBe('車 from 軋')
+  expect(left.part.contours).toEqual(partOf(kuruma.軋).contours.slice(0, 5))
+  expect(right.part).toBe(partOf(kuruma.卜))
+  expect(right.origin).toBe('glyph 卜')
+  for (const override of [{ excluded: ch => ch === '卜' }, { glyphRecord: ch => ch === '卜' ? null : kuruma[ch] },
+    { glyphRecord: ch => ch === '卜' ? { ...kuruma.卜, v: 0 } : kuruma[ch] }]) {
+    const fallback = componentFix('⿰車ト', pair, { ...face, ...override })
+    expect(fallback[0].finishOutline(fallback[0]).origin).toBe('車 from 軋')
+    expect(fallback[1].finishOutline(fallback[1]).part).toBe(glyph)
+    expect(fallback[1].finishOutline(fallback[1]).weight).toEqual([-0.8, -0.6])
+  }
+  for (const override of [{ partial: true }, { fontStyle: 'pen-writing' }, { excluded: ch => ch === '軋' },
+    { glyphRecord: ch => ch === '軋' ? null : kuruma[ch] }]) {
+    expect(componentFix('⿰車ト', pair, { ...face, ...override })).toBe(pair)
+  }
 })
 
 describe('⿱一心', () => {

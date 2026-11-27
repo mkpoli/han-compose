@@ -23,10 +23,17 @@ export function rccParts(composer, key, region) {
   return parts
 }
 
+/** Split registered native hosts after their final placement and weight are known.
+ * @param {any[]} parts */
+export function editableRccParts(parts) {
+  return parts.some(p => p.leafParts) ? parts.flatMap(p => p.leafParts ? p.leafParts(p) : [p]) : parts
+}
+
 /** Combine all contours belonging to one source operand for its editor box.
  * @param {any[]} parts @param {number} count */
 export function rccLeafBoxes(parts, count) {
   if (!parts[0]?.rccGroup) return null
+  parts = editableRccParts(parts)
   const boxes = []
   for (let i = 0; i < count; i++) {
     const group = parts.filter(p => p.rccLeaf === i)
