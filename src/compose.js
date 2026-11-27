@@ -50,6 +50,7 @@ import { hangulLetters } from './hangul-ids.js'
 import { toConjoiningJamo } from './hangul.js'
 import { componentFix } from './component-fixes.js'
 import { isOutbound, markFace, markParts } from './marks.js'
+import { SI_CHAIN, siChainForm, siBendDonor } from './si-chain.js'
 import { youChainDonors, youChainParts } from './you-chain.js'
 import { chainHost, hostChainParts, standaloneHostParts, fitNestedHostChains } from './host-chain.js'
 import { birdChainParts } from './bird-chain.js'
@@ -831,6 +832,11 @@ function recordedDonor(key) {
 export const designedSources = (tree, style = 'sans') => {
   const out = new Set()
   const visit = node => {
+    if (node === SI_CHAIN) {
+      out.add('巳')
+      const bend = siBendDonor(style)
+      if (bend) out.add(bend)
+    }
     const key = keyOf(node)
     if (key === '⿰舟苗' && style === 'regular') out.add('舳')
     if (key === '⿰車ト' && style === 'regular') { out.add('軋'); out.add('卜') }
@@ -1028,7 +1034,13 @@ export class Composer {
   }
   /** A component form's record, which stands in for the export's; a native form's does only where
    *  the export records nothing. */
-  formRecord = key => isNativeForm(key, this.fontStyle) ? null : componentRecord(key, this.fontStyle)
+  formRecord = key => {
+    if (key === SI_CHAIN) {
+      this.siForm ??= siChainForm(this) ?? false
+      if (this.siForm) return this.siForm
+    }
+    return isNativeForm(key, this.fontStyle) ? null : componentRecord(key, this.fontStyle)
+  }
   /** What a description's identity is found by: a key's sequence (`s`) and the character it
    *  describes (`e`). A store with an identity table answers from it; without one, and for a
    *  component form, the key's record does. */
@@ -1186,7 +1198,14 @@ export class Composer {
     if (!keep.length) return forms
     return [{ ...native, part: derived(glyph, keep, glyph.box), fixed: true, origin: `glyph ${char} kept` }, ...forms]
   }
-  glyph(ch) { const g = this.glyphRecord(ch); return g ? partOf(g) : this.footless(ch) }
+  glyph(ch) {
+    if (ch === SI_CHAIN) {
+      const part = this.formRecord(ch)?.part
+      if (part) return part
+    }
+    const g = this.glyphRecord(ch)
+    return g ? partOf(g) : this.footless(ch)
+  }
   /** An ideograph of `FOOTLESS` cut from the face's own character, or null where the face draws
    *  the ideograph itself, lacks the character, or the character's foot cannot be found. */
   footless(ch) {
@@ -1204,6 +1223,10 @@ export class Composer {
    *  by `BODY_FORMS` where the export carries the glyph that cut was made for. A cut of the glyph
    *  (`pieceOf`) keeps the font's own contours. */
   drawnGlyph(ch, contain = false) {
+    if (ch === SI_CHAIN) {
+      const glyph = this.formRecord(ch)?.part
+      if (glyph) return glyph
+    }
     const record = this.glyphRecord(ch)
     if (!record) {
       const cut = this.footless(ch)
@@ -1400,7 +1423,7 @@ export class Composer {
   }
 
   chain(node) {
-    if (!isChain(node) || isComponentForm(node, this.fontStyle)) return null
+    if (!isChain(node) || isComponentForm(node, this.fontStyle) || (node === SI_CHAIN && this.formRecord(node)?.part)) return null
     if (!this.chains.has(node)) {
       const missed = this.data.missing?.size ?? 0
       const form = chainForm(node, ch => this.chainStroke(ch))
@@ -5742,7 +5765,7 @@ export class Composer {
   balance(group) {
     const C = this.C, stem = this.stem0
     const curve = (density, axis) => C.STEM_CURVE[axis][0] + C.STEM_CURVE[axis][1] * density / 1000
-    const density = group.reduce((s, p) => { const [sx, sy] = scaleOf(p); return s + (p.inkLength ?? partInk(p.part)) * (sx + sy) / 2 }, 0)
+    const density = group.reduce((s, p) => { const [sx, sy] = scaleOf(p); return s + (p.inkLength ?? p.part.inkLength ?? partInk(p.part)) * (sx + sy) / 2 }, 0)
     const ratio = [0, 1].map(axis => stem[axis][1] / stem[axis][0] - 1)
     // The stroke widths the whole drawing is brought to, which a placeholder's outline follows.
     this.stroke = [curve(density, 0), curve(density, 1)]
