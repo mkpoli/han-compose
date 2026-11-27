@@ -5,6 +5,7 @@ import {
   alignRings,
   groupRegions,
   prepareCorrespondence,
+  sharedIslands,
   splitIslands,
   tangled
 } from '../src/mix-contours.js'
@@ -968,7 +969,7 @@ it('cuts a stroke at the notches where it leaves a stem when asked to', () => {
   ]
   const apart = [[box(40, 20, 20, 210)], [box(100, 100, 30, 16)]]
   const reach = (/** @type {boolean} */ anchored) => {
-    const regions = splitIslands([fused, apart], anchored)
+    const regions = splitIslands([fused, apart], anchored ? 'notch' : 'neck')
     expect(regions).toHaveLength(2)
     const stem = regions.find((region) => Math.min(...region[1][0][0].map((p) => p[0])) < 50)
     return Math.max(...stem[0][0][0].map((p) => p[0]))
@@ -976,6 +977,77 @@ it('cuts a stroke at the notches where it leaves a stem when asked to', () => {
   // The narrowest cut leaves the root of the arm on the stem; the anchored one takes it off by the wall.
   expect(reach(false)).toBeGreaterThan(75)
   expect(reach(true)).toBeLessThan(67)
+})
+
+it('cuts a fused island where its pieces fit the other face when asked to', async () => {
+  // 走 in a Song face, 土 above 龰, and in a Kai face that runs them together. The Kai
+  // crossbar slants down to the left, where its outline lies nearer the lower piece.
+  const faces = await Bun.file(new URL('./fixtures/fused-crossbar.json', import.meta.url)).json()
+  const left = (/** @type {'neck' | 'fit'} */ prefer) => {
+    const regions = splitIslands(faces, prefer)
+    expect(regions).toHaveLength(2)
+    const top = regions.find((region) => Math.max(...region[0][0][0].map((p) => p[1])) < 120)
+    return { regions, left: Math.min(...top[1][0][0].map((p) => p[0])) }
+  }
+  // The narrowest neck leaves the left half of the crossbar on the lower piece.
+  expect(left('neck').left).toBeGreaterThan(40)
+  const fitted = left('fit')
+  expect(fitted.left).toBeLessThan(25)
+  for (const region of fitted.regions) expect(prepareCorrespondence(region, true)).not.toBeNull()
+})
+
+it('cuts both faces to the pieces they share where each runs different strokes together', async () => {
+  // 淼 in a Song face and a Fangsong face. In the lower right 水 the Song face joins the
+  // left stroke to the stem; the Fangsong face joins that stroke to the 水 on its left.
+  const faces = await Bun.file(new URL('./fixtures/crossed-fusions.json', import.meta.url)).json()
+  // Cutting only the coarser face pairs a piece with ink that holds other strokes.
+  const oneWay = splitIslands(faces)
+  expect(oneWay.some((region) => !prepareCorrespondence(region, true))).toBe(true)
+  const shared = sharedIslands(faces)
+  expect(shared).toHaveLength(6)
+  for (const { region, cut } of shared) expect(prepareCorrespondence(region, cut)).not.toBeNull()
+  // Faces whose islands already stand one to one need no cutting.
+  const apart = [[box(20, 20, 40, 200)], [box(120, 20, 40, 200)]]
+  expect(sharedIslands([apart, apart])).toBeNull()
+})
+
+it('cuts through a counter the finer face lacks when asked to', () => {
+  // Two bars joined by two posts, as 立 is written in one stroke after another, against the
+  // same four strokes standing apart. The posts and bars close a counter no cut may touch.
+  const outer = [
+    [20, 40],
+    [220, 40],
+    [220, 70],
+    [170, 70],
+    [170, 170],
+    [220, 170],
+    [220, 200],
+    [20, 200],
+    [20, 170],
+    [70, 170],
+    [70, 70],
+    [20, 70],
+    [20, 40]
+  ]
+  const fused = [[outer, box(95, 70, 50, 100, true)]]
+  const apart = [
+    [box(20, 40, 200, 30)],
+    [box(70, 85, 25, 70)],
+    [box(145, 85, 25, 70)],
+    [box(20, 170, 200, 30)]
+  ]
+  expect(splitIslands([fused, apart])).toBeNull()
+  const regions = splitIslands([fused, apart], 'neck', true)
+  expect(regions).toHaveLength(4)
+  for (const region of regions) {
+    // Each stroke is a piece without a counter, and blends with its counterpart.
+    expect(region[0][0]).toHaveLength(1)
+    expect(prepareCorrespondence(region, true)).not.toBeNull()
+  }
+  // The posts keep their width: each piece stays within a little of its counterpart's box.
+  const width = (/** @type {number[][]} */ ring) =>
+    Math.max(...ring.map((q) => q[0])) - Math.min(...ring.map((q) => q[0]))
+  for (const region of regions.slice(1, 3)) expect(width(region[0][0][0])).toBeLessThan(40)
 })
 
 it('does not pair distant leftover corners at opposite ends of a long stem wall', () => {
@@ -1078,4 +1150,23 @@ it('leaves no stub on a stem where a slanted dot was cut from it', () => {
   // The stem's wall runs straight past the join, and the dot still reaches down to it.
   expect(Math.max(...stem[0][0][0].map((p) => p[0]))).toBeLessThan(52.5)
   expect(Math.max(...dot[0][0][0].map((p) => p[1]))).toBeGreaterThan(108)
+})
+
+it('keeps the outline blend of a cut piece that turns more than its faces without kinking', async () => {
+  // A piece cut from 陽 (Sans against Serif) and one from 答 (Sans against Fangsong), in the
+  // registered square. Both turn more at the even mix than their faces do; only the second
+  // folds back on itself.
+  const { smooth, kinked } = await Bun.file(new URL('./fixtures/cut-pieces.json', import.meta.url)).json()
+  // The verdict holds wherever a ring happens to start.
+  const turned = (/** @type {number[][][][][]} */ faces) => {
+    const copy = structuredClone(faces)
+    for (const face of copy) {
+      const ring = face[0][0]
+      ring.shift()
+      ring.push(ring[0])
+    }
+    return copy
+  }
+  for (const faces of [smooth, turned(smooth)]) expect(prepareCorrespondence(faces, true)).not.toBeNull()
+  for (const faces of [kinked, turned(kinked)]) expect(prepareCorrespondence(faces, true)).toBeNull()
 })
