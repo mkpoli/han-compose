@@ -1,6 +1,6 @@
 # 率 gallery
 
-The gallery shows the 37 characters built on 率 in the five Han Compose faces. Each card sets the face's own glyphs beside the four reviewed forms: a Chinese or Japanese 幺, with inward dots or with paired strokes. Selecting a form copies its IDS.
+The gallery shows the 37 characters built on 率 in the five Han Compose faces. Each card places the face’s own glyphs beside a table of four forms. The row headers show the center strokes and the column headers show the strokes on either side, taken from the reviewed serif drawings of 率. Selecting a form copies its IDS.
 
 Build from the package's `js/` directory after installing the workspace dependencies.
 
@@ -32,7 +32,7 @@ The four forms come from `src/rate-forms.js` and `src/rate-drawing.js`. The refe
 
 Plangothic draws 30 of the 37 characters and appears on those cards in every face, including the faces with no glyph of their own. It also draws 𰀪, ⺀, 𦃃, 𤣩 and 𧾷 in the IDS line. A card reads 无原字 when neither the face nor Plangothic has the character. The fonts themselves are not part of the example. [Font sources and licences](../../../docs/licensing.md)
 
-The stroke distinction follows [IRG UCV 30](https://www.unicode.org/irg/docs/n2978-Complete.pdf), and the two Japanese spellings are the Adobe-Japan1 sequences 率 VS17 and 率 VS18 in the [Unicode IVD](https://www.unicode.org/ivd/data/2026-08-03/IVD_Sequences.txt).
+The stroke distinction follows [IRG UCV 30](https://www.unicode.org/irg/docs/n2978-Complete.pdf), and two of the spellings are the Adobe-Japan1 sequences 率 VS17 and 率 VS18 in the [Unicode IVD](https://www.unicode.org/ivd/data/2026-08-03/IVD_Sequences.txt).
 
 `build-data.py` rewrites `data/` from the reviewed proof records and the two Plangothic fonts.
 
