@@ -899,6 +899,8 @@ export const designedSources = (tree, style = 'sans') => {
  *  is 五 above its lower 一. 𲐬 is 巫 above its, with a second 人 under each 人 beside the stem
  *  (`doubled`), as the code chart draws its 𠈌. No sequence says so; the cut is made in the face's
  *  own glyph. */
+/** How many of a character's cuts for a place are tried for a foot to cut away. */
+const FOOTLESS_HOSTS = 6
 const FOOTLESS = { '𲎰': { host: '五' }, '𲐬': { host: '巫', doubled: true } }
 /** The sequences of the CJK Extension J ideographs whose parts a face can cut from its own
  *  characters (`scripts/build_extension_j_ids.py`). */
@@ -945,6 +947,7 @@ export class Composer {
     this.C = c
     this.exclude = new Set(exclude)
     this.footlessCuts = new Map()
+    this.footlessPieces = new WeakMap()
     this._forced = new Map()
     this.spelled = new Set(m.spelled)
     this.AXIS = c.AXIS
@@ -3822,6 +3825,23 @@ export class Composer {
     // A forced operand is drawn from its own IDS, not replaced by a host's cut. A direct 艹 is
     // exempt: its form is placed by the caller, or the face's own cut is the connected component.
     if (!(typeof node === 'string' && node === '艹') && this.forced(node)) return null
+    // An ideograph of `FOOTLESS` is cut from the form its character takes in this place, which the
+    // face draws at the width and weight of the place, before its whole glyph is squeezed into it.
+    if (typeof node === 'string' && Object.hasOwn(FOOTLESS, node) && !this.glyphRecord(node)) {
+      const form = FOOTLESS[node]
+      if (this.excluded(form.host) || this.excluded(node)) return null
+      // The closest cut whose foot can be found: a cut joined to its neighbour's ink has none.
+      for (const [, found] of this.ranked(op, index, form.host, siblings, box, isPlaced).slice(0, FOOTLESS_HOSTS)) {
+        if (found.record.v !== 1) continue
+        if (!this.footlessPieces.has(found.piece)) {
+          const cut = withoutFoot(found.piece)
+          this.footlessPieces.set(found.piece, cut && form.doubled ? doubledFlanks(cut) : cut)
+        }
+        const piece = this.footlessPieces.get(found.piece)
+        if (piece) return { record: found.record, piece }
+      }
+      return null
+    }
     // The 齒-family cuts filed as 丛 put 一 above 从. Use the native 丛
     // in this stack so its baseline stays below both people.
     if (op === '⿱' && index === 1 && node === '丛' && siblings[0] === '一'
