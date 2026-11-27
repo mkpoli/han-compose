@@ -444,14 +444,25 @@ def calibrate(sample: int = 1500, seed: int = 7, style: str = STYLE) -> None:
 @app.command("calibrate-parts")
 def calibrate_parts(sample: int = 700, seed: int = 11, style: str = STYLE) -> None:
     """Fit the powers of a part's scale its stroke width follows in the font's own characters, for the
-    style's `part_stems`: each part of a character cut cleanly in two against its own glyph."""
+    style's `part_stems`: each part of a character cut cleanly in two against its own glyph.
+
+    The stroke widths give the two powers. Growing an outline also thickens its dots, ends and
+    diagonals, so the glyph set into the part's box and weighted by those powers holds more ink than
+    the part: the powers are then brought toward 1 (plain scaling) by the strength at which the ink
+    of the weighted glyphs is closest to the ink of the parts themselves."""
+    from dataclasses import replace
+
     composer = _composer(style)
+    held = composer.font.style
 
     def stem(part: compose.Part) -> tuple[float, float] | None:
         widths = compose.stems(compose.raster([compose.Placed(part, part.box, part.box)], 400), compose.EM / 400)
         return widths if all(np.isfinite(widths)) else None
 
-    rows = []
+    def ink(placed: compose.Placed) -> float:
+        return float(compose.raster([placed], 200).sum())
+
+    rows, pairs = [], []
     for ops, places in ((tuple(compose.ENCLOSE), (1,)), (("⿰", "⿱"), (0, 1))):
         chars = sorted(ch for ch, s in composer.sequences.items() if s[0] in ops and composer.font.own(ch))
         random.Random(seed).shuffle(chars)
@@ -477,14 +488,37 @@ def calibrate_parts(sample: int = 700, seed: int = 11, style: str = STYLE) -> No
                     continue
                 rows.append([((piece.box[axis + 2] - piece.box[axis]) / max(own.box[axis + 2] - own.box[axis], 1),
                               widths[axis] / natural[axis]) for axis in (0, 1)])
-    powers = []
+                pairs.append((own, piece))
+    fitted = []
     for axis in (0, 1):
         data = np.array([row[axis] for row in rows])
         data = data[(data[:, 0] > compose.PART_SCALE_LEAST) & (data[:, 0] < 1.2) & (data[:, 1] > 0)]
         x, y = np.log(data[:, 0]), np.log(data[:, 1])
         # Through the origin: a part at its glyph's size keeps its glyph's stem.
-        powers.append(round(float((x * y).sum() / (x * x).sum()), 3))
-    print(json.dumps({"style": style, "parts": len(rows), "part_stems": powers}))
+        fitted.append(float((x * y).sum() / (x * x).sum()))
+    truth = np.array([ink(compose.Placed(piece, piece.box, piece.box)) for _, piece in pairs])
+    native = [composer.ink("", own) for own, _ in pairs]
+    best = None
+    for strength in np.arange(0.5, 1.001, 0.05):
+        powers = tuple(1 - strength * (1 - power) for power in fitted)
+        composer.font.style = replace(held, part_stems=powers)
+        try:
+            drawn = []
+            for (own, piece), length in zip(pairs, native):
+                placed = compose.Placed(own, own.box, piece.box, native=length)
+                composer._balance([placed])
+                drawn.append(ink(placed))
+        finally:
+            composer.font.style = held
+        ratio = np.array(drawn) / truth
+        ratio = ratio[np.isfinite(ratio) & (ratio > 0)]
+        error = float(np.abs(np.log(ratio)).mean())
+        if best is None or error < best[0]:
+            best = (error, float(strength), powers, float(np.median(ratio)))
+    error, strength, powers, median = best
+    print(json.dumps({"style": style, "parts": len(rows), "stem_powers": [round(power, 3) for power in fitted],
+                      "strength": round(strength, 2), "part_stems": [round(power, 3) for power in powers],
+                      "ink_error": round(error, 3), "ink_median": round(median, 3)}))
 
 
 if __name__ == "__main__":

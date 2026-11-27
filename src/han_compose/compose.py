@@ -108,9 +108,11 @@ class Style:
     own_hosts: bool = False
     #: How far up the style's glyphs move to meet the composer's em, in 1000-unit units.
     y_shift: float = 0.0
-    #: The powers (across x, across y) of a part's scale its stroke width follows in the font's own
-    #: characters, measured by `calibrate-parts`: a part drawn at 0.5 of its glyph keeps 0.5 ** k
-    #: of its stem. None weights by density alone (`stem_curve`).
+    #: The powers (across x, across y) of a part's scale its stroke width is brought to, measured by
+    #: `calibrate-parts`: a part drawn at 0.5 of its glyph keeps 0.5 ** k of its stem. They are the
+    #: powers the font's own characters follow, brought toward plain scaling as far as makes a
+    #: weighted glyph hold the ink of the font's own part. None weights by density alone
+    #: (`stem_curve`).
     part_stems: tuple[float, float] | None = None
 
 
@@ -159,7 +161,7 @@ STYLES = {
          Source("PlangothicP2-Regular.ttf", f"{PLANGOTHIC_URL}/PlangothicP2-Regular.ttf",
                 "681933370adfe0fc7253f77735275a82fea09fe4f8adba907bdeb46c110daf8f", OFL)),
         ((85.34, -1.324), (86.93, -1.914)),
-        part_stems=(0.233, 0.350),
+        part_stems=(0.348, 0.448),
     ),
     # Noto Serif CJK JP 2.003 (Source Han Serif's design), whose horizontals stay about 30 units at
     # every weight from 200 to 900 while its verticals grow from 45 to 145.
@@ -191,10 +193,9 @@ STYLES = {
         kindred=False,
         own_hosts=True,
         # A part drawn smaller than its glyph is grown from the one weight the font has
-        # (`STATIC_GROW`) to the stem the font gives such a part. Measured on 1,983 parts of its
-        # own characters against their glyphs (`calibrate-parts`): a part at half size keeps 84%
-        # of its verticals and 89% of its horizontals.
-        part_stems=(0.259, 0.171),
+        # (`STATIC_GROW`) toward the stem the font gives such a part, as far as its ink matches the
+        # ink of the font's own parts (`calibrate-parts`, on 1,983 parts).
+        part_stems=(0.370, 0.295),
         # Its full ideographs span -151 to 848 of the em, Noto Serif's -78 to 837: the lift centres
         # them where Noto Serif's stand. They fill the em's whole height, so a stroke at the top
         # or the foot can pass its edge by a few units.
@@ -215,7 +216,7 @@ STYLES = {
         ((57.51, 0.271), (39.61, -1.297)),
         heavy=400,
         kindred=False,
-        part_stems=(0.204, 0.144),
+        part_stems=(0.364, 0.315),
         own_hosts=True,
     ),
     # TW-Kai (CNS 11643 Kai, fonts version 11510.1): a static brush face whose Extension B and G
@@ -228,7 +229,7 @@ STYLES = {
         ((60.87, -1.34), (53.83, -1.756)),
         heavy=400,
         kindred=True,
-        part_stems=(0.314, 0.303),
+        part_stems=(0.417, 0.407),
         own_hosts=True,
         # TW-Kai's typographic ascent is 820 on its 1024-unit em: 880 - 820 * 1000 / 1024.
         y_shift=79.2,
@@ -250,7 +251,7 @@ STYLES = {
         ((70.0, 0.0), (70.0, 0.0)),
         heavy=400,
         kindred=False,
-        part_stems=(0.209, 0.256),
+        part_stems=(0.328, 0.368),
         own_hosts=True,
     ),
 

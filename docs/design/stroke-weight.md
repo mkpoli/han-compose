@@ -36,21 +36,32 @@ enclosures), and compares each part's stroke width with its own glyph's against 
 along the same axis. The fit is a power through the origin, on parts between 0.2 and 1.2 of their
 glyph: a part at its glyph's size keeps its glyph's stem.
 
-| Style | Parts | Across x | Across y | Verticals kept at half size | Horizontals kept at half size |
-|---|---|---|---|---|---|
-| Sans | 1,990 | 0.233 | 0.350 | 85% | 78% |
-| Serif | 1,989 | 0.147 | 0.013 | 90% | 99% |
-| Woodblock | 1,983 | 0.259 | 0.171 | 84% | 89% |
-| Fangsong | 1,540 | 0.204 | 0.144 | 87% | 91% |
-| Regular Kai | 1,936 | 0.314 | 0.303 | 80% | 81% |
-| Wen Kai | 2,012 | 0.209 | 0.256 | 87% | 84% |
+| Style | Parts | Stroke width, across x | across y | Strength | `part_stems` across x | across y | Ink of a weighted glyph over the part's |
+|---|---|---|---|---|---|---|---|
+| Sans | 1,990 | 0.233 | 0.350 | 0.85 | 0.348 | 0.448 | 1.007 |
+| Serif | 1,989 | 0.147 | 0.013 | 1.00 | 0.147 | 0.013 | 0.988 |
+| Woodblock | 1,983 | 0.259 | 0.171 | 0.85 | 0.370 | 0.295 | 1.002 |
+| Fangsong | 1,540 | 0.204 | 0.144 | 0.80 | 0.364 | 0.315 | 1.001 |
+| Regular Kai | 1,936 | 0.314 | 0.303 | 0.85 | 0.417 | 0.407 | 1.001 |
+| Wen Kai | 2,012 | 0.209 | 0.256 | 0.85 | 0.328 | 0.368 | 1.009 |
 
-Plain scaling would leave 50%. In every style and on both axes the law predicts a part's stroke
-width with a lower error than the density curve, than keeping the glyph's stem, and than plain
-scaling (rms log error across x in Sans: 0.117, 0.125, 0.152, 0.339; in Wen Kai: 0.087, 0.405,
-0.116, 0.305). A second power for the scale along the other axis lowers the error by 0.001 to
-0.006 and is left out. Dense parts thin a little more than sparse ones in Sans, Fangsong and Wen
-Kai, and a term for it lowers the error by at most 0.008; it is left out too.
+The stroke-width powers describe the font: in every style and on both axes they predict a part's
+stroke width with a lower error than the density curve, than keeping the glyph's stem, and than
+plain scaling (rms log error across x in Sans: 0.117, 0.125, 0.152, 0.339; in Wen Kai: 0.087,
+0.405, 0.116, 0.305).
+
+They are not used as they stand. Moving an outline toward its heavy master thickens its dots, stroke
+ends and diagonals along with its stems, so a glyph weighted to the font's stroke width holds more
+ink than the font's own part: 4% to 6% more at the median in Sans, Fangsong, Regular Kai and Wen
+Kai, 7% to 11% more for parts under 0.6 of their glyph. `calibrate-parts` therefore sets each
+part's standalone glyph into the box the part has in its character, weights it, and compares its
+ink with the part's own. It brings the powers toward 1 (plain scaling, strength 0) by the strength
+at which the mean error of that ink is least, and `part_stems` holds the result. No layout enters
+the comparison.
+
+A second power for the scale along the other axis, a term for the part's own density and one for
+the whole character's were fitted too; each lowers the stroke-width error by 0.008 at most and
+changes the drawings little, and they are left out.
 
 ## Balancing
 
