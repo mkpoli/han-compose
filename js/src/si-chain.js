@@ -79,8 +79,9 @@ function graftBend(host, donor, cut) {
 
 /** @param {import('./compose.js').Composer} composer */
 export function siChainForm(composer) {
+  if (!Object.hasOwn(cuts, composer.fontStyle)) return null
   const cut = cuts[composer.fontStyle]
-  if (!cut || [SI_CHAIN, '巳', '一', '𠃍', '㇄', cut.donor].some(key => composer.excluded(key))) return null
+  if ([SI_CHAIN, '巳', '一', '𠃍', '㇄', cut.donor].some(key => composer.excluded(key))) return null
   const host = composer.glyphRecord('巳'), donor = composer.glyphRecord(cut.donor)
   if (host?.v !== 1 || donor?.v !== 1 ||
       hexOf(JSON.stringify(host.p)) !== cut.hostHash || hexOf(JSON.stringify(donor.p)) !== cut.donorHash) return null

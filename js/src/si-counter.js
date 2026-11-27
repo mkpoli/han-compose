@@ -16,6 +16,7 @@ const crossbars = {
 // [lowest eligible y, fixed left edge, start of shoulder, horizontal shift]
 /** @type {Record<string, number[]>} */
 const shoulders = {
+  sans: [310, 220, 750, -40],
   regular: [390, 253, 486, 133],
   fangsong: [369, 275, 630, 19],
   'pen-writing': [360, 281, 685, 41],

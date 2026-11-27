@@ -48,8 +48,8 @@ for (const [fontStyle, glyphs] of Object.entries(faces)) {
     expect(walls).toHaveLength(2)
     expect(bars[1]).toBeGreaterThan(0.35)
     expect(bars[1]).toBeLessThan(0.405)
-    expect(walls[1]).toBeGreaterThan(0.71)
-    expect(walls[1]).toBeLessThan(0.85)
+    expect(walls[1]).toBeGreaterThan(0.735)
+    expect(walls[1]).toBeLessThan(0.805)
     expect(revised.some((pixel, i) => i % size < size / 2 && i >= 0.78 * size * size && pixel !== native[i])).toBe(true)
     const hasHook = mask => mask.some((ink, i) => {
       const x = (i % size) / size, y = Math.floor(i / size) / size
