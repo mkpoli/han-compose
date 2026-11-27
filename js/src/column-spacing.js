@@ -30,7 +30,7 @@ function columnPair(left, right, widths, [broad, nearest]) {
   if (!left.length || !right.length || parts.some(p => !widths.has(p) || p.fixed || p.cut || p.flips ||
     p.nativeAspect || p.balanceBox || p.weightLimit || p.finishOutline || p.empty !== undefined || p.operandOnly)) return
   // Two cuts from one native character already share its designed spacing.
-  if (/^(learned|host) /.test(parts[0].origin) && parts.every(p => p.origin === parts[0].origin)) return
+  if (/^(learned|host|teacher) /.test(parts[0].origin) && parts.every(p => p.origin === parts[0].origin)) return
   const rings = [left, right].map(group => groupRings(group, 24))
   if (!rings.every(group => group.length)) return
   const boxes = rings.map(group => union(group.map(pointsBox)))

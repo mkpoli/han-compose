@@ -4459,7 +4459,7 @@ def _settle_columns(rows: list, placed: list[Placed], clearance: tuple[float, fl
                 left, right = groups[i-1:i+1]
                 parts = [*left, *right]
                 eligible = left and right and all(id(p) in widths and not p.fixed and not p.cut for p in parts)
-                same_host = eligible and parts[0].origin.startswith(("learned ", "host ")) and all(
+                same_host = eligible and parts[0].origin.startswith(("learned ", "host ", "teacher ")) and all(
                     p.origin == parts[0].origin for p in parts)
                 profile = _column_profile(left, right) if eligible and not same_host else None
                 if profile is not None:

@@ -25,9 +25,10 @@ def test_three_columns_keep_their_weight_ratio_and_outer_ink(style):
     assert (a.target[0], a.target[1], c.target[2], c.target[3]) == pytest.approx((0, 0, 960, 700))
 
 
-def test_leaves_sparse_strokes_and_native_pairs_alone():
+@pytest.mark.parametrize("origin", ["learned 賦", "teacher 賦"])
+def test_leaves_sparse_strokes_and_native_pairs_alone(origin):
     a, b = column(0, 100), column(600, 250)
-    a.origin = b.origin = "learned 賦"
+    a.origin = b.origin = origin
     for right in (b, column(650, 100, solid=True)):
         original = a.target, right.target
         C._settle_columns([[[a], [right]]], [a, right], C.COLUMN_CLEARANCE["serif"])
