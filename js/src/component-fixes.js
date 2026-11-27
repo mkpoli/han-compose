@@ -4,8 +4,9 @@
 // description it corrects, the SHA-256 outlines of the glyphs it was read against, and the parts it
 // changes; an export drawing other outlines keeps the font's cut. The parts are plain placed pieces,
 // so the corrections work wherever the description is drawn, at any depth.
-import { derived, fitted, groupRings, makePart, mapped, partOf, placed, pointsBox, union } from './geometry.js'
+import { contourSections, cutContours, derived, fitted, groupRings, makePart, mapped, partOf, placed, pointsBox, union } from './geometry.js'
 import { hexOf } from './sha256.js'
+import { penGrassKu } from './grass-ku.js'
 
 // Interpolation factors for the hosted 口 outlines when fitted beside 乎.
 const mouthWeights = {
@@ -36,6 +37,13 @@ const boxOf = part => {
   return [Math.min(...boxes.map(b => b[0])), Math.min(...boxes.map(b => b[1])),
     Math.max(...boxes.map(b => b[2])), Math.max(...boxes.map(b => b[3]))]
 }
+/** Fit a replacement to the visible edges of the final placed outline, before parent flips. */
+function fitInk(revised, original) {
+  if (original.fixed || original.cut) return {}
+  const ink = p => union(groupRings([{ ...p, flips: undefined }], 24).map(pointsBox))
+  return { ...revised, target: mapped(revised.target, ink(revised), ink(original)) }
+}
+
 const widthOf = box => box[2] - box[0]
 const heightOf = box => box[3] - box[1]
 const centreX = box => (box[0] + box[2]) / 2
@@ -301,6 +309,77 @@ function penDoor(char) {
  * A correction that cannot find the parts it names leaves the drawing as it is.
  */
 export const COMPONENT_FIXES = {
+  '⿱投石': {
+    glyphs: {},
+    apply(parts, composer) {
+      const [hand, stone] = parts
+      if (parts.length !== 2) return parts
+      if (composer.fontStyle === 'pen-writing' && hand.origin === 'glyph 投') {
+        // The complete 投 shrinks into a shallow row; bring its strokes up to the weight of 石.
+        return [{ ...hand, weight: [-.65, -.65], fixed: true }, stone]
+      }
+      if (composer.fontStyle !== 'regular') return parts
+      const frame = union([hand.target, stone.target])
+      return [{ ...hand, target: mapped([0.0161, 0.521, 0.9991, 1.002], [0, 0, 1, 1], frame) },
+        // Center the ink of 石 below 投 as in 硩 and 磐. Its 口 pulls the ink right of the box center.
+        { ...stone, target: mapped([0.0, -0.0, 0.8121, 0.481], [0, 0, 1, 1], frame) }]
+    },
+  },
+  '⿰貝並': {
+    glyphs: { 賦: 'adc3e80a626f45b4c611c368dea0e198bdd174b707ae9a4ea65fcf2e900f19bd' },
+    apply(parts, composer) {
+      if (composer.fontStyle !== 'fangsong' || parts.length !== 2) return parts
+      const [shell, aligned] = parts, source = composer.glyph('賦')
+      if (shell.part.contours.length !== 3 ||
+          !shell.part.contours.every((contour, i) => contour === source.contours[i + 1])) return parts
+      // The host cut owns the three separate contours of 貝. Its right foot runs
+      // into the baseline of 武, between commands 25 and 31 of their shared contour.
+      const foot = contourSections(source.contours, [0, 25, 31])
+      const part = { ...shell.part, contours: [...shell.part.contours, foot] }
+      if (part.strokes && source.strokes?.some(([id, cs]) => id === 6 && cs.length === 1 && cs[0] === 0))
+        part.strokes = [...part.strokes, [6, [3]]]
+      return [{ ...shell, part }, aligned]
+    },
+  },
+  '⿰水行': {
+    glyphs: {},
+    apply(parts, composer) {
+      if (parts.length !== 2) return parts
+      const [water, walk] = parts
+      // These hosts spell the left side with 氵. R+02BE writes the full 水.
+      if (!['learned 沼', 'learned 洽', 'transplant 汭', 'host 汳'].includes(water.origin)) return parts
+      if (composer.excluded('水')) return parts
+      let origin = 'glyph 水'
+      let glyph = composer.glyph('水')
+      if (!glyph) return parts
+      // 沀 supplies a full 水 already drawn for a narrow left column.
+      const donors = {
+        regular: ['6dafb97f1950523ebb5d09952864e54470734e98ae59b68aa0907c91e7fe7814', [0, 2]],
+        'pen-writing': ['14aa4b584364ccfb7a67fb5b595cc00009783a6e2911547cc3e4d3fff1cbd4cb', [1, 2]],
+      }
+      const donor = donors[composer.fontStyle]
+      const record = donor && !composer.excluded('沀') && composer.glyphRecord('沀')
+      if (record && hexOf(JSON.stringify(record.p)) === donor[0]) {
+        const host = partOf(record)
+        glyph = derived(host, donor[1].map(i => host.contours[i]))
+        origin = '水 from 沀'
+      }
+      if (!composer.partial) {
+        if (composer.weighted) composer.balance(parts)
+        else if (composer.staticFace) composer.staticBalance(parts)
+      }
+      const inkOf = part => union(groupRings([part], 24).map(pointsBox))
+      const left = inkOf(water), right = inkOf(walk), frame = union([left, right])
+      // The full 水 needs a two-sided column, as in 沀. Keep each part's vertical extent.
+      const width = widthOf(frame)
+      const leftRoom = [frame[0], left[1], frame[0] + .43 * width, left[3]]
+      const rightRoom = [frame[0] + .46 * width, right[1], frame[2], right[3]]
+      const full = placed(glyph, glyph.box, leftRoom, composer.ink(origin === 'glyph 水' ? '水' : '沀'), origin)
+      const neighbour = { ...walk, target: mapped(walk.target, right, rightRoom), fixed: true }
+      if (!composer.partial && composer.staticFace) composer.staticBalance([full, neighbour])
+      return [{ ...full, target: mapped(full.target, inkOf(full), leftRoom), fixed: true }, neighbour]
+    },
+  },
   '⿸厂𤿁': {
     glyphs: { '𤿁': ['265b41d9c34f6df9803deb35bcb60c79e090b55b7dac28605f1fa979e15c0435',
       '04a5aa68d4ac68d4e9f9a3ba91d78abe33e8adc0c8febc265361b35ce190b628'] },
@@ -336,6 +415,69 @@ export const COMPONENT_FIXES = {
       const cell = box => mapped(box, [0, 0, 1000, 1000], region)
       return [placed(kana, kana.box, cell([28, 38, 475, 960]), composer.ink('𛂦'), 'glyph 𛂦'),
         placed(side, side.box, cell([512, 24, 968, 960]), composer.ink('方'), 'glyph 方')]
+    },
+  },
+  '⿱艹堀': {
+    glyphs: {
+      堀: 'f43243bd31c0029a0b42e359bec3243f319aa4d4d8c8500f62e67fb1f5a69542',
+      '䕋': '41fe0e171f99af334c530521fd232c29532c4f566d3435eb8f064f148ce2f740',
+      '䓛': '24db65003a6ef60f8a9efcece91167f5bb035ea042a02da399a8babbf48e11e8',
+    },
+    apply: penGrassKu,
+  },
+  '⿰身花': {
+    glyphs: {},
+    apply(parts, composer) {
+      const [body, flower, grass] = parts
+      if (composer.fontStyle !== 'regular' || parts.length !== 3 ||
+          body.origin !== 'learned 躭' || flower.origin !== 'glyph 花 kept' || grass.origin !== 'TW-Kai: 艹') return parts
+      const columns = [{ ...body }, { ...flower }]
+      const stems = columns.map(p => p.part.contours[0]?.width)
+      const growth = composer.stem0.map(([light, heavy]) => heavy - light)
+      if (stems.some(stem => !stem || stem.some(w => w <= 0)) || growth.some(step => step <= 0)) return parts
+      if (!composer.partial) {
+        const group = [...columns, { ...grass }], stroke = composer.stroke
+        try {
+          if (composer.weighted) composer.balance(group)
+          else if (composer.staticFace) composer.staticBalance(group)
+        } finally {
+          composer.stroke = stroke
+        }
+      }
+      const scales = columns.map(scaleOf)
+      if (scales.some(scale => scale.some(s => s <= 0))) return parts
+      // The geometric mean gives the two scaled stems reciprocal adjustment factors.
+      const aim = [0, 1].map(axis => Math.sqrt(
+        stems[0][axis] * scales[0][axis] * stems[1][axis] * scales[1][axis]))
+      const ink = p => union(groupRings([p], 24).map(pointsBox))
+      return [...columns.map((p, i) => {
+        const weight = aim.map((width, axis) => {
+          const adjustment = (width / scales[i][axis] - stems[i][axis]) / growth[axis]
+          return Math.max(-0.6, Math.min(1, adjustment))
+        })
+        const revised = { ...p, weight, fixed: true }
+        // Both pieces retain their previous visible bounds, including the brush tips.
+        revised.target = mapped(p.target, ink(revised), ink(p))
+        return revised
+      }), grass]
+    },
+  },
+  '⿰魚遂': {
+    glyphs: {},
+    apply(parts, composer) {
+      if (composer.fontStyle !== 'fangsong' || parts.length !== 2) return parts
+      const [fish, follow] = parts
+      if (fish.origin !== 'learned 鯝' || follow.origin !== 'learned 𬭼') return parts
+      const left = boxOf(fish), right = boxOf(follow)
+      // In 鰱, the back of 魚 and the turns of 辶 interlock along the centre.
+      const gap = right[0] - left[2]
+      if (gap <= 0 || widthOf(left) <= 0 || widthOf(right) <= 0) return parts
+      // The fish's outermost point and the tip of 辶 fall on different rows.
+      // Share the empty strip in proportion to the ink widths, fixing both outer edges.
+      const scale = 1 + gap / (widthOf(left) + widthOf(right))
+      const widen = (part, edge) => ({ ...part, target: part.target.map((v, i) =>
+        i % 2 ? v : edge + (v - edge) * scale) })
+      return [widen(fish, left[0]), widen(follow, right[2])]
     },
   },
   '⿰忄実': {
@@ -377,9 +519,45 @@ export const COMPONENT_FIXES = {
       return [{ ...wei, finishOutline }, cheng, gong]
     },
   },
+  '⿰舟苗': {
+    glyphs: {},
+    apply(parts, composer) {
+      const boat = parts[0]
+      if (composer.fontStyle !== 'regular' || !composer.staticFace || composer.partial || composer.excluded('舳') ||
+          boat?.origin !== 'learned 艃' || boat.fixed) return parts
+      // In 舳 the narrow boat sits beside the enclosed 由, as it does beside 苗’s 田.
+      const record = composer.glyphRecord('舳')
+      if (record?.v !== 1 || !record.ls?.舟?.length ||
+          hexOf(JSON.stringify(record.p)) !== '69594bf137680197f31cc87bd11c7899a30d9f11cc7c259d727bd14a2c5c47a8') return parts
+      const cut = cutContours(partOf(record), record.ls.舟)
+      const finishOutline = p => fitInk(placed(cut, cut.box, p.target, p.native, '舟 from 舳'), p)
+      return [{ ...boat, finishOutline }, ...parts.slice(1)]
+    },
+  },
   // 𠷃 (BabelStone: ⿰口⿳穴𠆢又) has a broad, shallow 又. Its component's
   // proportions also occur in 𥔉. Keep both inner parts within 穴's outer span.
 
+  '⿰車ト': {
+    glyphs: { ト: 'ab453d8c58c4b817de9f562aaec9f1a600d347b59257584f93ff451e3d087c93' },
+    apply(parts, composer) {
+      if (composer.fontStyle !== 'regular' || !composer.staticFace || composer.partial || parts.length !== 2) return parts
+      const [car, kana] = parts
+      if (car.fixed || kana.fixed || car.origin !== 'learned 䡎' || kana.origin !== 'glyph ト' || composer.excluded('軋')) return parts
+      const record = composer.glyphRecord('軋')
+      if (record?.v !== 1 || hexOf(JSON.stringify(record.p)) !== '2bc1ae0f90e8ec4da0e920154e1b30487cd0a3f157fe252070b673a885244c1d') return parts
+      // 軋 places 車 beside a single stroke. Its last contour is the right-hand hook.
+      const column = cutContours(partOf(record), [0, 1, 2, 3, 4])
+      const buRecord = !composer.excluded('卜') && composer.glyphRecord('卜')
+      const right = buRecord?.v === 1 ? partOf(buRecord) : null
+      return [
+        { ...car, finishOutline: p => fitInk(placed(column, column.box, p.target, p.native, '車 from 軋'), p) },
+        // At this width the native 卜 needs a small lift to retain the approved upright and arm weights.
+        { ...kana, finishOutline: p => fitInk(right
+          ? placed(right, right.box, p.target, p.native, 'glyph 卜', [0.17, 0.08])
+          : { ...p, weight: [-0.8, -0.6] }, p) },
+      ]
+    },
+  },
   '⿰生意': {
     glyphs: {},
     apply(parts, composer) {

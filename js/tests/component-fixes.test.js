@@ -4,7 +4,9 @@
 import { describe, expect, it } from 'bun:test'
 import { COMPONENT_FIXES, clippedAbove, componentFix, dotIn, respanned, withoutContours } from 'han-compose/component-fixes'
 import { Composer } from 'han-compose/compose'
-import { drawnContours, makePart, mapped, partOf, placed, pointsBox } from 'han-compose/geometry'
+import { drawnContours, groupRings, makePart, mapped, partOf, placed, pointsBox, union } from 'han-compose/geometry'
+import zhou from './fixtures/zhou-miao.json' with { type: 'json' }
+import kuruma from './fixtures/kuruma-to.json' with { type: 'json' }
 import { hexOf } from 'han-compose/sha256'
 
 /** A placed part of rectangular contours: `boxes` in font units, drawn from `source` into `target`. */
@@ -123,6 +125,64 @@ describe('⿱呼乙', () => {
   })
 })
 
+it('uses 舳’s unemboldened 舟 beside 苗 and fits it at its final nested size', () => {
+  const source = partOf(zhou)
+  const boat = placed(source, source.box, [20, 70, 410, 850], 0, 'learned 艃', [0, 0.575])
+  const sprout = part('glyph 苗 kept', [0, 0, 500, 700], [440, 80, 900, 810], [[0, 0, 480, 670]])
+  const pair = [boat, sprout], face = {
+    fontStyle: 'regular', staticFace: true, excluded: () => false, glyphRecord: ch => ch === '舳' ? zhou : null,
+  }
+  const [tagged, right] = componentFix('⿰舟苗', pair, face)
+  expect(right).toBe(sprout)
+  const nested = { ...tagged, target: [25, 70, 220, 430], flips: [{ x: true, about: [240, 0] }] }
+  const corrected = { ...nested, ...tagged.finishOutline(nested) }
+  expect(corrected.part.contours).toEqual(zhou.ls.舟.map(i => source.contours[i]))
+  expect(corrected.weight).toEqual([0, 0])
+  const ink = p => union(groupRings([p], 24).map(pointsBox))
+  ink(nested).forEach((edge, i) => expect(ink(corrected)[i]).toBeCloseTo(edge, 6))
+  expect(tagged.finishOutline({ ...nested, cut: true })).toEqual({})
+  for (const override of [{ fontStyle: 'serif' }, { staticFace: false }, { partial: true },
+    { excluded: ch => ch === '舳' }, { glyphRecord: () => null }, { glyphRecord: () => ({ ...zhou, p: [] }) }]) {
+    expect(componentFix('⿰舟苗', pair, { ...face, ...override })).toBe(pair)
+  }
+  const otherHost = [{ ...boat, origin: 'learned 艘' }, sprout]
+  expect(componentFix('⿰舟苗', otherHost, face)).toBe(otherHost)
+})
+
+it('fits the native left 車 from 軋 and native 卜 into the final Regular ink bounds of ⿰車ト', () => {
+  const car = part('learned 䡎', [0, 0, 160, 300], [40, 60, 200, 360], [[10, 20, 150, 280]])
+  car.part.contours[0].ops = [['M', 1], ['L', 1], ['L', 1], ['L', 1]]
+  const glyph = partOf(kuruma.ト)
+  const kana = placed(glyph, glyph.box, [230, 60, 330, 360], 0, 'glyph ト')
+  const pair = [car, kana], face = {
+    fontStyle: 'regular', staticFace: true, excluded: () => false, glyphRecord: ch => kuruma[ch],
+  }
+  const fixed = componentFix('⿰車ト', pair, face)
+  const box = p => union(groupRings([p], 24).map(pointsBox))
+  const [left, right] = fixed.map((p, i) => {
+    const nested = { ...p, target: [10 + 120 * i, 20, 90 + 120 * i, 170], flips: [{ x: true, about: [100, 0] }] }
+    const result = { ...nested, ...p.finishOutline(nested) }
+    for (const [axis, edge] of box(nested).entries()) expect(box(result)[axis]).toBeCloseTo(edge)
+    expect(p.finishOutline({ ...nested, fixed: true })).toEqual({})
+    return result
+  })
+  expect(left.origin).toBe('車 from 軋')
+  expect(left.part.contours).toEqual(partOf(kuruma.軋).contours.slice(0, 5))
+  expect(right.part).toBe(partOf(kuruma.卜))
+  expect(right.origin).toBe('glyph 卜')
+  for (const override of [{ excluded: ch => ch === '卜' }, { glyphRecord: ch => ch === '卜' ? null : kuruma[ch] },
+    { glyphRecord: ch => ch === '卜' ? { ...kuruma.卜, v: 0 } : kuruma[ch] }]) {
+    const fallback = componentFix('⿰車ト', pair, { ...face, ...override })
+    expect(fallback[0].finishOutline(fallback[0]).origin).toBe('車 from 軋')
+    expect(fallback[1].finishOutline(fallback[1]).part).toBe(glyph)
+    expect(fallback[1].finishOutline(fallback[1]).weight).toEqual([-0.8, -0.6])
+  }
+  for (const override of [{ partial: true }, { fontStyle: 'pen-writing' }, { excluded: ch => ch === '軋' },
+    { glyphRecord: ch => ch === '軋' ? null : kuruma[ch] }]) {
+    expect(componentFix('⿰車ト', pair, { ...face, ...override })).toBe(pair)
+  }
+})
+
 describe('⿱一心', () => {
   it('lowers Regular Kai’s 一 within its band at its own bar height', () => {
     const top = part('host 亍', [0, 0, 1000, 1000], [100, 544, 900, 880], [[100, 544, 900, 880]])
@@ -144,6 +204,58 @@ describe('⿱一心', () => {
     expect(fixed[1].target).toEqual([80, 0, 920, 540])
     expect(fixed[1].part).toBe(heart.part)
   })
+})
+
+it('fits FangSong 魚 and 遂 to the space between their outer ink edges', () => {
+  const fish = part('learned 鯝', [0, 0, 400, 900], [0, 50, 400, 950], [[40, 80, 360, 720]])
+  const follow = part('learned 𬭼', [0, 0, 500, 800], [450, 100, 950, 900], [[35, 10, 500, 700]])
+  const pair = [fish, follow]
+  const corrected = componentFix('⿰魚遂', pair, { fontStyle: 'fangsong' })
+  const [left, right] = corrected.map(p => targetBox(p, p.part.contours[0]))
+  expect(left[0]).toBeCloseTo(40)
+  expect(right[2]).toBeCloseTo(950)
+  expect(left[2]).toBeCloseTo(right[0])
+  expect([left[1], left[3], right[1], right[3]]).toEqual([130, 770, 110, 800])
+  expect(corrected[0].part).toBe(fish.part)
+  expect(corrected[1].part).toBe(follow.part)
+  expect(componentFix('⿰魚遂', pair, { fontStyle: 'serif' })).toBe(pair)
+  const otherCut = [fish, { ...follow, origin: 'glyph 遂' }]
+  expect(componentFix('⿰魚遂', otherCut, { fontStyle: 'fangsong' })).toBe(otherCut)
+})
+
+it('balances Regular 身 and 化 at their placed scale and preserves their ink bounds', () => {
+  const body = part('learned 躭', [0, 0, 400, 800], [0, 0, 400, 800], [[10, 20, 390, 780]])
+  const flower = part('glyph 花 kept', [0, 0, 800, 800], [420, 0, 820, 800], [[30, 10, 780, 620]])
+  const grass = part('TW-Kai: 艹', [0, 0, 400, 80], [420, 700, 820, 780], [[0, 0, 400, 80]])
+  for (const p of [body, flower]) {
+    const c = p.part.contours[0], [l, b, r, t] = pointsBox(c.light)
+    c.ops = [['M', 1], ['L', 1], ['L', 1], ['L', 1]]
+    c.heavy = Float64Array.from([l - 20, b - 20, r + 20, b - 20, r + 20, t + 20, l - 20, t + 20])
+    c.width = [50, 40]
+  }
+  const parts = [body, flower, grass], stroke = [50, 40]
+  const face = {
+    fontStyle: 'regular', stem0: [[50, 90], [40, 80]], staticFace: true, stroke,
+    staticBalance(group) {
+      group[0].weight = [0, 0.5]
+      this.stroke = [45, 36]
+    },
+  }
+  const fixed = componentFix('⿰身花', parts, face)
+  expect(50 + fixed[0].weight[0] * 40).toBeCloseTo(Math.sqrt(50 * 25))
+  expect((50 + fixed[1].weight[0] * 40) / 2).toBeCloseTo(Math.sqrt(50 * 25))
+  for (const i of [0, 1]) {
+    const original = i === 0 ? { ...body, weight: [0, 0.5] } : flower
+    const a = pointsBox(drawnContours(original)[0]), b = pointsBox(drawnContours(fixed[i])[0])
+    for (const [edge, value] of a.entries()) expect(b[edge]).toBeCloseTo(value)
+    expect(fixed[i].fixed).toBe(true)
+  }
+  expect(fixed[2]).toBe(grass)
+  expect(body.weight).toEqual([0, 0])
+  expect(face.stroke).toBe(stroke)
+  expect(componentFix('⿰身花', parts, face)).toEqual(fixed)
+  expect(componentFix('⿰身花', parts, { ...face, fontStyle: 'serif' })).toBe(parts)
+  expect(componentFix('⿰身花', parts, { ...face, stem0: [[50, 50], [40, 40]] })).toBe(parts)
 })
 
 describe('C087 ⿻日丿', () => {

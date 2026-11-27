@@ -1,11 +1,13 @@
+import { booklet, bookletParts } from './rcc-booklet.js'
 import { derived, makePart, mapped, partInk, placed, pointsBox } from './geometry.js'
+import { walkingYou, walkingYouDonors, walkingYouParts } from './rcc-walking-you.js'
 import { nativeAxisContours } from './recorded-axis.js'
 import { strokeDonor } from './stroke-donors.js'
 
 // Ink bounds are fractions of the printed character, measured left-to-right and top-to-bottom.
 // Each entry cites the RCC sighting in which the placement can be checked.
 /** @typedef {[string, number[]]} Member */
-/** @type {Map<string, {source: number, leaves: number[], members: Member[], operands: string[]}>} */
+/** @type {Map<string, {source: number, style?: string, leaves: number[], members: Member[], operands: string[]}>} */
 const forms = new Map([
   // 重校全補海篇直音 (1595), 音体. The short falling stroke joins the top of the hook.
   // https://rare.glyphatlas.org/en/entry/2603#sighting-2767
@@ -51,8 +53,10 @@ const stroke = new Set('乛丿乚㇄𠃑𠃊丨㇋乀')
 
 /** @param {string} key @param {string} style */
 export function overlayContextDonors(key, style) {
+  if (key === walkingYou) return walkingYouDonors(style)
+  if (key === booklet) return style === 'regular' ? ['册', '月'] : ['册']
   const form = forms.get(key)
-  if (!form) return []
+  if (!form || (form.style && form.style !== style)) return []
   if (form.source === 2630) return ['㇄', '𠃑', '𠃊', '丨', '一']
   const extra = form.source === 2696 ? ['丨', '一'] : []
   return [...new Set(extra.concat(form.members.flatMap(([char]) => {
@@ -139,8 +143,10 @@ function narrowHook(glyph, room) {
 
 /** @param {import('./compose.js').Composer} composer @param {string} key @param {number[]} region */
 export function overlayContextParts(composer, key, region) {
+  if (key === walkingYou) return walkingYouParts(composer, region)
+  if (key === booklet) return bookletParts(composer, region)
   const form = forms.get(key)
-  if (!form || composer.excluded(key)) return null
+  if (!form || (form.style && form.style !== composer.fontStyle) || composer.excluded(key)) return null
   const donors = overlayContextDonors(key, composer.fontStyle)
   if ([...form.operands, ...donors].some(char => composer.excluded(char))) return null
   const parts = []
@@ -182,6 +188,14 @@ export function overlayContextParts(composer, key, region) {
     } else {
       let glyph = stroke.has(char) ? composer.chainStroke(char) : composer.drawnGlyph(char)
       if (!glyph) return null
+      if (form.source === 1878 && char === '冂') {
+        // Both left legs slope away from the joint. The inner hook of the
+        // higher box ends at the crossing, above the long terminal on the right.
+        glyph = remap(glyph, (x, y) => [
+          .10 + .90 * x - .10 * y,
+          i === 0 ? y * (1 - .44 * x) : y * (.80 + .20 * x) + .18 * x * (1 - y),
+        ])
+      }
       if (char === '乚') glyph = narrowHook(glyph, room)
       if (char === '干') {
         // The second bar is below the shelf of 乛, with a clear gap between them.
