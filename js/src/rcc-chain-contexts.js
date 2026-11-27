@@ -7,6 +7,7 @@ const water = '⿰氵⿱亠⿶#(𠃍-𠃊一)凵'
 const speech = '⿰讠⿹⿸⿻#(-亅一)一犬丶'
 const tiger = '⿱⺊⿸#(-乛丿)노'
 const horse = '⿱⿷#(-一丨b𠃌)𰀁乙'
+const completeHorse = '⿹⿷#(-一丨b𠃌)𰀁灬'
 
 /** @typedef {[number, number, number]} Run */
 /** @typedef {[string, number[][]]} Segment */
@@ -106,7 +107,7 @@ const subBox = (box, fractions) => mapped(fractions, [0, 0, 1, 1], box)
 const tigerSubtraction = '⿸㇯虍七노'
 const horseSubtraction = '⿱㇯馬灬乙'
 const design = new Map([[water, water], [speech, speech], [tiger, tiger], [tigerSubtraction, tiger],
-  [horse, horse], [horseSubtraction, horse]])
+  [horse, horse], [horseSubtraction, horse], [completeHorse, horse]])
 
 /** @param {string} key @param {string} style */
 export function rccChainDonors(key, style) {
@@ -114,7 +115,7 @@ export function rccChainDonors(key, style) {
   case water: return ['氵', '亠', '凵', '汴']
   case speech: return ['讠', '亅', '一', '丶', '犬', '讨', '狀', ...(style === 'fangsong' ? ['小'] : [])]
   case tiger: return style === 'fangsong' ? ['虍', '凵', '丄'] : ['虍', 'ㄴ', 'ㅗ']
-  case horse: return ['馬', '乙']
+  case horse: return key === completeHorse ? ['馬'] : ['馬', '乙']
   default: return []
   }
 }
@@ -226,7 +227,7 @@ function horseFoot(glyph) {
 /** @param {import('./compose.js').Composer} composer @param {string} key @param {number[]} region */
 export function rccChainContextParts(composer, key, region) {
   const id = design.get(key)
-  if (!id) return null
+  if (!id || (key === completeHorse && !composer.separate)) return null
   const donors = rccChainDonors(key, composer.fontStyle)
   if ([key, ...donors, ...(operands.get(id) ?? [])].some(char => composer.excluded(char))) return null
   /** @param {any} part @param {number[]} target @param {string} origin @param {number} rccLeaf */
@@ -308,9 +309,22 @@ export function rccChainContextParts(composer, key, region) {
   const body = horseFrame(record, composer.fontStyle)
   if (!body) return null
   const glyph = partOf(record)
+  const inner = piece(glyph, cut.inner)
+  if (key === completeHorse) {
+    const host = composer.place(glyph, region, partInk(glyph), `chain ${key}, glyph 馬`)
+    // Keep the native host whole during layout and weight balancing. Its
+    // three editable leaves inherit the same finished transform and weight.
+    const pieces = [body, inner, piece(glyph, cut.removed)]
+    const names = ['#(-一丨b𠃌) from 馬', '𰀁 from 馬', '灬 from 馬']
+    /** @param {any} p */
+    const leafParts = p => pieces.map((part, i) => ({
+      ...p, part, origin: names[i], source: part.box, target: mapped(part.box, p.source, p.target),
+      rccLeaf: i, leaf: p.leaf === undefined ? undefined : p.leaf + i,
+    }))
+    return [{ ...host, rccLeaf: 0, leafParts }]
+  }
   const foot = native(composer, '乙')
   if (!foot) return null
-  const inner = piece(glyph, cut.inner)
   const box = union([body.box, inner.box])
   const target = subBox(region, [0.16, 0.28, 0.88, 1])
   const kept = [draw(body, mapped(body.box, box, target), '#(-一丨b𠃌) from 馬', 0),

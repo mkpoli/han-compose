@@ -121,3 +121,38 @@ it('exposes the exact subtraction operands while preserving the assembled previe
     expect(removed.cut).toBe(false)
   }
 })
+
+it('edits the complete 馬 as a native frame, 𰀁 and four dots at its final weight', async () => {
+  const written = '⿹⿷#(-一丨b𠃌)𰀁灬'
+  const horseNode = id => ({ id, kind: 'operator', op: '⿹', children: [
+    { id: id + 'w', kind: 'operator', op: '⿷', children: [
+      { id: id + 'f', kind: 'component', char: '#(-一丨b𠃌)' },
+      { id: id + 'i', kind: 'component', char: '𰀁' },
+    ] },
+    { id: id + 'd', kind: 'component', char: '灬' },
+  ] })
+  for (const fontStyle of ['regular', 'fangsong']) {
+    const exportFiles = { ...files, ...shards('g', [['馬', { G: donors[fontStyle].馬 }]]) }
+    const source = createSource(async name => exportFiles[name] ? Uint8Array.from(Buffer.from(exportFiles[name])).buffer : null)
+    expect(rccChainDonors(written, fontStyle)).toEqual(['馬'])
+    for (const [ids, root] of [
+      [written, horseNode('a')],
+      ['⿰' + written + written, { id: 'pair', kind: 'operator', op: '⿰', children: [horseNode('a'), horseNode('b')] }],
+      ['⿱三' + written, { id: 'stack', kind: 'operator', op: '⿱', children: [
+        { id: 'top', kind: 'component', char: '三' }, horseNode('a'),
+      ] }],
+    ]) {
+      const normal = await compose(source, ids, { fontStyle })
+      const split = await compose(source, ids, { fontStyle, separate: true })
+      const layout = await sketch(source, ids, { fontStyle })
+      expect(normal.parts.some(p => p.origin.includes('glyph 馬'))).toBe(true)
+      expect(split.parts.map(p => p.leaf)).toEqual(layout.map(p => p.index))
+      expect(documentSource({ root }, split, layout).issues).toEqual([])
+      expect(pathMask(split.d, 256)).toEqual(pathMask(normal.d, 256))
+    }
+    for (const blocked of [written, '馬', '𰀁', '灬', '#(-一丨b𠃌)', '一', '丨', '𠃌']) {
+      const source = { ...composer(fontStyle), separate: true, excluded: char => char === blocked }
+      expect(rccChainContextParts(source, written, em)).toBeNull()
+    }
+  }
+})

@@ -51,7 +51,7 @@ import { fitRecordedInk } from './chain-ink.js'
 import { correctedChain, drawingChain } from './chain-corrections.js'
 import { historicalNativeChar } from './historical-chains.js'
 import { guideChainParts, guideChainDonor } from './guide-chain-cuts.js'
-import { rccParts, rccDonors, rccLeafBoxes, numberRccLeaves } from './rcc-forms.js'
+import { rccParts, rccDonors, rccLeafBoxes, numberRccLeaves, editableRccParts } from './rcc-forms.js'
 import { recordedNativeGlyph } from './recorded-native.js'
 import { recordedArcParts, recordedArcDonors } from './recorded-arcs.js'
 import { recordedChainNative } from './recorded-chains.js'
@@ -1447,7 +1447,7 @@ export class Composer {
       // Loose marks annotate the whole drawing; they take no part in its layout or weight.
       if (!marks) fitRecordedInk(this, sequence, out)
       if (marks) out.push(...markParts(this, marks, frame, face))
-      return out
+      return this.separate ? editableRccParts(out) : out
     } finally { this.face = previous }
   }
 
