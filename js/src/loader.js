@@ -12,6 +12,7 @@ import { hangulOfIds } from './hangul-ids.js'
 import { composeJamo } from './hangul.js'
 import { withoutMarks } from './tree.js'
 import { ASCENT } from './geometry.js'
+import { eyeBaseline } from './eye-baseline.js'
 import { drawnBox, svgPath } from './geometry.js'
 import { readLayout } from './layout.js'
 import { isComponentForm, isAtomicForm, isGroupedForm } from './component-forms.js'
@@ -346,7 +347,7 @@ export async function sketch(source, sequence, { fontStyle = 'sans' } = {}) {
   const donors = [...wheatFaceHosts(description), ...designedSources(tree, fontStyle)]
   await source.load([...modelOf(source, tree), ...(donors.length ? source.filesOf(donors) : [])])
   // These layouts read actual ink, including contextual glyphs discovered in later shards.
-  const recorded = node => Array.isArray(node) && (rccDonors(keyOf(node), fontStyle).length > 0 || node.slice(1).some(recorded))
+  const recorded = node => Array.isArray(node) && (eyeBaseline(node) || rccDonors(keyOf(node), fontStyle).length > 0 || node.slice(1).some(recorded))
   const measured = recorded(tree) || donors.includes(qiReference) || donors.includes(yuanReference) || description.includes('⿺') || /⿹勹[白百首]/u.test(description)
   for (let round = 0; round < ROUNDS; round++) {
     const store = source.store()
