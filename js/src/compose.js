@@ -37,7 +37,7 @@ import { grassShape } from './variants.js'
 import { EM_BOX, area, centre, count, cutContours, derived, drawnBox, drawnContours, fill, fitted, grown, groupRings, makePart, mapped, partInk, partOf,
   placed, pointsBox, pyRound, raster, rings, scaleOf, shrunk, square, stretchOf, targetFor, union, windingOf, within } from './geometry.js'
 import { grassPairs, connectedGrass, contextualGrass } from './grass-forms.js'
-import { ownFormsOnly, componentParts, componentPosition, componentPositionBox, componentRecord, containsComponentForm, hasForcedForms, containsForcedForm, isComponentForm, isForcedCharacter, isGroupedForm, isNativeForm } from './component-forms.js'
+import { ownFormsOnly, woodEnclosureParts, componentParts, componentPosition, componentPositionBox, componentRecord, containsComponentForm, hasForcedForms, containsForcedForm, isComponentForm, isForcedCharacter, isGroupedForm, isNativeForm } from './component-forms.js'
 import { features, forward } from './layout.js'
 import { CONSTRUCTS, BODY_FORMS, IVD_FORMS, SURROUND_CONSTRUCTS, bodyForm, constructBody, constructHosts, constructParts, ivdParts } from './constructs.js'
 import { pyramidCells, pyramidOnBaseLayout } from './pyramid.js'
@@ -2282,7 +2282,7 @@ export class Composer {
    * beside an ordinary 木 and keeps the export's existing glyph or layout. */
   woodFrame(node, region) {
     if (!Array.isArray(node) || node[0] !== '⿺' || node[1] !== '木' || node[2] === '丶' || this.excluded('木')) return null
-    const [, frame, net] = componentParts('⿰氵⿺木罒', undefined, this.fontStyle)
+    const [frame, net] = woodEnclosureParts(this.fontStyle)
     const bounds = union([frame.target, net.target])
     const room = net.target.slice()
     // A taller operand can use half the space above 罒 while the top of 木 stays visible.
@@ -2818,7 +2818,7 @@ export class Composer {
    * sit on either side of the tall stem of their enclosing 木. */
   brushRiceFrame(rice, [left, right]) {
     if (this.excluded('木')) return null
-    const [, wood] = componentParts('⿰氵⿺木罒', undefined, this.fontStyle)
+    const [wood] = woodEnclosureParts(this.fontStyle)
     const dot = (index, target) => {
       const c = rice.contours[index]
       const stroke = placed(derived(rice, [c]), pointsBox(c.light), target, 0, '米')

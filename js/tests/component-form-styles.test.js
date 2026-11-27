@@ -5,7 +5,7 @@ import splitGrass from './fixtures/kai-grass.json'
 import data from '../src/component-forms.json'
 import { componentDrawing, componentParts, componentRecord, containsComponentForm, containsForcedForm, isComponentForm, isGroupedForm, isForcedCharacter, isNativeForm } from '../src/component-forms.js'
 import { Composer, parseTree } from '../src/compose.js'
-import { raster, windingOf } from '../src/geometry.js'
+import { groupRings, pointsBox, raster, windingOf } from '../src/geometry.js'
 import { onlyBundled } from '../src/local.js'
 import { compose, createSource } from '../src/loader.js'
 import { character, constants, files, records, shards } from './fixtures/small-export.js'
@@ -317,6 +317,29 @@ it('groups the enclosing 木 under the leaves of each manuscript spelling', () =
     expect(short.match(numbers).every((v, i) => Math.abs(Number(v) - coords[i]) < 0.101)).toBe(true)
     expect(expanded[1].target[2]).toBeGreaterThan(expanded[2].target[2])
     expect(isComponentForm('⿲氵木罒', style)).toBe(false)
+  }
+})
+
+it('flattens the manuscript sweep below the net before its terminal rises', () => {
+  for (const style of ['sans', 'serif', 'fangsong', 'regular', 'pen-writing']) {
+    const [, wood] = componentParts('⿰氵⿺木罒', undefined, style)
+    const sweep = groupRings([wood], 32).at(-1)
+    const [left, , right] = pointsBox(sweep)
+    const topAt = fraction => {
+      const x = left + fraction * (right - left), crossings = []
+      for (let i = 0; i < sweep.length; i += 2) {
+        const j = (i + 2) % sweep.length
+        if ((sweep[i] > x) === (sweep[j] > x)) continue
+        const t = (x - sweep[i]) / (sweep[j] - sweep[i])
+        crossings.push(sweep[i + 1] + t * (sweep[j + 1] - sweep[i + 1]))
+      }
+      return Math.max(...crossings)
+    }
+    expect(topAt(0.65) - topAt(0.79)).toBeGreaterThan(10)
+    expect(Math.abs(topAt(0.85) - topAt(0.75))).toBeLessThan(4)
+    const rise = topAt(0.985) - topAt(0.79)
+    expect(rise).toBeGreaterThan(8)
+    expect(rise).toBeLessThan(18)
   }
 })
 

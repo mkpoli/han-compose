@@ -6,6 +6,7 @@ import overrides from './component-forms-overrides.json' with { type: 'json' }
 import inwardGrass from './inward-grass-forms.json' with { type: 'json' }
 import splitGrass from './split-grass-forms.json' with { type: 'json' }
 import muNet from './mu-net-forms.json' with { type: 'json' }
+import muNetSweeps from './mu-net-sweeps.json' with { type: 'json' }
 import numbered from '../data/numbered-forms.json' with { type: 'json' }
 import { joinedComponentForm } from './constructs.js'
 import constants from './constants.json' with { type: 'json' }
@@ -36,12 +37,20 @@ const styles = Object.fromEntries(Object.entries(data.forms).map(([style, forms]
   new Map(Object.entries(forms).map(([text, groups]) => [text, { ...formOf(groups), native: data.native?.[style]?.includes(text) ?? false }]))]))
 for (const [style, groups] of Object.entries(splitGrass)) styles[style].set('⺿', formOf(groups))
 for (const [style, groups] of Object.entries(inwardGrass)) styles[style].set('⻀', formOf(groups))
-// The manuscript's water, enclosing 木 and net. Both descriptions share the same outlines.
+// The manuscript's two spellings share a 木 whose final stroke cups the net.
+const enclosureDonors = new Map()
 for (const [style, groups] of Object.entries(muNet)) {
-  const form = formOf(groups)
-  styles[style].set('⿰氵⿺木罒', form)
   const [water, wood, net] = groups
-  styles[style].set('⿺沐罒', formOf([[...water, ...wood], net]))
+  enclosureDonors.set(style, formOf(groups))
+  const swept = [...wood.slice(0, -1), muNetSweeps[style]]
+  styles[style].set('⿰氵⿺木罒', formOf([water, swept, net]))
+  styles[style].set('⿺沐罒', formOf([[...water, ...swept], net]))
+}
+
+// Other enclosures use the original open 木 and its recorded room for a taller operand.
+export function woodEnclosureParts(style) {
+  const { parts, ink } = enclosureDonors.get(style) ?? enclosureDonors.get('sans')
+  return parts.slice(1).map(part => ({ ...placed(part, part.box, part.box.slice(), ink, 'enclosing 木'), fixed: true }))
 }
 // Numbered components draw in the palette tile only. Keeping their forms out of `styles` leaves the
 // composer's glyph records reachable for separated and cell layouts; the sequence itself draws from
