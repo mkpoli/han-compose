@@ -1834,6 +1834,7 @@ class Composer:
     #: Internal comparison sketches keep the ink-only shares at every depth.
     _reference_only: bool = field(default=False, init=False, repr=False)
     _rank_pick: int = field(default=0, init=False, repr=False)
+    _columns: list = field(default_factory=list, init=False, repr=False)
     _root_ranks: list[float] = field(default_factory=list, init=False, repr=False)
     _expanding: set[str] = field(default_factory=set, init=False, repr=False)
     _inks: dict[str, float] = field(default_factory=dict, init=False, repr=False)
@@ -3095,6 +3096,7 @@ class Composer:
         """The parts that draw `sequence`, with the loose marks written after it (⿰木口́): a mark
         beside the drawing takes a margin the character shrinks out of, and none takes part in its
         layout or weight. LookupError when an operand can be drawn no way."""
+        self._columns.clear()
         tree, marks = described(sequence)
         if marks:
             from .marks import marked
@@ -3137,7 +3139,9 @@ class Composer:
         if self._beside is not None:
             # The character as it is laid out in the whole face, carried into what its marks leave:
             # whatever placed its parts (a glyph, hosts, the learned layout), it shrinks as one.
-            placed = type(placed)(replace(p, target=mapped(p.target, self.face, self._beside)) for p in placed)
+            carried = {id(p): replace(p, target=mapped(p.target, self.face, self._beside)) for p in placed}
+            self._columns = [[[carried.get(id(p), p) for p in group] for group in row] for row in self._columns]
+            placed = type(placed)(carried[id(p)] for p in placed)
         if self.weighted:
             self._balance(placed)
         # The guide's ink is the character in the whole face, not in what marks beside it leave.
@@ -3146,6 +3150,8 @@ class Composer:
         spec = constructs().get(sequence)
         if spec:
             placed = self._construct(spec, placed)
+        if self._columns and SUBTRACT not in sequence:
+            _settle_columns(self._columns, placed, COLUMN_CLEARANCE[self.font.style.name])
         return placed
 
     def _reranked(self, tree: Node, placed: list[Placed]) -> list[tuple[float, list[Placed], list[float]]]:
@@ -3569,7 +3575,11 @@ class Composer:
                 else:
                     # A part drawn alone that does not sweep under the other (瓜, whose last stroke
                     # falls short of 交 in 㼎) stands beside it.
-                    return self._node(("⿰", *children), region or self.face)
+                    # The enclosure owns the clearance of this substitute row.
+                    count = len(self._columns)
+                    pair = self._node(("⿰", *children), region or self.face)
+                    del self._columns[count:]
+                    return pair
             if op in ENCLOSE and i == 1 and all(p.origin.startswith("glyph") for p in groups[0]):
                 # The enclosing part is a bare glyph, drawn for standing alone: the opening its
                 # strokes leave is far smaller than a designer's (龵's sweep over 目 in 看). The
@@ -4007,6 +4017,8 @@ class Composer:
     def _space(self, axis: int, groups: list[list[Placed]]) -> None:
         """Neighbouring parts moved apart where they face each other closer than `FACING`, the gap
         nineteen in twenty drawn characters keep: each gives up half the shortfall on its facing side."""
+        if axis == 0 and getattr(getattr(self.font, "style", None), "name", None) in COLUMN_CLEARANCE:
+            self._columns.append(groups)
         for a, b in pairwise(groups):
             gap = _facing(a, b, axis)
             if gap is None or gap >= FACING[axis]:
@@ -4401,6 +4413,93 @@ def _fit_inside(outer: list[Placed], inner: list[Placed], region: Box, stem: flo
                         cx + (t[2] - cx) * scale + dx, cy + (t[3] - cy) * scale + dy)
         return True
     return False
+
+
+# Tenth-percentile and nearest clearances relative to a native pair's width.
+COLUMN_CLEARANCE = {"serif": (0.088, 0.011), "pen-writing": (0.104, 0.028)}
+
+
+def _column_profile(left: list[Placed], right: list[Placed]) -> tuple | None:
+    """Ink boxes and width, relative tenth-percentile and nearest gaps, and room between strokes."""
+    size = 250
+    rings = [[r for part in group for r in _rings(part.part.contours, part.contours(), 24)]
+             for group in (left, right)]
+    if not all(rings):
+        return None
+    points = [np.concatenate(group) for group in rings]
+    boxes = [(v[:, 0].min(), v[:, 1].min(), v[:, 0].max(), v[:, 1].max()) for v in points]
+    a, b = boxes
+    width = b[2] - a[0]
+    frame = (a[0], min(a[1], b[1]), b[2], max(a[3], b[3]))
+    if not (width > 0 and frame[3] > frame[1] and a[0] < b[0] and a[2] < b[2]):
+        return None
+    first, second = (fill(group, size, frame) for group in rings)
+    shared = np.any(first, axis=1) & np.any(second, axis=1)
+    if np.sum(shared) < 5:
+        return None
+    gaps = np.sort(np.argmax(second[shared], axis=1) + np.argmax(first[shared, ::-1], axis=1) - (size - 1))
+    def has_counters(mask):
+        occupied = np.any(mask, axis=1)
+        starts = mask[:, 0].astype(int) + np.count_nonzero(mask[:, 1:] & ~mask[:, :-1].astype(bool), axis=1)
+        return 4 * np.count_nonzero(starts >= 2) >= np.count_nonzero(occupied)
+
+    return boxes, width, gaps[len(gaps) // 10] / size, gaps[0] / size, has_counters(first) and has_counters(second)
+
+
+def _settle_columns(rows: list, placed: list[Placed], clearance: tuple[float, float]) -> None:
+    """Fit independent columns horizontally, keeping their final weights and visible outer edges."""
+    if any(p.cut for p in placed):
+        return
+    widths = {id(p): p.target[2] - p.target[0] for p in placed}
+    broad, nearest = clearance
+    for groups in rows:
+        run = []
+        for i in range(1, len(groups) + 1):
+            if i < len(groups):
+                left, right = groups[i-1:i+1]
+                parts = [*left, *right]
+                eligible = left and right and all(id(p) in widths and not p.fixed and not p.cut for p in parts)
+                same_host = eligible and parts[0].origin.startswith(("learned ", "host ", "teacher ")) and all(
+                    p.origin == parts[0].origin for p in parts)
+                profile = _column_profile(left, right) if eligible and not same_host else None
+                if profile is not None:
+                    boxes, width, low, closest, counters = profile
+                    distance = width * min(low - broad, closest - nearest)
+                    if counters and distance > 0:
+                        run.append((boxes, distance))
+                        continue
+            if run:
+                _fit_column_run(groups[i-len(run)-1:i], run, widths)
+                run = []
+
+
+def _fit_column_run(groups: list, seams: list, widths: dict) -> None:
+    """Close all excess seams in the run together, so its middle column scales once."""
+    boxes = [seams[0][0][0], *(pair[1] for pair, _ in seams)]
+    left, right = boxes[0][0], boxes[-1][2]
+    width = right - left
+    distances = [distance for _, distance in seams] + [0.]
+    total = sum(distances)
+    scale, offset = 1., 0.
+    for group, box, distance in zip(groups, boxes, distances, strict=True):
+        if offset > 0:
+            scale = min(scale, (box[0] - left) / offset)
+        if total > offset:
+            scale = min(scale, (right - box[2]) / (total - offset))
+        for p in group:
+            current, original = p.target[2] - p.target[0], widths[id(p)]
+            if original <= 0:
+                return
+            scale = min(scale, width / total * (1 - current / (original * 1.06)))
+        offset += distance
+    if scale <= 0:
+        return
+    stretch, offset = width / (width - scale * total), 0.
+    for group, distance in zip(groups, distances, strict=True):
+        for p in group:
+            x0, y0, x1, y1 = p.target
+            p.target = (left + (x0 - left - offset) * stretch, y0, left + (x1 - left - offset) * stretch, y1)
+        offset += scale * distance
 
 
 def _squeeze(group: list[Placed], axis: int, low: float, high: float) -> None:
