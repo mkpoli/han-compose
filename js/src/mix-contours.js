@@ -1319,25 +1319,43 @@ export function sharedIslands(polygons) {
   }
   const holds = (/** @type {number[][][]} */ island, /** @type {number[]} */ q) =>
     inside(q, island[0]) && !island.slice(1).some((hole) => inside(q, hole))
+  /** An island's probes, outline and box, worked out once.
+   * @type {WeakMap<object, { island: number[][][], probes: number[][], outline: number[][], box: number[] }>} */
+  const seen = new WeakMap()
+  const known = (/** @type {number[][][]} */ island) => {
+    let entry = seen.get(island)
+    if (!entry) {
+      entry = { island, probes: probes(island), outline: dense(island[0], 3), box: ringBox(island[0]) }
+      seen.set(island, entry)
+    }
+    return entry
+  }
+  /** How far a point lies outside a box; zero inside it. */
+  const apart = (/** @type {number[]} */ box, /** @type {number[]} */ q) =>
+    Math.hypot(Math.max(box[0] - q[0], 0, q[0] - box[2]), Math.max(box[1] - q[1], 0, q[1] - box[3]))
   /** How many of an island's probes lie over, or nearest to, each island of the other face.
    * @param {number} f @param {number[][][]} island */
   const leans = (f, island) => {
-    const points = probes(island)
-    const others = faces[1 - f].map(({ island: other }) => ({ other, outline: dense(other[0], 3) }))
+    const points = known(island).probes
+    const others = faces[1 - f].map(({ island: other }) => known(other))
     const counts = others.map(() => 0)
     for (const q of points) {
-      let best = -1,
-        least = Infinity
-      for (const [j, { other, outline }] of others.entries()) {
-        const d = holds(other, q)
-          ? 0
-          : outline.reduce((m, p) => Math.min(m, Math.hypot(p[0] - q[0], p[1] - q[1])), Infinity)
-        if (d < least) {
-          least = d
-          best = j
+      let best = others.findIndex(({ island: other, box }) => !apart(box, q) && holds(other, q))
+      // Otherwise the nearest outline within reach; an island whose box lies further is passed over.
+      if (best < 0) {
+        let least = 24
+        for (const [j, { outline, box }] of others.entries()) {
+          if (apart(box, q) >= least) continue
+          for (const p of outline) {
+            const d = Math.hypot(p[0] - q[0], p[1] - q[1])
+            if (d < least) {
+              least = d
+              best = j
+            }
+          }
         }
       }
-      if (best >= 0 && least < 24) counts[best]++
+      if (best >= 0) counts[best]++
     }
     return { counts, least: Math.max(6, 0.15 * points.length) }
   }
