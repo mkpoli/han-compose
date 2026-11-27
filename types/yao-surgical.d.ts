@@ -47,8 +47,76 @@ export declare function alignedYaoGroups(glyph: {
     contours: any[];
     box: number[];
 }, host: string, siteCount: number): YaoGroup[] | null;
+/**
+ * Identify the 5 separate Noto Serif strokes of a native detached 幺 (`bar`, `dot`, `midDiag`,
+ * `topDiag`, `shortDot`). Returns null for merged/non-5-contour or non-detached faces so callers
+ * fall back cleanly to whole-幺 replacement.
+ * @param {{ contours: any[] }} glyph @param {number[]} indices @param {number[]} box
+ */
+export declare function classifyDetachedYao5(glyph: {
+    contours: any[];
+}, indices: number[], box: number[]): {
+    bar: {
+        ci: number;
+        c: any;
+        b: number[];
+        nx0: number;
+        ny0: number;
+        nx1: number;
+        ny1: number;
+        nw: number;
+        nh: number;
+    };
+    dot: {
+        ci: number;
+        c: any;
+        b: number[];
+        nx0: number;
+        ny0: number;
+        nx1: number;
+        ny1: number;
+        nw: number;
+        nh: number;
+    };
+    midDiag: {
+        ci: number;
+        c: any;
+        b: number[];
+        nx0: number;
+        ny0: number;
+        nx1: number;
+        ny1: number;
+        nw: number;
+        nh: number;
+    };
+    topDiag: {
+        ci: number;
+        c: any;
+        b: number[];
+        nx0: number;
+        ny0: number;
+        nx1: number;
+        ny1: number;
+        nw: number;
+        nh: number;
+    };
+    shortDot: {
+        ci: number;
+        c: any;
+        b: number[];
+        nx0: number;
+        ny0: number;
+        nx1: number;
+        ny1: number;
+        nw: number;
+        nh: number;
+    };
+    box: number[];
+} | null;
 /** Replace only the edited 幺 occurrence(s) inside `glyph`, keeping every other stroke and layout
- * proportion native to `host`. Returns null when `glyph` has no clean match for the host's sites.
+ * proportion native to `host`. On 5-contour native detached 幺 glyphs (Noto Serif CJK JP), keeps
+ * native strokes untouched for `detached` and edits only the upper turn for `folded`/`returning`;
+ * falls back to weight-matched whole-幺 replacement on merged/other glyphs.
  * @param {{ contours: any[], box: number[] }} glyph @param {string} host
  * @param {number[][]} paths @param {{ index: number, path: number[], formId: string }[]} edits
  * @param {number[]} region @param {boolean} atRoot */
