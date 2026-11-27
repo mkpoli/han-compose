@@ -201,7 +201,11 @@
       "types": "./types/variants.d.ts",
       "default": "./src/variants.js"
     },
-    "./constants.json": "./src/constants.json"
+    "./constants.json": "./src/constants.json",
+    "./variation-registry": {
+      "types": "./types/variation-registry.d.ts",
+      "default": "./src/variation-registry.js"
+    }
   },
   "files": [
     "src",
@@ -216,5 +220,5 @@
     "clipper-lib": "6.4.2",
     "d3-contour": "4.0.2"
   },
-  "gitHead": "638542203c9cfe19be26fe61ba3390d75eafd6f0"
+  "gitHead": "4874ee161bd157e44a9883ee25080289a06af424"
 }

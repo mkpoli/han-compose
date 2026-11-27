@@ -15,3 +15,29 @@ export declare const grassIVS: Readonly<{
 }>;
 /** Contextual drawing key for a single grass radical token. @param {string} text */
 export declare const grassShape: (text: string) => string | undefined;
+/** Attested spellings of the grass radical, grouped by the contextual shape used by the
+ * composer. The literal drawings are feature values. Look up each exact sequence in the
+ * IVD catalogue for its collection-specific glyph identifiers. */
+export declare const grassFamily: {
+    id: string;
+    subjects: string[];
+    reference: string;
+    axes: {
+        id: string;
+        property: string;
+        locus: {
+            path: never[];
+        }[];
+        values: string[];
+    }[];
+    forms: {
+        id: string;
+        text: string;
+        kind: string;
+        traits: {
+            crossbar: string;
+            shape: string;
+        };
+    }[];
+    sources: string[];
+};
