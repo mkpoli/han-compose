@@ -2,6 +2,7 @@
 // The composer in the browser: han-compose's export (manifest, layout and the drawing data of each
 // key) loaded as a sequence needs it, and the sequence drawn from it as an SVG path. A file is
 // fetched once a page; a gzipped one (the export writes them so) is unpacked with DecompressionStream.
+import { exactRateForm } from './rate-forms.js'
 import { APPROXIMATE, Composer, EMPTY, LookupError, designedSources, keyOf, leafCutChar, wheatFaceHosts, mapOperands, parseTree } from './compose.js'
 import { rccDonors } from './rcc-forms.js'
 import { yuanReference } from './yuan-pyramid.js'
@@ -274,7 +275,7 @@ function keysOf(tree, out = [], separate = false, fontStyle = 'sans', root = tru
       return out
     }
   }
-  if ((separate ? isGroupedForm : isComponentForm)(keyOf(tree), fontStyle)) return out
+  if (exactRateForm(keyOf(tree)) || (separate ? isGroupedForm : isComponentForm)(keyOf(tree), fontStyle)) return out
   if (!keyOf(tree).includes(EMPTY)) out.push(keyOf(tree))
   const designed = leafCutChar(keyOf(tree))
   if (designed) out.push(designed)
@@ -346,7 +347,7 @@ export async function sketch(source, sequence, { fontStyle = 'sans' } = {}) {
   await source.load([...modelOf(source, tree), ...(donors.length ? source.filesOf(donors) : [])])
   // These layouts read actual ink, including contextual glyphs discovered in later shards.
   const recorded = node => Array.isArray(node) && (eyeBaseline(node) || rccDonors(keyOf(node), fontStyle).length > 0 || node.slice(1).some(recorded))
-  const measured = recorded(tree) || donors.includes(qiReference) || donors.includes(yuanReference) || description.includes('⿺')
+  const measured = recorded(tree) || donors.includes(qiReference) || donors.includes(yuanReference) || description.includes('⿺') || /⿹勹[白百首]/u.test(description)
   for (let round = 0; round < ROUNDS; round++) {
     const store = source.store()
     let leaves

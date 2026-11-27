@@ -51,6 +51,8 @@ import numpy as np
 from fontTools.pens.recordingPen import DecomposingRecordingPen
 from fontTools.ttLib import TTFont
 
+from .rate_forms import contains_rate_form, rate_part
+
 from ._raster import fill
 from ._raster import ring as _ring
 from .vocab import BINARY, ROOT, TERNARY, UNARY, read_rows
@@ -766,6 +768,10 @@ class Contour:
     @cached_property
     def box(self) -> Box:
         return (*self.light.min(axis=0), *self.light.max(axis=0))
+
+    @cached_property
+    def has_cubic(self) -> bool:
+        return any(op == "curveTo" for op, _, _ in self.ops)
 
     @cached_property
     def length(self) -> float:
@@ -1828,6 +1834,7 @@ class Composer:
     #: Internal comparison sketches keep the ink-only shares at every depth.
     _reference_only: bool = field(default=False, init=False, repr=False)
     _rank_pick: int = field(default=0, init=False, repr=False)
+    _columns: list = field(default_factory=list, init=False, repr=False)
     _root_ranks: list[float] = field(default_factory=list, init=False, repr=False)
     _expanding: set[str] = field(default_factory=set, init=False, repr=False)
     _inks: dict[str, float] = field(default_factory=dict, init=False, repr=False)
@@ -1996,9 +2003,22 @@ class Composer:
             return tuple(float(v) for v in np.median(np.array(boxes), axis=0)) if boxes else (0.0, ASCENT - EM, EM, ASCENT)
         return self._memo(self._faces, None, median)
 
+    def _rate_metric(self, node: Node) -> Part | None:
+        style = getattr(getattr(self.font, "style", None), "name", None)
+        return rate_part(key(node), style, self.exclude, metric=True)
+
+    def _rate_leaves(self, node: Node) -> Node:
+        if isinstance(node, str):
+            return node
+        if self._rate_metric(node) is not None:
+            return key(node)
+        return renoded(node, (self._rate_leaves(child) for child in node[1:]))
+
     def ink(self, node: Node, part: Part | None = None, seen: frozenset[str] = frozenset()) -> float:
         """Permitted outline length, or an IDS estimate for missing and excluded glyphs. Unknown
         analyses use permitted 永, or one em of nominal outline when it is unavailable."""
+        if part is None:
+            part = self._rate_metric(node)
         if part is not None:
             return sum(c.length for c in part.contours)
         self._reference_context()
@@ -2026,6 +2046,8 @@ class Composer:
         glyph to read adds its operands' along that axis, and takes the most of operands side by
         side across it; an enclosed or overlaid part adds to its enclosing one. Unknown analyses
         count as 永."""
+        if (rate := self._rate_metric(node)) is not None:
+            return _crossings(rate, axis)
         self._reference_context()
         if isinstance(node, tuple):
             encoded = self.by_sequence.get(key(node))
@@ -2050,7 +2072,7 @@ class Composer:
 
     def _unknown(self, node: Node) -> bool:
         """Whether a compound operand has no permitted glyph encoding."""
-        if not isinstance(node, tuple):
+        if not isinstance(node, tuple) or self._rate_metric(node) is not None:
             return False
         encoded = self.by_sequence.get(key(node))
         return encoded is None or encoded in self.exclude or self.font.glyph(encoded) is None
@@ -2063,6 +2085,8 @@ class Composer:
     def aspect(self, node: Node, seen: frozenset[str] = frozenset()) -> float:
         """An operand's natural width over height: its glyph's, or for a sequence the operands'
         put side by side or stacked; an enclosure takes its enclosing operand's."""
+        if (rate := self._rate_metric(node)) is not None:
+            return max(rate.box[2] - rate.box[0], 1) / max(rate.box[3] - rate.box[1], 1)
         self._reference_context()
         if isinstance(node, str):
             glyph = self.font.glyph(node) if node not in self.exclude else None
@@ -3072,10 +3096,13 @@ class Composer:
         """The parts that draw `sequence`, with the loose marks written after it (⿰木口́): a mark
         beside the drawing takes a margin the character shrinks out of, and none takes part in its
         layout or weight. LookupError when an operand can be drawn no way."""
+        self._columns.clear()
         tree, marks = described(sequence)
         if marks:
             from .marks import marked
             return marked(self, key(tree), marks)
+        if contains_rate_form(sequence):
+            tree = self._rate_leaves(tree)
         tree = self._standalone_expanded_overlay(self._standalone_pyramid(
             self._standalone_repeated_grid(self._normalize_repeated_grids(
                 self._normalize_requested_enclosures(self._cancel_transforms(tree))))))
@@ -3112,7 +3139,9 @@ class Composer:
         if self._beside is not None:
             # The character as it is laid out in the whole face, carried into what its marks leave:
             # whatever placed its parts (a glyph, hosts, the learned layout), it shrinks as one.
-            placed = type(placed)(replace(p, target=mapped(p.target, self.face, self._beside)) for p in placed)
+            carried = {id(p): replace(p, target=mapped(p.target, self.face, self._beside)) for p in placed}
+            self._columns = [[[carried.get(id(p), p) for p in group] for group in row] for row in self._columns]
+            placed = type(placed)(carried[id(p)] for p in placed)
         if self.weighted:
             self._balance(placed)
         # The guide's ink is the character in the whole face, not in what marks beside it leave.
@@ -3121,6 +3150,8 @@ class Composer:
         spec = constructs().get(sequence)
         if spec:
             placed = self._construct(spec, placed)
+        if self._columns and SUBTRACT not in sequence:
+            _settle_columns(self._columns, placed, COLUMN_CLEARANCE[self.font.style.name])
         return placed
 
     def _reranked(self, tree: Node, placed: list[Placed]) -> list[tuple[float, list[Placed], list[float]]]:
@@ -3255,6 +3286,10 @@ class Composer:
         """`node` drawn into `region`; at the root, the whole character, laid out in the em. A row or
         column of three is also drawn as each pairing of its neighbours (⿲氵木目 as ⿰氵⿰木目 and
         ⿰⿰氵木目) unless `regroup` is off, and the drawing that scales its parts most evenly is kept."""
+        text = key(node)
+        style = getattr(getattr(self.font, "style", None), "name", None)
+        if (part := rate_part(text, style, self.exclude)) is not None:
+            return [Placed(part, part.box, part.box if at_root else region, origin=f"率 {text}", fixed=True)]
         if node == ("⿺", ("⿱", "𡗗", "夂"), "面") and (parts := self._wheat_face(region)):
             return parts
         if isinstance(node, str) and is_jamo_run(node):
@@ -3540,7 +3575,11 @@ class Composer:
                 else:
                     # A part drawn alone that does not sweep under the other (瓜, whose last stroke
                     # falls short of 交 in 㼎) stands beside it.
-                    return self._node(("⿰", *children), region or self.face)
+                    # The enclosure owns the clearance of this substitute row.
+                    count = len(self._columns)
+                    pair = self._node(("⿰", *children), region or self.face)
+                    del self._columns[count:]
+                    return pair
             if op in ENCLOSE and i == 1 and all(p.origin.startswith("glyph") for p in groups[0]):
                 # The enclosing part is a bare glyph, drawn for standing alone: the opening its
                 # strokes leave is far smaller than a designer's (龵's sweep over 目 in 看). The
@@ -3676,6 +3715,8 @@ class Composer:
 
     def _outlines(self, node: Node, seen: frozenset[str] = frozenset()) -> int:
         """Total permitted outline count; zero means that at least one operand is unknown."""
+        if (rate := self._rate_metric(node)) is not None:
+            return len(rate.contours)
         self._reference_context()
         if isinstance(node, str):
             if node not in self.exclude:
@@ -3976,6 +4017,8 @@ class Composer:
     def _space(self, axis: int, groups: list[list[Placed]]) -> None:
         """Neighbouring parts moved apart where they face each other closer than `FACING`, the gap
         nineteen in twenty drawn characters keep: each gives up half the shortfall on its facing side."""
+        if axis == 0 and getattr(getattr(self.font, "style", None), "name", None) in COLUMN_CLEARANCE:
+            self._columns.append(groups)
         for a, b in pairwise(groups):
             gap = _facing(a, b, axis)
             if gap is None or gap >= FACING[axis]:
@@ -4372,6 +4415,93 @@ def _fit_inside(outer: list[Placed], inner: list[Placed], region: Box, stem: flo
     return False
 
 
+# Tenth-percentile and nearest clearances relative to a native pair's width.
+COLUMN_CLEARANCE = {"serif": (0.088, 0.011), "pen-writing": (0.104, 0.028)}
+
+
+def _column_profile(left: list[Placed], right: list[Placed]) -> tuple | None:
+    """Ink boxes and width, relative tenth-percentile and nearest gaps, and room between strokes."""
+    size = 250
+    rings = [[r for part in group for r in _rings(part.part.contours, part.contours(), 24)]
+             for group in (left, right)]
+    if not all(rings):
+        return None
+    points = [np.concatenate(group) for group in rings]
+    boxes = [(v[:, 0].min(), v[:, 1].min(), v[:, 0].max(), v[:, 1].max()) for v in points]
+    a, b = boxes
+    width = b[2] - a[0]
+    frame = (a[0], min(a[1], b[1]), b[2], max(a[3], b[3]))
+    if not (width > 0 and frame[3] > frame[1] and a[0] < b[0] and a[2] < b[2]):
+        return None
+    first, second = (fill(group, size, frame) for group in rings)
+    shared = np.any(first, axis=1) & np.any(second, axis=1)
+    if np.sum(shared) < 5:
+        return None
+    gaps = np.sort(np.argmax(second[shared], axis=1) + np.argmax(first[shared, ::-1], axis=1) - (size - 1))
+    def has_counters(mask):
+        occupied = np.any(mask, axis=1)
+        starts = mask[:, 0].astype(int) + np.count_nonzero(mask[:, 1:] & ~mask[:, :-1].astype(bool), axis=1)
+        return 4 * np.count_nonzero(starts >= 2) >= np.count_nonzero(occupied)
+
+    return boxes, width, gaps[len(gaps) // 10] / size, gaps[0] / size, has_counters(first) and has_counters(second)
+
+
+def _settle_columns(rows: list, placed: list[Placed], clearance: tuple[float, float]) -> None:
+    """Fit independent columns horizontally, keeping their final weights and visible outer edges."""
+    if any(p.cut for p in placed):
+        return
+    widths = {id(p): p.target[2] - p.target[0] for p in placed}
+    broad, nearest = clearance
+    for groups in rows:
+        run = []
+        for i in range(1, len(groups) + 1):
+            if i < len(groups):
+                left, right = groups[i-1:i+1]
+                parts = [*left, *right]
+                eligible = left and right and all(id(p) in widths and not p.fixed and not p.cut for p in parts)
+                same_host = eligible and parts[0].origin.startswith(("learned ", "host ", "teacher ")) and all(
+                    p.origin == parts[0].origin for p in parts)
+                profile = _column_profile(left, right) if eligible and not same_host else None
+                if profile is not None:
+                    boxes, width, low, closest, counters = profile
+                    distance = width * min(low - broad, closest - nearest)
+                    if counters and distance > 0:
+                        run.append((boxes, distance))
+                        continue
+            if run:
+                _fit_column_run(groups[i-len(run)-1:i], run, widths)
+                run = []
+
+
+def _fit_column_run(groups: list, seams: list, widths: dict) -> None:
+    """Close all excess seams in the run together, so its middle column scales once."""
+    boxes = [seams[0][0][0], *(pair[1] for pair, _ in seams)]
+    left, right = boxes[0][0], boxes[-1][2]
+    width = right - left
+    distances = [distance for _, distance in seams] + [0.]
+    total = sum(distances)
+    scale, offset = 1., 0.
+    for group, box, distance in zip(groups, boxes, distances, strict=True):
+        if offset > 0:
+            scale = min(scale, (box[0] - left) / offset)
+        if total > offset:
+            scale = min(scale, (right - box[2]) / (total - offset))
+        for p in group:
+            current, original = p.target[2] - p.target[0], widths[id(p)]
+            if original <= 0:
+                return
+            scale = min(scale, width / total * (1 - current / (original * 1.06)))
+        offset += distance
+    if scale <= 0:
+        return
+    stretch, offset = width / (width - scale * total), 0.
+    for group, distance in zip(groups, distances, strict=True):
+        for p in group:
+            x0, y0, x1, y1 = p.target
+            p.target = (left + (x0 - left - offset) * stretch, y0, left + (x1 - left - offset) * stretch, y1)
+        offset += scale * distance
+
+
 def _squeeze(group: list[Placed], axis: int, low: float, high: float) -> None:
     """A group of placed parts moved in from its low and high edges along `axis`, together."""
     lo = min(p.target[axis] for p in group)
@@ -4403,7 +4533,7 @@ def _facing(a: list[Placed], b: list[Placed], axis: int, size: int = 250) -> flo
 
 # ------------------------------------------------------------------ output
 def _segments(ops: list[tuple[str, int, bool]], points: np.ndarray) -> list[tuple[str, list[np.ndarray]]]:
-    """A contour as ('M' | 'L' | 'Q', points) segments, with TrueType's implied on-curve points made explicit."""
+    """A contour as SVG path segments, with TrueType's implied on-curve points made explicit."""
     at, out = 0, []
     for op, n, implied in ops:
         pts = [np.asarray(p) for p in points[at:at + n]]
@@ -4412,6 +4542,8 @@ def _segments(ops: list[tuple[str, int, bool]], points: np.ndarray) -> list[tupl
             out.append(("M", [pts[0]]))
         elif op == "lineTo":
             out.append(("L", [pts[0]]))
+        elif op == "curveTo":
+            out.append(("C", pts))
         elif op == "qCurveTo":
             if implied:
                 # Only off-curve points: the contour starts midway between the last and the first.
@@ -4502,6 +4634,20 @@ def _rings(contours: list[Contour], points: list[np.ndarray], steps: int = 6) ->
     rings = []
     t = _steps(steps).ravel()
     for contour, pts in zip(contours, points):
+        if contour.has_cubic:
+            ring = []
+            for command, points_in_segment in _segments(contour.ops, pts):
+                if command in ("M", "L"):
+                    ring.append(points_in_segment[0])
+                    continue
+                # De Casteljau evaluates both quadratic and cubic Béziers.
+                controls = np.stack([ring[-1], *points_in_segment])[:, None, :]
+                for _ in points_in_segment:
+                    controls = (1 - t[:, None]) * controls[:-1] + t[:, None] * controls[1:]
+                ring.extend(controls[0])
+            if len(ring) >= 3:
+                rings.append(np.asarray(ring))
+            continue
         first, second, curved, offs, lines, samples, size = _ring_plan(tuple(contour.ops), steps)
         if size >= 3:
             rings.append(_ring(pts, first, second, curved, offs, lines, samples, size, t))
