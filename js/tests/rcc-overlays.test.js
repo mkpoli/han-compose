@@ -77,20 +77,36 @@ it('nests 日 inside 乃 and joins both 鼎 legs to 乃 in each font', () => {
   }
 })
 
-it('seats both FangSong box radicals under the high bar in R+0756', () => {
+it('draws the two stepped frames and crossing bar of 註册商標 in every face', () => {
   const key = '⿻⿻⺆⺆一'
-  const face = nativeComposer('fangsong')
-  const parts = overlayContextParts(face, key, em)
-  const [high, low, bar] = parts
-  expect(parts.map(p => p.rccLeaf)).toEqual([0, 1, 2])
-  expect(touches(mask(high), mask(bar))).toBe(true)
-  expect(touches(mask(low), mask(high))).toBe(true)
-  expect(low.target[1]).toBeLessThan(high.target[1])
-  expect(low.target[0]).toBeGreaterThan(high.target[0])
-  expect(overlayContextDonors(key, 'fangsong')).toEqual(['冂', '一'])
-  expect(overlayContextDonors(key, 'serif')).toEqual([])
-  expect(overlayContextParts({ ...face, own: () => true }, key, em)).toBeNull()
-  for (const excluded of [key, '⿻⺆⺆', '⺆', '冂', '一']) {
-    expect(overlayContextParts({ ...face, excluded: ch => ch === excluded }, key, em)).toBeNull()
+  for (const style of Object.keys(hosts)) {
+    const face = nativeComposer(style)
+    const parts = overlayContextParts(face, key, em)
+    expect(parts.map(p => p.rccLeaf)).toEqual([0, 1, 2])
+    const [first, second, bar] = parts.map(mask)
+    expect(touches(first, bar)).toBe(true)
+    expect(touches(second, bar)).toBe(true)
+    const wide = parts[2].target, high = parts[0].target[3], low = parts[1].target[1]
+    const y = Math.floor(200 * (1 - (low + .67 * (high - low)) / 1000))
+    const centers = [first, second].flatMap(m => {
+      const runs = []
+      for (let x = 0; x < 200; x++) {
+        if (!m[200 * y + x]) continue
+        if (runs.at(-1)?.[1] === x - 1) runs.at(-1)[1] = x
+        else runs.push([x, x])
+      }
+      return runs.map(([l, r]) => (2.5 * (l + r) - wide[0]) / (wide[2] - wide[0]))
+    })
+    // High-left, high-right, low-left, low-right: their interleaving leaves
+    // three separate counters between the roofs and the full-width bar.
+    expect(centers).toHaveLength(4)
+    centers.forEach((center, i) => expect(Math.abs(center - [.255, .62, .445, .815][i])).toBeLessThan(.035))
+    expect(parts[0].target[3]).toBeGreaterThan(parts[1].target[3])
+    expect(parts[0].target[1]).toBeGreaterThan(parts[1].target[1])
+    expect(overlayContextDonors(key, style)).toEqual(['册'])
+    for (const excluded of [key, '⿻⺆⺆', '⺆', '一', '册']) {
+      expect(overlayContextParts({ ...face, excluded: ch => ch === excluded }, key, em)).toBeNull()
+    }
+    expect(overlayContextParts({ ...face, glyphRecord: () => hosts[style]['一'] }, key, em)).toBeNull()
   }
 })

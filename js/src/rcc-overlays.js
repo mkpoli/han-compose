@@ -1,3 +1,4 @@
+import { booklet, bookletParts } from './rcc-booklet.js'
 import { derived, makePart, mapped, partInk, placed, pointsBox } from './geometry.js'
 import { walkingYou, walkingYouDonors, walkingYouParts } from './rcc-walking-you.js'
 import { nativeAxisContours } from './recorded-axis.js'
@@ -8,12 +9,6 @@ import { strokeDonor } from './stroke-donors.js'
 /** @typedef {[string, number[]]} Member */
 /** @type {Map<string, {source: number, style?: string, leaves: number[], members: Member[], operands: string[]}>} */
 const forms = new Map([
-  // 新式花邊様本, the last character of 華豐鑄字册 on the right cover.
-  // The two open boxes interlock under the long high bar. The right foot descends furthest.
-  // https://rare.glyphatlas.org/zh-Hans/entry/1878#sighting-1957
-  ['⿻⿻⺆⺆一', { source: 1878, style: 'fangsong', leaves: [0, 1, 2], operands: ['⺆', '⿻⺆⺆'], members: [
-    ['冂', [.10, .20, .73, .75]], ['冂', [.29, .245, .85, .87]], ['一', [0, .16, 1, .26]],
-  ] }],
   // 重校全補海篇直音 (1595), 音体. The short falling stroke joins the top of the hook.
   // https://rare.glyphatlas.org/en/entry/2603#sighting-2767
   ['⿰口#(丿乚)', { source: 2603, leaves: [0, 1, 1], operands: ['#(丿乚)', '口', '丿'], members: [
@@ -59,6 +54,7 @@ const stroke = new Set('乛丿乚㇄𠃑𠃊丨㇋乀')
 /** @param {string} key @param {string} style */
 export function overlayContextDonors(key, style) {
   if (key === walkingYou) return walkingYouDonors(style)
+  if (key === booklet) return ['册']
   const form = forms.get(key)
   if (!form || (form.style && form.style !== style)) return []
   if (form.source === 2630) return ['㇄', '𠃑', '𠃊', '丨', '一']
@@ -148,9 +144,9 @@ function narrowHook(glyph, room) {
 /** @param {import('./compose.js').Composer} composer @param {string} key @param {number[]} region */
 export function overlayContextParts(composer, key, region) {
   if (key === walkingYou) return walkingYouParts(composer, region)
+  if (key === booklet) return bookletParts(composer, region)
   const form = forms.get(key)
   if (!form || (form.style && form.style !== composer.fontStyle) || composer.excluded(key)) return null
-  if (form.source === 1878 && (composer.own('⺆') || !composer.own('冂') || !composer.own('一'))) return null
   const donors = overlayContextDonors(key, composer.fontStyle)
   if ([...form.operands, ...donors].some(char => composer.excluded(char))) return null
   const parts = []
