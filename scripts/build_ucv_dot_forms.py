@@ -221,9 +221,8 @@ def main():
             face = Face(font)
             dots[style] = {char: forms(face, char, style) for char in "半肖"}
             if style == "fangsong":
-                # The two strokes above 兮 have level starts and a full sweeping foot.
-                cap = face.contours("兮")[1:3]
-                eight = encode(fit(cap, (65, -38, 932, 715)))
+                donor = face.contours("叭")
+                eight = encode(fit([donor[3], donor[0]], (83, -25, 916, 718)))
     result = {"dots": dots, "fangsongEight": eight}
     args.output.write_text(json.dumps(result, ensure_ascii=False, separators=(",", ":")) + "\n")
 
