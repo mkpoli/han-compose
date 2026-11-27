@@ -201,6 +201,10 @@
       "types": "./types/variants.d.ts",
       "default": "./src/variants.js"
     },
+    "./full-forms": {
+      "types": "./types/full-forms.d.ts",
+      "default": "./src/full-forms.js"
+    },
     "./constants.json": "./src/constants.json",
     "./variation-registry": {
       "types": "./types/variation-registry.d.ts",
@@ -220,5 +224,5 @@
     "clipper-lib": "6.4.2",
     "d3-contour": "4.0.2"
   },
-  "gitHead": "2b3b42049693d186dec06428e378e6367a65c7d3"
+  "gitHead": "42fc76fbec225c7d1de5a263a0ab66963df6bc49"
 }

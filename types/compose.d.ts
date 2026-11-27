@@ -108,6 +108,9 @@ export declare class Composer {
     } | null;
     parse: (sequence: any) => any;
     rec: (key: any) => any;
+    /** The record of a component written in full (`&HC-u91d1-full;`): its character's outline and
+     *  layout, without the sequence, the forms and the places that would draw it as a positional form. */
+    fullRecord(key: any): any;
     /**
      * The record of a character under a variation selector: its own outline, laid out as its base is.
      * The export records a variation sequence's outline alone, so what the layout reads of it (its

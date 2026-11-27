@@ -70,6 +70,7 @@ import { excludedShiContext } from './shi-context.js'
 import { nativeStroke, reconstructStroke, strokeDonor } from './stroke-donors.js'
 import { chainForm, chainRoom, isChain, parseChain } from './stroke-chain.js'
 import { STROKE_CHAINS, customAt, splitToneMarks, toneMarksAt } from './tree.js'
+import { fullFormOf } from './full-forms.js'
 import { hexOf } from './sha256.js'
 import componentConstants from './constants.json' with { type: 'json' }
 import numberedFiveContext from '../data/numbered-five-context.json' with { type: 'json' }
@@ -1029,7 +1030,15 @@ export class Composer {
     return containsRateForm(sequence) ? this.rateLeaves(tree) : tree
   }
   // A key holding an empty slot has no record and no hosts: nothing is asked for it.
-  rec = key => key.includes(EMPTY) ? null : this.formRecord(key) ?? this.variantRecord(key) ?? this.data.rec(key) ?? componentRecord(key, this.fontStyle)
+  rec = key => key.includes(EMPTY) ? null : this.formRecord(key) ?? this.variantRecord(key) ?? this.fullRecord(key) ?? this.data.rec(key) ?? componentRecord(key, this.fontStyle)
+  /** The record of a component written in full (`&HC-u91d1-full;`): its character's outline and
+   *  layout, without the sequence, the forms and the places that would draw it as a positional form. */
+  fullRecord(key) {
+    const base = fullFormOf(key)
+    if (!base) return null
+    const { s: _sequence, e: _described, a: _forms, P: _places, ...record } = this.rec(base) ?? {}
+    return record.G ? record : null
+  }
   /**
    * The record of a character under a variation selector: its own outline, laid out as its base is.
    * The export records a variation sequence's outline alone, so what the layout reads of it (its
