@@ -925,3 +925,42 @@ describe('日進斗金 ⿱⿰日斗⿺辶⿰隹金', () => {
     expect(incomeBoxes('⿰⿱日斗⿱進金', 'regular', region)).toBeNull()
   })
 })
+
+describe('黃金萬兩 ⿳龷由⿳八⿻王丷⿱田⿵冂山', () => {
+  const frame = [0, 0, 1000, 1000]
+  const sample = origin => part(origin, frame, frame, [[100, 100, 900, 900]])
+  const tree = ['⿳', '龷', '由', ['⿳', '八', ['⿻', '王', '丷'], ['⿱', '田', ['⿵', '冂', '山']]]]
+  const makeComposer = fontStyle => {
+    const face = [50, -80, 950, 840]
+    const composer = Object.create(Composer.prototype)
+    composer.fontStyle = fontStyle
+    composer.face = face
+    composer.excluded = () => false
+    composer.own = () => true
+    composer.glyph = ch => sample(`glyph ${ch}`).part
+    return { composer, face }
+  }
+
+  it('places all eight components in stacked rows for FangSong, Regular, and Pen, with nested clearance', () => {
+    for (const fontStyle of ['fangsong', 'regular', 'pen-writing']) {
+      const { composer, face } = makeComposer(fontStyle)
+      const out = composer.goldInscription(tree, face)
+      expect(out).toHaveLength(8)
+      const [top, you, eight, king, dots, field, frameBox, hill] = out.map(p => p.target)
+      expect(top[1]).toBeGreaterThan(you[3])
+      expect(you[1]).toBeGreaterThan(king[3])
+      expect(king[1]).toBeGreaterThan(field[3])
+      expect(field[1]).toBeGreaterThan(frameBox[3])
+      expect(hill[0]).toBeGreaterThan(frameBox[0])
+      expect(hill[2]).toBeLessThan(frameBox[2])
+      expect(dots[1]).toBeGreaterThan(king[1])
+      expect(eight[0]).toBeLessThan(king[0])
+
+      const nested = composer.goldInscription(tree, [450, -80, 950, 560])
+      expect(nested[2].target[0]).toBeGreaterThan(450 + 0.04 * 500)
+      expect(nested[0].target[3]).toBeLessThan(560 - 0.05 * 640)
+    }
+    expect(makeComposer('sans').composer.goldInscription(tree, [50, -80, 950, 840])).toBeNull()
+    expect(makeComposer('serif').composer.goldInscription(tree, [50, -80, 950, 840])).toBeNull()
+  })
+})
