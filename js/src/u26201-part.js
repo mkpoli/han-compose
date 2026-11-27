@@ -19,11 +19,10 @@ export function u26201Part({ left, right }) {
 
 /** @param {string} id Canonical variant ID. */
 export function yaoPart(id) {
-  let part = cache.get(id)
-  if (!part) {
-    part = svgPart(yaoOutline(id).d)
-    cache.set(id, part)
-  }
+  const saved = cache.get(id)
+  if (saved) return saved
+  const part = svgPart(yaoOutline(id).d)
+  cache.set(id, part)
   return part
 }
 
