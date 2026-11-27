@@ -438,6 +438,20 @@ def _selector(char: str) -> bool:
     return 0xFE00 <= point <= 0xFE0F or 0xE0100 <= point <= 0xE01EF
 
 
+#: A component written in full where characters write its positional form: `&HC-u91d1-full;` is
+#: 金 as it stands alone, on the left too, where plain 金 is drawn as 釒.
+FULL_FORM = re.compile(r"&HC-u([0-9a-f]{4,6})-full;")
+#: The longest entity, in code points, as `js/` reads one (`CUSTOM_LONGEST`).
+ENTITY_LONGEST = 48
+
+
+@cache
+def full_form(text: str) -> str | None:
+    """The character an entity writes in full (`FULL_FORM`), None for anything else."""
+    found = FULL_FORM.fullmatch(text) if text.startswith("&") else None
+    return chr(int(found[1], 16)) if found else None
+
+
 #: The operators zi.tools writes a modifier after: an overlay's matrix, an enclosure's index (`⿻[1:]丨日`).
 MODIFIABLE = frozenset("⿻⿴⿵⿶⿷⿼㇯")
 MODIFIER = re.compile(r"[0-9:,._xabcdlr|-]+")
@@ -528,6 +542,11 @@ def _read(chars: list[str], at: int, sequence: str) -> tuple[Node, int]:
     char = chars[at]
     at += 1
     arity = 2 if char in BINARY else 3 if char in TERNARY else 1 if char in UNARY else 0
+    if char == "&":
+        # An entity (`&HC-u91d1-full;`) is one component, kept as written.
+        end = next((k for k in range(at, min(len(chars), at + ENTITY_LONGEST)) if chars[k] == ";"), None)
+        if end is not None and re.fullmatch(r"[A-Za-z][A-Za-z0-9+_-]*", "".join(chars[at:end])):
+            return "".join(chars[at - 1:end + 1]), end + 1
     if not arity:
         # Only an initial opens a run: every other leaf is spared the look.
         end = _jamo_run(chars, at - 1) if "\u1100" <= char <= "\u115e" or "\ua960" <= char <= "\ua97c" else None
@@ -941,6 +960,8 @@ class Font:
         """The glyph a character draws with, with a variation selector only as the font maps that sequence."""
         if len(char) == 1:
             return self.cmap.get(ord(char))
+        if (whole := full_form(char)) is not None:
+            return self.cmap.get(ord(whole))
         if len(char) == 2 and _selector(char[1]) and (ord(char[0]), ord(char[1])) in self.variants:
             return self.variants[(ord(char[0]), ord(char[1]))] or self.cmap.get(ord(char[0]))
         return None
@@ -956,11 +977,14 @@ class Font:
         return self._name(char) is not None
 
     def has(self, char: str) -> bool:
+        char = full_form(char) or char
         return self._name(char) is not None or (len(char) == 1 and any(ord(char) in f.cmap for f in self.fallbacks))
 
     def glyph(self, char: str) -> Part | None:
         """The glyph's outline at weight 400. Its heavy outline, and its stroke width where that is
         measured, are worked out when a contour is first asked for either (`Contour.weigh`)."""
+        if (whole := full_form(char)) is not None:
+            return self.glyph(whole)
         if char not in self._parts:
             part = None
             name = self._name(char)

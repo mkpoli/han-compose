@@ -171,6 +171,11 @@ replaced by the positional form `han-component-forms.tsv` gives it for that plac
 copy the browser composer bundles. The composers draw an Extension J ideograph from this sequence, in
 the face's own parts, where only a fallback font of another design (Jigmo) draws its glyph.
 
+`uv run python scripts/build_positional_forms.py` writes `js/src/positional-forms.json` from
+`vocab/han-component-forms.tsv`: each positional row of the CJKVI radical variants as `[place, component,
+form]`, which the browser composer's full-form families are built from
+([variation registry](../docs/design/variation-registry.md)).
+
 Licence: MIT, Copyright (c) 2021 Yi Bai; see `data/licences/yi-bai-ids-MIT.txt`.
 
 ## `plain-variants.json`

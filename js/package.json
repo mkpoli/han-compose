@@ -201,6 +201,10 @@
       "types": "./types/variants.d.ts",
       "default": "./src/variants.js"
     },
+    "./full-forms": {
+      "types": "./types/full-forms.d.ts",
+      "default": "./src/full-forms.js"
+    },
     "./constants.json": "./src/constants.json",
     "./variation-registry": {
       "types": "./types/variation-registry.d.ts",
