@@ -7,8 +7,8 @@ from pathlib import Path
 
 import pathops
 from fontTools.pens.recordingPen import RecordingPen
-from fontTools.pens.transformPen import TransformPen
 
+from fontTools.pens.transformPen import TransformPen
 from build_grass_comparison import FONTS, Face, TTFont, bounds, fit
 from han_compose.compose import EM, STYLES
 
@@ -230,11 +230,20 @@ def main():
     parser.add_argument("font_dir", type=Path)
     parser.add_argument("output", type=Path)
     args = parser.parse_args()
-    result = {}
+    dots = {}
+    ids = {}
     for style, filename in {**FONTS, "regular": "TW-Kai.ttf"}.items():
         with TTFont(args.font_dir / filename) as font:
             face = Face(font)
-            result[style] = {char: forms(face, char, style) for char in "半肖"}
+            dots[style] = {char: forms(face, char, style) for char in "半肖"}
+            if style == "fangsong":
+                # Keep the native 倘 body, including the centre upright and 亻.
+                host = face.contours("倘")
+                donor = face.contours("倞")
+                dots_at_top = (fit([donor[1]], bounds([host[4]]))
+                               + fit([donor[3]], (654, 495, 845, 680)))
+                ids[style] = {"⿰亻⿱&GW-u21b54-03;冋": encode(host[:4] + dots_at_top)}
+    result = {"dots": dots, "ids": ids}
     args.output.write_text(json.dumps(result, ensure_ascii=False, separators=(",", ":")) + "\n")
 
 

@@ -407,3 +407,15 @@ it('draws each registered half or flesh-top form as one leaf in every face', () 
     }
   }
 })
+
+
+it('fits the saved outward 倘 IDS to the Zhuque whole glyph in composed layout', async () => {
+  const ids = '⿰亻⿱&GW-u21b54-03;冋'
+  const src = createSource(async name => files[name] === undefined ? null : new Uint8Array(Buffer.from(files[name])).buffer)
+  const fit = componentDrawing(ids, 'fangsong')
+  expect(fit.d.length).toBeGreaterThan(100)
+  expect(isComponentForm(ids, 'serif')).toBe(false)
+  expect(isComponentForm('⿰亻⿱&GW-u2e8c-03;冋', 'fangsong')).toBe(false)
+  const result = await compose(src, ids, { fontStyle: 'fangsong' })
+  expect(result.origins).toEqual(['Zhuque Fangsong: ' + ids])
+})
