@@ -34,6 +34,10 @@ for (const [fontStyle, glyphs] of Object.entries(records)) {
         const native = pointsBox(rings([contour], [contour.light], 24)[0])
         expect(Math.abs(aspect(drawn[i]) / aspect(native) - 1)).toBeLessThan(.05)
       }
+      expect(drawn[1][1]).toBeLessThan(drawn[0][1]) // Right dab rises higher than left dab (SVG y down).
+      expect(parts[2].box[0]).toBeGreaterThan(parts[1].box[0])
+      expect(parts[2].box[0] + parts[2].box[2]).toBeLessThan(parts[1].box[0] + parts[1].box[2])
+      expect(touches(dots, gold)).toBe(false)
       const donor = fontStyle === 'fangsong' ? '暝' : '䤟'
       const indices = fontStyle === 'serif' ? [8, 9, 10] : fontStyle === 'fangsong' ? [7] : [0]
       const [l, b, r, t] = cutContours(partOf(glyphs[donor].G), indices).box

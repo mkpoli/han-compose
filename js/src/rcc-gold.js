@@ -135,16 +135,17 @@ export function goldParts(composer, key, region) {
   const [jx, jy] = mapped([x, y, x, y], box, baseRoom)
   const rooms = base.map(g => mapped(g.box, box, baseRoom))
   rooms[2][3] += 9 // Extend the start of the hook into the bottom rail.
-  // In 鋭 the dabs sit directly above 口. Keep both native angles. In FangSong
-  // and Pen the right dab joins 口, so take its section between the two junctions.
+  // In 鋭 the dabs sit directly above 口. Keep both native angles; rightTip is
+  // the native 鋭 x-coordinate aligned to jx. In FangSong and Pen the right dab
+  // joins 口, so take its section between the two junctions.
   const left = rooms[1][0] + leftInset
   const dabs = derived(sharp, face.dots.map((index, i) => {
     const contour = typeof index === 'number' ? sharp.contours[index] : contourSections(sharp.contours, index)
     const dot = derived(sharp, [contour])
     const scale = i ? .76 : face.leftScale ?? .61
-    const x = i ? jx : jx - face.dotInset, y = i ? jy - 12 : jy + 24
+    const ax = i ? jx : jx - face.dotInset, ay = i ? jy - 12 : jy + 24
     const tip = i ? face.rightTip : dot.box[2]
-    return bend(dot, (a, b) => [x + (a - tip) * scale, y + (b - dot.box[1]) * scale]).contours[0]
+    return bend(dot, (a, b) => [ax + (a - tip) * scale, ay + (b - dot.box[1]) * scale]).contours[0]
   }))
   // 䤟 (釒 + 冗) and FangSong 暝 (日 + 冥) contain a roof drawn for the right
   // column. Scale its ridge and both terminals together above the editable dabs.
