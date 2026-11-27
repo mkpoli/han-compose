@@ -181,6 +181,23 @@ describe('⿱一心', () => {
   })
 })
 
+it('fits FangSong 魚 and 遂 to the space between their outer ink edges', () => {
+  const fish = part('learned 鯝', [0, 0, 400, 900], [0, 50, 400, 950], [[40, 80, 360, 720]])
+  const follow = part('learned 𬭼', [0, 0, 500, 800], [450, 100, 950, 900], [[35, 10, 500, 700]])
+  const pair = [fish, follow]
+  const corrected = componentFix('⿰魚遂', pair, { fontStyle: 'fangsong' })
+  const [left, right] = corrected.map(p => targetBox(p, p.part.contours[0]))
+  expect(left[0]).toBeCloseTo(40)
+  expect(right[2]).toBeCloseTo(950)
+  expect(left[2]).toBeCloseTo(right[0])
+  expect([left[1], left[3], right[1], right[3]]).toEqual([130, 770, 110, 800])
+  expect(corrected[0].part).toBe(fish.part)
+  expect(corrected[1].part).toBe(follow.part)
+  expect(componentFix('⿰魚遂', pair, { fontStyle: 'serif' })).toBe(pair)
+  const otherCut = [fish, { ...follow, origin: 'glyph 遂' }]
+  expect(componentFix('⿰魚遂', otherCut, { fontStyle: 'fangsong' })).toBe(otherCut)
+})
+
 it('balances Regular 身 and 化 at their placed scale and preserves their ink bounds', () => {
   const body = part('learned 躭', [0, 0, 400, 800], [0, 0, 400, 800], [[10, 20, 390, 780]])
   const flower = part('glyph 花 kept', [0, 0, 800, 800], [420, 0, 820, 800], [[30, 10, 780, 620]])
