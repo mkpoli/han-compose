@@ -119,6 +119,7 @@ nothing may be taken from.
 |---|---|
 | `⿰亻哥` `⿵門⿰亻哥` | The operators `⿰ ⿱ ⿲ ⿳ ⿴ ⿵ ⿶ ⿷ ⿸ ⿹ ⿺ ⿻`, up to 24 in a sequence and 8 deep. |
 | `⿼叵口` `⿾可` `㇯口丨` | `⿼ ⿽`, the reflection `⿾`, the half-turn `⿿`, the subtraction `㇯` and `〾`. |
+| `⿰又⿱丿⿹⿴#(-𠃌㇉)丶灬` | The face’s 鸡 supplies 又 and the bird frame. The four dots come from 鳮 or, in FangSong, 鴨. Other zi.tools chains can use strokes joined from the face. |
 | `⿱艹⬚` | `⬚` (U+2B1A), an empty slot: the layout keeps its room and reports its box. |
 | `⿸广⿰KO` | Letters and digits of Latin, Greek, Cyrillic, kana and Hangul as parts. |
 | `⿰ㄱㅏ` | Hangul letters, drawn as the syllable they spell. |
@@ -277,3 +278,9 @@ The prepared form for ⿺水巜 in `src/water-enclosure.json` narrows 水 above 
 The prepared form in `src/mu-net-forms.json` takes 氵 from 河, the left 木 from 林, the sweeping stroke from 木, and 罒 from 罪 (買 in Fangsong). ⿺沐罒 groups the first two components as 沐. The outlines are adapted from GenZui Sans 0.105, Noto Serif CJK JP 2.003, Zhuque Fangsong 0.212 and Kureedo Full 0.5.0 under SIL OFL 1.1. The Regular Kai outlines are adapted from TW-Kai 11510.1, 數位發展部 (Ministry of Digital Affairs), CNS11643中文標準交換碼全字庫, under the Open Government Data License 1.0. [Font sources and notices](https://github.com/mkpoli/han-compose/blob/main/docs/licensing.md)
 
 For ⿺木 followed by another operand, the same enclosing 木 holds the operand in the opening above its final stroke. 术 and its spelling ⿺木丶 retain their ordinary 木.
+
+The FangSong form of 貭 uses the joined upper body of 盾 and the feet of 貝 from Zhuque Fangsong 0.212, © 2023 JadeFoci, SIL OFL 1.1. [Font source and license](../docs/licensing.md)
+
+Noto Serif Hentaigana supplies 𛂦 (hentaigana HA-9) for the FangSong and Regular pairings when the selected font lacks it. The two columns of ⿰𛂦方 follow the encoded form 𭤪. [Noto Serif Hentaigana](https://github.com/notofonts/hentaigana) · [SIL Open Font License 1.1](../data/licences/OFL-NotoSerifHentaigana.txt)
+
+The ㅏ and ㄴ in the FangSong drawing of ⿱⿰◇ㅏㄴ retain their positions in Gowun Batang’s 안, with a diamond from Zhuque Fangsong in the initial position. [Gowun Batang source](https://github.com/yangheeryu/Gowun-Batang) · [SIL Open Font License 1.1](../data/licences/OFL-GowunBatang.txt)
