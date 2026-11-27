@@ -1,3 +1,4 @@
+import { penGrassKu } from './grass-ku.js';
 /** Close the gap after 忄 without stretching its dots or the neighbouring glyph. */
 declare function heartColumnSpacing(parts: any, composer: any): any;
 /** `part` with the named contours' top (y above `yTarget`) cut off at that height. */
@@ -58,6 +59,14 @@ export declare const COMPONENT_FIXES: {
     '\u2FF0\uD82C\uDCA6\u65B9': {
         glyphs: {};
         apply(parts: any, composer: any, region: any): any;
+    };
+    '\u2FF1\u8279\u5800': {
+        glyphs: {
+            堀: string;
+            䕋: string;
+            䓛: string;
+        };
+        apply: typeof penGrassKu;
     };
     '\u2FF0\u8EAB\u82B1': {
         glyphs: {};
