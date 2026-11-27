@@ -9,7 +9,7 @@ import {
   splitIslands,
   tangled
 } from '../src/mix-contours.js'
-import { inkPolygons, limitDisplacement } from '../src/mix-outline.js'
+import { inkPolygons, limitDisplacement, weldedRings } from '../src/mix-outline.js'
 import { count, pathMask } from '../src/geometry.js'
 import { compose } from '../src/loader.js'
 import { files } from './fixtures/small-export.js'
@@ -1048,6 +1048,49 @@ it('cuts through a counter the finer face lacks when asked to', () => {
   const width = (/** @type {number[][]} */ ring) =>
     Math.max(...ring.map((q) => q[0])) - Math.min(...ring.map((q) => q[0]))
   for (const region of regions.slice(1, 3)) expect(width(region[0][0][0])).toBeLessThan(40)
+})
+
+it('fills a hairline between two cut pieces and nothing else', () => {
+  const area = (/** @type {number[][][]} */ rings) =>
+    Math.abs(
+      rings.reduce(
+        (sum, ring) =>
+          sum +
+          ring
+            .slice(0, -1)
+            .reduce((twice, q, i) => twice + q[0] * ring[i + 1][1] - ring[i + 1][0] * q[1], 0) /
+            2,
+        0
+      )
+    )
+  // A bar and a post that stops one unit short of it.
+  const bar = [box(20, 20, 100, 20)],
+    post = [box(60, 41, 20, 80)]
+  const joined = weldedRings([bar, post], [true, true], 2, 0)
+  expect(joined).toHaveLength(1)
+  expect(area(joined)).toBeCloseTo(100 * 20 + 20 * 80 + 20 * 1, 0)
+  // The rings keep the way they came, as the parts drawn beside them turn.
+  const turn = (/** @type {number[][]} */ ring) =>
+    ring.slice(0, -1).reduce((twice, q, i) => twice + q[0] * ring[i + 1][1] - ring[i + 1][0] * q[1], 0)
+  expect(Math.sign(turn(joined[0]))).toBe(Math.sign(turn(bar[0])))
+  // A gap wider than twice the reach stays, and so does a hairline beside a piece that was never cut.
+  expect(weldedRings([bar, [box(60, 46, 20, 80)]], [true, true], 2, 0)).toHaveLength(2)
+  expect(weldedRings([bar, post], [true, false], 2, 0)).toHaveLength(2)
+  // A narrow crotch in one piece's own outline is not filled.
+  const fork = [
+    [
+      [20, 20],
+      [60, 20],
+      [60, 100],
+      [61, 20],
+      [100, 20],
+      [100, 120],
+      [20, 120],
+      [20, 20]
+    ]
+  ]
+  const kept = weldedRings([fork, [box(140, 20, 20, 20)]], [true, true], 2, 0)
+  expect(area(kept)).toBeCloseTo(area(fork) + 400, 0)
 })
 
 it('does not pair distant leftover corners at opposite ends of a long stem wall', () => {
