@@ -1110,9 +1110,12 @@ export class Composer {
         !['貭', '盾', '貝'].some(donor => this.excluded(donor))) return fangsongZhi
     if (ch === '𛂦' && !this.excluded(ch) && glyph?.v !== 1 && Object.hasOwn(haNine, this.fontStyle))
       return haNine[this.fontStyle]
-    // A Fangsong drawing takes no outline another face drew: a record its own font lacks (v 0)
-    // stays missing rather than standing in as a Mincho.
-    if (glyph && this.fontStyle === 'fangsong' && glyph.v === 0) return null
+    // A Fangsong drawing takes no outline another face drew where its own font can draw the
+    // character from a sequence, a host or a designed cut: the record its font lacks (v 0) stays
+    // missing rather than standing in as a Mincho. A character nothing else draws keeps it (an
+    // Extension J character only Jigmo draws).
+    if (glyph && this.fontStyle === 'fangsong' && glyph.v === 0 &&
+        (record.s || record.P?.length || Object.hasOwn(DESIGNED_CUTS, ch))) return null
     if (glyph && record.sg && !glyph.sg) glyph.sg = record.sg
     // The offline Unicode shard carries the connected radical at U+2EBE.
     return glyph ?? (ch === '艹' && !this.excluded('⺾') ? this.glyphRecord('⺾') : null)
@@ -1178,11 +1181,10 @@ export class Composer {
     return contain ? this.pieceFor(ch, piece) : piece
   }
   /** The outline another face's font drew for a character this face lacks, which `glyphRecord`
-   *  withholds: what draws the character when no sequence or designed cut does (an Extension J
-   *  character only Jigmo draws, in a Fangsong drawing). */
+   *  withholds: what draws the character when its sequence, hosts and designed cut all fail. */
   borrowedGlyph(ch, contain = false) {
     const record = this.rec(ch)?.G
-    if (!record || record.v !== 0 || this.glyphRecord(ch)) return null
+    if (!record || record.v !== 0 || this.excluded(ch) || this.glyphRecord(ch)) return null
     const piece = partOf(record)
     return contain ? this.pieceFor(ch, piece) : piece
   }
@@ -2522,7 +2524,7 @@ export class Composer {
       let tree = typeof node !== 'string' ? node : null
       if (!tree && this.sequenceOf(encoded) && !this.excluded(encoded)) {
         try { tree = this.parse(this.sequenceOf(encoded)) } catch (error) {
-          if (!glyph) throw new LookupError(`${encoded} has no glyph, and its sequence is malformed.`)
+          if (!glyph && !this.borrowedGlyph(encoded)) throw new LookupError(`${encoded} has no glyph, and its sequence is malformed.`)
         }
         if (typeof tree === 'string') tree = null
       }
@@ -2555,8 +2557,11 @@ export class Composer {
       this.expanding.add(encoded)
       try { return this.node(tree, region, atRoot) } catch (error) {
         if (!(error instanceof LookupError)) throw error
+        const designed = glyph ? null : this.designedCut(encoded)
+        if (designed) return [this.place(designed.piece, region, this.ink(encoded), `designed ${designed.record.h}`)]
         const whole = glyph ?? this.borrowedGlyph(encoded, !atRoot)
         if (!whole) throw error
+        this.missingGlyphs.delete(encoded)
         return [this.place(whole, region, this.ink(encoded), `glyph ${encoded}`)]
       } finally { this.expanding.delete(encoded) }
     }

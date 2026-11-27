@@ -93,7 +93,18 @@ it('draws a character only another face draws, with no sequence, in every style'
   for (const fontStyle of ['sans', 'serif', 'fangsong', 'regular', 'pen-writing']) {
     const out = await compose(sourceOf(input), '⿰𲎰口', { separate: true, fontStyle })
     expect(out.origins).toContain('glyph 𲎰')
+    const cells = await compose(sourceOf(input), '⿰𲎰口', { separate: true, fontStyle, layout: 'cells' })
+    expect(cells.origins).toContain('cells 𲎰')
   }
+})
+
+it('keeps the outline of another face when the sequence of its character cannot be drawn', async () => {
+  const foreign = { ...character('𲎰', [[100, 0, 300, 800]]), s: '⿰木牙' }
+  foreign.G.v = 0
+  const input = { ...files, 'identity.json': identityOf(Object.entries({ ...records, '𲎰': foreign })), ...shards('g', [['𲎰', foreign]]) }
+  const out = await compose(sourceOf(input), '⿰𲎰口', { separate: true, fontStyle: 'fangsong' })
+  expect(out.origins).toContain('glyph 𲎰')
+  expect(out.missing ?? []).not.toContain('𲎰')
 })
 
 it('keeps the baseline of 丛 when a dental host offers a bar above 从', async () => {
