@@ -153,6 +153,19 @@ const isJamoRun = text => {
 }
 
 export class LookupError extends Error { name = 'LookupError' }
+/** A part's source must be at least this long along an axis for its scale there to count (`EVEN_LEAST`). */
+const EVEN_LEAST = 60
+/** How evenly a drawing scales its parts: the least scale any part takes along x or y over the
+ *  greatest, 1 where every part keeps the proportions and the relative size its source drew (`_evenness`). */
+function evenness(parts) {
+  const scales = []
+  for (const p of parts) if (!p.cut) for (const k of [0, 1]) {
+    const length = p.source[k + 2] - p.source[k]
+    if (length >= EVEN_LEAST) scales.push((p.target[k + 2] - p.target[k]) / length)
+  }
+  const least = Math.min(...scales)
+  return scales.length && least > 0 ? least / Math.max(...scales) : 0
+}
 
 /** The first `n` hosts of a list in the composer's index order, by each entry's position `r`. */
 const upTo = (list, n) => list.filter(h => h.r < n)
@@ -1292,6 +1305,17 @@ export class Composer {
   /** Shared lookup key and metrics for descriptions that name the same form. */
   renderKey(node) { return this.resolution(node).key }
   /** The encoded glyph supported by the description's normalization evidence. */
+  /** `node` with each operand that spells a drawn character replaced by that character, from the
+   *  innermost out: ⿱艹⿰口南 as ⿱艹喃 (`_joined`). */
+  joined(node) {
+    if (!Array.isArray(node)) return node
+    return mapOperands(node, child => {
+      const operand = this.joined(child)
+      if (!Array.isArray(operand) || this.spelled.has(keyOf(operand))) return operand
+      const name = this.bySequence(keyOf(operand))
+      return name && !this.excluded(name) ? name : operand
+    })
+  }
   bySequence(key) {
     try { return this.resolution(this.parse(key)).encoded } catch { return null }
   }
@@ -2628,7 +2652,7 @@ export class Composer {
     return qiFamilyParts(this, node, region, measure)
   }
 
-  drawNode(node, region, atRoot = false, sideBySide = false) {
+  drawNode(node, region, atRoot = false, sideBySide = false, regroup = true) {
     const sweep = brushSweepParts(this, node, region, !atRoot)
     if (sweep) return sweep
     const yuan = this.yuanParts(node, region)
@@ -2704,6 +2728,9 @@ export class Composer {
     const hasRepetition = containsComponentForm(key, this.fontStyle)
     const C = this.C
     let encoded = typeof node === 'string' ? node : hasRepetition ? null : this.spelled.has(key) ? null : this.bySequence(key)
+    // A character written with an operand spelled out (𬞑 as ⿱艹⿰口南, where its own sequence is
+    // ⿱艹喃) is that character (`_joined`).
+    if (!encoded && Array.isArray(node) && !hasRepetition && !this.spelled.has(key)) encoded = this.bySequence(keyOf(this.joined(node)))
     if (atRoot && typeof node !== 'string') {
       const redrawn = [...this.exclude].find(ch => this.sequenceOf(ch) === key)
       if (redrawn) encoded = redrawn
@@ -2797,7 +2824,29 @@ export class Composer {
     // A rewrite stands as it is: an enclosure written as a stack (㗊 as ⿳吅X吅) holds its operand
     // between the halves of a frame, which is no run to group.
     node = (written === node ? this.groupedStack(node) : null) ?? written
+    // A row regrouped into pairs may now spell a character (⿲氵木目 as ⿰氵⿰木目, which is 湘): it
+    // is drawn as that character is.
+    if (!this.separate && !hasRepetition && keyOf(node) !== key && !this.spelled.has(keyOf(node)) && this.bySequence(keyOf(this.joined(node))))
+      return this.drawNode(node, region, atRoot, sideBySide, regroup)
     const op = node[0], children = node.slice(1)
+    if (regroup && this.hosted && !this.separate && (op === '⿲' || op === '⿳') && children.length === 3 &&
+        !children.slice(1).every(child => keyOf(child) === keyOf(children[0]))) {
+      // Few characters hold a part in the middle of three, so it often has no host and its whole
+      // glyph is squeezed into the slot (木 a third as wide in ⿲氵木目). Two operands have hosts
+      // and a learned layout: the same row is drawn through each pairing of its neighbours as
+      // well, and the drawing that scales its parts most evenly is kept (`_node`).
+      const pair = op === '⿲' ? '⿰' : '⿱'
+      const [first, middle, last] = children
+      const drawings = [this.drawNode(node, region, atRoot, sideBySide, false)]
+      for (const tree of [[pair, first, [pair, middle, last]], [pair, [pair, first, middle], last]]) {
+        // Only a pairing that names a character the fonts draw: the three-part layout has rules
+        // of its own (a cover over a middle band) that a pairing of bare parts would lose.
+        const named = tree.slice(1).find(Array.isArray)
+        if (!this.bySequence(keyOf(this.joined(named))) && !this.bySequence(keyOf(this.joined(tree)))) continue
+        try { drawings.push(this.node(tree, region, atRoot, sideBySide)) } catch (error) { if (!(error instanceof LookupError)) throw error }
+      }
+      return drawings.reduce((best, drawing) => evenness(drawing) > evenness(best) ? drawing : best)
+    }
     // A pair aligned along the axis of the row it is an operand of stands beside that row's other
     // parts: its operand list is marked for `narrowRow`, and so are such pairs among its operands.
     if (this.beside.has(node)) this.beside.add(children)
