@@ -25,7 +25,7 @@ const notoFallbackFrames = new Set(['#(-一丨b𠃌)', '#(一-𠃍丨b𠃌)'])
 // https://github.com/yi-bai/ids/blob/2597437b/ids_lv0.txt
 // Numbers select whole contours. Runs join the original light and heavy
 // outline across the two ends of an attached stroke or bar.
-const nativeCuts = /** @type {Record<string, {host: string, uprightGap?: Record<string, number[]>, strokeSpans?: Record<string, number[][][]>, faces: Record<string, [string, string | string[], (number | number[][])[]]>}>} */ (/** @type {unknown} */ (cuts))
+const nativeCuts = /** @type {Record<string, {host: string, uprightGap?: Record<string, number[]>, strokeSpans?: Record<string, number[][][]>, hookRun?: Record<string, number[]>, faces: Record<string, [string, string | string[], (number | number[][])[]]>}>} */ (/** @type {unknown} */ (cuts))
 
 /** @param {any} node @param {string} style */
 export function chainHost(node, style) {
@@ -44,6 +44,40 @@ export function partitionChainHost(composer, glyph, region, host, leaves, groups
   return [{ ...whole, rccLeaf: 0, rccLeafCount: leaves.length, leafParts }]
 }
 
+// In 氾 the water strokes and the body share the placement of the native character.
+const contextSpellings = new Map()
+for (const recipe of [
+  { style: 'fangsong', host: '氾', op: '⿰', side: '氵', body: '㔾', chain: '#(-𠃌乚)', alias: '#(𠃌乚^)' },
+]) {
+  const strokes = parseChain(recipe.chain)?.strokes.map(stroke => stroke.char) ?? []
+  for (const written of [recipe.chain, recipe.alias, recipe.body]) {
+    const key = recipe.op + recipe.side + written
+    const inputs = [key, recipe.host, recipe.side, recipe.body]
+    if (written !== recipe.body) inputs.push(written, recipe.chain, recipe.op + recipe.side + recipe.chain, ...strokes)
+    contextSpellings.set(key, { ...recipe, written, inputs })
+  }
+}
+
+/** @param {string} key @param {string} style */
+export function hostContextDonors(key, style) {
+  const context = contextSpellings.get(key)
+  return context?.style === style ? [context.host] : []
+}
+
+/** @param {import('./compose.js').Composer} composer @param {string} key @param {number[]} region */
+export function hostContextParts(composer, key, region) {
+  const context = contextSpellings.get(key)
+  if (!context || composer.fontStyle !== context.style) return null
+  const { style, host, chain, side, written, inputs } = context
+  if (inputs.some((/** @type {string} */ input) => composer.excluded(input))) return null
+  const record = composer.glyphRecord(host), cut = nativeCuts[chain].faces[style]
+  if (record?.v !== 1 || hexOf(JSON.stringify(record.p)) !== cut[1]) return null
+  const glyph = partOf(record), bodyContours = /** @type {number[]} */ (cut[2])
+  // These bodies own whole contours. Every remaining contour belongs to the other operand.
+  const sideContours = Array.from({ length: glyph.contours.length }, (_, i) => i).filter(i => !bodyContours.includes(i))
+  return partitionChainHost(composer, glyph, region, host, [side, written], [sideContours, bodyContours])
+}
+
 /** The two 亞 cuts have an upright on each side of a clear vertical strip.
  * Enlarge that strip to reach the standalone aspect ratio. The native strokes
  * outside it keep one scale in x and y, including their caps and serifs.
@@ -58,24 +92,31 @@ function widenUprightGap(piece, [left, right], box) {
     ({ ...c, light: spread(c.light), heavy: spread(c.heavy) })))
 }
 
-/** Share the standalone size change between the recorded spans on each axis.
- * Outside these spans the two masters retain their native terminals and stroke widths.
- * @param {any} piece @param {number[][][]} spans @param {number[]} box */
-function fitStrokeSpans(piece, spans, box) {
+/** Share the size change between the registered spans on each axis. A hook
+ * attached to a widening bar moves horizontally with its anchor. The range
+ * addresses the packed donor's [contour, first point, last point, anchor point].
+ * @param {any} piece @param {number[][][]} spans @param {number[]} box @param {number[]} [hookRun] */
+function fitStrokeSpans(piece, spans, box, hookRun) {
   const shifts = spans.map((ranges, axis) => {
     const change = (box[axis + 2] - box[axis]) - (piece.box[axis + 2] - piece.box[axis])
     return Math.max(change / ranges.length, ...ranges.map(([lo, hi]) => lo - hi))
   })
-  const stretch = (/** @type {Float64Array} */ points) => points.map((value, i) => {
-    const axis = i % 2
-    let result = value
-    for (const [lo, hi] of spans[axis]) {
-      result += shifts[axis] * Math.max(0, Math.min(1, (value - lo) / (hi - lo)))
-    }
-    return result
-  })
-  return derived(piece, piece.contours.map((/** @type {any} */ c) =>
-    ({ ...c, light: stretch(c.light), heavy: stretch(c.heavy) })))
+  return derived(piece, piece.contours.map((/** @type {any} */ c, /** @type {number} */ index) => {
+    const hook = hookRun?.[0] === index ? hookRun : null
+    /** @param {Float64Array} points */
+    const stretch = points => points.map((value, i) => {
+      const axis = i % 2
+      const inHook = hook && axis === 0 && i >= 2 * hook[1] && i <= 2 * hook[2]
+      // Carry the grown master by the same offsets so the donor retains its brush weight.
+      const station = inHook ? c.light[2 * hook[3]] : hook ? c.light[i] : value
+      let result = value
+      for (const [lo, hi] of spans[axis]) {
+        result += shifts[axis] * Math.max(0, Math.min(1, (station - lo) / (hi - lo)))
+      }
+      return result
+    })
+    return { ...c, light: stretch(c.light), heavy: stretch(c.heavy) }
+  }))
 }
 
 /** A nested frame can be narrowed or stacked again after its first placement.
@@ -88,10 +129,13 @@ function fitNestedStrokeSpans(part, spans) {
   const native = part.part
   const scale = Math.min(1, ...spans.map((ranges, axis) => {
     const extent = native.box[axis + 2] - native.box[axis]
+    // A translated inner hook projects into the free span beside its stem.
+    // Scale a narrow slot uniformly to preserve that opening at the heaviest master.
+    if (axis === 0 && part.hookRun) return widths[axis] / extent
     const shortest = Math.min(...ranges.map(([lo, hi]) => hi - lo))
     return widths[axis] / (extent - ranges.length * shortest / 2)
   }))
-  const outline = fitStrokeSpans(native, spans, [0, 0, widths[0] / scale, widths[1] / scale])
+  const outline = fitStrokeSpans(native, spans, [0, 0, widths[0] / scale, widths[1] / scale], part.hookRun)
   return { part: outline, source: outline.box }
 }
 
@@ -102,6 +146,7 @@ export function fitNestedHostChains(parts) {
   for (const part of parts) if (part.strokeSpans) {
     Object.assign(part, fitNestedStrokeSpans(part, part.strokeSpans))
     delete part.strokeSpans
+    delete part.hookRun
   }
 }
 
@@ -148,16 +193,16 @@ export function hostChainParts(composer, node, region, atRoot, written = node) {
   if (!face) return null
   const native = cutPiece(partOf(record), source.faces[face][2])
   const gap = source?.uprightGap?.[composer.fontStyle]
-  const spans = source.strokeSpans?.[face]
+  const spans = source.strokeSpans?.[face], hookRun = source.hookRun?.[face]
   // The exact donor has already passed all exclusions. Its standalone size
   // also applies when the caller excludes an unrelated glyph.
   const frame = atRoot && spans ? exportInkBox(composer.data?.manifest, written)
     : atRoot && gap ? recordedInkBox(composer, written) : null
   let piece = native
-  if (spans && frame) piece = fitStrokeSpans(native, spans, frame)
+  if (spans && frame) piece = fitStrokeSpans(native, spans, frame, hookRun)
   else if (gap && frame) piece = widenUprightGap(native, gap, frame)
   const target = atRoot ? mapped(frame ?? piece.box, composer.C.face, region) : region
   const placedFrame = placed(piece, piece.box, target, partInk(piece), `chain ${node}, cut from ${char}`)
-  if (spans && !atRoot) return [{ ...placedFrame, strokeSpans: spans }]
+  if (spans && !atRoot) return [{ ...placedFrame, strokeSpans: spans, hookRun }]
   return [placedFrame]
 }

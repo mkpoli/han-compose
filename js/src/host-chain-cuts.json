@@ -113,7 +113,8 @@
   },
   "#(-𠃌乚)": {
     "host": "㔾",
-    "strokeSpans": {"fangsong": [[[520, 530]], [[400, 555]]]},
+    "strokeSpans": {"fangsong": [[[519, 835]], [[400, 555]]]},
+    "hookRun": {"fangsong": [0, 18, 51, 31]},
     "faces": {
       "fangsong": ["氾", "ab337ae7a0cb27abdb590c761a1915b8d4a7d61f865bb38a4c0f73e9889c7a74", [0]]
     }
