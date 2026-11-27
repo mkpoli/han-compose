@@ -27,10 +27,18 @@ function glyph(outline) {
 const native = originals['𦈁'][0]
 $('original').append(glyph({ ...native, viewBox: '0 0 1000 1000' }))
 $('font-source').href = native.url
-const words = expandedVariation(expression).split('幺')
+const operators = { '⿰': '左右', '⿱': '上下', '⿳': '上中下', '⿴': '全包圍' }
+const code = cp => 'U+' + cp.toString(16).toUpperCase()
 const analysis = el('p')
 analysis.className = 'analysis'
-analysis.append(words[0], el('mark', '幺'), words[1], el('mark', '幺'), words[2])
+for (const char of expandedVariation(expression)) {
+  const cp = char.codePointAt(0)
+  if (operators[char] || char === '幺' || cp > 0xffff) {
+    const token = el(char === '幺' ? 'mark' : 'abbr', char)
+    token.title = [operators[char], code(cp)].filter(Boolean).join(' · ')
+    analysis.append(token)
+  } else analysis.append(char)
+}
 $('font-source').after(analysis)
 
 for (const [label, href] of [
@@ -102,6 +110,17 @@ function select(row, col) {
   $('right-path').textContent = '[' + sites[1].path.join(', ') + ']'
   $('position').textContent = (index + 1) + ' / ' + product.count
   $('ids').value = realizeVariation(product.at(BigInt(index)), registry)
+  const notation = []
+  for (const char of new Set($('ids').value)) {
+    const cp = char.codePointAt(0)
+    if (!operators[char] && cp <= 0xffff) continue
+    const vs = cp >= 0xe0100 && cp <= 0xe01ef
+    const term = vs ? 'VS' + (cp - 0xe0100 + 17) : char
+    const row = el('li')
+    row.append(el('span', term), el('code', code(cp)), el('span', operators[char] ?? ''))
+    notation.push(row)
+  }
+  $('notation').replaceChildren(...notation)
   $('copy').textContent = '複製'
   $('status').textContent = ''
 }
