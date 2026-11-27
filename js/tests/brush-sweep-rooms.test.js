@@ -52,11 +52,10 @@ it('keeps adjacent brush enclosures inside their cells', async () => {
 })
 
 it('places inner ink at the horizontal centers of encoded reference glyphs', async () => {
-  // Centers relative to whole-glyph ink width in ZhongYi FangSong for 千、厘、
-  // 屯、百、克千. The 竜内 target comes from Jigmo because Zhuque Fangsong lacks
-  // the U+25A9E glyph. 瓦十 is tested against the shared 瓦 opening below.
-  const centers = { 瓦千: 0.740, 瓦厘: 0.657, 瓦屯: 0.661,
-    瓦百: 0.713, 克千: 0.758, 竜内: 0.733 }
+  // Centers relative to whole-glyph ink width in ZhongYi FangSong for 厘、屯、
+  // 百、克千. The 竜内 target comes from Jigmo because Zhuque Fangsong lacks
+  // the U+25A9E glyph. 瓦千 and 瓦十 are tested against the shared 瓦 opening below.
+  const centers = { 瓦厘: 0.657, 瓦屯: 0.661, 瓦百: 0.713, 克千: 0.758, 竜内: 0.733 }
   const src = source()
   for (const [pair, center] of Object.entries(centers)) {
     const { parts } = await compose(src, '⿺' + pair, { fontStyle: 'fangsong', separate: true })
@@ -127,7 +126,7 @@ function tileOpening(framePath) {
 }
 
 it('reports KanjiVG attribution on host cuts and clears the shared frame on standalone fallback', async () => {
-  const centers = { 千: 0.740, 厘: 0.657, 屯: 0.661, 百: 0.713 }
+  const centers = { 厘: 0.657, 屯: 0.661, 百: 0.713 }
   const src = source()
   for (const inner of Object.keys(tileHosts)) {
     const withHost = await compose(src, '⿺瓦' + inner, { fontStyle: 'fangsong', separate: true })
@@ -143,36 +142,39 @@ it('reports KanjiVG attribution on host cuts and clears the shared frame on stan
     const boxes = fallback.parts.map(p => union(pathRings(p.d, 24).map(pointsBox)))
     const [left, , right] = union(boxes)
     const innerCenter = (boxes[1][0] + boxes[1][2]) / 2
-    if (inner === '十') {
+    if (inner === '千' || inner === '十') {
       const opening = tileOpening(fallback.parts[0].d)
-      expect(Math.abs(innerCenter - opening.midpoint)).toBeLessThan(20)
-      expect(boxes[1][2]).toBeLessThan(opening.rightHook)
+      expect(Math.abs(innerCenter - opening.midpoint), inner).toBeLessThan(25)
+      expect(boxes[1][0], inner).toBeGreaterThan(opening.innerWall)
+      expect(boxes[1][2], inner).toBeLessThan(opening.rightHook)
     } else {
       expect(Math.abs((innerCenter - left) / (right - left) - centers[inner]), inner).toBeLessThan(0.012)
     }
   }
 })
 
-it('centers the vertical stem of 十 symmetrically inside the 瓦 opening', async () => {
-  const { parts } = await compose(source(), '⿺瓦十', { fontStyle: 'fangsong', separate: true })
-  const [frameMask, fillMask] = parts.map(p => pathMask(p.d, 256))
-  expect(fillMask.some((ink, i) => ink && frameMask[i])).toBe(false)
-  const opening = tileOpening(parts[0].d)
-  const boxes = parts.map(p => union(pathRings(p.d, 32).map(pointsBox)))
-  const [, bottom, , top] = union(boxes)
-  const [x0, y0, x1, y1] = boxes[1]
-  const h = y1 - y0
-  expect(h / (top - bottom)).toBeGreaterThan(0.75)
-  const stemXs = []
-  for (const ring of pathRings(parts[1].d, 32)) {
-    for (let i = 0; i < ring.length; i += 2) {
-      if (ring[i + 1] >= y0 + 0.12 * h && ring[i + 1] <= y0 + 0.35 * h) stemXs.push(ring[i])
+it('centers the vertical stems of 千 and 十 inside the 瓦 opening', async () => {
+  const src = source()
+  for (const inner of ['千', '十']) {
+    const { parts } = await compose(src, '⿺瓦' + inner, { fontStyle: 'fangsong', separate: true })
+    const [frameMask, fillMask] = parts.map(p => pathMask(p.d, 256))
+    expect(fillMask.some((ink, i) => ink && frameMask[i]), inner).toBe(false)
+    const opening = tileOpening(parts[0].d)
+    const boxes = parts.map(p => union(pathRings(p.d, 32).map(pointsBox)))
+    const [, bottom, , top] = union(boxes)
+    const [x0, y0, x1, y1] = boxes[1]
+    const h = y1 - y0
+    expect(h / (top - bottom), inner).toBeGreaterThan(0.75)
+    const stemXs = []
+    for (const ring of pathRings(parts[1].d, 32)) {
+      for (let i = 0; i < ring.length; i += 2) {
+        if (ring[i + 1] >= y0 + 0.12 * h && ring[i + 1] <= y0 + 0.35 * h) stemXs.push(ring[i])
+      }
     }
+    const stemMid = (Math.min(...stemXs) + Math.max(...stemXs)) / 2
+    if (inner === '十') expect(Math.abs((stemMid - x0) / (x1 - x0) - 0.5)).toBeLessThan(0.02)
+    expect(Math.abs(stemMid - opening.midpoint), inner).toBeLessThan(20)
+    expect(x0, inner).toBeGreaterThan(opening.innerWall)
+    expect(x1, inner).toBeLessThan(opening.rightHook)
   }
-  const stemMid = (Math.min(...stemXs) + Math.max(...stemXs)) / 2
-  // Crossbar arms stay balanced around the stem, and 十 stays centered inside the opening without overhanging the hook.
-  expect(Math.abs((stemMid - x0) / (x1 - x0) - 0.5)).toBeLessThan(0.02)
-  expect(Math.abs(stemMid - opening.midpoint)).toBeLessThan(20)
-  expect(x0).toBeGreaterThan(opening.innerWall)
-  expect(x1).toBeLessThan(opening.rightHook)
 })

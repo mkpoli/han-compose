@@ -4,15 +4,15 @@ import { hexOf } from './sha256.js'
 
 // Zhuque Fangsong 0.212 (TrionesType, OFL 1.1) has the operands but lacks the
 // five measure characters. Encoded Beijing ZhongYi FangSong glyphs guide
-// horizontal placement for 千、厘、屯、百 (CWTeX Q Fangsong's 瓩 is a second
-// comparison). 十's horizontal placement is editorial, centered in the shared
-// 瓦 opening using the symmetric right-hand form of 什; vertical extents for
+// horizontal placement for 厘、屯、百 (CWTeX Q Fangsong's 瓩 is a second
+// comparison). 千 and 十 use editorial horizontal placement centered in the
+// shared 瓦 opening (with 什 supplying a symmetric 十); vertical extents for
 // all five are editorial choices tuned to the opening. The same 甅 frame
 // encloses every filling. Pinned host glyphs supply naturally tall right-hand
 // forms separated by KanjiVG (CC BY-SA 3.0) contour labels in G.ls.
 const frameBox = [-8.14, -103.52, 1000.56, 744]
 const forms = {
-  千: { host: '仟', left: '亻', digest: 'b958da119a3e9e7fcf17124e7773a77c603484d77ba8a6559def5f56e1719746', inner: [473, 27, 1000, 799] },
+  千: { host: '仟', left: '亻', digest: 'b958da119a3e9e7fcf17124e7773a77c603484d77ba8a6559def5f56e1719746', inner: [417, 30, 933, 790] },
   厘: { host: '糎', left: '米', digest: 'c076d4bcfcb76681a0ed4c049e63ca9411a95d2f2b532e586414b884f4929852', inner: [380, 48, 929, 784] },
   十: { host: '什', left: '亻', digest: '2cfc9914bb8c851dcaa9f1f509db77716cc8d30c37ace0743df8b24797f90a45', inner: [412, 30, 918, 790] },
   屯: { host: '沌', left: '氵', digest: '410d0ab6fdfe861cccf7c0084d2910dd7976c8a6b9b94333fb9bb51864ffe339', inner: [384, 36, 924, 807] },
