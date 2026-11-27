@@ -147,11 +147,23 @@ function prepareInk(paths, strokes) {
       // outline's notches instead is kept where it leaves more pieces with a counterpart.
       const unmatched = (/** @type {number[][][][][][]} */ regions) =>
         regions.filter((region) => !blendOf(region)).length
+      const strain = (/** @type {number[][][][][][]} */ regions) =>
+        regions.reduce((sum, region) => sum + (blendOf(region)?.strain ?? 0), 0)
       if (unmatched(split)) {
-        const anchored = splitIslands(polygons, true)
+        const anchored = splitIslands(polygons, 'notch')
         if (anchored) {
           for (const region of anchored) cuts.add(region)
           if (unmatched(anchored) < unmatched(split)) split = anchored
+        }
+      }
+      // Where the pieces still blend with strain, the nearest outline has likely put a
+      // stroke with the wrong piece; a cut chosen by how the pieces fit is kept if it eases it.
+      if (unmatched(split) || strain(split) > 0.08) {
+        const fitted = splitIslands(polygons, 'fit')
+        if (fitted) {
+          for (const region of fitted) cuts.add(region)
+          const fewer = unmatched(fitted) - unmatched(split)
+          if (fewer < 0 || (!fewer && strain(fitted) < strain(split) - 0.03)) split = fitted
         }
       }
       return split
@@ -194,6 +206,7 @@ function prepareInk(paths, strokes) {
   // Regions without a contour correspondence share one distance field, which keeps
   // their strokes registered to each other.
   const matched = regions.map(blendOf)
+  /** @type {((shares: number[], weight: number) => number[][][])[]} */
   const blenders = matched.flatMap((blend) => blend ?? [])
   const rest = regions.filter((_, i) => !matched[i])
   if (rest.length)

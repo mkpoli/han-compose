@@ -968,7 +968,7 @@ it('cuts a stroke at the notches where it leaves a stem when asked to', () => {
   ]
   const apart = [[box(40, 20, 20, 210)], [box(100, 100, 30, 16)]]
   const reach = (/** @type {boolean} */ anchored) => {
-    const regions = splitIslands([fused, apart], anchored)
+    const regions = splitIslands([fused, apart], anchored ? 'notch' : 'neck')
     expect(regions).toHaveLength(2)
     const stem = regions.find((region) => Math.min(...region[1][0][0].map((p) => p[0])) < 50)
     return Math.max(...stem[0][0][0].map((p) => p[0]))
@@ -976,6 +976,23 @@ it('cuts a stroke at the notches where it leaves a stem when asked to', () => {
   // The narrowest cut leaves the root of the arm on the stem; the anchored one takes it off by the wall.
   expect(reach(false)).toBeGreaterThan(75)
   expect(reach(true)).toBeLessThan(67)
+})
+
+it('cuts a fused island where its pieces fit the other face when asked to', async () => {
+  // 走 in a Song face, 土 above 龰, and in a Kai face that runs them together. The Kai
+  // crossbar slants down to the left, where its outline lies nearer the lower piece.
+  const faces = await Bun.file(new URL('./fixtures/fused-crossbar.json', import.meta.url)).json()
+  const left = (/** @type {'neck' | 'fit'} */ prefer) => {
+    const regions = splitIslands(faces, prefer)
+    expect(regions).toHaveLength(2)
+    const top = regions.find((region) => Math.max(...region[0][0][0].map((p) => p[1])) < 120)
+    return { regions, left: Math.min(...top[1][0][0].map((p) => p[0])) }
+  }
+  // The narrowest neck leaves the left half of the crossbar on the lower piece.
+  expect(left('neck').left).toBeGreaterThan(40)
+  const fitted = left('fit')
+  expect(fitted.left).toBeLessThan(25)
+  for (const region of fitted.regions) expect(prepareCorrespondence(region, true)).not.toBeNull()
 })
 
 it('does not pair distant leftover corners at opposite ends of a long stem wall', () => {
