@@ -6,6 +6,7 @@ import { brushSweepParts } from '../src/brush-sweep-rooms.js'
 import { files, shards } from './fixtures/small-export.js'
 // Zhuque Fangsong 0.212, TrionesType, SIL OFL 1.1.
 import donors from './fixtures/brush-sweep-fangsong.json' with { type: 'json' }
+// Zhuque Fangsong 0.212 (SIL OFL 1.1) with KanjiVG (CC BY-SA 3.0) contour labels.
 import hosts from './fixtures/fangsong-tile-hosts.json' with { type: 'json' }
 
 const sources = { ...donors, ...hosts }
@@ -100,11 +101,34 @@ it('draws one 瓦 frame with uniformly scaled native right-hand fillings', () =>
   }
 })
 
-it('uses the standalone 厘 when the 糎 donor cannot be separated', () => {
-  for (const host of [undefined, { ...hosts.糎.G, ls: { 米: [0, 1], 厘: [0, 2, 3, 4, 5, 6] } }]) {
+it('uses the standalone 厘 when the 糎 donor cannot be separated or changes outline', () => {
+  const altered = { ...hosts.糎.G, p: [...hosts.糎.G.p].reverse() }
+  for (const host of [undefined, altered, { ...hosts.糎.G, ls: { 米: [0, 1], 厘: [0, 2, 3, 4, 5, 6] } }]) {
     const composer = { fontStyle: 'fangsong', excluded: () => false,
       glyphRecord: ch => ch === '糎' ? host : donors[ch]?.G }
     const [, body] = brushSweepParts(composer, ['⿺', '瓦', '厘'], [0, -120, 1000, 880])
     expect(body.part).toBe(partOf(donors.厘.G))
+    expect(body.part.kv).toBeUndefined()
+  }
+})
+
+it('reports KanjiVG attribution on host cuts and clears the shared frame on standalone fallback', async () => {
+  const centers = { 千: 0.740, 厘: 0.657, 十: 0.761, 屯: 0.661, 百: 0.713 }
+  const src = source()
+  for (const [inner, center] of Object.entries(centers)) {
+    const withHost = await compose(src, '⿺瓦' + inner, { fontStyle: 'fangsong', separate: true })
+    expect(withHost.kanjivg, inner).toBe(true)
+
+    const fallback = await compose(src, '⿺瓦' + inner, {
+      fontStyle: 'fangsong', separate: true, exclude: [tileHosts[inner]],
+    })
+    expect(fallback.kanjivg, inner).toBe(false)
+    expect(fallback.parts.map(p => p.origin)).toEqual(['glyph 瓦', 'glyph ' + inner])
+    const [frame, filling] = fallback.parts.map(p => pathMask(p.d, 256))
+    expect(filling.some((ink, i) => ink && frame[i]), inner).toBe(false)
+    const boxes = fallback.parts.map(p => union(pathRings(p.d, 24).map(pointsBox)))
+    const [left, , right] = union(boxes)
+    const innerCenter = (boxes[1][0] + boxes[1][2]) / 2
+    expect(Math.abs((innerCenter - left) / (right - left) - center), inner).toBeLessThan(0.012)
   }
 })

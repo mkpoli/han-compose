@@ -3,17 +3,18 @@ import { cutContours, derived, mapped, partInk, partOf, placed } from './geometr
 import { hexOf } from './sha256.js'
 
 // Zhuque Fangsong 0.212 (TrionesType, OFL 1.1) has the operands but lacks the
-// five measure characters. The encoded Beijing ZhongYi FangSong glyphs guide
-// the horizontal placements. CWTeX Q Fangsong's 瓩 is a second comparison.
-// The same 甅 frame encloses every filling. The hosts supply naturally tall
-// right-hand forms; their contour labels separate the left and right operands.
+// five measure characters. Encoded Beijing ZhongYi FangSong glyphs guide
+// horizontal placement (CWTeX Q Fangsong's 瓩 is a second comparison); vertical
+// extents are editorial choices tuned to the frame opening. The same 甅 frame
+// encloses every filling. Pinned host glyphs supply naturally tall right-hand
+// forms separated by KanjiVG (CC BY-SA 3.0) contour labels in G.ls.
 const frameBox = [-8.14, -103.52, 1000.56, 744]
 const forms = {
-  千: { host: '仟', left: '亻', inner: [473, 27, 1000, 799] },
-  厘: { host: '糎', left: '米', inner: [380, 48, 929, 784] },
-  十: { host: '叶', left: '口', inner: [514, 13, 1000, 802] },
-  屯: { host: '沌', left: '氵', inner: [384, 36, 924, 807] },
-  百: { host: '栢', left: '木', inner: [450, 43, 969, 789] },
+  千: { host: '仟', left: '亻', digest: 'b958da119a3e9e7fcf17124e7773a77c603484d77ba8a6559def5f56e1719746', inner: [473, 27, 1000, 799] },
+  厘: { host: '糎', left: '米', digest: 'c076d4bcfcb76681a0ed4c049e63ca9411a95d2f2b532e586414b884f4929852', inner: [380, 48, 929, 784] },
+  十: { host: '叶', left: '口', digest: '048bf3ba5a45eda33030521612087094fcef927a89d16be05f084d98d25412ef', inner: [514, 13, 1000, 802] },
+  屯: { host: '沌', left: '氵', digest: '410d0ab6fdfe861cccf7c0084d2910dd7976c8a6b9b94333fb9bb51864ffe339', inner: [384, 36, 924, 807] },
+  百: { host: '栢', left: '木', digest: 'd2f60e1ad8e65a55fda2a2fb006355503047755c40b7f4fb535ccd7aee905556', inner: [450, 43, 969, 789] },
 }
 
 export function tileHost(inner) {
@@ -67,13 +68,15 @@ function framePart(glyph) {
 function contextualFilling(composer, form, inner) {
   if ([form.host, form.left].some(ch => composer.excluded(ch) || composer.forced?.(ch))) return null
   const host = composer.glyphRecord(form.host)
-  if (host?.v !== 1 || host.f || host.k) return null
+  if (host?.v !== 1 || host.f || host.k || hexOf(JSON.stringify(host.p)) !== form.digest) return null
   const right = host.ls?.[inner], left = host.ls?.[form.left]
   if (!Array.isArray(right) || !Array.isArray(left) || !right.length || !left.length) return null
   const indices = [...left, ...right]
   if (indices.length !== host.p.length || new Set(indices).size !== indices.length ||
       !indices.every(i => Number.isInteger(i) && i >= 0 && i < host.p.length)) return null
-  return cutContours(partOf(host), right)
+  const part = cutContours(partOf(host), right)
+  Object.defineProperty(part, 'kv', { value: true, enumerable: false })
+  return part
 }
 
 export function tileParts(composer, node, region) {
