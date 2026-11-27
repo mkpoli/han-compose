@@ -39,7 +39,7 @@ import { grassShape } from './variants.js'
 import { EM_BOX, area, centre, contourSections, count, cutContours, derived, drawnBox, drawnContours, fill, fitted, grown, groupRings, makePart, mapped, partInk, partOf,
   placed, pointsBox, pyRound, raster, rings, scaleOf, shrunk, square, stretchOf, targetFor, union, windingOf, within } from './geometry.js'
 import { grassPairs, connectedGrass, contextualGrass } from './grass-forms.js'
-import { ownFormsOnly, componentParts, componentPosition, componentPositionBox, componentRecord, containsComponentForm, hasForcedForms, containsForcedForm, isComponentForm, isForcedCharacter, isGroupedForm, isNativeForm } from './component-forms.js'
+import { ownFormsOnly, componentParts, componentPosition, componentPositionBox, componentRecord, containsComponentForm, hasForcedForms, containsForcedForm, isComponentForm, isForcedCharacter, isAtomicForm, isGroupedForm, isNativeForm } from './component-forms.js'
 import { features, forward } from './layout.js'
 import { CONSTRUCTS, BODY_FORMS, IVD_FORMS, SURROUND_CONSTRUCTS, bodyForm, constructBody, constructHosts, constructParts, ivdParts } from './constructs.js'
 import { pyramidCells, pyramidOnBaseLayout } from './pyramid.js'
@@ -1666,7 +1666,7 @@ export class Composer {
           out.push(...group)
           return
         }
-        if (node === '艹' || node === '⺿' || node === '⻀') {
+        if (node === '艹' || node === '⺿' || node === '⻀' || isAtomicForm(node, this.fontStyle)) {
           const form = componentParts(node, undefined, this.fontStyle)?.[0]
           if (form) {
             form.target = fitted(form.source, inset(target(box)), Math.max(this.C.STRETCH, CELL_STRETCH))
@@ -2557,7 +2557,7 @@ export class Composer {
       const variant = ivdParts(ivd, key, ivdRecord, this.fontStyle, region, atRoot)
       if (variant) return variant
     }
-    const allowBundled = (!nativeSource || !this.excluded(nativeSource)) && (!this.separate || isGroupedForm(key, this.fontStyle)) && !ivdRecord
+    const allowBundled = (!nativeSource || !this.excluded(nativeSource)) && (!this.separate || isGroupedForm(key, this.fontStyle) || isAtomicForm(key, this.fontStyle)) && !ivdRecord
     const repeated = this.declaredParts(key, region, atRoot, allowBundled)
     if (repeated) return repeated
     const hasRepetition = containsComponentForm(key, this.fontStyle)
