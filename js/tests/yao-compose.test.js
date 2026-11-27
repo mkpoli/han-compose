@@ -18,3 +18,13 @@ test('canonical 幺 forms and their source spellings draw standalone and at eith
   expect(paths.size).toBe(3)
   expect(siblings.size).toBe(1)
 })
+
+test('edited silk components retain their numbered dots in either stored spelling', async () => {
+  const draw = composerPreview({ base: '', separate: true, fontStyle: 'serif' })
+  const prefix = '⿱&VR-5E7A-03;'
+  const result = await draw(prefix + '{86}')
+  expect(result.d.length).toBeGreaterThan(100)
+  expect((await draw(prefix + '&X-00086;')).d).toBe(result.d)
+  const folded = await draw('⿱&VR-5E7A-02;{86}')
+  expect(folded.d).not.toBe(result.d)
+})

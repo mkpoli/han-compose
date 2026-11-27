@@ -54,6 +54,7 @@ for (const [label, href] of [
   ['BabelStone IDS · 2025-06-27', sources['BabelStone IDS 2025-06-27'].url],
   ['Unicode IVD · 2026-08-03', sources.ivd.url],
   ...family.related.map(ref => ['關聯準則 · ' + ref.name + ' #' + ref.id + '（' + [...ref.components].join('／') + '）', ref.url]),
+  ['BabelStone Han PUA · Arphic授權', './data/licences/Arphic-Public-License.txt'],
   ['GlyphWiki資料授權', sources.glyphwiki.license],
   ['Yi Bai IDS · MIT', './data/licences/yi-bai-ids-MIT.txt'],
   ['字型授權', './NOTICE.txt'],
