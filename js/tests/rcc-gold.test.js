@@ -10,7 +10,7 @@ const dotContours = {
   sans: [0, 1], serif: [2, 3], regular: [4, 3],
   fangsong: [4, [0, 18, 31]], 'pen-writing': [2, [1, 16, 21]],
 }
-const dotWeights = { sans: [.94, .36], serif: [.58, .42] }
+const dotWeights = { sans: [.78, .32], serif: [.46, .32] }
 const aspect = ([left, bottom, right, top]) => (top - bottom) / (right - left)
 const touches = (a, b) => a.some((ink, i) => ink && b[i])
 
@@ -42,7 +42,11 @@ for (const [fontStyle, glyphs] of Object.entries(records)) {
       expect(parts[2].box[0] + parts[2].box[2]).toBeLessThan(parts[1].box[0] + parts[1].box[2])
       expect(touches(dots, gold)).toBe(false)
       if (fontStyle === 'sans' || fontStyle === 'serif') {
-        expect(drawn[1][0] - drawn[0][2]).toBeGreaterThan(4)
+        expect(drawn[1][0] - drawn[0][2]).toBeGreaterThan(10)
+        // Roof overhangs 口 clearly on both sides so the 兌-like body sits inside 冖.
+        expect(parts[4].box[0] - parts[1].box[0]).toBeGreaterThan(50)
+        expect(parts[1].box[0] + parts[1].box[2] - (parts[4].box[0] + parts[4].box[2])).toBeGreaterThan(45)
+        expect(touches(gold, crown)).toBe(false)
       }
       const donor = fontStyle === 'fangsong' ? '暝' : '䤟'
       const indices = fontStyle === 'serif' ? [8, 9, 10] : fontStyle === 'fangsong' ? [7] : [0]

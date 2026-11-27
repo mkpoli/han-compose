@@ -15,7 +15,7 @@ const spellings = new Map([[sequence, [sequence, right, lower, crossed]],
 // Each group belongs to one editable IDS operand. In brush faces 兎 joins the walls,
 // falling stroke and hook. The triples follow the Bézier commands between their junctions.
 // The two inner edges of the native windows supply the sides of the crossing stroke.
-/** @type {Record<string,{ roofDonor: string, hashes: string[], gold: number[], cover: number[], dots: (number | number[])[], dotScale?: number[], dotWeight?: number[], leftRaise?: number, rightDrop?: number, dotInset: number, rightTip: number, join: number[], lower: (number | number[][])[][], frame: number[] }>} */
+/** @type {Record<string,{ roofDonor: string, hashes: string[], gold: number[], cover: number[], dots: (number | number[])[], dotScale?: number[], dotWeight?: number[], leftRaise?: number, rightDrop?: number, dotInset: number, rightTip: number, baseRoom?: number[], baseWeight?: number[], roof?: number[], capWeight?: number[], join: number[], lower: (number | number[][])[][], frame: number[] }>} */
 const faces = {
   'sans': {
     roofDonor: '䤟',
@@ -25,7 +25,8 @@ const faces = {
       'a27e274012b4ebfa64512fbd66766ac8db59c637af78596306e30d0ff87c8ce3',
     ],
     gold: [5,6,7,8,9,10,12,13], cover: [0], dots: [0, 1],
-    dotScale: [.52, .76], dotWeight: [.94, .36], leftRaise: 18, rightDrop: 16, dotInset: 14, rightTip: 756,
+    dotScale: [.56, .80], dotWeight: [.78, .32], leftRaise: 18, rightDrop: 16, dotInset: 34, rightTip: 770,
+    baseRoom: [508, 0, 982, 648], baseWeight: [.10, .05], roof: [494, 992, 984], capWeight: [-.08, -.08],
     join: [490, 590, 1],
     lower: [
       [0],
@@ -42,7 +43,8 @@ const faces = {
       '7429d1c52a5eb6f45d38f2ebdf7fe36e5dc9c300d8727d1f35879318b59c14b5',
     ],
     gold: [6,7,8,9,10,11,12,13], cover: [8, 9, 10], dots: [2, 3],
-    dotScale: [.56, .71], dotWeight: [.58, .42], leftRaise: 18, dotInset: 30, rightTip: 724,
+    dotScale: [.63, .77], dotWeight: [.46, .32], leftRaise: 24, rightDrop: 14, dotInset: 42, rightTip: 728,
+    baseRoom: [508, 0, 980, 642], baseWeight: [.10, .06], roof: [490, 994, 985],
     join: [488, 600, 8],
     lower: [
       [6],
@@ -121,9 +123,14 @@ export function goldParts(composer, key, region) {
   const records = donors.map(ch => composer.glyphRecord(ch))
   if (records.some((r, i) => r?.v !== 1 || hexOf(JSON.stringify(r.p)) !== face.hashes[i])) return null
   const [sharp, rabbit, nativeRoof] = records.map(r => partOf(r))
-  const metal = cutContours(sharp, face.gold), cap = cutContours(nativeRoof, face.cover)
-  const base = face.lower.map(group => derived(rabbit, group.map(c =>
-    typeof c === 'number' ? rabbit.contours[c] : contourSections(rabbit.contours, ...c))))
+  const metal = cutContours(sharp, face.gold)
+  const cap = face.capWeight
+    ? derived(nativeRoof, face.cover.map(i => weighted(nativeRoof.contours[i], face.capWeight[0], face.capWeight[1])))
+    : cutContours(nativeRoof, face.cover)
+  const base = face.lower.map(group => derived(rabbit, group.map(c => {
+    const raw = typeof c === 'number' ? rabbit.contours[c] : contourSections(rabbit.contours, ...c)
+    return face.baseWeight ? weighted(raw, face.baseWeight[0], face.baseWeight[1]) : raw
+  })))
   // Coordinates of the crossing junction in native 兎, followed by the left
   // inset of the roof relative to the box below.
   const [x, y, leftInset] = face.join
@@ -131,7 +138,7 @@ export function goldParts(composer, key, region) {
   // 兎 stroke at the top bar before joining the right-hand dab to it.
   if (composer.fontStyle === 'sans' || composer.fontStyle === 'serif')
     base[0] = bend(base[0], (a, b) => [a, Math.min(b, y)])
-  const box = union(base.map(g => g.box)), baseRoom = [465, 0, 1000, 687]
+  const box = union(base.map(g => g.box)), baseRoom = face.baseRoom ?? [465, 0, 1000, 687]
   const [jx, jy] = mapped([x, y, x, y], box, baseRoom)
   const rooms = base.map(g => mapped(g.box, box, baseRoom))
   rooms[2][3] += 9 // Extend the start of the hook into the bottom rail.
@@ -151,7 +158,7 @@ export function goldParts(composer, key, region) {
   // 䤟 (釒 + 冗) and FangSong 暝 (日 + 冥) contain a roof drawn for the right
   // column. Scale its ridge and both terminals together above the editable dabs.
   const [capLeft, capBottom, capRight, capTop] = cap.box
-  const roofLeft = left - 13, roofRight = 966, roofTop = 977
+  const [roofLeft, roofRight, roofTop] = face.roof ?? [left - 13, 966, 977]
   const roofHeight = (capTop - capBottom) * (roofRight - roofLeft) / (capRight - capLeft)
   const roofRoom = [roofLeft, roofTop - roofHeight, roofRight, roofTop]
   const allRooms = [mapped(metal.box, sharp.box, [0, 0, 1000, 1000]), roofRoom, dabs.box, ...rooms]
@@ -176,10 +183,13 @@ function bend(glyph, move) {
   return derived(glyph, glyph.contours.map((/** @type {any} */ c) => ({ ...c, light: remap(c.light), heavy: remap(c.heavy) })))
 }
 
-/** @param {any} contour @param {number} weight */
-function weighted(contour, weight) {
-  if (!weight) return contour
+/** @param {any} contour @param {number} wx @param {number} [wy] */
+function weighted(contour, wx, wy = wx) {
+  if (!wx && !wy) return contour
   const out = new Float64Array(contour.light.length)
-  for (let i = 0; i < out.length; i++) out[i] = contour.light[i] + (contour.heavy[i] - contour.light[i]) * weight
+  for (let i = 0; i < out.length; i += 2) {
+    out[i] = contour.light[i] + (contour.heavy[i] - contour.light[i]) * wx
+    out[i + 1] = contour.light[i + 1] + (contour.heavy[i + 1] - contour.light[i + 1]) * wy
+  }
   return { ...contour, light: out, heavy: out }
 }
