@@ -1,5 +1,6 @@
 import { expect, test } from 'bun:test'
-import { mapped, partOf, pointsBox } from '../src/geometry.js'
+import { fill, groupRings, mapped, partOf, pointsBox } from '../src/geometry.js'
+import islandRecords from './fixtures/island-frames.json' with { type: 'json' }
 import { chainHost, hostChainParts } from '../src/host-chain.js'
 
 const horse = '#(-一丨b𠃌)'
@@ -119,5 +120,29 @@ test('widens the space between 亞 uprights only in the saved standalone frame',
       expect(metrics(root.part.contours[upright], master)).toBeCloseTo(metrics(nested.part.contours[upright], master), 6)
     }
     expect(nested.target).toEqual(region)
+  }
+})
+
+test('closes the upper counter of the 島 frame in the three brush faces', () => {
+  for (const [fontStyle, record] of Object.entries(islandRecords)) {
+    expect(chainHost(horse, fontStyle)).toBe('馬')
+    expect(chainHost(island, fontStyle)).toBe('島')
+    const composer = { fontStyle, glyphRecord: ch => ch === '島' ? record : null, excluded: () => false }
+    const [frame] = hostChainParts(composer, island, region, false)
+    expect(frame.part.contours).toHaveLength(2)
+    // The middle bar spans the opening between the left stem and the fold.
+    // A column near either end crosses the top, middle and hooked lower bars.
+    const size = 100
+    const mask = fill(groupRings([frame], 24), size, region)
+    for (const x of [23, 60]) {
+      let bands = 0
+      for (let y = 0; y < size; y++) {
+        if (mask[y * size + x] && (y === 0 || !mask[(y - 1) * size + x])) bands++
+      }
+      expect(bands).toBe(3)
+    }
+    for (const ch of ['島', island, '𠃌']) {
+      expect(hostChainParts({ ...composer, excluded: candidate => candidate === ch }, island, region, false)).toBeNull()
+    }
   }
 })
