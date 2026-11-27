@@ -6,6 +6,7 @@
 // so the corrections work wherever the description is drawn, at any depth.
 import { contourSections, cutContours, derived, fitted, groupRings, makePart, mapped, partOf, placed, pointsBox, union } from './geometry.js'
 import { hexOf } from './sha256.js'
+import { penGrassKu } from './grass-ku.js'
 
 // Interpolation factors for the hosted 口 outlines when fitted beside 乎.
 const mouthWeights = {
@@ -392,6 +393,14 @@ export const COMPONENT_FIXES = {
       return [placed(kana, kana.box, cell([28, 38, 475, 960]), composer.ink('𛂦'), 'glyph 𛂦'),
         placed(side, side.box, cell([512, 24, 968, 960]), composer.ink('方'), 'glyph 方')]
     },
+  },
+  '⿱艹堀': {
+    glyphs: {
+      堀: 'f43243bd31c0029a0b42e359bec3243f319aa4d4d8c8500f62e67fb1f5a69542',
+      '䕋': '41fe0e171f99af334c530521fd232c29532c4f566d3435eb8f064f148ce2f740',
+      '䓛': '24db65003a6ef60f8a9efcece91167f5bb035ea042a02da399a8babbf48e11e8',
+    },
+    apply: penGrassKu,
   },
   '⿰身花': {
     glyphs: {},
