@@ -1,5 +1,6 @@
 // @ts-nocheck: a port of han-compose's Python, kept line for line; its types are the arrays it reads.
 import cuanForms from './cuan-forms.json' with { type: 'json' }
+import { columnClearance, settleColumns } from './column-spacing.js'
 import { ratePart, rateParts } from './rate-drawing.js'
 import { containsRateForm, exactRateForm, rateFormsFor } from './rate-forms.js'
 import { hookFloor } from './hook-floor.js'
@@ -966,6 +967,7 @@ export class Composer {
     // Each stroke chain's drawing.
     this.chains = new Map()
     // Stacked operand pairs, settled against their ink once the drawing is weighted.
+    this.columns = []
     this.joints = []
     // Swept glyphs with the part each holds over its foot, refitted once the drawing is weighted.
     this.sweeps = []
@@ -1398,6 +1400,7 @@ export class Composer {
   compose(sequence, marks = '') {
     this.approximate.clear()
     this.nativeEnclosures.clear()
+    this.columns.length = 0
     this.joints.length = 0
     this.sweeps.length = 0
     this.carried = 1
@@ -1474,6 +1477,7 @@ export class Composer {
       for (const part of out) if (part.finishOutline) Object.assign(part, part.finishOutline(part))
       fitClawInterior(out, tree, this.fontStyle)
       // Loose marks annotate the whole drawing; they take no part in its layout or weight.
+      if (!subtracts(tree)) settleColumns(this.columns, out, this.fontStyle)
       if (!marks) fitRecordedInk(this, sequence, out)
       if (marks) out.push(...markParts(this, marks, frame, face))
       return out
@@ -3888,7 +3892,8 @@ export class Composer {
     }
     // 𭰲 (⿰氵⿵冂并) keeps about a fifth of a stem between the water and the frame; a described
     // ⿰氵⿵冂… tends to close it to nothing.
-    if (op === '⿰' && children[0] === '氵' && Array.isArray(children[1]) && children[1][0] === '⿵') {
+    const waterFrame = op === '⿰' && children[0] === '氵' && Array.isArray(children[1]) && children[1][0] === '⿵'
+    if (waterFrame) {
       const gap = 0.02 * (this.face[2] - this.face[0]), b = boxes[1]
       if (b[2] - b[0] > gap * 4) { b[0] = b[0] + gap; b[2] = Math.min(b[2] + gap, this.face[2]) }
     }
@@ -4049,7 +4054,13 @@ export class Composer {
             const cut = [Math.max(opening[0], box[0]), Math.max(opening[1], box[1]), Math.min(opening[2], box[2]), Math.min(opening[3], box[3])]
             if (cut[0] < cut[2] && cut[1] < cut[3]) box = cut
           }
-        } else return this.node(['⿰', ...children], frameOf)
+        } else {
+          // This row places the foot of an enclosure. Its clearance belongs to the enclosure.
+          const count = this.columns.length
+          const pair = this.node(['⿰', ...children], frameOf)
+          this.columns.length = count
+          return pair
+        }
       }
       if (op in this.ENCLOSE && i === 1 && groups[0].every(p => p.origin.startsWith('glyph'))) {
         groups.push([placed(source, source.box, fitted(source.box, box, C.STRETCH), this.ink(drawn.h), `learned ${drawn.h}`)])
@@ -4095,7 +4106,7 @@ export class Composer {
     this.joinUnderCover(op, children, groups)
     // 𭰲 (⿰氵⿵冂并) sets the water at 5–31% and the frame at 33–93% of the face; a described
     // row stretched the frame wider. Keep the reference's shares and the gap between them.
-    if (op === '⿰' && children[0] === '氵' && Array.isArray(children[1]) && children[1][0] === '⿵') {
+    if (waterFrame) {
       const a = union(groups[0].map(p => p.target)), b = union(groups[1].map(p => p.target))
       const want = 0.02 * (this.face[2] - this.face[0]), gap = b[0] - a[2]
       if (gap < want) {
@@ -4118,6 +4129,7 @@ export class Composer {
     }
     this.seatInDesignedFrame(op, children, groups)
     this.recordJoints(op, groups)
+    if (!this.partial && this.AXIS[op] === 0 && columnClearance[this.fontStyle] && !waterFrame) this.columns.push(groups)
     return this.flatten(groups)
   }
 
@@ -4443,7 +4455,8 @@ export class Composer {
     this.joinUnderCover(op, children, groups)
     // 𭰲 (⿰氵⿵冂并) sets the water at 5–31% and the frame at 33–93% of the face; a described
     // row stretched the frame wider. Keep the reference's shares and the gap between them.
-    if (op === '⿰' && children[0] === '氵' && Array.isArray(children[1]) && children[1][0] === '⿵') {
+    const waterFrame = op === '⿰' && children[0] === '氵' && Array.isArray(children[1]) && children[1][0] === '⿵'
+    if (waterFrame) {
       const a = union(groups[0].map(p => p.target)), b = union(groups[1].map(p => p.target))
       const want = 0.02 * (this.face[2] - this.face[0]), gap = b[0] - a[2]
       if (gap < want) {
@@ -4466,6 +4479,7 @@ export class Composer {
     }
     this.seatInDesignedFrame(op, children, groups)
     this.recordJoints(op, groups)
+    if (!this.partial && this.AXIS[op] === 0 && columnClearance[this.fontStyle] && !waterFrame && !compactYan) this.columns.push(groups)
     return this.flatten(groups)
   }
 
