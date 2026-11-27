@@ -3371,6 +3371,21 @@ class Composer:
                 part.target = mapped(part.target, frame, region)
         return parts
 
+    def _joined(self, node: Node) -> Node:
+        """`node` with each operand that spells a drawn character replaced by that character, from
+        the innermost out: ⿱艹⿰口南 as ⿱艹喃."""
+        if type(node) is not tuple:
+            return node
+        operands = []
+        for operand in node[1:]:
+            operand = self._joined(operand)
+            if type(operand) is tuple and key(operand) not in self.spelled:
+                name = self.by_sequence.get(key(operand))
+                if name is not None and name not in self.exclude:
+                    operand = name
+            operands.append(operand)
+        return (node[0], *operands)
+
     def _foreign(self, char: str) -> bool:
         """Whether only a fallback font of another design draws `char`."""
         style = getattr(self.font, "style", None)
@@ -3390,6 +3405,10 @@ class Composer:
         if isinstance(node, str) and is_jamo_run(node):
             return self._jamo_syllable(node, region)
         encoded = node if isinstance(node, str) else None if key(node) in self.spelled else self.by_sequence.get(key(node))
+        if encoded is None and type(node) is tuple and key(node) not in self.spelled:
+            # A character written with an operand spelled out (𬞑 as ⿱艹⿰口南, where its own
+            # sequence is ⿱艹喃) is that character.
+            encoded = self.by_sequence.get(key(self._joined(node)))
         if at_root and not isinstance(node, str):
             # Characters sharing a sequence (申 由 甲 are all ⿻日丨): the one redrawn is the one
             # excluded, never another that happens to have the same sequence.
