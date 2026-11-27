@@ -210,7 +210,7 @@ export declare class Composer {
     };
     /** A stroke chain (`#(-𠃌㇉)`) joined from the face's own strokes, or null for anything else. */
     chainStroke(ch: any): any;
-    recordedParts(node: any, region: any, key: any): {
+    recordedParts(node: any, region: any, key: any, atRoot: any): {
         part: any;
         source: any;
         target: any;
@@ -219,6 +219,15 @@ export declare class Composer {
         origin: any;
     }[] | null;
     chain(node: any): any;
+    /** A registered native cut takes precedence over the bundled form at every placement. */
+    declaredParts(key: any, region: any, atRoot?: boolean, allowBundled?: boolean): {
+        part: any;
+        source: any;
+        target: any;
+        weight: number[];
+        native: any;
+        origin: any;
+    }[] | null;
     chainParts(node: any, region: any, atRoot?: boolean): any;
     /** A chain holding a part, or such an enclosure holding another (岛 as ⿹⿴#(-𠃌㇉)丶山): each inner
      *  part goes into the cell of the chain its operator names. Null for any other enclosure. */

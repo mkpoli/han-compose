@@ -1,5 +1,5 @@
 /** @param {string} key @param {string} style */
-export declare const rccDonors: (key: string, style: string) => string[];
+export declare const rccDonors: (key: string, style: string) => any[];
 /** @param {import('./compose.js').Composer} composer @param {string} key @param {number[]} region @returns {any[] | null} */
 export declare function rccParts(composer: import('./compose.js').Composer, key: string, region: number[]): any[] | null;
 /** Split registered native hosts after their final placement and weight are known.
