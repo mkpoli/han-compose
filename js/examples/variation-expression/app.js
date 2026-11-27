@@ -1,6 +1,7 @@
 import { createVariationRegistry } from '../../src/variation-registry.js'
 import { createVariationProduct } from '../../src/variation-product.js'
 import { expandedVariation, realizeVariation } from '../../src/variation-expression.js'
+import { renderU26201 } from '../../src/render-u26201.js'
 import originals from '../rate-gallery/data/originals-serif.json' with { type: 'json' }
 import { expression, family, sites, sources } from './u26201.js'
 
@@ -39,7 +40,7 @@ for (const char of expandedVariation(expression)) {
     analysis.append(token)
   } else analysis.append(char)
 }
-$('font-source').after(analysis)
+$('original').closest('section').append(analysis)
 
 for (const [label, href] of [
   ['BabelStone IDS · 2025-06-27', sources['BabelStone IDS 2025-06-27'].url],
@@ -70,6 +71,7 @@ function axisHeader(axis, i) {
 for (let i = 0; i < n; i++) head.append(axisHeader('col', i))
 const body = table.createTBody()
 const buttons = []
+const designs = []
 for (let row = 0; row < n; row++) {
   const tr = body.insertRow()
   tr.append(axisHeader('row', row))
@@ -77,7 +79,9 @@ for (let row = 0; row < n; row++) {
     const button = el('button')
     button.type = 'button'
     button.setAttribute('aria-label', `糸中的幺：字形${row + 1}，率中的幺：字形${col + 1}`)
-    button.append(glyph(forms[row].outline), glyph(forms[col].outline))
+    const design = renderU26201(forms[row], forms[col])
+    designs.push(design)
+    button.append(glyph(design))
     button.onclick = () => select(row, col)
     button.onkeydown = event => {
       const offsets = { ArrowLeft: [0, -1], ArrowRight: [0, 1], ArrowUp: [-1, 0], ArrowDown: [1, 0] }
@@ -104,6 +108,7 @@ function select(row, col) {
     head.cells[i + 1].classList.toggle('selected', i === col)
     body.rows[i].cells[0].classList.toggle('selected', i === row)
   }
+  $('selected-glyph').replaceChildren(glyph(designs[index]))
   $('left').replaceChildren(glyph(forms[row].outline))
   $('right').replaceChildren(glyph(forms[col].outline))
   $('left-path').textContent = '[' + sites[0].path.join(', ') + ']'
