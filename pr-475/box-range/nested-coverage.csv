@@ -1,0 +1,856 @@
+character,code point,regional IDS readings,face,outline source,primary font
+僃,U+50C3,⿰亻⿱艹⿹勹用(G),sans,Noto Sans,True
+僃,U+50C3,⿰亻⿱艹⿹勹用(G),serif,Noto Serif,True
+僃,U+50C3,⿰亻⿱艹⿹勹用(G),fang,Jigmo 1,False
+僃,U+50C3,⿰亻⿱艹⿹勹用(G),reg,TW-Kai,True
+僃,U+50C3,⿰亻⿱艹⿹勹用(G),pen,Kureedo,True
+刨,U+5228,⿰⿹勹巳刂(J),sans,Noto Sans,True
+刨,U+5228,⿰⿹勹巳刂(J),serif,Noto Serif,True
+刨,U+5228,⿰⿹勹巳刂(J),fang,Zhuque,True
+刨,U+5228,⿰⿹勹巳刂(J),reg,TW-Kai,True
+刨,U+5228,⿰⿹勹巳刂(J),pen,Kureedo,True
+匏,U+530F,⿰夸⿹勹巳(J),sans,Noto Sans,True
+匏,U+530F,⿰夸⿹勹巳(J),serif,Noto Serif,True
+匏,U+530F,⿰夸⿹勹巳(J),fang,Zhuque,True
+匏,U+530F,⿰夸⿹勹巳(J),reg,TW-Kai,True
+匏,U+530F,⿰夸⿹勹巳(J),pen,Kureedo,True
+咆,U+5486,⿰口⿹勹巳(J),sans,Noto Sans,True
+咆,U+5486,⿰口⿹勹巳(J),serif,Noto Serif,True
+咆,U+5486,⿰口⿹勹巳(J),fang,Zhuque,True
+咆,U+5486,⿰口⿹勹巳(J),reg,TW-Kai,True
+咆,U+5486,⿰口⿹勹巳(J),pen,Kureedo,True
+圴,U+5734,⿰土⿹勹一(J),sans,Noto Sans,True
+圴,U+5734,⿰土⿹勹一(J),serif,Noto Serif,True
+圴,U+5734,⿰土⿹勹一(J),fang,Jigmo 1,False
+圴,U+5734,⿰土⿹勹一(J),reg,TW-Kai,True
+圴,U+5734,⿰土⿹勹一(J),pen,Kureedo,True
+垉,U+5789,⿰土⿹勹巳(J),sans,Noto Sans,True
+垉,U+5789,⿰土⿹勹巳(J),serif,Noto Serif,True
+垉,U+5789,⿰土⿹勹巳(J),fang,Jigmo 1,False
+垉,U+5789,⿰土⿹勹巳(J),reg,TW-Kai,True
+垉,U+5789,⿰土⿹勹巳(J),pen,Kureedo,True
+尥,U+5C25,⿺尢⿹勹一(P),sans,Noto Sans,True
+尥,U+5C25,⿺尢⿹勹一(P),serif,Noto Serif,True
+尥,U+5C25,⿺尢⿹勹一(P),fang,Zhuque,True
+尥,U+5C25,⿺尢⿹勹一(P),reg,TW-Kai,True
+尥,U+5C25,⿺尢⿹勹一(P),pen,Kureedo,True
+尦,U+5C26,⿺尣⿹勹一(J),sans,Noto Sans,True
+尦,U+5C26,⿺尣⿹勹一(J),serif,Noto Serif,True
+尦,U+5C26,⿺尣⿹勹一(J),fang,Jigmo 1,False
+尦,U+5C26,⿺尣⿹勹一(J),reg,TW-Kai,True
+尦,U+5C26,⿺尣⿹勹一(J),pen,Kureedo,True
+庖,U+5E96,⿸广⿹勹巳(J),sans,Noto Sans,True
+庖,U+5E96,⿸广⿹勹巳(J),serif,Noto Serif,True
+庖,U+5E96,⿸广⿹勹巳(J),fang,Zhuque,True
+庖,U+5E96,⿸广⿹勹巳(J),reg,TW-Kai,True
+庖,U+5E96,⿸广⿹勹巳(J),pen,Kureedo,True
+扚,U+625A,⿰扌⿹勹一(JP),sans,Noto Sans,True
+扚,U+625A,⿰扌⿹勹一(JP),serif,Noto Serif,True
+扚,U+625A,⿰扌⿹勹一(JP),fang,Jigmo 1,False
+扚,U+625A,⿰扌⿹勹一(JP),reg,TW-Kai,True
+扚,U+625A,⿰扌⿹勹一(JP),pen,Kureedo,True
+杓,U+6753,⿰木⿹勹一(J),sans,Noto Sans,True
+杓,U+6753,⿰木⿹勹一(J),serif,Noto Serif,True
+杓,U+6753,⿰木⿹勹一(J),fang,Zhuque,True
+杓,U+6753,⿰木⿹勹一(J),reg,TW-Kai,True
+杓,U+6753,⿰木⿹勹一(J),pen,Kureedo,True
+枹,U+67B9,⿰木⿹勹巳(J),sans,Noto Sans,True
+枹,U+67B9,⿰木⿹勹巳(J),serif,Noto Serif,True
+枹,U+67B9,⿰木⿹勹巳(J),fang,Zhuque,True
+枹,U+67B9,⿰木⿹勹巳(J),reg,TW-Kai,True
+枹,U+67B9,⿰木⿹勹巳(J),pen,Kureedo,True
+汋,U+6C4B,⿰氵⿹勹一(J),sans,Noto Sans,True
+汋,U+6C4B,⿰氵⿹勹一(J),serif,Noto Serif,True
+汋,U+6C4B,⿰氵⿹勹一(J),fang,Zhuque,True
+汋,U+6C4B,⿰氵⿹勹一(J),reg,TW-Kai,True
+汋,U+6C4B,⿰氵⿹勹一(J),pen,Kureedo,True
+灼,U+707C,⿰火⿹勹一(J),sans,Noto Sans,True
+灼,U+707C,⿰火⿹勹一(J),serif,Noto Serif,True
+灼,U+707C,⿰火⿹勹一(J),fang,Zhuque,True
+灼,U+707C,⿰火⿹勹一(J),reg,TW-Kai,True
+灼,U+707C,⿰火⿹勹一(J),pen,Kureedo,True
+炮,U+70AE,⿰火⿹勹巳(J),sans,Noto Sans,True
+炮,U+70AE,⿰火⿹勹巳(J),serif,Noto Serif,True
+炮,U+70AE,⿰火⿹勹巳(J),fang,Zhuque,True
+炮,U+70AE,⿰火⿹勹巳(J),reg,TW-Kai,True
+炮,U+70AE,⿰火⿹勹巳(J),pen,Kureedo,True
+炰,U+70B0,⿱⿹勹巳灬(J),sans,Noto Sans,True
+炰,U+70B0,⿱⿹勹巳灬(J),serif,Noto Serif,True
+炰,U+70B0,⿱⿹勹巳灬(J),fang,Zhuque,True
+炰,U+70B0,⿱⿹勹巳灬(J),reg,TW-Kai,True
+炰,U+70B0,⿱⿹勹巳灬(J),pen,Kureedo,True
+玓,U+7393,⿰𤣩⿹勹一(JP),sans,Noto Sans,True
+玓,U+7393,⿰𤣩⿹勹一(JP),serif,Noto Serif,True
+玓,U+7393,⿰𤣩⿹勹一(JP),fang,Zhuque,True
+玓,U+7393,⿰𤣩⿹勹一(JP),reg,TW-Kai,True
+玓,U+7393,⿰𤣩⿹勹一(JP),pen,Kureedo,True
+瓟,U+74DF,⿺瓜⿹勹巳(J),sans,Noto Sans,True
+瓟,U+74DF,⿺瓜⿹勹巳(J),serif,Noto Serif,True
+瓟,U+74DF,⿺瓜⿹勹巳(J),fang,Jigmo 1,False
+瓟,U+74DF,⿺瓜⿹勹巳(J),reg,TW-Kai,True
+瓟,U+74DF,⿺瓜⿹勹巳(J),pen,Kureedo,True
+畃,U+7543,⿰申⿹勹一(J),sans,Noto Sans,True
+畃,U+7543,⿰申⿹勹一(J),serif,Noto Serif,True
+畃,U+7543,⿰申⿹勹一(J),fang,Jigmo 1,False
+畃,U+7543,⿰申⿹勹一(J),reg,TW-Kai,True
+畃,U+7543,⿰申⿹勹一(J),pen,Kureedo,True
+疱,U+75B1,⿸疒⿹勹巳(J),sans,Noto Sans,True
+疱,U+75B1,⿸疒⿹勹巳(J),serif,Noto Serif,True
+疱,U+75B1,⿸疒⿹勹巳(J),fang,Zhuque,True
+疱,U+75B1,⿸疒⿹勹巳(J),reg,TW-Kai,True
+疱,U+75B1,⿸疒⿹勹巳(J),pen,Kureedo,True
+的,U+7684,⿰白⿹勹丶(K),sans,Noto Sans,True
+的,U+7684,⿰白⿹勹丶(K),serif,Noto Serif,True
+的,U+7684,⿰白⿹勹丶(K),fang,Zhuque,True
+的,U+7684,⿰白⿹勹丶(K),reg,TW-Kai,True
+的,U+7684,⿰白⿹勹丶(K),pen,Kureedo,True
+皰,U+76B0,⿰皮⿹勹巳(J),sans,Noto Sans,True
+皰,U+76B0,⿰皮⿹勹巳(J),serif,Noto Serif,True
+皰,U+76B0,⿰皮⿹勹巳(J),fang,Zhuque,True
+皰,U+76B0,⿰皮⿹勹巳(J),reg,TW-Kai,True
+皰,U+76B0,⿰皮⿹勹巳(J),pen,Kureedo,True
+礿,U+793F,⿰示⿹勹一(J),sans,Noto Sans,True
+礿,U+793F,⿰示⿹勹一(J),serif,Noto Serif,True
+礿,U+793F,⿰示⿹勹一(J),fang,Jigmo 1,False
+礿,U+793F,⿰示⿹勹一(J),reg,TW-Kai,True
+礿,U+793F,⿰示⿹勹一(J),pen,Kureedo,True
+笣,U+7B23,⿱𥫗⿹勹巳(J),sans,Noto Sans,True
+笣,U+7B23,⿱𥫗⿹勹巳(J),serif,Noto Serif,True
+笣,U+7B23,⿱𥫗⿹勹巳(J),fang,Jigmo 1,False
+笣,U+7B23,⿱𥫗⿹勹巳(J),reg,TW-Kai,True
+笣,U+7B23,⿱𥫗⿹勹巳(J),pen,Kureedo,True
+約,U+7D04,⿰糸⿹勹丶(K),sans,Noto Sans,True
+約,U+7D04,⿰糸⿹勹丶(K),serif,Noto Serif,True
+約,U+7D04,⿰糸⿹勹丶(K),fang,Zhuque,True
+約,U+7D04,⿰糸⿹勹丶(K),reg,TW-Kai,True
+約,U+7D04,⿰糸⿹勹丶(K),pen,Kureedo,True
+芻,U+82BB,⿱⿹勹䶹⿹勹䶹(GHTJKPV),sans,Noto Sans,True
+芻,U+82BB,⿱⿹勹䶹⿹勹䶹(GHTJKPV),serif,Noto Serif,True
+芻,U+82BB,⿱⿹勹䶹⿹勹䶹(GHTJKPV),fang,Zhuque,True
+芻,U+82BB,⿱⿹勹䶹⿹勹䶹(GHTJKPV),reg,TW-Kai,True
+芻,U+82BB,⿱⿹勹䶹⿹勹䶹(GHTJKPV),pen,Kureedo,True
+苞,U+82DE,⿱艹⿹勹巳(J),sans,Noto Sans,True
+苞,U+82DE,⿱艹⿹勹巳(J),serif,Noto Serif,True
+苞,U+82DE,⿱艹⿹勹巳(J),fang,Zhuque,True
+苞,U+82DE,⿱艹⿹勹巳(J),reg,TW-Kai,True
+苞,U+82DE,⿱艹⿹勹巳(J),pen,Kureedo,True
+蚫,U+86AB,⿰虫⿹勹巳(J),sans,Noto Sans,True
+蚫,U+86AB,⿰虫⿹勹巳(J),serif,Noto Serif,True
+蚫,U+86AB,⿰虫⿹勹巳(J),fang,Jigmo 1,False
+蚫,U+86AB,⿰虫⿹勹巳(J),reg,TW-Kai,True
+蚫,U+86AB,⿰虫⿹勹巳(J),pen,Kureedo,True
+袍,U+888D,⿰衤⿹勹巳(J),sans,Noto Sans,True
+袍,U+888D,⿰衤⿹勹巳(J),serif,Noto Serif,True
+袍,U+888D,⿰衤⿹勹巳(J),fang,Zhuque,True
+袍,U+888D,⿰衤⿹勹巳(J),reg,TW-Kai,True
+袍,U+888D,⿰衤⿹勹巳(J),pen,Kureedo,True
+豹,U+8C79,⿰豸⿹勹一(J),sans,Noto Sans,True
+豹,U+8C79,⿰豸⿹勹一(J),serif,Noto Serif,True
+豹,U+8C79,⿰豸⿹勹一(J),fang,Zhuque,True
+豹,U+8C79,⿰豸⿹勹一(J),reg,TW-Kai,True
+豹,U+8C79,⿰豸⿹勹一(J),pen,Kureedo,True
+趵,U+8DB5,⿰𧾷⿹勹一(J),sans,Noto Sans,True
+趵,U+8DB5,⿰𧾷⿹勹一(J),serif,Noto Serif,True
+趵,U+8DB5,⿰𧾷⿹勹一(J),fang,Zhuque,True
+趵,U+8DB5,⿰𧾷⿹勹一(J),reg,TW-Kai,True
+趵,U+8DB5,⿰𧾷⿹勹一(J),pen,Kureedo,True
+跑,U+8DD1,⿰𧾷⿹勹巳(J),sans,Noto Sans,True
+跑,U+8DD1,⿰𧾷⿹勹巳(J),serif,Noto Serif,True
+跑,U+8DD1,⿰𧾷⿹勹巳(J),fang,Zhuque,True
+跑,U+8DD1,⿰𧾷⿹勹巳(J),reg,TW-Kai,True
+跑,U+8DD1,⿰𧾷⿹勹巳(J),pen,Kureedo,True
+酌,U+914C,⿰酉⿹勹丶(K),sans,Noto Sans,True
+酌,U+914C,⿰酉⿹勹丶(K),serif,Noto Serif,True
+酌,U+914C,⿰酉⿹勹丶(K),fang,Zhuque,True
+酌,U+914C,⿰酉⿹勹丶(K),reg,TW-Kai,True
+酌,U+914C,⿰酉⿹勹丶(K),pen,Kureedo,True
+釣,U+91E3,⿰釒⿹勹丶(K),sans,Noto Sans,True
+釣,U+91E3,⿰釒⿹勹丶(K),serif,Noto Serif,True
+釣,U+91E3,⿰釒⿹勹丶(K),fang,Zhuque,True
+釣,U+91E3,⿰釒⿹勹丶(K),reg,TW-Kai,True
+釣,U+91E3,⿰釒⿹勹丶(K),pen,Kureedo,True
+鉋,U+924B,⿰釒⿹勹巳(J),sans,Noto Sans,True
+鉋,U+924B,⿰釒⿹勹巳(J),serif,Noto Serif,True
+鉋,U+924B,⿰釒⿹勹巳(J),fang,Zhuque,True
+鉋,U+924B,⿰釒⿹勹巳(J),reg,TW-Kai,True
+鉋,U+924B,⿰釒⿹勹巳(J),pen,Kureedo,True
+雹,U+96F9,⿱雨⿹勹巳(J),sans,Noto Sans,True
+雹,U+96F9,⿱雨⿹勹巳(J),serif,Noto Serif,True
+雹,U+96F9,⿱雨⿹勹巳(J),fang,Zhuque,True
+雹,U+96F9,⿱雨⿹勹巳(J),reg,TW-Kai,True
+雹,U+96F9,⿱雨⿹勹巳(J),pen,Kureedo,True
+靤,U+9764,⿰面⿹勹巳(J),sans,Noto Sans,True
+靤,U+9764,⿰面⿹勹巳(J),serif,Noto Serif,True
+靤,U+9764,⿰面⿹勹巳(J),fang,Jigmo 1,False
+靤,U+9764,⿰面⿹勹巳(J),reg,TW-Kai,True
+靤,U+9764,⿰面⿹勹巳(J),pen,Kureedo,True
+靮,U+976E,⿰革⿹勹一(J),sans,Noto Sans,True
+靮,U+976E,⿰革⿹勹一(J),serif,Noto Serif,True
+靮,U+976E,⿰革⿹勹一(J),fang,Jigmo 1,False
+靮,U+976E,⿰革⿹勹一(J),reg,TW-Kai,True
+靮,U+976E,⿰革⿹勹一(J),pen,Kureedo,True
+鞄,U+9784,⿰革⿹勹巳(J),sans,Noto Sans,True
+鞄,U+9784,⿰革⿹勹巳(J),serif,Noto Serif,True
+鞄,U+9784,⿰革⿹勹巳(J),fang,Zhuque,True
+鞄,U+9784,⿰革⿹勹巳(J),reg,TW-Kai,True
+鞄,U+9784,⿰革⿹勹巳(J),pen,Kureedo,True
+颮,U+98AE,⿺風⿹勹巳(J),sans,Noto Sans,True
+颮,U+98AE,⿺風⿹勹巳(J),serif,Noto Serif,True
+颮,U+98AE,⿺風⿹勹巳(J),fang,Zhuque,True
+颮,U+98AE,⿺風⿹勹巳(J),reg,TW-Kai,True
+颮,U+98AE,⿺風⿹勹巳(J),pen,Kureedo,True
+馰,U+99B0,⿰馬⿹勹一(J),sans,Noto Sans,True
+馰,U+99B0,⿰馬⿹勹一(J),serif,Noto Serif,True
+馰,U+99B0,⿰馬⿹勹一(J),fang,Jigmo 1,False
+馰,U+99B0,⿰馬⿹勹一(J),reg,TW-Kai,True
+馰,U+99B0,⿰馬⿹勹一(J),pen,Kureedo,True
+骲,U+9AB2,⿰骨⿹勹巳(J),sans,Noto Sans,True
+骲,U+9AB2,⿰骨⿹勹巳(J),serif,Noto Serif,True
+骲,U+9AB2,⿰骨⿹勹巳(J),fang,Jigmo 1,False
+骲,U+9AB2,⿰骨⿹勹巳(J),reg,TW-Kai,True
+骲,U+9AB2,⿰骨⿹勹巳(J),pen,Kureedo,True
+髱,U+9AF1,⿱髟⿹勹巳(J),sans,Noto Sans,True
+髱,U+9AF1,⿱髟⿹勹巳(J),serif,Noto Serif,True
+髱,U+9AF1,⿱髟⿹勹巳(J),fang,Jigmo 1,False
+髱,U+9AF1,⿱髟⿹勹巳(J),reg,TW-Kai,True
+髱,U+9AF1,⿱髟⿹勹巳(J),pen,Kureedo,True
+魡,U+9B61,⿰魚⿹勹一(J),sans,Noto Sans,True
+魡,U+9B61,⿰魚⿹勹一(J),serif,Noto Serif,True
+魡,U+9B61,⿰魚⿹勹一(J),fang,Jigmo 1,False
+魡,U+9B61,⿰魚⿹勹一(J),reg,TW-Kai,True
+魡,U+9B61,⿰魚⿹勹一(J),pen,Kureedo,True
+鮑,U+9B91,⿰魚⿹勹巳(J),sans,Noto Sans,True
+鮑,U+9B91,⿰魚⿹勹巳(J),serif,Noto Serif,True
+鮑,U+9B91,⿰魚⿹勹巳(J),fang,Zhuque,True
+鮑,U+9B91,⿰魚⿹勹巳(J),reg,TW-Kai,True
+鮑,U+9B91,⿰魚⿹勹巳(J),pen,Kureedo,True
+麅,U+9E85,⿱鹿⿹勹巳(J),sans,Noto Sans,True
+麅,U+9E85,⿱鹿⿹勹巳(J),serif,Noto Serif,True
+麅,U+9E85,⿱鹿⿹勹巳(J),fang,Jigmo 1,False
+麅,U+9E85,⿱鹿⿹勹巳(J),reg,TW-Kai,True
+麅,U+9E85,⿱鹿⿹勹巳(J),pen,Kureedo,True
+麭,U+9EAD,⿺麥⿹勹巳(J),sans,Noto Sans,True
+麭,U+9EAD,⿺麥⿹勹巳(J),serif,Noto Serif,True
+麭,U+9EAD,⿺麥⿹勹巳(J),fang,Jigmo 1,False
+麭,U+9EAD,⿺麥⿹勹巳(J),reg,TW-Kai,True
+麭,U+9EAD,⿺麥⿹勹巳(J),pen,Kureedo,True
+㕼,U+357C,⿰口⿹勹⿺𠃊㐅(GTKP),sans,Noto Sans,True
+㕼,U+357C,⿰口⿹勹⿺𠃊㐅(GTKP),serif,Noto Serif,True
+㕼,U+357C,⿰口⿹勹⿺𠃊㐅(GTKP),fang,Jigmo 1,False
+㕼,U+357C,⿰口⿹勹⿺𠃊㐅(GTKP),reg,TW-Kai,True
+㕼,U+357C,⿰口⿹勹⿺𠃊㐅(GTKP),pen,Kureedo,True
+㣿,U+38FF,⿰忄⿹勹一(P),sans,Noto Sans,True
+㣿,U+38FF,⿰忄⿹勹一(P),serif,Noto Serif,True
+㣿,U+38FF,⿰忄⿹勹一(P),fang,Jigmo 1,False
+㣿,U+38FF,⿰忄⿹勹一(P),reg,TW-Kai,True
+㣿,U+38FF,⿰忄⿹勹一(P),pen,Kureedo,True
+㫄,U+3AC4,⿱亠⿹勹方(G) ⿱二⿹勹方(TJ),sans,Noto Sans,True
+㫄,U+3AC4,⿱亠⿹勹方(G) ⿱二⿹勹方(TJ),serif,Noto Serif,True
+㫄,U+3AC4,⿱亠⿹勹方(G) ⿱二⿹勹方(TJ),fang,Jigmo 1,False
+㫄,U+3AC4,⿱亠⿹勹方(G) ⿱二⿹勹方(TJ),reg,TW-Kai,True
+㫄,U+3AC4,⿱亠⿹勹方(G) ⿱二⿹勹方(TJ),pen,Kureedo,True
+䭇,U+4B47,⿰飠⿹勹吉(GTP) ⿰𩙿⿹勹吉(K),sans,Noto Sans,True
+䭇,U+4B47,⿰飠⿹勹吉(GTP) ⿰𩙿⿹勹吉(K),serif,Noto Serif,True
+䭇,U+4B47,⿰飠⿹勹吉(GTP) ⿰𩙿⿹勹吉(K),fang,Jigmo 1,False
+䭇,U+4B47,⿰飠⿹勹吉(GTP) ⿰𩙿⿹勹吉(K),reg,TW-Kai,True
+䭇,U+4B47,⿰飠⿹勹吉(GTP) ⿰𩙿⿹勹吉(K),pen,Kureedo,True
+䶂,U+4D82,⿰鼠⿹勹一(P),sans,Noto Sans,True
+䶂,U+4D82,⿰鼠⿹勹一(P),serif,Noto Serif,True
+䶂,U+4D82,⿰鼠⿹勹一(P),fang,Jigmo 1,False
+䶂,U+4D82,⿰鼠⿹勹一(P),reg,TW-Kai,True
+䶂,U+4D82,⿰鼠⿹勹一(P),pen,Kureedo,True
+𠍝,U+2035D,⿰亻⿳⺊⿹勹木土(G),sans,Plangothic P1,False
+𠍝,U+2035D,⿰亻⿳⺊⿹勹木土(G),serif,Jigmo 2,False
+𠍝,U+2035D,⿰亻⿳⺊⿹勹木土(G),fang,Jigmo 2,False
+𠍝,U+2035D,⿰亻⿳⺊⿹勹木土(G),reg,TW-Kai B,True
+𠍝,U+2035D,⿰亻⿳⺊⿹勹木土(G),pen,Unavailable,False
+𠏈,U+203C8,⿰亻⿱⿹勹䶹匋(GT),sans,Plangothic P1,False
+𠏈,U+203C8,⿰亻⿱⿹勹䶹匋(GT),serif,Jigmo 2,False
+𠏈,U+203C8,⿰亻⿱⿹勹䶹匋(GT),fang,Jigmo 2,False
+𠏈,U+203C8,⿰亻⿱⿹勹䶹匋(GT),reg,TW-Kai B,True
+𠏈,U+203C8,⿰亻⿱⿹勹䶹匋(GT),pen,Unavailable,False
+𠘷,U+20637,⿱⿹勹一⿵𠘨乙(T),sans,Plangothic P1,False
+𠘷,U+20637,⿱⿹勹一⿵𠘨乙(T),serif,Jigmo 2,False
+𠘷,U+20637,⿱⿹勹一⿵𠘨乙(T),fang,Jigmo 2,False
+𠘷,U+20637,⿱⿹勹一⿵𠘨乙(T),reg,TW-Kai B,True
+𠘷,U+20637,⿱⿹勹一⿵𠘨乙(T),pen,Unavailable,False
+𠚭,U+206AD,⿰⿹勹㇀刂(T),sans,Plangothic P1,False
+𠚭,U+206AD,⿰⿹勹㇀刂(T),serif,Jigmo 2,False
+𠚭,U+206AD,⿰⿹勹㇀刂(T),fang,Jigmo 2,False
+𠚭,U+206AD,⿰⿹勹㇀刂(T),reg,TW-Kai B,True
+𠚭,U+206AD,⿰⿹勹㇀刂(T),pen,Unavailable,False
+𠣢,U+208E2,⿱勻⿹勹山(T) ⿱匀⿹勹山(Z),sans,Plangothic P1,False
+𠣢,U+208E2,⿱勻⿹勹山(T) ⿱匀⿹勹山(Z),serif,Jigmo 2,False
+𠣢,U+208E2,⿱勻⿹勹山(T) ⿱匀⿹勹山(Z),fang,Jigmo 2,False
+𠣢,U+208E2,⿱勻⿹勹山(T) ⿱匀⿹勹山(Z),reg,TW-Kai B,True
+𠣢,U+208E2,⿱勻⿹勹山(T) ⿱匀⿹勹山(Z),pen,Unavailable,False
+𠣧,U+208E7,⿱⿹勹小⿹勹小(GT),sans,Plangothic P1,False
+𠣧,U+208E7,⿱⿹勹小⿹勹小(GT),serif,Jigmo 2,False
+𠣧,U+208E7,⿱⿹勹小⿹勹小(GT),fang,Jigmo 2,False
+𠣧,U+208E7,⿱⿹勹小⿹勹小(GT),reg,TW-Kai B,True
+𠣧,U+208E7,⿱⿹勹小⿹勹小(GT),pen,Unavailable,False
+𠣩,U+208E9,⿰束⿹勹一(T),sans,Plangothic P1,False
+𠣩,U+208E9,⿰束⿹勹一(T),serif,Jigmo 2,False
+𠣩,U+208E9,⿰束⿹勹一(T),fang,Jigmo 2,False
+𠣩,U+208E9,⿰束⿹勹一(T),reg,TW-Kai B,True
+𠣩,U+208E9,⿰束⿹勹一(T),pen,Unavailable,False
+𠤉,U+20909,⿰㡭⿹勹一(T),sans,Plangothic P1,False
+𠤉,U+20909,⿰㡭⿹勹一(T),serif,Jigmo 2,False
+𠤉,U+20909,⿰㡭⿹勹一(T),fang,Jigmo 2,False
+𠤉,U+20909,⿰㡭⿹勹一(T),reg,TW-Kai B,True
+𠤉,U+20909,⿰㡭⿹勹一(T),pen,Unavailable,False
+𡋜,U+212DC,⿱⿹勹⺝土(G) ⿱⿹勹⺼土(T),sans,Plangothic P1,False
+𡋜,U+212DC,⿱⿹勹⺝土(G) ⿱⿹勹⺼土(T),serif,Jigmo 2,False
+𡋜,U+212DC,⿱⿹勹⺝土(G) ⿱⿹勹⺼土(T),fang,Jigmo 2,False
+𡋜,U+212DC,⿱⿹勹⺝土(G) ⿱⿹勹⺼土(T),reg,TW-Kai B,True
+𡋜,U+212DC,⿱⿹勹⺝土(G) ⿱⿹勹⺼土(T),pen,Unavailable,False
+𡎧,U+213A7,⿰土⿹勹每(GT),sans,Plangothic P1,False
+𡎧,U+213A7,⿰土⿹勹每(GT),serif,Jigmo 2,False
+𡎧,U+213A7,⿰土⿹勹每(GT),fang,Jigmo 2,False
+𡎧,U+213A7,⿰土⿹勹每(GT),reg,TW-Kai B,True
+𡎧,U+213A7,⿰土⿹勹每(GT),pen,Unavailable,False
+𡎾,U+213BE,⿰土⿹勹朋(GT),sans,Plangothic P1,False
+𡎾,U+213BE,⿰土⿹勹朋(GT),serif,Jigmo 2,False
+𡎾,U+213BE,⿰土⿹勹朋(GT),fang,Jigmo 2,False
+𡎾,U+213BE,⿰土⿹勹朋(GT),reg,TW-Kai B,True
+𡎾,U+213BE,⿰土⿹勹朋(GT),pen,Unavailable,False
+𡕴,U+21574,⿱⿰彳⿹勹吕夊(GT),sans,Plangothic P1,False
+𡕴,U+21574,⿱⿰彳⿹勹吕夊(GT),serif,Jigmo 2,False
+𡕴,U+21574,⿱⿰彳⿹勹吕夊(GT),fang,Jigmo 2,False
+𡕴,U+21574,⿱⿰彳⿹勹吕夊(GT),reg,TW-Kai B,True
+𡕴,U+21574,⿱⿰彳⿹勹吕夊(GT),pen,Unavailable,False
+𡘅,U+21605,⿱⿹勹⿺𠃊㐅大(GT),sans,Plangothic P1,False
+𡘅,U+21605,⿱⿹勹⿺𠃊㐅大(GT),serif,Jigmo 2,False
+𡘅,U+21605,⿱⿹勹⿺𠃊㐅大(GT),fang,Jigmo 2,False
+𡘅,U+21605,⿱⿹勹⿺𠃊㐅大(GT),reg,TW-Kai B,True
+𡘅,U+21605,⿱⿹勹⿺𠃊㐅大(GT),pen,Unavailable,False
+𡙳,U+21673,⿰㚔⿹勹手(G),sans,Plangothic P1,False
+𡙳,U+21673,⿰㚔⿹勹手(G),serif,Jigmo 2,False
+𡙳,U+21673,⿰㚔⿹勹手(G),fang,Jigmo 2,False
+𡙳,U+21673,⿰㚔⿹勹手(G),reg,TW-Kai B,True
+𡙳,U+21673,⿰㚔⿹勹手(G),pen,Unavailable,False
+𡷄,U+21DC4,⿰山⿹勹王(T),sans,Plangothic P1,False
+𡷄,U+21DC4,⿰山⿹勹王(T),serif,Jigmo 2,False
+𡷄,U+21DC4,⿰山⿹勹王(T),fang,Jigmo 2,False
+𡷄,U+21DC4,⿰山⿹勹王(T),reg,TW-Kai B,True
+𡷄,U+21DC4,⿰山⿹勹王(T),pen,Unavailable,False
+𢕛,U+2255B,⿰彳⿱⿹勹𣅀夊(GT),sans,Plangothic P1,False
+𢕛,U+2255B,⿰彳⿱⿹勹𣅀夊(GT),serif,Jigmo 2,False
+𢕛,U+2255B,⿰彳⿱⿹勹𣅀夊(GT),fang,Jigmo 2,False
+𢕛,U+2255B,⿰彳⿱⿹勹𣅀夊(GT),reg,TW-Kai B,True
+𢕛,U+2255B,⿰彳⿱⿹勹𣅀夊(GT),pen,Unavailable,False
+𢟡,U+227E1,⿰忄⿱艹⿹勹用(G),sans,Plangothic P1,False
+𢟡,U+227E1,⿰忄⿱艹⿹勹用(G),serif,Jigmo 2,False
+𢟡,U+227E1,⿰忄⿱艹⿹勹用(G),fang,Jigmo 2,False
+𢟡,U+227E1,⿰忄⿱艹⿹勹用(G),reg,TW-Kai B,True
+𢟡,U+227E1,⿰忄⿱艹⿹勹用(G),pen,Unavailable,False
+𢪣,U+22AA3,⿰扌⿹勹㐅(T),sans,Plangothic P1,False
+𢪣,U+22AA3,⿰扌⿹勹㐅(T),serif,Jigmo 2,False
+𢪣,U+22AA3,⿰扌⿹勹㐅(T),fang,Jigmo 2,False
+𢪣,U+22AA3,⿰扌⿹勹㐅(T),reg,TW-Kai B,True
+𢪣,U+22AA3,⿰扌⿹勹㐅(T),pen,Unavailable,False
+𢱬,U+22C6C,⿰幸⿹勹手(GT),sans,Plangothic P1,False
+𢱬,U+22C6C,⿰幸⿹勹手(GT),serif,Jigmo 2,False
+𢱬,U+22C6C,⿰幸⿹勹手(GT),fang,Jigmo 2,False
+𢱬,U+22C6C,⿰幸⿹勹手(GT),reg,TW-Kai B,True
+𢱬,U+22C6C,⿰幸⿹勹手(GT),pen,Unavailable,False
+𣑈,U+23448,⿰木⿹勹方(G),sans,Plangothic P1,False
+𣑈,U+23448,⿰木⿹勹方(G),serif,Jigmo 2,False
+𣑈,U+23448,⿰木⿹勹方(G),fang,Jigmo 2,False
+𣑈,U+23448,⿰木⿹勹方(G),reg,TW-Kai B,True
+𣑈,U+23448,⿰木⿹勹方(G),pen,Unavailable,False
+𣖑,U+23591,⿰木⿹勹𦈢(G),sans,Plangothic P1,False
+𣖑,U+23591,⿰木⿹勹𦈢(G),serif,Jigmo 2,False
+𣖑,U+23591,⿰木⿹勹𦈢(G),fang,Jigmo 2,False
+𣖑,U+23591,⿰木⿹勹𦈢(G),reg,TW-Kai B,True
+𣖑,U+23591,⿰木⿹勹𦈢(G),pen,Unavailable,False
+𣖣,U+235A3,⿰木⿹勹⿻丿⿳凵一凵(GT),sans,Plangothic P1,False
+𣖣,U+235A3,⿰木⿹勹⿻丿⿳凵一凵(GT),serif,Jigmo 2,False
+𣖣,U+235A3,⿰木⿹勹⿻丿⿳凵一凵(GT),fang,Jigmo 2,False
+𣖣,U+235A3,⿰木⿹勹⿻丿⿳凵一凵(GT),reg,TW-Kai B,True
+𣖣,U+235A3,⿰木⿹勹⿻丿⿳凵一凵(GT),pen,Unavailable,False
+𣡴,U+23874,⿰木⿹勹轟(GT),sans,Plangothic P1,False
+𣡴,U+23874,⿰木⿹勹轟(GT),serif,Jigmo 2,False
+𣡴,U+23874,⿰木⿹勹轟(GT),fang,Jigmo 2,False
+𣡴,U+23874,⿰木⿹勹轟(GT),reg,TW-Kai B,True
+𣡴,U+23874,⿰木⿹勹轟(GT),pen,Unavailable,False
+𣣯,U+238EF,⿰⿹勹⿻⿱凵凵山欠(GT),sans,Plangothic P1,False
+𣣯,U+238EF,⿰⿹勹⿻⿱凵凵山欠(GT),serif,Jigmo 2,False
+𣣯,U+238EF,⿰⿹勹⿻⿱凵凵山欠(GT),fang,Jigmo 2,False
+𣣯,U+238EF,⿰⿹勹⿻⿱凵凵山欠(GT),reg,TW-Kai B,True
+𣣯,U+238EF,⿰⿹勹⿻⿱凵凵山欠(GT),pen,Unavailable,False
+𣲢,U+23CA2,⿰氵⿹勹㐅(G),sans,Plangothic P1,False
+𣲢,U+23CA2,⿰氵⿹勹㐅(G),serif,Jigmo 2,False
+𣲢,U+23CA2,⿰氵⿹勹㐅(G),fang,Jigmo 2,False
+𣲢,U+23CA2,⿰氵⿹勹㐅(G),reg,TW-Kai B,True
+𣲢,U+23CA2,⿰氵⿹勹㐅(G),pen,Unavailable,False
+𣶢,U+23DA2,⿰氵⿱亠⿹勹方(P),sans,Plangothic P1,False
+𣶢,U+23DA2,⿰氵⿱亠⿹勹方(P),serif,Jigmo 2,False
+𣶢,U+23DA2,⿰氵⿱亠⿹勹方(P),fang,Jigmo 2,False
+𣶢,U+23DA2,⿰氵⿱亠⿹勹方(P),reg,TW-Kai B,True
+𣶢,U+23DA2,⿰氵⿱亠⿹勹方(P),pen,Unavailable,False
+𤊝,U+2429D,⿱⿹勹⿱⿻冂丿⿻冂丿灬(G),sans,Plangothic P1,False
+𤊝,U+2429D,⿱⿹勹⿱⿻冂丿⿻冂丿灬(G),serif,Jigmo 2,False
+𤊝,U+2429D,⿱⿹勹⿱⿻冂丿⿻冂丿灬(G),fang,Jigmo 2,False
+𤊝,U+2429D,⿱⿹勹⿱⿻冂丿⿻冂丿灬(G),reg,TW-Kai B,True
+𤊝,U+2429D,⿱⿹勹⿱⿻冂丿⿻冂丿灬(G),pen,Unavailable,False
+𤌝,U+2431D,⿳⿹勹巾⿹勹巾灬(T),sans,Plangothic P1,False
+𤌝,U+2431D,⿳⿹勹巾⿹勹巾灬(T),serif,Jigmo 2,False
+𤌝,U+2431D,⿳⿹勹巾⿹勹巾灬(T),fang,Jigmo 2,False
+𤌝,U+2431D,⿳⿹勹巾⿹勹巾灬(T),reg,TW-Kai B,True
+𤌝,U+2431D,⿳⿹勹巾⿹勹巾灬(T),pen,Unavailable,False
+𤗩,U+245E9,⿰片⿱艹⿹勹用(G),sans,Plangothic P1,False
+𤗩,U+245E9,⿰片⿱艹⿹勹用(G),serif,Jigmo 2,False
+𤗩,U+245E9,⿰片⿱艹⿹勹用(G),fang,Jigmo 2,False
+𤗩,U+245E9,⿰片⿱艹⿹勹用(G),reg,TW-Kai B,True
+𤗩,U+245E9,⿰片⿱艹⿹勹用(G),pen,Unavailable,False
+𤚂,U+24682,⿰牜⿹勹⿱小小(G) ⿰牜⿹勹⿱𡭔𡭔(T),sans,Plangothic P1,False
+𤚂,U+24682,⿰牜⿹勹⿱小小(G) ⿰牜⿹勹⿱𡭔𡭔(T),serif,Jigmo 2,False
+𤚂,U+24682,⿰牜⿹勹⿱小小(G) ⿰牜⿹勹⿱𡭔𡭔(T),fang,Jigmo 2,False
+𤚂,U+24682,⿰牜⿹勹⿱小小(G) ⿰牜⿹勹⿱𡭔𡭔(T),reg,TW-Kai B,True
+𤚂,U+24682,⿰牜⿹勹⿱小小(G) ⿰牜⿹勹⿱𡭔𡭔(T),pen,Unavailable,False
+𤛟,U+246DF,⿰牜⿱艹⿹勹用(G),sans,Plangothic P1,False
+𤛟,U+246DF,⿰牜⿱艹⿹勹用(G),serif,Jigmo 2,False
+𤛟,U+246DF,⿰牜⿱艹⿹勹用(G),fang,Jigmo 2,False
+𤛟,U+246DF,⿰牜⿱艹⿹勹用(G),reg,TW-Kai B,True
+𤛟,U+246DF,⿰牜⿱艹⿹勹用(G),pen,Kureedo,True
+𤰈,U+24C08,⿱卝⿹勹用(GT) ⿱艹⿹勹用([J][K]P[V]),sans,Plangothic P1,False
+𤰈,U+24C08,⿱卝⿹勹用(GT) ⿱艹⿹勹用([J][K]P[V]),serif,Jigmo 2,False
+𤰈,U+24C08,⿱卝⿹勹用(GT) ⿱艹⿹勹用([J][K]P[V]),fang,Jigmo 2,False
+𤰈,U+24C08,⿱卝⿹勹用(GT) ⿱艹⿹勹用([J][K]P[V]),reg,TW-Kai B,True
+𤰈,U+24C08,⿱卝⿹勹用(GT) ⿱艹⿹勹用([J][K]P[V]),pen,Unavailable,False
+𥂿,U+250BF,⿳艹⿹勹辛皿(T),sans,Plangothic P1,False
+𥂿,U+250BF,⿳艹⿹勹辛皿(T),serif,Jigmo 2,False
+𥂿,U+250BF,⿳艹⿹勹辛皿(T),fang,Jigmo 2,False
+𥂿,U+250BF,⿳艹⿹勹辛皿(T),reg,TW-Kai B,True
+𥂿,U+250BF,⿳艹⿹勹辛皿(T),pen,Unavailable,False
+𥑪,U+2546A,⿰石⿹勹⿺𠃊㐅(G),sans,Plangothic P1,False
+𥑪,U+2546A,⿰石⿹勹⿺𠃊㐅(G),serif,Jigmo 2,False
+𥑪,U+2546A,⿰石⿹勹⿺𠃊㐅(G),fang,Jigmo 2,False
+𥑪,U+2546A,⿰石⿹勹⿺𠃊㐅(G),reg,TW-Kai B,True
+𥑪,U+2546A,⿰石⿹勹⿺𠃊㐅(G),pen,Kureedo,True
+𥚬,U+256AC,⿰礻⿹勹𦈢(G),sans,Plangothic P1,False
+𥚬,U+256AC,⿰礻⿹勹𦈢(G),serif,Jigmo 2,False
+𥚬,U+256AC,⿰礻⿹勹𦈢(G),fang,Jigmo 2,False
+𥚬,U+256AC,⿰礻⿹勹𦈢(G),reg,TW-Kai B,True
+𥚬,U+256AC,⿰礻⿹勹𦈢(G),pen,Unavailable,False
+𥧗,U+259D7,⿱穴⿹勹幸(G) ⿱⿱宀儿⿹勹幸(T),sans,Plangothic P1,False
+𥧗,U+259D7,⿱穴⿹勹幸(G) ⿱⿱宀儿⿹勹幸(T),serif,Jigmo 2,False
+𥧗,U+259D7,⿱穴⿹勹幸(G) ⿱⿱宀儿⿹勹幸(T),fang,Jigmo 2,False
+𥧗,U+259D7,⿱穴⿹勹幸(G) ⿱⿱宀儿⿹勹幸(T),reg,TW-Kai B,True
+𥧗,U+259D7,⿱穴⿹勹幸(G) ⿱⿱宀儿⿹勹幸(T),pen,Unavailable,False
+𥨲,U+25A32,⿱穴⿰爿⿱罒⿹勹女(G) ⿱⿱宀儿⿰爿⿱罒⿹勹女(T),sans,Plangothic P1,False
+𥨲,U+25A32,⿱穴⿰爿⿱罒⿹勹女(G) ⿱⿱宀儿⿰爿⿱罒⿹勹女(T),serif,Jigmo 2,False
+𥨲,U+25A32,⿱穴⿰爿⿱罒⿹勹女(G) ⿱⿱宀儿⿰爿⿱罒⿹勹女(T),fang,Jigmo 2,False
+𥨲,U+25A32,⿱穴⿰爿⿱罒⿹勹女(G) ⿱⿱宀儿⿰爿⿱罒⿹勹女(T),reg,TW-Kai B,True
+𥨲,U+25A32,⿱穴⿰爿⿱罒⿹勹女(G) ⿱⿱宀儿⿰爿⿱罒⿹勹女(T),pen,Unavailable,False
+𥩘,U+25A58,⿰立⿹勹一(T),sans,Plangothic P1,False
+𥩘,U+25A58,⿰立⿹勹一(T),serif,Jigmo 2,False
+𥩘,U+25A58,⿰立⿹勹一(T),fang,Jigmo 2,False
+𥩘,U+25A58,⿰立⿹勹一(T),reg,TW-Kai B,True
+𥩘,U+25A58,⿰立⿹勹一(T),pen,Unavailable,False
+𥪃,U+25A83,⿰立⿹勹出(GT),sans,Plangothic P1,False
+𥪃,U+25A83,⿰立⿹勹出(GT),serif,Jigmo 2,False
+𥪃,U+25A83,⿰立⿹勹出(GT),fang,Jigmo 2,False
+𥪃,U+25A83,⿰立⿹勹出(GT),reg,TW-Kai B,True
+𥪃,U+25A83,⿰立⿹勹出(GT),pen,Unavailable,False
+𥬿,U+25B3F,⿱𥫗⿹勹上(T),sans,Plangothic P1,False
+𥬿,U+25B3F,⿱𥫗⿹勹上(T),serif,Jigmo 2,False
+𥬿,U+25B3F,⿱𥫗⿹勹上(T),fang,Jigmo 2,False
+𥬿,U+25B3F,⿱𥫗⿹勹上(T),reg,TW-Kai B,True
+𥬿,U+25B3F,⿱𥫗⿹勹上(T),pen,Unavailable,False
+𥰬,U+25C2C,⿱𥫗⿹勹幸(GT),sans,Plangothic P1,False
+𥰬,U+25C2C,⿱𥫗⿹勹幸(GT),serif,Jigmo 2,False
+𥰬,U+25C2C,⿱𥫗⿹勹幸(GT),fang,Jigmo 2,False
+𥰬,U+25C2C,⿱𥫗⿹勹幸(GT),reg,TW-Kai B,True
+𥰬,U+25C2C,⿱𥫗⿹勹幸(GT),pen,Kureedo,True
+𥲾,U+25CBE,⿱𥫗⿹勹韋(G),sans,Plangothic P1,False
+𥲾,U+25CBE,⿱𥫗⿹勹韋(G),serif,Jigmo 2,False
+𥲾,U+25CBE,⿱𥫗⿹勹韋(G),fang,Jigmo 2,False
+𥲾,U+25CBE,⿱𥫗⿹勹韋(G),reg,TW-Kai B,True
+𥲾,U+25CBE,⿱𥫗⿹勹韋(G),pen,Unavailable,False
+𥼓,U+25F13,⿰米⿱艹⿹勹用(G),sans,Plangothic P1,False
+𥼓,U+25F13,⿰米⿱艹⿹勹用(G),serif,Jigmo 2,False
+𥼓,U+25F13,⿰米⿱艹⿹勹用(G),fang,Jigmo 2,False
+𥼓,U+25F13,⿰米⿱艹⿹勹用(G),reg,TW-Kai B,True
+𥼓,U+25F13,⿰米⿱艹⿹勹用(G),pen,Unavailable,False
+𦁯,U+2606F,⿰糹⿱⿹勹㐅⿹勹㐅(T),sans,Plangothic P1,False
+𦁯,U+2606F,⿰糹⿱⿹勹㐅⿹勹㐅(T),serif,Jigmo 2,False
+𦁯,U+2606F,⿰糹⿱⿹勹㐅⿹勹㐅(T),fang,Jigmo 2,False
+𦁯,U+2606F,⿰糹⿱⿹勹㐅⿹勹㐅(T),reg,TW-Kai B,True
+𦁯,U+2606F,⿰糹⿱⿹勹㐅⿹勹㐅(T),pen,Unavailable,False
+𦃫,U+260EB,⿰糹⿱⿹勹母𫶧(G),sans,Plangothic P1,False
+𦃫,U+260EB,⿰糹⿱⿹勹母𫶧(G),serif,Jigmo 2,False
+𦃫,U+260EB,⿰糹⿱⿹勹母𫶧(G),fang,Jigmo 2,False
+𦃫,U+260EB,⿰糹⿱⿹勹母𫶧(G),reg,TW-Kai B,True
+𦃫,U+260EB,⿰糹⿱⿹勹母𫶧(G),pen,Unavailable,False
+𦋅,U+262C5,⿱罒⿹勹圭(GT),sans,Plangothic P1,False
+𦋅,U+262C5,⿱罒⿹勹圭(GT),serif,Jigmo 2,False
+𦋅,U+262C5,⿱罒⿹勹圭(GT),fang,Jigmo 2,False
+𦋅,U+262C5,⿱罒⿹勹圭(GT),reg,TW-Kai B,True
+𦋅,U+262C5,⿱罒⿹勹圭(GT),pen,Unavailable,False
+𦋴,U+262F4,⿱罒⿹勹炎(GTP),sans,Plangothic P1,False
+𦋴,U+262F4,⿱罒⿹勹炎(GTP),serif,Jigmo 2,False
+𦋴,U+262F4,⿱罒⿹勹炎(GTP),fang,Jigmo 2,False
+𦋴,U+262F4,⿱罒⿹勹炎(GTP),reg,TW-Kai B,True
+𦋴,U+262F4,⿱罒⿹勹炎(GTP),pen,Unavailable,False
+𦍿,U+2637F,⿰羊⿹勹𢆰(GT),sans,Plangothic P1,False
+𦍿,U+2637F,⿰羊⿹勹𢆰(GT),serif,Jigmo 2,False
+𦍿,U+2637F,⿰羊⿹勹𢆰(GT),fang,Jigmo 2,False
+𦍿,U+2637F,⿰羊⿹勹𢆰(GT),reg,TW-Kai B,True
+𦍿,U+2637F,⿰羊⿹勹𢆰(GT),pen,Unavailable,False
+𦛳,U+266F3,⿰月⿹勹出(G) ⿰⺼⿹勹出(T),sans,Plangothic P1,False
+𦛳,U+266F3,⿰月⿹勹出(G) ⿰⺼⿹勹出(T),serif,Jigmo 2,False
+𦛳,U+266F3,⿰月⿹勹出(G) ⿰⺼⿹勹出(T),fang,Jigmo 2,False
+𦛳,U+266F3,⿰月⿹勹出(G) ⿰⺼⿹勹出(T),reg,TW-Kai B,True
+𦛳,U+266F3,⿰月⿹勹出(G) ⿰⺼⿹勹出(T),pen,Unavailable,False
+𦛴,U+266F4,⿰月⿹勹⿻丿⿱凵凵(G) ⿰⺼⿹勹⿻丿⿱凵凵(T),sans,Plangothic P1,False
+𦛴,U+266F4,⿰月⿹勹⿻丿⿱凵凵(G) ⿰⺼⿹勹⿻丿⿱凵凵(T),serif,Jigmo 2,False
+𦛴,U+266F4,⿰月⿹勹⿻丿⿱凵凵(G) ⿰⺼⿹勹⿻丿⿱凵凵(T),fang,Jigmo 2,False
+𦛴,U+266F4,⿰月⿹勹⿻丿⿱凵凵(G) ⿰⺼⿹勹⿻丿⿱凵凵(T),reg,TW-Kai B,True
+𦛴,U+266F4,⿰月⿹勹⿻丿⿱凵凵(G) ⿰⺼⿹勹⿻丿⿱凵凵(T),pen,Unavailable,False
+𦪤,U+26AA4,⿱⿰舟舟⿹勹方(GT),sans,Plangothic P1,False
+𦪤,U+26AA4,⿱⿰舟舟⿹勹方(GT),serif,Jigmo 2,False
+𦪤,U+26AA4,⿱⿰舟舟⿹勹方(GT),fang,Jigmo 2,False
+𦪤,U+26AA4,⿱⿰舟舟⿹勹方(GT),reg,TW-Kai B,True
+𦪤,U+26AA4,⿱⿰舟舟⿹勹方(GT),pen,Unavailable,False
+𦮍,U+26B8D,⿱艹⿹勹𠙷(GT),sans,Plangothic P1,False
+𦮍,U+26B8D,⿱艹⿹勹𠙷(GT),serif,Jigmo 2,False
+𦮍,U+26B8D,⿱艹⿹勹𠙷(GT),fang,Jigmo 2,False
+𦮍,U+26B8D,⿱艹⿹勹𠙷(GT),reg,TW-Kai B,True
+𦮍,U+26B8D,⿱艹⿹勹𠙷(GT),pen,Unavailable,False
+𦮱,U+26BB1,⿱艹⿹勹王(K),sans,Plangothic P1,False
+𦮱,U+26BB1,⿱艹⿹勹王(K),serif,Jigmo 2,False
+𦮱,U+26BB1,⿱艹⿹勹王(K),fang,Jigmo 2,False
+𦮱,U+26BB1,⿱艹⿹勹王(K),reg,TW-Kai B,True
+𦮱,U+26BB1,⿱艹⿹勹王(K),pen,Unavailable,False
+𦵳,U+26D73,⿱艹⿹勹幸(GT),sans,Plangothic P1,False
+𦵳,U+26D73,⿱艹⿹勹幸(GT),serif,Jigmo 2,False
+𦵳,U+26D73,⿱艹⿹勹幸(GT),fang,Jigmo 2,False
+𦵳,U+26D73,⿱艹⿹勹幸(GT),reg,TW-Kai B,True
+𦵳,U+26D73,⿱艹⿹勹幸(GT),pen,Unavailable,False
+𦿯,U+26FEF,⿱艹⿰益⿹勹㐅(T),sans,Plangothic P1,False
+𦿯,U+26FEF,⿱艹⿰益⿹勹㐅(T),serif,Jigmo 2,False
+𦿯,U+26FEF,⿱艹⿰益⿹勹㐅(T),fang,Jigmo 2,False
+𦿯,U+26FEF,⿱艹⿰益⿹勹㐅(T),reg,TW-Kai B,True
+𦿯,U+26FEF,⿱艹⿰益⿹勹㐅(T),pen,Unavailable,False
+𦿼,U+26FFC,⿱艹⿹勹歮(T),sans,Plangothic P1,False
+𦿼,U+26FFC,⿱艹⿹勹歮(T),serif,Jigmo 2,False
+𦿼,U+26FFC,⿱艹⿹勹歮(T),fang,Jigmo 2,False
+𦿼,U+26FFC,⿱艹⿹勹歮(T),reg,TW-Kai B,True
+𦿼,U+26FFC,⿱艹⿹勹歮(T),pen,Unavailable,False
+𧃄,U+270C4,⿱艹⿰各⿹勹隹(T),sans,Plangothic P1,False
+𧃄,U+270C4,⿱艹⿰各⿹勹隹(T),serif,Jigmo 2,False
+𧃄,U+270C4,⿱艹⿰各⿹勹隹(T),fang,Jigmo 2,False
+𧃄,U+270C4,⿱艹⿰各⿹勹隹(T),reg,TW-Kai B,True
+𧃄,U+270C4,⿱艹⿰各⿹勹隹(T),pen,Unavailable,False
+𧅹,U+27179,⿱艹⿰幸⿹勹魚(G),sans,Plangothic P1,False
+𧅹,U+27179,⿱艹⿰幸⿹勹魚(G),serif,Jigmo 2,False
+𧅹,U+27179,⿱艹⿰幸⿹勹魚(G),fang,Jigmo 2,False
+𧅹,U+27179,⿱艹⿰幸⿹勹魚(G),reg,TW-Kai B,True
+𧅹,U+27179,⿱艹⿰幸⿹勹魚(G),pen,Unavailable,False
+𧦷,U+279B7,⿰訁⿹勹⿺𠃊㐅(T),sans,Plangothic P1,False
+𧦷,U+279B7,⿰訁⿹勹⿺𠃊㐅(T),serif,Jigmo 2,False
+𧦷,U+279B7,⿰訁⿹勹⿺𠃊㐅(T),fang,Jigmo 2,False
+𧦷,U+279B7,⿰訁⿹勹⿺𠃊㐅(T),reg,TW-Kai B,True
+𧦷,U+279B7,⿰訁⿹勹⿺𠃊㐅(T),pen,Unavailable,False
+𨉫,U+2826B,⿰身⿹勹吕(G),sans,Plangothic P1,False
+𨉫,U+2826B,⿰身⿹勹吕(G),serif,Jigmo 2,False
+𨉫,U+2826B,⿰身⿹勹吕(G),fang,Jigmo 2,False
+𨉫,U+2826B,⿰身⿹勹吕(G),reg,TW-Kai B,True
+𨉫,U+2826B,⿰身⿹勹吕(G),pen,Unavailable,False
+𨡒,U+28852,⿰酉⿹勹𦈢(G),sans,Plangothic P1,False
+𨡒,U+28852,⿰酉⿹勹𦈢(G),serif,Jigmo 2,False
+𨡒,U+28852,⿰酉⿹勹𦈢(G),fang,Jigmo 2,False
+𨡒,U+28852,⿰酉⿹勹𦈢(G),reg,TW-Kai B,True
+𨡒,U+28852,⿰酉⿹勹𦈢(G),pen,Unavailable,False
+𨹋,U+28E4B,⿰阝⿹勹王(GT),sans,Plangothic P1,False
+𨹋,U+28E4B,⿰阝⿹勹王(GT),serif,Jigmo 2,False
+𨹋,U+28E4B,⿰阝⿹勹王(GT),fang,Jigmo 2,False
+𨹋,U+28E4B,⿰阝⿹勹王(GT),reg,TW-Kai B,True
+𨹋,U+28E4B,⿰阝⿹勹王(GT),pen,Unavailable,False
+𨹐,U+28E50,⿰阝⿹勹𣄼(T),sans,Plangothic P1,False
+𨹐,U+28E50,⿰阝⿹勹𣄼(T),serif,Jigmo 2,False
+𨹐,U+28E50,⿰阝⿹勹𣄼(T),fang,Jigmo 2,False
+𨹐,U+28E50,⿰阝⿹勹𣄼(T),reg,TW-Kai B,True
+𨹐,U+28E50,⿰阝⿹勹𣄼(T),pen,Unavailable,False
+𨺃,U+28E83,⿰阝⿹勹吉(GT),sans,Plangothic P1,False
+𨺃,U+28E83,⿰阝⿹勹吉(GT),serif,Jigmo 2,False
+𨺃,U+28E83,⿰阝⿹勹吉(GT),fang,Jigmo 2,False
+𨺃,U+28E83,⿰阝⿹勹吉(GT),reg,TW-Kai B,True
+𨺃,U+28E83,⿰阝⿹勹吉(GT),pen,Unavailable,False
+𩋺,U+292FA,⿰革⿹勹告(GT),sans,Plangothic P1,False
+𩋺,U+292FA,⿰革⿹勹告(GT),serif,Jigmo 2,False
+𩋺,U+292FA,⿰革⿹勹告(GT),fang,Jigmo 2,False
+𩋺,U+292FA,⿰革⿹勹告(GT),reg,TW-Kai B,True
+𩋺,U+292FA,⿰革⿹勹告(GT),pen,Unavailable,False
+𩍁,U+29341,⿰革⿱艹⿹勹用(GT),sans,Plangothic P1,False
+𩍁,U+29341,⿰革⿱艹⿹勹用(GT),serif,Jigmo 2,False
+𩍁,U+29341,⿰革⿱艹⿹勹用(GT),fang,Jigmo 2,False
+𩍁,U+29341,⿰革⿱艹⿹勹用(GT),reg,TW-Kai B,True
+𩍁,U+29341,⿰革⿱艹⿹勹用(GT),pen,Unavailable,False
+𩍔,U+29354,⿰革⿹勹麥(GT),sans,Plangothic P1,False
+𩍔,U+29354,⿰革⿹勹麥(GT),serif,Jigmo 2,False
+𩍔,U+29354,⿰革⿹勹麥(GT),fang,Jigmo 2,False
+𩍔,U+29354,⿰革⿹勹麥(GT),reg,TW-Kai B,True
+𩍔,U+29354,⿰革⿹勹麥(GT),pen,Unavailable,False
+𩍸,U+29378,⿱𥫗⿰幸⿹勹革(GT),sans,Plangothic P1,False
+𩍸,U+29378,⿱𥫗⿰幸⿹勹革(GT),serif,Jigmo 2,False
+𩍸,U+29378,⿱𥫗⿰幸⿹勹革(GT),fang,Jigmo 2,False
+𩍸,U+29378,⿱𥫗⿰幸⿹勹革(GT),reg,TW-Kai B,True
+𩍸,U+29378,⿱𥫗⿰幸⿹勹革(GT),pen,Unavailable,False
+𩏕,U+293D5,⿰韋⿱艹⿹勹用(GT),sans,Plangothic P1,False
+𩏕,U+293D5,⿰韋⿱艹⿹勹用(GT),serif,Jigmo 2,False
+𩏕,U+293D5,⿰韋⿱艹⿹勹用(GT),fang,Jigmo 2,False
+𩏕,U+293D5,⿰韋⿱艹⿹勹用(GT),reg,TW-Kai B,True
+𩏕,U+293D5,⿰韋⿱艹⿹勹用(GT),pen,Unavailable,False
+𩜩,U+29729,⿰飠⿹勹圭(G),sans,Plangothic P1,False
+𩜩,U+29729,⿰飠⿹勹圭(G),serif,Jigmo 2,False
+𩜩,U+29729,⿰飠⿹勹圭(G),fang,Jigmo 2,False
+𩜩,U+29729,⿰飠⿹勹圭(G),reg,TW-Kai B,True
+𩜩,U+29729,⿰飠⿹勹圭(G),pen,Unavailable,False
+𩢛,U+2989B,⿰馬⿹勹⿺𠃊㐅(UCS2003),sans,Plangothic P1,False
+𩢛,U+2989B,⿰馬⿹勹⿺𠃊㐅(UCS2003),serif,Jigmo 2,False
+𩢛,U+2989B,⿰馬⿹勹⿺𠃊㐅(UCS2003),fang,Jigmo 2,False
+𩢛,U+2989B,⿰馬⿹勹⿺𠃊㐅(UCS2003),reg,TW-Kai B,True
+𩢛,U+2989B,⿰馬⿹勹⿺𠃊㐅(UCS2003),pen,Unavailable,False
+𩤍,U+2990D,⿰馬⿹勹⿱䶹䶹(G),sans,Plangothic P1,False
+𩤍,U+2990D,⿰馬⿹勹⿱䶹䶹(G),serif,Jigmo 2,False
+𩤍,U+2990D,⿰馬⿹勹⿱䶹䶹(G),fang,Jigmo 2,False
+𩤍,U+2990D,⿰馬⿹勹⿱䶹䶹(G),reg,TW-Kai B,True
+𩤍,U+2990D,⿰馬⿹勹⿱䶹䶹(G),pen,Unavailable,False
+𩷸,U+29DF8,⿰魚⿱𠂉⿹勹方(GT),sans,Plangothic P1,False
+𩷸,U+29DF8,⿰魚⿱𠂉⿹勹方(GT),serif,Jigmo 2,False
+𩷸,U+29DF8,⿰魚⿱𠂉⿹勹方(GT),fang,Jigmo 2,False
+𩷸,U+29DF8,⿰魚⿱𠂉⿹勹方(GT),reg,TW-Kai B,True
+𩷸,U+29DF8,⿰魚⿱𠂉⿹勹方(GT),pen,Unavailable,False
+𩼥,U+29F25,⿱艹⿰㚔⿹勹魚(GT),sans,Plangothic P1,False
+𩼥,U+29F25,⿱艹⿰㚔⿹勹魚(GT),serif,Jigmo 2,False
+𩼥,U+29F25,⿱艹⿰㚔⿹勹魚(GT),fang,Jigmo 2,False
+𩼥,U+29F25,⿱艹⿰㚔⿹勹魚(GT),reg,TW-Kai B,True
+𩼥,U+29F25,⿱艹⿰㚔⿹勹魚(GT),pen,Unavailable,False
+𩽘,U+29F58,⿱𥫗⿰㚔⿹勹魚(GT),sans,Plangothic P1,False
+𩽘,U+29F58,⿱𥫗⿰㚔⿹勹魚(GT),serif,Jigmo 2,False
+𩽘,U+29F58,⿱𥫗⿰㚔⿹勹魚(GT),fang,Jigmo 2,False
+𩽘,U+29F58,⿱𥫗⿰㚔⿹勹魚(GT),reg,TW-Kai B,True
+𩽘,U+29F58,⿱𥫗⿰㚔⿹勹魚(GT),pen,Unavailable,False
+𪆍,U+2A18D,⿰⿹勹⿱𠈌⿰丨丨鳥(GT),sans,Plangothic P1,False
+𪆍,U+2A18D,⿰⿹勹⿱𠈌⿰丨丨鳥(GT),serif,Jigmo 2,False
+𪆍,U+2A18D,⿰⿹勹⿱𠈌⿰丨丨鳥(GT),fang,Jigmo 2,False
+𪆍,U+2A18D,⿰⿹勹⿱𠈌⿰丨丨鳥(GT),reg,TW-Kai B,True
+𪆍,U+2A18D,⿰⿹勹⿱𠈌⿰丨丨鳥(GT),pen,Unavailable,False
+𪈅,U+2A205,⿱𥫗⿰⿹勹幸鳥(GT),sans,Plangothic P1,False
+𪈅,U+2A205,⿱𥫗⿰⿹勹幸鳥(GT),serif,Jigmo 2,False
+𪈅,U+2A205,⿱𥫗⿰⿹勹幸鳥(GT),fang,Jigmo 2,False
+𪈅,U+2A205,⿱𥫗⿰⿹勹幸鳥(GT),reg,TW-Kai B,True
+𪈅,U+2A205,⿱𥫗⿰⿹勹幸鳥(GT),pen,Unavailable,False
+𪈣,U+2A223,⿰⿱𥫗⿹勹⿱𠅃干鳥(G),sans,Plangothic P1,False
+𪈣,U+2A223,⿰⿱𥫗⿹勹⿱𠅃干鳥(G),serif,Jigmo 2,False
+𪈣,U+2A223,⿰⿱𥫗⿹勹⿱𠅃干鳥(G),fang,Jigmo 2,False
+𪈣,U+2A223,⿰⿱𥫗⿹勹⿱𠅃干鳥(G),reg,TW-Kai B,True
+𪈣,U+2A223,⿰⿱𥫗⿹勹⿱𠅃干鳥(G),pen,Unavailable,False
+𪈵,U+2A235,⿰⿹勹⿱⿲个个个⿲个个个鳥(GT),sans,Plangothic P1,False
+𪈵,U+2A235,⿰⿹勹⿱⿲个个个⿲个个个鳥(GT),serif,Jigmo 2,False
+𪈵,U+2A235,⿰⿹勹⿱⿲个个个⿲个个个鳥(GT),fang,Jigmo 2,False
+𪈵,U+2A235,⿰⿹勹⿱⿲个个个⿲个个个鳥(GT),reg,TW-Kai B,True
+𪈵,U+2A235,⿰⿹勹⿱⿲个个个⿲个个个鳥(GT),pen,Unavailable,False
+𪮇,U+2AB87,⿰扌⿱⿹勹巳口(J),sans,Plangothic P1,False
+𪮇,U+2AB87,⿰扌⿱⿹勹巳口(J),serif,Jigmo 2,False
+𪮇,U+2AB87,⿰扌⿱⿹勹巳口(J),fang,Jigmo 2,False
+𪮇,U+2AB87,⿰扌⿱⿹勹巳口(J),reg,TW-Kai B,True
+𪮇,U+2AB87,⿰扌⿱⿹勹巳口(J),pen,Unavailable,False
+𫇬,U+2B1EC,⿱艹⿹勹㐅(T),sans,Plangothic P1,False
+𫇬,U+2B1EC,⿱艹⿹勹㐅(T),serif,Jigmo 2,False
+𫇬,U+2B1EC,⿱艹⿹勹㐅(T),fang,Jigmo 2,False
+𫇬,U+2B1EC,⿱艹⿹勹㐅(T),reg,TW-Kai B,True
+𫇬,U+2B1EC,⿱艹⿹勹㐅(T),pen,Unavailable,False
+𫖉,U+2B589,⿰革⿱龷⿹勹用(G),sans,Plangothic P1,False
+𫖉,U+2B589,⿰革⿱龷⿹勹用(G),serif,Jigmo 2,False
+𫖉,U+2B589,⿰革⿱龷⿹勹用(G),fang,Jigmo 2,False
+𫖉,U+2B589,⿰革⿱龷⿹勹用(G),reg,TW-Kai B,True
+𫖉,U+2B589,⿰革⿱龷⿹勹用(G),pen,Unavailable,False
+𫗑,U+2B5D1,⿰飠⿹勹殳(G),sans,Plangothic P1,False
+𫗑,U+2B5D1,⿰飠⿹勹殳(G),serif,Jigmo 2,False
+𫗑,U+2B5D1,⿰飠⿹勹殳(G),fang,Jigmo 2,False
+𫗑,U+2B5D1,⿰飠⿹勹殳(G),reg,TW-Kai B,True
+𫗑,U+2B5D1,⿰飠⿹勹殳(G),pen,Unavailable,False
+𫙫,U+2B66B,⿰魚⿱𡗜⿹勹巳(J),sans,Plangothic P1,False
+𫙫,U+2B66B,⿰魚⿱𡗜⿹勹巳(J),serif,Jigmo 2,False
+𫙫,U+2B66B,⿰魚⿱𡗜⿹勹巳(J),fang,Jigmo 2,False
+𫙫,U+2B66B,⿰魚⿱𡗜⿹勹巳(J),reg,TW-Kai B,True
+𫙫,U+2B66B,⿰魚⿱𡗜⿹勹巳(J),pen,Unavailable,False
+𬝥,U+2C765,⿱艹⿹勹㚘(J),sans,Plangothic P1,False
+𬝥,U+2C765,⿱艹⿹勹㚘(J),serif,Jigmo 2,False
+𬝥,U+2C765,⿱艹⿹勹㚘(J),fang,Jigmo 2,False
+𬝥,U+2C765,⿱艹⿹勹㚘(J),reg,Unavailable,False
+𬝥,U+2C765,⿱艹⿹勹㚘(J),pen,Unavailable,False
+𬲵,U+2CCB5,⿰饣⿹勹殳(G),sans,Plangothic P1,False
+𬲵,U+2CCB5,⿰饣⿹勹殳(G),serif,Jigmo 2,False
+𬲵,U+2CCB5,⿰饣⿹勹殳(G),fang,Jigmo 2,False
+𬲵,U+2CCB5,⿰饣⿹勹殳(G),reg,Unavailable,False
+𬲵,U+2CCB5,⿰饣⿹勹殳(G),pen,Unavailable,False
+𬳀,U+2CCC0,⿰饣⿹勹吉(G),sans,Plangothic P1,False
+𬳀,U+2CCC0,⿰饣⿹勹吉(G),serif,Jigmo 2,False
+𬳀,U+2CCC0,⿰饣⿹勹吉(G),fang,Jigmo 2,False
+𬳀,U+2CCC0,⿰饣⿹勹吉(G),reg,Unavailable,False
+𬳀,U+2CCC0,⿰饣⿹勹吉(G),pen,Unavailable,False
+𬼍,U+2CF0D,⿰⿸𠂆𰀁⿹勹𰀁(J),sans,Plangothic P1,False
+𬼍,U+2CF0D,⿰⿸𠂆𰀁⿹勹𰀁(J),serif,Jigmo 2,False
+𬼍,U+2CF0D,⿰⿸𠂆𰀁⿹勹𰀁(J),fang,Jigmo 2,False
+𬼍,U+2CF0D,⿰⿸𠂆𰀁⿹勹𰀁(J),reg,Unavailable,False
+𬼍,U+2CF0D,⿰⿸𠂆𰀁⿹勹𰀁(J),pen,Unavailable,False
+𭑯,U+2D46F,⿰女⿹勹㐅(J),sans,Plangothic P1,False
+𭑯,U+2D46F,⿰女⿹勹㐅(J),serif,Jigmo 2,False
+𭑯,U+2D46F,⿰女⿹勹㐅(J),fang,Jigmo 2,False
+𭑯,U+2D46F,⿰女⿹勹㐅(J),reg,Unavailable,False
+𭑯,U+2D46F,⿰女⿹勹㐅(J),pen,Unavailable,False
+𭘅,U+2D605,⿰工⿹勹丶(S),sans,Plangothic P1,False
+𭘅,U+2D605,⿰工⿹勹丶(S),serif,Jigmo 2,False
+𭘅,U+2D605,⿰工⿹勹丶(S),fang,Jigmo 2,False
+𭘅,U+2D605,⿰工⿹勹丶(S),reg,Unavailable,False
+𭘅,U+2D605,⿰工⿹勹丶(S),pen,Unavailable,False
+𭜭,U+2D72D,⿰忄⿹勹文(K),sans,Plangothic P1,False
+𭜭,U+2D72D,⿰忄⿹勹文(K),serif,Jigmo 2,False
+𭜭,U+2D72D,⿰忄⿹勹文(K),fang,Jigmo 2,False
+𭜭,U+2D72D,⿰忄⿹勹文(K),reg,Unavailable,False
+𭜭,U+2D72D,⿰忄⿹勹文(K),pen,Unavailable,False
+𭠆,U+2D806,⿸戶⿹勹巳(S),sans,Plangothic P1,False
+𭠆,U+2D806,⿸戶⿹勹巳(S),serif,Jigmo 2,False
+𭠆,U+2D806,⿸戶⿹勹巳(S),fang,Jigmo 2,False
+𭠆,U+2D806,⿸戶⿹勹巳(S),reg,Unavailable,False
+𭠆,U+2D806,⿸戶⿹勹巳(S),pen,Unavailable,False
+𭣘,U+2D8D8,⿺支⿹勹巳(S),sans,Plangothic P1,False
+𭣘,U+2D8D8,⿺支⿹勹巳(S),serif,Jigmo 2,False
+𭣘,U+2D8D8,⿺支⿹勹巳(S),fang,Jigmo 2,False
+𭣘,U+2D8D8,⿺支⿹勹巳(S),reg,Unavailable,False
+𭣘,U+2D8D8,⿺支⿹勹巳(S),pen,Unavailable,False
+𭥘,U+2D958,⿱⿹勹㐅日(J),sans,Plangothic P1,False
+𭥘,U+2D958,⿱⿹勹㐅日(J),serif,Jigmo 2,False
+𭥘,U+2D958,⿱⿹勹㐅日(J),fang,Jigmo 2,False
+𭥘,U+2D958,⿱⿹勹㐅日(J),reg,Unavailable,False
+𭥘,U+2D958,⿱⿹勹㐅日(J),pen,Unavailable,False
+𭵇,U+2DD47,⿱⿹勹⿱屮屮灬(J),sans,Plangothic P1,False
+𭵇,U+2DD47,⿱⿹勹⿱屮屮灬(J),serif,Jigmo 2,False
+𭵇,U+2DD47,⿱⿹勹⿱屮屮灬(J),fang,Jigmo 2,False
+𭵇,U+2DD47,⿱⿹勹⿱屮屮灬(J),reg,Unavailable,False
+𭵇,U+2DD47,⿱⿹勹⿱屮屮灬(J),pen,Unavailable,False
+𭵖,U+2DD56,⿰火⿹勹𦈢(S),sans,Plangothic P1,False
+𭵖,U+2DD56,⿰火⿹勹𦈢(S),serif,Jigmo 2,False
+𭵖,U+2DD56,⿰火⿹勹𦈢(S),fang,Jigmo 2,False
+𭵖,U+2DD56,⿰火⿹勹𦈢(S),reg,Unavailable,False
+𭵖,U+2DD56,⿰火⿹勹𦈢(S),pen,Unavailable,False
+𭷝,U+2DDDD,⿰牜⿹勹巳(S),sans,Plangothic P1,False
+𭷝,U+2DDDD,⿰牜⿹勹巳(S),serif,Jigmo 2,False
+𭷝,U+2DDDD,⿰牜⿹勹巳(S),fang,Jigmo 2,False
+𭷝,U+2DDDD,⿰牜⿹勹巳(S),reg,Unavailable,False
+𭷝,U+2DDDD,⿰牜⿹勹巳(S),pen,Unavailable,False
+𮊧,U+2E2A7,⿰羊⿹勹互(S),sans,Plangothic P1,False
+𮊧,U+2E2A7,⿰羊⿹勹互(S),serif,Jigmo 2,False
+𮊧,U+2E2A7,⿰羊⿹勹互(S),fang,Jigmo 2,False
+𮊧,U+2E2A7,⿰羊⿹勹互(S),reg,Unavailable,False
+𮊧,U+2E2A7,⿰羊⿹勹互(S),pen,Unavailable,False
+𮌚,U+2E31A,⿰月⿹勹𦈢(J),sans,Plangothic P1,False
+𮌚,U+2E31A,⿰月⿹勹𦈢(J),serif,Jigmo 2,False
+𮌚,U+2E31A,⿰月⿹勹𦈢(J),fang,Jigmo 2,False
+𮌚,U+2E31A,⿰月⿹勹𦈢(J),reg,Unavailable,False
+𮌚,U+2E31A,⿰月⿹勹𦈢(J),pen,Unavailable,False
+𮎯,U+2E3AF,⿱艹⿹勹仌(J),sans,Plangothic P1,False
+𮎯,U+2E3AF,⿱艹⿹勹仌(J),serif,Jigmo 2,False
+𮎯,U+2E3AF,⿱艹⿹勹仌(J),fang,Jigmo 2,False
+𮎯,U+2E3AF,⿱艹⿹勹仌(J),reg,Unavailable,False
+𮎯,U+2E3AF,⿱艹⿹勹仌(J),pen,Unavailable,False
+𮏐,U+2E3D0,⿱艹⿹勹共(J),sans,Plangothic P1,False
+𮏐,U+2E3D0,⿱艹⿹勹共(J),serif,Jigmo 2,False
+𮏐,U+2E3D0,⿱艹⿹勹共(J),fang,Jigmo 2,False
+𮏐,U+2E3D0,⿱艹⿹勹共(J),reg,Unavailable,False
+𮏐,U+2E3D0,⿱艹⿹勹共(J),pen,Unavailable,False
+𮐠,U+2E420,⿱艹⿰禾⿹勹巳(M),sans,Plangothic P1,False
+𮐠,U+2E420,⿱艹⿰禾⿹勹巳(M),serif,Jigmo 2,False
+𮐠,U+2E420,⿱艹⿰禾⿹勹巳(M),fang,Jigmo 2,False
+𮐠,U+2E420,⿱艹⿰禾⿹勹巳(M),reg,Unavailable,False
+𮐠,U+2E420,⿱艹⿰禾⿹勹巳(M),pen,Unavailable,False
+𮩊,U+2EA4A,⿰𩙿⿱𦍌⿹勹㐅(S) ⿰飠⿱𦍌⿹勹㐅(Z),sans,Plangothic P1,False
+𮩊,U+2EA4A,⿰𩙿⿱𦍌⿹勹㐅(S) ⿰飠⿱𦍌⿹勹㐅(Z),serif,Jigmo 2,False
+𮩊,U+2EA4A,⿰𩙿⿱𦍌⿹勹㐅(S) ⿰飠⿱𦍌⿹勹㐅(Z),fang,Jigmo 2,False
+𮩊,U+2EA4A,⿰𩙿⿱𦍌⿹勹㐅(S) ⿰飠⿱𦍌⿹勹㐅(Z),reg,Unavailable,False
+𮩊,U+2EA4A,⿰𩙿⿱𦍌⿹勹㐅(S) ⿰飠⿱𦍌⿹勹㐅(Z),pen,Unavailable,False
+𰋏,U+302CF,⿱⿹勹⿱一吕夊(B),sans,Plangothic P2,False
+𰋏,U+302CF,⿱⿹勹⿱一吕夊(B),serif,Jigmo 3,False
+𰋏,U+302CF,⿱⿹勹⿱一吕夊(B),fang,Jigmo 3,False
+𰋏,U+302CF,⿱⿹勹⿱一吕夊(B),reg,Unavailable,False
+𰋏,U+302CF,⿱⿹勹⿱一吕夊(B),pen,Unavailable,False
+𰓴,U+304F4,⿰扌⿹勹玉(G),sans,Plangothic P2,False
+𰓴,U+304F4,⿰扌⿹勹玉(G),serif,Jigmo 3,False
+𰓴,U+304F4,⿰扌⿹勹玉(G),fang,Jigmo 3,False
+𰓴,U+304F4,⿰扌⿹勹玉(G),reg,Unavailable,False
+𰓴,U+304F4,⿰扌⿹勹玉(G),pen,Unavailable,False
+𰘕,U+30615,⿳木𫜹⿹勹⿰䶹又(G),sans,Plangothic P2,False
+𰘕,U+30615,⿳木𫜹⿹勹⿰䶹又(G),serif,Jigmo 3,False
+𰘕,U+30615,⿳木𫜹⿹勹⿰䶹又(G),fang,Jigmo 3,False
+𰘕,U+30615,⿳木𫜹⿹勹⿰䶹又(G),reg,Unavailable,False
+𰘕,U+30615,⿳木𫜹⿹勹⿰䶹又(G),pen,Unavailable,False
+𰵜,U+30D5C,⿰讠⿹勹巳(B),sans,Plangothic P2,False
+𰵜,U+30D5C,⿰讠⿹勹巳(B),serif,Jigmo 3,False
+𰵜,U+30D5C,⿰讠⿹勹巳(B),fang,Jigmo 3,False
+𰵜,U+30D5C,⿰讠⿹勹巳(B),reg,Unavailable,False
+𰵜,U+30D5C,⿰讠⿹勹巳(B),pen,Unavailable,False
+𰸻,U+30E3B,⿰身⿹勹弓(K),sans,Plangothic P2,False
+𰸻,U+30E3B,⿰身⿹勹弓(K),serif,Jigmo 3,False
+𰸻,U+30E3B,⿰身⿹勹弓(K),fang,Jigmo 3,False
+𰸻,U+30E3B,⿰身⿹勹弓(K),reg,Unavailable,False
+𰸻,U+30E3B,⿰身⿹勹弓(K),pen,Unavailable,False
+𰹙,U+30E59,⿰車⿹勹㱏(G),sans,Plangothic P2,False
+𰹙,U+30E59,⿰車⿹勹㱏(G),serif,Jigmo 3,False
+𰹙,U+30E59,⿰車⿹勹㱏(G),fang,Jigmo 3,False
+𰹙,U+30E59,⿰車⿹勹㱏(G),reg,Unavailable,False
+𰹙,U+30E59,⿰車⿹勹㱏(G),pen,Unavailable,False
+𰺂,U+30E82,⿰车⿹勹巳(B),sans,Plangothic P2,False
+𰺂,U+30E82,⿰车⿹勹巳(B),serif,Jigmo 3,False
+𰺂,U+30E82,⿰车⿹勹巳(B),fang,Jigmo 3,False
+𰺂,U+30E82,⿰车⿹勹巳(B),reg,Unavailable,False
+𰺂,U+30E82,⿰车⿹勹巳(B),pen,Unavailable,False
+𱄣,U+31123,⿰馬⿹勹㱏(G),sans,Plangothic P2,False
+𱄣,U+31123,⿰馬⿹勹㱏(G),serif,Jigmo 3,False
+𱄣,U+31123,⿰馬⿹勹㱏(G),fang,Jigmo 3,False
+𱄣,U+31123,⿰馬⿹勹㱏(G),reg,Unavailable,False
+𱄣,U+31123,⿰馬⿹勹㱏(G),pen,Unavailable,False
+𱆸,U+311B8,⿰魚⿱亡⿹勹方(G),sans,Plangothic P2,False
+𱆸,U+311B8,⿰魚⿱亡⿹勹方(G),serif,Jigmo 3,False
+𱆸,U+311B8,⿰魚⿱亡⿹勹方(G),fang,Jigmo 3,False
+𱆸,U+311B8,⿰魚⿱亡⿹勹方(G),reg,Unavailable,False
+𱆸,U+311B8,⿰魚⿱亡⿹勹方(G),pen,Unavailable,False
+𱓉,U+314C9,⿰口⿹勹百(V),sans,Plangothic P2,False
+𱓉,U+314C9,⿰口⿹勹百(V),serif,Jigmo 3,False
+𱓉,U+314C9,⿰口⿹勹百(V),fang,Jigmo 3,False
+𱓉,U+314C9,⿰口⿹勹百(V),reg,Unavailable,False
+𱓉,U+314C9,⿰口⿹勹百(V),pen,Unavailable,False
+𱝈,U+31748,⿸广⿱龷⿹勹用(V),sans,Plangothic P2,False
+𱝈,U+31748,⿸广⿱龷⿹勹用(V),serif,Jigmo 3,False
+𱝈,U+31748,⿸广⿱龷⿹勹用(V),fang,Jigmo 3,False
+𱝈,U+31748,⿸广⿱龷⿹勹用(V),reg,Unavailable,False
+𱝈,U+31748,⿸广⿱龷⿹勹用(V),pen,Unavailable,False
+𱤈,U+31908,⿱林⿹勹玉(B),sans,Plangothic P2,False
+𱤈,U+31908,⿱林⿹勹玉(B),serif,Jigmo 3,False
+𱤈,U+31908,⿱林⿹勹玉(B),fang,Jigmo 3,False
+𱤈,U+31908,⿱林⿹勹玉(B),reg,Unavailable,False
+𱤈,U+31908,⿱林⿹勹玉(B),pen,Unavailable,False
+𱧖,U+319D6,⿱⿰氵⿹勹巳灬(T),sans,Plangothic P2,False
+𱧖,U+319D6,⿱⿰氵⿹勹巳灬(T),serif,Jigmo 3,False
+𱧖,U+319D6,⿱⿰氵⿹勹巳灬(T),fang,Jigmo 3,False
+𱧖,U+319D6,⿱⿰氵⿹勹巳灬(T),reg,TW-Kai G,True
+𱧖,U+319D6,⿱⿰氵⿹勹巳灬(T),pen,Unavailable,False
+𱨵,U+31A35,⿰氵⿱⿹勹八⿱丶𥐘(T),sans,Plangothic P2,False
+𱨵,U+31A35,⿰氵⿱⿹勹八⿱丶𥐘(T),serif,Jigmo 3,False
+𱨵,U+31A35,⿰氵⿱⿹勹八⿱丶𥐘(T),fang,Jigmo 3,False
+𱨵,U+31A35,⿰氵⿱⿹勹八⿱丶𥐘(T),reg,TW-Kai G,True
+𱨵,U+31A35,⿰氵⿱⿹勹八⿱丶𥐘(T),pen,Unavailable,False
+𱪸,U+31AB8,⿱⿹勹屮灬(T),sans,Plangothic P2,False
+𱪸,U+31AB8,⿱⿹勹屮灬(T),serif,Jigmo 3,False
+𱪸,U+31AB8,⿱⿹勹屮灬(T),fang,Jigmo 3,False
+𱪸,U+31AB8,⿱⿹勹屮灬(T),reg,TW-Kai G,True
+𱪸,U+31AB8,⿱⿹勹屮灬(T),pen,Unavailable,False
+𱷧,U+31DE7,⿰立⿱日⿹勹一(T),sans,Plangothic P2,False
+𱷧,U+31DE7,⿰立⿱日⿹勹一(T),serif,Jigmo 3,False
+𱷧,U+31DE7,⿰立⿱日⿹勹一(T),fang,Jigmo 3,False
+𱷧,U+31DE7,⿰立⿱日⿹勹一(T),reg,TW-Kai G,True
+𱷧,U+31DE7,⿰立⿱日⿹勹一(T),pen,Unavailable,False
