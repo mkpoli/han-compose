@@ -117,6 +117,16 @@ export function derived(from, contours, box) {
   return part
 }
 
+// A complete native stroke remains addressable after its contours are renumbered.
+export function cutContours(glyph, indices, box = undefined) {
+  const part = derived(glyph, indices.map(i => glyph.contours[i]), box)
+  const strokes = (glyph.strokes ?? [])
+    .filter(([, contours]) => contours.every(i => indices.includes(i)))
+    .map(([id, contours]) => [id, contours.map(i => indices.indexOf(i))])
+  if (strokes.length) part.strokes = strokes
+  return part
+}
+
 // Join sections of the original contour along the boundaries of adjacent components.
 // Each triple names a contour and two pen commands. Start at the endpoint of the
 // first command, then copy the curves through the last, in both weight masters.

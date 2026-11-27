@@ -1,4 +1,5 @@
 import { derived, makePart, mapped, partInk, placed, pointsBox } from './geometry.js'
+import { walkingYou, walkingYouDonors, walkingYouParts } from './rcc-walking-you.js'
 import { nativeAxisContours } from './recorded-axis.js'
 import { strokeDonor } from './stroke-donors.js'
 
@@ -51,6 +52,7 @@ const stroke = new Set('乛丿乚㇄𠃑𠃊丨㇋乀')
 
 /** @param {string} key @param {string} style */
 export function overlayContextDonors(key, style) {
+  if (key === walkingYou) return walkingYouDonors(style)
   const form = forms.get(key)
   if (!form) return []
   if (form.source === 2630) return ['㇄', '𠃑', '𠃊', '丨', '一']
@@ -139,6 +141,7 @@ function narrowHook(glyph, room) {
 
 /** @param {import('./compose.js').Composer} composer @param {string} key @param {number[]} region */
 export function overlayContextParts(composer, key, region) {
+  if (key === walkingYou) return walkingYouParts(composer, region)
   const form = forms.get(key)
   if (!form || composer.excluded(key)) return null
   const donors = overlayContextDonors(key, composer.fontStyle)

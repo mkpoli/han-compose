@@ -442,6 +442,31 @@ def calibrate(sample: int = 1500, seed: int = 7, style: str = STYLE) -> None:
     print(json.dumps({"style": style, "characters": len(data), "stem_curve": [[round(b, 2), round(a, 3)] for a, b in fits]}))
 
 
+@app.command("calibrate-columns")
+def calibrate_columns(sample: int = 180, seed: int = 73, style: str = STYLE) -> None:
+    """Measure native side-by-side clearances at the light master, as shares of each pair's ink width."""
+    composer = _composer(style)
+    chars = sorted(ch for ch, seq in composer.sequences.items() if seq.startswith("⿰") and composer.font.own(ch))
+    random.Random(seed).shuffle(chars)
+    rows = []
+    for ch in chars:
+        if len(rows) >= sample:
+            break
+        try:
+            host = composer._host_node(ch, compose.parse(composer.sequences[ch]), ())
+        except (ValueError, LookupError):
+            continue
+        if host is None or len(host.pieces) != 2:
+            continue
+        a, b = (compose.Placed(piece, piece.box, piece.box) for piece in host.pieces)
+        profile = compose._column_profile([a], [b])
+        if profile is not None:
+            rows.append(profile[2:4])
+    broad, closest = np.asarray(rows).T
+    print(json.dumps({"style": style, "characters": len(rows), "column_clearance":
+                      [round(float(np.percentile(broad, 75)), 3), round(float(np.percentile(closest, 25)), 3)]}))
+
+
 @app.command("calibrate-parts")
 def calibrate_parts(sample: int = 700, seed: int = 11, style: str = STYLE) -> None:
     """Fit the powers of a part's scale its stroke width follows in the font's own characters, for a

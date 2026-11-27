@@ -1,16 +1,18 @@
 import { expect, it } from 'bun:test'
-import { partOf, pathMask, pathRings, pointsBox, union } from '../src/geometry.js'
+import { ASCENT, derived, partOf, pathMask, pathRings, placed, pointsBox, svgPath, union } from '../src/geometry.js'
 import { openHookCounters } from '../src/hook-seat.js'
 import { hookFloor } from '../src/hook-floor.js'
 import { compose, createSource, sketch } from '../src/loader.js'
 import { character, files, shards } from './fixtures/small-export.js'
 // Sans export a83fc941166b: Noto Sans CJK JP and its Plangothic extension fallback.
 // Serif export 8156f838798c: Noto Serif CJK JP 2.003.
+// Regular export c14ee5e08798: CNS11643 TW-Kai.
+// Additional 先/亀/龜 fixtures use the Sans, Serif and Zhuque Fangsong exports.
 // Pen export ce3eaafda8f9: Kureedo Full 0.5.0. Sources and OFL licences in docs/licensing.md.
 import donors from './fixtures/hook-floor.json' with { type: 'json' }
 
-function source(face) {
-  const input = { ...files, ...shards('g', Object.entries(donors[face])) }
+function source(face, extra = {}) {
+  const input = { ...files, ...shards('g', Object.entries({ ...donors[face], ...extra })) }
   return createSource(async k => input[k] === undefined ? null : new Uint8Array(Buffer.from(input[k])).buffer)
 }
 
@@ -204,5 +206,130 @@ it('opens the editable cells for 見自 and 見日 above their original inset ba
     expect(h / frame.box[3]).toBeCloseTo(heightShare, 2)
     const outline = pathMask(frame.d, 256)
     expect(pathMask(inner.d, 256).some((ink, i) => ink && outline[i])).toBe(false)
+  }
+})
+
+it('opens both sides of 田 and 由 in composed and editable layouts', async () => {
+  const control = '\uE001'
+  for (const char of ['田', '由']) {
+    // Different crossbar levels on each side force a fit to respect both white bands.
+    const strokes = [[0, 0, 50, 480], [750, 0, 800, 480], [0, 0, 800, 50], [0, 480, 800, 530],
+      [0, 215, 400, 265], [400, 270, 800, 320], [355, 0, 445, char === '由' ? 630 : 530]]
+    const record = character(char, strokes)
+    const src = source('pen', { [char]: record, [control]: record })
+    for (const layout of ['composed', 'cells']) {
+      const draw = async ch => (await compose(src, '⿺見' + ch, { fontStyle: 'pen-writing', separate: true, layout })).parts
+      // The control puts the identical outline through the ordinary leaf fit.
+      const [, before] = await draw(control)
+      const [frame, after] = await draw(char)
+      const [x, y, w, h] = after.box
+      expect(x).toBeCloseTo(before.box[0], 1)
+      expect(w).toBeCloseTo(before.box[2], 1)
+      expect(y + h).toBeCloseTo(before.box[1] + before.box[3], 1)
+      expect(h).toBeGreaterThan(before.box[3] + 100)
+
+      const size = 512, outline = pathMask(frame.d, size)
+      const oldMask = pathMask(before.d, size), newMask = pathMask(after.d, size)
+      expect(newMask.some((ink, i) => ink && outline[i])).toBe(false)
+      const section = (mask, fraction) => {
+        const column = Math.floor((x + fraction * w) * size / 1000)
+        return Array.from({ length: size }, (_, row) => mask[row * size + column]).join('')
+      }
+      for (const side of [0.30, 0.70]) {
+        const runs = mask => section(mask, side).replace(/^0+|0+$/g, '').match(/1+|0+/g)
+        const oldRows = runs(oldMask), newRows = runs(newMask)
+        expect(newRows).toHaveLength(5)
+        for (let i = 0; i < oldRows.length; i++) {
+          if (i % 2) expect(newRows[i].length).toBeGreaterThan(oldRows[i].length)
+          else expect(Math.abs(newRows[i].length - oldRows[i].length)).toBeLessThanOrEqual(1)
+        }
+      }
+      expect(section(newMask, 0.50).match(/1+/g)).toHaveLength(1)
+      if (char === '由') {
+        const tip = mask => section(mask, 0.30).indexOf('1') - section(mask, 0.50).indexOf('1')
+        expect(Math.abs(tip(oldMask) - tip(newMask))).toBeLessThanOrEqual(1)
+      }
+    }
+  }
+})
+
+// Inner ink heights from the width-limited fit (adf3d8ba), per 1000 em.
+for (const [face, style, outer, priorHeight] of [
+  ['pen', 'pen-writing', '見', { composed: 598.6, cells: 577.0 }],
+  ['reg', 'regular', '先', { composed: 712.0, cells: 686.4 }],
+  ['reg', 'regular', '亀', { composed: 711.6, cells: 686.0 }],
+]) {
+  it(`fits the native 首 in ${style} ⿺${outer}首 after the root layout`, async () => {
+    const src = source(face)
+    const record = donors[face].馗.G, glyph = partOf(record)
+    const cut = derived(glyph, record.ls.首.map(index => glyph.contours[index]))
+    const native = svgPath([placed(cut, cut.box, cut.box, 1, '馗')])
+    const expected = normalizedOutline(native)
+    const [left, bottom, right, top] = inkBounds(native)
+    for (const layout of ['composed', 'cells']) {
+      const draw = async (input, exclude = []) => (await compose(input, '⿺' + outer + '首', {
+        separate: true, fontStyle: style, layout, exclude,
+      })).parts
+      const [frame, inner] = await draw(src)
+      expect(inner.origin).toBe('host 馗')
+      const actual = normalizedOutline(inner.d)
+      expect(actual.map(ring => ring.length)).toEqual(expected.map(ring => ring.length))
+      for (let i = 0; i < actual.length; i++) {
+        const error = Math.max(...actual[i].map((coordinate, j) => Math.abs(coordinate - expected[i][j])))
+        expect(error).toBeLessThan(0.001)
+      }
+      const [x0, y0, x1, y1] = inkBounds(inner.d)
+      expect(y1 - y0).toBeGreaterThan(priorHeight[layout] * 1.05)
+      const nativeAspect = (top - bottom) / (right - left)
+      expect(Math.abs((y1 - y0) / (x1 - x0) / nativeAspect - 1)).toBeLessThan(0.001)
+      const mask = pathMask(frame.d, 256)
+      expect(pathMask(inner.d, 256).some((ink, i) => ink && mask[i])).toBe(false)
+      if (layout === 'cells') expect([frame.leaf, inner.leaf]).toEqual([0, 1])
+      const [, fallback] = await draw(src, ['馗'])
+      expect(fallback.d).not.toBe(inner.d)
+      const [, unlabeled] = await draw(source(face, { 馗: { ...donors[face].馗, G: { ...record, ls: {} } } }))
+      expect(unlabeled.d).toBe(fallback.d)
+    }
+  })
+}
+
+// Prior revision (cc86b525) inner ink measurements in a 1000-unit em. Compare centres
+// separately from widths so a bigger drawing cannot stand in for a shift.
+it('positions 首 for the face and the silhouette of its hook', async () => {
+  for (const [face, style, outer, x, y, w, h, changes] of [
+    ['sans', 'sans', '先', 477.5, 173.6, 458.5, 630.4, ['up']],
+    ['sans', 'sans', '亀', 475.9, 174.2, 469.3, 645.4, ['up']],
+    ['serif', 'serif', '先', 476.2, 140.9, 461.5, 639.8, ['larger']],
+    ['serif', 'serif', '龜', 477.2, 184.1, 461.5, 639.6, ['up']],
+    ['fang', 'fangsong', '先', 455.2, 43.4, 438.7, 711.8, ['larger', 'right', 'down']],
+    ['fang', 'fangsong', '亀', 457.4, 44.0, 484.5, 786.2, ['larger']],
+    ['reg', 'regular', '先', 438.1, 46.9, 425.5, 771.1, ['unchanged']],
+    ['reg', 'regular', '亀', 465.5, 42.0, 444.6, 805.8, ['left', 'up']],
+    ['pen', 'pen-writing', '先', 453.5, 62.9, 445.3, 689.0, ['larger', 'down']],
+    ['pen', 'pen-writing', '龜', 464.3, 70.2, 478.8, 740.8, ['lighter']],
+  ]) {
+    const { parts: [frame, inner] } = await compose(source(face), '⿺' + outer + '首', {
+      fontStyle: style, separate: true, layout: 'composed',
+    })
+    expect(inner.origin).toBe('host 馗')
+    const [left, bottom, right, top] = inkBounds(inner.d)
+    const width = right - left, height = top - bottom
+    const dx = (right + left) / 2 - (x + w / 2)
+    const dy = ASCENT - (bottom + top) / 2 - (y + h / 2)
+    const mask = pathMask(inner.d, 512), outline = pathMask(frame.d, 512)
+    expect(mask.some((ink, i) => ink && outline[i])).toBe(false)
+    expect(Math.abs(height / width - h / w)).toBeLessThan(0.005)
+    if (changes.includes('up')) expect(dy).toBeLessThan(-2)
+    if (changes.includes('down')) expect(dy).toBeGreaterThan(2)
+    if (changes.includes('left')) expect(dx).toBeLessThan(-2)
+    if (changes.includes('right')) expect(dx).toBeGreaterThan(2)
+    if (changes.includes('larger')) expect(width).toBeGreaterThan(w + 2)
+    else expect(Math.abs(width - w)).toBeLessThan(0.5)
+    if (changes.includes('unchanged')) expect(Math.max(Math.abs(dx), Math.abs(dy))).toBeLessThan(0.2)
+    if (changes.includes('lighter')) {
+      // Kureedo's prior 首 fills 29.6% of its own ink box.
+      const density = mask.reduce((sum, ink) => sum + ink, 0) / (width * height * (512 / 1000) ** 2)
+      expect(density).toBeLessThan(0.29)
+    }
   }
 })
