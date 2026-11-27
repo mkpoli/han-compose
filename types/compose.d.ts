@@ -289,6 +289,7 @@ export declare class Composer {
     /** A host entry's piece: its own outlines, or the contours it keeps of its host's glyph, read from
      *  the host's record when the piece is chosen. */
     pieceOf(h: any): any;
+    finishPenParts(parts: any): void;
     /** A ranked host as the callers take it: the entry, and its piece read when first asked for. */
     chosen(h: any): {
         record: any;
