@@ -206,6 +206,10 @@
       "types": "./types/variation-registry.d.ts",
       "default": "./src/variation-registry.js"
     },
+    "./variation-outline": {
+      "types": "./types/variation-outline.d.ts",
+      "default": "./src/variation-outline.js"
+    },
     "./variation-expression": {
       "types": "./types/variation-expression.d.ts",
       "default": "./src/variation-expression.js"
