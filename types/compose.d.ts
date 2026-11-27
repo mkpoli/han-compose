@@ -78,6 +78,7 @@ export declare class Composer {
     resolutions: Map<any, any>;
     chains: Map<any, any>;
     columns: any[];
+    spaced: any[];
     joints: any[];
     sweeps: any[];
     /** How much smaller than it was laid out the character is drawn, beside marks that take a margin. */
@@ -906,6 +907,9 @@ export declare class Composer {
      *  A median gap can look clear while one stroke reaches into the other (𠂊's hook into 巾's bar);
      *  where the nearest ink overlaps, the pair is settled by that overlap instead. */
     space(axis: any, groups: any, nested?: boolean): void;
+    /** The style's least gap kept between neighbouring parts once they carry their weights (`_clear`):
+     *  `space` measures them as laid out, and a part weighted afterwards grows into the gap. */
+    clear(out: any): void;
     /** The shallow 𦉪十 under 羔口. In the single-outline faces the frame's two legs
      *  share the lintel and the 十 occupies the full opening below. */
     gaoMouthFoot(box: any, style: any): any;
