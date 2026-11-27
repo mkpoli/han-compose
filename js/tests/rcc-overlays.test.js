@@ -103,10 +103,35 @@ it('draws the two stepped frames and crossing bar of 註册商標 in every face'
     centers.forEach((center, i) => expect(Math.abs(center - [.255, .62, .445, .815][i])).toBeLessThan(.035))
     expect(parts[0].target[3]).toBeGreaterThan(parts[1].target[3])
     expect(parts[0].target[1]).toBeGreaterThan(parts[1].target[1])
-    expect(overlayContextDonors(key, style)).toEqual(['册'])
+    expect(overlayContextDonors(key, style)).toEqual(style === 'regular' ? ['册', '月'] : ['册'])
     for (const excluded of [key, '⿻⺆⺆', '⺆', '一', '册']) {
       expect(overlayContextParts({ ...face, excluded: ch => ch === excluded }, key, em)).toBeNull()
     }
     expect(overlayContextParts({ ...face, glyphRecord: () => hosts[style]['一'] }, key, em)).toBeNull()
+  }
+})
+
+it('tapers both TW-Kai left strokes to the points from 月, retaining the 册 crossbar', () => {
+  const face = nativeComposer('regular'), key = '⿻⿻⺆⺆一'
+  const parts = overlayContextParts(face, key, em)
+  const original = overlayContextParts({ ...face, excluded: char => char === '月' }, key, em)
+  expect(parts.map(p => p.origin)).toEqual(['⺆ from 册 and 月, R+0756', '⺆ from 册 and 月, R+0756', '一 from 册, R+0756'])
+  expect(parts[2].part.contours).toEqual(original[2].part.contours)
+  for (const part of parts.slice(0, 2)) {
+    const m = mask(part)
+    const width = y => {
+      const row = m.subarray(y * 200, (y + 1) * 200)
+      const left = row.findIndex(Boolean)
+      expect(left).toBeGreaterThanOrEqual(0)
+      const right = row.findIndex((ink, x) => x > left && !ink)
+      return right - left
+    }
+    const lower = Math.round(200 - (part.target[1] + .08 * (part.target[3] - part.target[1])) / 5)
+    const upper = Math.round(200 - (part.target[1] + .25 * (part.target[3] - part.target[1])) / 5)
+    expect(width(lower)).toBeLessThan(width(upper))
+  }
+  for (const moon of [null, face.glyphRecord('一')]) {
+    const fallback = overlayContextParts({ ...face, glyphRecord: ch => ch === '月' ? moon : face.glyphRecord(ch) }, key, em)
+    expect(fallback.map(p => p.part.contours)).toEqual(original.map(p => p.part.contours))
   }
 })

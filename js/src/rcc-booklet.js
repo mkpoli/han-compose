@@ -45,25 +45,60 @@ function fitStrokes(part, index, cut, donorBox) {
   return derived(part, part.contours.map(c => ({ ...c, light: move(c.light), heavy: move(c.heavy) })))
 }
 
+// Under the crossbar TW-Kai's 册 closes each left leg with a blunt upright.
+// 月 has a left-falling stroke with two continuous curved edges and a fine point.
+const kaiMoon = '1315ee40fd8ec6bfb83d5f87b057d6dc190e9d138e2cf5b37d6a821b794cec15'
+function kaiFallingLeg(frame, index, sourceRuns, moon) {
+  const original = frame.contours[0], last = original.ops.length - 1
+  const [, start, end] = sourceRuns.at(-1)
+  const seam = last - (end - start)
+  const joins = contourSections([original], [0, seam, seam], [0, last, last])
+  const donor = contourSections(moon.contours, [0, 46, 64])
+  // Fit the two edges of the section from 月 to the two existing joints,
+  // and its sharp foot to the marked position beside the hook.
+  const tip = contourSections([donor], [0, 10, 10])
+  const fit = (points, [xt, yt], to) => {
+    const [x0, y0] = points.slice(0, 2), [x1, y1] = points.slice(-2)
+    const [rx, ry, lx, ly] = to
+    const [tx, ty] = index === 0 ? [20, 70] : [205, 68]
+    const det = (x1 - x0) * (yt - y0) - (xt - x0) * (y1 - y0)
+    const out = new Float64Array(points.length)
+    for (let i = 0; i < points.length; i += 2) {
+      const x = points[i] - x0, y = points[i + 1] - y0
+      const u = (x * (yt - y0) - y * (xt - x0)) / det
+      const v = ((x1 - x0) * y - (y1 - y0) * x) / det
+      out[i] = rx + u * (lx - rx) + v * (tx - rx)
+      out[i + 1] = ry + u * (ly - ry) + v * (ty - ry)
+    }
+    return out
+  }
+  const leg = { ...donor, light: fit(donor.light, tip.light, joins.light), heavy: fit(donor.heavy, tip.heavy, joins.heavy) }
+  return derived(frame, [contourSections([original, leg], [0, 0, seam - 1], [1, 0, leg.ops.length - 1])])
+}
+
 export function bookletParts(composer, region) {
   const cut = cuts[composer.fontStyle]
   if (!cut || [booklet, '⿻⺆⺆', '⺆', '一', '册'].some(c => composer.excluded(c))) return null
   const record = composer.glyphRecord('册')
   if (record?.v !== 1) return null
+  const kai = composer.fontStyle === 'regular'
+  const moon = kai && !composer.excluded('月') ? composer.glyphRecord('月') : null
   let cached = cache.get(record)
-  if (cached?.cut !== cut) {
+  if (cached?.cut !== cut || cached.moon !== moon) {
     if (hexOf(JSON.stringify(record.p)) !== cut.digest) return null
+    const useMoon = moon?.v === 1 && hexOf(JSON.stringify(moon.p)) === kaiMoon
     const glyph = partOf(record)
     const pieces = cut.groups.map((group, i) => {
       const contours = group.map(item => Number.isInteger(item) ? glyph.contours[item] : contourSections(glyph.contours, ...item))
-      return fitStrokes(derived(glyph, contours), i, cut, glyph.box)
+      const frame = fitStrokes(derived(glyph, contours), i, cut, glyph.box)
+      return useMoon && i < 2 ? kaiFallingLeg(frame, i, group[0], partOf(moon)) : frame
     })
-    cached = { cut, pieces }
+    cached = { cut, moon, useMoon, pieces }
     cache.set(record, cached)
   }
   const frame = mapped(cut.ink, unit, region)
   return cached.pieces.map((part, i) => ({
-    ...placed(part, part.box, mapped(part.box, [0, 0, 1000, 1000], frame), partInk(part), (i === 2 ? '一' : '⺆') + ' from 册, R+0756'),
+    ...placed(part, part.box, mapped(part.box, [0, 0, 1000, 1000], frame), partInk(part), (i === 2 ? '一 from 册' : cached.useMoon ? '⺆ from 册 and 月' : '⺆ from 册') + ', R+0756'),
     fixed: true, rccLeaf: i,
   }))
 }

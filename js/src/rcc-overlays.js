@@ -54,7 +54,7 @@ const stroke = new Set('乛丿乚㇄𠃑𠃊丨㇋乀')
 /** @param {string} key @param {string} style */
 export function overlayContextDonors(key, style) {
   if (key === walkingYou) return walkingYouDonors(style)
-  if (key === booklet) return ['册']
+  if (key === booklet) return style === 'regular' ? ['册', '月'] : ['册']
   const form = forms.get(key)
   if (!form || (form.style && form.style !== style)) return []
   if (form.source === 2630) return ['㇄', '𠃑', '𠃊', '丨', '一']
