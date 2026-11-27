@@ -6,6 +6,7 @@
 // so the corrections work wherever the description is drawn, at any depth.
 import { contourSections, cutContours, derived, fitted, groupRings, makePart, mapped, partOf, placed, pointsBox, union } from './geometry.js'
 import { hexOf } from './sha256.js'
+import { penGrassKu } from './grass-ku.js'
 
 // Interpolation factors for the hosted 口 outlines when fitted beside 乎.
 const mouthWeights = {
@@ -393,6 +394,14 @@ export const COMPONENT_FIXES = {
         placed(side, side.box, cell([512, 24, 968, 960]), composer.ink('方'), 'glyph 方')]
     },
   },
+  '⿱艹堀': {
+    glyphs: {
+      堀: 'f43243bd31c0029a0b42e359bec3243f319aa4d4d8c8500f62e67fb1f5a69542',
+      '䕋': '41fe0e171f99af334c530521fd232c29532c4f566d3435eb8f064f148ce2f740',
+      '䓛': '24db65003a6ef60f8a9efcece91167f5bb035ea042a02da399a8babbf48e11e8',
+    },
+    apply: penGrassKu,
+  },
   '⿰身花': {
     glyphs: {},
     apply(parts, composer) {
@@ -428,6 +437,24 @@ export const COMPONENT_FIXES = {
         revised.target = mapped(p.target, ink(revised), ink(p))
         return revised
       }), grass]
+    },
+  },
+  '⿰魚遂': {
+    glyphs: {},
+    apply(parts, composer) {
+      if (composer.fontStyle !== 'fangsong' || parts.length !== 2) return parts
+      const [fish, follow] = parts
+      if (fish.origin !== 'learned 鯝' || follow.origin !== 'learned 𬭼') return parts
+      const left = boxOf(fish), right = boxOf(follow)
+      // In 鰱, the back of 魚 and the turns of 辶 interlock along the centre.
+      const gap = right[0] - left[2]
+      if (gap <= 0 || widthOf(left) <= 0 || widthOf(right) <= 0) return parts
+      // The fish's outermost point and the tip of 辶 fall on different rows.
+      // Share the empty strip in proportion to the ink widths, fixing both outer edges.
+      const scale = 1 + gap / (widthOf(left) + widthOf(right))
+      const widen = (part, edge) => ({ ...part, target: part.target.map((v, i) =>
+        i % 2 ? v : edge + (v - edge) * scale) })
+      return [widen(fish, left[0]), widen(follow, right[2])]
     },
   },
   '⿰忄実': {
@@ -482,6 +509,8 @@ export const COMPONENT_FIXES = {
       if (record?.v !== 1 || hexOf(JSON.stringify(record.p)) !== '2bc1ae0f90e8ec4da0e920154e1b30487cd0a3f157fe252070b673a885244c1d') return parts
       // 軋 places 車 beside a single stroke. Its last contour is the right-hand hook.
       const column = cutContours(partOf(record), [0, 1, 2, 3, 4])
+      const buRecord = !composer.excluded('卜') && composer.glyphRecord('卜')
+      const right = buRecord?.v === 1 ? partOf(buRecord) : null
       const ink = p => union(groupRings([p], 24).map(pointsBox))
       const fit = (revised, original) => {
         if (original.fixed || original.cut) return {}
@@ -491,8 +520,10 @@ export const COMPONENT_FIXES = {
       }
       return [
         { ...car, finishOutline: p => fit(placed(column, column.box, p.target, p.native, '車 from 軋'), p) },
-        // Retain kana ト's own outline. The native right strokes in 朴 and 訃 supply the weight reference.
-        { ...kana, finishOutline: p => fit({ ...p, weight: [-0.8, -0.6] }, p) },
+        // At this width the native 卜 needs a small lift to retain the approved upright and arm weights.
+        { ...kana, finishOutline: p => fit(right
+          ? placed(right, right.box, p.target, p.native, 'glyph 卜', [0.17, 0.08])
+          : { ...p, weight: [-0.8, -0.6] }, p) },
       ]
     },
   },

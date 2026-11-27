@@ -313,18 +313,9 @@ export function rccChainContextParts(composer, key, region) {
     const host = composer.place(glyph, region, partInk(glyph), `chain ${key}, glyph 馬`)
     // Layout and weight balancing act on the complete native host. Cut its
     // final contours so a bar narrowed under a cover stays narrowed.
-    const names = ['#(-一丨b𠃌) from 馬', '𰀁 from 馬', '灬 from 馬']
-    /** @param {any} p */
-    const leafParts = p => {
-      const finished = { ...p }
-      delete finished.leafParts
-      delete finished.rccLeafCount
-      const pieces = [hostCut.frame(p.part), piece(p.part, cut.inner), piece(p.part, cut.removed)]
-      return pieces.map((part, i) => ({
-        ...finished, part, origin: names[i], source: part.box, target: mapped(part.box, p.source, p.target),
-        rccLeaf: i, leaf: p.leaf === undefined ? undefined : p.leaf + i,
-      }))
-    }
+    const leafParts = (/** @type {any} */ final) => [
+      [hostCut.frame(final), '#(-一丨b𠃌) from 馬'], [piece(final, cut.inner), '𰀁 from 馬'], [piece(final, cut.removed), '灬 from 馬'],
+    ]
     return [{ ...host, rccLeaf: 0, rccLeafCount: 3, leafParts }]
   }
   const body = hostCut.frame(glyph), inner = piece(glyph, cut.inner)
