@@ -275,7 +275,7 @@ https://kanjivg.tagaini.net/".
 
 The prepared form in `src/mu-net-forms.json` takes 氵 from 河, the left 木 from 林, the sweeping stroke from 木, and 罒 from 罪 (買 in Fangsong). ⿺沐罒 groups the first two components as 沐. The outlines are adapted from GenZui Sans 0.105, Noto Serif CJK JP 2.003, Zhuque Fangsong 0.212 and Kureedo Full 0.5.0 under SIL OFL 1.1. The Regular Kai outlines are adapted from TW-Kai 11510.1, 數位發展部 (Ministry of Digital Affairs), CNS11643中文標準交換碼全字庫, under the Open Government Data License 1.0. [Font sources and notices](https://github.com/mkpoli/han-compose/blob/main/docs/licensing.md)
 
-In these two manuscript spellings, the final stroke of 木 curves beneath 罒, following the contributor’s drawing. Native 延 and 廷 provide comparisons for the flatter approach to the terminal. [Manuscript and font references](https://github.com/mkpoli/han-compose/pull/227) · [Contributor’s stroke sketch, Glyph Atlas community, 2026-11-19](https://github.com/mkpoli/han-compose/issues/371)
+In these two manuscript spellings, the face’s native 木 approaches the lower left of 罒, then finishes with the low, shallow descent visible in the manuscript. The contributor’s drawing and native 延 and 廷 provide comparisons for how the stroke supports the net. [Manuscript and font references](https://github.com/mkpoli/han-compose/pull/227) · [Contributor’s stroke sketch, Glyph Atlas community, 2026-11-19](https://github.com/mkpoli/han-compose/issues/371)
 
 For ⿺木 followed by another operand, the original enclosing 木 holds the operand in the opening above its final stroke. 术 and its spelling ⿺木丶 retain their ordinary 木.
 

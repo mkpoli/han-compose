@@ -3,7 +3,7 @@ import embeddedGrass from './fixtures/kai-embedded-grass.json'
 import chui from './fixtures/kai-chui.json'
 import splitGrass from './fixtures/kai-grass.json'
 import data from '../src/component-forms.json'
-import { componentDrawing, componentParts, componentRecord, containsComponentForm, containsForcedForm, isComponentForm, isGroupedForm, isForcedCharacter, isNativeForm } from '../src/component-forms.js'
+import { componentDrawing, componentParts, woodEnclosureParts, componentRecord, containsComponentForm, containsForcedForm, isComponentForm, isGroupedForm, isForcedCharacter, isNativeForm } from '../src/component-forms.js'
 import { Composer, parseTree } from '../src/compose.js'
 import { groupRings, pointsBox, raster, windingOf } from '../src/geometry.js'
 import { onlyBundled } from '../src/local.js'
@@ -320,26 +320,32 @@ it('groups the enclosing 木 under the leaves of each manuscript spelling', () =
   }
 })
 
-it('flattens the manuscript sweep below the net before its terminal rises', () => {
+it('retains the native approach under the net and finishes low with a shallower descent', () => {
   for (const style of ['sans', 'serif', 'fangsong', 'regular', 'pen-writing']) {
-    const [, wood] = componentParts('⿰氵⿺木罒', undefined, style)
-    const sweep = groupRings([wood], 32).at(-1)
-    const [left, , right] = pointsBox(sweep)
-    const topAt = fraction => {
-      const x = left + fraction * (right - left), crossings = []
-      for (let i = 0; i < sweep.length; i += 2) {
-        const j = (i + 2) % sweep.length
-        if ((sweep[i] > x) === (sweep[j] > x)) continue
-        const t = (x - sweep[i]) / (sweep[j] - sweep[i])
-        crossings.push(sweep[i + 1] + t * (sweep[j + 1] - sweep[i + 1]))
+    const [, wood, net] = componentParts('⿰氵⿺木罒', undefined, style)
+    const [original] = woodEnclosureParts(style)
+    const sweep = groupRings([wood], 32).at(-1), native = groupRings([original], 32).at(-1)
+    const topAt = (ring, x) => {
+      const heights = []
+      for (let i = 0; i < ring.length; i += 2) {
+        const j = (i + 2) % ring.length
+        if ((ring[i] > x) === (ring[j] > x)) continue
+        const t = (x - ring[i]) / (ring[j] - ring[i])
+        heights.push(ring[i + 1] + t * (ring[j + 1] - ring[i + 1]))
       }
-      return Math.max(...crossings)
+      return Math.max(...heights)
     }
-    expect(topAt(0.65) - topAt(0.79)).toBeGreaterThan(10)
-    expect(Math.abs(topAt(0.85) - topAt(0.75))).toBeLessThan(4)
-    const rise = topAt(0.985) - topAt(0.79)
-    expect(rise).toBeGreaterThan(8)
-    expect(rise).toBeLessThan(18)
+    const [left, , right] = net.target
+    for (const f of [0.06, 0.20, 0.35]) {
+      const x = left + f * (right - left)
+      expect(Math.abs(topAt(sweep, x) - topAt(native, x))).toBeLessThan(0.2)
+    }
+    const [start, , end] = pointsBox(native)
+    const x = f => start + f * (end - start)
+    const descent = ring => topAt(ring, x(0.94)) - topAt(ring, x(0.98))
+    expect(descent(sweep)).toBeGreaterThan(0)
+    expect(descent(sweep)).toBeLessThan(descent(native))
+    expect(topAt(native, x(0.98)) - topAt(sweep, x(0.98))).toBeGreaterThan(10)
   }
 })
 
