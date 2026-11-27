@@ -2,6 +2,8 @@ import { createVariationRegistry } from '../../src/variation-registry.js'
 import { createVariationProduct } from '../../src/variation-product.js'
 import { expandedVariation, realizeVariation } from '../../src/variation-expression.js'
 import { renderU26201 } from '../../src/render-u26201.js'
+import { yaoCharacters, yaoDecomposition, yaoOccurrences, selectYao } from '../../src/yao-occurrences.js'
+import { isNode, parseDescription } from '../../src/tree.js'
 import originals from '../rate-gallery/data/originals-serif.json' with { type: 'json' }
 import { expression, family, sites, sources } from './u26201.js'
 
@@ -35,13 +37,16 @@ const operators = { '⿰': '左右', '⿱': '上下', '⿳': '上中下', '⿴':
 const code = cp => 'U+' + cp.toString(16).toUpperCase()
 const analysis = el('p')
 analysis.className = 'analysis'
-for (const char of expandedVariation(expression)) {
-  const cp = char.codePointAt(0)
-  if (operators[char] || char === '幺' || cp > 0xffff) {
-    const token = el(char === '幺' ? 'mark' : 'abbr', char)
-    token.title = [operators[char], code(cp)].filter(Boolean).join(' · ')
-    analysis.append(token)
-  } else analysis.append(char)
+function showAnalysis(text) {
+  analysis.replaceChildren()
+  for (const char of text) {
+    const cp = char.codePointAt(0)
+    if (operators[char] || char === '幺' || cp > 0xffff) {
+      const token = el(char === '幺' ? 'mark' : 'abbr', char)
+      token.title = [operators[char], code(cp)].filter(Boolean).join(' · ')
+      analysis.append(token)
+    } else analysis.append(char)
+  }
 }
 $('original').closest('section').append(analysis)
 
@@ -50,6 +55,7 @@ for (const [label, href] of [
   ['Unicode IVD · 2026-08-03', sources.ivd.url],
   ...family.related.map(ref => ['關聯準則 · ' + ref.name + ' #' + ref.id + '（' + [...ref.components].join('／') + '）', ref.url]),
   ['GlyphWiki資料授權', sources.glyphwiki.license],
+  ['Yi Bai IDS · MIT', './data/licences/yi-bai-ids-MIT.txt'],
   ['字型授權', './NOTICE.txt'],
 ]) {
   const link = el('a', label)
@@ -129,13 +135,20 @@ function select(row, col) {
     head.cells[i + 1].classList.toggle('selected', i === col)
     body.rows[i].cells[0].classList.toggle('selected', i === row)
   }
-  $('selected-glyph').replaceChildren(glyph(designs[index], '𦈁，' + buttons[index].getAttribute('aria-label')))
+  currentDesign = designs[index]
+  if ($('weight').value === '1') {
+    requests.delete($('selected-glyph'))
+    $('selected-glyph').replaceChildren(glyph(currentDesign, '𦈁，' + buttons[index].getAttribute('aria-label')))
+  } else preview('𦈁', $('selected-glyph'), currentDesign.d)
   $('left').replaceChildren(glyph(forms[row].outline))
   $('right').replaceChildren(glyph(forms[col].outline))
   $('left-path').textContent = '[' + sites[0].path.join(', ') + ']'
   $('right-path').textContent = '[' + sites[1].path.join(', ') + ']'
   $('position').textContent = (index + 1) + ' / ' + product.count
-  $('ids').value = realizeVariation(product.at(BigInt(index)), registry)
+  displayIds(realizeVariation(product.at(BigInt(index)), registry))
+}
+function displayIds(text) {
+  $('ids').value = text
   const notation = []
   for (const char of new Set($('ids').value)) {
     const cp = char.codePointAt(0)
@@ -173,4 +186,171 @@ $('theme').onclick = () => {
   const current = document.documentElement.style.colorScheme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
   document.documentElement.style.colorScheme = current === 'dark' ? 'light' : 'dark'
 }
-select(0, 1)
+let currentDesign
+let host = ''
+let selected = ''
+const edits = new Map()
+let worker
+const requests = new Map()
+let serial = 0
+function preview(text, target, outline) {
+  const id = ++serial
+  requests.set(target, id)
+  target.textContent = '繪製中…'
+  try {
+    if (!worker) {
+      worker = new Worker('./preview.js', {type: 'module'})
+      worker.onmessage = ({data}) => {
+        for (const [panel, latest] of requests) {
+          if (data.id !== latest) continue
+          requests.delete(panel)
+          if (data.d) {
+            panel.replaceChildren(glyph({viewBox: '0 0 1000 1000', d: data.d}, panel === $('original') ? host : selected))
+            if (data.approximate?.length) panel.append(el('small', '近似字形'))
+          } else panel.textContent = '無法繪製'
+        }
+      }
+      worker.onerror = () => {
+        for (const panel of requests.keys()) panel.textContent = '無法載入字形'
+        requests.clear()
+        worker.terminate()
+        worker = undefined
+      }
+    }
+    const weight = target === $('selected-glyph') ? Number($('weight').value) : 1
+    worker.postMessage({id, text, outline, weight})
+  } catch {
+    target.textContent = '無法載入字形'
+    requests.delete(target)
+  }
+}
+
+const positions = {'⿰': '左右', '⿲': '左中右', '⿱': '上下', '⿳': '上中下', '⿴': '外內'}
+function locationOf(path) {
+  if (!path.length) return '整字'
+  const labels = []
+  let node = parseDescription(host)
+  for (const index of path) {
+    if (!isNode(node)) {
+      const record = yaoDecomposition(node)
+      if (!record) break
+      node = parseDescription(record.ids)
+    }
+    if (!isNode(node)) break
+    const prefix = positions[node.op]?.[index] ?? ('部件' + (index + 1))
+    node = node.parts[index]
+    labels.push(prefix + (typeof node === 'string' && [...node].length === 1 ? ' ' + node : ''))
+  }
+  return labels.join(' › ')
+}
+function switches() {
+  const sites = yaoOccurrences(selected)
+  const panel = $('occurrences')
+  panel.replaceChildren()
+  $('dimensions').textContent = sites.length + '處'
+  if (!sites.length) panel.append(el('p', '未找到幺部件'))
+  for (const [i, site] of sites.entries()) {
+    const row = el('fieldset')
+    row.className = 'site-row'
+    row.append(el('legend', '幺 ' + (i + 1) + '　' + locationOf(site.path)))
+    const choices = el('div')
+    choices.className = 'choices'
+    for (const form of [null, ...forms]) {
+      const button = el('button')
+      button.type = 'button'
+      if (form) {
+        button.setAttribute('aria-label', '字形' + (forms.indexOf(form) + 1))
+        button.append(glyph(form.outline))
+      } else button.textContent = '原形'
+      button.setAttribute('aria-pressed', String(site.form === (form?.id ?? null)))
+      button.onclick = () => {
+        const id = form?.id ?? null
+        if (id === site.form) edits.delete(i)
+        else edits.set(i, id)
+        selected = host
+        for (const [index, choice] of edits) selected = selectYao(selected, sites[index].path, choice)
+        for (const child of choices.children) child.setAttribute('aria-pressed', String(child === button))
+        showSelection()
+      }
+      choices.append(button)
+    }
+    row.append(choices)
+    panel.append(row)
+  }
+}
+
+function showSelection() {
+  displayIds(selected)
+  showAnalysis(selected)
+  preview(selected, $('selected-glyph'))
+}
+
+function openHost(text) {
+  const cp = /^U\+([0-9A-F]{1,6})$/iu.exec(text.trim())
+  host = cp && parseInt(cp[1], 16) <= 0x10ffff ? String.fromCodePoint(parseInt(cp[1], 16)) : text.trim()
+  if (!host) return
+  if (location.protocol.startsWith('http')) {
+    const url = new URL(location.href)
+    if (host === '𦈁') url.searchParams.delete('char')
+    else url.searchParams.set('char', host)
+    history.replaceState(null, '', url)
+  }
+  let savedWeight
+  try { savedWeight = localStorage.getItem('yao-weight/' + host) } catch {}
+  $('weight').value = ['0.85', '1.15'].includes(savedWeight) ? savedWeight : '1'
+  selected = host
+  requests.clear()
+  edits.clear()
+  $('host').value = host
+  const matrix = host === '𦈁'
+  const scalar = [...host].length === 1
+  $('character-code').textContent = scalar ? code(host.codePointAt(0)) : 'IDS'
+  $('matrix-title').textContent = matrix ? '兩處幺的組合' : '部件字形'
+  $('selection-heading').textContent = matrix ? '所選部件' : '所選組合'
+  $('original-heading').textContent = scalar ? '原字' : '輸入字形'
+  $('matrix').parentElement.hidden = !matrix
+  $('occurrences').hidden = matrix
+  document.querySelector('.pair').hidden = !matrix
+  $('position').hidden = !matrix
+  $('style-label').textContent = matrix ? '文津宋體' : '宋體'
+  $('font-source').hidden = !matrix
+  if (matrix) {
+    $('original').replaceChildren(glyph({...native, viewBox:'0 0 1000 1000'}, '文津宋體的𦈁'))
+    $('dimensions').textContent = n + ' × ' + n
+    showAnalysis(expandedVariation(expression))
+    select(0, 1)
+  } else {
+    switches()
+    preview(host, $('original'))
+    showSelection()
+  }
+}
+
+$('weight').onchange = () => {
+  try {
+    if ($('weight').value === '1') localStorage.removeItem('yao-weight/' + host)
+    else localStorage.setItem('yao-weight/' + host, $('weight').value)
+  } catch {}
+  if (host === '𦈁') select(Math.floor(designs.indexOf(currentDesign) / n), designs.indexOf(currentDesign) % n)
+  else preview(selected, $('selected-glyph'))
+}
+
+const hostInput = $('host')
+const suggestions = $('suggestions')
+function suggest() {
+  const query = hostInput.value.trim().toUpperCase()
+  const matches = query ? yaoCharacters.filter(char => char === query || code(char.codePointAt(0)).startsWith(query)) : yaoCharacters
+  suggestions.replaceChildren(...matches.slice(0, 60).map(char => new Option(code(char.codePointAt(0)), char)))
+}
+hostInput.addEventListener('input', suggest)
+$('host-form').onsubmit = event => { event.preventDefault(); openHost(hostInput.value) }
+for (const [id, delta] of [['previous', -1], ['next', 1]]) {
+  $(id).onclick = () => {
+    const i = yaoCharacters.indexOf(host)
+    const start = i >= 0 ? i : delta > 0 ? -1 : 0
+    const next = (start + delta + yaoCharacters.length) % yaoCharacters.length
+    openHost(yaoCharacters[next])
+  }
+}
+openHost(new URL(location.href).searchParams.get('char') || '𦈁')
+suggest()

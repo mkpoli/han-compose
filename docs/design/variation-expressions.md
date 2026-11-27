@@ -43,6 +43,18 @@ Each directive occupies one line. Quoted text uses JSON string escapes. The root
 
 Keep the expression for the source, occurrence paths and catalogue identities. Its ordinary IDS projection carries the chosen spellings and expands only the branches needed to write them. If a form itself has editable parts, add an expansion for that selected form at its path, then describe its children. Independent product dimensions occupy disjoint paths. When a parent's shape changes the available children, give each parent design its own product of child choices. Pass those products to `createVariationBranches([{id, product}, …])`. Its count is the sum of the branch sizes, and its indices preserve each branch identity even when two branches yield the same IDS.
 
+## Switch a 幺 occurrence
+
+`han-compose/yao-occurrences` lists the paths to 幺 through the recorded IDS for an encoded character or an input expression. A choice expands the ancestors of that occurrence and leaves other operands in their original spelling. The gallery accepts a character, a U+ code point, or an IDS, and remembers the preview weight per input in the current browser. [BabelStone IDS](https://www.babelstone.co.uk/CJK/IDS.TXT) · [Yi Bai, Level 1 IDS](https://github.com/yi-bai/ids/blob/da1e9f8a09e2ec8faaf176bac99203f978282041/ids_lv1.txt)
+
+```js
+import { yaoOccurrences, selectYao } from 'han-compose/yao-occurrences'
+
+const [left, right] = yaoOccurrences('絲')
+const ids = selectYao('絲', right.path, 'returning')
+const both = selectYao(ids, left.path, 'detached')
+```
+
 ## Render 𦈁
 
 Pass the gallery’s copied IDS to the composer to draw the full character. In 𦈁, choosing a different upper turn changes only that occurrence in the 文津宋體 outline. Choosing the folded turn at both positions reproduces the source glyph.
