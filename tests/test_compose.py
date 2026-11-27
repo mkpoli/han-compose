@@ -400,3 +400,18 @@ def test_a_component_written_in_full_is_its_own_glyph_where_the_plain_one_takes_
     assert not plain[0].origin.startswith("glyph")
     assert full[0].origin == "glyph &HC-u91d1-full;"
     assert full[0].part.contours == composer.font.glyph("金").contours
+
+
+def test_a_spelled_out_operand_holds_its_characters_ink(composer: compose.Composer) -> None:
+    # 媽 holds less outline than 女 and 馬 standing alone: the description is measured as the character.
+    assert composer.ink(compose.parse("⿰女馬")) == composer.ink("媽")
+    assert composer.ink(compose.parse("⿰女馬")) < composer.ink("女") + composer.ink("馬")
+
+
+def test_the_export_lists_the_room_of_each_enclosing_part(composer: compose.Composer) -> None:
+    from han_compose import web_export
+
+    listed = web_export.rooms(composer)
+    assert listed and all(len(key.split("\t")) == 2 and len(share) == 4 for key, share in listed.items())
+    op, outer = next(iter(listed)).split("\t")
+    assert listed[f"{op}\t{outer}"] == [round(v, 4) for v in composer._enclosed_share(op, outer)]
