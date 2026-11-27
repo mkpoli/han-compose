@@ -37,6 +37,13 @@ const boxOf = part => {
   return [Math.min(...boxes.map(b => b[0])), Math.min(...boxes.map(b => b[1])),
     Math.max(...boxes.map(b => b[2])), Math.max(...boxes.map(b => b[3]))]
 }
+/** Fit a replacement to the visible edges of the final placed outline, before parent flips. */
+function fitInk(revised, original) {
+  if (original.fixed || original.cut) return {}
+  const ink = p => union(groupRings([{ ...p, flips: undefined }], 24).map(pointsBox))
+  return { ...revised, target: mapped(revised.target, ink(revised), ink(original)) }
+}
+
 const widthOf = box => box[2] - box[0]
 const heightOf = box => box[3] - box[1]
 const centreX = box => (box[0] + box[2]) / 2
@@ -302,6 +309,22 @@ function penDoor(char) {
  * A correction that cannot find the parts it names leaves the drawing as it is.
  */
 export const COMPONENT_FIXES = {
+  '⿱投石': {
+    glyphs: {},
+    apply(parts, composer) {
+      const [hand, stone] = parts
+      if (parts.length !== 2) return parts
+      if (composer.fontStyle === 'pen-writing' && hand.origin === 'glyph 投') {
+        // The complete 投 shrinks into a shallow row; bring its strokes up to the weight of 石.
+        return [{ ...hand, weight: [-.65, -.65], fixed: true }, stone]
+      }
+      if (composer.fontStyle !== 'regular') return parts
+      const frame = union([hand.target, stone.target])
+      return [{ ...hand, target: mapped([0.0161, 0.521, 0.9991, 1.002], [0, 0, 1, 1], frame) },
+        // Center the ink of 石 below 投 as in 硩 and 磐. Its 口 pulls the ink right of the box center.
+        { ...stone, target: mapped([0.0, -0.0, 0.8121, 0.481], [0, 0, 1, 1], frame) }]
+    },
+  },
   '⿰貝並': {
     glyphs: { 賦: 'adc3e80a626f45b4c611c368dea0e198bdd174b707ae9a4ea65fcf2e900f19bd' },
     apply(parts, composer) {
@@ -496,6 +519,21 @@ export const COMPONENT_FIXES = {
       return [{ ...wei, finishOutline }, cheng, gong]
     },
   },
+  '⿰舟苗': {
+    glyphs: {},
+    apply(parts, composer) {
+      const boat = parts[0]
+      if (composer.fontStyle !== 'regular' || !composer.staticFace || composer.partial || composer.excluded('舳') ||
+          boat?.origin !== 'learned 艃' || boat.fixed) return parts
+      // In 舳 the narrow boat sits beside the enclosed 由, as it does beside 苗’s 田.
+      const record = composer.glyphRecord('舳')
+      if (record?.v !== 1 || !record.ls?.舟?.length ||
+          hexOf(JSON.stringify(record.p)) !== '69594bf137680197f31cc87bd11c7899a30d9f11cc7c259d727bd14a2c5c47a8') return parts
+      const cut = cutContours(partOf(record), record.ls.舟)
+      const finishOutline = p => fitInk(placed(cut, cut.box, p.target, p.native, '舟 from 舳'), p)
+      return [{ ...boat, finishOutline }, ...parts.slice(1)]
+    },
+  },
   // 𠷃 (BabelStone: ⿰口⿳穴𠆢又) has a broad, shallow 又. Its component's
   // proportions also occur in 𥔉. Keep both inner parts within 穴's outer span.
 
@@ -511,17 +549,10 @@ export const COMPONENT_FIXES = {
       const column = cutContours(partOf(record), [0, 1, 2, 3, 4])
       const buRecord = !composer.excluded('卜') && composer.glyphRecord('卜')
       const right = buRecord?.v === 1 ? partOf(buRecord) : null
-      const ink = p => union(groupRings([p], 24).map(pointsBox))
-      const fit = (revised, original) => {
-        if (original.fixed || original.cut) return {}
-        // Refit in local coordinates. The enclosing transform then acts on both outlines alike.
-        const before = ink({ ...original, flips: undefined })
-        return { ...revised, target: mapped(revised.target, ink({ ...revised, flips: undefined }), before) }
-      }
       return [
-        { ...car, finishOutline: p => fit(placed(column, column.box, p.target, p.native, '車 from 軋'), p) },
+        { ...car, finishOutline: p => fitInk(placed(column, column.box, p.target, p.native, '車 from 軋'), p) },
         // At this width the native 卜 needs a small lift to retain the approved upright and arm weights.
-        { ...kana, finishOutline: p => fit(right
+        { ...kana, finishOutline: p => fitInk(right
           ? placed(right, right.box, p.target, p.native, 'glyph 卜', [0.17, 0.08])
           : { ...p, weight: [-0.8, -0.6] }, p) },
       ]
