@@ -17,6 +17,7 @@ const layouts = {
       cells: [['宀', [66, 597, 941, 853]], ['𭕄', [206, 418, 798, 581]], ['木', [62, -81, 943, 380]]],
     },
     '⿰设正': { encoded: '', cells: [['设', [72, -7, 556, 751]], ['正', [529, 55, 927, 696], [-0.30, 0]]] },
+    '⿱天𭑈': { encoded: '𡙎', cells: [['天', [67, 419, 926, 833]], ['𭑈', [35, -75, 969, 369]]] },
   },
   regular: {
     '⿳宀𭕄木': {
@@ -46,6 +47,7 @@ const layouts = {
       },
       cells: [['山', [128.6, 525.1, 873.3, 880.0]], ['一', [21.0, 400.9, 964.0, 469.0]], ['女', [-21.4, -135.3, 1020.9, 366.9]]],
     },
+    '⿱沙邑': { encoded: '䣉', cells: [['沙', [155, 400, 855, 834]], ['邑', [251, -56, 902, 368]]] },
     '⿳宀𭕄木': {
       encoded: '𫳍',
       donors: {
@@ -81,3 +83,14 @@ export function referenceLayout(node, style) {
 export function referenceBoxes(cells, region) {
   return cells.map(([, box]) => mapped(box, [0, -120, 1000, 880], region))
 }
+
+/** Layouts of operands that have no single glyph in the font. Each group remains one editor leaf.
+ * @type {Record<string, Record<string, [string, number[]][]>>} */
+const sourceCells = {
+  'pen-writing': {
+    '𭑈': [['天', [0, 0, 476, 480]], ['天', [519, 0, 995, 480]]],
+  },
+}
+
+/** @param {string} char @param {string} style */
+export const referenceSources = (char, style) => sourceCells[style]?.[char]
