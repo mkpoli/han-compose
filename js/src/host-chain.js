@@ -1,5 +1,5 @@
 import { derived, mapped, partInk, partOf, placed } from './geometry.js'
-import { recordedInkBox } from './chain-ink.js'
+import { exportInkBox, recordedInkBox } from './chain-ink.js'
 import cuts from './host-chain-cuts.json' with { type: 'json' }
 import { recordedNativeRecord } from './recorded-native.js'
 import { reconnectStroke } from './stroke-donors.js'
@@ -11,13 +11,21 @@ import { parseChain } from './stroke-chain.js'
 // https://github.com/yi-bai/ids/blob/2597437b/ids_lv2.txt
 const notoFallbackFrames = new Set(['#(-一丨b𠃌)', '#(一-𠃍丨b𠃌)'])
 
+// Yi Bai, ids_lv0.txt at 2597437b: 乐 contains #(丿𠃊), 官 contains 㠯,
+// 氾 contains 㔾, and 周 contains ⺆. The latter three records supply outlines
+// missing from the FangSong export.
+// https://github.com/yi-bai/ids/blob/2597437b/ids_lv0.txt#L81
+// https://github.com/yi-bai/ids/blob/2597437b/ids_lv0.txt#L3481
+// https://github.com/yi-bai/ids/blob/2597437b/ids_lv0.txt#L7743
+// https://github.com/yi-bai/ids/blob/2597437b/ids_lv0.txt#L1641
+//
 // Yi Bai, ids_lv0.txt at 2597437b, identifies the two sides of 亞, the
 // frame of 臼, the triangle in 㐃, unhooked 了(s), the lower part of 之, and the two 辶
 // forms. ⻎ in the Noto faces carries the bent stroke used by the H record.
 // https://github.com/yi-bai/ids/blob/2597437b/ids_lv0.txt
 // Numbers select whole contours. Runs join the original light and heavy
 // outline across the two ends of an attached stroke or bar.
-const nativeCuts = /** @type {Record<string, {host: string, uprightGap?: Record<string, number[]>, faces: Record<string, [string, string | string[], (number | number[][])[]]>}>} */ (/** @type {unknown} */ (cuts))
+const nativeCuts = /** @type {Record<string, {host: string, uprightGap?: Record<string, number[]>, strokeSpans?: Record<string, number[][][]>, faces: Record<string, [string, string | string[], (number | number[][])[]]>}>} */ (/** @type {unknown} */ (cuts))
 
 /** @param {any} node @param {string} style */
 export function chainHost(node, style) {
@@ -36,6 +44,26 @@ function widenUprightGap(piece, [left, right], box) {
     i % 2 ? v : v + extra * Math.max(0, Math.min(1, (v - left) / (right - left))))
   return derived(piece, piece.contours.map((/** @type {any} */ c) =>
     ({ ...c, light: spread(c.light), heavy: spread(c.heavy) })))
+}
+
+/** Share the standalone size change between the recorded spans on each axis.
+ * Outside these spans the two masters retain their native terminals and stroke widths.
+ * @param {any} piece @param {number[][][]} spans @param {number[]} box */
+function fitStrokeSpans(piece, spans, box) {
+  const shifts = spans.map((ranges, axis) => {
+    const change = (box[axis + 2] - box[axis]) - (piece.box[axis + 2] - piece.box[axis])
+    return Math.max(change / ranges.length, ...ranges.map(([lo, hi]) => lo - hi))
+  })
+  const stretch = (/** @type {Float64Array} */ points) => points.map((value, i) => {
+    const axis = i % 2
+    let result = value
+    for (const [lo, hi] of spans[axis]) {
+      result += shifts[axis] * Math.max(0, Math.min(1, (value - lo) / (hi - lo)))
+    }
+    return result
+  })
+  return derived(piece, piece.contours.map((/** @type {any} */ c) =>
+    ({ ...c, light: stretch(c.light), heavy: stretch(c.heavy) })))
 }
 
 /** @param {string} node @param {string} style @param {string} digest @param {boolean} allowNoto */
@@ -81,8 +109,14 @@ export function hostChainParts(composer, node, region, atRoot, written = node) {
   if (!face) return null
   const native = cutPiece(partOf(record), source.faces[face][2])
   const gap = source?.uprightGap?.[composer.fontStyle]
-  const frame = gap && atRoot ? recordedInkBox(composer, written) : null
-  const piece = gap && frame ? widenUprightGap(native, gap, frame) : native
+  const spans = source.strokeSpans?.[face]
+  // The exact donor has already passed all exclusions. Its standalone size
+  // also applies when the caller excludes an unrelated glyph.
+  const frame = atRoot && spans ? exportInkBox(composer.data?.manifest, written)
+    : atRoot && gap ? recordedInkBox(composer, written) : null
+  let piece = native
+  if (spans && frame) piece = fitStrokeSpans(native, spans, frame)
+  else if (gap && frame) piece = widenUprightGap(native, gap, frame)
   const target = atRoot ? mapped(frame ?? piece.box, composer.C.face, region) : region
   return [placed(piece, piece.box, target, partInk(piece), `chain ${node}, cut from ${char}`)]
 }
