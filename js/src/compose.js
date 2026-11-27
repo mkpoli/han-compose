@@ -1011,7 +1011,7 @@ export class Composer {
     if (pair) {
       const part = u26201Part(pair)
       const target = atRoot ? mapped(part.box, componentConstants.face, region) : region
-      const origin = pair.left || pair.right ? '文津宋體 · GlyphWiki · 𦈁' : '文津宋體 · 𦈁'
+      const origin = pair.left || pair.right ? 'Noto Serif CJK · 𦈁' : '文津宋體 · 𦈁'
       return [{ ...placed(part, part.box, target, partInk(part), origin), fixed: true }]
     }
     const rate = exactRateForm(text)

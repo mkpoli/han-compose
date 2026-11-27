@@ -48,9 +48,8 @@ $('original').closest('section').append(analysis)
 for (const [label, href] of [
   ['BabelStone IDS · 2025-06-27', sources['BabelStone IDS 2025-06-27'].url],
   ['Unicode IVD · 2026-08-03', sources.ivd.url],
-  ...forms.map((form, i) => ['GlyphWiki · 字形 ' + (i + 1), form.sources[0].url]),
   ['GlyphWiki資料授權', sources.glyphwiki.license],
-  ['文津宋體字形授權', './NOTICE.txt'],
+  ['字型授權', './NOTICE.txt'],
 ]) {
   const link = el('a', label)
   link.href = href
@@ -59,6 +58,24 @@ for (const [label, href] of [
   $('sources').append(item)
 }
 
+for (const [index, form] of forms.entries()) {
+  const group = el('div')
+  group.className = 'mapping'
+  const list = el('ul')
+  for (const ref of form.sources) {
+    const label = ref.name === 'IVD' ? [ref.name, ref.sequence, ref.collection, ref.identifier] :
+      [ref.name, ref.region, ref.glyph]
+    const link = el('a', label.filter(Boolean).join(' · '))
+    link.href = ref.url
+    const item = el('li')
+    item.append(link)
+    list.append(item)
+  }
+  group.append(glyph(form.outline, '字形' + (index + 1)), list)
+  $('mappings').append(group)
+}
+
+$('dimensions').textContent = n + ' × ' + n
 const table = $('matrix')
 const head = table.createTHead().insertRow()
 const corner = el('th')
