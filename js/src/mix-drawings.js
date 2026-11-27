@@ -127,15 +127,33 @@ function prepareInk(paths, strokes) {
   )
   /** Regions whose islands were cut from larger ones. @type {WeakSet<object>} */
   const cuts = new WeakSet()
+  /** Correspondences already worked out for a region. @type {WeakMap<object, ReturnType<typeof prepareCorrespondence>>} */
+  const prepared = new WeakMap()
+  const blendOf = (/** @type {number[][][][][]} */ region) => {
+    if (!prepared.has(region)) prepared.set(region, prepareCorrespondence(region, cuts.has(region)))
+    return prepared.get(region) ?? null
+  }
   /** Faces that split the ink into different numbers of islands still match the
    * islands they share; only the groups that differ fall back to distance fields.
    * @param {number[][][][][]} polygons */
   const regionsOf = (polygons) => {
     const matched = matchRegions(polygons, (p) => p[0])
     if (matched?.[0].length) return matched[0].map((_, i) => matched.map((p) => [p[i]]))
-    const split = matched ? null : splitIslands(polygons)
+    let split = matched ? null : splitIslands(polygons)
     if (split) {
       for (const region of split) cuts.add(region)
+      // The narrowest neck can lie partway along a stroke that runs into its neighbour, and
+      // the piece left holding the rest of that stroke then matches nothing. Cutting at the
+      // outline's notches instead is kept where it leaves more pieces with a counterpart.
+      const unmatched = (/** @type {number[][][][][][]} */ regions) =>
+        regions.filter((region) => !blendOf(region)).length
+      if (unmatched(split)) {
+        const anchored = splitIslands(polygons, true)
+        if (anchored) {
+          for (const region of anchored) cuts.add(region)
+          if (unmatched(anchored) < unmatched(split)) split = anchored
+        }
+      }
       return split
     }
     const grouped = matched ? [] : groupRegions(polygons, (p) => p[0], 0.06 * side)
@@ -175,7 +193,7 @@ function prepareInk(paths, strokes) {
       : regionsOf(registered.map(inkPolygons))
   // Regions without a contour correspondence share one distance field, which keeps
   // their strokes registered to each other.
-  const matched = regions.map((region) => prepareCorrespondence(region, cuts.has(region)))
+  const matched = regions.map(blendOf)
   const blenders = matched.flatMap((blend) => blend ?? [])
   const rest = regions.filter((_, i) => !matched[i])
   if (rest.length)
