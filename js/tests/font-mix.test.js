@@ -1066,7 +1066,7 @@ it('fills a hairline between two cut pieces and nothing else', () => {
   // A bar and a post that stops one unit short of it.
   const bar = [box(20, 20, 100, 20)],
     post = [box(60, 41, 20, 80)]
-  const joined = weldedRings([bar, post], [true, true], 2, 0)
+  const joined = weldedRings([bar, post], [true, true], 2)
   expect(joined).toHaveLength(1)
   expect(area(joined)).toBeCloseTo(100 * 20 + 20 * 80 + 20 * 1, 0)
   // The rings keep the way they came, as the parts drawn beside them turn.
@@ -1074,8 +1074,8 @@ it('fills a hairline between two cut pieces and nothing else', () => {
     ring.slice(0, -1).reduce((twice, q, i) => twice + q[0] * ring[i + 1][1] - ring[i + 1][0] * q[1], 0)
   expect(Math.sign(turn(joined[0]))).toBe(Math.sign(turn(bar[0])))
   // A gap wider than twice the reach stays, and so does a hairline beside a piece that was never cut.
-  expect(weldedRings([bar, [box(60, 46, 20, 80)]], [true, true], 2, 0)).toHaveLength(2)
-  expect(weldedRings([bar, post], [true, false], 2, 0)).toHaveLength(2)
+  expect(weldedRings([bar, [box(60, 46, 20, 80)]], [true, true], 2)).toHaveLength(2)
+  expect(weldedRings([bar, post], [true, false], 2)).toHaveLength(2)
   // A narrow crotch in one piece's own outline is not filled.
   const fork = [
     [
@@ -1089,8 +1089,13 @@ it('fills a hairline between two cut pieces and nothing else', () => {
       [20, 20]
     ]
   ]
-  const kept = weldedRings([fork, [box(140, 20, 20, 20)]], [true, true], 2, 0)
+  const kept = weldedRings([fork, [box(140, 20, 20, 20)]], [true, true], 2)
   expect(area(kept)).toBeCloseTo(area(fork) + 400, 0)
+  // A patch that rings a counter fills the gap round it and leaves the counter open.
+  const frame = [box(20, 20, 100, 100), box(40, 40, 60, 60, true)],
+    inner = [box(41, 41, 58, 58), box(50, 50, 40, 40, true)]
+  const nested = weldedRings([frame, inner], [true, true], 2)
+  expect(area(nested)).toBeCloseTo(100 * 100 - 40 * 40, 0)
 })
 
 it('does not pair distant leftover corners at opposite ends of a long stem wall', () => {

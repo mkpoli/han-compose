@@ -104,8 +104,6 @@ function strokeUnits(labels, counts) {
 
 /** Half the widest gap between cut pieces that an even mix fills, in em units. */
 const WELD = 8
-/** Half the widest sliver an even mix drops, in em units. */
-const SLIVER = 2
 
 /** @param {string[]} paths @param {([number, number[]][] | undefined)[]} [strokes] */
 function prepareInk(paths, strokes) {
@@ -291,7 +289,11 @@ function prepareInk(paths, strokes) {
         side
       )
     )
+  // The last outline drawn, kept for a redraw at the same shares and weight.
+  let last = { key: '', d: '' }
   return (/** @type {number[]} */ shares, /** @type {number} */ weight) => {
+    const key = shares.join(',') + '|' + weight
+    if (last.key === key) return last.d
     const total = present.reduce((n, i) => n + shares[i], 0)
     const proportion = present.map((i) => shares[i] / total)
     const b = mixBox(bounds, proportion)
@@ -309,10 +311,10 @@ function prepareInk(paths, strokes) {
     const rings = weldedRings(
       blenders.map((blend) => blend(proportion, weight)),
       welded,
-      WELD * scale * mixed,
-      SLIVER * scale * mixed
+      WELD * scale * mixed
     )
-    return rings.map((r) => outlinePath(r, box, box[2] / spanX, box[3] / spanY, pad)).join('')
+    last = { key, d: rings.map((r) => outlinePath(r, box, box[2] / spanX, box[3] / spanY, pad)).join('') }
+    return last.d
   }
 }
 
