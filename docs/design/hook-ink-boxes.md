@@ -12,6 +12,25 @@ Across the five faces, the dot in 勺 occupies 27–33% of the enclosing 勹’s
 
 Each endpoint names the glyph that sets it. The sample covers 46 character–face pairs among 12 characters with identifiable native contours. The catalogue contains 92 characters with at least one top-level ⿹勹 spelling, including regional variants of 勺. The measured 勺 uses the dot form. [BabelStone IDS, Andrew West, 2025-06-27](../../data/vocab/han-ids.tsv)
 
+## Native outlines
+
+The dashed box follows 勹. The solid box follows the enclosed component.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://github.com/mkpoli/han-compose/raw/pr-assets/pr-486/native-1-dark.png">
+  <img src="https://github.com/mkpoli/han-compose/raw/pr-assets/pr-486/native-1-light.png" alt="Native ink boxes for 勺、勾、匀、匂 across five faces">
+</picture>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://github.com/mkpoli/han-compose/raw/pr-assets/pr-486/native-2-dark.png">
+  <img src="https://github.com/mkpoli/han-compose/raw/pr-assets/pr-486/native-2-light.png" alt="Native ink boxes for 句、旬、甸、匈 across five faces">
+</picture>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://github.com/mkpoli/han-compose/raw/pr-assets/pr-486/native-3-dark.png">
+  <img src="https://github.com/mkpoli/han-compose/raw/pr-assets/pr-486/native-3-light.png" alt="Native ink boxes for 包、匍、匐、訇 across five faces">
+</picture>
+
 ## Reading the measurements
 
 The CSV gives the four ink edges of 勹 and its inner component in 1000-em units, with y increasing downward. Subtract the frame’s left edge from the midpoint of the inner left and right edges, then divide by the frame width to obtain its horizontal center fraction. Measure the vertical center from the top edge in the same way. The width and height percentages use the corresponding frame dimensions. [Per-glyph measurements and contour indices](hook-ink-boxes.csv)
