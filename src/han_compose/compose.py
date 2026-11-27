@@ -110,6 +110,10 @@ class Style:
     own_hosts: bool = False
     #: How far up the style's glyphs move to meet the composer's em, in 1000-unit units.
     y_shift: float = 0.0
+    #: Least gap two neighbouring parts keep at their closest strokes, side by side and stacked:
+    #: the gap three in four of the font's own characters keep there (`calibrate-gaps`). A touching
+    #: pair reads 4, one raster cell: Noto's stacked parts interlock, a brush face's stand apart.
+    facing_least: tuple[float, float] = (12.0, 8.0)
     #: The powers (across x, across y) of a part's scale its stroke width is brought to, measured by
     #: `calibrate-parts`: a part drawn at 0.5 of its glyph keeps 0.5 ** k of its stem. They are the
     #: powers the font's own characters follow, brought toward plain scaling as far as makes a
@@ -186,6 +190,7 @@ STYLES = {
         kindred=False,
         part_stems=(0.147, 0.013),
         part_spread=(1.09, 1.09),
+        facing_least=(8.0, 4.0),
     ),
     # Nôm Na Tống 5.20 (Nôm Na Group, Vietnamese Nôm Preservation Foundation): a static Song face cut
     # after woodblock printing, the reference font for Hán-Nôm encoding. No other font fills in
@@ -210,6 +215,7 @@ STYLES = {
         # them where Noto Serif's stand. They fill the em's whole height, so a stroke at the top
         # or the foot can pass its edge by a few units.
         y_shift=31.0,
+        facing_least=(24.0, 21.0),
     ),
     # Zhuque Fangsong 0.212 (technical preview), recut from the 1932 南宋 type. It is a static font, so
     # 400 is also the heavy master; Jigmo draws the ideographs it lacks, in the nearest pinned design.
@@ -229,6 +235,7 @@ STYLES = {
         part_stems=(0.364, 0.315),
         part_spread=(1.11, 1.17),
         own_hosts=True,
+        facing_least=(16.0, 16.0),
     ),
     # TW-Kai (CNS 11643 Kai, fonts version 11510.1): a static brush face whose Extension B and G
     # faces draw the ideographs the BMP face lacks, in the same design.
@@ -245,6 +252,7 @@ STYLES = {
         own_hosts=True,
         # TW-Kai's typographic ascent is 820 on its 1024-unit em: 880 - 820 * 1000 / 1024.
         y_shift=79.2,
+        facing_least=(24.0, 20.0),
     ),
     # Kureedo 0.5.0 Full: Klee One's kaisho and historical kana, with every public code point LXGW
     # WenKai Light 1.530 has and Klee lacks. It is a static font, so 400 is also the heavy master;
@@ -266,6 +274,7 @@ STYLES = {
         part_stems=(0.328, 0.368),
         part_spread=(1.16, 1.26),
         own_hosts=True,
+        facing_least=(25.0, 24.0),
     ),
 
 }
@@ -1421,6 +1430,9 @@ CLEARED = frozenset("⿴⿵⿶⿷⿺")
 #: Least gap two neighbouring parts keep where they face each other, side by side and stacked: the
 #: median gap along their facing edges, as 95% of drawn characters keep it (measured on 800).
 FACING = (72.0, 53.0)
+#: Least gap two neighbouring parts keep at their closest strokes, side by side and stacked, where
+#: a style measures none of its own (`Style.facing_least`).
+FACING_LEAST = (12.0, 12.0)
 #: Most of its length a part gives up to make room for its neighbour.
 SQUEEZE = 0.15
 #: How far past the heavy master a part squeezed into a narrow box may grow: its stems keep the
@@ -4205,10 +4217,16 @@ class Composer:
         if axis == 0 and getattr(getattr(self.font, "style", None), "name", None) in COLUMN_CLEARANCE:
             self._columns.append(groups)
         for a, b in pairwise(groups):
-            gap = _facing(a, b, axis)
-            if gap is None or gap >= FACING[axis]:
+            gaps = _facing_gaps(a, b, axis)
+            if gaps is None:
                 continue
-            half = (FACING[axis] - gap) / 2
+            # The median misses one stroke reaching its neighbour (the foot of 艹 on the head of
+            # 南): the closest pair of strokes keeps the style's least gap as well.
+            least = getattr(getattr(self.font, "style", None), "facing_least", FACING_LEAST)[axis]
+            short = max(FACING[axis] - float(np.median(gaps)), least - float(gaps.min()))
+            if short <= 0:
+                continue
+            half = short / 2
             first, second = (a, b) if axis == 0 else (b, a)  # lower x first; y is up, so the stacked lower part first
             # No part gives up more than `SQUEEZE` of its length: parts drawn into each other are a
             # layout fault this pass does not mend.
@@ -4719,9 +4737,15 @@ def _squeeze(group: list[Placed], axis: int, low: float, high: float) -> None:
 
 
 def _facing(a: list[Placed], b: list[Placed], axis: int, size: int = 250) -> float | None:
-    """The median gap between two groups along their facing edges, in font units: per row (side by
+    """The median gap between two groups along their facing edges (`_facing_gaps`)."""
+    gaps = _facing_gaps(a, b, axis, size)
+    return None if gaps is None else float(np.median(gaps))
+
+
+def _facing_gaps(a: list[Placed], b: list[Placed], axis: int, size: int = 250) -> np.ndarray | None:
+    """The gaps between two groups along their facing edges, in font units: per row (side by
     side) or column (stacked) where both have ink, from the end of the first to the start of the
-    second. `a` is the left or upper group."""
+    second. `a` is the left or upper group. None where fewer than five lines hold both."""
     box = (0.0, ASCENT - EM, EM, ASCENT)
     ma = fill([r for p in a for r in _rings(p.part.contours, p.contours())], size, box)
     mb = fill([r for p in b for r in _rings(p.part.contours, p.contours())], size, box)
@@ -4732,7 +4756,7 @@ def _facing(a: list[Placed], b: list[Placed], axis: int, size: int = 250) -> flo
         ra, rb = np.nonzero(ma[:, line])[0], np.nonzero(mb[:, line])[0]
         if len(ra) and len(rb):
             gaps.append(rb.min() - ra.max())
-    return float(np.median(gaps)) * EM / size if len(gaps) >= 5 else None
+    return np.array(gaps, dtype=float) * EM / size if len(gaps) >= 5 else None
 
 
 # ------------------------------------------------------------------ output

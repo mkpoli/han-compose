@@ -242,6 +242,7 @@ def constants(composer: C.Composer) -> dict:
         out[name] = value
     style = composer.font.style
     out["STEM_CURVE"] = [list(v) for v in style.stem_curve]
+    out["FACING_LEAST"] = list(style.facing_least)
     out["HEAVY"] = style.heavy
     if style.part_stems is not None:
         out["PART_STEMS"] = list(style.part_stems)
