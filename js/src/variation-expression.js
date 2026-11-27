@@ -1,5 +1,5 @@
 // @ts-check
-import { descriptionEnd } from './tree.js'
+import { descriptionEnd, isMark } from './tree.js'
 import { tokens } from './tokens.js'
 
 /** @typedef {number[]} Path */
@@ -18,7 +18,9 @@ function named(text) {
 
 /** @param {string} text */
 function spelling(text) {
-  if (!named(text) || text.includes('⬚') || text.includes('＋') || descriptionEnd([...text]) !== [...text].length) {
+  const chars = typeof text === 'string' ? [...text] : []
+  const end = descriptionEnd(chars)
+  if (!named(text) || text.includes('⬚') || text.includes('＋') || end < 0 || !chars.slice(end).every(isMark)) {
     throw new TypeError('Expected one complete IDS operand')
   }
 }

@@ -63,3 +63,10 @@ test('a source criterion stays distinct from a selectable registered family', ()
   const chosen = replaceVariation(variationExpression('率'), [], { text:'&GW-aj1-03952;', source:'UCV/30/1' })
   expect(realizeVariation(chosen, r)).toBe('&GW-aj1-03952;')
 })
+
+test('a mark on the whole description stays in place when an operand changes', () => {
+  const marked = variationExpression('⿱幺小' + '\u0323')
+  const adjusted = replaceVariation(marked, [0], { text: '木', source: 'fixture:adjusted' })
+  expect(realizeVariation(adjusted)).toBe('⿱木小' + '\u0323')
+  expect(() => variationExpression('木\u0323土')).toThrow('complete IDS')
+})
