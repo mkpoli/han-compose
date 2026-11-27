@@ -50,7 +50,7 @@ import { hangulLetters } from './hangul-ids.js'
 import { toConjoiningJamo } from './hangul.js'
 import { tileHost } from './fangsong-tile.js'
 import { brushSweepRoom, brushSweepParts } from './brush-sweep-rooms.js'
-import { componentFix, enclosedZeroTarget } from './component-fixes.js'
+import { componentFix, enclosedZeroTarget, INCOME_IDS, incomeBoxes } from './component-fixes.js'
 import { isOutbound, markFace, markParts } from './marks.js'
 import { SI_CHAIN, siChainForm, siBendDonor } from './si-chain.js'
 import { youChainDonors, youChainParts } from './you-chain.js'
@@ -153,6 +153,19 @@ const isJamoRun = text => {
 }
 
 export class LookupError extends Error { name = 'LookupError' }
+/** A part's source must be at least this long along an axis for its scale there to count (`EVEN_LEAST`). */
+const EVEN_LEAST = 60
+/** How evenly a drawing scales its parts: the least scale any part takes along x or y over the
+ *  greatest, 1 where every part keeps the proportions and the relative size its source drew (`_evenness`). */
+function evenness(parts) {
+  const scales = []
+  for (const p of parts) if (!p.cut) for (const k of [0, 1]) {
+    const length = p.source[k + 2] - p.source[k]
+    if (length >= EVEN_LEAST) scales.push((p.target[k + 2] - p.target[k]) / length)
+  }
+  const least = Math.min(...scales)
+  return scales.length && least > 0 ? least / Math.max(...scales) : 0
+}
 
 /** The first `n` hosts of a list in the composer's index order, by each entry's position `r`. */
 const upTo = (list, n) => list.filter(h => h.r < n)
@@ -966,6 +979,8 @@ export class Composer {
     this.footlessPieces = new WeakMap()
     this._forced = new Map()
     this.spelled = new Set(m.spelled)
+    // Operator TAB enclosing part → the room its own characters give what they enclose (`rooms`).
+    this.rooms = m.rooms ?? {}
     this.AXIS = c.AXIS
     this.ENCLOSE = { ...c.ENCLOSE, ...EXTRA_ENCLOSE }
     this.INSIDE = { ...c.INSIDE, ...EXTRA_INSIDE }
@@ -1292,6 +1307,17 @@ export class Composer {
   /** Shared lookup key and metrics for descriptions that name the same form. */
   renderKey(node) { return this.resolution(node).key }
   /** The encoded glyph supported by the description's normalization evidence. */
+  /** `node` with each operand that spells a drawn character replaced by that character, from the
+   *  innermost out: ⿱艹⿰口南 as ⿱艹喃 (`_joined`). */
+  joined(node) {
+    if (!Array.isArray(node)) return node
+    return mapOperands(node, child => {
+      const operand = this.joined(child)
+      if (!Array.isArray(operand) || this.spelled.has(keyOf(operand))) return operand
+      const name = this.bySequence(keyOf(operand))
+      return name && !this.excluded(name) ? name : operand
+    })
+  }
   bySequence(key) {
     try { return this.resolution(this.parse(key)).encoded } catch { return null }
   }
@@ -1665,6 +1691,7 @@ export class Composer {
     // Cell scaffolds already have a complete layout; searching every repeated subtree adds no evidence.
     if (this.pyramid(tree) || this.pyramidWithBase(tree)) return false
     const key = keyOf(tree)
+    if (key.includes(INCOME_IDS)) return false
     if (containsRateForm(key) || this.bySequence(key) || this.spelled.has(key)) return false
     if (isGroupedForm(key, this.fontStyle) || isComponentForm(key, this.fontStyle)) return false
     let leaves = 0, supported = true
@@ -1978,6 +2005,13 @@ export class Composer {
     if (partitioned) return partitioned
     const out = []
     const walk = (node, region, atRoot) => {
+      if (Array.isArray(node) && node[0] === '⿱') {
+        const boxes = incomeBoxes(keyOf(node), this.fontStyle, region, this.face)
+        if (boxes) {
+          for (const box of boxes) out.push({ index: out.length, box, empty: false })
+          return
+        }
+      }
       const yuan = this.yuanParts(node, region)
       if (yuan) {
         for (const part of yuan) out.push({ index: out.length, box: part.target, empty: false })
@@ -2620,7 +2654,7 @@ export class Composer {
     return qiFamilyParts(this, node, region, measure)
   }
 
-  drawNode(node, region, atRoot = false, sideBySide = false) {
+  drawNode(node, region, atRoot = false, sideBySide = false, regroup = true) {
     const sweep = brushSweepParts(this, node, region, !atRoot)
     if (sweep) return sweep
     const yuan = this.yuanParts(node, region)
@@ -2696,6 +2730,9 @@ export class Composer {
     const hasRepetition = containsComponentForm(key, this.fontStyle)
     const C = this.C
     let encoded = typeof node === 'string' ? node : hasRepetition ? null : this.spelled.has(key) ? null : this.bySequence(key)
+    // A character written with an operand spelled out (𬞑 as ⿱艹⿰口南, where its own sequence is
+    // ⿱艹喃) is that character (`_joined`).
+    if (!encoded && Array.isArray(node) && !hasRepetition && !this.spelled.has(key)) encoded = this.bySequence(keyOf(this.joined(node)))
     if (atRoot && typeof node !== 'string') {
       const redrawn = [...this.exclude].find(ch => this.sequenceOf(ch) === key)
       if (redrawn) encoded = redrawn
@@ -2789,7 +2826,29 @@ export class Composer {
     // A rewrite stands as it is: an enclosure written as a stack (㗊 as ⿳吅X吅) holds its operand
     // between the halves of a frame, which is no run to group.
     node = (written === node ? this.groupedStack(node) : null) ?? written
+    // A row regrouped into pairs may now spell a character (⿲氵木目 as ⿰氵⿰木目, which is 湘): it
+    // is drawn as that character is.
+    if (!this.separate && !hasRepetition && keyOf(node) !== key && !this.spelled.has(keyOf(node)) && this.bySequence(keyOf(this.joined(node))))
+      return this.drawNode(node, region, atRoot, sideBySide, regroup)
     const op = node[0], children = node.slice(1)
+    if (regroup && this.hosted && !this.separate && (op === '⿲' || op === '⿳') && children.length === 3 &&
+        !children.slice(1).every(child => keyOf(child) === keyOf(children[0]))) {
+      // Few characters hold a part in the middle of three, so it often has no host and its whole
+      // glyph is squeezed into the slot (木 a third as wide in ⿲氵木目). Two operands have hosts
+      // and a learned layout: the same row is drawn through each pairing of its neighbours as
+      // well, and the drawing that scales its parts most evenly is kept (`_node`).
+      const pair = op === '⿲' ? '⿰' : '⿱'
+      const [first, middle, last] = children
+      const drawings = [this.drawNode(node, region, atRoot, sideBySide, false)]
+      for (const tree of [[pair, first, [pair, middle, last]], [pair, [pair, first, middle], last]]) {
+        // Only a pairing that names a character the fonts draw: the three-part layout has rules
+        // of its own (a cover over a middle band) that a pairing of bare parts would lose.
+        const named = tree.slice(1).find(Array.isArray)
+        if (!this.bySequence(keyOf(this.joined(named))) && !this.bySequence(keyOf(this.joined(tree)))) continue
+        try { drawings.push(this.node(tree, region, atRoot, sideBySide)) } catch (error) { if (!(error instanceof LookupError)) throw error }
+      }
+      return drawings.reduce((best, drawing) => evenness(drawing) > evenness(best) ? drawing : best)
+    }
     // A pair aligned along the axis of the row it is an operand of stands beside that row's other
     // parts: its operand list is marked for `narrowRow`, and so are such pairs among its operands.
     if (this.beside.has(node)) this.beside.add(children)
@@ -4248,7 +4307,8 @@ export class Composer {
       // beyond STRETCH is no form for that place (示's square glyph in a left column); 身 also takes
       // the left column's narrow form from 射, 躬 or 躭.
       if (!part && ownParts && typeof child === 'string' && !this.excluded(child)
-        && !(op === '⿰' && i === 0 && keyOf(child) === '身' && this.hasLeftBody(child))) {
+        && !(op === '⿰' && i === 0 && keyOf(child) === '身' && this.hasLeftBody(child))
+        && !(op in this.ENCLOSE && i === 1 && this.keptRoom(op, children[0], groups[0], box))) {
         const designed = this.designedCut(child)
         if (designed) {
           groups.push([this.place(designed.piece, box, this.ink(designed.record.h), `host ${designed.record.h}`)])
@@ -4284,12 +4344,16 @@ export class Composer {
           // An opening that overlaps little of the layout's box is a pocket beside the part. 𦉪's
           // own hook splits off a small box below it; 丅 belongs in the frame's wide opening under
           // the roof.
-          const tight = opening && area(opening) < area(box) && within(box, opening) >= C.ROOM_TRUST
+          // The network places a part it never saw enclosed by guess (龍 hanging out of 勹's foot):
+          // under an enclosing part cut from a host it stays in the room that part's own characters
+          // give what they enclose (`_enclosed_room`).
+          const kept = this.keptRoom(op, children[0], groups[0], box)
+          const tight = !kept && opening && area(opening) < area(box) && within(box, opening) >= C.ROOM_TRUST
           const grid = tight ? this.gridTree(child) : null
-          const inner = tight ? opening : box
+          const inner = kept ?? (tight ? opening : box)
           // A part centred in a room alone would sit away from a short arm: open the room out over
           // the sides the enclosure closes.
-          const anchor = opening && (tight || area(opening) > area(box)) ? centre(this.held(opening, op, frameOf)) : centre(inner)
+          const anchor = !kept && opening && (tight || area(opening) > area(box)) ? centre(this.held(opening, op, frameOf)) : centre(inner)
           groups.push(grid ? this.cellLayout(grid, inner, { leafIndices: false }) : this.node(child, inner))
           this.fit(groups[0], groups[1], frameOf, stem, C, { room: inner, anchor })
         } else {
@@ -4800,6 +4864,15 @@ export class Composer {
     if (!glyph) return false
     const ink = tightBox(glyph)
     return this.outlines(child) > 1 && ink[2] - ink[0] <= MIDDLE_FLAT * (ink[3] - ink[1])
+  }
+
+  /** `box` brought inside the room the characters written `op` round `outer` give what they enclose,
+   *  under an enclosing part cut from a host (`_enclosed_room`); null where the export gives that
+   *  part no room or the part is drawn another way. */
+  keptRoom(op, outer, drawn, box) {
+    const share = this.rooms[`${op}\t${keyOf(outer)}`]
+    if (!share || !drawn?.length || !drawn.every(p => /^(learned|host|teacher) /.test(p.origin))) return null
+    return movedInto(box, mapped(share, [0, 0, 1, 1], union(drawn.map(p => p.target))))
   }
 
   /** A sequence drawn whole somewhere in the font, in any place but the left or the top (`_instance`). */
@@ -6285,6 +6358,18 @@ function apart(a, b, axis, short, most) {
   const limit = group => most * (Math.max(...group.map(p => p.target[axis + 2])) - Math.min(...group.map(p => p.target[axis])))
   squeeze(first, axis, 0, -Math.min(half, limit(first)))
   squeeze(second, axis, Math.min(half, limit(second)), 0)
+}
+
+/** `box` moved the least way that brings it inside `room`, shrunk about its centre in its own
+ *  proportions first where it is wider or taller than the room (`_moved_into`). */
+function movedInto(box, room) {
+  let width = box[2] - box[0], height = box[3] - box[1]
+  const scale = Math.min(1, (room[2] - room[0]) / Math.max(width, 1e-9), (room[3] - room[1]) / Math.max(height, 1e-9))
+  const cx = (box[0] + box[2]) / 2, cy = (box[1] + box[3]) / 2
+  width *= scale; height *= scale
+  const x0 = Math.min(Math.max(cx - width / 2, room[0]), room[2] - width)
+  const y0 = Math.min(Math.max(cy - height / 2, room[1]), room[3] - height)
+  return [x0, y0, x0 + width, y0 + height]
 }
 
 function squeeze(group, axis, low, high) {
