@@ -1,12 +1,13 @@
 # Lower-left enclosure comparisons
 
-Main b60f334b · Previous revision a9b9b470 · Revised 9783c5d0.
+Main b60f334b · Previous revision a9b9b470 · Revised a74d7d6d.
 
 ![Fangsong Main / Previous revision / Revised](overview-light.png)
 
 | Comparison | Light | Dark |
 | --- | --- | --- |
 | Fangsong overview | [Light](overview-light.png) | [Dark](overview-dark.png) |
+| Floor clearance in five 瓦 characters | [Light](floor-clearance-light.png) | [Dark](floor-clearance-dark.png) |
 | Eight lower-left enclosures | [Light](fangsong-revisions-light.png) | [Dark](fangsong-revisions-dark.png) |
 | 瓦 inner placement | [Light](tile-centers-light.png) | [Dark](tile-centers-dark.png) |
 | 巴、竜、克 inner placement | [Light](inner-centers-light.png) | [Dark](inner-centers-dark.png) |
@@ -19,6 +20,7 @@ Main b60f334b · Previous revision a9b9b470 · Revised 9783c5d0.
 
 ## Measurements and sources
 
+- [Floor clearance](floor-clearance.csv)
 - [Ink measurements](measurements.csv)
 - [Version comparisons](revision-checks.csv)
 - [Encoded-character checks](encoded-checks.csv)
