@@ -1,18 +1,18 @@
 // @ts-check
-import { u26201Forms } from './yao-forms.js'
+import { resolveYaoForm, u26201Forms } from './yao-forms.js'
 
 /** Pinned component spellings at the two 幺 of the BabelStone U+26201 analysis. */
 const choices = new Map()
 const native = { left: undefined, right: undefined }
 choices.set('𦈁', native)
-const forms = ['幺', ...u26201Forms.map(form => form.text)]
+const forms = ['幺', ...u26201Forms.flatMap(form => [form.text, ...form.aliases])]
 for (const left of forms) {
   const lhs = ['⿱𠂹⿱' + left + '小']
   if (left === '幺') lhs.push('𦃃', '⿱𠂹糸')
   for (const right of forms) {
     const rhs = ['⿳亠⿴{11}' + right + '十']
     if (right === '幺') rhs.push('率')
-    const pair = { left: left === '幺' ? undefined : left, right: right === '幺' ? undefined : right }
+    const pair = { left: resolveYaoForm(left)?.text, right: resolveYaoForm(right)?.text }
     for (const a of lhs) for (const b of rhs) choices.set('⿰' + a + b, pair)
   }
 }

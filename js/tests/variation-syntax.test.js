@@ -9,10 +9,10 @@ test('the two nested 幺 occurrences round-trip as a space, then as every indivi
   const registry = createVariationRegistry([family])
   const space = {version:1, expression, dimensions:sites}
   const syntax = formatVariationSyntax(space)
-  expect(syntax).toContain('vary /0/1/0 in "glyphwiki/5E7A"')
-  expect(syntax).toContain('vary /1/1/1 in "glyphwiki/5E7A"')
+  expect(syntax).toContain('vary /0/1/0 in "VR/5E7A"')
+  expect(syntax).toContain('vary /1/1/1 in "VR/5E7A"')
   const product = variationProductFromJSON(registry, parseVariationSyntax(syntax))
-  expect(product.count).toBe(36n)
+  expect(product.count).toBe(9n)
   expect(parseVariationSyntax(formatVariationSyntax(product.toJSON()))).toEqual(product.toJSON())
   for (let i=0n; i<product.count; i++) {
     const selected = parseVariationSyntax(formatVariationSyntax(product.at(i)))

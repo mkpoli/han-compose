@@ -206,6 +206,10 @@
       "types": "./types/variation-syntax.d.ts",
       "default": "./src/variation-syntax.js"
     },
+    "./yao-catalogue": {
+      "types": "./types/yao-catalogue.d.ts",
+      "default": "./src/yao-catalogue.js"
+    },
     "./variation-registry": {
       "types": "./types/variation-registry.d.ts",
       "default": "./src/variation-registry.js"

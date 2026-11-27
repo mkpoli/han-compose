@@ -14,12 +14,12 @@ const registry = createVariationRegistry([family])
 const product = createVariationProduct(registry, expression, sites)
 const spelling = index => realizeVariation(product.at(BigInt(index)), registry)
 
-test('the public preview draws 𦈁 and all 36 saved choices without an export', async () => {
+test('the public preview draws 𦈁 and all nine saved choices without an export', async () => {
   const draw = composerPreview({ base: '', separate: true })
   const paths = new Set()
-  for (const [index, text] of ['𦈁', ...Array.from({length: 36}, (_, i) => spelling(i))].entries()) {
+  for (const [index, text] of ['𦈁', ...Array.from({length: 9}, (_, i) => spelling(i))].entries()) {
     const expected = index === 0 ? renderU26201() : renderU26201(
-      family.forms[Math.floor((index - 1) / 6)], family.forms[(index - 1) % 6])
+      family.forms[Math.floor((index - 1) / 3)], family.forms[(index - 1) % 3])
     expect(onlyBundled(text)).toBe(true)
     const result = await draw(text)
     expect(result.parts).toHaveLength(1)
@@ -29,13 +29,13 @@ test('the public preview draws 𦈁 and all 36 saved choices without an export',
     expect(pathMask(result.d, 160)).toEqual(pathMask(rounded, 160))
     paths.add(result.d)
   }
-  expect(paths.size).toBe(37)
+  expect(paths.size).toBe(10)
 })
 
 test('a saved occurrence draws as one leaf and leaves the adjacent glyph in place', async () => {
   const draw = composerPreview({ base: '', separate: true })
   const designs = []
-  for (const choice of [0, 6, 35]) {
+  for (const choice of [0, 3, 8]) {
     let leaves
     const result = await draw('⿰' + spelling(choice) + '𦈁', { onSketch: value => { leaves = value } })
     expect(leaves).toHaveLength(2)
@@ -54,4 +54,14 @@ test('the encoded character uses an explicit export when it has its own glyph', 
   expect(svgPath(composer.compose('𦈁'))).toBe(svgPath(composer.compose('木')))
   expect(composer.compose(spelling(0))[0].origin).toContain('𦈁')
   expect(onlyBundled(spelling(0).replace('幺󠄀', '&GW-unknown;'))).toBe(false)
+})
+
+test('the legacy source spellings render the same design in either slot', async () => {
+  const draw = composerPreview({base: '', separate: true})
+  const canonical = spelling(4)
+  const expected = (await draw(canonical)).d
+  for (const left of family.forms[1].aliases) for (const right of family.forms[1].aliases) {
+    const alias = canonical.replace(family.forms[1].text, left).replace(family.forms[1].text, right)
+    expect((await draw(alias)).d).toBe(expected)
+  }
 })

@@ -12,11 +12,11 @@ expand / "𦈁" = "⿰𦃃率" from "BabelStone IDS 2025-06-27 U+26201 [GT]"
 expand /0 "𦃃" = "⿱𠂹糸" from "BabelStone IDS 2025-06-27 U+260C3 [GT]"
 expand /0/1 "糸" = "⿱幺小" from "BabelStone IDS 2025-06-27 U+7CF8 [GHT]"
 expand /1 "率" = "⿳亠⿴{11}幺十" from "BabelStone IDS 2025-06-27 U+7387 [GHTJKP]"
-vary /0/1/0 in "glyphwiki/5E7A"
-vary /1/1/1 in "glyphwiki/5E7A"
+vary /0/1/0 in "VR/5E7A"
+vary /1/1/1 in "VR/5E7A"
 ```
 
-The sample catalogue contains six versioned drawings of 幺. Each can occupy either site, giving **6 × 6 = 36** generated designs, including six with the same drawing at both sites. The witnesses establish each component drawing, and a whole-character attestation can be recorded separately. The sample includes stroke-program counts, ink bounds and drawing sources. [Glyph witnesses and source editions](../../js/examples/variation-expression/u26201.js)
+Three upper-stroke designs of 幺 can occupy either site, giving **3 × 3 = 9** whole-character designs. Four GlyphWiki witnesses (G, H, T and var-002) map to the folded form. Import `yaoFamily` from `han-compose/yao-catalogue` for the input aliases, regional font witnesses and registered IVS. UCV 129 relates 么 and 幺 at the component level. [Glyph witnesses and source editions](../../js/src/yao-catalogue.js)
 
 From the repository root, these commands count the designs, write design 5 as editable text, and recover its rank from the exact IDS.
 
@@ -45,13 +45,13 @@ Keep the expression for the source, occurrence paths and catalogue identities. I
 
 ## Render 𦈁
 
-Pass the gallery’s copied IDS to the composer to draw the full character. Each choice replaces the 幺 at its own position in the 文津宋體 reference. [文津宋體 2.101, 𦈁 source outline](https://github.com/takushun-wu/WenJinMincho/releases/tag/v2.101)
+Pass the gallery’s copied IDS to the composer to draw the full character. The selected designs use newly drawn 幺 components in a Noto Serif CJK–style composition.
 
 ```js
 import { compose, drawingSvg } from 'han-compose'
 import { sourceFor } from 'han-compose/source'
 
-const ids = '⿰⿱𠂹⿱幺󠄀小⿳亠⿴{11}&GW-u5e7a-g;十'
+const ids = '⿰⿱𠂹⿱幺󠄀小⿳亠⿴{11}&VR-5E7A-02;十'
 const drawing = await compose(sourceFor(ids, { bundled: true }), ids)
 const svg = drawingSvg(drawing)
 ```
@@ -70,6 +70,6 @@ bun js/scripts/variation.mjs --input u26201.json at 5
 
 `createVariationProduct` orders sites by operand path. Its count is the product of their sizes. `at(index)` and `rank(expression)` use arbitrary-precision mixed-radix integers with the rightmost site changing fastest. `toJSON()` pins the form order and spellings for interchange. A newly registered form can extend an unpinned family without renumbering an archived space.
 
-`detect(ids)` recovers an exact position in the space, or returns the candidate identities when more than one spells the same IDS. An unqualified encoded character usually leaves the inner choices unknown. For an already located component outline, `recognizeVariationOutline` compares it against source outlines in a common coordinate frame and reports matching witnesses at an explicit tolerance. Whole-page segmentation and recognition of unfamiliar handwriting are outside this operation.
+`detect(ids)` accepts canonical spellings and registered input aliases at each variable site. It recovers an exact position in the space, or returns the candidate identities when more than one spells the same IDS. An unqualified encoded character usually leaves the inner choices unknown. For an already located component outline, `recognizeVariationOutline` compares it against source outlines in a common coordinate frame and reports matching witnesses at an explicit tolerance. Whole-page segmentation and recognition of unfamiliar handwriting are outside this operation.
 
 Registered IVSes retain their collection identities. Imported UCV and NUCV records retain their original criteria, exclusions and witnesses. A product of local component choices receives a Unicode or IRG reference only when evidence separately establishes the mapping. [Variation registry](variation-registry.md) · [Unicode, UTS #37](https://www.unicode.org/reports/tr37/) · [IRG, Working Document Series](https://www.unicode.org/irg/IWDS.html)
