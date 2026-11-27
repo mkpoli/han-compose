@@ -1,0 +1,27 @@
+{
+  "sans": {
+    "鸡": {"frameUnderside": 279, "digest": "4b89e00e51e809a8a452af3a3c7060201be69f123791c435571350fc1f601dba", "left": [1, 2, 3], "crest": 5, "frame": [4, 6, 8], "eye": 7, "bar": 0},
+    "鸟": {"frameUnderside": 305, "digest": "dabffaa105305bce44cb2ddd787b298d9e0b9d6f2031f7ec8f0a0330aecbe17b", "left": [], "crest": 2, "frame": [0, 1, 5], "eye": 3, "bar": 4},
+    "鳮": {"frameUnderside": 227, "digest": "725003fef5074447b071fbc9c23654505e85765039ebbdfa4bcad6c9492cb5b1", "dots": [6, 8, 9, 10]}
+  },
+  "serif": {
+    "鸡": {"frameUnderside": 290, "digest": "55c3f4adfb1e4b466607289d79838c03878b487fe99c43617cd0953c4f9837d7", "left": [2, 3, 4], "crest": 7, "frame": [5, 6, 8, 9, 10, 11], "eye": 0, "bar": 1},
+    "鸟": {"frameUnderside": 303, "digest": "b5b8b0f5c6f2e4815a3da6cee70a2ee0625221cdd11efb9d3827db900d0c195c", "left": [], "crest": 4, "frame": [2, 3, 5, 6, 7, 8], "eye": 1, "bar": 0},
+    "鳮": {"frameUnderside": 246, "digest": "af9ee2ea33fb5a40d48a07b711463f867ab745d4319fafb3513cc77cb684441a", "dots": [0, 3, 4, 5]}
+  },
+  "regular": {
+    "鸡": {"frameUnderside": 284, "digest": "bdda59db95dc9783a81c73b67bc6bcca4d2c46fe534a22d99bd5c6b967844705", "left": [0], "crest": null, "frame": [1], "eye": 3, "bar": 2},
+    "鸟": {"frameUnderside": 276, "digest": "1c3c9538c4c3670fb304113daeb3cd5b95af5bd46ad61751c1b9c51da1f53c7c", "left": [], "crest": null, "frame": [0], "eye": 2, "bar": 1},
+    "鳮": {"frameUnderside": 268, "digest": "fa0f6f124eb027fca76b69fe9f72ec029db6ed32bad4307761cc297c50c6ab84", "dots": [5, 6, 7, 8]}
+  },
+  "fangsong": {
+    "鸡": {"digest": "450dee72c1f7ecf7698a49b3ab71656aa59cf2c8049aa3c62b02f39ef7a31c7d", "left": [3], "crest": null, "frame": [0], "eye": 2, "bar": 1},
+    "鸟": {"digest": "d7467505cd9b071f74e85f1d97164830eeaa1c867b81efcf38e55c1e4a19ac26", "left": [], "crest": null, "frame": [0], "eye": 2, "bar": 1},
+    "鴨": {"digest": "ac44c3b656a2bfd86c334ee5b1bf71dcacc802f4664ef5a392f5f49ebbefb965", "dots": [1, 5, 6, 8]}
+  },
+  "pen-writing": {
+    "鸡": {"frameUnderside": 274, "digest": "3a75de435c8234d172e3f93c0ac2d67e7f5a914238c1971bc55d87d268c031ee", "left": [1], "crest": null, "frame": [0], "eye": 3, "bar": 2},
+    "鸟": {"frameUnderside": 271, "digest": "6fba1ca5558198202c9555487bf39c3be6028c0d570835038d903f4ccc308316", "left": [], "crest": null, "frame": [0], "eye": 2, "bar": 1},
+    "鳮": {"frameUnderside": 235, "digest": "30e6dc1d8efb0234dc20cab849acdd8bda308f70322e9200eaabac97e1965fee", "dots": [3, 4, 5, 6]}
+  }
+}

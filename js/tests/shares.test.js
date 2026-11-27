@@ -84,3 +84,23 @@ it('cuts a component the face does not draw from the same axis of another place'
   expect(out.origins).toContain('host 立')
   expect(out.origins).not.toContain('glyph 䒑')
 })
+
+it('keeps the baseline of 丛 when a dental host offers a bar above 从', async () => {
+  const people = [[200, 180, 270, 680], [600, 180, 670, 680]]
+  const bar = [120, 0, 820, 80]
+  const bottom = { ...character('丛', [...people, bar]), P: ['B'] }
+  const tooth = character('齔', [...people, [120, 700, 820, 780]])
+  const input = {
+    ...files,
+    ...shards('g', Object.entries({ 丛: bottom, 齔: tooth, 一: character('一', [bar]) })),
+    ...shards('p', [['B\t丛', [{ h: '齔', i: 1, op: '⿱', ok: ['一'], j: 1, v: 1, si: 1000, d: 1,
+      c: { k: [0, 1, 2], b: tooth.G.b, fr: [0, 0, 1000, 1000] } }]]]),
+  }
+  for (const fontStyle of ['sans', 'serif']) {
+    const src = sourceOf(input)
+    const out = await compose(src, '⿱一丛', { fontStyle, separate: true })
+    expect(out.parts.map(p => p.origin)).toEqual(['glyph 一', 'glyph 丛'])
+    const excluded = await compose(src, '⿱一丛', { fontStyle, exclude: ['丛'] })
+    expect(excluded.parts[1].origin).toBe('host 齔')
+  }
+})
