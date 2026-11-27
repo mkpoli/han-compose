@@ -43,6 +43,19 @@ Each directive occupies one line. Quoted text uses JSON string escapes. The root
 
 Keep the expression for the source, occurrence paths and catalogue identities. Its ordinary IDS projection carries the chosen spellings and expands only the branches needed to write them. If a form itself has editable parts, add an expansion for that selected form at its path, then describe its children. Independent product dimensions occupy disjoint paths. When a parent's shape changes the available children, give each parent design its own product of child choices. Pass those products to `createVariationBranches([{id, product}, …])`. Its count is the sum of the branch sizes, and its indices preserve each branch identity even when two branches yield the same IDS.
 
+## Render 𦈁
+
+Pass the gallery’s copied IDS to the composer to draw the full character. Each choice replaces the 幺 at its own position in the 文津宋體 reference. [文津宋體 2.101, 𦈁 source outline](https://github.com/takushun-wu/WenJinMincho/releases/tag/v2.101)
+
+```js
+import { compose, drawingSvg } from 'han-compose'
+import { sourceFor } from 'han-compose/source'
+
+const ids = '⿰⿱𠂹⿱幺󠄀小⿳亠⿴{11}&GW-u5e7a-g;十'
+const drawing = await compose(sourceFor(ids, { bundled: true }), ids)
+const svg = drawingSvg(drawing)
+```
+
 ## Save a catalogue with the design
 
 A portable archive holds an expression or pinned space with the referenced families, their source metadata and any supplied outlines. Reopen it independently of later catalogue edits. A URL still requires the external resource when its drawing was supplied only by reference.
