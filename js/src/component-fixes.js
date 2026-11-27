@@ -301,6 +301,45 @@ function penDoor(char) {
  * A correction that cannot find the parts it names leaves the drawing as it is.
  */
 export const COMPONENT_FIXES = {
+  '⿰水行': {
+    glyphs: {},
+    apply(parts, composer) {
+      if (parts.length !== 2) return parts
+      const [water, walk] = parts
+      // These hosts spell the left side with 氵. R+02BE writes the full 水.
+      if (!['learned 沼', 'learned 洽', 'transplant 汭', 'host 汳'].includes(water.origin)) return parts
+      if (composer.excluded('水')) return parts
+      let origin = 'glyph 水'
+      let glyph = composer.glyph('水')
+      if (!glyph) return parts
+      // 沀 supplies a full 水 already drawn for a narrow left column.
+      const donors = {
+        regular: ['6dafb97f1950523ebb5d09952864e54470734e98ae59b68aa0907c91e7fe7814', [0, 2]],
+        'pen-writing': ['14aa4b584364ccfb7a67fb5b595cc00009783a6e2911547cc3e4d3fff1cbd4cb', [1, 2]],
+      }
+      const donor = donors[composer.fontStyle]
+      const record = donor && !composer.excluded('沀') && composer.glyphRecord('沀')
+      if (record && hexOf(JSON.stringify(record.p)) === donor[0]) {
+        const host = partOf(record)
+        glyph = derived(host, donor[1].map(i => host.contours[i]))
+        origin = '水 from 沀'
+      }
+      if (!composer.partial) {
+        if (composer.weighted) composer.balance(parts)
+        else if (composer.staticFace) composer.staticBalance(parts)
+      }
+      const inkOf = part => union(groupRings([part], 24).map(pointsBox))
+      const left = inkOf(water), right = inkOf(walk), frame = union([left, right])
+      // The full 水 needs a two-sided column, as in 沀. Keep each part's vertical extent.
+      const width = widthOf(frame)
+      const leftRoom = [frame[0], left[1], frame[0] + .43 * width, left[3]]
+      const rightRoom = [frame[0] + .46 * width, right[1], frame[2], right[3]]
+      const full = placed(glyph, glyph.box, leftRoom, composer.ink(origin === 'glyph 水' ? '水' : '沀'), origin)
+      const neighbour = { ...walk, target: mapped(walk.target, right, rightRoom), fixed: true }
+      if (!composer.partial && composer.staticFace) composer.staticBalance([full, neighbour])
+      return [{ ...full, target: mapped(full.target, inkOf(full), leftRoom), fixed: true }, neighbour]
+    },
+  },
   '⿸厂𤿁': {
     glyphs: { '𤿁': ['265b41d9c34f6df9803deb35bcb60c79e090b55b7dac28605f1fa979e15c0435',
       '04a5aa68d4ac68d4e9f9a3ba91d78abe33e8adc0c8febc265361b35ce190b628'] },
