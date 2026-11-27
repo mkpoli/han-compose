@@ -4,6 +4,7 @@ import { gunzipSync } from 'node:zlib'
 import { bopomofoSource } from '../src/bopomofo.js'
 import { tangutSource } from '../src/tangut.js'
 import { unicodeSource } from '../src/unicode.js'
+import { pathRings, pointsBox, union } from '../src/geometry.js'
 import { onlyBundled } from '../src/local.js'
 import { compose, createSource, sketch } from '../src/loader.js'
 import { drawingSvg } from '../src/drawing-svg.js'
@@ -30,6 +31,26 @@ it('parses and draws all 75 Bopomofo letters as editable outline parts', async (
     expect(svg).not.toMatch(/NaN|Infinity|<text/)
   }
   for (const char of ['\u3104', '\u3130', '\u319F']) expect(isLetter(char)).toBe(false)
+})
+
+it('seats the separate middle dot in the printed x form of ㄏ in every face and layout', async () => {
+  const load = name => JSON.parse(gunzipSync(readFileSync(new URL(`../data/unicode/outlines/${name.slice(8)}.json.gz`, import.meta.url))))
+  const bounds = d => union(pathRings(d, 32).map(pointsBox))
+  for (const fontStyle of ['sans', 'serif', 'fangsong', 'regular', 'pen-writing']) {
+    const fallback = unicodeSource({ load })
+    const local = bopomofoSource({ load: async () => outlines, fallback, style: fontStyle })
+    for (const layout of ['composed', 'cells']) {
+      const drawing = await compose(local, '⿸ㄏ·', { fontStyle, separate: true, layout })
+      if (layout === 'cells') expect(drawing.parts.map(p => p.leaf)).toEqual([0, 1])
+      expect(drawing.parts.map(p => p.origin.slice(-1))).toEqual(['ㄏ', '·'])
+      const [letter, dot] = drawing.parts.map(p => bounds(p.d))
+      const w = letter[2] - letter[0], h = letter[3] - letter[1]
+      expect((dot[0] - letter[0]) / w).toBeCloseTo(0.69, 2)
+      expect((letter[3] - dot[3]) / h).toBeCloseTo(0.30, 2)
+      expect((dot[2] - dot[0]) / w).toBeCloseTo(0.16, 2)
+      expect((dot[3] - dot[1]) / h).toBeCloseTo(0.18, 2)
+    }
+  }
 })
 
 it('sets a Bopomofo syllable as a centered stack of letters', async () => {
