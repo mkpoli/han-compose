@@ -382,6 +382,30 @@ export function incomeBoxes(key, style, region, face = null) {
   return table.map(box => inIncome(box, frame))
 }
 
+/**
+ * The two leaf boxes of `⿻Mo` (ムーブメント, Geba-ji) centered inside `region`, with clearance on
+ * interior edges when nested inside a larger `face`.
+ * @param {string} key
+ * @param {number[]} region
+ * @param {number[] | null} [face]
+ * @returns {number[][] | null}
+ */
+export function moOverlayBoxes(key, region, face = null) {
+  if (key !== '⿻Mo') return null
+  let frame = region
+  if (face) {
+    const fw = face[2] - face[0], fh = face[3] - face[1]
+    const rw = region[2] - region[0], rh = region[3] - region[1]
+    const leftInset = region[0] > face[0] + 0.02 * fw ? 0.04 * rw : 0
+    const topInset = region[3] < face[3] - 0.02 * fh ? 0.05 * rh : 0
+    if (leftInset || topInset) frame = [region[0] + leftInset, region[1], region[2], region[3] - topInset]
+  }
+  return [
+    mapped([0.05, 0.06, 0.95, 0.94], [0, 0, 1, 1], frame),
+    mapped([0.28, 0.24, 0.72, 0.66], [0, 0, 1, 1], frame),
+  ]
+}
+
 export function enclosedZeroTarget(zero, opening) {
   return targetFor(zero, mapped([0.16, 0.14, 0.84, 0.86], [0, 0, 1, 1], opening))
 }
@@ -409,6 +433,14 @@ function penDoor(char) {
  * A correction that cannot find the parts it names leaves the drawing as it is.
  */
 export const COMPONENT_FIXES = {
+  '⿻Mo': {
+    glyphs: {},
+    apply(parts, composer, region) {
+      const boxes = moOverlayBoxes('⿻Mo', region, composer.face)
+      if (!boxes || parts.length !== 2) return parts
+      return parts.map((part, i) => ({ ...part, target: boxes[i] }))
+    },
+  },
   [INCOME_IDS]: {
     glyphs: {},
     apply(parts, composer, region) {

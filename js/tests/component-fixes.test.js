@@ -2,7 +2,7 @@
 // and tied to the outlines it was read against, so these tests exercise the correction itself on
 // the shapes it was written for, and the guard that leaves another export's drawing alone.
 import { describe, expect, it } from 'bun:test'
-import { COMPONENT_FIXES, INCOME_IDS, clippedAbove, componentFix, dotIn, incomeBoxes, respanned, withoutContours } from 'han-compose/component-fixes'
+import { COMPONENT_FIXES, INCOME_IDS, clippedAbove, componentFix, dotIn, incomeBoxes, moOverlayBoxes, respanned, withoutContours } from 'han-compose/component-fixes'
 import { Composer } from 'han-compose/compose'
 import { drawnContours, fill, groupRings, makePart, mapped, partOf, placed, pointsBox, union } from 'han-compose/geometry'
 import zhou from './fixtures/zhou-miao.json' with { type: 'json' }
@@ -862,5 +862,29 @@ describe('日進斗金 ⿱⿰日斗⿺辶⿰隹金', () => {
     const unrelated = ['glyph 日', 'glyph 辶', 'learned 䳡', 'learned 唫'].map(sample)
     expect(COMPONENT_FIXES[INCOME_IDS].apply(unrelated, { fontStyle: 'regular' }, region)).toBe(unrelated)
     expect(incomeBoxes('⿰⿱日斗⿱進金', 'regular', region)).toBeNull()
+  })
+})
+
+describe('ムーブメント ⿻Mo', () => {
+  const frame = [0, 0, 1000, 1000]
+  const sample = origin => part(origin, frame, frame, [[100, 100, 900, 900]])
+
+  it('centers o inside a full-width M across all five faces and insets nested edges', () => {
+    const face = [50, -80, 950, 840]
+    for (const fontStyle of ['sans', 'serif', 'fangsong', 'regular', 'pen-writing']) {
+      const parts = [sample('glyph M'), sample('glyph o')]
+      const out = COMPONENT_FIXES['⿻Mo'].apply(parts, { fontStyle, face }, face)
+      const [m, o] = out.map(p => p.target)
+      expect((m[0] + m[2]) / 2).toBeCloseTo((o[0] + o[2]) / 2, 4)
+      expect(o[0]).toBeGreaterThan(m[0])
+      expect(o[2]).toBeLessThan(m[2])
+      expect(o[1]).toBeGreaterThan(m[1])
+      expect(o[3]).toBeLessThan(m[3])
+    }
+    const nested = moOverlayBoxes('⿻Mo', [450, -80, 950, 560], face)
+    const root = moOverlayBoxes('⿻Mo', [450, -80, 950, 560])
+    expect(nested[0][0]).toBeGreaterThan(root[0][0])
+    expect(nested[0][3]).toBeLessThan(root[0][3])
+    expect(moOverlayBoxes('⿻Mo2', face, face)).toBeNull()
   })
 })
