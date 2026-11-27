@@ -7,6 +7,7 @@ import inwardGrass from './inward-grass-forms.json' with { type: 'json' }
 import splitGrass from './split-grass-forms.json' with { type: 'json' }
 import dotForms from './ucv-dot-forms.json' with { type: 'json' }
 import muNet from './mu-net-forms.json' with { type: 'json' }
+import waterStrokeRow from './water-stroke-row.json' with { type: 'json' }
 import numbered from '../data/numbered-forms.json' with { type: 'json' }
 import { joinedComponentForm } from './constructs.js'
 import waterEnclosure from './water-enclosure.json' with { type: 'json' }
@@ -69,6 +70,8 @@ for (const [style, groups] of Object.entries(waterEnclosure)) styles[style].set(
 // `numbered-sans-outlines.json.gz` in the surface source.
 const numberedStyles = Object.fromEntries(Object.entries(numbered.forms).map(([style, entries]) => [style,
   new Map(Object.entries(entries).map(([text, groups]) => [text, formOf(groups)]))]))
+// 潮語十五音: a short 丨 stands between the bend and hooked body cut from the same 水.
+for (const [style, groups] of Object.entries(waterStrokeRow)) styles[style].set('⿲㇇丨𰛅', { ...formOf(groups), donors: ['水', '丨'] })
 const numberedDrawing = (text, style) => numberedStyles[style]?.get(text) ?? null
 const positions = Object.fromEntries(Object.entries(data.positions ?? {}).map(([style, entries]) => [style,
   new Map(Object.entries(entries).map(([name, group]) => [name,

@@ -1795,8 +1795,9 @@ export class Composer {
         return
       }
       const cell = target(box)
-      const water = node[0] === '⿺' && node[1] === '水' && node[2] === '巜' && !node.note
-        ? componentParts('⿺水巜', cell, this.fontStyle, depth === 0, this.exclude) : null
+      const water = ((node[0] === '⿺' && node[1] === '水' && node[2] === '巜') ||
+        (node[0] === '⿲' && node[1] === '㇇' && node[2] === '丨' && node[3] === '𰛅')) && !node.note
+        ? componentParts(keyOf(node), cell, this.fontStyle, depth === 0, this.exclude) : null
       const recorded = keyOf(node) === booklet ? bookletParts(this, cell) : null
       const parts = water ?? recorded ?? this.doubleTurnParts(node, cell) ?? brushSweepParts(this, node, cell, depth > 0) ?? this.thornRowParts(node, cell) ?? yiCrossParts(this, node, cell) ?? ghostParts(this, node, cell) ?? this.qiParts(node, cell)
       if (parts) {
