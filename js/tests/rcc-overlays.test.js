@@ -76,3 +76,21 @@ it('nests 日 inside 乃 and joins both 鼎 legs to 乃 in each font', () => {
     expect(touches(left, right)).toBe(false)
   }
 })
+
+it('seats both FangSong box radicals under the high bar in R+0756', () => {
+  const key = '⿻⿻⺆⺆一'
+  const face = nativeComposer('fangsong')
+  const parts = overlayContextParts(face, key, em)
+  const [high, low, bar] = parts
+  expect(parts.map(p => p.rccLeaf)).toEqual([0, 1, 2])
+  expect(touches(mask(high), mask(bar))).toBe(true)
+  expect(touches(mask(low), mask(high))).toBe(true)
+  expect(low.target[1]).toBeLessThan(high.target[1])
+  expect(low.target[0]).toBeGreaterThan(high.target[0])
+  expect(overlayContextDonors(key, 'fangsong')).toEqual(['冂', '一'])
+  expect(overlayContextDonors(key, 'serif')).toEqual([])
+  expect(overlayContextParts({ ...face, own: () => true }, key, em)).toBeNull()
+  for (const excluded of [key, '⿻⺆⺆', '⺆', '冂', '一']) {
+    expect(overlayContextParts({ ...face, excluded: ch => ch === excluded }, key, em)).toBeNull()
+  }
+})
