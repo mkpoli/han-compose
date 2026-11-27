@@ -2,6 +2,7 @@
 // The composer in the browser: han-compose's export (manifest, layout and the drawing data of each
 // key) loaded as a sequence needs it, and the sequence drawn from it as an SVG path. A file is
 // fetched once a page; a gzipped one (the export writes them so) is unpacked with DecompressionStream.
+import { u26201Choice } from './u26201-forms.js'
 import { exactRateForm } from './rate-forms.js'
 import { APPROXIMATE, Composer, EMPTY, LookupError, designedSources, keyOf, leafCutChar, wheatFaceHosts, mapOperands, parseTree } from './compose.js'
 import { rccDonors } from './rcc-forms.js'
@@ -274,7 +275,7 @@ function keysOf(tree, out = [], separate = false, fontStyle = 'sans', root = tru
       return out
     }
   }
-  if (exactRateForm(keyOf(tree)) || (separate ? isGroupedForm : isComponentForm)(keyOf(tree), fontStyle)) return out
+  if ((keyOf(tree) !== '𦈁' && u26201Choice(keyOf(tree))) || exactRateForm(keyOf(tree)) || (separate ? isGroupedForm : isComponentForm)(keyOf(tree), fontStyle)) return out
   if (!keyOf(tree).includes(EMPTY)) out.push(keyOf(tree))
   const designed = leafCutChar(keyOf(tree))
   if (designed) out.push(designed)
