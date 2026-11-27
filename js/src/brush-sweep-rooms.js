@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { derived, mapped, partInk, partOf, placed, union } from './geometry.js'
+import { derived, fitted, mapped, partInk, partOf, placed, union } from './geometry.js'
 import { hexOf } from './sha256.js'
 
 import { tileParts } from './fangsong-tile.js'
@@ -31,6 +31,10 @@ export function brushSweepParts(composer, node, region, nested = false) {
   if (nested && parts) {
     const bounds = union([region, ...parts.map(part => part.target)])
     for (const part of parts) part.target = mapped(part.target, bounds, region)
+  }
+  if (parts && node[1] === '瓦') {
+    const body = parts[1]
+    body.target = fitted(body.source, body.target, 1)
   }
   return parts
 }

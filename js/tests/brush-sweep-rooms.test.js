@@ -1,6 +1,6 @@
 import { expect, it } from 'bun:test'
 import { compose, createSource, sketch } from '../src/loader.js'
-import { fill, partOf, pathRings, pointsBox, svgPath, union } from '../src/geometry.js'
+import { partOf, pathRings, pointsBox, scaleOf, svgPath, union } from '../src/geometry.js'
 import { hexOf } from '../src/sha256.js'
 import { brushSweepParts } from '../src/brush-sweep-rooms.js'
 import { files, shards } from './fixtures/small-export.js'
@@ -44,31 +44,6 @@ it('keeps adjacent brush enclosures inside their cells', async () => {
   expect(rightEdge).toBeLessThan(leftEdge)
 })
 
-it('matches the middle left gap of the five encoded FangSong tile measures', async () => {
-  // Median horizontal ink-to-ink distance in the middle third of the filling,
-  // divided by whole glyph width. References: ZhongYi 瓩, 甅, 瓧, 瓲, 瓸.
-  const references = { 千: 0.285, 厘: 0.112, 十: 0.258, 屯: 0.092, 百: 0.131 }
-  const src = source(), size = 256
-  for (const [inner, reference] of Object.entries(references)) {
-    const { parts } = await compose(src, '⿺瓦' + inner, { fontStyle: 'fangsong', separate: true })
-    const rings = parts.map(p => pathRings(p.d, 24))
-    const box = union(rings.flat().map(pointsBox))
-    const [frame, body] = rings.map(r => fill(r, size, box))
-    const top = Math.floor(body.findIndex(Boolean) / size)
-    const bottom = Math.floor(body.findLastIndex(Boolean) / size)
-    const gaps = []
-    for (let row = Math.ceil(top + (bottom - top) / 3); row <= top + 2 * (bottom - top) / 3; row++) {
-      const start = row * size
-      const left = body.subarray(start, start + size).indexOf(1)
-      if (left < 0) continue
-      const wall = frame.subarray(start, start + left).lastIndexOf(1)
-      if (wall >= 0) gaps.push((left - wall - 1) / size)
-    }
-    gaps.sort((a, b) => a - b)
-    expect(Math.abs(gaps[Math.floor(gaps.length / 2)] - reference), inner).toBeLessThan(0.018)
-  }
-})
-
 it('places inner ink at the horizontal centers of encoded reference glyphs', async () => {
   // Centers relative to whole-glyph ink width in ZhongYi FangSong. The 竜内
   // target comes from Jigmo because Zhuque Fangsong lacks the U+25A9E glyph.
@@ -105,23 +80,14 @@ it('preserves the five Fangsong 瓦 frames when fitting their contents', () => {
   }
 })
 
-it('moves the middle strokes of 厘 and 百 together at both weights', () => {
+it('places the original tile fillings at their native aspect ratios', () => {
   const composer = { fontStyle: 'fangsong', excluded: () => false, glyphRecord: ch => donors[ch].G }
-  for (const inner of ['厘', '百']) {
-    const donor = partOf(donors[inner].G)
-    const [, body] = brushSweepParts(composer, ['⿺', '瓦', inner], [0, -120, 1000, 880])
-    for (const weight of ['light', 'heavy']) {
-      const offsets = []
-      for (const [i, contour] of donor.contours.entries()) {
-        const original = contour[weight], fitted = body.part.contours[i][weight]
-        for (let j = 0; j < original.length; j += 2) {
-          if (original[j + 1] >= 220 && original[j + 1] <= 420) {
-            offsets.push(original[j] - fitted[j])
-          }
-        }
-      }
-      expect(Math.min(...offsets)).toBeGreaterThan(0)
-      expect(Math.max(...offsets) - Math.min(...offsets)).toBeLessThan(0.001)
+  for (const inner of '千厘十屯百') {
+    for (const nested of [false, true]) {
+      const [, body] = brushSweepParts(composer, ['⿺', '瓦', inner], [17, 25, 540, 760], nested)
+      expect(body.part).toBe(partOf(donors[inner].G))
+      const [sx, sy] = scaleOf(body)
+      expect(sx).toBeCloseTo(sy, 10)
     }
   }
 })

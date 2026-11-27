@@ -6,11 +6,11 @@ import { hexOf } from './sha256.js'
 // five measure characters. The encoded Beijing ZhongYi FangSong glyphs guide
 // the relative placements. CWTeX Q Fangsong's 瓩 is a second comparison.
 const forms = {
-  千: { strokeShift: 0.072, wall: 70, roof: 22, frame: [-8.59, -96.04, 996.43, 779], inner: [473, 52, 995, 794.62] },
-  厘: { strokeShift: 0.065, wall: 9, roof: 72, frame: [-8.14, -103.52, 1000.56, 744], inner: [380, 66, 929, 769.01] },
-  十: { strokeShift: 0.108, wall: 98, roof: 18, frame: [-11.15, -95.71, 993.75, 763], inner: [514, 22, 993, 795.82] },
-  屯: { strokeShift: 0, wall: 40, roof: 0, frame: [-12.16, -94.84, 980.70, 725], inner: [390, 59, 899, 795.16] },
-  百: { strokeShift: 0.060, wall: 83, roof: 70, frame: [-14.95, -86.92, 990.74, 774.73], inner: [454, 47, 949, 762.5] },
+  千: { wall: 70, roof: 22, frame: [-8.59, -96.04, 996.43, 779], inner: [473, 52, 995, 794.62] },
+  厘: { wall: 9, roof: 72, frame: [-8.14, -103.52, 1000.56, 744], inner: [380, 66, 929, 769.01] },
+  十: { wall: 98, roof: 18, frame: [-11.15, -95.71, 993.75, 763], inner: [514, 22, 993, 795.82] },
+  屯: { wall: 40, roof: 0, frame: [-12.16, -94.84, 980.70, 725], inner: [390, 59, 899, 795.16] },
+  百: { wall: 83, roof: 70, frame: [-14.95, -86.92, 990.74, 774.73], inner: [454, 47, 949, 762.5] },
 }
 
 const em = [0, -120, 1000, 880]
@@ -57,32 +57,6 @@ function framePart(glyph, form) {
   })))
 }
 
-// Keep the two ends of the filling at their encoded positions while bringing
-// its interior strokes toward the fixed 瓦 upright. Move the central band as
-// a unit so its vertical strokes and counters retain their widths.
-function innerPart(glyph, strokeShift, char) {
-  if (!strokeShift) return glyph
-  const [left, bottom, right, top] = glyph.box
-  const width = right - left
-  const fit = points => points.map((value, index) => {
-    if (index % 2) return value
-    // Translate the boxed strokes of 百 and 厘 together across each row.
-    // The roof of both glyphs and the bottom bar of 厘 anchor their ink boxes.
-    if (char === '百' || char === '厘') {
-      const height = (points[index + 1] - bottom) / (top - bottom)
-      const aboveFoot = char === '厘' ? (height - 0.075) / 0.20 : 1
-      const belowRoof = (0.86 - height) / 0.15
-      return value - strokeShift * width * Math.max(0, Math.min(1, aboveFoot, belowRoof))
-    }
-    const fromEdge = Math.min(value - left, right - value)
-    return value - strokeShift * Math.min(width, 4 * Math.max(0, fromEdge - 0.04 * width))
-  })
-  const contours = glyph.contours.map(contour => ({
-    ...contour, light: fit(contour.light), heavy: fit(contour.heavy),
-  }))
-  return { ...glyph, contours }
-}
-
 export function tileParts(composer, node, region) {
   const form = tileForm(node, composer.fontStyle)
   if (!form) return null
@@ -93,7 +67,5 @@ export function tileParts(composer, node, region) {
   const place = (part, box, char) => ({
     ...placed(part, part.box, mapped(box, em, region), partInk(part), `glyph ${char}`), fixed: true,
   })
-  const body = partOf(filling)
-  const fitted = filling.f === 1 || filling.k === 1 ? body : innerPart(body, form.strokeShift, inner)
-  return [place(framePart(partOf(frame), form), form.frame, outer), place(fitted, form.inner, inner)]
+  return [place(framePart(partOf(frame), form), form.frame, outer), place(partOf(filling), form.inner, inner)]
 }
