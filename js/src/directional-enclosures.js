@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { hexOf } from './sha256.js'
-import { derived, fill, groupRings, grown, mapped, partOf, placed, pointsBox, shrunk, union } from './geometry.js'
+import { cutContours, fill, groupRings, grown, mapped, partOf, placed, pointsBox, shrunk, union } from './geometry.js'
 
 const bodies = new Set(['白', '百', '首'])
 export const checkedHook = node => Array.isArray(node) && !node.note && node[0] === '⿹' && node[1] === '勹' && bodies.has(node[2])
@@ -81,7 +81,7 @@ function fangsongHook(composer, outer, frame) {
   const record = composer.glyphRecord('訇')
   if (record?.v !== 1 || hexOf(JSON.stringify(record.p)) !==
       'c838b0fe144da47c0842495746e9bd37c93911df1586a6a792ef825ce73e04ac') return null
-  const glyph = partOf(record), cut = derived(glyph, [glyph.contours[0]])
-  const native = placed(cut, cut.box, cut.box, composer.ink('訇'), 'host 訇')
+  const glyph = partOf(record), cut = cutContours(glyph, [0])
+  const native = placed(cut, cut.box, cut.box, outer.native, 'host 訇', outer.weight)
   return { ...outer, ...native, source: bounds([native]), target: frame }
 }

@@ -99,6 +99,9 @@ it('retains the full 百 inside the native 勹 of 訇 when the ordinary hook can
   const preview = await sketch(source(hookBox, fangsong), '⿹勹百', fangsongOptions)
   expect(preview.map(p => p.box)).toEqual(after.parts.map(p => p.box))
   const donor = fangsong.訇
+  const annotated = source(hookBox, { ...fangsong, 訇: { ...donor,
+    G: { ...donor.G, sg: [['hook', [0]], ['word', [1]], ['both', [0, 1]]] } } })
+  expect((await compose(annotated, '⿹勹百', fangsongOptions)).parts[0].strokes).toEqual([['hook', [0]]])
   for (const G of [{ ...donor.G, v: 0 }, { ...donor.G, p: donor.G.p.toReversed() }]) {
     const other = source(hookBox, { ...fangsong, 訇: { ...donor, G } })
     expect((await compose(other, '⿹勹百', fangsongOptions)).d).toBe(original.d)
@@ -114,18 +117,18 @@ it('declines a wider hook stroke when it would meet a neighbouring mark', async 
   const draw = new Composer(src.store(), fangsongOptions)
   const original = new Composer(src.store(), { ...fangsongOptions, exclude: ['訇'] }).compose('⿹勹百')
   const revised = draw.compose('⿹勹百')
-  const [l, b, r, t] = bounds((await compose(src, '⿹勹百', fangsongOptions)).d)
-  // The public path coordinates run down from the ascent.
-  const frame = [l, 880 - t, r, 880 - b], size = 128
+  const frame = union(groupRings(revised, 32).map(pointsBox)), size = 128
+  const [l, b, r, t] = frame
   const mask = parts => fill(groupRings(parts), size, frame)
   const previous = mask(original), hook = mask([revised[0]])
   const index = hook.findIndex((ink, i) => ink && !previous[i])
   expect(index).toBeGreaterThanOrEqual(0)
   const x = l + (index % size + 0.5) * (r - l) / size
-  const y = frame[3] - (Math.floor(index / size) + 0.5) * (t - b) / size
+  const y = t - (Math.floor(index / size) + 0.5) * (t - b) / size
   const dot = partOf(character('點', [[x - 2, y - 2, x + 2, y + 2]]).G)
   const parts = [...original, placed(dot, dot.box, dot.box, 1, 'mark 點')]
+  const before = parts.map(p => p.target)
   clearHookContacts(draw, parts)
-  expect(parts[0].origin).toBe(original[0].origin)
-  expect(parts[0].origin).not.toBe('host 訇')
+  expect(parts[0].origin).toBe('glyph 勹')
+  expect(parts.map(p => p.target)).toEqual(before)
 })
