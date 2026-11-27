@@ -38,10 +38,13 @@ const cuts = {
 /** @param {string} key */
 export const shiContextDonors = key => spellings.has(key) ? ['氏'] : []
 
+/** @param {import('./compose.js').Composer} composer @param {string} key */
+export const excludedShiContext = (composer, key) => spellings.get(key)?.inputs.some(input => composer.excluded(input)) ?? false
+
 /** @param {import('./compose.js').Composer} composer @param {string} key @param {number[]} region */
 export function shiContextParts(composer, key, region) {
   const context = spellings.get(key), cut = cuts[composer.fontStyle]
-  if (!context || !cut || context.inputs.some(input => composer.excluded(input))) return null
+  if (!context || !cut || excludedShiContext(composer, key)) return null
   const record = composer.glyphRecord('氏')
   if (record?.v !== 1 || hexOf(JSON.stringify(record.p)) !== cut.hash) return null
   const leaves = [context.written, '𫠠']

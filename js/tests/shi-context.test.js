@@ -72,7 +72,11 @@ test('an editable leaf follows a caller moving or resizing its target', async ()
 test('keeps the ordinary component fallback for an excluded, unknown, or mismatched 氏 donor', async () => {
   const strokes = ['丿', '𠃊', '𫠠'].map(char => [char, character(char, [[90, 120, 680, 570]])])
   const flat = idsOf(angles[1]), historical = idsOf(angles[3])
-  for (const [G, exclude] of [[glyphs.sans, []], [{ ...glyphs.fangsong, p: glyphs.fangsong.p.slice(1) }, []],
+  const changed = structuredClone(glyphs.fangsong)
+  const coordinates = Buffer.from(changed.p[0][1], 'base64')
+  coordinates.writeInt16LE(coordinates.readInt16LE(0) + 1, 0)
+  changed.p[0][1] = coordinates.toString('base64')
+  for (const [G, exclude] of [[glyphs.sans, []], [changed, []],
     [glyphs.fangsong, ['氏']], [glyphs.fangsong, [flat]]]) {
     const source = sourceOf([['氏', { G, ink: 5760 }], ...strokes])
     for (const separate of [false, true]) {
@@ -80,5 +84,14 @@ test('keeps the ordinary component fallback for an excluded, unknown, or mismatc
       expect(drawn.d.length).toBeGreaterThan(0)
       expect(drawn.origins.some(origin => origin.includes('氏'))).toBe(false)
     }
+  }
+})
+
+test('the recorded rising spelling honors the canonical exclusion of its historical form', async () => {
+  const strokes = ['丿', '𠄌', '𫠠'].map(char => [char, character(char, [[90, 120, 680, 570]])])
+  const source = sourceOf([['氏', { G: glyphs.sans, ink: 8237.6 }], ...strokes])
+  for (const omit of [angles[0], idsOf(angles[0])]) for (const separate of [false, true]) {
+    const drawing = await compose(source, idsOf(angles[2]), { fontStyle: 'sans', separate, exclude: [omit] })
+    expect(drawing.origins.some(origin => origin.includes('氏'))).toBe(false)
   }
 })
