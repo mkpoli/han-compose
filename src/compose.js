@@ -2,6 +2,7 @@
 import { columnClearance, settleColumns } from './column-spacing.js'
 import { ratePart, rateParts } from './rate-drawing.js'
 import { containsRateForm, exactRateForm, rateFormsFor } from './rate-forms.js'
+import { checkedHook, clearHookContacts, markHook } from './directional-enclosures.js'
 import { hookFloor } from './hook-floor.js'
 import { fitHookDonor, lowerHookSeat, openHookCounters } from './hook-seat.js'
 import { stackedHookPart } from './stacked-hook.js'
@@ -1478,6 +1479,7 @@ export class Composer {
       if (!subtracts(tree)) settleColumns(this.columns, out, this.fontStyle)
       if (!marks) fitRecordedInk(this, sequence, out)
       if (marks) out.push(...markParts(this, marks, frame, face))
+      clearHookContacts(this, out)
       return out
     } finally { this.face = previous }
   }
@@ -1559,6 +1561,11 @@ export class Composer {
       out.push(...parts)
     }
     const walk = (node, box, depth) => {
+      const start = out.length
+      place(node, box, depth)
+      if (checkedHook(node)) markHook(this, node, out.slice(start))
+    }
+    const place = (node, box, depth) => {
       const rate = this.rateMetric(keyOf(node)) && rateParts(keyOf(node), this.fontStyle, target(box), depth === 0)
       if (rate) {
         if (leafIndices) rate[0].leaf = leaf++
@@ -1723,6 +1730,7 @@ export class Composer {
     else if (!this.partial && this.staticFace) this.staticBalance(out)
     this.fitMetricKeInterior(out, tree)
     fitClawInterior(out, tree, this.fontStyle, true)
+    clearHookContacts(this, out)
     return out
   }
 
@@ -1738,6 +1746,18 @@ export class Composer {
     const frame = this.face.slice(), face = this.faceBeside(marks)
     const leaves = this.sketched(sequence)
     if (face.some((edge, at) => edge !== frame[at])) for (const leaf of leaves) leaf.box = mapped(leaf.box, frame, face)
+    if (/⿹勹[白百首]/u.test(sequence)) {
+      const editable = Object.create(this)
+      editable.separate = true
+      try {
+        const drawn = editable.compose(sequence, marks).filter(p => !p.origin?.startsWith('mark '))
+        if (drawn.length === leaves.length && drawn.every((p, i) => !p.cut && (p.leaf === undefined || p.leaf === i))) {
+          for (const [i, p] of drawn.entries()) if (p.clearedHook) leaves[i].box = drawnBox(p)
+        }
+      } catch (error) {
+        if (!(error instanceof LookupError)) throw error
+      }
+    }
     return leaves
   }
 
@@ -1946,7 +1966,9 @@ export class Composer {
   node(node, region, atRoot = false, sideBySide = false) {
     const rate = rateParts(keyOf(node), this.fontStyle, region, atRoot)
     if (rate && !this.excluded(exactRateForm(keyOf(node)).host)) return rate
-    return this.constructed(node, region, atRoot) ?? componentFix(keyOf(node), this.drawNode(node, region, atRoot, sideBySide), this, region)
+    const parts = this.constructed(node, region, atRoot) ?? componentFix(keyOf(node), this.drawNode(node, region, atRoot, sideBySide), this, region)
+    if (checkedHook(node)) markHook(this, node, parts)
+    return parts
   }
 
   /** The parts a nested construct draws `node` with in `region`: null for a description that is no
