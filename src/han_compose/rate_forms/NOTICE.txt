@@ -5,6 +5,13 @@ Copyright and SIL Open Font License 1.1 notices for the outlines of 率 and its 
 Noto Serif CJK JP — Version 2.003;hotconv 1.1.1;makeotfexe 2.6.0
 © 2017-2024 Adobe (http://www.adobe.com/).
 
+Noto Serif CJK SC Regular 2.003 — community drawing of 𦈁.
+The surrounding strokes adapt 𠈌 and 千 (𠂹), 綦 (the base of 糸) and 蟀 (the right-hand 率).
+The selectable 幺 are editorial drawings based on the stroke construction and weight of this face.
+Source: https://github.com/notofonts/noto-cjk/blob/Serif2.003/Serif/OTF/SimplifiedChinese/NotoSerifCJKsc-Regular.otf
+SHA-256: 2a2eae2628df83556c54018c41e20fa532c1b862c5256ae8b3f23feb918d12ca
+© 2017–2024 Adobe. SIL Open Font License 1.1.
+
 Noto Sans CJK JP — Version 2.004;hotconv 1.0.118;makeotfexe 2.5.65603
 © 2014-2021 Adobe (http://www.adobe.com/), with Reserved Font Name 'Source'.
 

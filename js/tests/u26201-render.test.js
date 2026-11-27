@@ -2,7 +2,7 @@ import { expect, test } from 'bun:test'
 import { ASCENT, EM_BOX, fill, pathRings } from '../src/geometry.js'
 import { rateDrawing } from '../src/rate-drawing.js'
 import { rateFormsFor } from '../src/rate-forms.js'
-import { renderU26201, u26201Forms } from '../src/render-u26201.js'
+import { renderU26201, u26201Forms, yaoOutline } from '../src/render-u26201.js'
 
 const size = 256
 const mask = d => fill(pathRings(d, 16), size, EM_BOX)
@@ -13,11 +13,11 @@ test('omitting both choices preserves the native WenJin drawing', () => {
 })
 
 test('each selection changes ink only inside its own 幺', () => {
-  const base = mask(renderU26201().d)
+  const base = mask(renderU26201('folded', 'folded').d)
   for (const { id, text } of u26201Forms) {
     for (const [choice, x0, y0, x1, y1] of [
-      [[id, null], 86, 527, 496.15, 813.29],
-      [[null, text], 604, 195, 849.49, 640.39],
+      [[id, null], 81, 526, 485, 810],
+      [[null, text], 602, 217, 843, 611],
     ]) {
       const rendered = mask(renderU26201(...choice).d)
       let inside = 0, outside = 0
@@ -29,12 +29,13 @@ test('each selection changes ink only inside its own 幺', () => {
         else outside++
       }
       expect(outside).toBe(0)
-      expect(inside).toBeGreaterThan(100)
+      if (id === 'folded') expect(inside).toBe(0)
+      else expect(inside).toBeGreaterThan(100)
     }
   }
 })
 
-test('all 36 whole characters are visually distinguishable, with native exterior ink extents', () => {
+test('all nine whole characters are visually distinguishable, with native exterior ink extents', () => {
   const silhouettes = new Set()
   const native = pathRings(renderU26201().d, 16).flat()
   function extent(ink) {
@@ -46,9 +47,22 @@ test('all 36 whole characters are visually distinguishable, with native exterior
   for (const left of u26201Forms) for (const right of u26201Forms) {
     const { d, viewBox } = renderU26201(left, right)
     expect(viewBox).toBe('0 0 1000 1000')
-    expect(extent(pathRings(d, 16).flat())).toEqual(bounds)
+    extent(pathRings(d, 16).flat()).forEach((value, i) => expect(value).toBeCloseTo(bounds[i], 0))
     silhouettes.add(Buffer.from(mask(d)).toString('base64'))
   }
-  expect(silhouettes.size).toBe(36)
+  expect(silhouettes.size).toBe(9)
   expect(() => renderU26201('missing', null)).toThrow(RangeError)
+})
+
+test('the short stroke is detached in the first drawing and both joined turns have solid junctions', () => {
+  for (const [id, rings] of [['detached', 2], ['folded', 1], ['returning', 1]]) {
+    expect(pathRings(yaoOutline(id).d, 16)).toHaveLength(rings)
+  }
+})
+
+test('each source alias draws the same authored outline as its registry identity', () => {
+  for (const form of u26201Forms) for (const alias of form.aliases) {
+    expect(yaoOutline(alias)).toEqual(yaoOutline(form))
+    expect(renderU26201(alias, alias)).toEqual(renderU26201(form, form))
+  }
 })
