@@ -40,7 +40,7 @@ import { grassShape } from './variants.js'
 import { EM_BOX, area, centre, contourSections, count, cutContours, derived, drawnBox, drawnContours, fill, fitted, grown, groupRings, makePart, mapped, partInk, partOf,
   placed, pointsBox, pyRound, raster, rings, scaleOf, shrunk, square, stretchOf, targetFor, union, windingOf, within } from './geometry.js'
 import { grassPairs, connectedGrass, contextualGrass } from './grass-forms.js'
-import { ownFormsOnly, componentParts, componentPosition, componentPositionBox, componentRecord, containsComponentForm, hasForcedForms, containsForcedForm, isComponentForm, isForcedCharacter, isAtomicForm, isGroupedForm, isNativeForm } from './component-forms.js'
+import { brushFace, ownFormsOnly, componentParts, componentPosition, componentPositionBox, componentRecord, containsComponentForm, hasForcedForms, containsForcedForm, isComponentForm, isForcedCharacter, isAtomicForm, isGroupedForm, isNativeForm } from './component-forms.js'
 import { features, forward } from './layout.js'
 import { CONSTRUCTS, BODY_FORMS, IVD_FORMS, SURROUND_CONSTRUCTS, bodyForm, constructBody, constructHosts, constructParts, ivdParts } from './constructs.js'
 import { pyramidCells, pyramidOnBaseLayout } from './pyramid.js'
@@ -710,7 +710,7 @@ function fitClawInterior(parts, tree, style, cells = false) {
     const inner = parts[2], [l, b, r, t] = inner.target
     const height = t - b
     if (!noto) {
-      if (!ownFormsOnly(style) || !parts[1].part.held) return
+      if (!brushFace(style) || !parts[1].part.held) return
       const fraction = style === 'regular' ? (cells ? 0.014 : 0.047)
         : style === 'fangsong' ? 0.048 : 0.095
       inner.target = [l, b - height * fraction, r, t - height * fraction]
@@ -743,11 +743,11 @@ const counterFrames = {
   }],
 }
 const lowerLeftFrames = new Set(['克', '米', '走', '尺'])
-const brushClaw = (outer, style) => outer === '爪' && ownFormsOnly(style)
+const brushClaw = (outer, style) => outer === '爪' && brushFace(style)
 /** Rectangular counters in the openings of 𮇇 and 趄, in frame-relative
  * coordinates. The brush 米 has a higher diagonal foot than the Noto cut. */
 function counterBox(outer, inner, nested, style) {
-  const brush = ownFormsOnly(style)
+  const brush = brushFace(style)
   if (outer === '米') {
     if (inner === '罒') return brush ? [0.43, 0.455, 0.985, 0.795] : [0.43, 0.375, 0.99, 0.715]
     if (inner === '口' && !brush) return [0.57, 0.30, 0.99, 0.84]
@@ -809,7 +809,7 @@ const enclosureEntry = (op, outer, style) => {
   if (op === '⿺' && outer === '克' && (style === 'serif' || style === 'regular')) return KE_BAI
   if (op === '⿺' && outer === '尺' && style === 'regular') return RULER_STOP
   if (op === '⿺' && outer === '爪' && style === 'regular') return KAI_CLAW
-  if (op === '⿺' && outer === '米' && ownFormsOnly(style)) return RICE_DOTS
+  if (op === '⿺' && outer === '米' && brushFace(style)) return RICE_DOTS
   return ENCLOSURE_FORMS[op]?.[outer]
 }
 
@@ -3301,7 +3301,7 @@ export class Composer {
     // Where the description matches the donor itself, the other contours
     // are the complete inner leaf in its original position.
     const claw = this.fontStyle === 'regular' ? '⿺爪包' : '⿺爪巴'
-    const split = this.separate && (key === '⿺米日' || key === '⿺走且' || (key === claw && ownFormsOnly(this.fontStyle))) &&
+    const split = this.separate && (key === '⿺米日' || key === '⿺走且' || (key === claw && brushFace(this.fontStyle))) &&
       !this.excluded(node[1]) && !this.excluded(node[2])
     const entry = split && key === claw ? enclosureEntry('⿺', '爪', this.fontStyle)
       : split ? ENCLOSURE_FORMS['⿺'][node[1]] : ENCLOSURE_CUTS[key]
