@@ -230,6 +230,10 @@ tokens('⿰亻⿱七木')[2]
 // { path: [1], start: 2, end: 5, tokenEnd: 3, text: '⿱' }
 ```
 
+### Analysing variant forms
+
+An IDS operand can carry an exact IVS, an explicit decomposition or a custom component reference. The registry indexes these spellings by occurrence, visual feature and source. See [Variation registry](../docs/design/variation-registry.md) for the catalogue format, a worked example and source import commands.
+
 ## Entry points
 
 | Import | |
@@ -287,6 +291,6 @@ The ㅏ and ㄴ in the FangSong drawing of ⿱⿰◇ㅏㄴ retain their position
 
 `rateFormsFor(text)` from `han-compose/rate-forms` returns four choices for 率 and 36 compounds. Each has an `id`, `host`, `label`, and `text`. Store the chosen `text` in place of the selected IDS subtree. Calling the function on that subtree recovers the same choices.
 
-The Chinese-style center uses structural IDS spellings defined by this package. The Japanese-style choices use the two Adobe-Japan1 sequences for 率. A compound wraps that component in its own IDS. `rateDrawing(text, style)` from `han-compose/rate-drawing` returns the reviewed 1000-unit SVG path for an exact choice in one of the five supported faces.
+Two choices use structural IDS spellings. Two use Adobe-Japan1 sequences for 率. A compound wraps that component in its own IDS. `rateDrawing(text, style)` from `han-compose/rate-drawing` returns the reviewed 1000-unit SVG path for an exact choice in one of the five supported faces.
 
 The [Unicode IVD](https://www.unicode.org/ivd/data/2026-08-03/IVD_Sequences.txt) registers 率 VS17 as Adobe-Japan1 CID+3952 and 率 VS18 as CID+14085. Other registered sequences of the host can open the picker. The gallery compares 𳅀 against the [Plangothic P2 source](https://github.com/Fitzgerald-Porthmouth-Koenigsegg/Plangothic-Project).
