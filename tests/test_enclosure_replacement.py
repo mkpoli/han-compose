@@ -29,7 +29,7 @@ def learned(monkeypatch, *, outer=True, bare=True, nested=False, collision=0, re
     c = NS(exclude={'匠'}, face=(0,0,100,100), font=font, reuse=True, standalone=True,
         layout=NS(predict=lambda *args:[(0,0,100,100),(25,25,75,75)]),
         _host=select, _node=node, _room=lambda *args:(25,25,75,75) if refit else None,
-        _kin=lambda *args:None, _stretch=C.Composer._stretch, ink=lambda ch:1)
+        _kin=lambda *args:None, _enclosed_room=lambda *args:None, _stretch=C.Composer._stretch, ink=lambda ch:1)
     c._learned_boxes = lambda *args: C.Composer._learned_boxes(c, *args)
     if excluded:
         c.exclude.add('斤')
@@ -70,7 +70,7 @@ def fake_composer(placed):
         _cancel_transforms = _normalize_repeated_grids = _standalone_repeated_grid = lambda self, tree: tree
         _standalone_pyramid = _standalone_expanded_overlay = lambda self, tree: tree
         face=(0,0,100,100);by_sequence={'⿷匚斤':'匠'};reuse=True;exclude={'匠'}  # noqa: RUF012 - read-only fixtures on a stand-in class
-        standalone=True;hosted=True;weighted=True;guide=None;rerank=False;_beside=None
+        standalone=True;hosted=True;weighted=True;guide=None;rerank=False;_beside=None;_columns=[];_spaced=[]  # noqa: RUF012 - cleared by compose, never shared between tests
         font=NS(own=lambda ch:True)
         def _respelled(self,t):return t
         def _node(self,*a,**kw):return placed
@@ -78,6 +78,7 @@ def fake_composer(placed):
         def _unhosted(self,*a):return False
         def _alone(self,*a,**kw):calls.append('alone');return replacement
         def _balance(self,p):calls.append(('balance',p))
+        def _clear(self,p):pass
     return Fake(),replacement,calls
 
 
@@ -109,7 +110,7 @@ def real_geometry(opening=(49,49,51,51), predicted=(120,20,140,40)):
     inner=rectangle(0,0,40,40)
     host=C.Host('甲',[outer],(0,0,100,100),0)
     font=NS(own=lambda ch:False,glyph=lambda ch:inner,stem=((5,8),(5,8)))
-    c=NS(exclude={'匠'},face=(0,0,100,100),font=font,reuse=True,standalone=True,
+    c=NS(exclude={"匠"},face=(0,0,100,100),font=font,reuse=True,standalone=True,_enclosed_room=lambda *args:None,
          layout=NS(predict=lambda *args:[(0,0,100,100),predicted]),
          _host=lambda op,i,*args,**kwargs:(host,0) if i==0 else None,
          _node=lambda child,box:[C.Placed(inner,inner.box,box,origin='glyph '+child)],
