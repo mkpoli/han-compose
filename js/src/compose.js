@@ -36,7 +36,7 @@ import { grassShape } from './variants.js'
 // before drawing again). A store that holds the export's identity table also answers
 // `data.identity(key)`: the key's sequence and the character it describes, without its record; one
 // over an export with a kin table answers `data.kin()` with it (`kin`, `kinOuter`).
-import { EM_BOX, area, centre, count, cutContours, derived, drawnBox, drawnContours, fill, fitted, grown, groupRings, makePart, mapped, partInk, partOf,
+import { EM_BOX, area, centre, contourSections, count, cutContours, derived, drawnBox, drawnContours, fill, fitted, grown, groupRings, makePart, mapped, partInk, partOf,
   placed, pointsBox, pyRound, raster, rings, scaleOf, shrunk, square, stretchOf, targetFor, union, windingOf, within } from './geometry.js'
 import { grassPairs, connectedGrass, contextualGrass } from './grass-forms.js'
 import { ownFormsOnly, componentParts, componentPosition, componentPositionBox, componentRecord, containsComponentForm, hasForcedForms, containsForcedForm, isComponentForm, isForcedCharacter, isGroupedForm, isNativeForm } from './component-forms.js'
@@ -62,6 +62,7 @@ import { rccParts, rccDonors, rccLeafBoxes, numberRccLeaves, editableRccParts } 
 import { recordedNativeGlyph } from './recorded-native.js'
 import { recordedArcParts, recordedArcDonors } from './recorded-arcs.js'
 import { recordedChainNative } from './recorded-chains.js'
+import { excludedShiContext } from './shi-context.js'
 import { nativeStroke, reconstructStroke, strokeDonor } from './stroke-donors.js'
 import { chainForm, chainRoom, isChain, parseChain } from './stroke-chain.js'
 import { STROKE_CHAINS, customAt, splitToneMarks, toneMarksAt } from './tree.js'
@@ -1341,7 +1342,7 @@ export class Composer {
   recordedParts(node, region, key, atRoot) {
     const char = recordedDonor(key)
     if (!char || this.excluded(char) || (this.separate && Array.isArray(node))) return null
-    if (this.exclude.size && (this.excluded(key) || leafTexts(node).some(leaf =>
+    if (this.exclude.size && (this.excluded(key) || (char === '氏' && excludedShiContext(this, key)) || leafTexts(node).some(leaf =>
       this.excluded(leaf) || (isChain(leaf) && parseChain(leaf)?.strokes.some(s => this.excluded(s.char)))))) return null
     // A component can close a counter that its freestanding character leaves open, as in Kai 官.
     if (this.fontStyle === 'regular' && char === '㠯' && isChain(node)) {
@@ -1527,7 +1528,7 @@ export class Composer {
       if (!marks) fitRecordedInk(this, sequence, out)
       if (marks) out.push(...markParts(this, marks, frame, face))
       clearHookContacts(this, out)
-      if (this.fontStyle === 'pen-writing') finishGrassTang(out, this)
+      if (this.fontStyle === 'pen-writing') this.finishPenParts(out)
       if (out.some(p => p.dottedHe)) fitDottedHe(out, this.fontStyle)
       return this.separate ? editableRccParts(out) : out
     } finally { this.face = previous }
@@ -1797,7 +1798,7 @@ export class Composer {
     this.fitMetricKeInterior(out, tree)
     fitClawInterior(out, tree, this.fontStyle, true)
     clearHookContacts(this, out)
-    if (this.fontStyle === 'pen-writing') finishGrassTang(out, this)
+    if (this.fontStyle === 'pen-writing') this.finishPenParts(out)
     if (out.some(p => p.dottedHe)) fitDottedHe(out, this.fontStyle)
     return out
   }
@@ -2016,11 +2017,23 @@ export class Composer {
       const glyph = this.glyph(h.h)
       if (!glyph) return makePart([], h.b.slice())
       piece = cutContours(glyph, h.k, h.b.slice())
+      // Kureedo's fourth 魚 dot touches 辶 in 鰱, so its whole-contour fish cut loses the dot.
+      if (this.fontStyle === 'pen-writing' && h.h === '鰱' && h.k.join(',') === '0,3,6,7,8,10,4,9,12'
+        && hexOf(JSON.stringify(this.glyphRecord('鰱').p)) === 'c6e852294435a77ddb8457275669637d93d0bbcc527032a0d6d9638af98d58c8') {
+        const dot = contourSections(glyph.contours, [2, 69, 81])
+        piece.withFishDot = { ...piece, contours: [...piece.contours, dot] }
+      }
       Object.defineProperty(h, '_piece', { value: piece, enumerable: false })
     }
     // A piece cut along KanjiVG's groups, which a drawing using it credits.
     if (h.kv && !piece.kv) Object.defineProperty(piece, 'kv', { value: true, enumerable: false })
     return piece
+  }
+
+  finishPenParts(parts) {
+    finishGrassTang(parts, this)
+    // Restore the shared stroke after spacing and weight have used the original host metrics.
+    for (const p of parts) if (p.part.withFishDot) p.part = p.part.withFishDot
   }
 
   /** A ranked host as the callers take it: the entry, and its piece read when first asked for. */
