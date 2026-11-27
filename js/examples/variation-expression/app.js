@@ -15,18 +15,21 @@ const el = (name, text) => {
   if (text !== undefined) element.textContent = text
   return element
 }
-function glyph(outline) {
+function glyph(outline, label) {
   const ns = 'http://www.w3.org/2000/svg'
   const svg = document.createElementNS(ns, 'svg')
   svg.setAttribute('viewBox', outline.viewBox)
-  svg.setAttribute('aria-hidden', 'true')
+  if (label) {
+    svg.setAttribute('role', 'img')
+    svg.setAttribute('aria-label', label)
+  } else svg.setAttribute('aria-hidden', 'true')
   const path = document.createElementNS(ns, 'path')
   path.setAttribute('d', outline.d)
   svg.append(path)
   return svg
 }
 const native = originals['𦈁'][0]
-$('original').append(glyph({ ...native, viewBox: '0 0 1000 1000' }))
+$('original').append(glyph({ ...native, viewBox: '0 0 1000 1000' }, '文津宋體的𦈁'))
 $('font-source').href = native.url
 const operators = { '⿰': '左右', '⿱': '上下', '⿳': '上中下', '⿴': '全包圍' }
 const code = cp => 'U+' + cp.toString(16).toUpperCase()
@@ -108,7 +111,7 @@ function select(row, col) {
     head.cells[i + 1].classList.toggle('selected', i === col)
     body.rows[i].cells[0].classList.toggle('selected', i === row)
   }
-  $('selected-glyph').replaceChildren(glyph(designs[index]))
+  $('selected-glyph').replaceChildren(glyph(designs[index], '𦈁，' + buttons[index].getAttribute('aria-label')))
   $('left').replaceChildren(glyph(forms[row].outline))
   $('right').replaceChildren(glyph(forms[col].outline))
   $('left-path').textContent = '[' + sites[0].path.join(', ') + ']'
