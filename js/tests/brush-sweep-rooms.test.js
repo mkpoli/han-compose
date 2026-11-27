@@ -1,6 +1,6 @@
 import { expect, it } from 'bun:test'
 import { compose, createSource, sketch } from '../src/loader.js'
-import { partOf, pathRings, pointsBox, scaleOf, svgPath, union } from '../src/geometry.js'
+import { partOf, pathMask, pathRings, pointsBox, scaleOf, svgPath, union } from '../src/geometry.js'
 import { hexOf } from '../src/sha256.js'
 import { brushSweepParts } from '../src/brush-sweep-rooms.js'
 import { files, shards } from './fixtures/small-export.js'
@@ -52,6 +52,10 @@ it('places inner ink at the horizontal centers of encoded reference glyphs', asy
   const src = source()
   for (const [pair, center] of Object.entries(centers)) {
     const { parts } = await compose(src, '⿺' + pair, { fontStyle: 'fangsong', separate: true })
+    if (pair.startsWith('瓦')) {
+      const [frame, filling] = parts.map(p => pathMask(p.d, 256))
+      expect(filling.some((ink, i) => ink && frame[i]), pair).toBe(false)
+    }
     const boxes = parts.map(p => union(pathRings(p.d, 24).map(pointsBox)))
     const [left, , right] = union(boxes)
     // In 甅 the bottom bar of 厘 needs room beside the projecting Zhuque hook.
