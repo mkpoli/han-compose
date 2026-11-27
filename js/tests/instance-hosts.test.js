@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'bun:test'
 import { Composer, keyOf, parseTree } from '../src/compose.js'
 import { createRenderNormalizer } from '../src/normalization.js'
-import { makePart } from '../src/geometry.js'
+import { makePart, partOf, pointsBox } from '../src/geometry.js'
+// Kureedo Full 0.5.0, SIL OFL 1.1.
+import penLian from './fixtures/pen-lian.json'
 
 const square = (x0, y0, x1, y1) => {
   const light = new Float64Array([x0, y0, x1, y0, x1, y1, x0, y1])
@@ -45,6 +47,21 @@ describe('the hosts an instance weighs', () => {
 })
 
 describe('a piece kept from its host', () => {
+  it('recovers the fourth 魚 dot where Kureedo 鰱 joins it to 辶', () => {
+    const c = Object.create(Composer.prototype)
+    c.fontStyle = 'pen-writing'
+    c.glyph = () => partOf(penLian)
+    c.glyphRecord = () => penLian
+    const host = { h: '鰱', k: [0, 3, 6, 7, 8, 10, 4, 9, 12], b: [40, -58, 407, 785] }
+    const piece = c.pieceOf(host)
+    const drawing = [{ part: piece }]
+    c.finishPenParts(drawing)
+    const feet = drawing[0].part.contours.map(contour => pointsBox(contour.light)).filter(box => box[3] < 180)
+    expect(feet).toHaveLength(4)
+    expect(feet[3]).toEqual([324, 39, 410, 172])
+    expect(c.pieceOf(host)).toBe(piece)
+    expect(c.glyph().contours).toHaveLength(16)
+  })
   it('carries the strokes it holds whole, renumbered to its own contours', () => {
     const glyph = makePart([0, 1, 2, 3].map(i => square(i * 100, 0, i * 100 + 80, 100)))
     glyph.strokes = [[1, [0]], [2, [1, 2]], [3, [2, 3]], [4, [3]]]
