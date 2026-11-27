@@ -551,7 +551,10 @@ def _publish_kin(out: Path, manifest: dict) -> None:
 def _alternatives(composer: C.Composer, char: str, places: Iterable[str]) -> dict[str, list[str]]:
     out = {}
     for place in places:
-        alts = composer.alternatives(char, place)[1:]
+        alts = composer.alternatives(char, place)
+        # The character itself is first unless a positional form goes before it: the list then
+        # names it in its place.
+        alts = alts[1:] if alts[0] == char else alts
         if alts:
             out[place] = alts
     return out
@@ -990,7 +993,7 @@ RECORD = {
     "p": "contours: [commands, light points, move to constants.HEAVY], points int16 little-endian base64, x y interleaved, in 1/quant units",
     "commands": "M one point, L one point, Q<n> n points of a TrueType quadratic run (implied on-curve points between off-curve ones), Q<n>* when the contour closes on an implied point: it starts midway between the last and first",
     "s": "the character's sequence", "e": "the character a sequence describes (its own record holds G, a, s)", "at": "atomic: drawn whole",
-    "hand": "which of 𠂇's strokes it writes first", "a": "positional forms by place, beyond itself",
+    "hand": "which of 𠂇's strokes it writes first", "a": "positional forms by place, beyond itself; a list naming the key itself gives the whole order, the forms before it going first",
     "ink": "Composer.ink: a character's outline length; for a sequence the sum over its operands",
     "nl": "outline count (Composer._outlines)",
     "o": "outline count the layout reads (compose_layout.outlines): a sequence's is that of the character it describes",

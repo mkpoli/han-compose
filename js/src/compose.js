@@ -1904,8 +1904,10 @@ export class Composer {
   /** Preferred host keys depend on rendering identity, independently of the input spelling. */
   alternatives(node, place) {
     const key = this.renderKey(node)
-    const out = [key]
-    for (const form of this.rec(key)?.a?.[place] ?? []) if (!out.includes(form)) out.push(form)
+    const forms = this.rec(key)?.a?.[place] ?? []
+    // The export lists the key itself where its positional forms go before it (竹 on top is 𥫗).
+    const out = forms.includes(key) ? [] : [key]
+    for (const form of forms) if (!out.includes(form)) out.push(form)
     return out
   }
 

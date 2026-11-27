@@ -2716,7 +2716,9 @@ class Composer:
 
     def alternatives(self, node: Node, place: str) -> list[str]:
         """What an operand may be drawn as in `place`: itself, then its positional forms there
-        (王 on the left as 𤣩, 水 on the left as 氵)."""
+        (王 on the left as 𤣩, 水 on the left as 氵). Where Japanese characters do not write the
+        operand itself there (fewer than `JAPANESE_USE` do) and do write a form of it, the forms
+        come first: 竹 on top is 𥫗 in 308 of them and 竹 in none, though 𥴒 holds one."""
         out = [key(node)]
         if isinstance(node, tuple) and key(node) in self.by_sequence:
             # A sequence that describes a drawn character may be found as that character (⿰生生 as 甡).
@@ -2730,6 +2732,8 @@ class Composer:
             for base in (node, *self.bases.get(node, ())):
                 forms.extend(form for form, where in self.forms.get(base, []) if where == place and form not in out + forms)
             used = sorted((f for f in forms if self.usage[(place, f)] >= JAPANESE_USE), key=lambda f: -self.usage[(place, f)])
+            if used and len(out) == 1 and self.usage[(place, node)] < JAPANESE_USE:
+                return [*used, node]
             out.extend(used)
         return out
 

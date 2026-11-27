@@ -200,9 +200,20 @@ def test_characters_whose_sequences_name_each_other_end_in_lookup_error(composer
 
 
 def test_an_operand_is_found_in_its_positional_form(composer: compose.Composer) -> None:
-    assert composer.alternatives("王", "L")[:2] == ["王", "𤣩"]
+    assert set(composer.alternatives("王", "L")[:2]) == {"王", "𤣩"}
     assert "氵" in composer.alternatives("水", "L") and "氵" not in composer.alternatives("水", "R")
     assert "甡" in composer.alternatives(compose.parse("⿰生生"), "T")
+
+
+def test_a_form_goes_first_where_the_operand_itself_is_not_written(composer: compose.Composer) -> None:
+    # 竹 on top is 𥫗 in hundreds of Japanese characters and 竹 in none, though 𥴒 holds one.
+    assert composer.alternatives("竹", "T") == ["𥫗", "竹"]
+    assert composer.alternatives("艸", "T")[0] == "艹"
+    # 刀 on the right is written both ways (切, 別), so the sequence's own spelling is tried first.
+    assert composer.alternatives("刀", "R")[0] == "刀"
+    assert composer.alternatives("竹", "L")[0] == "竹"
+    top = composer.compose("⿱竹⿰魚羊")[0]
+    assert "𥴒" not in top.origin
 
 
 def test_strokes_come_out_at_the_width_of_a_real_glyph(composer: compose.Composer) -> None:
