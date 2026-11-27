@@ -48,6 +48,8 @@ import { pyramidRows, pyramidOnBase } from './pyramid-rows.js'
 import { hangulClusterAt, jamoClass } from './hangul.js'
 import { hangulLetters } from './hangul-ids.js'
 import { toConjoiningJamo } from './hangul.js'
+import { tileHost } from './fangsong-tile.js'
+import { brushSweepRoom, brushSweepParts } from './brush-sweep-rooms.js'
 import { componentFix } from './component-fixes.js'
 import { isOutbound, markFace, markParts } from './marks.js'
 import { SI_CHAIN, siChainForm, siBendDonor } from './si-chain.js'
@@ -870,6 +872,10 @@ export const designedSources = (tree, style = 'sans') => {
     }
     if (!Array.isArray(node)) return
     const [op, ...children] = node
+    if (brushSweepRoom(node, style)) {
+      children.forEach(ch => out.add(ch))
+      if (style === 'fangsong') out.add(node[1] === '瓦' ? tileHost(node[2]) : '尅')
+    }
     if (op === '⿺' && children[1] === '首') out.add('馗')
     if (op === '⿺' && children[0] === '𡕚') { out.add('夂'); out.add('見') }
     if (isThornRow(node)) {
@@ -1788,7 +1794,7 @@ export class Composer {
       }
       const cell = target(box)
       const recorded = keyOf(node) === booklet ? bookletParts(this, cell) : null
-      const parts = recorded ?? this.doubleTurnParts(node, cell) ?? this.thornRowParts(node, cell) ?? yiCrossParts(this, node, cell) ?? ghostParts(this, node, cell) ?? this.qiParts(node, cell)
+      const parts = recorded ?? this.doubleTurnParts(node, cell) ?? brushSweepParts(this, node, cell, depth > 0) ?? this.thornRowParts(node, cell) ?? yiCrossParts(this, node, cell) ?? ghostParts(this, node, cell) ?? this.qiParts(node, cell)
       if (parts) {
         for (const part of parts) {
           if (leafIndices) part.leaf = leaf++
@@ -1969,7 +1975,7 @@ export class Composer {
         return
       }
       const repeated = isGroupedForm(keyOf(node), this.fontStyle) ? componentParts(keyOf(node), region, this.fontStyle, atRoot) : null
-      const designed = repeated ?? rccParts(editable, keyOf(node), region) ?? birdOutlineParts(this, keyOf(node), region) ?? this.doubleTurnParts(node, region) ?? this.thornRowParts(node, region) ?? yiCrossParts(this, node, region) ?? this.qiParts(node, region) ?? ghostParts(this, node, region) ?? this.muKoParts(node, region) ?? this.wheatFaceParts(node, region)
+      const designed = repeated ?? rccParts(editable, keyOf(node), region) ?? birdOutlineParts(this, keyOf(node), region) ?? this.doubleTurnParts(node, region) ?? brushSweepParts(this, node, region, !atRoot) ?? this.thornRowParts(node, region) ?? yiCrossParts(this, node, region) ?? this.qiParts(node, region) ?? ghostParts(this, node, region) ?? this.muKoParts(node, region) ?? this.wheatFaceParts(node, region)
       if (designed) {
         const boxes = designed[0]?.rccGroup && rccLeafBoxes(designed, leafTexts(node).length)
         for (const box of boxes || designed.map(part => part.target)) out.push({ index: out.length, box, empty: false })
@@ -2593,6 +2599,8 @@ export class Composer {
   }
 
   drawNode(node, region, atRoot = false, sideBySide = false) {
+    const sweep = brushSweepParts(this, node, region, !atRoot)
+    if (sweep) return sweep
     const yuan = this.yuanParts(node, region)
     if (yuan) return yuan
     if (Array.isArray(node) && node[0] === '⿱') {
