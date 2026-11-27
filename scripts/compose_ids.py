@@ -76,8 +76,7 @@ def _require_layout(composer: compose.Composer, style: str) -> None:
 def _composer(style: str = compose.DEFAULT_STYLE, **options) -> compose.Composer:
     """The composer in `style`, cutting hosts along KanjiVG's groups, with the learned layout and
     standalone model when `learn` and `learn-alone` have made them."""
-    composer = compose.Composer(compose.Font.of(_style(style)), compose.drawn_sequences(style),
-                                weighted=compose.STYLES[style].weighted, **options)
+    composer = compose.Composer(compose.Font.of(_style(style)), compose.drawn_sequences(style), **options)
     if _layout_path(style).exists():
         composer.layout = compose_layout.LayoutModel.load(_layout_path(style))
     composer.kvg = kanjivg_cuts.Cutter(composer)
@@ -469,15 +468,29 @@ def calibrate_columns(sample: int = 180, seed: int = 73, style: str = STYLE) -> 
 
 @app.command("calibrate-parts")
 def calibrate_parts(sample: int = 700, seed: int = 11, style: str = STYLE) -> None:
-    """Fit the powers of a part's scale its stroke width follows in the font's own characters, for a
-    static style's `part_stems`: each part of a character cut cleanly in two against its own glyph."""
+    """Fit the powers of a part's scale its stroke width follows in the font's own characters, for the
+    style's `part_stems`: each part of a character cut cleanly in two against its own glyph.
+
+    The stroke widths of a character's two parts, side by side or stacked, give the style's
+    `part_spread`: how far apart they are in four of five characters.
+
+    The stroke widths give the two powers. Growing an outline also thickens its dots, ends and
+    diagonals, so the glyph set into the part's box and weighted by those powers holds more ink than
+    the part: the powers are then brought toward 1 (plain scaling) by the strength at which the ink
+    of the weighted glyphs is closest to the ink of the parts themselves."""
+    from dataclasses import replace
+
     composer = _composer(style)
+    held = composer.font.style
 
     def stem(part: compose.Part) -> tuple[float, float] | None:
         widths = compose.stems(compose.raster([compose.Placed(part, part.box, part.box)], 400), compose.EM / 400)
         return widths if all(np.isfinite(widths)) else None
 
-    rows = []
+    def ink(placed: compose.Placed) -> float:
+        return float(compose.raster([placed], 200).sum())
+
+    rows, pairs, apart = [], [], []
     for ops, places in ((tuple(compose.ENCLOSE), (1,)), (("⿰", "⿱"), (0, 1))):
         chars = sorted(ch for ch, s in composer.sequences.items() if s[0] in ops and composer.font.own(ch))
         random.Random(seed).shuffle(chars)
@@ -493,6 +506,10 @@ def calibrate_parts(sample: int = 700, seed: int = 11, style: str = STYLE) -> No
             if host is None or len(host.pieces) != 2:
                 continue
             cut += 1
+            if len(places) == 2:
+                both = [stem(piece) for piece in host.pieces]
+                if all(both):
+                    apart.append([max(both[0][axis], both[1][axis]) / min(both[0][axis], both[1][axis]) for axis in (0, 1)])
             for place in places:
                 piece, operand = host.pieces[place], tree[1 + place]
                 if not isinstance(operand, str) or not composer.font.own(operand):
@@ -503,14 +520,64 @@ def calibrate_parts(sample: int = 700, seed: int = 11, style: str = STYLE) -> No
                     continue
                 rows.append([((piece.box[axis + 2] - piece.box[axis]) / max(own.box[axis + 2] - own.box[axis], 1),
                               widths[axis] / natural[axis]) for axis in (0, 1)])
-    powers = []
+                pairs.append((own, piece))
+    fitted = []
     for axis in (0, 1):
         data = np.array([row[axis] for row in rows])
-        data = data[(data[:, 0] > 0.2) & (data[:, 0] < 1.2) & (data[:, 1] > 0)]
+        data = data[(data[:, 0] > compose.PART_SCALE_LEAST) & (data[:, 0] < 1.2) & (data[:, 1] > 0)]
         x, y = np.log(data[:, 0]), np.log(data[:, 1])
         # Through the origin: a part at its glyph's size keeps its glyph's stem.
-        powers.append(round(float((x * y).sum() / (x * x).sum()), 3))
-    print(json.dumps({"style": style, "parts": len(rows), "part_stems": powers}))
+        fitted.append(float((x * y).sum() / (x * x).sum()))
+    truth = np.array([ink(compose.Placed(piece, piece.box, piece.box)) for _, piece in pairs])
+    native = [composer.ink("", own) for own, _ in pairs]
+    best = None
+    for strength in np.arange(0.5, 1.001, 0.05):
+        powers = tuple(1 - strength * (1 - power) for power in fitted)
+        composer.font.style = replace(held, part_stems=powers)
+        try:
+            drawn = []
+            for (own, piece), length in zip(pairs, native):
+                placed = compose.Placed(own, own.box, piece.box, native=length)
+                composer._balance([placed])
+                drawn.append(ink(placed))
+        finally:
+            composer.font.style = held
+        ratio = np.array(drawn) / truth
+        ratio = ratio[np.isfinite(ratio) & (ratio > 0)]
+        error = float(np.abs(np.log(ratio)).mean())
+        if best is None or error < best[0]:
+            best = (error, float(strength), powers, float(np.median(ratio)))
+    error, strength, powers, median = best
+    print(json.dumps({"style": style, "parts": len(rows), "stem_powers": [round(power, 3) for power in fitted],
+                      "strength": round(strength, 2), "part_stems": [round(power, 3) for power in powers],
+                      "ink_error": round(error, 3), "ink_median": round(median, 3),
+                      # The wider stroke width of a character's two parts over the narrower, in four of five.
+                      "part_spread": [round(float(np.quantile([row[axis] for row in apart], 0.8)), 2) for axis in (0, 1)],
+                      "characters_cut_in_two": len(apart)}))
+
+
+@app.command("calibrate-gaps")
+def calibrate_gaps(sample: int = 900, seed: int = 5, style: str = STYLE) -> None:
+    """Measure the gap the font's own characters keep at the closest strokes of their two parts,
+    side by side and stacked, for the style's `facing_least`: the gap three in four keep."""
+    composer = _composer(style)
+    least = []
+    for op, axis in (("⿰", 0), ("⿱", 1)):
+        chars = sorted(ch for ch, s in composer.sequences.items() if s[0] == op and composer.font.own(ch))
+        closest = []
+        for char in random.Random(seed).sample(chars, min(sample, len(chars))):
+            try:
+                host = composer._host_node(char, compose.parse(composer.sequences[char]), ())
+            except (ValueError, LookupError):
+                continue
+            if host is None or len(host.pieces) != 2:
+                continue
+            first, second = (compose.Placed(piece, piece.box, piece.box) for piece in host.pieces)
+            gaps = compose._facing_gaps([first], [second], axis)
+            if gaps is not None:
+                closest.append(float(gaps.min()))
+        least.append(float(np.percentile(closest, 25)))
+    print(json.dumps({"style": style, "facing_least": least}))
 
 
 if __name__ == "__main__":

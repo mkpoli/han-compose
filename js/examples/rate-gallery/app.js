@@ -48,13 +48,20 @@ const sources = [
     plangothic.url
   ]
 ]
-const rows = ['中式幺', '日式幺']
-const columns = [
-  { name: '向心点', sign: '> <' },
-  { name: '双撇双点', sign: '𰀪⺀' }
+// Across the four serif specimens, contours shared by two forms are the strokes
+// outside their distinguishing feature. The remaining contours label the axes.
+const specimens = rateFormsFor('率').map(form => rateDrawing(form.text, 'serif').match(/M[^M]+/g))
+function difference(form, other) {
+  return specimens[form].filter(contour => !specimens[other].includes(contour)).join('')
+}
+const centres = [
+  { ink: difference(0, 2), label: '中部笔形，第1行' },
+  { ink: difference(2, 0), label: '中部笔形，第2行' }
 ]
-const centres = { cn: rows[0], jp: rows[1] }
-const dots = { chevron: columns[0].name, strokes: columns[1].name }
+const sides = [
+  { ink: difference(0, 1), label: '两侧笔形，第1列' },
+  { ink: difference(1, 0), label: '两侧笔形，第2列' }
+]
 const kinds = { native: '原字', supplement: '补字原字', reference: '参考字形' }
 const themes = {
   '': [
@@ -95,11 +102,23 @@ function glyph(d, label) {
   return svg
 }
 
-function figure(kind, source, shape, d, label) {
+function sample(axis, index) {
+  const item = (axis === 'centre' ? centres : sides)[index]
+  const svg = glyph(item.ink, item.label)
+  svg.setAttribute('viewBox', axis === 'centre' ? '262 160 480 480' : '32 170 920 480')
+  svg.setAttribute('class', 'axis-sample')
+  return svg
+}
+
+function figure(kind, source, samples, d, label) {
   const fig = node('figure', '', { className: kind })
   const caption = node('figcaption')
   caption.append(node('b', kinds[kind] ?? kind), node('span', source))
-  if (shape) caption.append(node('span', shape))
+  if (samples.length) {
+    const line = node('span', '', { className: 'reference-axes' })
+    line.append(...samples)
+    caption.append(line)
+  }
   fig.append(d ? glyph(d, label) : node('div', '无原字', { className: 'missing' }), caption)
   return fig
 }
@@ -218,29 +237,39 @@ function card(host) {
   const originals = node('div', '', { className: 'originals' })
   const own = face.originals[host] ?? []
   for (const item of own) {
-    const shape = [centres[item.centre], dots[item.dots]].filter(Boolean).join(' · ')
-    originals.append(figure(item.kind, item.source, shape, item.d, host + ' · ' + item.source))
+    const samples = []
+    if (item.centre === 'cn' || item.centre === 'jp') samples.push(sample('centre', Number(item.centre === 'jp')))
+    if (item.dots === 'chevron' || item.dots === 'strokes') samples.push(sample('sides', Number(item.dots === 'strokes')))
+    originals.append(figure(item.kind, item.source, samples, item.d, host + ' · ' + item.source))
   }
   const reference = plangothic.glyphs[host]
   if (reference) {
     const name = `${plangothic.name} ${reference.font} ${plangothic.release}`
-    originals.append(figure('reference', name, '', reference.d, host + ' · ' + name))
+    originals.append(figure('reference', name, [], reference.d, host + ' · ' + name))
   }
-  if (!own.length && !reference) originals.append(figure('native', face.font, '', null))
+  if (!own.length && !reference) originals.append(figure('native', face.font, [], null))
 
   const table = node('table', '', { className: 'matrix' })
   table.setAttribute('aria-label', host + ' · 幺形与两侧笔形')
   const head = table.createTHead().insertRow()
-  for (const column of columns) head.append(node('th', column.name, { scope: 'col', title: column.sign }))
-  rows.forEach((rowName, r) => {
-    const body = table.createTBody()
-    body.insertRow().append(node('th', rowName, { scope: 'rowgroup', colSpan: columns.length }))
+  head.append(node('td'))
+  sides.forEach((_, c) => {
+    const heading = node('th', '', { scope: 'col' })
+    heading.append(sample('sides', c))
+    head.append(heading)
+  })
+  const body = table.createTBody()
+  centres.forEach((_, r) => {
     const row = body.insertRow()
-    columns.forEach((column, c) => {
-      const index = r * columns.length + c
+    const heading = node('th', '', { scope: 'row' })
+    heading.append(sample('centre', r))
+    row.append(heading)
+    sides.forEach((_, c) => {
+      const index = r * sides.length + c
       const form = forms[index]
-      const button = node('button', '', { type: 'button', className: 'cell', title: form.text })
-      button.setAttribute('aria-label', `${host} · ${rowName} · ${column.name}`)
+      const label = readable(form.text)
+      const button = node('button', '', { type: 'button', className: 'cell', title: label })
+      button.setAttribute('aria-label', label)
       button.append(
         drawings[index] ? glyph(drawings[index]) : node('div', '无字形', { className: 'missing' })
       )
