@@ -136,7 +136,8 @@ def length(contour):
 
 
 def outward_pair(face, style):
-    """The flanking pair whose dots are closest in length to the median of the face's references.
+    """The flanking pair whose dots are closest in length to the median of the face's references,
+    with the x of the upright it flanks.
 
     An outward pair is longer than the inward one: swapping the native dots leaves the right dot
     as short as the native left dot.
@@ -144,8 +145,18 @@ def outward_pair(face, style):
     pairs = {char: [face.contours(char)[i] for i in index] for char, index in REFERENCES[style].items()}
     lengths = {char: [length(c) for c in pair] for char, pair in pairs.items()}
     median = [statistics.median(lengths[char][i] for char in pairs) for i in (0, 1)]
-    return pairs[min((char for char in FLANKING if char in pairs),
-                     key=lambda char: math.dist(lengths[char], median))]
+    char = min((char for char in FLANKING if char in pairs), key=lambda char: math.dist(lengths[char], median))
+    rest = [c for i, c in enumerate(face.contours(char)) if i not in REFERENCES[style][char]]
+    return pairs[char], upright(rest, pairs[char])
+
+
+def upright(body, pair):
+    """The middle of the ink between the two dots of `pair`, at the height of their middle."""
+    shape = outline(body)
+    (_, y0, x0, y1), (x1, y2, _, y3) = bounds([pair[0]]), bounds([pair[1]])
+    y = (max(y0, y2) + min(y1, y3)) / 2
+    inside = [x for x in range(round(x0), round(x1)) if shape.contains((x, y))]
+    return (inside[0] + inside[-1]) / 2
 
 
 def outline(contours):
@@ -200,9 +211,14 @@ def forms(face, char, style):
     n = max(1, len(points) // 4)
     if sum(x for x, _ in points[-n:]) >= sum(x for x, _ in points[:n]):
         raise ValueError(f"Expected the native dots of {char} to point inward")
-    # The face's own outward pair, centred on the native dots and set as close to the body as
-    # they are.
-    pair = moved(outward_pair(face, style), bounds(left + right))
+    # The face's own outward pair, flanking the upright as it does in its own character, level
+    # with the native dots and set as close to the body as they are.
+    pair, stem = outward_pair(face, style)
+    dx = upright(body, left + right) - stem
+    _, bottom, _, top = bounds(left + right)
+    x, y, x1, y1 = bounds(pair)
+    dy = (bottom + top - y - y1) / 2
+    pair = moved(pair, (x + dx, y + dy, x1 + dx, y1 + dy))
     x, y, x1, y1 = bounds(pair)
     drop = clearance(body, pair) - clearance(body, left + right)
     pair = moved(pair, (x, y - drop, x1, y1 - drop))
