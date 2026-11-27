@@ -762,7 +762,7 @@ export declare class Composer {
      *  the cell would squeeze its glyph; in a pair beside another part, when those parts cover under
      *  `CELL_FILLED` of the cell (辶 under 周 in a quarter column, 曲 and 辰 apart in theirs), the glyph
      *  fills it after all, so one column of the row is not smaller than the next. */
-    fillCell(child: any, group: any, box: any, pair?: boolean): any;
+    fillCell(child: any, group: any, box: any, pair?: boolean, sideBySide?: boolean): any;
     /** A whole glyph a stack's middle band cannot compress: bars and covers (一, 冖, 丷) lie flat
      *  enough to be one, a full character such as 六 or 水 does not. */
     middleWhole(child: any): boolean;
