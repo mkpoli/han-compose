@@ -13,7 +13,7 @@ const sequences = new Map([
   ['⿱⿰〧〥△', 'sevenFive'], ['⿱⿰' + seven + five + triangle, 'sevenFive'],
   ['⿱⿰〥〤元', 'fiveFour'], ['⿱⿰' + five + '乂元', 'fiveFour'],
   ['⿺是？', 'question'], ['⿺是⿱#(◜◝◞-◜)丶', 'question'],
-  ['⿵巾２', 'exerciseTwo'],
+  ['⿵巾２', 'exerciseTwo'], ['⿵巾#(◜◝𠃋)', 'exerciseTwo'],
   ['⿵巾１', 'exercise'], ['⿵巾⿱#(㇀丨)一', 'exercise'],
 ])
 
@@ -21,15 +21,14 @@ const operands = new Map([...sequences.keys()].map(key => [key,
   leaves(parseDescription(key)).flatMap(({ leaf }) => typeof leaf === 'string' ? [leaf] : [])]))
 
 /** @type {Record<string, string>} */
-const donors = { weekday: '〥日', sevenFive: '〧〥△', fiveFour: '〥〤元', question: '題？', exercise: '冂１丨' }
+const donors = { weekday: '〥日', sevenFive: '〧〥△', fiveFour: '〥〤元', question: '題？', exercise: '冂１丨', exerciseTwo: '冂丨２' }
 
 /** @param {string} key @param {string} style */
 export function numeralDonors(key, style) {
   const form = sequences.get(key)
   if (!form) return []
-  if (form === 'exerciseTwo') return style === 'fangsong' ? ['冂', '丨', '2'] : []
   let chars = donors[form]
-  if (style === 'fangsong') chars = chars.replace('〥', '〇丿一').replace('〧', '丄㇀刁').replace('〤', '乂').replace('１', '1')
+  if (style === 'fangsong') chars = chars.replace('〥', '〇丿一').replace('〧', '丄㇀刁').replace('〤', '乂').replace('１', '1').replace('２', '2')
   if (style === 'pen-writing' && form === 'exercise') chars += '一'
   return [...new Set(chars)]
 }
@@ -77,6 +76,21 @@ const digitCuts = {
   fangsong: ['bbbb0bb6289ca25fbf4998b8ecb64a01419b3739d3ce24ff4ee2d5a9338f958f', [[0, 0, 10]], [[0, 10, 18]]],
 }
 
+/** Intersections of native ink with a vertical (axis 0) or horizontal (axis 1) line.
+ * @param {any} glyph @param {0 | 1} axis @param {number} at */
+function inkCrossings(glyph, axis, at) {
+  const hits = [], other = 1 - axis
+  const outlines = rings(glyph.contours, glyph.contours.map((/** @type {any} */ c) => c.light))
+  for (const coords of outlines) {
+    for (let i = 0; i < coords.length; i += 2) {
+      const j = (i + 2) % coords.length, a = coords[i + axis], b = coords[j + axis]
+      if ((a <= at) === (b <= at)) continue
+      hits.push(coords[i + other] + (coords[j + other] - coords[i + other]) * (at - a) / (b - a))
+    }
+  }
+  return hits.sort((a, b) => a - b)
+}
+
 /** 笹原宏之，《日本的汉字》，2019，頁161. The numeral's staff projects above the 巾 frame.
  * https://rare.glyphatlas.org/en/entry/3119#sighting-3283
  * @param {any} composer @param {any} glyphs @param {number[]} region @param {boolean} historic */
@@ -85,17 +99,10 @@ function exerciseParts(composer, glyphs, region, historic) {
   const digit = glyphs[digitKey]
   const frame = [0, 0, 1, 0.80], box = [0.34, 0.12, 0.69, 0.68]
   // Find the upright at half the digit's height, clear of its flag and foot.
-  const [x0, y0, x1, y1] = digit.box, y = (y1 + y0) / 2, xs = []
-  const outlines = rings(digit.contours, digit.contours.map((/** @type {any} */ c) => c.light))
-  for (const coords of outlines) {
-    for (let i = 0; i < coords.length; i += 2) {
-      const j = (i + 2) % coords.length
-      if ((coords[i + 1] <= y) === (coords[j + 1] <= y)) continue
-      xs.push(coords[i] + (coords[j] - coords[i]) * (y - coords[i + 1]) / (coords[j + 1] - coords[i + 1]))
-    }
-  }
+  const [x0, y0, x1, y1] = digit.box
+  const xs = inkCrossings(digit, 1, (y1 + y0) / 2)
   if (!xs.length) return null
-  const lo = Math.min(...xs), hi = Math.max(...xs), sx = (box[2] - box[0]) / (x1 - x0)
+  const lo = xs[0], hi = xs[xs.length - 1], sx = (box[2] - box[0]) / (x1 - x0)
   const left = box[0] + (lo - x0) * sx, right = box[0] + (hi - x0) * sx
   const parts = [place(glyphs.冂, region, frame, 'glyph 冂', 0),
     place(glyphs.丨, region, [left, 0.53, right, 1], 'upper staff of 巾 from 丨', 0)]
@@ -179,7 +186,6 @@ export function numeralParts(composer, key, region) {
   if (!form || composer.excluded(key)) return null
   const historic = key.includes('#(')
   const source = numeralDonors(key, composer.fontStyle).filter(char => char !== '刁')
-  if (!source.length || (form === 'exerciseTwo' && composer.glyphRecord('２'))) return null
   const usesExcluded = operands.get(key)?.some(leaf => composer.excluded(leaf) ||
     (leaf.startsWith('#(') && parseChain(leaf)?.strokes.some(stroke => composer.excluded(stroke.char))))
   if (usesExcluded || source.some(c => composer.excluded(c))) return null
@@ -196,11 +202,25 @@ export function numeralParts(composer, key, region) {
   if (form === 'question') return questionParts(composer, region, glyphs['？'], historic)
   // Sasahara, p. 161: the top of 2 meets the projecting staff of 巾.
   // https://rare.glyphatlas.org/en/entry/3120#sighting-3284
-  if (form === 'exerciseTwo') return [
-    place(glyphs.冂, region, [0, 0, 1, 0.80], 'glyph 冂', 0),
-    place(glyphs.丨, region, [0.44, 0.57, 0.52, 1], 'upper staff of 巾 from 丨', 0),
-    place(glyphs['2'], region, [0.27, 0.11, 0.72, 0.61], 'glyph 2', 1),
-  ]
+  if (form === 'exerciseTwo') {
+    const digit = glyphs['２'] ?? glyphs['2'], box = [0.27, 0.11, 0.72, 0.61]
+    const [x0, y0, x1, y1] = digit.box
+    const center = x0 + (0.48 - box[0]) / (box[2] - box[0]) * (x1 - x0)
+    const ys = inkCrossings(digit, 0, center)
+    let tip = 0.57
+    if (ys.length >= 2) {
+      // Keep the tip inside the crown. Its native thickness varies from a
+      // hairline in Serif to a much broader stroke in Sans and FangSong.
+      const outer = ys[ys.length - 1], inner = ys[ys.length - 2]
+      const seat = inner + (outer - inner) / 8
+      tip = Math.max(tip, box[1] + (seat - y0) / (y1 - y0) * (box[3] - box[1]))
+    }
+    return [
+      place(glyphs.冂, region, [0, 0, 1, 0.80], 'glyph 冂', 0),
+      place(glyphs.丨, region, [0.44, tip, 0.52, 1], 'upper staff of 巾 from 丨', 0),
+      place(digit, region, box, glyphs['２'] ? 'glyph ２' : 'glyph 2', 1),
+    ]
+  }
   if (form === 'exercise') return exerciseParts(composer, glyphs, region, historic)
   const fiveRoom = form === 'weekday' ? [0, 0, 0.49, 1] : form === 'sevenFive' ? [0.53, 0.38, 1, 1] : [0, 0.48, 0.46, 1]
   const target = mapped(fiveRoom, unit, region)
