@@ -23,6 +23,7 @@ export declare function dotIn(composer: any, band: any): {
     native: any;
     origin: any;
 } | null;
+export declare function enclosedZeroTarget(zero: any, opening: any): any[];
 /**
  * The corrections, by description. `glyphs` ties each to the outlines it was read against.
  * A correction that cannot find the parts it names leaves the drawing as it is.
@@ -188,6 +189,10 @@ export declare const COMPONENT_FIXES: {
             吂: string;
         };
         apply(parts: any, composer: any, region?: any): any;
+    };
+    '\u2FF4\u56D7\u3007': {
+        glyphs: {};
+        apply(parts: any, composer: any): any;
     };
     '\u2FF5\u5182\u4E28': {
         glyphs: {
