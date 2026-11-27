@@ -4,7 +4,7 @@
 // description it corrects, the SHA-256 outlines of the glyphs it was read against, and the parts it
 // changes; an export drawing other outlines keeps the font's cut. The parts are plain placed pieces,
 // so the corrections work wherever the description is drawn, at any depth.
-import { derived, fitted, groupRings, makePart, mapped, partOf, placed, pointsBox, union } from './geometry.js'
+import { contourSections, derived, fitted, groupRings, makePart, mapped, partOf, placed, pointsBox, union } from './geometry.js'
 import { hexOf } from './sha256.js'
 
 // Interpolation factors for the hosted 口 outlines when fitted beside 乎.
@@ -301,6 +301,22 @@ function penDoor(char) {
  * A correction that cannot find the parts it names leaves the drawing as it is.
  */
 export const COMPONENT_FIXES = {
+  '⿰貝並': {
+    glyphs: { 賦: 'adc3e80a626f45b4c611c368dea0e198bdd174b707ae9a4ea65fcf2e900f19bd' },
+    apply(parts, composer) {
+      if (composer.fontStyle !== 'fangsong' || parts.length !== 2) return parts
+      const [shell, aligned] = parts, source = composer.glyph('賦')
+      if (shell.part.contours.length !== 3 ||
+          !shell.part.contours.every((contour, i) => contour === source.contours[i + 1])) return parts
+      // The host cut owns the three separate contours of 貝. Its right foot runs
+      // into the baseline of 武, between commands 25 and 31 of their shared contour.
+      const foot = contourSections(source.contours, [0, 25, 31])
+      const part = { ...shell.part, contours: [...shell.part.contours, foot] }
+      if (part.strokes && source.strokes?.some(([id, cs]) => id === 6 && cs.length === 1 && cs[0] === 0))
+        part.strokes = [...part.strokes, [6, [3]]]
+      return [{ ...shell, part }, aligned]
+    },
+  },
   '⿰水行': {
     glyphs: {},
     apply(parts, composer) {
