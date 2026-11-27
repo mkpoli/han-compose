@@ -482,6 +482,8 @@ export const COMPONENT_FIXES = {
       if (record?.v !== 1 || hexOf(JSON.stringify(record.p)) !== '2bc1ae0f90e8ec4da0e920154e1b30487cd0a3f157fe252070b673a885244c1d') return parts
       // 軋 places 車 beside a single stroke. Its last contour is the right-hand hook.
       const column = cutContours(partOf(record), [0, 1, 2, 3, 4])
+      const buRecord = !composer.excluded('卜') && composer.glyphRecord('卜')
+      const right = buRecord?.v === 1 ? partOf(buRecord) : null
       const ink = p => union(groupRings([p], 24).map(pointsBox))
       const fit = (revised, original) => {
         if (original.fixed || original.cut) return {}
@@ -491,8 +493,10 @@ export const COMPONENT_FIXES = {
       }
       return [
         { ...car, finishOutline: p => fit(placed(column, column.box, p.target, p.native, '車 from 軋'), p) },
-        // Retain kana ト's own outline. The native right strokes in 朴 and 訃 supply the weight reference.
-        { ...kana, finishOutline: p => fit({ ...p, weight: [-0.8, -0.6] }, p) },
+        // At this width the native 卜 needs a small lift to retain the approved upright and arm weights.
+        { ...kana, finishOutline: p => fit(right
+          ? placed(right, right.box, p.target, p.native, 'glyph 卜', [0.17, 0.08])
+          : { ...p, weight: [-0.8, -0.6] }, p) },
       ]
     },
   },
