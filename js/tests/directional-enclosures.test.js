@@ -1,9 +1,13 @@
 import { expect, it } from 'bun:test'
-import { pathMask, pathRings, pointsBox, union } from '../src/geometry.js'
+import { Composer } from '../src/compose.js'
+import { clearHookContacts } from '../src/directional-enclosures.js'
+import { fill, groupRings, partOf, placed, pathMask, pathRings, pointsBox, union } from '../src/geometry.js'
 import { compose, createSource, sketch } from '../src/loader.js'
 import { character, files, shards } from './fixtures/small-export.js'
 // Noto Serif CJK JP export b53713c2da0e. Sources and licence in docs/licensing.md.
 import records from './fixtures/directional-enclosures.json' with { type: 'json' }
+// Zhuque Fangsong b53713c2da0e (OFL), 勹・百・訇.
+import fangsong from './fixtures/fangsong-hook-bai.json' with { type: 'json' }
 
 function source(box = [0.15, -0.03, 0.70, 0.55], extra = {}) {
   // A fixed layout prediction makes the learned opening reproducible. The PUA
@@ -73,4 +77,55 @@ it('retains an encoded whole glyph and its editable decomposition', async () => 
   expect((await compose(src, '⿹勹百', plain)).d).toBe((await compose(src, '\uE002', plain)).d)
   const other = source(undefined, { '⿹勹\uE000': { e: '\uE002' }, '\uE002': { ...records.口, s: '⿹勹\uE000' } })
   expect((await compose(src, '⿹勹百', options)).d).toBe((await compose(other, '⿹勹\uE000', options)).d)
+})
+
+const hookBox = [0.12, -0.07, 0.70, 0.49]
+const fangsongOptions = { fontStyle: 'fangsong', separate: true }
+
+it('retains the full 百 inside the native 勹 of 訇 when the ordinary hook cannot clear it', async () => {
+  const src = source(hookBox, fangsong)
+  const original = await compose(src, '⿹勹百', { ...fangsongOptions, exclude: ['訇'] })
+  const after = await compose(src, '⿹勹百', fangsongOptions)
+  expect(overlap(original.parts)).toBeGreaterThan(0.01)
+  expect(after.origins).toEqual(['host 訇', 'glyph 百'])
+  expect(overlap(after.parts)).toBe(0)
+  expect(Math.max(...bounds(after.parts[0].d).map((v, i) => Math.abs(v - bounds(original.parts[0].d)[i])))).toBeLessThan(0.2)
+  const before = pathRings(original.parts[1].d), revised = pathRings(after.parts[1].d)
+  const dx = revised[0][0] - before[0][0], dy = revised[0][1] - before[0][1]
+  expect(revised.map(r => r.length)).toEqual(before.map(r => r.length))
+  for (const [i, ring] of revised.entries()) {
+    expect(Math.max(...ring.map((v, j) => Math.abs(v - before[i][j] - (j % 2 ? dy : dx))))).toBeLessThan(0.21)
+  }
+  const preview = await sketch(source(hookBox, fangsong), '⿹勹百', fangsongOptions)
+  expect(preview.map(p => p.box)).toEqual(after.parts.map(p => p.box))
+  const donor = fangsong.訇
+  for (const G of [{ ...donor.G, v: 0 }, { ...donor.G, p: donor.G.p.toReversed() }]) {
+    const other = source(hookBox, { ...fangsong, 訇: { ...donor, G } })
+    expect((await compose(other, '⿹勹百', fangsongOptions)).d).toBe(original.d)
+  }
+  for (const opts of [{ ...options }, { ...fangsongOptions, layout: 'cells' }]) {
+    expect((await compose(src, '⿹勹百', opts)).d).toBe((await compose(src, '⿹勹百', { ...opts, exclude: ['訇'] })).d)
+  }
+})
+
+it('declines a wider hook stroke when it would meet a neighbouring mark', async () => {
+  const src = source(hookBox, fangsong)
+  await compose(src, '⿹勹百', fangsongOptions)
+  const draw = new Composer(src.store(), fangsongOptions)
+  const original = new Composer(src.store(), { ...fangsongOptions, exclude: ['訇'] }).compose('⿹勹百')
+  const revised = draw.compose('⿹勹百')
+  const [l, b, r, t] = bounds((await compose(src, '⿹勹百', fangsongOptions)).d)
+  // The public path coordinates run down from the ascent.
+  const frame = [l, 880 - t, r, 880 - b], size = 128
+  const mask = parts => fill(groupRings(parts), size, frame)
+  const previous = mask(original), hook = mask([revised[0]])
+  const index = hook.findIndex((ink, i) => ink && !previous[i])
+  expect(index).toBeGreaterThanOrEqual(0)
+  const x = l + (index % size + 0.5) * (r - l) / size
+  const y = frame[3] - (Math.floor(index / size) + 0.5) * (t - b) / size
+  const dot = partOf(character('點', [[x - 2, y - 2, x + 2, y + 2]]).G)
+  const parts = [...original, placed(dot, dot.box, dot.box, 1, 'mark 點')]
+  clearHookContacts(draw, parts)
+  expect(parts[0].origin).toBe(original[0].origin)
+  expect(parts[0].origin).not.toBe('host 訇')
 })
