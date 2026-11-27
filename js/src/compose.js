@@ -1,5 +1,6 @@
 // @ts-nocheck: a port of han-compose's Python, kept line for line; its types are the arrays it reads.
 import { hookFloor } from './hook-floor.js'
+import { directionalParts, directionalReferences } from './directional-enclosures.js'
 import { fitHookDonor, lowerHookSeat, openHookCounters } from './hook-seat.js'
 import { stackedHookPart } from './stacked-hook.js'
 import fangsongZhi from './fangsong-zhi.json' with { type: 'json' }
@@ -850,6 +851,7 @@ export const designedSources = (tree, style = 'sans') => {
     }
     if (!Array.isArray(node)) return
     const [op, ...children] = node
+    for (const [host] of directionalReferences(node) ?? []) out.add(host)
     if (op === '⿺' && children[1] === '首') out.add('馗')
     if (op === '⿺' && children[0] === '𡕚') { out.add('夂'); out.add('見') }
     if (isThornRow(node)) {
@@ -1589,6 +1591,11 @@ export class Composer {
         }
         return
       }
+      const directional = directionalParts(this, node, cell, depth === 0, true)
+      if (directional) {
+        directional.forEach((part, i) => emitCell(part, node[i + 1]))
+        return
+      }
       const hooked = this.hookFrame(node, cell, depth === 0)
       if (hooked) {
         for (const part of hooked.parts) {
@@ -1757,6 +1764,11 @@ export class Composer {
       if (frame) {
         out.push({ index: out.length, box: frame.frame.target, empty: false })
         walk(node[2], (atRoot && metricKeSeat(node, this.fontStyle, frame.frame)) || frame.room, false)
+        return
+      }
+      const directional = directionalParts(editable, node, region, atRoot)
+      if (directional) {
+        for (const part of directional) out.push({ index: out.length, box: part.target, empty: false })
         return
       }
       const hooked = this.hookFrame(node, region, atRoot)
@@ -2101,7 +2113,7 @@ export class Composer {
 
   /** Select a verified low hook only after the face's contextual forms have had priority. */
   hookFrame(node, region, atRoot) {
-    if (this.measuringHookInk) return null
+    if (this.measuringEnclosureInk) return null
     if (!Array.isArray(node) || node.note || node[0] !== '⿺') return null
     const [, outer] = node
     const explicit = Array.isArray(outer)
@@ -2145,7 +2157,7 @@ export class Composer {
       }
     }
     if (atRoot && !hasSlot(node)) {
-      const reference = this.hookInkBounds(node)
+      const reference = this.enclosureInkBounds(node)
       if (reference) {
         const actual = union(groupRings(parts, 32).map(pointsBox))
         if (actual[2] > actual[0] && actual[3] > actual[1]) {
@@ -2183,28 +2195,36 @@ export class Composer {
   /** Keep the established root ink extent, including overshoot after stroke weighting.
    * A fresh composer isolates the ordinary layout's joints and weight adjustments.
    * The result is local to this loader pass, since more source shards can arrive. */
-  hookInkBounds(node) {
-    const key = keyOf(node)
-    this.hookInkMeasurements ??= new Map()
-    if (!this.hookInkMeasurements.has(key)) {
+  enclosureInkBounds(node, mode = 'hook', region = this.face) {
+    const sequence = keyOf(node)
+    const separate = mode !== 'hook' && this.separate
+    const key = [mode, separate, sequence, ...region].join('|')
+    this.enclosureInkMeasurements ??= new Map()
+    if (!this.enclosureInkMeasurements.has(key)) {
       const ordinary = new Composer(this.data, {
         face: this.face, fontStyle: this.fontStyle, exclude: this.exclude,
-        keepBars: this.keepBars,
+        keepBars: this.keepBars, separate,
       })
-      ordinary.measuringHookInk = true
+      ordinary.measuringEnclosureInk = true
       let bounds = null
       try {
-        const baseline = ordinary.compose(key)
+        const baseline = mode === 'cells' ? ordinary.cellLayout(node, region)
+          : mode === 'nested' ? ordinary.node(node, region) : ordinary.compose(sequence)
         if (baseline.length && baseline.every(part => part.empty === undefined && !part.cut)) {
+          if (mode === 'nested' && !ordinary.partial) {
+            if (ordinary.weighted) ordinary.balance(baseline)
+            if (ordinary.staticFace) ordinary.staticBalance(baseline)
+            ordinary.settleJoints()
+          }
           const ink = union(groupRings(baseline, 32).map(pointsBox))
           if (ink.every(Number.isFinite) && ink[2] > ink[0] && ink[3] > ink[1]) bounds = ink
         }
       } catch (error) {
         if (!(error instanceof LookupError)) throw error
       }
-      this.hookInkMeasurements.set(key, bounds)
+      this.enclosureInkMeasurements.set(key, bounds)
     }
-    return this.hookInkMeasurements.get(key)
+    return this.enclosureInkMeasurements.get(key)
   }
 
   /** Place the enclosing strokes and map their opening into the same cell. */
@@ -2562,6 +2582,8 @@ export class Composer {
         ?? [region[0] + x0 * w, region[1] + y0 * h, region[0] + x1 * w, region[1] + y1 * h]
       return [...cutFrame, ...this.node(children[1], room)]
     }
+    const directional = directionalParts(this, node, region, atRoot)
+    if (directional) return directional
     // Native compound forms have no trained layout features; fit their actual outlines. A nested row
     // that holds an unreadable linear compound has no learned box to follow: the crossed shares place it.
     const hooked = this.hookFrame(node, region, atRoot)

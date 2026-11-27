@@ -81,6 +81,20 @@ export function makePart(contours, box, reverse = false) {
   return part
 }
 
+// Positions where the outline crosses a line parallel to one of its axes.
+export function crossings(polygons, axis, value) {
+  const values = []
+  for (const ring of polygons) {
+    for (let i = 0, j = ring.length - 2; i < ring.length; j = i, i += 2) {
+      const a = ring[i + axis], b = ring[j + axis]
+      if ((a > value) === (b > value)) continue
+      const other = 1 - axis
+      values.push(ring[i + other] + (ring[j + other] - ring[i + other]) * (value - a) / (b - a))
+    }
+  }
+  return values.sort((a, b) => a - b)
+}
+
 /** A contour's signed area, y up; its sign is its winding. */
 const signedArea = flat => {
   let sum = 0

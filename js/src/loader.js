@@ -3,6 +3,7 @@
 // key) loaded as a sequence needs it, and the sequence drawn from it as an SVG path. A file is
 // fetched once a page; a gzipped one (the export writes them so) is unpacked with DecompressionStream.
 import { APPROXIMATE, Composer, EMPTY, LookupError, designedSources, keyOf, leafCutChar, wheatFaceHosts, mapOperands, parseTree } from './compose.js'
+import { directionalReferences } from './directional-enclosures.js'
 import { rccDonors } from './rcc-forms.js'
 import { yuanReference } from './yuan-pyramid.js'
 import { qiReference } from './qi-family.js'
@@ -344,7 +345,7 @@ export async function sketch(source, sequence, { fontStyle = 'sans' } = {}) {
   const donors = [...wheatFaceHosts(description), ...designedSources(tree, fontStyle)]
   await source.load([...modelOf(source, tree), ...(donors.length ? source.filesOf(donors) : [])])
   // These layouts read actual ink, including contextual glyphs discovered in later shards.
-  const recorded = node => Array.isArray(node) && (rccDonors(keyOf(node), fontStyle).length > 0 || node.slice(1).some(recorded))
+  const recorded = node => Array.isArray(node) && (directionalReferences(node) || rccDonors(keyOf(node), fontStyle).length > 0 || node.slice(1).some(recorded))
   const measured = recorded(tree) || donors.includes(qiReference) || donors.includes(yuanReference) || description.includes('⿺')
   for (let round = 0; round < ROUNDS; round++) {
     const store = source.store()
