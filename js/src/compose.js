@@ -1447,9 +1447,8 @@ export class Composer {
       fitClawInterior(out, tree, this.fontStyle)
       // Loose marks annotate the whole drawing; they take no part in its layout or weight.
       if (!marks) fitRecordedInk(this, sequence, out)
-      if (!marks) out = this.fitNestedEnclosureInk(out, tree, frame, false, sequence)
       if (marks) out.push(...markParts(this, marks, frame, face))
-      return out
+      return this.fitNestedEnclosureInk(out, tree, frame, false, sequence, marks)
     } finally { this.face = previous }
   }
 
@@ -2202,10 +2201,10 @@ export class Composer {
 
   /** Compare like-for-like after the parent has spaced and weighted its children.
    * The expanded strokes of surrounding siblings also belong to the original row. */
-  fitNestedEnclosureInk(parts, node, region, cells, sequence) {
+  fitNestedEnclosureInk(parts, node, region, cells, sequence, marks = '') {
     if (!parts.some(p => p.directionalGroup)) return parts
-    const ordinary = this.enclosureBaseline(this.separate)
-    const original = cells ? ordinary.cellLayout(node, region) : ordinary.compose(sequence)
+    const ordinary = this.enclosureBaseline(this.separate, false, cells ? this.face : region)
+    const original = cells ? ordinary.cellLayout(node, region) : ordinary.compose(sequence, marks)
     if (original.length !== parts.length || parts.some((p, i) => p.flips || p.cut || p.empty !== undefined ||
         original[i].flips || original[i].cut || original[i].empty !== undefined ||
         (!p.directionalGroup && p.origin !== original[i].origin))) return original
@@ -2225,8 +2224,8 @@ export class Composer {
     return out
   }
 
-  enclosureBaseline(separate, hook = false) {
-    const ordinary = new Composer(this.data, { face: this.face, fontStyle: this.fontStyle,
+  enclosureBaseline(separate, hook = false, face = this.face) {
+    const ordinary = new Composer(this.data, { face, fontStyle: this.fontStyle,
       exclude: this.exclude, keepBars: this.keepBars, separate })
     ordinary.measuringDirectionalInk = true
     ordinary.measuringHookInk = hook
