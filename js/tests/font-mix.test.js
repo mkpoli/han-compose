@@ -6,6 +6,7 @@ import {
   groupRegions,
   prepareCorrespondence,
   sharedIslands,
+  sourceGroups,
   splitIslands,
   tangled
 } from '../src/mix-contours.js'
@@ -1096,6 +1097,39 @@ it('fills a hairline between two cut pieces and nothing else', () => {
     inner = [box(41, 41, 58, 58), box(50, 50, 40, 40, true)]
   const nested = weldedRings([frame, inner], [true, true], 2)
   expect(area(nested)).toBeCloseTo(100 * 100 - 40 * 40, 0)
+})
+
+it('pairs the strokes a face draws as separate contours before their ink is united', () => {
+  const flat = (
+    /** @type {number} */ x,
+    /** @type {number} */ y,
+    /** @type {number} */ w,
+    /** @type {number} */ h
+  ) => [x, y, x + w, y, x + w, y + h, x, y + h]
+  const wide = (/** @type {number[][][][]} */ islands) => {
+    const xs = islands[0][0].map((q) => q[0]),
+      ys = islands[0][0].map((q) => q[1])
+    return Math.max(...xs) - Math.min(...xs) > Math.max(...ys) - Math.min(...ys)
+  }
+  // A cross drawn as a bar over a stem, in either order. United, each face is one island.
+  const first = [flat(40, 110, 180, 30), flat(115, 30, 30, 200)]
+  const second = [flat(120, 36, 26, 190), flat(46, 118, 170, 22)]
+  const groups = sourceGroups([first, second])
+  expect(groups).toHaveLength(2)
+  for (const group of groups) {
+    expect(group.map((islands) => islands.length)).toEqual([1, 1])
+    expect(wide(group[0])).toBe(wide(group[1]))
+  }
+  // A stem drawn in two overlapping lengths answers to the one stem of the other face.
+  const pieced = [flat(120, 36, 26, 100), flat(120, 120, 26, 106), flat(46, 118, 170, 22)]
+  const joined = sourceGroups([first, pieced])
+  expect(joined).toHaveLength(2)
+  for (const group of joined) {
+    expect(group.map((islands) => islands.length)).toEqual([1, 1])
+    expect(wide(group[0])).toBe(wide(group[1]))
+  }
+  // A face of one contour has no strokes to pair.
+  expect(sourceGroups([[flat(40, 40, 100, 100)], [flat(40, 40, 100, 100)]])).toBeNull()
 })
 
 it('does not pair distant leftover corners at opposite ends of a long stem wall', () => {

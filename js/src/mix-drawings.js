@@ -2,6 +2,7 @@
 import { contours } from 'd3-contour'
 import {
   alignRings,
+  sourceGroups,
   groupRegions,
   matchRegions,
   prepareCorrespondence,
@@ -261,18 +262,72 @@ function prepareInk(paths, strokes) {
       const hs = boxes.map(([, b, , d]) => Math.max(1, d - b))
       const minW = Math.min(...ws),
         maxW = Math.max(...ws)
+      // A short mark can replace a narrow stem in the same position.
+      if (
+        unit.every((contours) => contours.length === 1) &&
+        boxes.some((_, i) => Math.max(ws[i], hs[i]) < side * 0.22) &&
+        Math.min(maxW, Math.max(...hs)) < side * 0.15
+      )
+        return true
       if (maxW - minW > 0.15 * side && maxW / minW > 3) return false
       const minH = Math.min(...hs),
         maxH = Math.max(...hs)
       if (maxH - minH > 0.15 * side && maxH / minH > 3) return false
       return true
     }) ?? false
-  const regions =
+  const whole = registered.map(inkPolygons)
+  const groups =
     units && alike
-      ? units.flatMap((unit) =>
-          regionsOf(unit.map((contours, f) => inkPolygons(contours.map((c) => registered[f][c]))))
-        )
-      : regionsOf(registered.map(inkPolygons))
+      ? units.map((unit) => unit.map((indices, f) => inkPolygons(indices.map((c) => registered[f][c]))))
+      : null
+  // Counters enclosed by several units must draw their walls from corresponding units.
+  const sharedHoles = whole.map(
+    (islands, f) =>
+      islands.reduce((sum, p) => sum + p.length - 1, 0) -
+      (groups?.reduce((sum, group) => sum + group[f].reduce((holes, p) => holes + p.length - 1, 0), 0) ?? 0)
+  )
+  let regions
+  if (groups && sharedHoles.every((n) => n === sharedHoles[0])) regions = groups.flatMap(regionsOf)
+  else {
+    const native =
+      registered.some((r, f) => r.length !== whole[f].reduce((n, p) => n + p.length, 0)) &&
+      sourceGroups(registered)
+    // Strokes paired across faces must also build the same ink between them: a bar matched to
+    // the wrong stroke opens the counter it closed. The even mix has to keep the islands and
+    // counters the faces agree on, and their ink.
+    const inkArea = (/** @type {number[][][][]} */ islands) =>
+      islands.reduce(
+        (sum, island) =>
+          sum +
+          island.reduce(
+            (ink, ring, k) =>
+              ink +
+              (k ? -1 : 1) *
+                Math.abs(
+                  ring.reduce(
+                    (twice, q, i) =>
+                      twice + q[0] * ring[(i + 1) % ring.length][1] - ring[(i + 1) % ring.length][0] * q[1],
+                    0
+                  ) / 2
+                ),
+            0
+          ),
+        0
+      )
+    const shape = (/** @type {number[][][][]} */ islands) =>
+      islands.length + ':' + islands.reduce((n, island) => n + island.length - 1, 0)
+    const sound = (/** @type {number[][][][][][]} */ groups) => {
+      const blends = groups.map(blendOf)
+      if (blends.some((blend) => !blend)) return false
+      if (whole.some((islands) => shape(islands) !== shape(whole[0]))) return true
+      const even = present.map(() => 1 / present.length)
+      const rings = blends.flatMap((blend) => /** @type {NonNullable<typeof blend>} */ (blend)(even, 1))
+      const mixed = inkPolygons(rings.map((ring) => ring.slice(0, -1).flat()))
+      const mean = whole.reduce((sum, islands) => sum + inkArea(islands), 0) / whole.length
+      return shape(mixed) === shape(whole[0]) && Math.abs(inkArea(mixed) - mean) <= 0.04 * mean
+    }
+    regions = native && sound(native) ? native : regionsOf(whole)
+  }
   // Regions without a contour correspondence share one distance field, which keeps
   // their strokes registered to each other.
   const matched = regions.map(blendOf)
