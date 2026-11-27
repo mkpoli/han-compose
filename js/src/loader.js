@@ -321,7 +321,7 @@ export const svgBox = b => [b[0], ASCENT - b[3], b[2] - b[0], b[3] - b[1]]
  * Where each leaf of `sequence` goes before it is drawn (`Composer.sketch`), once the manifest and the
  * layout have loaded: `[{ index, box, empty }]`, boxes as `svgBox` gives them.
  */
-export async function sketch(source, sequence, { fontStyle = 'sans' } = {}) {
+export async function sketch(source, sequence, { fontStyle = 'sans', carSlots = /** @type {number[]} */ ([]) } = {}) {
   await source.ready()
   // Loose marks hang off the drawing; they are not leaves of it.
   const { base, marks } = splitDescription(sequence)
@@ -344,6 +344,7 @@ export async function sketch(source, sequence, { fontStyle = 'sans' } = {}) {
   }
   const tree = parseTree(description, arity, true)
   const donors = [...wheatFaceHosts(description), ...designedSources(tree, fontStyle)]
+  if (carSlots.length && sequence.includes('車')) donors.push('車')
   await source.load([...modelOf(source, tree), ...(donors.length ? source.filesOf(donors) : [])])
   // These layouts read actual ink, including contextual glyphs discovered in later shards.
   const recorded = node => Array.isArray(node) && (rccDonors(keyOf(node), fontStyle).length > 0 || node.slice(1).some(recorded))
@@ -351,7 +352,7 @@ export async function sketch(source, sequence, { fontStyle = 'sans' } = {}) {
   for (let round = 0; round < ROUNDS; round++) {
     const store = source.store()
     let leaves
-    try { leaves = new Composer(store, { fontStyle }).sketch(description, marks) }
+    try { leaves = new Composer(store, { fontStyle, carSlots }).sketch(description, marks) }
     catch (error) {
       if (!(error instanceof LookupError) || !measured || !store.missing.size) throw error
     }
@@ -379,7 +380,7 @@ export async function sketch(source, sequence, { fontStyle = 'sans' } = {}) {
  * `cells: true` and its parts' `origin` reads `cells <char>`.
  * Throws LookupError when a part can be drawn no way or the sequence is larger than `LIMITS`.
  */
-export async function compose(source, sequence, { exclude = [], face = null, separate = false, fontStyle = 'sans', layout = 'auto', keepBars = false } = {}) {
+export async function compose(source, sequence, { exclude = [], face = null, separate = false, fontStyle = 'sans', layout = 'auto', keepBars = false, carSlots = /** @type {number[]} */ ([]) } = {}) {
   await source.ready()
   const arity = ch => {
     const c = source.manifest.constants
@@ -401,7 +402,7 @@ export async function compose(source, sequence, { exclude = [], face = null, sep
     const store = source.store()
     let drawn = null, failure = null, composer = null, cells = false
     try {
-      composer = new Composer(store, { exclude, face, separate, fontStyle, keepBars })
+      composer = new Composer(store, { exclude, face, separate, fontStyle, keepBars, carSlots })
       cells = !marks && !modified.length
         && (layout === 'cells' || (layout === 'auto' && composer.cellsFor(tree, marks)))
       drawn = cells ? composer.cellLayout(tree) : composer.compose(description, marks)
@@ -409,7 +410,7 @@ export async function compose(source, sequence, { exclude = [], face = null, sep
       // A separated drawing can fail where the whole glyph exists. Keep the glyph rather than fail
       // the preview: a view then finds one piece and leaves it alone.
       if (separate && !cells && !store.missing.size && error instanceof LookupError) {
-        try { composer = new Composer(store, { exclude, face, fontStyle, keepBars }); drawn = composer.compose(description, marks) } catch (again) { failure = again }
+        try { composer = new Composer(store, { exclude, face, fontStyle, keepBars, carSlots }); drawn = composer.compose(description, marks) } catch (again) { failure = again }
       } else failure = error
     }
     // A pass that met data not loaded yet only gathers what to load (`Composer.partial`); the drawing

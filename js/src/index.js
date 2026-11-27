@@ -172,9 +172,10 @@ export function composerPreview({ base, faceBases = {}, separate = false, fontSt
       if (!signal?.aborted) onSketch?.(shown)
     }
     // The drawing itself: from the export, or from the bundled outlines where there is no export.
+    const carSlots = fontStyle === 'regular' ? prepared.emoji.filter(item => /^🚗\uFE0F?$/u.test(item.text)).map(item => item.slot) : []
     /** @type {Promise<import('./client.js').Answer>} */
-    const request = drawer ? drawer.draw(prepared.sequence, heard, { separate, fontStyle, preferExport, ...(faces && { faces, weight: mix?.weight ?? 1 }) })
-      : drawnBundled(prepared.sequence, { separate, fontStyle, preferExport, loaders }, heard)
+    const request = drawer ? drawer.draw(prepared.sequence, heard, { separate, fontStyle, preferExport, carSlots, ...(faces && { faces, weight: mix?.weight ?? 1 }) })
+      : drawnBundled(prepared.sequence, { separate, fontStyle, preferExport, loaders, carSlots }, heard)
     // The drawing in progress, ended when its signal aborts; the drawer answers it as cancelled.
     /** @type {import('./client.js').Answer} */
     const answer = await new Promise(settle => {
@@ -205,16 +206,16 @@ export function composerPreview({ base, faceBases = {}, separate = false, fontSt
 /**
  * A sequence drawn from the bundled outlines alone, in the page, answered as a drawer answers.
  * @param {string} sequence
- * @param {{ separate?: boolean, fontStyle?: 'sans' | 'serif' | 'woodblock' | 'regular' | 'fangsong' | 'pen-writing', preferExport?: boolean, loaders?: Record<string, string> }} options
+ * @param {{ separate?: boolean, fontStyle?: 'sans' | 'serif' | 'woodblock' | 'regular' | 'fangsong' | 'pen-writing', preferExport?: boolean, loaders?: Record<string, string>, carSlots?: number[] }} options
  * @param {(leaves: SketchLeaf[]) => void} heard
  * @returns {Promise<import('./client.js').Answer>}
  */
-async function drawnBundled(sequence, { separate, fontStyle, loaders, preferExport = false }, heard) {
+async function drawnBundled(sequence, { separate, fontStyle, loaders, preferExport = false, carSlots = [] }, heard) {
   try {
     const source = sourceFor(sequence, { bundled: true, separate, fontStyle, loaders, remote: preferExport })
-    const leaves = await sketch(source, sequence, { fontStyle })
+    const leaves = await sketch(source, sequence, { fontStyle, carSlots })
     heard(leaves)
-    return { status: 'composed', drawn: await compose(source, sequence, { separate, fontStyle }), sketch: leaves }
+    return { status: 'composed', drawn: await compose(source, sequence, { separate, fontStyle, carSlots }), sketch: leaves }
   } catch (error) {
     return { status: 'failed', error: String(/** @type {Error} */ (error)?.message ?? error) }
   }

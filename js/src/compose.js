@@ -980,7 +980,7 @@ export class Composer {
    * draw operands as individual pieces where possible, including cuts from a matching whole glyph,
    * so a view that changes one part can address its leaf.
    */
-  constructor(data, { exclude = [], face = null, separate = false, fontStyle = 'sans', keepBars = false } = {}) {
+  constructor(data, { exclude = [], face = null, separate = false, fontStyle = 'sans', keepBars = false, carSlots = [] } = {}) {
     this.data = data
     const m = data.manifest, c = m.constants
     this.C = c
@@ -997,6 +997,7 @@ export class Composer {
     this.SLOTS = c.SLOTS
     this.face = face ?? c.face
     this.separate = separate
+    this.carSlots = carSlots
     this.fontStyle = fontStyle
     this.keepBars = keepBars
     // `hosted` as han-compose's: with no host list there is nothing to cut, and the learned boxes —
@@ -2044,10 +2045,14 @@ export class Composer {
       const designed = repeated ?? rccParts(editable, keyOf(node), region) ?? birdOutlineParts(this, keyOf(node), region) ?? this.doubleTurnParts(node, region) ?? brushSweepParts(this, node, region, !atRoot) ?? this.thornRowParts(node, region) ?? yiCrossParts(this, node, region) ?? this.qiParts(node, region) ?? ghostParts(this, node, region) ?? this.referenceParts(node, region) ?? this.muKoParts(node, region) ?? this.wheatFaceParts(node, region)
       if (designed) {
         const boxes = designed[0]?.rccGroup && rccLeafBoxes(designed, leafTexts(node).length)
-        for (const box of boxes || designed.map(part => part.target)) out.push({ index: out.length, box, empty: false })
+        if (boxes) {
+          for (const box of boxes) out.push({ index: out.length, box, empty: false })
+        } else {
+          for (const part of designed) out.push({ index: out.length, box: part.target, empty: part.empty !== undefined })
+        }
         return
       }
-      if (!Array.isArray(node)) { out.push({ index: out.length, box: region, empty: node === EMPTY }); return }
+      if (!Array.isArray(node)) { out.push({ index: out.length, box: region, empty: isEmpty(node) }); return }
       const counters = this.counterInFrame(node, region, !atRoot)
       if (counters) {
         for (const p of counters) out.push({ index: out.length, box: p.target, empty: false })
@@ -2121,7 +2126,10 @@ export class Composer {
         }
       } else kids.forEach(kid => walk(kid, region, false))
     }
-    walk(this.normalizeYan(this.cancelTransforms(this.parse(sequence))), this.face.slice(), true)
+    let index = 0
+    const numberSlots = node => node === EMPTY ? `${EMPTY}${index++}` : Array.isArray(node) ? mapOperands(node, numberSlots) : node
+    const tree = this.parse(sequence)
+    walk(this.normalizeYan(this.cancelTransforms(this.carSlots.length ? numberSlots(tree) : tree)), this.face.slice(), true)
     return out
   }
 
@@ -2562,7 +2570,11 @@ export class Composer {
 
   /** Native brush drawings at the operand bounds recorded for a particular character. */
   referenceParts(node, region) {
-    const entry = referenceLayout(node, this.fontStyle)
+    // The preview substitutes an empty slot for the color emoji. Its written identity
+    // distinguishes this composition from a user-authored blank under 車.
+    const carSlot = this.carSlots.length && Array.isArray(node) && node[0] === '⿱' &&
+      node[1] === '車' && isEmpty(node[2]) && this.carSlots.includes(Number(node[2].slice(1)))
+    const entry = referenceLayout(carSlot ? ['⿱', '車', '🚗'] : node, this.fontStyle)
     if (!entry || (entry.encoded && this.own(entry.encoded)) || node.slice(1).some(child => typeof child === 'string' && this.excluded(child))) return null
     const { cells, donors } = entry
     const cuts = donors && cells.map(([source]) => {
@@ -2582,6 +2594,10 @@ export class Composer {
     const boxes = referenceBoxes(cells, region)
     const parts = []
     for (const [i, [source, , weight]] of cells.entries()) {
+      if (carSlot && i === 1) {
+        parts.push(this.placeholder(node[2], boxes[i]))
+        continue
+      }
       if (this.excluded(source)) return null
       const cut = useCuts ? cuts[i] : null
       let glyph = cut?.glyph ?? this.glyph(source), origin = cut?.origin ?? `glyph ${source}`
