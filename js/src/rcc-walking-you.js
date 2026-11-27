@@ -5,9 +5,9 @@ import { reconnectStroke } from './stroke-donors.js'
 export const walkingYou = '⿺#(㇋乀)由'
 const operands = [walkingYou, '#(㇋乀)', '㇋', '乀', '由']
 
-// In the three brush faces, 迪 joins the folded stroke to the sweep at its
-// short entry. Cut the continuation below that join from 廴 in the native 延.
-// https://rare.glyphatlas.org/en/entry/2711#sighting-2875
+// Printed R+0A97: https://rare.glyphatlas.org/en/entry/2711#sighting-2875
+// For handwriting, follow the short entry into the sweep seen in each face’s 迪.
+// Cut the continuation below that join from 廴 in the same face’s 延.
 /** @typedef {{ yan: string, contour: number, runs: number[][], inner: string,
  * digest: string, body: number[], inside: number[] }} WalkingCut */
 /** @type {Record<string, WalkingCut>} */

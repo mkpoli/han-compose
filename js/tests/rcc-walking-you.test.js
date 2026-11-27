@@ -51,19 +51,27 @@ for (const [style, cut] of Object.entries(cuts)) {
       expect(retained).toEqual([...source, ...source].slice(first, first + cut.retained))
     }
     const size = 500
-    const [before, after] = [native, revised].map(c => fill(rings([c], [c.light], 24), size, EM_BOX))
     const [left, bottom, right, top] = cut.window
-    let removed = 0, added = 0, outside = 0
-    for (let i = 0; i < before.length; i++) {
-      if (before[i] === after[i]) continue
-      if (after[i]) added++
-      else removed++
-      const x = EM_BOX[0] + ((i % size) + .5) * 2, y = EM_BOX[3] - (Math.floor(i / size) + .5) * 2
-      if (x < left || x > right || y < bottom || y > top) outside++
+    // The synthetic masters displace native edges by up to 30 font units here.
+    // Pen Writing grows outwards at negative weight.
+    for (const weight of style === 'pen-writing' ? [-1, 0, .5, 1] : [0, .5, 1]) {
+      const margin = Math.abs(weight) * 32
+      const [before, after] = [native, revised].map(c => {
+        const points = c.light.map((v, i) => v + weight * (c.heavy[i] - v))
+        return fill(rings([c], [points], 24), size, EM_BOX)
+      })
+      let removed = 0, added = 0, outside = 0
+      for (let i = 0; i < before.length; i++) {
+        if (before[i] === after[i]) continue
+        if (after[i]) added++
+        else removed++
+        const x = EM_BOX[0] + ((i % size) + .5) * 2, y = EM_BOX[3] - (Math.floor(i / size) + .5) * 2
+        if (x < left - margin || x > right + margin || y < bottom - margin || y > top + margin) outside++
+      }
+      expect(removed).toBeGreaterThan(0)
+      expect(added).toBe(0)
+      expect(outside).toBe(0)
     }
-    expect(removed).toBeGreaterThan(0)
-    expect(added).toBe(0)
-    expect(outside).toBe(0)
   })
 
   it(`retains the native 由 groups and clears the full sweep in ${style}`, () => {
