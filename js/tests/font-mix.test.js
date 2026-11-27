@@ -1011,6 +1011,45 @@ it('cuts both faces to the pieces they share where each runs different strokes t
   expect(sharedIslands([apart, apart])).toBeNull()
 })
 
+it('cuts through a counter the finer face lacks when asked to', () => {
+  // Two bars joined by two posts, as 立 is written in one stroke after another, against the
+  // same four strokes standing apart. The posts and bars close a counter no cut may touch.
+  const outer = [
+    [20, 40],
+    [220, 40],
+    [220, 70],
+    [170, 70],
+    [170, 170],
+    [220, 170],
+    [220, 200],
+    [20, 200],
+    [20, 170],
+    [70, 170],
+    [70, 70],
+    [20, 70],
+    [20, 40]
+  ]
+  const fused = [[outer, box(95, 70, 50, 100, true)]]
+  const apart = [
+    [box(20, 40, 200, 30)],
+    [box(70, 85, 25, 70)],
+    [box(145, 85, 25, 70)],
+    [box(20, 170, 200, 30)]
+  ]
+  expect(splitIslands([fused, apart])).toBeNull()
+  const regions = splitIslands([fused, apart], 'neck', true)
+  expect(regions).toHaveLength(4)
+  for (const region of regions) {
+    // Each stroke is a piece without a counter, and blends with its counterpart.
+    expect(region[0][0]).toHaveLength(1)
+    expect(prepareCorrespondence(region, true)).not.toBeNull()
+  }
+  // The posts keep their width: each piece stays within a little of its counterpart's box.
+  const width = (/** @type {number[][]} */ ring) =>
+    Math.max(...ring.map((q) => q[0])) - Math.min(...ring.map((q) => q[0]))
+  for (const region of regions.slice(1, 3)) expect(width(region[0][0][0])).toBeLessThan(40)
+})
+
 it('does not pair distant leftover corners at opposite ends of a long stem wall', () => {
   // Two 口-like outer contours where face A has an extra sharp bottom-left corner at (16, 240)
   // and face B has a gentle extra corner near the top-left at (16, 42) — both turn the same way
