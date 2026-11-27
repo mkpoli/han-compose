@@ -436,12 +436,15 @@ it('seats 玉 beside the 夌 of 菱 in the Misato shrine character', async () =>
     expect(jade.box[2]).toBeGreaterThan(body.box[2] * 0.43)
     // Align 玉 with the end of the enclosing sweep while keeping the sweep at its native downward height.
     expect(Math.abs(right(jade) - right(body))).toBeLessThan(body.box[2] * 0.035)
-    if (layout === 'composed') {
-      expect(Math.abs(rightTipY(body.d) - nativeTipY)).toBeLessThan(15)
-    }
+    expect(Math.abs(rightTipY(body.d) - nativeTipY), layout).toBeLessThan(20)
   }
-  const fallback = await compose(src, sequence, { exclude: ['菱'], fontStyle: 'fangsong' })
-  expect(fallback.origins).not.toContain('enclosing 夌 from 菱')
+  for (const excluded of ['菱', '艹', '玉']) {
+    const fallback = await compose(src, sequence, { exclude: [excluded], fontStyle: 'fangsong' })
+    expect(fallback.origins, excluded).not.toContain('enclosing 夌 from 菱')
+  }
+  const alteredSrc = source({ 菱: { G: { ...shrineDonor, p: [...shrineDonor.p].reverse() }, ink: 5000 }, 夌: records.木, 玉: records.口, 艹: records.口 })
+  const altered = await compose(alteredSrc, sequence, { fontStyle: 'fangsong' })
+  expect(altered.origins).not.toContain('enclosing 夌 from 菱')
 })
 
 it('gives both tiers of the source 393 metric unit their full height above 克', async () => {

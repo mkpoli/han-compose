@@ -81,13 +81,14 @@ import pyramidCatalog from './pyramid-glyphs.json' with { type: 'json' }
 import { createRenderNormalizer } from './normalization.js'
 
 const isShrineJade = node => node[0] === '⿱' && node[1] === '艹' && node[2]?.[0] === '⿺' && node[2][1] === '夌' && node[2][2] === '玉' && !node.note && !node[2].note
-// In 菱 all three brush styles share the last stroke with the rest of 夂.
+// Pinned 菱 outlines per face; in fangsong, regular (TW-Kai), and pen-writing
+// (Kureedo), 夂 merges its final sweep into one contour.
 const shrineLingCuts = {
-  '43439cecaec205e6cff69f7b1a448b5e8e14a10cbcb159a8c73331ed10253e99': { grass: [0, 3, 4], sweep: 7 },
-  '5f2a0f14140808d1139b74cca6efe70b6a24f3372efe72f97a31b40419228ff0': { grass: [8], sweep: 2 },
-  'ffa4c57a60cd3e2b446539cfc7e5f6241f4a8555b76c93803b8600f8efbf9dd3': { grass: [3], sweep: 4 },
-  'b209240f1a7606d8d99c5704c5dcf0731813587cf51aa5de843eb248a8f6c9e2': { grass: [3, 4], sweep: 1 },
-  '943627947ecafb8f5fad026ef1040565ee8e943d08072f11e6465e2bde0ea173': { grass: [0], sweep: 2 },
+  sans: { digest: '43439cecaec205e6cff69f7b1a448b5e8e14a10cbcb159a8c73331ed10253e99', grass: [0, 3, 4], sweep: 7 },
+  serif: { digest: '5f2a0f14140808d1139b74cca6efe70b6a24f3372efe72f97a31b40419228ff0', grass: [8], sweep: 2 },
+  fangsong: { digest: 'ffa4c57a60cd3e2b446539cfc7e5f6241f4a8555b76c93803b8600f8efbf9dd3', grass: [3], sweep: 4 },
+  regular: { digest: '943627947ecafb8f5fad026ef1040565ee8e943d08072f11e6465e2bde0ea173', grass: [0], sweep: 2 },
+  'pen-writing': { digest: 'b209240f1a7606d8d99c5704c5dcf0731813587cf51aa5de843eb248a8f6c9e2', grass: [3, 4], sweep: 1 },
 }
 
 // Positions in each source font’s em. Match the outline of む before using its opening.
@@ -2564,12 +2565,13 @@ export class Composer {
     return parts.length ? parts : null
   }
 
-  /** The 三郷 shrine plaque sets 玉 beside 夌, with the final sweep beneath both. */
+  /** R+07AB, Mika-jinja (Misato, Saitama) hanging plaque (photo by Taisuke.Kasuya, CC BY-SA 4.0).
+   *  Sets 玉 beside narrowed 夌 from 菱, keeping the native downward 捺 sweep beneath both. */
   shrineJadeParts(node, region) {
     if (!isShrineJade(node) || ['艹', '夌', '玉', '菱'].some(c => this.excluded(c))) return null
+    const cut = shrineLingCuts[this.fontStyle]
     const record = this.glyphRecord('菱'), jade = this.glyph('玉')
-    const cut = record && shrineLingCuts[hexOf(JSON.stringify(record.p))]
-    if (!cut || !jade) return null
+    if (!cut || !record || !jade || hexOf(JSON.stringify(record.p)) !== cut.digest) return null
     const donor = partOf(record), [l, b, r, t] = donor.box, w = r - l, h = t - b
     const bodyWidth = this.fontStyle === 'sans' || this.fontStyle === 'serif' ? 0.57 : 0.61
     const cap = derived(donor, cut.grass.map(i => donor.contours[i]))
@@ -2597,7 +2599,7 @@ export class Composer {
     const jadeBox = this.fontStyle === 'sans' ? [0.55, 0.165, 0.985, 0.725] : [0.535, 0.17, 0.99, this.fontStyle === 'fangsong' ? 0.715 : 0.73]
     return [
       placed(cap, cap.box, capBox, this.ink('菱'), 'grass from 菱'),
-      placed(body, body.box, mapped(body.box, donor.box, face), this.ink('夌'), 'enclosing 夌 from 菱'),
+      placed(body, body.box, mapped(body.box, donor.box, face), this.ink('菱'), 'enclosing 夌 from 菱'),
       placed(jade, tightBox(jade), mapped(jadeBox, [0, 0, 1, 1], face), this.ink('玉'), 'glyph 玉'),
     ]
   }
