@@ -2,6 +2,8 @@
 
 A **family** groups documented drawings for a character, a component or a specified position in a larger glyph. Each **form** has an exact IDS spelling. Each **axis** records one observable difference at a specified place in a reference drawing or IDS.
 
+For independent choices inside nested components, see [Recursive variant expressions](variation-expressions.md).
+
 ## Choose a form
 
 ```js
