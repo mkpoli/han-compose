@@ -614,10 +614,15 @@ export const COMPONENT_FIXES = {
       const widths = mouths.map(p => (p.part.contours[0]?.width?.[1] ?? gong.contours[0].width[1]) * scaleOf(p)[1])
       fitted[middle] = shortenGong(fitted[middle], gong, Math.max(...widths))
       const original = parts.map(p => ({ ...p }))
-      // Balance the two layouts before measuring their visible extents.
-      for (const group of [original, fitted]) {
-        if (!composer.partial && composer.weighted) composer.balance(group)
-        else if (!composer.partial && composer.staticFace) composer.staticBalance(group)
+      // Measure both layouts at their final weights without changing a sibling enclosure's stroke.
+      const stroke = composer.stroke
+      try {
+        for (const group of [original, fitted]) {
+          if (!composer.partial && composer.weighted) composer.balance(group)
+          else if (!composer.partial && composer.staticFace) composer.staticBalance(group)
+        }
+      } finally {
+        composer.stroke = stroke
       }
       const ink = group => union(groupRings(group, 24).map(pointsBox))
       const before = ink(original), after = ink(fitted)
