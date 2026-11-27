@@ -23,12 +23,27 @@ export declare function dotIn(composer: any, band: any): {
     native: any;
     origin: any;
 } | null;
+export declare const INCOME_IDS = "\u2FF1\u2FF0\u65E5\u6597\u2FFA\u8FB6\u2FF0\u96B9\u91D1";
+/**
+ * The five leaf boxes of `⿱⿰日斗⿺辶⿰隹金` mapped into `region` for `style`, with clearance on
+ * any edge that sits strictly inside `face` (when nested beside or below another component).
+ * @param {string} key
+ * @param {string} style
+ * @param {number[]} region
+ * @param {number[] | null} [face]
+ * @returns {number[][] | null}
+ */
+export declare function incomeBoxes(key: string, style: string, region: number[], face?: number[] | null): number[][] | null;
 export declare function enclosedZeroTarget(zero: any, opening: any): any[];
 /**
  * The corrections, by description. `glyphs` ties each to the outlines it was read against.
  * A correction that cannot find the parts it names leaves the drawing as it is.
  */
 export declare const COMPONENT_FIXES: {
+    "\u2FF1\u2FF0\u65E5\u6597\u2FFA\u8FB6\u2FF0\u96B9\u91D1": {
+        glyphs: {};
+        apply(parts: any, composer: any, region: any): any;
+    };
     '\u2FF1\u6295\u77F3': {
         glyphs: {};
         apply(parts: any, composer: any): any;
