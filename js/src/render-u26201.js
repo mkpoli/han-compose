@@ -8,7 +8,7 @@ export { u26201Forms } from './yao-forms.js'
 
 const viewBox = '0 0 1000 1000'
 /** @typedef {string | {id:string}} Form */
-/** @type {Record<string,{standalone:string,left:string,right:string}>} */
+/** @type {Record<string,{standalone:string,left?:string,right?:string}>} */
 const drawings = design.forms
 
 /** @param {Form} form */
@@ -25,23 +25,27 @@ export function yaoOutline(form) {
   return { viewBox, d: ink(form).standalone }
 }
 
-let original = ''
-/** The unchanged reference uses the 文津宋體 source in the 率 catalogue. */
-function nativeDrawing() {
-  if (!original) original = serif.forms['𦈁'][0].map(i => {
-    const [ops, coords] = serif.contours[i]
-    const path = /** @type {[string, number[][]][]} */ (segments(commands(ops), coords.split(' ').map(Number)))
-    return path.map(([op, points]) => op + points.map(([x, y]) => x + ' ' + (ASCENT - y)).join(' ')).join('') + 'Z'
-  }).join('')
-  return original
+/** @param {number} index */
+function nativeContour(index) {
+  const [ops, coords] = serif.contours[index]
+  const path = /** @type {[string, number[][]][]} */ (segments(commands(ops), coords.split(' ').map(Number)))
+  return path.map(([op, points]) => op + points.map(([x, y]) => x + ' ' + (ASCENT - y)).join(' ')).join('') + 'Z'
 }
 
-/** Noto Serif CJK SC supplies the compound proportions and the surrounding strokes:
- * 𠈌 and 千 for 𠂹, 綦 for the base of 糸, and 蟀 for the compressed 率.
- * The three 幺 outlines are drawn by construction. Unselected sites in this face
- * take the folded form found in the SC source. A bare 𦈁 retains its native outline.
+const nativeForms = serif.forms['𦈁']
+const contours = nativeForms[0].map(nativeContour)
+// The source fuses the lower-left dot of 率 to its 幺. Its separated outline
+// comes from the same 文津宋體 drawing in the reviewed 率 series.
+const sideDot = nativeContour(nativeForms[2][13])
+
+/** Both native upper turns are folded. Each alternative follows the host's original
+ * diagonal widths, lower strokes and enclosing contours in its own writing slot.
  * @param {Form | null} [left] @param {Form | null} [right] */
 export function renderU26201(left, right) {
-  if (left == null && right == null) return { viewBox, d: nativeDrawing() }
-  return { viewBox, d: design.surround + ink(left ?? 'folded').left + ink(right ?? 'folded').right }
+  const parts = contours.slice()
+  const leftPath = left == null ? undefined : ink(left).left
+  const rightPath = right == null ? undefined : ink(right).right
+  if (leftPath) parts[0] = leftPath
+  if (rightPath) parts[9] = rightPath + sideDot
+  return { viewBox, d: parts.join('') }
 }

@@ -1020,7 +1020,7 @@ export class Composer {
     if (pair || form) {
       const part = form ? yaoPart(form.id) : u26201Part(pair)
       const target = atRoot ? mapped(part.box, componentConstants.face, region) : region
-      const origin = form ? 'Noto Serif CJK · 幺（重繪）' : pair.left || pair.right ? 'Noto Serif CJK · 𦈁（組字）' : '文津宋體 · 𦈁'
+      const origin = form ? 'Noto Serif CJK · 幺（重繪）' : '文津宋體 · 𦈁'
       return [{ ...placed(part, part.box, target, partInk(part), origin), fixed: true }]
     }
     const rate = exactRateForm(text)

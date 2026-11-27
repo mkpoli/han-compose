@@ -29,7 +29,7 @@ test('the public preview draws 𦈁 and all nine saved choices without an export
     expect(pathMask(result.d, 160)).toEqual(pathMask(rounded, 160))
     paths.add(result.d)
   }
-  expect(paths.size).toBe(10)
+  expect(paths.size).toBe(9)
 })
 
 test('a saved occurrence draws as one leaf and leaves the adjacent glyph in place', async () => {

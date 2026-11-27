@@ -45,7 +45,7 @@ Keep the expression for the source, occurrence paths and catalogue identities. I
 
 ## Render 𦈁
 
-Pass the gallery’s copied IDS to the composer to draw the full character. The selected designs use newly drawn 幺 components in a Noto Serif CJK–style composition.
+Pass the gallery’s copied IDS to the composer to draw the full character. In 𦈁, choosing a different upper turn changes only that occurrence in the 文津宋體 outline. Choosing the folded turn at both positions reproduces the source glyph.
 
 ```js
 import { compose, drawingSvg } from 'han-compose'

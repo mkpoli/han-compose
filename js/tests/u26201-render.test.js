@@ -16,8 +16,8 @@ test('each selection changes ink only inside its own 幺', () => {
   const base = mask(renderU26201('folded', 'folded').d)
   for (const { id, text } of u26201Forms) {
     for (const [choice, x0, y0, x1, y1] of [
-      [[id, null], 81, 526, 485, 810],
-      [[null, text], 602, 217, 843, 611],
+      [[id, null], 84, 523, 469, 732],
+      [[null, text], 600, 193, 847, 475],
     ]) {
       const rendered = mask(renderU26201(...choice).d)
       let inside = 0, outside = 0
@@ -36,19 +36,24 @@ test('each selection changes ink only inside its own 幺', () => {
 })
 
 test('all nine whole characters are visually distinguishable, with native exterior ink extents', () => {
+  const native = renderU26201().d
+  expect(renderU26201('folded', 'folded').d).toBe(native)
+  const nativeInk = mask(native).reduce((sum, pixel) => sum + pixel, 0)
   const silhouettes = new Set()
-  const native = pathRings(renderU26201().d, 16).flat()
   function extent(ink) {
     const x = ink.filter((_, i) => i % 2 === 0)
     const y = ink.filter((_, i) => i % 2 === 1).map(v => ASCENT - v)
     return [Math.min(...x), Math.min(...y), Math.max(...x), Math.max(...y)]
   }
-  const bounds = extent(native)
+  const bounds = extent(pathRings(native, 16).flat())
   for (const left of u26201Forms) for (const right of u26201Forms) {
     const { d, viewBox } = renderU26201(left, right)
     expect(viewBox).toBe('0 0 1000 1000')
     extent(pathRings(d, 16).flat()).forEach((value, i) => expect(value).toBeCloseTo(bounds[i], 0))
-    silhouettes.add(Buffer.from(mask(d)).toString('base64'))
+    const bitmap = mask(d)
+    const ink = bitmap.reduce((sum, pixel) => sum + pixel, 0)
+    expect(Math.abs(ink / nativeInk - 1)).toBeLessThan(0.025)
+    silhouettes.add(Buffer.from(bitmap).toString('base64'))
   }
   expect(silhouettes.size).toBe(9)
   expect(() => renderU26201('missing', null)).toThrow(RangeError)
