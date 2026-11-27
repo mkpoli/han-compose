@@ -12,6 +12,7 @@ import {
 } from '../src/mix-contours.js'
 import { inkPolygons, limitDisplacement, weldedRings } from '../src/mix-outline.js'
 import { count, pathMask } from '../src/geometry.js'
+import { registerFields } from '../src/mix-field-map.js'
 import { compose } from '../src/loader.js'
 import { files } from './fixtures/small-export.js'
 import { sourceOver } from './support.js'
@@ -1130,6 +1131,24 @@ it('pairs the strokes a face draws as separate contours before their ink is unit
   }
   // A face of one contour has no strokes to pair.
   expect(sourceGroups([[flat(40, 40, 100, 100)], [flat(40, 40, 100, 100)]])).toBeNull()
+})
+
+it('finds the displacement that lays one distance field over another', () => {
+  const side = 64
+  // A vertical bar, positive inside, at two places twelve units apart.
+  const bar = (/** @type {number} */ centre) =>
+    Float32Array.from({ length: side * side }, (_, i) =>
+      Math.min(8 - Math.abs((i % side) - centre), 20 - Math.abs(Math.floor(i / side) - 32))
+    )
+  const motion = registerFields(bar(26), bar(38), side)
+  // Half the way each, sideways only, on the bar; next to nothing far from it.
+  const [u, v] = motion(32, 32)
+  expect(u).toBeGreaterThan(5)
+  expect(u).toBeLessThan(7)
+  expect(Math.abs(v)).toBeLessThan(0.5)
+  expect(Math.hypot(...motion(4, 4))).toBeLessThan(1)
+  // Fields that already agree are left where they are.
+  expect(Math.hypot(...registerFields(bar(32), bar(32), side)(32, 32))).toBeLessThan(0.5)
 })
 
 it('does not pair distant leftover corners at opposite ends of a long stem wall', () => {

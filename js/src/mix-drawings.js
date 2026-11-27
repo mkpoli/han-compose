@@ -13,6 +13,7 @@ import {
 } from './mix-contours.js'
 import { inkPolygons, outlinePath, limitDisplacement, weldedRings } from './mix-outline.js'
 import { STROKE } from './slot-placeholder.js'
+import { registerFields, sampleGrid } from './mix-field-map.js'
 import { ASCENT, fill, pathRings, pointsBox, union } from './geometry.js'
 import { groupParts } from './group-parts.js'
 
@@ -454,6 +455,45 @@ function prepareFields(shapes, side) {
     }
     return { field: warped, ink, xMap, yMap }
   })
+  // Two faces that draw the same strokes in slightly different places blend into a blur
+  // where the strokes miss each other. A displacement that lays one field over the other
+  // is used where it removes most of their difference; faces built differently keep it.
+  /** @type {((x: number, y: number) => number[]) | null} */
+  let motion = null
+  if (fields.length === 2) {
+    const found = registerFields(fields[0].field, fields[1].field, side)
+    const band = 6,
+      held = (/** @type {number} */ v) => Math.max(-band, Math.min(band, v))
+    let apart = 0,
+      left = 0
+    for (let y = 0; y < side; y += 2)
+      for (let x = 0; x < side; x += 2) {
+        const [u, v] = found(x, y)
+        apart += (held(fields[0].field[y * side + x]) - held(fields[1].field[y * side + x])) ** 2
+        left +=
+          (held(sampleGrid(fields[0].field, side, x - u, y - v)) -
+            held(sampleGrid(fields[1].field, side, x + u, y + v))) **
+          2
+      }
+    if (left < 0.04 * apart) motion = found
+  }
+  if (motion) {
+    const found = motion
+    fields.forEach((face, f) => {
+      const raw = face.field,
+        warped = new Float32Array(raw.length)
+      face.ink = 0
+      for (let y = 0; y < side; y++)
+        for (let x = 0; x < side; x++) {
+          const [u, v] = found(x, y),
+            sign = f ? 1 : -1
+          const value = sampleGrid(raw, side, x + sign * u, y + sign * v)
+          warped[y * side + x] = value
+          face.ink += Math.min(1, Math.max(0, value + 0.5))
+        }
+      face.field = warped
+    })
+  }
   const trace = contours().size([side, side])
   let key = ''
   /** @type {number[][][]} */
@@ -484,7 +524,20 @@ function prepareFields(shapes, side) {
       rings = trace
         .contour(Array.from(combined), level)
         .coordinates.flat()
-        .map((r) => r.map(([x, y]) => [mappedPosition(x, xMap), mappedPosition(y, yMap)]))
+        .map((r) =>
+          r.map(([x, y]) => {
+            if (!motion) return [mappedPosition(x, xMap), mappedPosition(y, yMap)]
+            const [u, v] = motion(x - 0.5, y - 0.5)
+            return [0, 1].map((k) =>
+              fields.reduce(
+                (sum, f, j) =>
+                  sum +
+                  shares[j] * mappedPosition((k ? y : x) + (j ? 1 : -1) * (k ? v : u), k ? f.yMap : f.xMap),
+                0
+              )
+            )
+          })
+        )
       weighted = undefined
       key = next
     }
