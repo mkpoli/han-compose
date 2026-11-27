@@ -161,7 +161,7 @@ def _r(values: Iterable[float], digits: int = 2) -> list[float]:
 def part_record(part: C.Part) -> dict:
     """A part's outlines: its box, and per contour its pen commands, its points at weight 400 and
     their move to the heavy weight (`HEAVY` in the constants), int16 in 1 / `QUANT` units, little-endian, x and y interleaved (an
-    outline outside int16's range is refused). A part a fallback font or a static face draws carries the stroke width measured on its glyph (`Contour.width`), and one a fallback of another design draws is marked `f`."""
+    outline outside int16's range is refused). A part a fallback font or a static face draws carries the stroke width measured on its glyph (`Contour.width`), and one a fallback draws is marked `f` (another design than the style's font) or `k` (the same design)."""
     contours = []
     for c in part.contours:
         light, heavy = np.round(c.light * QUANT), np.round(c.heavy * QUANT)
@@ -174,6 +174,8 @@ def part_record(part: C.Part) -> dict:
         out["w"] = _r(part.contours[0].width)
     if part.contours and part.contours[0].foreign:
         out["f"] = 1
+    if part.contours and part.contours[0].kindred:
+        out["k"] = 1
     return out
 
 
@@ -1214,7 +1216,7 @@ def _export(composer: C.Composer, out: Path, joyo: list[str] | None = None, pari
         "composer": {"repository": "https://github.com/mkpoli/han-compose", "commit": commit, "dirty": dirty,
                      "style": style.name, "layout_file": layout_file, **inputs},
         "style": style.name,
-        "em": C.EM, "ascent": C.ASCENT, "heavy": style.heavy, "weighted": True, "quant": QUANT,
+        "em": C.EM, "ascent": C.ASCENT, "heavy": style.heavy, "weighted": bool(composer.weighted), "quant": QUANT,
         "constants": constants(composer),
         "constants_note": "tuple keys are joined with a comma: SHARES[('⿳', 3)] is SHARES['⿳,3']",
         "spelled": sorted(composer.spelled),

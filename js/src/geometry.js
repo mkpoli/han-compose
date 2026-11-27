@@ -139,14 +139,17 @@ export function contourSections(contours, ...sections) {
       offset += n
     }
   }
-  return { ops, light: Float64Array.from(light), heavy: Float64Array.from(heavy), width: contours[0].width }
+  const { width, scaled, foreign, kindred } = contours[0]
+  return { ops, light: Float64Array.from(light), heavy: Float64Array.from(heavy), width, scaled, foreign, kindred }
 }
 
 
 /** A part record of the export (`b`, `p`, `w`) read as a part, decoded once. */
 export function partOf(record, quant = 4) {
   if (record._part) return record._part
-  const width = record.w ?? null, foreign = record.f === 1
+  const width = record.w ?? null
+  // A fallback's glyph: of another design than the style's font (`f`), or of the same (`k`).
+  const from = record.f === 1 ? { foreign: true } : record.k === 1 ? { kindred: true } : null
   const contours = record.p.map(([ops, light, delta]) => {
     const cmds = commands(ops), lo = int16(light), d = int16(delta)
     const l = new Float64Array(lo.length), h = new Float64Array(lo.length)
@@ -156,39 +159,13 @@ export function partOf(record, quant = 4) {
     // One closing on an implied point starts on a control point instead, so it is left alone.
     const n = l.length
     if (n >= 4 && !cmds.at(-1)[2] && l[0] === l[n - 2] && l[1] === l[n - 1]) { h[0] = h[n - 2]; h[1] = h[n - 1] }
-    return foreign ? { ops: cmds, light: l, heavy: h, width, foreign } : { ops: cmds, light: l, heavy: h, width }
+    return { ops: cmds, light: l, heavy: h, width, ...from }
   })
   const part = wound(makePart(contours, record.b.slice()))
   if (record.fixed) part.fixed = true
   if (record.sg) part.strokes = record.sg
   Object.defineProperty(record, '_part', { value: part, enumerable: false })
   return part
-}
-
-/** The usual stroke width in a `size` × `size` mask, in font units (`unit` a pixel), across x and
- *  across y (`compose.stems`): the most common length of the short runs of ink along rows or
- *  columns, refined by its neighbours. NaN where the mask has no such run. */
-export function stems(mask, size, unit) {
-  const out = []
-  for (const axis of [0, 1]) {
-    const counts = new Int32Array(43)
-    let any = false
-    for (let a = 0; a < size; a++) {
-      let run = 0
-      for (let b = 0; b <= size; b++) {
-        if (b < size && (axis === 0 ? mask[a * size + b] : mask[b * size + a])) { run++; continue }
-        if (run >= 2 && run <= 40) { counts[run]++; any = true }
-        run = 0
-      }
-    }
-    if (!any) { out.push(NaN); continue }
-    let mode = 0
-    for (let n = 1; n < counts.length; n++) if (counts[n] > counts[mode]) mode = n
-    let sum = 0, total = 0
-    for (let n = Math.max(mode - 2, 0); n < Math.min(mode + 3, counts.length); n++) { sum += n * counts[n]; total += counts[n] }
-    out.push(sum / total * unit)
-  }
-  return out
 }
 
 /** A contour as `['M' | 'L' | 'Q', points]` segments, TrueType's implied on-curve points made explicit

@@ -31,7 +31,7 @@ import { grassShape } from './variants.js'
 // `data.identity(key)`: the key's sequence and the character it describes, without its record; one
 // over an export with a kin table answers `data.kin()` with it (`kin`, `kinOuter`).
 import { EM_BOX, area, centre, count, derived, drawnBox, drawnContours, fill, fitted, grown, groupRings, makePart, mapped, partInk, partOf,
-  placed, pointsBox, pyRound, raster, rings, scaleOf, shrunk, square, stems, stretchOf, targetFor, union, windingOf, within } from './geometry.js'
+  placed, pointsBox, pyRound, raster, rings, scaleOf, shrunk, square, stretchOf, targetFor, union, windingOf, within } from './geometry.js'
 import { grassPairs, connectedGrass, contextualGrass } from './grass-forms.js'
 import { ownFormsOnly, componentParts, componentPosition, componentPositionBox, componentRecord, containsComponentForm, hasForcedForms, containsForcedForm, isComponentForm, isForcedCharacter, isGroupedForm, isNativeForm } from './component-forms.js'
 import { features, forward } from './layout.js'
@@ -5398,33 +5398,35 @@ export class Composer {
     for (const p of group) {
       if (p.empty !== undefined || p.fixed) continue
       const weight = [], target = p.target.slice(), scale = scaleOf(p)
-      // A static face's heavy master is its outline grown by one amount whatever the stroke, so a
-      // thin part's weight is counted against its own stem.
-      let ownStem = null
-      if (powers && C.STATIC) {
-        const size = 200
-        ownStem = stems(fill(rings(p.part.contours, p.part.contours.map(c => c.light), 2), size, EM_BOX), size, (EM_BOX[2] - EM_BOX[0]) / size)
-          .map((w, axis) => Number.isFinite(w) ? w : stem[axis][0])
-      }
+      const first = p.part.contours[0], baked = first?.scaled ?? [1, 1]
+      // A static face's own outline is grown by one amount whatever the stroke, so its weight is
+      // counted against its glyph's stem. A fallback's is grown in proportion to its stem.
+      const flat = Boolean(powers && C.STATIC && first?.width && !first.kindred && !first.foreign)
       for (const axis of [0, 1]) {
         const box = p.balanceBox ?? p.source
         const extent = box[axis + 2] - box[axis]
         if (extent <= 2 * stem[axis][0]) {
-          const width = powers ? extent * Math.max(scale[1 - axis], 1e-6) ** powers[axis] : extent * curve(density, axis) / curve(p.native, axis)
+          const width = powers ? extent / baked[axis] * Math.max(scale[1 - axis] * baked[1 - axis], C.PART_SCALE_LEAST) ** powers[axis]
+            : extent * curve(density, axis) / curve(p.native, axis)
           const middle = (target[axis] + target[axis + 2]) / 2
           target[axis] = middle - width / 2
           target[axis + 2] = middle + width / 2
           weight.push(0)
           continue
         }
-        const measured = p.part.contours[0]?.width
+        const measured = first?.width
         if (powers) {
           // The stem the font gives a part at this scale, over the stem plain scaling leaves. A
-          // glyph of another design starts from the stem the font draws at its density.
-          const lift = measured && p.part.contours[0].foreign ? curve(p.native, axis) / measured[axis] : 1
-          const grownBy = ownStem ? (stem[axis][1] - stem[axis][0]) / ownStem[axis] : ratio[axis]
-          const least = C.PART_SCALE_LEAST ?? 0.3
-          weight.push(Math.min(p.weightLimit?.[axis] ?? C.WEIGHT_GROWTH ?? 3, Math.max(-0.6, (lift * Math.max(scale[axis], least) ** (powers[axis] - 1) - 1) / grownBy)))
+          // glyph of another design starts from the stem the font draws at its density. A glyph
+          // of the variable font states no width unless a sweep set one on it.
+          const stated = measured && (C.STATIC || first.kindred || first.foreign) ? measured[axis] / baked[axis] : null
+          const lift = stated !== null && first.foreign ? curve(p.native, axis) / stated : 1
+          let grownBy = ratio[axis]
+          if (flat) grownBy = (stem[axis][1] - stem[axis][0]) / stated
+          // Horizontals grown synthetically grow by one amount too.
+          else if (axis === 1 && stated === null && C.GROW_Y) grownBy = (stem[1][1] - stem[1][0]) / curve(p.native, 1)
+          const at = Math.max(scale[axis] * baked[axis], C.PART_SCALE_LEAST)
+          weight.push(Math.min(p.weightLimit?.[axis] ?? C.WEIGHT_GROWTH, Math.max(-0.6, (lift * at ** (powers[axis] - 1) - 1) / grownBy)))
           continue
         }
         const own = measured ? measured[axis] : curve(p.native, axis)
@@ -5959,7 +5961,9 @@ export function sweptPart(p, edge, C, tail = null) {
     // scaled ones: `balance` reads them against a scale of one. A glyph stating none takes the
     // width its ink calls for, as `balance` would.
     const own = c.width ?? [0, 1].map(axis => C.STEM_CURVE[axis][0] + C.STEM_CURVE[axis][1] * p.native / 1000)
-    return { ops: c.ops, light: map(c.light), heavy: map(c.heavy), width: [own[0] * sx, own[1] * sy] }
+    const baked = c.scaled ?? [1, 1]
+    return { ops: c.ops, light: map(c.light), heavy: map(c.heavy), width: [own[0] * sx, own[1] * sy],
+      scaled: [baked[0] * sx, baked[1] * sy], foreign: c.foreign, kindred: c.kindred }
   }
   const strokes = derived(p.part, p.part.contours.filter((_, k) => k !== sweep).map(c => at(c, q => q)))
   const box = strokes.box
@@ -5995,7 +5999,7 @@ export function pressedEnclosure(p, sweep, share = ENCLOSURE_SHARE, tail = null)
     }
     return out
   }
-  const mapped = p.part.contours.map(c => ({ ops: c.ops, light: mapX(c.light), heavy: mapX(c.heavy), width: c.width }))
+  const mapped = p.part.contours.map(c => ({ ...c, light: mapX(c.light), heavy: mapX(c.heavy) }))
   if (tail) {
     const grafted = graftTail(mapped, sweep, x0, width, tail)
     if (grafted) return placed(makePart(grafted, p.part.box.slice()), p.source, p.target, p.native, `enclosure ${p.origin}`, p.weight)

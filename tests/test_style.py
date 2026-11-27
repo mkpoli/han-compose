@@ -453,10 +453,8 @@ def test_a_static_face_counts_a_parts_weight_against_its_own_stem_and_holds_the_
         ops = [("moveTo", 1, False)] + [("lineTo", 1, False)] * 3
         return compose.Part([compose.Contour(ops, outer, outer.copy(), (stroke, stroke)), compose.Contour(ops, inner, inner.copy(), (stroke, stroke))])
 
-    real = compose.Font.__new__(compose.Font)
-    real.stem = ((60.0, 100.0), (40.0, 80.0))
-    font = SimpleNamespace(style=SimpleNamespace(part_stems=(0.25, 0.5)), stem=real.stem, static=True, glyph=lambda _: None,
-                           has=lambda _: False, width=lambda density, axis: 1.0, _measured=real._measured)
+    font = SimpleNamespace(style=SimpleNamespace(part_stems=(0.25, 0.5)), stem=((60.0, 100.0), (40.0, 80.0)), static=True,
+                           glyph=lambda _: None, has=lambda _: False, width=lambda density, axis: 1.0)
     composer = compose.Composer(font, {})
     composer.ink = lambda *_: 1.0
     part = frame(50.0)
@@ -468,3 +466,15 @@ def test_a_static_face_counts_a_parts_weight_against_its_own_stem_and_holds_the_
     assert whole.weight == (0.0, 0.0)
     assert half.weight == pytest.approx(((0.5 ** -0.75 - 1) / 0.8, (0.5 ** -0.5 - 1) / 0.8))
     assert tiny.weight == pytest.approx(((compose.PART_SCALE_LEAST ** -0.75 - 1) / 0.8, (compose.PART_SCALE_LEAST ** -0.5 - 1) / 0.8))
+    # Contours set at the size they are drawn at state that scale, and weigh as before.
+    ops = part.contours[0].ops
+    points = [(c.light - 200) * 0.5 + 200 for c in part.contours]
+    set_small = compose.Part([compose.Contour(ops, q, q.copy(), (25.0, 25.0), scaled=(0.5, 0.5)) for q in points])
+    drawn = compose.Placed(set_small, set_small.box, set_small.box)
+    composer._balance([whole, drawn])
+    assert drawn.weight == pytest.approx(half.weight)
+    # A fallback's outline is grown in proportion to its stem: counted by the font's ratio.
+    kin = compose.Part([compose.Contour(ops, c.light, c.light.copy(), (50.0, 50.0), kindred=True) for c in part.contours])
+    borrowed = compose.Placed(kin, kin.box, (200.0, 200.0, 450.0, 450.0))
+    composer._balance([whole, borrowed])
+    assert borrowed.weight == pytest.approx(((0.5 ** -0.75 - 1) / (100 / 60 - 1), (0.5 ** -0.5 - 1) / (80 / 40 - 1)))

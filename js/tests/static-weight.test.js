@@ -57,7 +57,7 @@ const lawFiles = stems => ({
     ...JSON.parse(files['manifest.json']),
     weighted: true,
     heavy: 400,
-    constants: { ...constants, stem: [[60, 100], [40, 80]], PART_STEMS: stems, STATIC: true, PART_SCALE_LEAST: 0.3, WEIGHT_GROWTH: 3 },
+    constants: { ...constants, stem: [[60, 100], [40, 80]], PART_STEMS: stems, STATIC: true, PART_SCALE_LEAST: 0.2, WEIGHT_GROWTH: 3 },
   }),
 })
 
@@ -88,5 +88,10 @@ it('weights a part by the measured powers of its scale, against its own stem', a
   // Below the smallest measured scale a part is weighted as one at that scale.
   const tiny = frame(50, [200, 200, 250, 250])
   composer.balance([whole, tiny])
-  expect(tiny.weight[0]).toBeCloseTo((0.3 ** -0.75 - 1) / (40 / 50), 6)
+  expect(tiny.weight[0]).toBeCloseTo((0.2 ** -0.75 - 1) / (40 / 50), 6)
+  // A fallback's outline is grown in proportion to its stem: counted by the font's ratio.
+  const borrowed = frame(50, [200, 200, 450, 450])
+  for (const c of borrowed.part.contours) c.kindred = true
+  composer.balance([whole, borrowed])
+  expect(borrowed.weight[0]).toBeCloseTo((0.5 ** -0.75 - 1) / (100 / 60 - 1), 6)
 })

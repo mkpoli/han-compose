@@ -758,6 +758,10 @@ class Contour:
     #: Whether the contour is a fallback's of another design than the style's own font: its stroke
     #: width is brought to the font's, where a part of the font's own keeps its glyph's.
     foreign: bool = False
+    #: The scale already drawn into the points (and into `width`), across x and across y, where a
+    #: part's contours were set at the size they are drawn at: its weight counts it with the
+    #: placement's.
+    scaled: tuple[float, float] = (1.0, 1.0)
     #: Whether the contour is a kindred fallback's (`Style.kindred`): drawn in the variable font's
     #: design, its strokes joined into outlines as that fallback joins them.
     kindred: bool = False
@@ -3204,30 +3208,39 @@ class Composer:
             if p.fixed:
                 continue
             weight, target = [], list(p.target)
-            own_stem = self.font._measured(p.part.contours) if powers is not None and getattr(self.font, "static", False) else None
+            first = p.part.contours[0]
+            # A static face's own outline is grown by one amount whatever the stroke, so its weight
+            # is counted against its glyph's stem. A fallback's is grown in proportion to its stem.
+            flat = getattr(self.font, "static", False) and first.width is not None and not (first.kindred or first.foreign)
             for axis, s in enumerate(p.scale):
                 extent = p.source[axis + 2] - p.source[axis]
                 if extent <= 2 * self.font.stem[axis][0]:
                     # A lone stroke across this axis: drawn at the width the density calls for, not
                     # scaled; in a face weighted by scale, at the width its length's scale calls for.
                     if powers is not None:
-                        width = extent * max(p.scale[1 - axis], 1e-6) ** powers[axis]
+                        along = max(p.scale[1 - axis] * first.scaled[1 - axis], PART_SCALE_LEAST)
+                        width = extent / first.scaled[axis] * along ** powers[axis]
                     else:
                         width = extent * self.font.width(density, axis) / self.font.width(p.native, axis)
                     middle = (target[axis] + target[axis + 2]) / 2
                     target[axis], target[axis + 2] = middle - width / 2, middle + width / 2
                     weight.append(0.0)
                     continue
-                measured = p.part.contours[0].width
+                measured = first.width
                 if powers is not None:
                     # The stem the font gives a part at this scale, over the stem plain scaling
                     # leaves. A glyph of another design starts from the stem the font draws at its
                     # density, over its own.
-                    lift = self.font.width(p.native, axis) / measured[axis] if measured is not None and p.part.contours[0].foreign else 1.0
-                    # A static face's heavy master is its outline grown by one amount whatever the
-                    # stroke, so a thin part's weight is counted against its own stem.
-                    grown = ratio[axis] if own_stem is None else (self.font.stem[axis][1] - self.font.stem[axis][0]) / own_stem[axis]
-                    weight.append(float(np.clip((lift * max(s, PART_SCALE_LEAST) ** (powers[axis] - 1) - 1) / grown, -0.6, WEIGHT_GROWTH)))
+                    own = None if measured is None else measured[axis] / first.scaled[axis]
+                    lift = self.font.width(p.native, axis) / own if own is not None and first.foreign else 1.0
+                    grown = ratio[axis]
+                    if flat:
+                        grown = (self.font.stem[axis][1] - self.font.stem[axis][0]) / own
+                    elif axis == 1 and own is None and getattr(self.font, "grow_y", 0.0):
+                        # Horizontals grown synthetically grow by one amount too.
+                        grown = (self.font.stem[1][1] - self.font.stem[1][0]) / self.font.width(p.native, 1)
+                    at = max(s * first.scaled[axis], PART_SCALE_LEAST)
+                    weight.append(float(np.clip((lift * at ** (powers[axis] - 1) - 1) / grown, -0.6, WEIGHT_GROWTH)))
                     continue
                 own = measured[axis] if measured is not None else self.font.width(p.native, axis)
                 weight.append(float(np.clip((self.font.width(density, axis) / (s * own) - 1) / ratio[axis], -0.6, WEIGHT_GROWTH)))
@@ -4168,7 +4181,8 @@ def _fit_under_cover(op: str, children: list[Node], groups: list[list[Placed]]) 
             shift = ((cover_box[0] + cover_box[2]) / 2 - bar_centre) / scale
             move = lambda points, source_centre=source_centre, shift=shift, factor=factor: np.column_stack([
                 source_centre + shift + (points[:, 0] - source_centre) * factor, points[:, 1]])
-            replacement = Contour(contour.ops, move(contour.light), move(contour.heavy), contour.width)
+            replacement = Contour(contour.ops, move(contour.light), move(contour.heavy), contour.width,
+                                  kindred=contour.kindred, foreign=contour.foreign, scaled=contour.scaled)
             contours = [replacement if c is contour else c for c in placed.part.contours]
             placed.part = Part(contours)
             break
@@ -4271,7 +4285,8 @@ def _swept(placed: Placed, edge: float) -> list[Placed] | None:
         # The contours stand at the size they are drawn at, so the stroke widths they state are the
         # scaled ones: `_balance` reads them against a scale of one.
         width = None if c.width is None else (c.width[0] * scale[0], c.width[1] * scale[1])
-        return Contour(c.ops, move((c.light - centre) * scale + goal), move((c.heavy - centre) * scale + goal), width)
+        return Contour(c.ops, move((c.light - centre) * scale + goal), move((c.heavy - centre) * scale + goal), width,
+                       kindred=c.kindred, foreign=c.foreign, scaled=(c.scaled[0] * scale[0], c.scaled[1] * scale[1]))
 
     # The other strokes pressed by their target box, so that weighting thickens their stems back.
     strokes = Part([at(c, lambda p: p) for k, c in enumerate(placed.part.contours) if k != sweep])

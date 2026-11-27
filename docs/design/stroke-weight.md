@@ -59,7 +59,7 @@ Kai, and a term for it lowers the error by at most 0.008; it is left out too.
 ```
 s            = max(scale[axis], PART_SCALE_LEAST)
 lift         = width(native) / own[axis] for a glyph of another design, else 1
-ratio[axis]  = stem_heavy / stem_light − 1, or (stem_heavy − stem_light) / the part's own stem in a static face
+ratio[axis]  = stem_heavy / stem_light − 1, or (stem_heavy − stem_light) / own[axis] for a static face's own glyph
 weight[axis] = (lift × s ^ (part_stems[axis] − 1) − 1) / ratio
 ```
 
@@ -70,8 +70,12 @@ ratio)` wide, and the formula solves that for `own × s ^ part_stems` on a part 
 at its source's size keeps its weight, so a frame is left as drawn.
 
 A static face's heavy master is its outline grown by one amount on every side, whatever the stroke.
-The ratio is then counted against the part's own stroke width, measured on its outlines
-(`Font._measured`): a thin part borrowed from a crowded host moves less far for the same change.
+The ratio is then counted against the stroke width measured on the part's glyph (`Contour.width`):
+a thin part borrowed from a crowded host moves less far for the same change. Noto Serif's
+horizontals are grown by one amount too (`synthetic_y`), and are counted against `width(native)`.
+A fallback's outline is grown in proportion to its stem, so it takes the plain ratio. Contours set
+at the size they are drawn at (a swept enclosure) state that scale (`Contour.scaled`), and it
+counts with the placement's.
 Below `PART_SCALE_LEAST` (0.2, the smallest scale the law is fitted on) a part is weighted as one
 at that scale. A glyph of a fallback of another design starts from the width the main font draws
 at its density (`width(native)`), over its own.
@@ -115,7 +119,7 @@ in place of the curve.
 | `manifest.constants.PART_STEMS`, `.STATIC` | The two powers, and whether the style's font has one weight. An export without `PART_STEMS` is balanced by density; one of a static face written before the law (`weighted` false) has its thin parts lifted to the stroke of the parts at their own size (`staticBalance`). |
 | A record's `G.p` | Per contour: the pen commands, the points at 400 and their move to the heavy master, int16 in quarter units. |
 | A record's `G.w` | The measured stroke width, on a glyph a fallback or a static font draws. |
-| A record's `G.f` | 1 on a glyph a fallback of another design draws. |
+| A record's `G.f`, `G.k` | 1 on a glyph a fallback draws: `f` of another design than the style's font, `k` of the same. |
 
 A drawing reports the widths it was brought to as `stroke`.
 
