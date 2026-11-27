@@ -55,7 +55,7 @@ export declare function createDrawer(makeWorker: () => WorkerLike, base: string,
 }): {
     draw: (sequence: string, onSketch?: ((leaves: SketchLeaf[]) => void) | null, { separate, fontStyle, preferExport, faces, weight, loaders }?: {
         separate?: boolean;
-        fontStyle?: 'sans' | 'serif' | 'regular' | 'fangsong' | 'pen-writing';
+        fontStyle?: 'sans' | 'serif' | 'woodblock' | 'regular' | 'fangsong' | 'pen-writing';
         preferExport?: boolean;
         faces?: {
             style: string;
