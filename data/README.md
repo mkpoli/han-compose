@@ -97,7 +97,9 @@ The standalone ink metrics use the five shipped format-7 exports and the rendere
 at `b1893d86`. The 16 source-drawn RCC forms use the ink bounds of each
 complete spelling on `dff29daa`. R+0C30’s current spelling uses the bounds
 from `1cc982ba`. They apply only to a previously drawable spelling in its matching
-export. For 33 chains, the interior proportions come from zi.tools’ drawing on
+export. The two standalone spellings of the flat turn in 乐 use the breadth,
+height and weight of the strokes in the native glyph. [Yi Bai, 乐](https://github.com/yi-bai/ids/blob/2597437b928e8d530b7ae09cf53fe5ec7868569c/ids_lv2.txt#L81).
+For 33 chains, the interior proportions come from zi.tools’ drawing on
 2026-11-25. The measurement matches each directed segment and its endpoints and
 rejects ambiguous mappings and duplicate drawing programs. To regenerate, save
 each response as `{"chain": "...", "reference": RESPONSE}` in a local directory
@@ -117,8 +119,11 @@ at the selected face's stem weights. Straight frame segments can use the face's
 own 一 and 丨, and polygon corners use the intersections of the source lines.
 The native cuts in `js/src/host-chain-cuts.json` identify the attested host,
 the drawing glyph for each face, the digest of its encoded contours and the
-whole contours or endpoint runs to retain. The reference for the 𠆭 G form is the guide
-font's U+E00B instead.
+whole contours or endpoint runs to retain. For fitted cuts, `uprightGap` or
+`strokeSpans` mark the intervals that can change length. FangSong 㔾 uses
+`hookRun` to move the inner return with its stem, and Kai 㠯 uses `standalonePen`
+to retain the weight and incline of the bars when widened. The 𠆭 G form follows
+the guide font's U+E00B.
 
 The data keeps the [GlyphWiki glyph data license](licences/GlyphWiki.txt).
 Rebuild from the pinned `dump_newest_only.txt` in the
@@ -146,6 +151,22 @@ project's Python environment and its cache of pinned fonts.
 uv run python js/scripts/recorded-native.py --cache /path/to/cache \
   --output js/src/recorded-native.json
 ```
+
+## `vocab/han-ids-extension-j.tsv`
+
+The description of each CJK Extension J ideograph (U+323B0–U+33479, Unicode 17.0), `char<TAB>sequence`,
+4,267 of the block's 4,298. BabelStone's IDS.TXT of 2025-06-27 stops at Unicode 16.0, so these come from
+`ids_lv2.txt` of [`yi-bai/ids`](https://github.com/yi-bai/ids) at
+[`2597437b`](https://github.com/yi-bai/ids/tree/2597437b928e8d530b7ae09cf53fe5ec7868569c). A row's
+first description is kept, without its region note. A description with a stroke chain, an unencoded
+component, an overlay (⿻) or a CJK Strokes character is left out, and its ideograph stays a whole glyph.
+Yi Bai's descriptions follow that project's own analysis and are not checked here against the code charts.
+
+`uv run python scripts/build_extension_j_ids.py` rebuilds it with `js/src/extension-j-ids.json`, the
+copy the browser composer bundles. The composers draw an Extension J ideograph from this sequence, in
+the face's own parts, where only a fallback font of another design (Jigmo) draws its glyph.
+
+Licence: MIT, Copyright (c) 2021 Yi Bai; see `data/licences/yi-bai-ids-MIT.txt`.
 
 ## `plain-variants.json`
 

@@ -5,6 +5,7 @@ import generated from './component-forms.json' with { type: 'json' }
 import overrides from './component-forms-overrides.json' with { type: 'json' }
 import inwardGrass from './inward-grass-forms.json' with { type: 'json' }
 import splitGrass from './split-grass-forms.json' with { type: 'json' }
+import dotForms from './ucv-dot-forms.json' with { type: 'json' }
 import muNet from './mu-net-forms.json' with { type: 'json' }
 import numbered from '../data/numbered-forms.json' with { type: 'json' }
 import { joinedComponentForm } from './constructs.js'
@@ -36,6 +37,23 @@ const styles = Object.fromEntries(Object.entries(data.forms).map(([style, forms]
   new Map(Object.entries(forms).map(([text, groups]) => [text, { ...formOf(groups), native: data.native?.[style]?.includes(text) ?? false }]))]))
 for (const [style, groups] of Object.entries(splitGrass)) styles[style].set('⺿', formOf(groups))
 for (const [style, groups] of Object.entries(inwardGrass)) styles[style].set('⻀', formOf(groups))
+// Adobe-Japan1 and Hanyo-Denshi register each of the two dot orientations.
+for (const [style, characters] of Object.entries(dotForms.dots)) {
+  for (const [char, pair] of Object.entries(characters)) {
+    pair.forEach((contours, i) => {
+      const form = { ...formOf([contours]), atomic: true }
+      for (const selector of [0xE0100 + i, 0xE0102 + i]) {
+        styles[style].set(char + String.fromCodePoint(selector), form)
+      }
+    })
+  }
+}
+// Whole-character fits for composed IDS. Leave operand-based layouts to the normal renderer.
+for (const [style, sequences] of Object.entries(dotForms.ids)) {
+  for (const [sequence, contours] of Object.entries(sequences)) {
+    styles[style].set(sequence, formOf([contours]))
+  }
+}
 // The manuscript's water, enclosing 木 and net. Both descriptions share the same outlines.
 for (const [style, groups] of Object.entries(muNet)) {
   const form = formOf(groups)
@@ -57,6 +75,7 @@ const editorialForms = new Map(Object.entries(data.editorial ?? {}).flatMap(([id
 export const ownFormsOnly = style => style === 'regular' || style === 'pen-writing' || style === 'fangsong'
 const forms = style => styles[style] ?? (ownFormsOnly(style) ? null : styles.sans)
 export const containsComponentForm = (text, style = 'sans') => containsRateForm(text) || [...(forms(style)?.entries() ?? [])].some(([key, form]) => !form.native && text.includes(key))
+export const isAtomicForm = (text, style) => forms(style)?.get(text)?.atomic === true
 export const isGroupedForm = (text, style = 'sans') => (forms(style)?.get(text)?.parts.length ?? 0) > 1
 export const isComponentForm = (text, style = 'sans') => forms(style)?.has(text) ?? false
 /** Whether `text` has a native form in `style`: one that keeps what the export knows of it. */
