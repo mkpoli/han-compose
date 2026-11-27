@@ -2098,6 +2098,11 @@ class Composer:
             return sum(c.length for c in part.contours)
         self._reference_context()
         if isinstance(node, tuple):
+            # A description that spells a drawn character holds that character's ink (⿰女馬 as 媽),
+            # which is less than its parts hold standing alone: as `js/` measures it (`ink`).
+            name = None if key(node) in self.spelled else self.by_sequence.get(key(self._joined(node)))
+            if name is not None and name not in seen and name not in self.exclude and self.font.glyph(name) is not None:
+                return self.ink(name, seen=seen)
             return sum(self.ink(n, seen=seen) for n in node[1:])
         if node not in self.exclude:
             if node not in self._inks:

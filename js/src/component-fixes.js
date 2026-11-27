@@ -441,6 +441,30 @@ export const COMPONENT_FIXES = {
       return parts.map((part, i) => ({ ...part, target: boxes[i] }))
     },
   },
+  '⿰舟邊': {
+    glyphs: {},
+    apply(parts, composer, region) {
+      if (parts.length !== 2 || !['fangsong', 'regular', 'pen-writing'].includes(composer.fontStyle)) return parts
+      const [boat, border] = parts
+      if (composer.fontStyle !== 'regular') {
+        const frame = union(parts.map(part => part.target))
+        const move = Math.max(0, (border.target[0] - boat.target[2] - .018 * widthOf(frame)) / 2)
+        return parts.map((part, i) => ({ ...part, target: part.target.map((v, axis) => axis % 2 ? v : v + (i ? -move : move)) }))
+      }
+      // In Regular, learned 艭 + glyph 邊 sit in a vertically short box (~809 u)
+      // compared to standalone TW-Kai 邊 (908 u) and the other faces (891–923 u).
+      // Expand the root frame to a full two-column cell and give 邊 its full height
+      // and right-column width without compressing 辶.
+      const atRoot = region && composer.face && region.every((v, i) => Math.abs(v - composer.face[i]) < 1)
+      const frame = atRoot
+        ? mapped([-0.059, -0.014, 1.055, 1.026], [0, 0, 1, 1], region)
+        : union(parts.map(part => part.target))
+      return [
+        { ...boat, target: mapped([0, 0.02, 0.35, 0.985], [0, 0, 1, 1], frame) },
+        { ...border, target: mapped([0.355, 0, 1, 1], [0, 0, 1, 1], frame) },
+      ]
+    },
+  },
   '⿱龹幸': {
     glyphs: {},
     apply(parts, composer) {

@@ -820,6 +820,44 @@ it('opens both gaps around 从 while preserving the bars of ⿱一丛', () => {
   }
 })
 
+describe('⿰舟邊', () => {
+  const em = [0, 0, 1000, 1000]
+  const boat = part('learned 艭', em, [59, -37, 346, 770], [em])
+  const border = part('glyph 邊', em, [402, -4, 944, 772], [[0, 0, 1000, 300], [350, 400, 900, 1000]])
+
+  it('closes the excess gap in FangSong and Pen while leaving Sans and Serif alone', () => {
+    const gapOf = ([l, r]) => r.target[0] - l.target[2]
+    for (const fontStyle of ['fangsong', 'pen-writing']) {
+      const fixed = componentFix('⿰舟邊', [boat, border], { fontStyle })
+      expect(gapOf(fixed)).toBeLessThan(gapOf([boat, border]))
+      expect(gapOf(fixed)).toBeCloseTo(0.018 * (944 - 59), 5)
+    }
+    for (const fontStyle of ['sans', 'serif']) {
+      expect(componentFix('⿰舟邊', [boat, border], { fontStyle })).toEqual([boat, border])
+    }
+  })
+
+  it('expands Regular ⿰舟邊 to a full two-column frame at root without squashing 邊 contours', () => {
+    const face = [89, -56, 915, 800]
+    const [left, right] = componentFix('⿰舟邊', [boat, border], { fontStyle: 'regular', face }, face)
+    // Contours stay intact (no vertical 辶 squash).
+    expect(right.part).toBe(border.part)
+    expect(right.target[3] - right.target[1]).toBeGreaterThan(880)
+    expect(right.target[2] - right.target[0]).toBeGreaterThan(580)
+    expect(left.target[2]).toBeLessThan(right.target[0])
+    // Nested placements stay within their allocated region.
+    const nested = [327, -21, 914, 784]
+    const [nLeft, nRight] = componentFix('⿰舟邊', [
+      part('host 艭', em, [327, -21, 573, 784], [em]),
+      part('glyph 邊', em, [596, -21, 914, 784], [em]),
+    ], { fontStyle: 'regular', face }, nested)
+    expect(nLeft.target[0]).toBeCloseTo(nested[0], 6)
+    expect(nRight.target[2]).toBeCloseTo(nested[2], 6)
+    expect(nRight.target[1]).toBeCloseTo(nested[1], 6)
+    expect(nRight.target[3]).toBeCloseTo(nested[3], 6)
+  })
+})
+
 describe('日進斗金 ⿱⿰日斗⿺辶⿰隹金', () => {
   const frame = [0, 0, 1000, 1000]
   const sample = origin => part(origin, frame, frame, [[100, 100, 900, 900]])
