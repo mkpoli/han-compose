@@ -26,7 +26,7 @@ export declare function addCutForms(data: {
         record?: object;
     }>>;
 }): void;
-export declare function componentParts(text: any, region?: number[], style?: string, atRoot?: boolean): {
+export declare function componentParts(text: any, region?: number[], style?: string, atRoot?: boolean, exclude?: undefined): {
     part: any;
     source: any;
     target: any;

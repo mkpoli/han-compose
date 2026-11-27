@@ -1454,7 +1454,7 @@ export class Composer {
       const own = hostChainParts(this, canonical, region, atRoot, key)
       if (own) return own
     }
-    return allowBundled ? componentParts(key, region, this.fontStyle, atRoot) : null
+    return allowBundled ? componentParts(key, region, this.fontStyle, atRoot, this.exclude) : null
   }
   chainParts(node, region, atRoot = false) {
     if (!isChain(node) || this.excluded(node)) return null
@@ -1795,8 +1795,10 @@ export class Composer {
         return
       }
       const cell = target(box)
+      const water = node[0] === '⿺' && node[1] === '水' && node[2] === '巜' && !node.note
+        ? componentParts('⿺水巜', cell, this.fontStyle, depth === 0, this.exclude) : null
       const recorded = keyOf(node) === booklet ? bookletParts(this, cell) : null
-      const parts = recorded ?? this.doubleTurnParts(node, cell) ?? brushSweepParts(this, node, cell, depth > 0) ?? this.thornRowParts(node, cell) ?? yiCrossParts(this, node, cell) ?? ghostParts(this, node, cell) ?? this.qiParts(node, cell)
+      const parts = water ?? recorded ?? this.doubleTurnParts(node, cell) ?? brushSweepParts(this, node, cell, depth > 0) ?? this.thornRowParts(node, cell) ?? yiCrossParts(this, node, cell) ?? ghostParts(this, node, cell) ?? this.qiParts(node, cell)
       if (parts) {
         for (const part of parts) {
           if (leafIndices) part.leaf = leaf++
@@ -1976,7 +1978,7 @@ export class Composer {
         walk(stacked.base, base, false)
         return
       }
-      const repeated = isGroupedForm(keyOf(node), this.fontStyle) ? componentParts(keyOf(node), region, this.fontStyle, atRoot) : null
+      const repeated = isGroupedForm(keyOf(node), this.fontStyle) ? componentParts(keyOf(node), region, this.fontStyle, atRoot, this.exclude) : null
       const designed = repeated ?? rccParts(editable, keyOf(node), region) ?? birdOutlineParts(this, keyOf(node), region) ?? this.doubleTurnParts(node, region) ?? brushSweepParts(this, node, region, !atRoot) ?? this.thornRowParts(node, region) ?? yiCrossParts(this, node, region) ?? this.qiParts(node, region) ?? ghostParts(this, node, region) ?? this.muKoParts(node, region) ?? this.wheatFaceParts(node, region)
       if (designed) {
         const boxes = designed[0]?.rccGroup && rccLeafBoxes(designed, leafTexts(node).length)
