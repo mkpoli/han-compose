@@ -384,3 +384,19 @@ def test_a_row_of_the_same_part_is_no_instance(composer: compose.Composer) -> No
     finally:
         composer.exclude = saved
     assert not any(origin.startswith("instance") for origin in origins)
+
+
+def test_an_entity_is_one_component_kept_as_written() -> None:
+    assert compose.parse("⿰&HC-u91d1-full;皮") == ("⿰", "&HC-u91d1-full;", "皮")
+    assert compose.full_form("&HC-u91d1-full;") == "金"
+    assert compose.full_form("&CDP-8BD0;") is None and compose.full_form("金") is None
+    # An ampersand that opens no entity is a component of its own.
+    assert compose.parse("⿰&皮") == ("⿰", "&", "皮")
+
+
+def test_a_component_written_in_full_is_its_own_glyph_where_the_plain_one_takes_its_positional_form(composer: compose.Composer) -> None:
+    plain = composer.compose("⿰金皮")
+    full = composer.compose("⿰&HC-u91d1-full;皮")
+    assert not plain[0].origin.startswith("glyph")
+    assert full[0].origin == "glyph &HC-u91d1-full;"
+    assert full[0].part.contours == composer.font.glyph("金").contours
