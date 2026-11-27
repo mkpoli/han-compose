@@ -6,11 +6,11 @@ import { hexOf } from './sha256.js'
 // five measure characters. The encoded Beijing ZhongYi FangSong glyphs guide
 // the relative placements. CWTeX Q Fangsong's 瓩 is a second comparison.
 const forms = {
-  千: { wall: 70, roof: 22, frame: [-8.59, -96.04, 996.43, 779], inner: [443, 52, 965, 794.62] },
-  厘: { wall: 9, roof: 72, frame: [-8.14, -103.52, 1000.56, 744], inner: [359, 66, 869, 769.01] },
-  十: { wall: 98, roof: 18, frame: [-11.15, -95.71, 993.75, 763], inner: [466, 22, 943, 795.82] },
+  千: { wall: 94, roof: 22, frame: [-8.59, -96.04, 996.43, 779], inner: [473, 52, 995, 794.62] },
+  厘: { wall: 32, roof: 72, frame: [-8.14, -103.52, 1000.56, 744], inner: [380, 66, 929, 769.01] },
+  十: { wall: 134, roof: 18, frame: [-11.15, -95.71, 993.75, 763], inner: [514, 22, 993, 795.82] },
   屯: { wall: 40, roof: 0, frame: [-12.16, -94.84, 980.70, 725], inner: [390, 59, 899, 795.16] },
-  百: { wall: 83, roof: 70, frame: [-14.95, -86.92, 990.74, 774.73], inner: [440, 47, 896.8, 762.5] },
+  百: { wall: 104, roof: 70, frame: [-14.95, -86.92, 990.74, 774.73], inner: [454, 47, 949, 762.5] },
 }
 
 const em = [0, -120, 1000, 880]
