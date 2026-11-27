@@ -3150,7 +3150,7 @@ class Composer:
         spec = constructs().get(sequence)
         if spec:
             placed = self._construct(spec, placed)
-        if self._columns:
+        if self._columns and SUBTRACT not in sequence:
             _settle_columns(self._columns, placed, COLUMN_CLEARANCE[self.font.style.name])
         return placed
 
@@ -3575,7 +3575,11 @@ class Composer:
                 else:
                     # A part drawn alone that does not sweep under the other (瓜, whose last stroke
                     # falls short of 交 in 㼎) stands beside it.
-                    return self._node(("⿰", *children), region or self.face)
+                    # The enclosure owns the clearance of this substitute row.
+                    count = len(self._columns)
+                    pair = self._node(("⿰", *children), region or self.face)
+                    del self._columns[count:]
+                    return pair
             if op in ENCLOSE and i == 1 and all(p.origin.startswith("glyph") for p in groups[0]):
                 # The enclosing part is a bare glyph, drawn for standing alone: the opening its
                 # strokes leave is far smaller than a designer's (龵's sweep over 目 in 看). The
@@ -4444,6 +4448,8 @@ def _column_profile(left: list[Placed], right: list[Placed]) -> tuple | None:
 
 def _settle_columns(rows: list, placed: list[Placed], clearance: tuple[float, float]) -> None:
     """Fit independent columns horizontally, keeping their final weights and visible outer edges."""
+    if any(p.cut for p in placed):
+        return
     widths = {id(p): p.target[2] - p.target[0] for p in placed}
     broad, nearest = clearance
     for groups in rows:

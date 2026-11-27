@@ -9,7 +9,7 @@ const size = 250, maxStretch = 1.06
 /** Settle independently placed columns after their final stroke weights are known.
  * @param {any[][][]} rows @param {any[]} parts @param {string} style */
 export function settleColumns(rows, parts, style) {
-  if (!rows.length) return
+  if (!rows.length || parts.some(p => p.cut)) return
   const widths = new Map(parts.map(p => [p, p.target[2] - p.target[0]]))
   for (const groups of rows) {
     let run = []
@@ -28,7 +28,7 @@ export function settleColumns(rows, parts, style) {
 function columnPair(left, right, widths, [broad, nearest]) {
   const parts = [...left, ...right]
   if (!left.length || !right.length || parts.some(p => !widths.has(p) || p.fixed || p.cut || p.flips ||
-    p.nativeAspect || p.weightLimit || p.finishOutline || p.empty !== undefined || p.operandOnly)) return
+    p.nativeAspect || p.balanceBox || p.weightLimit || p.finishOutline || p.empty !== undefined || p.operandOnly)) return
   // Two cuts from one native character already share its designed spacing.
   if (/^(learned|host) /.test(parts[0].origin) && parts.every(p => p.origin === parts[0].origin)) return
   const rings = [left, right].map(group => groupRings(group, 24))

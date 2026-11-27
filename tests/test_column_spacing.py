@@ -32,3 +32,11 @@ def test_leaves_sparse_strokes_and_native_pairs_alone():
         original = a.target, right.target
         C._settle_columns([[[a], [right]]], [a, right], C.COLUMN_CLEARANCE["serif"])
         assert (a.target, right.target) == original
+
+
+def test_a_mask_belongs_to_the_entire_row():
+    a, b, mask = column(0, 300), column(600, 300), column(50, 100)
+    mask.cut = True
+    original = a.target, b.target
+    C._settle_columns([[[a], [b]]], [a, b, mask], C.COLUMN_CLEARANCE["serif"])
+    assert (a.target, b.target) == original

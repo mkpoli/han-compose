@@ -52,3 +52,11 @@ it('contains an overhang outside the scanlines shared with the other column', ()
   expect(end.target[2]).toBeLessThanOrEqual(1000.000001)
   expect(right.target[2]).toBeCloseTo(1000)
 })
+
+it('keeps a positive row registered inside a larger subtractive drawing with its mask', () => {
+  const a = column('A', 0, 300), b = column('B', 600, 300)
+  const cut = { ...column('stroke', 50, 100), cut: true }
+  const old = a.target
+  settleColumns([[[a], [b]]], [a, b, cut], 'serif')
+  expect(a.target).toBe(old)
+})
