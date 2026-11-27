@@ -15,8 +15,8 @@ const families = Object.entries(catalogue.hosts).map(([host, template]) => {
   const prefix = tokens(plain).find(t => t.text === '率')?.path
   if (!prefix) throw new Error(`Missing 率 in ${template}`)
   const axes = [
-    { id: 'center', property: 'construction', locus: [{ path: [...prefix, 1, 0, 1] }], values: ['1', '2'] },
-    { id: 'sides', property: 'direction', locus: [{ path: [...prefix, 1, 0, 0] }, { path: [...prefix, 1, 0, 2] }], values: ['1', '2'] },
+    { id: 'center', property: 'construction', examples: { '1': '1.1', '2': '2.1' }, locus: [{ path: [...prefix, 1, 0, 1] }], values: ['1', '2'] },
+    { id: 'sides', property: 'direction', examples: { '1': '1.1', '2': '1.2' }, locus: [{ path: [...prefix, 1, 0, 0] }, { path: [...prefix, 1, 0, 2] }], values: ['1', '2'] },
   ]
   const forms = roots.map((root, index) => {
     const text = template.replace('@', root)

@@ -5,7 +5,7 @@ import { descriptionEnd } from './tree.js'
 /** A locus in the family's reference IDS. Paths address operands from zero. Stroke ordinals,
  * when specified, refer to strokes numbered from one in the cited witness.
  * @typedef {{path: number[], strokes?: number[]}} Locus */
-/** @typedef {{id: string, property: string, unit?: string, witness?: string, locus: Locus[], values: string[]}} VariationAxis */
+/** @typedef {{id: string, property: string, unit?: string, witness?: string, examples?: Record<string,string>, locus: Locus[], values: string[]}} VariationAxis */
 /** @typedef {{id: string, text: string, traits?: Record<string,string>}} VariationForm */
 /** @typedef {{id: string, subjects: string[], reference?: string, evidenceOnly?: boolean, axes?: VariationAxis[], forms: VariationForm[]}} VariationFamily */
 
@@ -71,6 +71,14 @@ export function createVariationRegistry(families) {
         if (!axes.get(axis)?.has(value)) throw new Error(`Unknown trait: ${family.id}/${axis}/${value}`)
       }
       spellings.add(form.text)
+    }
+    for (const axis of family.axes ?? []) {
+      for (const [value, formId] of Object.entries(axis.examples ?? {})) {
+        const witness = family.forms.find(form => form.id === formId)
+        if (!witness || witness.traits?.[axis.id] !== value) {
+          throw new Error(`Invalid value witness: ${family.id}/${axis.id}/${value}`)
+        }
+      }
     }
     for (const text of spellings) {
       const known = byText.get(text)

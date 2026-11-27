@@ -71,7 +71,7 @@ test('a criterion retains contextual evidence and source form order; named glyph
 
 test('a custom family represents an observed combination without inventing a missing one', () => {
   const [rate] = rateVariationFamilies.filter(f => f.id === 'rate/率')
-  const subset = { ...rate, id: 'subset', forms: [rate.forms[0], rate.forms[3]] }
+  const subset = { ...rate, id: 'subset', axes: rate.axes.map(({ examples, ...axis }) => axis), forms: [rate.forms[0], rate.forms[3]] }
   const r = createVariationRegistry([subset])
   expect(r.match('subset', { center: '1', sides: '2' })).toEqual([])
   subset.forms.pop()
@@ -84,4 +84,16 @@ test('a custom family represents an observed combination without inventing a mis
   expect(() => ivdFamilies('0041 E0100; Adobe-Japan1; CID+1', '2026-08-03')).toThrow('Invalid IVD base')
   expect(() => ivdFamilies('FA5D E0100; Adobe-Japan1; CID+1', '2026-08-03')).toThrow('Invalid IVD base')
   expect(() => ivdFamilies('7387 FE00; Adobe-Japan1; CID+3952', '2026-08-03')).toThrow('Invalid IVD record')
+})
+
+test('each axis can point to a pair of witnesses holding the other difference fixed', () => {
+  const family = rateRegistry.familiesFor('率')[0]
+  for (const axis of family.axes) {
+    const examples = Object.values(axis.examples).map(id => family.forms.find(form => form.id === id))
+    const other = family.axes.find(other => other !== axis)
+    expect(new Set(examples.map(form => form.traits[other.id])).size).toBe(1)
+  }
+  const first = family.axes[0]
+  const axes = [{ ...first, examples: { '1': '2.1' } }, family.axes[1]]
+  expect(() => createVariationRegistry([{ ...family, axes }])).toThrow('Invalid value witness')
 })
