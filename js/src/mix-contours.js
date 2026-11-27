@@ -821,9 +821,10 @@ function trimStub(body, width, ring, clear) {
  * @param {boolean} cap bow the smaller piece's cut end outward, so it overlaps what it left
  * @param {number[][][]} [clear] rings no chord may touch
  * @param {'neck' | 'notch' | 'fit'} [prefer] which chord to take: the narrowest neck; one that ends at notches of the outline, where a stroke leaves the ink it ran into; or, of the cheapest few, the one whose pieces lie closest to their targets point for point
+ * @param {number[][][]} [open] counters of the ring that none of the targets has: strokes that close a loop in this face and stand apart in the others. Each is joined to the outline along a seam, so that cuts can run through it
  * @returns {number[][][] | null} per target, a closed ring */
-function cutRing(ring, targets, within, cap, clear = [], prefer = 'neck') {
-  const points = dense(ring, 3)
+function cutRing(ring, targets, within, cap, clear = [], prefer = 'neck', open = []) {
+  let points = dense(ring, 3)
   const marks = targets.map((target) => dense(target.ring, 3))
   const tangents = (/** @type {number[][]} */ pts) => {
     const n = pts.length
@@ -839,7 +840,7 @@ function cutRing(ring, targets, within, cap, clear = [], prefer = 'neck') {
   const pTan = within ? null : tangents(points)
   const mTan = within ? null : marks.map(tangents)
   const ringSign = turning(ring) > 0 ? 1 : -1
-  const labels = points.map((p, pi) => {
+  const labelAt = (/** @type {number[]} */ p, /** @type {number} */ pi) => {
     const [tx, ty] = pTan ? pTan[pi] : [0, 0]
     let best = 0,
       least = Infinity
@@ -880,7 +881,43 @@ function cutRing(ring, targets, within, cap, clear = [], prefer = 'neck') {
       }
     })
     return best
-  })
+  }
+  let labels = points.map(labelAt)
+  // A counter the targets lack is joined to the outline along a seam: the shortest line
+  // through the ink from the outline to the counter, at a point of each where one
+  // target's outline gives way to another's. The outline then runs down the seam, round
+  // the counter and back, and a cut can end on the counter.
+  /** The two ends of each seam. @type {Set<number[]>} */
+  const seams = new Set()
+  if (within)
+    for (const hole of open) {
+      const around = dense(hole, 3)
+      if (turning(hole) > 0 === turning(ring) > 0) around.reverse()
+      const theirs = around.map((p) => labelAt(p, 0))
+      const turns = (/** @type {number[]} */ list, /** @type {number} */ at) =>
+        [-2, -1, 1, 2].some((step) => list[(at + step + list.length) % list.length] !== list[at])
+      /** @type {{ i: number, k: number, cost: number } | null} */
+      let seam = null
+      for (let i = 0; i < points.length; i++)
+        for (let k = 0; k < around.length; k++) {
+          const a = points[i],
+            b = around[k]
+          const width = Math.hypot(b[0] - a[0], b[1] - a[1])
+          if (width > 56) continue
+          const cost = width + (turns(labels, i) ? 0 : 8) + (turns(theirs, k) ? 0 : 8)
+          if (seam && cost >= seam.cost) continue
+          const inked = [1, 2, 3].every((t) => {
+            const p = [a[0] + ((b[0] - a[0]) * t) / 4, a[1] + ((b[1] - a[1]) * t) / 4]
+            return inside(p, ring) && ![...clear, ...open].some((other) => inside(p, other))
+          })
+          if (inked) seam = { i, k, cost }
+        }
+      if (!seam) return null
+      const { i, k } = seam
+      seams.add(points[i]).add(around[k])
+      points = [...points.slice(0, i + 1), ...around.slice(k), ...around.slice(0, k + 1), ...points.slice(i)]
+      labels = [...labels.slice(0, i + 1), ...theirs.slice(k), ...theirs.slice(0, k + 1), ...labels.slice(i)]
+    }
   /** @type {(number[][] | undefined)[]} */
   const out = targets.map(() => undefined)
   /** @type {{ points: number[][], labels: number[] }[]} */
@@ -926,6 +963,8 @@ function cutRing(ring, targets, within, cap, clear = [], prefer = 'neck') {
         if (dx > 56 || dx < -56 || dy > 56 || dy < -56) continue
         const width = Math.hypot(dx, dy)
         if (width > 56) continue
+        // A seam is no cut: its two sides are one line.
+        if (seams.size && seams.has(piece.points[i]) && seams.has(piece.points[j])) continue
         // Points i..j-1 on one side, the rest on the other; penalize both a target
         // losing points across the cut (recall) and a piece absorbing points from
         // another target (contamination), so a small stroke cannot steal half a bar.
@@ -977,7 +1016,11 @@ function cutRing(ring, targets, within, cap, clear = [], prefer = 'neck') {
       return (
         [1, 2, 3].every((t) => {
           const p = [a[0] + ((b[0] - a[0]) * t) / 4, a[1] + ((b[1] - a[1]) * t) / 4]
-          return inside(p, ring) === within && !clear.some((other) => inside(p, other))
+          return (
+            inside(p, ring) === within &&
+            !clear.some((other) => inside(p, other)) &&
+            !(seams.size && open.some((other) => inside(p, other)))
+          )
         }) &&
         piece.points.every((p, k) => {
           const next = (k + 1) % size
@@ -1203,14 +1246,29 @@ function cutRing(ring, targets, within, cap, clear = [], prefer = 'neck') {
   return out.every(Boolean) ? /** @type {number[][][]} */ (out) : null
 }
 
+/** The counters of an island that answer to no counter of the islands it is cut to:
+ * strokes that close a loop in this face and stand apart in the others.
+ * @param {number[][][]} island @param {number[][][][]} others */
+function strayCounters(island, others) {
+  const mid = (/** @type {number[][]} */ ring) => {
+    const [x, y, right, bottom] = ringBox(ring)
+    return [(x + right) / 2, (y + bottom) / 2]
+  }
+  const theirs = others.flatMap((other) => other.slice(1))
+  return island
+    .slice(1)
+    .filter((hole) => !theirs.some((other) => inside(mid(other), hole) || inside(mid(hole), other)))
+}
+
 /** Faces that draw as one island what another draws as several (a stroke that runs
  * into its neighbour in one face and stands clear in another) get the same islands: the
  * fused island is cut at the junction, so each stroke blends with its own counterpart.
  * Null when the faces split the ink in ways that are not one a coarser form of the other.
  * @param {number[][][][][]} polygons each face's islands
  * @param {'neck' | 'notch' | 'fit'} [prefer] where a fused island is cut: at its narrowest neck, at its notches, or where the pieces fit the finer face best
+ * @param {boolean} [through] cut through the counters of a fused island that the finer islands lack
  * @returns {number[][][][][][] | null} per island, each face's one island */
-export function splitIslands(polygons, prefer = 'neck') {
+export function splitIslands(polygons, prefer = 'neck', through = false) {
   const finest = polygons.reduce((best, islands, f) => (islands.length > polygons[best].length ? f : best), 0)
   const fine = polygons[finest]
   if (!fine.length || polygons.some((islands) => !islands.length)) return null
@@ -1269,18 +1327,26 @@ export function splitIslands(polygons, prefer = 'neck') {
         out[mine[0]] = island
         continue
       }
+      const stray = through
+        ? strayCounters(
+            island,
+            mine.map((j) => fine[j])
+          )
+        : []
+      const kept = island.slice(1).filter((hole) => !stray.includes(hole))
       const pieces = cutRing(
         island[0],
         mine.map((j) => ({ ring: fine[j][0], solid: true })),
         true,
         true,
-        island.slice(1),
-        prefer
+        kept,
+        prefer,
+        stray
       )
       if (!pieces) return null
       mine.forEach((j, k) => (out[j] = [pieces[k]]))
-      // No cut touches a counter, so each lies whole in one piece.
-      for (const hole of island.slice(1)) {
+      // No cut touches a counter that is kept, so each lies whole in one piece.
+      for (const hole of kept) {
         const k = pieces.findIndex((piece) => inside(hole[0], piece))
         if (k < 0) return null
         out[mine[k]].push(hole)
@@ -1298,8 +1364,9 @@ export function splitIslands(polygons, prefer = 'neck') {
  * every piece lies over one piece of the other face, and those are paired.
  * Null when nothing needed cutting or the pieces do not pair off.
  * @param {number[][][][][]} polygons two faces' islands
+ * @param {boolean} [through] cut through the counters of an island that the islands it lies over lack
  * @returns {{ region: number[][][][][], cut: boolean }[] | null} per pair, each face's one island */
-export function sharedIslands(polygons) {
+export function sharedIslands(polygons, through = false) {
   if (polygons.length !== 2 || polygons.some((islands) => !islands.length)) return null
   /** @type {{ island: number[][][], cut: boolean, stuck?: boolean }[][]} */
   const faces = polygons.map((islands) => islands.map((island) => ({ island, cut: false })))
@@ -1389,19 +1456,28 @@ export function sharedIslands(polygons) {
     if (!next) break
     const { f, x, over } = next
     const { island } = faces[f][x]
+    const stray = through
+      ? strayCounters(
+          island,
+          over.map(({ j }) => faces[1 - f][j].island)
+        )
+      : []
+    const kept = island.slice(1).filter((hole) => !stray.includes(hole))
     const pieces = cutRing(
       island[0],
       over.map(({ j }) => ({ ring: faces[1 - f][j].island[0], solid: true })),
       true,
       true,
-      island.slice(1)
+      kept,
+      'neck',
+      stray
     )
     const cut = pieces?.map((piece) => ({ island: [piece], cut: true }))
-    if (!cut || island.slice(1).some((hole) => !cut.some((piece) => inside(hole[0], piece.island[0])))) {
+    if (!cut || kept.some((hole) => !cut.some((piece) => inside(hole[0], piece.island[0])))) {
       faces[f][x].stuck = true
       continue
     }
-    for (const hole of island.slice(1))
+    for (const hole of kept)
       /** @type {{ island: number[][][] }} */ (
         cut.find((piece) => inside(hole[0], piece.island[0]))
       ).island.push(hole)
