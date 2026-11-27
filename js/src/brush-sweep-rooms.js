@@ -2,15 +2,17 @@
 import { derived, fitted, mapped, partInk, partOf, placed, union } from './geometry.js'
 import { hexOf } from './sha256.js'
 
-import { tileParts } from './fangsong-tile.js'
+import { tileHost, tileParts } from './fangsong-tile.js'
 import { hookParts } from './fangsong-hook-forms.js'
 
-const pairs = { 瓦: ['千', '厘', '十', '屯', '百'], 巴: ['三'], 竜: ['内'], 克: ['千'] }
+const pairs = { 巴: ['三'], 竜: ['内'], 克: ['千'] }
 
 export function brushSweepRoom(node, style) {
   if (!Array.isArray(node) || node.note || node[0] !== '⿺' || typeof node[1] !== 'string') return false
   if (style === 'pen-writing') return node[1] === '竜' && node[2] === '内'
-  return style === 'fangsong' && Object.hasOwn(pairs, node[1]) && pairs[node[1]].includes(node[2])
+  if (style !== 'fangsong') return false
+  if (node[1] === '瓦') return !!tileHost(node[2])
+  return Object.hasOwn(pairs, node[1]) && pairs[node[1]].includes(node[2])
 }
 
 // The Pen donor has a single returning contour. Its terminal retains its reach

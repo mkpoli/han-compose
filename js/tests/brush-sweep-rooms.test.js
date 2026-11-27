@@ -6,8 +6,11 @@ import { brushSweepParts } from '../src/brush-sweep-rooms.js'
 import { files, shards } from './fixtures/small-export.js'
 // Zhuque Fangsong 0.212, TrionesType, SIL OFL 1.1.
 import donors from './fixtures/brush-sweep-fangsong.json' with { type: 'json' }
+import hosts from './fixtures/fangsong-tile-hosts.json' with { type: 'json' }
 
-const input = { ...files, ...shards('g', Object.entries(donors)) }
+const sources = { ...donors, ...hosts }
+const tileHosts = { 千: '仟', 厘: '糎', 十: '叶', 屯: '沌', 百: '栢' }
+const input = { ...files, ...shards('g', Object.entries(sources)) }
 const source = () => createSource(async k => input[k] === undefined ? null : new Uint8Array(Buffer.from(input[k])).buffer)
 
 it('draws the eight brush enclosures from their own face in both editable layouts', async () => {
@@ -17,7 +20,10 @@ it('draws the eight brush enclosures from their own face in both editable layout
       const ids = '⿺' + pair
       const { parts } = await compose(src, ids, options)
       expect(parts).toHaveLength(2)
-      expect(parts.map(p => p.origin)).toEqual([...pair].map(ch => 'glyph ' + ch))
+      const [frame, inner] = [...pair]
+      expect(parts.map(p => p.origin)).toEqual([
+        'glyph ' + frame, frame === '瓦' ? inner + ' from ' + tileHosts[inner] : 'glyph ' + inner,
+      ])
       expect(parts[0].box[2]).toBeGreaterThan(parts[1].box[2])
       expect(await sketch(src, ids, options)).toHaveLength(2)
       if (layout === 'cells') expect(parts.map(p => p.leaf)).toEqual([0, 1])
@@ -57,7 +63,11 @@ it('places inner ink at the horizontal centers of encoded reference glyphs', asy
       expect(filling.some((ink, i) => ink && frame[i]), pair).toBe(false)
     }
     const boxes = parts.map(p => union(pathRings(p.d, 24).map(pointsBox)))
-    const [left, , right] = union(boxes)
+    const [left, bottom, right, top] = union(boxes)
+    if (pair.startsWith('瓦')) {
+      const innerHeight = boxes[1][3] - boxes[1][1]
+      expect(innerHeight / (top - bottom), pair).toBeGreaterThan(0.75)
+    }
     // In 甅 the bottom bar of 厘 needs room beside the projecting Zhuque hook.
     if (pair === '瓦厘') {
       expect(Math.abs((boxes[1][0] - left) / (right - left) - 0.368)).toBeLessThan(0.020)
@@ -68,30 +78,33 @@ it('places inner ink at the horizontal centers of encoded reference glyphs', asy
   }
 })
 
-it('preserves the five Fangsong 瓦 frames when fitting their contents', () => {
-  // Canonical 1000-em frame outlines from 57b3a902.
-  const frames = {
-    千: 'd68524d1f69a4f88c6aea97bc52c0dcd9f75d2357ad9d47bf69e4b280a0391cf',
-    厘: '97f0586d91f416cb174975d3a35963ca3c20df437ab420eb2f7dccbcc22aeb51',
-    十: 'e0b99435f3aa7fd7b0043f58e081769d9ca3f556c20fe1f0fc6869789fe69b26',
-    屯: '2ba83efd9e6724d6935ed1da4a6a61a9ba133092c192fd39aa79296c261a228b',
-    百: 'c5d52a838419808f8e2d05b5b92a72f855fd7097d224f8556afdbb5df040b428',
-  }
-  const composer = { fontStyle: 'fangsong', excluded: () => false, glyphRecord: ch => donors[ch].G }
-  for (const [inner, digest] of Object.entries(frames)) {
-    const [frame] = brushSweepParts(composer, ['⿺', '瓦', inner], [0, -120, 1000, 880])
+it('draws one 瓦 frame with uniformly scaled native right-hand fillings', () => {
+  const composer = { fontStyle: 'fangsong', excluded: () => false, glyphRecord: ch => sources[ch]?.G }
+  // The complete fixed 甅 frame from the preceding revision.
+  const digest = '97f0586d91f416cb174975d3a35963ca3c20df437ab420eb2f7dccbcc22aeb51'
+  for (const [inner, host] of Object.entries(tileHosts)) {
+    const record = hosts[host].G
+    const tree = ['⿺', '瓦', inner]
+    const [frame] = brushSweepParts(composer, tree, [0, -120, 1000, 880])
     expect(hexOf(svgPath([frame])), inner).toBe(digest)
-  }
-})
-
-it('places the original tile fillings at their native aspect ratios', () => {
-  const composer = { fontStyle: 'fangsong', excluded: () => false, glyphRecord: ch => donors[ch].G }
-  for (const inner of '千厘十屯百') {
     for (const nested of [false, true]) {
-      const [, body] = brushSweepParts(composer, ['⿺', '瓦', inner], [17, 25, 540, 760], nested)
-      expect(body.part).toBe(partOf(donors[inner].G))
+      const [, body] = brushSweepParts(composer, tree, [17, 25, 540, 760], nested)
+      const contours = record.ls[inner].map(i => partOf(record).contours[i])
+      expect(body.part.contours).toHaveLength(contours.length)
+      contours.forEach((contour, i) => expect(body.part.contours[i]).toBe(contour))
       const [sx, sy] = scaleOf(body)
       expect(sx).toBeCloseTo(sy, 10)
     }
+    const [, fallback] = brushSweepParts({ ...composer, excluded: ch => ch === host }, tree, [0, -120, 1000, 880])
+    expect(fallback.part).toBe(partOf(donors[inner].G))
+  }
+})
+
+it('uses the standalone 厘 when the 糎 donor cannot be separated', () => {
+  for (const host of [undefined, { ...hosts.糎.G, ls: { 米: [0, 1], 厘: [0, 2, 3, 4, 5, 6] } }]) {
+    const composer = { fontStyle: 'fangsong', excluded: () => false,
+      glyphRecord: ch => ch === '糎' ? host : donors[ch]?.G }
+    const [, body] = brushSweepParts(composer, ['⿺', '瓦', '厘'], [0, -120, 1000, 880])
+    expect(body.part).toBe(partOf(donors.厘.G))
   }
 })

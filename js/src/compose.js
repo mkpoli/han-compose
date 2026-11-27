@@ -48,6 +48,7 @@ import { pyramidRows, pyramidOnBase } from './pyramid-rows.js'
 import { hangulClusterAt, jamoClass } from './hangul.js'
 import { hangulLetters } from './hangul-ids.js'
 import { toConjoiningJamo } from './hangul.js'
+import { tileHost } from './fangsong-tile.js'
 import { brushSweepRoom, brushSweepParts } from './brush-sweep-rooms.js'
 import { componentFix } from './component-fixes.js'
 import { isOutbound, markFace, markParts } from './marks.js'
@@ -867,7 +868,7 @@ export const designedSources = (tree, style = 'sans') => {
     const [op, ...children] = node
     if (brushSweepRoom(node, style)) {
       children.forEach(ch => out.add(ch))
-      if (style === 'fangsong' && node[1] !== '瓦') out.add('尅')
+      if (style === 'fangsong') out.add(node[1] === '瓦' ? tileHost(node[2]) : '尅')
     }
     if (op === '⿺' && children[1] === '首') out.add('馗')
     if (op === '⿺' && children[0] === '𡕚') { out.add('夂'); out.add('見') }
