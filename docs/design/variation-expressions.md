@@ -41,7 +41,17 @@ bun js/scripts/variation.mjs detect "$(bun js/scripts/variation.mjs ids 5)"
 
 Each directive occupies one line. Quoted text uses JSON string escapes. The root path is `/`. Blank lines and comment lines beginning with `#` are allowed.
 
-Keep the expression for the source, occurrence paths and catalogue identities. Its ordinary IDS projection carries the chosen spellings and expands only the branches needed to write them. If a form itself has editable parts, add an expansion for that selected form at its path, then describe its children. Independent product dimensions occupy disjoint paths. When a parent's shape changes the available children, describe the dependent child space on that parent design.
+Keep the expression for the source, occurrence paths and catalogue identities. Its ordinary IDS projection carries the chosen spellings and expands only the branches needed to write them. If a form itself has editable parts, add an expansion for that selected form at its path, then describe its children. Independent product dimensions occupy disjoint paths. When a parent's shape changes the available children, give each parent design its own product of child choices. Pass those products to `createVariationBranches([{id, product}, …])`. Its count is the sum of the branch sizes, and its indices preserve each branch identity even when two branches yield the same IDS.
+
+## Save a catalogue with the design
+
+A portable archive holds an expression or pinned space with the referenced families, their source metadata and any supplied outlines. Reopen it independently of later catalogue edits. A URL still requires the external resource when its drawing was supplied only by reference.
+
+```sh
+bun js/scripts/variation.mjs archive > u26201.json
+bun js/scripts/variation.mjs --input u26201.json count
+bun js/scripts/variation.mjs --input u26201.json at 5
+```
 
 ## Query and detection
 
