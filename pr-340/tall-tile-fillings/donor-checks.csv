@@ -1,0 +1,14 @@
+IDS,version,Zhuque donor,source contour indices,corresponding_points,max_distance_em1000,rms_distance_em1000
+⿺瓦千,main,千,whole,94,50.862,27.144
+⿺瓦千,previous,千,whole,94,0.096,0.059
+⿺瓦千,revised,仟,0,76,0.089,0.05
+⿺瓦厘,main,厘,whole,225,51.667,29.098
+⿺瓦厘,previous,厘,whole,225,0.095,0.045
+⿺瓦厘,revised,糎,0 3 4 5 6,208,0.082,0.047
+⿺瓦十,main,十,whole,56,50.807,30.36
+⿺瓦十,previous,十,whole,56,0.093,0.049
+⿺瓦十,revised,叶,0,59,0.085,0.049
+⿺瓦屯,previous,屯,whole,163,0.091,0.051
+⿺瓦屯,revised,沌,0,145,0.118,0.067
+⿺瓦百,previous,百,whole,107,0.089,0.048
+⿺瓦百,revised,栢,1 2,118,0.087,0.046
