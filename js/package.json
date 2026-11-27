@@ -205,6 +205,14 @@
     "./variation-registry": {
       "types": "./types/variation-registry.d.ts",
       "default": "./src/variation-registry.js"
+    },
+    "./variation-expression": {
+      "types": "./types/variation-expression.d.ts",
+      "default": "./src/variation-expression.js"
+    },
+    "./variation-product": {
+      "types": "./types/variation-product.d.ts",
+      "default": "./src/variation-product.js"
     }
   },
   "files": [
