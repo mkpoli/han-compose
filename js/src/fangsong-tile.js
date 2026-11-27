@@ -5,11 +5,11 @@ import { hexOf } from './sha256.js'
 // Zhuque Fangsong 0.212 (TrionesType, OFL 1.1) has the operands but lacks the
 // five measure characters. Encoded Beijing ZhongYi FangSong glyphs guide
 // horizontal placement for 千、厘、屯、百 (CWTeX Q Fangsong's 瓩 is a second
-// comparison); 十 is centered in the shared 瓦 opening using the symmetric
-// right-hand form of 什, and vertical extents are editorial choices tuned to
-// the opening. The same 甅 frame encloses every filling. Pinned host glyphs
-// supply naturally tall right-hand forms separated by KanjiVG (CC BY-SA 3.0)
-// contour labels in G.ls.
+// comparison). 十's horizontal placement is editorial, centered in the shared
+// 瓦 opening using the symmetric right-hand form of 什; vertical extents for
+// all five are editorial choices tuned to the opening. The same 甅 frame
+// encloses every filling. Pinned host glyphs supply naturally tall right-hand
+// forms separated by KanjiVG (CC BY-SA 3.0) contour labels in G.ls.
 const frameBox = [-8.14, -103.52, 1000.56, 744]
 const forms = {
   千: { host: '仟', left: '亻', digest: 'b958da119a3e9e7fcf17124e7773a77c603484d77ba8a6559def5f56e1719746', inner: [473, 27, 1000, 799] },

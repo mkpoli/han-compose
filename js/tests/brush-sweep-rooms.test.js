@@ -51,12 +51,11 @@ it('keeps adjacent brush enclosures inside their cells', async () => {
   expect(rightEdge).toBeLessThan(leftEdge)
 })
 
-it('places inner ink at balanced horizontal centers inside each enclosure', async () => {
+it('places inner ink at the horizontal centers of encoded reference glyphs', async () => {
   // Centers relative to whole-glyph ink width in ZhongYi FangSong for 千、厘、
-  // 屯、百、克千; 瓦十 centers the symmetric 什 filling in the shared 瓦 opening
-  // instead of ZhongYi's far-right 0.761. The 竜内 target comes from Jigmo
-  // because Zhuque Fangsong lacks the U+25A9E glyph.
-  const centers = { 瓦千: 0.740, 瓦厘: 0.657, 瓦十: 0.667, 瓦屯: 0.661,
+  // 屯、百、克千. The 竜内 target comes from Jigmo because Zhuque Fangsong lacks
+  // the U+25A9E glyph. 瓦十 is tested against the shared 瓦 opening below.
+  const centers = { 瓦千: 0.740, 瓦厘: 0.657, 瓦屯: 0.661,
     瓦百: 0.713, 克千: 0.758, 竜内: 0.733 }
   const src = source()
   for (const [pair, center] of Object.entries(centers)) {
@@ -114,10 +113,23 @@ it('uses the standalone 厘 when the 糎 donor cannot be separated or changes ou
   }
 })
 
+function tileOpening(framePath) {
+  const wallXs = [], hookXs = []
+  for (const ring of pathRings(framePath, 32)) {
+    for (let i = 0; i < ring.length; i += 2) {
+      const x = ring[i], y = ring[i + 1]
+      if (y >= 100 && y <= 600 && x < 550) wallXs.push(x)
+      if (y >= 100 && y <= 400 && x > 700) hookXs.push(x)
+    }
+  }
+  const innerWall = Math.max(...wallXs), rightHook = Math.min(...hookXs)
+  return { innerWall, rightHook, midpoint: (innerWall + rightHook) / 2 }
+}
+
 it('reports KanjiVG attribution on host cuts and clears the shared frame on standalone fallback', async () => {
-  const centers = { 千: 0.740, 厘: 0.657, 十: 0.667, 屯: 0.661, 百: 0.713 }
+  const centers = { 千: 0.740, 厘: 0.657, 屯: 0.661, 百: 0.713 }
   const src = source()
-  for (const [inner, center] of Object.entries(centers)) {
+  for (const inner of Object.keys(tileHosts)) {
     const withHost = await compose(src, '⿺瓦' + inner, { fontStyle: 'fangsong', separate: true })
     expect(withHost.kanjivg, inner).toBe(true)
 
@@ -131,14 +143,26 @@ it('reports KanjiVG attribution on host cuts and clears the shared frame on stan
     const boxes = fallback.parts.map(p => union(pathRings(p.d, 24).map(pointsBox)))
     const [left, , right] = union(boxes)
     const innerCenter = (boxes[1][0] + boxes[1][2]) / 2
-    expect(Math.abs((innerCenter - left) / (right - left) - center), inner).toBeLessThan(0.012)
+    if (inner === '十') {
+      const opening = tileOpening(fallback.parts[0].d)
+      expect(Math.abs(innerCenter - opening.midpoint)).toBeLessThan(20)
+      expect(boxes[1][2]).toBeLessThan(opening.rightHook)
+    } else {
+      expect(Math.abs((innerCenter - left) / (right - left) - centers[inner]), inner).toBeLessThan(0.012)
+    }
   }
 })
 
 it('centers the vertical stem of 十 symmetrically inside the 瓦 opening', async () => {
   const { parts } = await compose(source(), '⿺瓦十', { fontStyle: 'fangsong', separate: true })
-  const [x0, y0, x1, y1] = union(pathRings(parts[1].d, 32).map(pointsBox))
+  const [frameMask, fillMask] = parts.map(p => pathMask(p.d, 256))
+  expect(fillMask.some((ink, i) => ink && frameMask[i])).toBe(false)
+  const opening = tileOpening(parts[0].d)
+  const boxes = parts.map(p => union(pathRings(p.d, 32).map(pointsBox)))
+  const [, bottom, , top] = union(boxes)
+  const [x0, y0, x1, y1] = boxes[1]
   const h = y1 - y0
+  expect(h / (top - bottom)).toBeGreaterThan(0.75)
   const stemXs = []
   for (const ring of pathRings(parts[1].d, 32)) {
     for (let i = 0; i < ring.length; i += 2) {
@@ -146,9 +170,9 @@ it('centers the vertical stem of 十 symmetrically inside the 瓦 opening', asyn
     }
   }
   const stemMid = (Math.min(...stemXs) + Math.max(...stemXs)) / 2
-  // Crossbar arms stay balanced around the stem, and the stem sits near the opening center.
+  // Crossbar arms stay balanced around the stem, and 十 stays centered inside the opening without overhanging the hook.
   expect(Math.abs((stemMid - x0) / (x1 - x0) - 0.5)).toBeLessThan(0.02)
-  expect(stemMid).toBeGreaterThan(645)
-  expect(stemMid).toBeLessThan(685)
-  expect(x1).toBeLessThan(940)
+  expect(Math.abs(stemMid - opening.midpoint)).toBeLessThan(20)
+  expect(x0).toBeGreaterThan(opening.innerWall)
+  expect(x1).toBeLessThan(opening.rightHook)
 })
