@@ -5395,6 +5395,9 @@ export class Composer {
     this.stroke = [curve(density, 0), curve(density, 1)]
     // The powers of a part's scale its stroke width follows in the font's own characters.
     const powers = C.PART_STEMS
+    // Per axis, each weighted part with the stroke width it is drawn at before weighting and how
+    // far a weight of 1 widens it.
+    const drawn = [[], []]
     for (const p of group) {
       if (p.empty !== undefined || p.fixed) continue
       const weight = [], target = p.target.slice(), scale = scaleOf(p)
@@ -5427,6 +5430,8 @@ export class Composer {
           else if (axis === 1 && stated === null && C.GROW_Y) grownBy = (stem[1][1] - stem[1][0]) / curve(p.native, 1)
           const at = Math.max(scale[axis] * baked[axis], C.PART_SCALE_LEAST)
           weight.push(Math.min(p.weightLimit?.[axis] ?? C.WEIGHT_GROWTH, Math.max(-0.6, (lift * at ** (powers[axis] - 1) - 1) / grownBy)))
+          const base = (stated !== null ? measured[axis] : curve(p.native, axis) * baked[axis]) * scale[axis]
+          drawn[axis].push([p, base, grownBy])
           continue
         }
         const own = measured ? measured[axis] : curve(p.native, axis)
@@ -5434,6 +5439,29 @@ export class Composer {
       }
       p.target = target
       p.weight = weight
+    }
+    if (C.PART_SPREAD) this.even(drawn, C.PART_SPREAD)
+  }
+
+  /** Parts of one character held within the font's own spread of a common stroke width
+   *  (`Composer._even`): the common width is the mean of the parts' widths by their ink, and a part
+   *  outside the spread about it is weighted to its edge. */
+  even(drawn, spread) {
+    for (const axis of [0, 1]) {
+      const parts = drawn[axis]
+      if (parts.length < 2) continue
+      const widths = parts.map(([p, base, grown]) => base * (1 + p.weight[axis] * grown))
+      const inks = parts.map(([p]) => { const [sx, sy] = scaleOf(p); return (p.inkLength ?? partInk(p.part)) * (sx + sy) / 2 })
+      const total = inks.reduce((a, b) => a + b, 0)
+      if (widths.some(w => !(w > 0)) || !(total > 0)) continue
+      const common = Math.exp(widths.reduce((sum, w, i) => sum + inks[i] * Math.log(w), 0) / total)
+      // Two parts each within the root of the spread of the common width are within the spread.
+      const edge = Math.sqrt(spread[axis])
+      parts.forEach(([p, base, grown], i) => {
+        const held = Math.min(common * edge, Math.max(common / edge, widths[i]))
+        if (held === widths[i]) return
+        p.weight[axis] = Math.min(p.weightLimit?.[axis] ?? this.C.WEIGHT_GROWTH, Math.max(-0.6, (held / base - 1) / grown))
+      })
     }
   }
 }

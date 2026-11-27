@@ -107,6 +107,34 @@ Three limits apply.
 - In the JavaScript engine a part marked `fixed` (a bundled component form, a tone mark) keeps the
   weight it has.
 
+## One stroke width across a character
+
+In the font's own characters the parts of one character are drawn with nearly one stroke width,
+whatever their sizes. `calibrate-parts` measures it on 700 characters a style cut in two, side by
+side or stacked: the wider part's stroke width over the narrower's, in four of five characters
+(`Style.part_spread`).
+
+| Style | Across x | Across y |
+|---|---|---|
+| Sans | 1.13 | 1.24 |
+| Serif | 1.09 | 1.09 |
+| Woodblock | 1.13 | 1.26 |
+| Fangsong | 1.11 | 1.17 |
+| Regular Kai | 1.29 | 1.46 |
+| Wen Kai | 1.16 | 1.26 |
+
+The stem law weights each part against its own source, so parts cut from hosts of unlike weight
+come out further apart than that. In Fangsong's ⿱雲⿰龍龍 the 雲 comes from a character with
+verticals 55 units wide and the pair of 龍 from the crowded 龘, whose are 32: after the law the
+verticals stood at 51 to 65 units against 31. `Composer._even` (`even` in `js/src/compose.js`)
+takes the mean of the parts' stroke widths by their ink as the character's common width, and
+weights a part outside the spread about it to its edge: a part may stand the root of the spread
+above or below the common width, so that any two are within the spread. The same character then
+has 36 units across both. Lone strokes and parts marked `fixed` are left out.
+
+A frame and what it encloses differ about as much in the font's own characters (the frame 4% to
+10% the wider at the median), and the same spread holds them.
+
 ## Fonts without two masters
 
 | Case | How its heavy master and width come about |
@@ -127,6 +155,7 @@ in place of the curve.
 |---|---|
 | `manifest.heavy`, `manifest.weighted` | The heavy master's weight, and whether parts are balanced. An export without `weighted` is balanced unless `heavy` is 400. |
 | `manifest.constants.STEM_CURVE`, `.stem` | The two lines and the stems at each master. |
+| `manifest.constants.PART_SPREAD` | The two spreads. An export without them leaves each part at the width the law gives it. |
 | `manifest.constants.PART_STEMS`, `.STATIC` | The two powers, and whether the style's font has one weight. An export without `PART_STEMS` is balanced by density; one of a static face written before the law (`weighted` false) has its thin parts lifted to the stroke of the parts at their own size (`staticBalance`). |
 | A record's `G.p` | Per contour: the pen commands, the points at 400 and their move to the heavy master, int16 in quarter units. |
 | A record's `G.w` | The measured stroke width, on a glyph a fallback or a static font draws. |
