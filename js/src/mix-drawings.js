@@ -127,15 +127,33 @@ function prepareInk(paths, strokes) {
   )
   /** Regions whose islands were cut from larger ones. @type {WeakSet<object>} */
   const cuts = new WeakSet()
+  /** Correspondences already worked out for a region. @type {WeakMap<object, ReturnType<typeof prepareCorrespondence>>} */
+  const prepared = new WeakMap()
+  const blendOf = (/** @type {number[][][][][]} */ region) => {
+    if (!prepared.has(region)) prepared.set(region, prepareCorrespondence(region, cuts.has(region)))
+    return prepared.get(region) ?? null
+  }
   /** Faces that split the ink into different numbers of islands still match the
    * islands they share; only the groups that differ fall back to distance fields.
    * @param {number[][][][][]} polygons */
   const regionsOf = (polygons) => {
     const matched = matchRegions(polygons, (p) => p[0])
     if (matched?.[0].length) return matched[0].map((_, i) => matched.map((p) => [p[i]]))
-    const split = matched ? null : splitIslands(polygons)
+    let split = matched ? null : splitIslands(polygons)
     if (split) {
       for (const region of split) cuts.add(region)
+      // The narrowest neck can lie partway along a stroke that runs into its neighbour, and
+      // the piece left holding the rest of that stroke then matches nothing. Cutting at the
+      // outline's notches instead is kept where it leaves more pieces with a counterpart.
+      const unmatched = (/** @type {number[][][][][][]} */ regions) =>
+        regions.filter((region) => !blendOf(region)).length
+      if (unmatched(split)) {
+        const anchored = splitIslands(polygons, true)
+        if (anchored) {
+          for (const region of anchored) cuts.add(region)
+          if (unmatched(anchored) < unmatched(split)) split = anchored
+        }
+      }
       return split
     }
     const grouped = matched ? [] : groupRegions(polygons, (p) => p[0], 0.06 * side)
@@ -147,15 +165,25 @@ function prepareInk(paths, strokes) {
     present.map((k) => strokes?.[k]),
     present.map((k) => (pathSubpaths(paths[k]) === shapes[k].length ? shapes[k].length : -1))
   )
-  // Faces that number their strokes differently would blend one stroke into another.
-  const middle = (/** @type {number[][]} */ rings) => {
-    const box = union(rings.map(pointsBox))
-    return [(box[0] + box[2]) / 2, (box[1] + box[3]) / 2]
-  }
+  // Faces that number their strokes differently, or fuse a perpendicular stroke into
+  // one unit (such as | vs ┌ on 口 or 門), would tear the shared bar apart if blended per unit.
   const alike =
     units?.every((unit) => {
-      const centres = unit.map((contours, f) => middle(contours.map((c) => registered[f][c])))
-      return centres.every((c) => Math.hypot(c[0] - centres[0][0], c[1] - centres[0][1]) < 0.3 * side)
+      const boxes = unit.map((contours, f) => union(contours.map((c) => pointsBox(registered[f][c]))))
+      const centres = boxes.map(([a, b, c, d]) => [(a + c) / 2, (b + d) / 2])
+      for (let i = 0; i < centres.length; i++)
+        for (let j = i + 1; j < centres.length; j++)
+          if (Math.hypot(centres[i][0] - centres[j][0], centres[i][1] - centres[j][1]) >= 0.3 * side)
+            return false
+      const ws = boxes.map(([a, , c]) => Math.max(1, c - a))
+      const hs = boxes.map(([, b, , d]) => Math.max(1, d - b))
+      const minW = Math.min(...ws),
+        maxW = Math.max(...ws)
+      if (maxW - minW > 0.15 * side && maxW / minW > 3) return false
+      const minH = Math.min(...hs),
+        maxH = Math.max(...hs)
+      if (maxH - minH > 0.15 * side && maxH / minH > 3) return false
+      return true
     }) ?? false
   const regions =
     units && alike
@@ -165,7 +193,7 @@ function prepareInk(paths, strokes) {
       : regionsOf(registered.map(inkPolygons))
   // Regions without a contour correspondence share one distance field, which keeps
   // their strokes registered to each other.
-  const matched = regions.map((region) => prepareCorrespondence(region, cuts.has(region)))
+  const matched = regions.map(blendOf)
   const blenders = matched.flatMap((blend) => blend ?? [])
   const rest = regions.filter((_, i) => !matched[i])
   if (rest.length)

@@ -124,6 +124,42 @@ export function derived(from, contours, box) {
   return part
 }
 
+// A complete native stroke remains addressable after its contours are renumbered.
+export function cutContours(glyph, indices, box = undefined) {
+  const part = derived(glyph, indices.map(i => glyph.contours[i]), box)
+  const strokes = (glyph.strokes ?? [])
+    .filter(([, contours]) => contours.every(i => indices.includes(i)))
+    .map(([id, contours]) => [id, contours.map(i => indices.indexOf(i))])
+  if (strokes.length) part.strokes = strokes
+  return part
+}
+
+// Join sections of the original contour along the boundaries of adjacent components.
+// Each triple names a contour and two pen commands. Start at the endpoint of the
+// first command, then copy the curves through the last, in both weight masters.
+export function contourSections(contours, ...sections) {
+  const ops = [], light = [], heavy = []
+  for (const [index, start, end] of sections) {
+    const c = contours[index]
+    let offset = 0
+    for (let i = 0; i <= end; i++) {
+      const n = 2 * c.ops[i][1]
+      if (i === start) {
+        ops.push([ops.length ? 'L' : 'M', 1, false])
+        light.push(...c.light.slice(offset + n - 2, offset + n))
+        heavy.push(...c.heavy.slice(offset + n - 2, offset + n))
+      } else if (i > start) {
+        ops.push(c.ops[i])
+        light.push(...c.light.slice(offset, offset + n))
+        heavy.push(...c.heavy.slice(offset, offset + n))
+      }
+      offset += n
+    }
+  }
+  return { ops, light: Float64Array.from(light), heavy: Float64Array.from(heavy), width: contours[0].width }
+}
+
+
 /** A part record of the export (`b`, `p`, `w`) read as a part, decoded once. */
 export function partOf(record, quant = 4) {
   if (record._part) return record._part
@@ -418,7 +454,7 @@ const turnsOver = p => (p.flips ?? []).reduce((odd, f) => odd !== (Boolean(f.x) 
 export const runsBack = p => Boolean(p.part.reverse) !== turnsOver(p)
 
 /** A contour's segments drawn the other way round: the same outline, wound as the glyph was drawn. */
-function backwards(segs) {
+export function backwards(segs) {
   const ends = segs.map(([kind, pts]) => (kind === 'C' ? pts[2] : kind === 'Q' ? pts[1] : pts[0]))
   const out = [['M', [ends[0]]], ['L', [ends.at(-1)]]]
   for (let i = segs.length - 1; i > 0; i--) {
