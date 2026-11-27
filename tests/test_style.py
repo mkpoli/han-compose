@@ -16,7 +16,7 @@ from han_compose import compose, compose_layout, compose_standalone, web_export
 
 
 def test_every_style_pins_each_of_its_fonts_by_sha256_and_licence() -> None:
-    assert compose.DEFAULT_STYLE == "sans" and set(compose.STYLES) == {"sans", "serif", "regular", "pen-writing", "fangsong"}
+    assert compose.DEFAULT_STYLE == "sans" and set(compose.STYLES) == {"sans", "serif", "woodblock", "regular", "pen-writing", "fangsong"}
     files = {}
     for name, style in compose.STYLES.items():
         assert style.name == name
@@ -32,7 +32,7 @@ def test_every_style_pins_each_of_its_fonts_by_sha256_and_licence() -> None:
 
 
 def test_styles_are_listed_in_the_switch_order() -> None:
-    assert list(compose.STYLES) == ["sans", "serif", "fangsong", "regular", "pen-writing"]
+    assert list(compose.STYLES) == ["sans", "serif", "woodblock", "fangsong", "regular", "pen-writing"]
 
 
 def test_fangsong_indexes_the_right_halves_of_lian_as_jian() -> None:
@@ -57,7 +57,7 @@ def test_only_fallbacks_of_the_main_fonts_design_teach_the_layout() -> None:
 
     import multiprocessing as mp
 
-    for style, expected in (("sans", {"一", "𠀀"}), ("serif", {"一"}), ("regular", {"一", "𠀀"}), ("pen-writing", {"一"}), ("fangsong", {"一"})):
+    for style, expected in (("sans", {"一", "𠀀"}), ("serif", {"一"}), ("regular", {"一", "𠀀"}), ("pen-writing", {"一"}), ("fangsong", {"一"}), ("woodblock", {"一"})):
         seen.clear()
         font = SimpleNamespace(style=compose.STYLES[style], has=lambda ch: True, own=lambda ch: ch == "一",
                                open_fallbacks=lambda: None)
@@ -344,6 +344,30 @@ def test_fangsong_keeps_its_hosts_in_zhuque_and_takes_the_rest_from_jigmo() -> N
     assert "Alegreya Project Authors" in style.font.also
 
 
+def test_woodblock_reads_nom_na_tong_and_no_other_font() -> None:
+    style = compose.STYLES["woodblock"]
+    assert style.heavy == 400 and style.weighted and style.own_hosts and not style.kindred
+    assert style.part_stems is not None and all(0 < power < 1 for power in style.part_stems)
+    assert style.fallbacks == ()
+    assert style.font.licence == compose.MIT and style.font.member is None
+    assert compose_layout.layout_file("woodblock") == "compose-layout-v4-woodblock.npz"
+    assert "woodblock" in web_export.OUTLINE_NOTES
+    licence = Path(__file__).resolve().parents[1] / "data" / "licences" / web_export.LICENCE_TEXTS[compose.MIT][1]
+    assert "Copyright (c) 2019 nomfoundation" in licence.read_text(encoding="utf-8")
+
+
+def test_woodblock_lifts_its_full_ideographs_into_the_em() -> None:
+    if not _cached("woodblock"):
+        pytest.skip("The woodblock fonts are not cached.")
+    font = compose.Font.of("woodblock")
+    boxes = [font.glyph(char).box for char in compose.FULL]
+    centre = sorted((box[1] + box[3]) / 2 for box in boxes)[len(boxes) // 2]
+    assert abs(centre - (compose.ASCENT - compose.EM / 2)) < 5
+    assert font.family is None
+    assert font.has("𡨸") and font.own("喃")
+    assert not font.fallbacks and not font.has("\U00031350")
+
+
 def test_regular_reads_tw_kai_and_its_extension_faces() -> None:
     style = compose.STYLES["regular"]
     assert style.heavy == 400 and style.weighted is False and style.kindred and style.own_hosts
@@ -372,3 +396,45 @@ def test_pen_writing_reads_a_static_face_and_keeps_its_brush_weight(pen_writing:
     assert part is not None and part.contours
     # GenZui Sans supplies what Klee One lacks.
     assert pen_writing.own("口") and pen_writing.has("㐆")
+
+
+def _ring(points: list[tuple[float, float]]) -> compose.Contour:
+    array = np.array(points, dtype=float)
+    return compose.Contour([("moveTo", 1, False)] + [("lineTo", 1, False)] * (len(points) - 1), array, array.copy())
+
+
+def test_ink_lies_left_of_an_anticlockwise_outer_contour() -> None:
+    clockwise = [(0, 0), (0, 100), (100, 100), (100, 0)]
+    hole = [(40, 40), (60, 40), (60, 60), (40, 60)]
+    assert not compose._ink_on_left([_ring(clockwise), _ring(hole)])
+    assert compose._ink_on_left([_ring(clockwise[::-1]), _ring(hole[::-1])])
+    assert not compose._ink_on_left([])
+
+
+@pytest.mark.parametrize("style", ["woodblock", "fangsong", "regular", "pen-writing"])
+def test_a_static_faces_heavy_master_is_wider_whichever_way_it_is_wound(style: str) -> None:
+    if not _cached(style):
+        pytest.skip(f"The {style} fonts are not cached.")
+    font = compose.Font.of(style)
+    for char in "一國":
+        contour = max(font.glyph(char).contours, key=lambda c: np.ptp(c.light, axis=0).prod())
+        light, heavy = contour.light, np.asarray(contour.heavy)
+        assert (heavy.min(axis=0) < light.min(axis=0)).all() and (heavy.max(axis=0) > light.max(axis=0)).all()
+
+
+def test_a_part_weighted_by_scale_takes_the_stem_its_scale_calls_for() -> None:
+    from types import SimpleNamespace
+
+    points = np.array([[0, 0], [0, 800], [800, 800], [800, 0]], dtype=float)
+    square = compose.Part([compose.Contour([("moveTo", 1, False)] + [("lineTo", 1, False)] * 3, points, points.copy())])
+    style = SimpleNamespace(part_stems=(0.25, 0.5), weighted=True)
+    font = SimpleNamespace(style=style, stem=((60.0, 100.0), (30.0, 50.0)), glyph=lambda _: None, has=lambda _: False,
+                           width=lambda density, axis: 1.0)
+    composer = compose.Composer(font, {}, weighted=True)
+    composer.ink = lambda *_: 1.0
+    whole = compose.Placed(square, square.box, square.box)
+    half = compose.Placed(square, square.box, (0.0, 0.0, 400.0, 400.0))
+    composer._balance([whole, half])
+    ratio = (100 / 60 - 1, 50 / 30 - 1)
+    assert whole.weight == (0.0, 0.0)
+    assert half.weight == pytest.approx(((0.5 ** -0.75 - 1) / ratio[0], (0.5 ** -0.5 - 1) / ratio[1]))
