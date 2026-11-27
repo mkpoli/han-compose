@@ -1,9 +1,10 @@
 import { expect, it } from 'bun:test'
 import { createSource, compose, sketch } from '../src/loader.js'
+import { Composer } from '../src/compose.js'
 import { editableRccParts } from '../src/rcc-forms.js'
 import { documentSource } from '../src/document-source.js'
 import { files, shards } from './fixtures/small-export.js'
-import { partOf, pathMask, svgPath } from '../src/geometry.js'
+import { partOf, pathMask, placed, svgPath } from '../src/geometry.js'
 import { rccChainContextParts, rccChainDonors } from '../src/rcc-chain-contexts.js'
 // Format-7 glyph records from Noto Sans CJK, TW-Kai and Zhuque FangSong.
 import donors from './fixtures/rcc-early-strokes.json' with { type: 'json' }
@@ -162,13 +163,18 @@ it('edits the complete 馬 as a native frame, 𰀁 and four dots at its final we
   }
 })
 
-
 it('recognizes a Noto fallback only for the full editable 馬', () => {
   const written = '⿹⿷#(-一丨b𠃌)𰀁灬'
   const fallback = { ...composer('sans'), fontStyle: 'regular', separate: true,
-    place: (part, target, native, origin) => ({ part, source: part.box, target, native, origin }) }
+    place: (part, target, native, origin) => placed(part, part.box, target, native, origin) }
   expect(rccChainContextParts(fallback, horse, em)).toBeNull()
-  const split = editableRccParts(rccChainContextParts(fallback, written, em))
+  const hosts = rccChainContextParts(fallback, written, em)
+  const original = hosts[0].part, roof = partOf(donors.sans.冖)
+  const cover = placed(roof, roof.box, [200, 700, 800, 880], 2564.9, '冖')
+  Composer.prototype.fitUnderCover.call(fallback, '⿱', ['冖', written], [[cover], hosts])
+  expect(hosts[0].part).not.toBe(original)
+  const split = editableRccParts(hosts)
+  expect(pathMask(svgPath(split), 400)).toEqual(pathMask(svgPath(hosts), 400))
   expect(split.map(p => p.rccLeaf)).toEqual([0, 1, 2])
   expect(editableRccParts(split)).toBe(split)
   for (const record of [{ ...donors.sans.馬, v: 2 }, { ...donors.sans.馬, p: [] }]) {
