@@ -42,6 +42,7 @@ One source serves any number of sequences and keeps what it has loaded.
 |---|---|---|
 | Sans | `'sans'` | Noto Sans CJK JP, Plangothic |
 | Serif (明朝) | `'serif'` | Noto Serif CJK JP, Jigmo |
+| Woodblock (刻本明體) | `'woodblock'` | Nôm Na Tống |
 | Fangsong (仿宋) | `'fangsong'` | Zhuque Fangsong, Jigmo |
 | Regular Kai (正楷) | `'regular'` | TW-Kai, TW-Kai Ext-B, TW-Kai Ext-G |
 | Wen Kai (文楷) | `'pen-writing'` | Kureedo Full, GenZui Sans |
