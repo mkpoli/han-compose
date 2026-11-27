@@ -1,0 +1,71 @@
+IDS,face,changed from Main,same ink as editable parts,Main origins,Revised origins
+⿰氵⿵門首,fang,True,True,learned 瀆/glyph 門/glyph 首,learned 瀆/host 間/glyph 首
+⿰氵⿵門首,pen,True,True,learned 溢/glyph 門/glyph 首,learned 溢/host 間/glyph 首
+⿰氵⿵門首,reg,True,True,learned 濞/glyph 門/glyph 首,learned 濞/host 間/glyph 首
+⿰氵⿵門首,sans,True,True,learned 溢/glyph 門/glyph 首,learned 溢/host 間/glyph 首
+⿰氵⿵門首,serif,True,True,learned 濞/glyph 門/glyph 首,learned 濞/host 間/glyph 首
+⿴囗口,fang,False,False,glyph 回,glyph 回
+⿴囗口,pen,False,False,glyph 回,glyph 回
+⿴囗口,reg,False,False,glyph 回,glyph 回
+⿴囗口,sans,False,False,glyph 回,glyph 回
+⿴囗口,serif,False,False,glyph 回,glyph 回
+⿴囗首,fang,False,True,learned 圄/glyph 首,learned 圄/glyph 首
+⿴囗首,pen,False,True,learned 國/glyph 首,learned 國/glyph 首
+⿴囗首,reg,False,True,learned 圃/glyph 首,learned 圃/glyph 首
+⿴囗首,sans,True,True,learned 𡈁/glyph 首,host 固/glyph 首
+⿴囗首,serif,True,True,learned 圇/glyph 首,host 固/glyph 首
+⿵門日,fang,False,False,glyph 間,glyph 間
+⿵門日,pen,False,False,glyph 間,glyph 間
+⿵門日,reg,False,False,glyph 間,glyph 間
+⿵門日,sans,False,False,glyph 間,glyph 間
+⿵門日,serif,False,False,glyph 間,glyph 間
+⿵門首,fang,True,True,learned 闇/glyph 首,host 間/glyph 首
+⿵門首,pen,True,True,learned 闇/glyph 首,host 間/glyph 首
+⿵門首,reg,True,True,learned 閶/glyph 首,host 間/glyph 首
+⿵門首,sans,True,True,learned 闋/glyph 首,host 間/glyph 首
+⿵門首,serif,True,True,learned 閾/glyph 首,host 間/glyph 首
+⿷匚甲,fang,False,False,glyph 匣,glyph 匣
+⿷匚甲,pen,False,False,glyph 匣,glyph 匣
+⿷匚甲,reg,False,False,glyph 匣,glyph 匣
+⿷匚甲,sans,False,False,glyph 匣,glyph 匣
+⿷匚甲,serif,False,False,glyph 匣,glyph 匣
+⿷匚首,fang,True,True,learned 匪/glyph 首,host 匣/glyph 首
+⿷匚首,pen,True,True,learned 匿/glyph 首,host 匣/glyph 首
+⿷匚首,reg,True,True,learned 匿/glyph 首,host 匣/glyph 首
+⿷匚首,sans,True,True,learned 㔵/glyph 首,host 匣/glyph 首
+⿷匚首,serif,True,True,learned 匲/glyph 首,host 匣/glyph 首
+⿸尸由,fang,False,False,glyph 届,glyph 届
+⿸尸由,pen,False,False,glyph 届,glyph 届
+⿸尸由,reg,False,False,glyph 届,glyph 届
+⿸尸由,sans,False,False,glyph 届,glyph 届
+⿸尸由,serif,False,False,glyph 届,glyph 届
+⿸尸首,fang,False,True,learned 屍/glyph 首,learned 屍/glyph 首
+⿸尸首,pen,True,True,learned 屋/glyph 首,host 届/glyph 首
+⿸尸首,reg,False,True,learned 屚/glyph 首,learned 屚/glyph 首
+⿸尸首,sans,True,True,learned 屣/learned 渞,host 届/glyph 首
+⿸尸首,serif,True,True,learned 屚/glyph 首,host 届/glyph 首
+⿸广由,fang,False,False,glyph 庙,glyph 庙
+⿸广由,pen,False,False,glyph 庙,glyph 庙
+⿸广由,reg,False,False,glyph 庙,glyph 庙
+⿸广由,sans,False,False,glyph 庙,glyph 庙
+⿸广由,serif,False,False,glyph 庙,glyph 庙
+⿸广首,fang,True,True,learned 庭/glyph 首,host 庙/glyph 首
+⿸广首,pen,True,True,learned 庭/glyph 首,host 庙/glyph 首
+⿸广首,reg,True,True,learned 庿/glyph 首,host 庙/glyph 首
+⿸广首,sans,True,True,learned 庸/learned 渞,host 庙/glyph 首
+⿸广首,serif,True,True,learned 㢕/glyph 首,host 庙/glyph 首
+⿹勹日,fang,False,False,glyph 旬,glyph 旬
+⿹勹日,pen,False,False,glyph 旬,glyph 旬
+⿹勹日,reg,False,False,glyph 旬,glyph 旬
+⿹勹日,sans,False,False,glyph 旬,glyph 旬
+⿹勹日,serif,False,False,glyph 旬,glyph 旬
+⿹勹首,fang,True,True,learned 匈/glyph 首,host 匈/glyph 首
+⿹勹首,pen,True,True,learned 匋/glyph 首,host 旬/glyph 首
+⿹勹首,reg,True,True,learned 匋/glyph 首,host 旬/glyph 首
+⿹勹首,sans,True,True,learned 匓/glyph 首,host 旬/glyph 首
+⿹勹首,serif,True,True,learned 匍/glyph 首,host 旬/glyph 首
+⿺先首,fang,False,True,enclosing 先/host 馗,enclosing 先/host 馗
+⿺先首,pen,False,True,enclosing 先/host 馗,enclosing 先/host 馗
+⿺先首,reg,False,True,enclosing 先/host 馗,enclosing 先/host 馗
+⿺先首,sans,False,True,enclosing 先/host 馗,enclosing 先/host 馗
+⿺先首,serif,False,True,enclosing 先/host 馗,enclosing 先/host 馗
