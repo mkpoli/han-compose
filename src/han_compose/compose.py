@@ -113,6 +113,10 @@ class Style:
     #: the gap three in four of the font's own characters keep there (`calibrate-gaps`). A touching
     #: pair reads 4, one raster cell: Noto's stacked parts interlock, a brush face's stand apart.
     facing_least: tuple[float, float] = (12.0, 8.0)
+    #: For a static face whose parts are weighted: the powers (across x, across y) of a part's scale
+    #: its stroke width follows in the font's own characters, measured by `calibrate-parts`. A part
+    #: drawn at 0.5 of its glyph keeps 0.5 ** k of its stem. None weights by density (`stem_curve`).
+    part_stems: tuple[float, float] | None = None
 
 
 OFL = "SIL OFL 1.1"
@@ -189,8 +193,12 @@ STYLES = {
         ((65.09, -1.129), (28.14, -0.417)),
         heavy=400,
         kindred=False,
-        weighted=False,
         own_hosts=True,
+        # A cut Song face, not a brush: a part drawn smaller than its glyph is grown from the one
+        # weight the font has (`STATIC_GROW`) to the stem the font gives such a part. Measured on
+        # 1,983 parts of its own characters against their glyphs (`calibrate-parts`): a part at
+        # half size keeps 84% of its verticals and 89% of its horizontals.
+        part_stems=(0.259, 0.171),
         # Its full ideographs span -151 to 848 of the em, Noto Serif's -78 to 837: the lift centres
         # them where Noto Serif's stand. They fill the em's whole height, so a stroke at the top
         # or the foot can pass its edge by a few units.
@@ -981,7 +989,10 @@ class Font:
         font is static."""
         width = None
         if self.static:
-            heavy, width = [_grown(c.light, (STATIC_GROW, STATIC_GROW)) for c in contours], self._measured(contours)
+            # `_grown` moves a point to its contour's left, outward where ink lies to the right. A
+            # face wound the other way (Nôm Na Tống, Kureedo) grows by the same amount to the right.
+            by = -STATIC_GROW if _ink_on_left(contours) else STATIC_GROW
+            heavy, width = [_grown(c.light, (by, by)) for c in contours], self._measured(contours)
         else:
             pen = DecomposingRecordingPen(self.heavy)
             self.heavy[name].draw(pen)
@@ -1011,6 +1022,17 @@ def _across(rings: list[np.ndarray], axis: int) -> float:
     if not widths:
         raise ValueError("No line across the stroke's middle meets its outline twice.")
     return float(np.median(widths))
+
+
+def _ink_on_left(contours: list[Contour]) -> bool:
+    """Whether a glyph's ink lies to the left of its contours' direction: its largest contour, an
+    outer one, runs anticlockwise with y up. TrueType winds outer contours clockwise, PostScript
+    anticlockwise, and a font converted from one keeps the other's direction."""
+    def area(points: np.ndarray) -> float:
+        x, y = points[:, 0], points[:, 1]
+        return 0.5 * float(np.sum(x * np.roll(y, -1) - np.roll(x, -1) * y))
+    areas = [area(c.light) for c in contours if len(c.light) >= 3]
+    return bool(areas) and max(areas, key=abs) > 0
 
 
 def _grown(points: np.ndarray, by: tuple[float, float]) -> np.ndarray:
@@ -3186,6 +3208,7 @@ class Composer:
         narrow box may grow past the heavy master, up to `WEIGHT_GROWTH`."""
         density = sum(self.ink("", p.part) * (p.scale[0] + p.scale[1]) / 2 for p in placed)
         ratio = [self.font.stem[axis][1] / self.font.stem[axis][0] - 1 for axis in (0, 1)]
+        powers = getattr(getattr(self.font, "style", None), "part_stems", None)
         for p in placed:
             if p.fixed:
                 continue
@@ -3193,11 +3216,19 @@ class Composer:
             for axis, s in enumerate(p.scale):
                 extent = p.source[axis + 2] - p.source[axis]
                 if extent <= 2 * self.font.stem[axis][0]:
-                    # A lone stroke across this axis: drawn at the width the density calls for, not scaled.
-                    width = extent * self.font.width(density, axis) / self.font.width(p.native, axis)
+                    # A lone stroke across this axis: drawn at the width the density calls for, not
+                    # scaled; in a face weighted by scale, at the width its length's scale calls for.
+                    if powers is not None:
+                        width = extent * max(p.scale[1 - axis], 1e-6) ** powers[axis]
+                    else:
+                        width = extent * self.font.width(density, axis) / self.font.width(p.native, axis)
                     middle = (target[axis] + target[axis + 2]) / 2
                     target[axis], target[axis + 2] = middle - width / 2, middle + width / 2
                     weight.append(0.0)
+                    continue
+                if powers is not None:
+                    # The stem the font gives a part at this scale, over the stem plain scaling leaves.
+                    weight.append(float(np.clip((max(s, 1e-6) ** (powers[axis] - 1) - 1) / ratio[axis], -0.6, WEIGHT_GROWTH)))
                     continue
                 measured = p.part.contours[0].width
                 own = measured[axis] if measured is not None else self.font.width(p.native, axis)
