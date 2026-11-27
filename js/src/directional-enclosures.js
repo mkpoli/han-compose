@@ -91,7 +91,7 @@ function refineBai(composer, outer, inner, siblings, footprint) {
   const reference = baiReference(composer, outer, frame)
   if (!reference) return false
   const { hook, aim } = reference
-  // TW-Kai 匂 has the rightmost inner centre among the ten native 勹 references.
+  // Give TW-Kai 百 room on the left. 匂 sets the rightmost centre in the ten native references.
   if (style === 'regular') aim[0] = l + 0.4159 * (r - l)
   // Lift Kureedo's body away from the return at the foot of 勹.
   if (style === 'pen-writing') aim[1] += 0.035 * (t - b)
