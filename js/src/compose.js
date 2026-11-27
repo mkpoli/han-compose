@@ -1413,11 +1413,24 @@ export class Composer {
       room = [region[0] + x0 * w, region[1] + y0 * h, region[0] + x1 * w, region[1] + y1 * h]
     }
     const inside = this.node(inner, room)
-    if (this.separate && form && typeof inner === 'string' && !isEmpty(inner) && !this.expanding.size) {
-      // Each written operand owns all its pieces, including a character rebuilt from its IDS.
-      const group = { key: keyOf(node) }
-      for (const part of held.parts) Object.assign(part, { rccGroup: group, rccLeaf: 0 })
-      for (const part of inside) Object.assign(part, { rccGroup: group, rccLeaf: 1 })
+    if (this.separate && form && !this.expanding.size) {
+      const scalar = typeof inner === 'string' && !isEmpty(inner)
+      const first = inside[0]
+      const partitioned = Array.isArray(inner) && inside.length === 1 && first?.leafParts &&
+        first.rccGroup?.key === keyOf(inner) && first.rccLeaf === 0 && first.rccLeafCount === leafTexts(inner).length
+      if (scalar || partitioned) {
+        const group = { key: keyOf(node) }
+        for (const part of held.parts) Object.assign(part, { rccGroup: group, rccLeaf: 0 })
+        for (const part of inside) {
+          // A scalar owns its complete rebuilt glyph. An explicit IDS keeps its final-weight
+          // partition, starting at the leaf after the outer frame.
+          if (scalar) {
+            delete part.leafParts
+            delete part.rccLeafCount
+          }
+          Object.assign(part, { rccGroup: group, rccLeaf: 1 })
+        }
+      }
     }
     return { form: held.form, taken: cell ? [...held.taken, cell] : held.taken, parts: [...held.parts, ...inside] }
   }

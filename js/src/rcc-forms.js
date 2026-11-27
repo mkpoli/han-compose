@@ -37,7 +37,7 @@ export function editableRccParts(parts) {
     const { leafParts, rccLeafCount: _groupSize, ...finished } = p
     return leafParts(p.part).map((/** @type {any[]} */ [part, origin], /** @type {number} */ index) => ({
       ...finished, part, origin, source: part.box, target: mapped(part.box, p.source, p.target),
-      rccLeaf: index, leaf: p.leaf === undefined ? undefined : p.leaf + index,
+      rccLeaf: p.rccLeaf + index, leaf: p.leaf === undefined ? undefined : p.leaf + index,
     }))
   })
 }
