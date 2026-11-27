@@ -1,0 +1,1011 @@
+character,code,ids,regions,face,mode,reference,main status,main source,main raw native IoU %,main bounds-aligned native IoU %,previous status,previous source,previous raw native IoU %,previous bounds-aligned native IoU %,revised status,revised source,revised raw native IoU %,revised bounds-aligned native IoU %,main to previous,main to revised,previous to revised
+勺,U+52FA,⿹勹丶,GHTJPV,sans,default,Noto Sans,drawn,glyph 勺,61.92,96.75,drawn,glyph 勺,61.92,96.75,drawn,glyph 勺,61.92,96.75,False,False,False
+勺,U+52FA,⿹勹丶,GHTJPV,sans,held out,Noto Sans,drawn,learned 勿 / learned 寸,77.86,85.4,drawn,learned 勿 / learned 寸,77.86,85.4,drawn,learned 勿 / learned 寸,77.86,85.4,False,False,False
+勺,U+52FA,⿹勹丶,GHTJPV,serif,default,Noto Serif,drawn,glyph 勺,79.16,99.19,drawn,glyph 勺,79.16,99.19,drawn,glyph 勺,79.16,99.19,False,False,False
+勺,U+52FA,⿹勹丶,GHTJPV,serif,held out,Noto Serif,drawn,learned 勾 / glyph 丶,48.3,49.64,drawn,learned 勾 / glyph 丶,48.3,49.64,drawn,learned 勾 / glyph 丶,48.3,49.64,False,False,False
+勺,U+52FA,⿹勹丶,GHTJPV,fang,default,Zhuque,drawn,glyph 勺,37.45,99.94,drawn,glyph 勺,37.45,99.94,drawn,glyph 勺,37.45,99.94,False,False,False
+勺,U+52FA,⿹勹丶,GHTJPV,fang,held out,Zhuque,drawn,learned 勾 / learned 釣,33.97,44.41,drawn,learned 勾 / learned 釣,33.97,44.41,drawn,learned 勾 / learned 釣,33.97,44.41,False,False,False
+勺,U+52FA,⿹勹丶,GHTJPV,reg,default,TW-Kai,drawn,glyph 勺,24.95,99.72,drawn,glyph 勺,24.95,99.72,drawn,glyph 勺,24.95,99.72,False,False,False
+勺,U+52FA,⿹勹丶,GHTJPV,reg,held out,TW-Kai,drawn,learned 匀 / learned 仢,46.99,42.7,drawn,learned 匀 / learned 仢,46.99,42.7,drawn,learned 匀 / learned 仢,46.99,42.7,False,False,False
+勺,U+52FA,⿹勹丶,GHTJPV,pen,default,Kureedo,drawn,glyph 勺,33.05,99.94,drawn,glyph 勺,33.05,99.94,drawn,glyph 勺,33.05,99.94,False,False,False
+勺,U+52FA,⿹勹丶,GHTJPV,pen,held out,Kureedo,drawn,learned 勾 / learned 仢,77.15,82.19,drawn,learned 勾 / learned 仢,77.15,82.19,drawn,learned 勾 / learned 仢,77.15,82.19,False,False,False
+勺,U+52FA,⿹勹一,K,sans,default,Noto Sans,drawn,instance 汋,46.76,59.09,drawn,instance 汋,46.76,59.09,drawn,instance 汋,46.76,59.09,False,False,False
+勺,U+52FA,⿹勹一,K,sans,held out,Noto Sans,drawn,learned 汋 / glyph 一,40.31,53.7,drawn,learned 汋 / glyph 一,40.31,53.7,drawn,learned 汋 / glyph 一,40.31,53.7,False,False,False
+勺,U+52FA,⿹勹一,K,serif,default,Noto Serif,drawn,instance 汋,41.41,38.08,drawn,instance 汋,41.41,38.08,drawn,instance 汋,41.41,38.08,False,False,False
+勺,U+52FA,⿹勹一,K,serif,held out,Noto Serif,drawn,learned 汋 / learned 汋,26.97,37.22,drawn,learned 汋 / learned 汋,26.97,37.22,drawn,learned 汋 / learned 汋,26.97,37.22,False,False,False
+勺,U+52FA,⿹勹一,K,fang,default,Zhuque,drawn,learned 勺 / glyph 一,50.54,68.83,drawn,learned 勺 / glyph 一,50.54,68.83,drawn,learned 勺 / glyph 一,50.54,68.83,False,False,False
+勺,U+52FA,⿹勹一,K,fang,held out,Zhuque,drawn,learned 勿 / glyph 一,28.64,40.99,drawn,learned 勿 / glyph 一,28.64,40.99,drawn,learned 勿 / glyph 一,28.64,40.99,False,False,False
+勺,U+52FA,⿹勹一,K,reg,default,TW-Kai,drawn,glyph 勹 / learned 灼,44.52,66.75,drawn,glyph 勹 / learned 灼,44.52,66.75,drawn,glyph 勹 / learned 灼,44.52,66.75,False,False,False
+勺,U+52FA,⿹勹一,K,reg,held out,TW-Kai,drawn,glyph 勹 / learned 灼,44.52,66.75,drawn,glyph 勹 / learned 灼,44.52,66.75,drawn,glyph 勹 / learned 灼,44.52,66.75,False,False,False
+勺,U+52FA,⿹勹一,K,pen,default,Kureedo,drawn,instance 汋,31.02,58.0,drawn,instance 汋,31.02,58.0,drawn,instance 汋,31.02,58.0,False,False,False
+勺,U+52FA,⿹勹一,K,pen,held out,Kureedo,drawn,glyph 勹 / learned 杓,40.49,60.47,drawn,glyph 勹 / learned 杓,40.49,60.47,drawn,glyph 勹 / learned 杓,40.49,60.47,False,False,False
+勻,U+52FB,⿹勹二,GHTJKP,sans,default,Noto Sans,drawn,glyph 勻,58.55,97.06,drawn,glyph 勻,58.55,97.06,drawn,glyph 勻,58.55,97.06,False,False,False
+勻,U+52FB,⿹勹二,GHTJKP,sans,held out,Noto Sans,drawn,learned 勿 / glyph 二,53.59,57.82,drawn,learned 勿 / glyph 二,53.59,57.82,drawn,learned 勿 / glyph 二,53.59,57.82,False,False,False
+勻,U+52FB,⿹勹二,GHTJKP,serif,default,Noto Serif,drawn,glyph 勻,67.91,97.18,drawn,glyph 勻,67.91,97.18,drawn,glyph 勻,67.91,97.18,False,False,False
+勻,U+52FB,⿹勹二,GHTJKP,serif,held out,Noto Serif,drawn,learned 匂 / glyph 二,39.35,50.04,drawn,learned 匂 / glyph 二,39.35,50.04,drawn,learned 匂 / glyph 二,39.35,50.04,False,False,False
+勻,U+52FB,⿹勹二,GHTJKP,fang,default,Zhuque,drawn,glyph 勻,37.93,99.92,drawn,glyph 勻,37.93,99.92,drawn,glyph 勻,37.93,99.92,False,False,False
+勻,U+52FB,⿹勹二,GHTJKP,fang,held out,Zhuque,drawn,learned 勾 / glyph 二,55.53,50.3,drawn,learned 勾 / glyph 二,55.53,50.3,drawn,learned 勾 / glyph 二,55.53,50.3,False,False,False
+勻,U+52FB,⿹勹二,GHTJKP,reg,default,TW-Kai,drawn,glyph 勻,25.29,99.74,drawn,glyph 勻,25.29,99.74,drawn,glyph 勻,25.29,99.74,False,False,False
+勻,U+52FB,⿹勹二,GHTJKP,reg,held out,TW-Kai,drawn,learned 勾 / learned 畇,70.07,80.69,drawn,learned 勾 / learned 畇,70.07,80.69,drawn,learned 勾 / learned 畇,70.07,80.69,False,False,False
+勻,U+52FB,⿹勹二,GHTJKP,pen,default,Kureedo,drawn,glyph 勻,34.06,99.9,drawn,glyph 勻,34.06,99.9,drawn,glyph 勻,34.06,99.9,False,False,False
+勻,U+52FB,⿹勹二,GHTJKP,pen,held out,Kureedo,drawn,learned 勾 / glyph 二,52.05,60.62,drawn,learned 勾 / glyph 二,52.05,60.62,drawn,learned 勾 / glyph 二,52.05,60.62,False,False,False
+勼,U+52FC,⿹勹九,GHTK,sans,default,Noto Sans,drawn,glyph 勼,59.04,96.85,drawn,glyph 勼,59.04,96.85,drawn,glyph 勼,59.04,96.85,False,False,False
+勼,U+52FC,⿹勹九,GHTK,sans,held out,Noto Sans,drawn,learned 句 / learned 䬨,41.92,40.67,drawn,learned 句 / learned 䬨,41.92,40.67,drawn,learned 句 / learned 䬨,41.92,40.67,False,False,False
+勼,U+52FC,⿹勹九,GHTK,serif,default,Noto Serif,drawn,glyph 勼,70.67,97.83,drawn,glyph 勼,70.67,97.83,drawn,glyph 勼,70.67,97.83,False,False,False
+勼,U+52FC,⿹勹九,GHTK,serif,held out,Noto Serif,drawn,learned 匇 / glyph 九,62.7,63.23,drawn,learned 匇 / glyph 九,62.7,63.23,drawn,learned 匇 / glyph 九,62.7,63.23,False,False,False
+勼,U+52FC,⿹勹九,GHTK,fang,default,Jigmo 1,drawn,learned 勿 / glyph 九,14.79,17.55,drawn,learned 勿 / glyph 九,14.79,17.55,drawn,learned 勿 / glyph 九,14.79,17.55,False,False,False
+勼,U+52FC,⿹勹九,GHTK,fang,held out,Jigmo 1,drawn,learned 勿 / glyph 九,11.69,18.81,drawn,learned 勿 / glyph 九,11.69,18.81,drawn,learned 勿 / glyph 九,11.69,18.81,False,False,False
+勼,U+52FC,⿹勹九,GHTK,reg,default,TW-Kai,drawn,glyph 勼,37.97,99.8,drawn,glyph 勼,37.97,99.8,drawn,glyph 勼,37.97,99.8,False,False,False
+勼,U+52FC,⿹勹九,GHTK,reg,held out,TW-Kai,drawn,learned 旬 / glyph 九,64.39,65.52,drawn,learned 旬 / glyph 九,64.39,65.52,drawn,learned 旬 / glyph 九,64.39,65.52,False,False,False
+勼,U+52FC,⿹勹九,GHTK,pen,default,Kureedo,drawn,glyph 勼,22.23,99.93,drawn,glyph 勼,22.23,99.93,drawn,glyph 勼,22.23,99.93,False,False,False
+勼,U+52FC,⿹勹九,GHTK,pen,held out,Kureedo,drawn,learned 旬 / glyph 九,51.42,64.74,drawn,learned 旬 / glyph 九,51.42,64.74,drawn,learned 旬 / glyph 九,51.42,64.74,False,False,False
+勽,U+52FD,⿹勹人,GT,sans,default,Noto Sans,drawn,glyph 勽,57.59,96.87,drawn,glyph 勽,57.59,96.87,drawn,glyph 勽,57.59,96.87,False,False,False
+勽,U+52FD,⿹勹人,GT,sans,held out,Noto Sans,drawn,learned 勿 / glyph 人,41.3,39.52,drawn,learned 勿 / glyph 人,41.3,39.52,drawn,learned 勿 / glyph 人,41.3,39.52,False,False,False
+勽,U+52FD,⿹勹人,GT,serif,default,Noto Serif,drawn,glyph 勽,66.09,98.04,drawn,glyph 勽,66.09,98.04,drawn,glyph 勽,66.09,98.04,False,False,False
+勽,U+52FD,⿹勹人,GT,serif,held out,Noto Serif,drawn,learned 匂 / glyph 人,54.07,53.97,drawn,learned 匂 / glyph 人,54.07,53.97,drawn,learned 匂 / glyph 人,54.07,53.97,False,False,False
+勽,U+52FD,⿹勹人,GT,fang,default,Jigmo 1,drawn,learned 勾 / glyph 人,14.23,25.6,drawn,learned 勾 / glyph 人,14.23,25.6,drawn,learned 勾 / glyph 人,14.23,25.6,False,False,False
+勽,U+52FD,⿹勹人,GT,fang,held out,Jigmo 1,drawn,learned 勾 / glyph 人,8.47,26.17,drawn,learned 勾 / glyph 人,8.47,26.17,drawn,learned 勾 / glyph 人,8.47,26.17,False,False,False
+勽,U+52FD,⿹勹人,GT,reg,default,TW-Kai,drawn,glyph 勽,31.52,99.58,drawn,glyph 勽,31.52,99.58,drawn,glyph 勽,31.52,99.58,False,False,False
+勽,U+52FD,⿹勹人,GT,reg,held out,TW-Kai,drawn,learned 勻 / glyph 人,44.07,43.91,drawn,learned 勻 / glyph 人,44.07,43.91,drawn,learned 勻 / glyph 人,44.07,43.91,False,False,False
+勽,U+52FD,⿹勹人,GT,pen,default,Kureedo,drawn,glyph 勽,32.73,99.94,drawn,glyph 勽,32.73,99.94,drawn,glyph 勽,32.73,99.94,False,False,False
+勽,U+52FD,⿹勹人,GT,pen,held out,Kureedo,drawn,learned 勾 / glyph 人,56.99,53.46,drawn,learned 勾 / glyph 人,56.99,53.46,drawn,learned 勾 / glyph 人,56.99,53.46,False,False,False
+勾,U+52FE,⿹勹厶,GHTJKPV,sans,default,Noto Sans,drawn,glyph 勾,68.39,97.72,drawn,glyph 勾,68.39,97.72,drawn,glyph 勾,68.39,97.72,False,False,False
+勾,U+52FE,⿹勹厶,GHTJKPV,sans,held out,Noto Sans,drawn,learned 匂 / learned 沟,80.37,82.48,drawn,learned 匂 / learned 沟,80.37,82.48,drawn,learned 匂 / learned 沟,80.37,82.48,False,False,False
+勾,U+52FE,⿹勹厶,GHTJKPV,serif,default,Noto Serif,drawn,glyph 勾,76.98,97.34,drawn,glyph 勾,76.98,97.34,drawn,glyph 勾,76.98,97.34,False,False,False
+勾,U+52FE,⿹勹厶,GHTJKPV,serif,held out,Noto Serif,drawn,learned 匂 / learned 沟,69.63,68.79,drawn,learned 匂 / learned 沟,69.63,68.79,drawn,learned 匂 / learned 沟,69.63,68.79,False,False,False
+勾,U+52FE,⿹勹厶,GHTJKPV,fang,default,Zhuque,drawn,glyph 勾,54.18,99.94,drawn,glyph 勾,54.18,99.94,drawn,glyph 勾,54.18,99.94,False,False,False
+勾,U+52FE,⿹勹厶,GHTJKPV,fang,held out,Zhuque,drawn,learned 勿 / learned 构,31.04,32.4,drawn,learned 勿 / learned 构,31.04,32.4,drawn,learned 勿 / learned 构,31.04,32.4,False,False,False
+勾,U+52FE,⿹勹厶,GHTJKPV,reg,default,TW-Kai,drawn,glyph 勾,17.91,99.7,drawn,glyph 勾,17.91,99.7,drawn,glyph 勾,17.91,99.7,False,False,False
+勾,U+52FE,⿹勹厶,GHTJKPV,reg,held out,TW-Kai,drawn,learned 句 / learned 沟,61.4,55.21,drawn,learned 句 / learned 沟,61.4,55.21,drawn,learned 句 / learned 沟,61.4,55.21,False,False,False
+勾,U+52FE,⿹勹厶,GHTJKPV,pen,default,Kureedo,drawn,glyph 勾,30.03,99.94,drawn,glyph 勾,30.03,99.94,drawn,glyph 勾,30.03,99.94,False,False,False
+勾,U+52FE,⿹勹厶,GHTJKPV,pen,held out,Kureedo,drawn,learned 匂 / learned 沟,75.28,75.52,drawn,learned 匂 / learned 沟,75.28,75.52,drawn,learned 匂 / learned 沟,75.28,75.52,False,False,False
+勿,U+52FF,⿹勹⿰丿丿,GHTJKPV,sans,default,Noto Sans,drawn,glyph 勿,58.78,97.48,drawn,glyph 勿,58.78,97.48,drawn,glyph 勿,58.78,97.48,False,False,False
+勿,U+52FF,⿹勹⿰丿丿,GHTJKPV,sans,held out,Noto Sans,drawn,learned 勾 / learned 介 / glyph 丿,51.19,52.17,drawn,learned 勾 / learned 介 / glyph 丿,51.19,52.17,drawn,learned 勾 / learned 介 / glyph 丿,51.19,52.17,False,False,False
+勿,U+52FF,⿹勹⿰丿丿,GHTJKPV,serif,default,Noto Serif,drawn,glyph 勿,86.78,99.44,drawn,glyph 勿,86.78,99.44,drawn,glyph 勿,86.78,99.44,False,False,False
+勿,U+52FF,⿹勹⿰丿丿,GHTJKPV,serif,held out,Noto Serif,drawn,learned 匂 / glyph 丿 / glyph 丿,29.58,29.55,drawn,learned 匂 / glyph 丿 / glyph 丿,29.58,29.55,drawn,learned 匂 / glyph 丿 / glyph 丿,29.58,29.55,False,False,False
+勿,U+52FF,⿹勹⿰丿丿,GHTJKPV,fang,default,Zhuque,drawn,glyph 勿,57.12,99.93,drawn,glyph 勿,57.12,99.93,drawn,glyph 勿,57.12,99.93,False,False,False
+勿,U+52FF,⿹勹⿰丿丿,GHTJKPV,fang,held out,Zhuque,drawn,learned 勾 / learned 介 / glyph 丿,30.71,36.6,drawn,learned 勾 / learned 介 / glyph 丿,30.71,36.6,drawn,learned 勾 / learned 介 / glyph 丿,30.71,36.6,False,False,False
+勿,U+52FF,⿹勹⿰丿丿,GHTJKPV,reg,default,TW-Kai,drawn,glyph 勿,32.34,99.87,drawn,glyph 勿,32.34,99.87,drawn,glyph 勿,32.34,99.87,False,False,False
+勿,U+52FF,⿹勹⿰丿丿,GHTJKPV,reg,held out,TW-Kai,drawn,learned 勾 / learned 介 / glyph 丿,25.81,28.45,drawn,learned 勾 / learned 介 / glyph 丿,25.81,28.45,drawn,learned 勾 / learned 介 / glyph 丿,25.81,28.45,False,False,False
+勿,U+52FF,⿹勹⿰丿丿,GHTJKPV,pen,default,Kureedo,drawn,glyph 勿,30.84,99.92,drawn,glyph 勿,30.84,99.92,drawn,glyph 勿,30.84,99.92,False,False,False
+勿,U+52FF,⿹勹⿰丿丿,GHTJKPV,pen,held out,Kureedo,drawn,learned 匇 / learned 介 / glyph 丿,22.46,30.3,drawn,learned 匇 / learned 介 / glyph 丿,22.46,30.3,drawn,learned 匇 / learned 介 / glyph 丿,22.46,30.3,False,False,False
+匀,U+5300,⿹勹冫,GTJK,sans,default,Noto Sans,drawn,glyph 匀,57.42,96.81,drawn,glyph 匀,57.42,96.81,drawn,glyph 匀,57.42,96.81,False,False,False
+匀,U+5300,⿹勹冫,GTJK,sans,held out,Noto Sans,drawn,learned 勺 / glyph 冫,46.3,57.41,drawn,learned 勺 / glyph 冫,46.3,57.41,drawn,learned 勺 / glyph 冫,46.3,57.41,False,False,False
+匀,U+5300,⿹勹冫,GTJK,serif,default,Noto Serif,drawn,glyph 匀,68.86,97.75,drawn,glyph 匀,68.86,97.75,drawn,glyph 匀,68.86,97.75,False,False,False
+匀,U+5300,⿹勹冫,GTJK,serif,held out,Noto Serif,drawn,learned 勾 / glyph 冫,47.57,55.59,drawn,learned 勾 / glyph 冫,47.57,55.59,drawn,learned 勾 / glyph 冫,47.57,55.59,False,False,False
+匀,U+5300,⿹勹冫,GTJK,fang,default,Zhuque,drawn,glyph 匀,41.51,99.93,drawn,glyph 匀,41.51,99.93,drawn,glyph 匀,41.51,99.93,False,False,False
+匀,U+5300,⿹勹冫,GTJK,fang,held out,Zhuque,drawn,learned 勾 / glyph 冫,35.33,44.67,drawn,learned 勾 / glyph 冫,35.33,44.67,drawn,learned 勾 / glyph 冫,35.33,44.67,False,False,False
+匀,U+5300,⿹勹冫,GTJK,reg,default,TW-Kai,drawn,glyph 匀,36.01,99.66,drawn,glyph 匀,36.01,99.66,drawn,glyph 匀,36.01,99.66,False,False,False
+匀,U+5300,⿹勹冫,GTJK,reg,held out,TW-Kai,drawn,learned 勺 / glyph 冫,37.03,40.78,drawn,learned 勺 / glyph 冫,37.03,40.78,drawn,learned 勺 / glyph 冫,37.03,40.78,False,False,False
+匀,U+5300,⿹勹冫,GTJK,pen,default,Kureedo,drawn,glyph 匀,38.51,99.94,drawn,glyph 匀,38.51,99.94,drawn,glyph 匀,38.51,99.94,False,False,False
+匀,U+5300,⿹勹冫,GTJK,pen,held out,Kureedo,drawn,learned 勺 / learned 习,58.53,55.13,drawn,learned 勺 / learned 习,58.53,55.13,drawn,learned 勺 / learned 习,58.53,55.13,False,False,False
+匂,U+5302,⿹勹匕,GJK,sans,default,Noto Sans,drawn,glyph 匂,65.62,98.66,drawn,glyph 匂,65.62,98.66,drawn,glyph 匂,65.62,98.66,False,False,False
+匂,U+5302,⿹勹匕,GJK,sans,held out,Noto Sans,drawn,learned 勾 / learned 謁,72.96,77.09,drawn,learned 勾 / learned 謁,72.96,77.09,drawn,learned 勾 / learned 謁,72.96,77.09,False,False,False
+匂,U+5302,⿹勹匕,GJK,serif,default,Noto Serif,drawn,glyph 匂,68.26,97.93,drawn,glyph 匂,68.26,97.93,drawn,glyph 匂,68.26,97.93,False,False,False
+匂,U+5302,⿹勹匕,GJK,serif,held out,Noto Serif,drawn,learned 句 / learned 渇,69.5,68.91,drawn,learned 句 / learned 渇,69.5,68.91,drawn,learned 句 / learned 渇,69.5,68.91,False,False,False
+匂,U+5302,⿹勹匕,GJK,fang,default,Zhuque,drawn,glyph 匂,25.77,99.92,drawn,glyph 匂,25.77,99.92,drawn,glyph 匂,25.77,99.92,False,False,False
+匂,U+5302,⿹勹匕,GJK,fang,held out,Zhuque,drawn,learned 勾 / glyph 匕,56.31,53.63,drawn,learned 勾 / glyph 匕,56.31,53.63,drawn,learned 勾 / glyph 匕,56.31,53.63,False,False,False
+匂,U+5302,⿹勹匕,GJK,reg,default,TW-Kai,drawn,glyph 匂,32.67,99.58,drawn,glyph 匂,32.67,99.58,drawn,glyph 匂,32.67,99.58,False,False,False
+匂,U+5302,⿹勹匕,GJK,reg,held out,TW-Kai,drawn,learned 勾 / glyph 匕,26.92,45.3,drawn,learned 勾 / glyph 匕,26.92,45.3,drawn,learned 勾 / glyph 匕,26.92,45.3,False,False,False
+匂,U+5302,⿹勹匕,GJK,pen,default,Kureedo,drawn,glyph 匂,25.44,99.93,drawn,glyph 匂,25.44,99.93,drawn,glyph 匂,25.44,99.93,False,False,False
+匂,U+5302,⿹勹匕,GJK,pen,held out,Kureedo,drawn,learned 匇 / glyph 匕,59.65,60.93,drawn,learned 匇 / glyph 匕,59.65,60.93,drawn,learned 匇 / glyph 匕,59.65,60.93,False,False,False
+匃,U+5303,⿹勹亾,GTJKP,sans,default,Noto Sans,drawn,glyph 匃,62.07,96.98,drawn,glyph 匃,62.07,96.98,drawn,glyph 匃,62.07,96.98,False,False,False
+匃,U+5303,⿹勹亾,GTJKP,sans,held out,Noto Sans,drawn,learned 句 / glyph 亾,62.47,63.58,drawn,learned 句 / glyph 亾,62.47,63.58,drawn,learned 句 / glyph 亾,62.47,63.58,False,False,False
+匃,U+5303,⿹勹亾,GTJKP,serif,default,Noto Serif,drawn,glyph 匃,74.55,98.22,drawn,glyph 匃,74.55,98.22,drawn,glyph 匃,74.55,98.22,False,False,False
+匃,U+5303,⿹勹亾,GTJKP,serif,held out,Noto Serif,drawn,learned 旬 / glyph 亾,53.98,54.11,drawn,learned 旬 / glyph 亾,53.98,54.11,drawn,learned 旬 / glyph 亾,53.98,54.11,False,False,False
+匃,U+5303,⿹勹亾,GTJKP,fang,default,Jigmo 1,drawn,learned 匈 / glyph 𠃊 / glyph 人,7.73,17.42,drawn,learned 匈 / glyph 𠃊 / glyph 人,7.73,17.42,drawn,learned 匈 / glyph 𠃊 / glyph 人,7.73,17.42,False,False,False
+匃,U+5303,⿹勹亾,GTJKP,fang,held out,Jigmo 1,drawn,learned 匈 / glyph 𠃊 / glyph 人,7.73,17.42,drawn,learned 匈 / glyph 𠃊 / glyph 人,7.73,17.42,drawn,learned 匈 / glyph 𠃊 / glyph 人,7.73,17.42,False,False,False
+匃,U+5303,⿹勹亾,GTJKP,reg,default,TW-Kai,drawn,glyph 匃,34.89,99.78,drawn,glyph 匃,34.89,99.78,drawn,glyph 匃,34.89,99.78,False,False,False
+匃,U+5303,⿹勹亾,GTJKP,reg,held out,TW-Kai,drawn,learned 訇 / glyph 亾,34.35,40.95,drawn,learned 訇 / glyph 亾,34.35,40.95,drawn,learned 訇 / glyph 亾,34.35,40.95,False,False,False
+匃,U+5303,⿹勹亾,GTJKP,pen,default,Kureedo,drawn,glyph 匃,24.51,99.93,drawn,glyph 匃,24.51,99.93,drawn,glyph 匃,24.51,99.93,False,False,False
+匃,U+5303,⿹勹亾,GTJKP,pen,held out,Kureedo,drawn,learned 旬 / glyph 亾,34.74,46.86,drawn,learned 旬 / glyph 亾,34.74,46.86,drawn,learned 旬 / glyph 亾,34.74,46.86,False,False,False
+匄,U+5304,⿹勹亡,GTP,sans,default,Noto Sans,drawn,glyph 匄,53.56,97.26,drawn,glyph 匄,53.56,97.26,drawn,glyph 匄,53.56,97.26,False,False,False
+匄,U+5304,⿹勹亡,GTP,sans,held out,Noto Sans,drawn,learned 匇 / glyph 亡,59.13,57.09,drawn,learned 匇 / glyph 亡,59.13,57.09,drawn,learned 匇 / glyph 亡,59.13,57.09,False,False,False
+匄,U+5304,⿹勹亡,GTP,serif,default,Noto Serif,drawn,glyph 匄,64.56,98.17,drawn,glyph 匄,64.56,98.17,drawn,glyph 匄,64.56,98.17,False,False,False
+匄,U+5304,⿹勹亡,GTP,serif,held out,Noto Serif,drawn,learned 匂 / glyph 亡,43.06,42.62,drawn,learned 匂 / glyph 亡,43.06,42.62,drawn,learned 匂 / glyph 亡,43.06,42.62,False,False,False
+匄,U+5304,⿹勹亡,GTP,fang,default,Jigmo 1,drawn,learned 勾 / glyph 亡,9.18,20.75,drawn,learned 勾 / glyph 亡,9.18,20.75,drawn,learned 勾 / glyph 亡,9.18,20.75,False,False,False
+匄,U+5304,⿹勹亡,GTP,fang,held out,Jigmo 1,drawn,learned 勾 / glyph 亡,7.4,15.85,drawn,learned 勾 / glyph 亡,7.4,15.85,drawn,learned 勾 / glyph 亡,7.4,15.85,False,False,False
+匄,U+5304,⿹勹亡,GTP,reg,default,TW-Kai,drawn,glyph 匄,40.71,99.8,drawn,glyph 匄,40.71,99.8,drawn,glyph 匄,40.71,99.8,False,False,False
+匄,U+5304,⿹勹亡,GTP,reg,held out,TW-Kai,drawn,learned 旬 / glyph 亡,62.82,56.85,drawn,learned 旬 / glyph 亡,62.82,56.85,drawn,learned 旬 / glyph 亡,62.82,56.85,False,False,False
+匄,U+5304,⿹勹亡,GTP,pen,default,Kureedo,drawn,glyph 匄,28.14,99.93,drawn,glyph 匄,28.14,99.93,drawn,glyph 匄,28.14,99.93,False,False,False
+匄,U+5304,⿹勹亡,GTP,pen,held out,Kureedo,drawn,learned 勾 / glyph 亡,25.4,36.47,drawn,learned 勾 / glyph 亡,25.4,36.47,drawn,learned 勾 / glyph 亡,25.4,36.47,False,False,False
+包,U+5305,⿹勹巳,GHTKPV,sans,default,Noto Sans,drawn,instance 庖,68.1,67.85,drawn,instance 庖,68.1,67.85,drawn,instance 庖,68.1,67.85,False,False,False
+包,U+5305,⿹勹巳,GHTKPV,sans,held out,Noto Sans,drawn,learned 垉 / learned 疱,21.65,20.13,drawn,learned 垉 / learned 疱,21.65,20.13,drawn,learned 垉 / learned 疱,21.65,20.13,False,False,False
+包,U+5305,⿹勹巳,GHTKPV,serif,default,Noto Serif,drawn,instance 庖,50.68,60.29,drawn,instance 庖,50.68,60.29,drawn,instance 庖,50.68,60.29,False,False,False
+包,U+5305,⿹勹巳,GHTKPV,serif,held out,Noto Serif,drawn,learned 垉 / learned 疱,19.97,16.35,drawn,learned 垉 / learned 疱,19.97,16.35,drawn,learned 垉 / learned 疱,19.97,16.35,False,False,False
+包,U+5305,⿹勹巳,GHTKPV,fang,default,Zhuque,drawn,instance 袍,29.11,36.37,drawn,instance 袍,29.11,36.37,drawn,instance 袍,29.11,36.37,False,False,False
+包,U+5305,⿹勹巳,GHTKPV,fang,held out,Zhuque,drawn,learned 匈 / glyph 巳,14.25,21.6,drawn,learned 匈 / glyph 巳,14.25,21.6,drawn,learned 匈 / glyph 巳,14.25,21.6,False,False,False
+包,U+5305,⿹勹巳,GHTKPV,reg,default,TW-Kai,drawn,instance 庖,44.01,43.13,drawn,instance 庖,44.01,43.13,drawn,instance 庖,44.01,43.13,False,False,False
+包,U+5305,⿹勹巳,GHTKPV,reg,held out,TW-Kai,drawn,learned 庖 / learned 疱,13.23,18.08,drawn,learned 庖 / learned 疱,13.23,18.08,drawn,learned 庖 / learned 疱,13.23,18.08,False,False,False
+包,U+5305,⿹勹巳,GHTKPV,pen,default,Kureedo,drawn,instance 疱,30.69,40.38,drawn,instance 疱,30.69,40.38,drawn,instance 疱,30.69,40.38,False,False,False
+包,U+5305,⿹勹巳,GHTKPV,pen,held out,Kureedo,drawn,learned 咆 / learned 咆,25.66,13.06,drawn,learned 咆 / learned 咆,25.66,13.06,drawn,learned 咆 / learned 咆,25.66,13.06,False,False,False
+包,U+5305,⿹勹己,J,sans,default,Noto Sans,drawn,glyph 包,72.97,98.94,drawn,glyph 包,72.97,98.94,drawn,glyph 包,72.97,98.94,False,False,False
+包,U+5305,⿹勹己,J,sans,held out,Noto Sans,drawn,learned 句 / learned 泡,33.13,29.84,drawn,learned 句 / learned 泡,33.13,29.84,drawn,learned 句 / learned 泡,33.13,29.84,False,False,False
+包,U+5305,⿹勹己,J,serif,default,Noto Serif,drawn,glyph 包,65.17,98.17,drawn,glyph 包,65.17,98.17,drawn,glyph 包,65.17,98.17,False,False,False
+包,U+5305,⿹勹己,J,serif,held out,Noto Serif,drawn,learned 旬 / learned 泡,28.31,23.97,drawn,learned 旬 / learned 泡,28.31,23.97,drawn,learned 旬 / learned 泡,28.31,23.97,False,False,False
+包,U+5305,⿹勹己,J,fang,default,Zhuque,drawn,glyph 包,25.67,99.92,drawn,glyph 包,25.67,99.92,drawn,glyph 包,25.67,99.92,False,False,False
+包,U+5305,⿹勹己,J,fang,held out,Zhuque,drawn,learned 勾 / glyph 己,29.58,27.59,drawn,learned 勾 / glyph 己,29.58,27.59,drawn,learned 勾 / glyph 己,29.58,27.59,False,False,False
+包,U+5305,⿹勹己,J,reg,default,TW-Kai,drawn,glyph 包,58.36,99.66,drawn,glyph 包,58.36,99.66,drawn,glyph 包,58.36,99.66,False,False,False
+包,U+5305,⿹勹己,J,reg,held out,TW-Kai,drawn,learned 旬 / glyph 己,7.64,15.4,drawn,learned 旬 / glyph 己,7.64,15.4,drawn,learned 旬 / glyph 己,7.64,15.4,False,False,False
+包,U+5305,⿹勹己,J,pen,default,Kureedo,drawn,glyph 包,32.1,99.91,drawn,glyph 包,32.1,99.91,drawn,glyph 包,32.1,99.91,False,False,False
+包,U+5305,⿹勹己,J,pen,held out,Kureedo,drawn,learned 旬 / learned 泡,30.9,20.88,drawn,learned 旬 / learned 泡,30.9,20.88,drawn,learned 旬 / learned 泡,30.9,20.88,False,False,False
+匇,U+5307,⿹勹夕,GTJ,sans,default,Noto Sans,drawn,glyph 匇,52.5,96.59,drawn,glyph 匇,52.5,96.59,drawn,glyph 匇,52.5,96.59,False,False,False
+匇,U+5307,⿹勹夕,GTJ,sans,held out,Noto Sans,drawn,learned 句 / glyph 夕,70.35,75.32,drawn,learned 句 / glyph 夕,70.35,75.32,drawn,learned 句 / glyph 夕,70.35,75.32,False,False,False
+匇,U+5307,⿹勹夕,GTJ,serif,default,Noto Serif,drawn,glyph 匇,68.49,98.86,drawn,glyph 匇,68.49,98.86,drawn,glyph 匇,68.49,98.86,False,False,False
+匇,U+5307,⿹勹夕,GTJ,serif,held out,Noto Serif,drawn,learned 句 / glyph 夕,68.77,70.38,drawn,learned 句 / glyph 夕,68.77,70.38,drawn,learned 句 / glyph 夕,68.77,70.38,False,False,False
+匇,U+5307,⿹勹夕,GTJ,fang,default,Jigmo 1,drawn,learned 勿 / glyph 夕,11.81,14.75,drawn,learned 勿 / glyph 夕,11.81,14.75,drawn,learned 勿 / glyph 夕,11.81,14.75,False,False,False
+匇,U+5307,⿹勹夕,GTJ,fang,held out,Jigmo 1,drawn,learned 勿 / glyph 夕,12.13,14.78,drawn,learned 勿 / glyph 夕,12.13,14.78,drawn,learned 勿 / glyph 夕,12.13,14.78,False,False,False
+匇,U+5307,⿹勹夕,GTJ,reg,default,TW-Kai,drawn,glyph 匇,46.83,99.77,drawn,glyph 匇,46.83,99.77,drawn,glyph 匇,46.83,99.77,False,False,False
+匇,U+5307,⿹勹夕,GTJ,reg,held out,TW-Kai,drawn,learned 旬 / glyph 夕,48.63,45.19,drawn,learned 旬 / glyph 夕,48.63,45.19,drawn,learned 旬 / glyph 夕,48.63,45.19,False,False,False
+匇,U+5307,⿹勹夕,GTJ,pen,default,Kureedo,drawn,glyph 匇,29.45,99.92,drawn,glyph 匇,29.45,99.92,drawn,glyph 匇,29.45,99.92,False,False,False
+匇,U+5307,⿹勹夕,GTJ,pen,held out,Kureedo,drawn,learned 勾 / glyph 夕,46.68,49.69,drawn,learned 勾 / glyph 夕,46.68,49.69,drawn,learned 勾 / glyph 夕,46.68,49.69,False,False,False
+匈,U+5308,⿹勹凶,GHTJKPV,sans,default,Noto Sans,drawn,glyph 匈,63.72,97.49,drawn,glyph 匈,63.72,97.49,drawn,glyph 匈,63.72,97.49,False,False,False
+匈,U+5308,⿹勹凶,GHTJKPV,sans,held out,Noto Sans,drawn,learned 匊 / learned 恟,76.7,75.08,drawn,learned 匊 / learned 恟,76.7,75.08,drawn,learned 匊 / learned 恟,76.7,75.08,False,False,False
+匈,U+5308,⿹勹凶,GHTJKPV,serif,default,Noto Serif,drawn,glyph 匈,73.39,97.82,drawn,glyph 匈,73.39,97.82,drawn,glyph 匈,73.39,97.82,False,False,False
+匈,U+5308,⿹勹凶,GHTJKPV,serif,held out,Noto Serif,drawn,learned 匋 / learned 洶,66.89,69.36,drawn,learned 匋 / learned 洶,66.89,69.36,drawn,learned 匋 / learned 洶,66.89,69.36,False,False,False
+匈,U+5308,⿹勹凶,GHTJKPV,fang,default,Zhuque,drawn,glyph 匈,36.73,99.93,drawn,glyph 匈,36.73,99.93,drawn,glyph 匈,36.73,99.93,False,False,False
+匈,U+5308,⿹勹凶,GHTJKPV,fang,held out,Zhuque,drawn,learned 匂 / glyph 凶,39.07,36.27,drawn,learned 匂 / glyph 凶,39.07,36.27,drawn,learned 匂 / glyph 凶,39.07,36.27,False,False,False
+匈,U+5308,⿹勹凶,GHTJKPV,reg,default,TW-Kai,drawn,glyph 匈,40.03,99.66,drawn,glyph 匈,40.03,99.66,drawn,glyph 匈,40.03,99.66,False,False,False
+匈,U+5308,⿹勹凶,GHTJKPV,reg,held out,TW-Kai,drawn,learned 訇 / learned 詾,39.27,35.21,drawn,learned 訇 / learned 詾,39.27,35.21,drawn,learned 訇 / learned 詾,39.27,35.21,False,False,False
+匈,U+5308,⿹勹凶,GHTJKPV,pen,default,Kureedo,drawn,glyph 匈,24.67,99.92,drawn,glyph 匈,24.67,99.92,drawn,glyph 匈,24.67,99.92,False,False,False
+匈,U+5308,⿹勹凶,GHTJKPV,pen,held out,Kureedo,drawn,learned 甸 / learned 洶,77.03,76.92,drawn,learned 甸 / learned 洶,77.03,76.92,drawn,learned 甸 / learned 洶,77.03,76.92,False,False,False
+匉,U+5309,⿹勹平,GHTKP,sans,default,Noto Sans,drawn,glyph 匉,62.54,97.0,drawn,glyph 匉,62.54,97.0,drawn,glyph 匉,62.54,97.0,False,False,False
+匉,U+5309,⿹勹平,GHTKP,sans,held out,Noto Sans,drawn,learned 旬 / glyph 平,71.02,71.04,drawn,learned 旬 / glyph 平,71.02,71.04,drawn,learned 旬 / glyph 平,71.02,71.04,False,False,False
+匉,U+5309,⿹勹平,GHTKP,serif,default,Noto Serif,drawn,glyph 匉,77.05,99.17,drawn,glyph 匉,77.05,99.17,drawn,glyph 匉,77.05,99.17,False,False,False
+匉,U+5309,⿹勹平,GHTKP,serif,held out,Noto Serif,drawn,learned 旬 / glyph 平,70.17,71.77,drawn,learned 旬 / glyph 平,70.17,71.77,drawn,learned 旬 / glyph 平,70.17,71.77,False,False,False
+匉,U+5309,⿹勹平,GHTKP,fang,default,Jigmo 1,drawn,learned 匈 / glyph 平,16.25,19.12,drawn,learned 匈 / glyph 平,16.25,19.12,drawn,learned 匈 / glyph 平,16.25,19.12,False,False,False
+匉,U+5309,⿹勹平,GHTKP,fang,held out,Jigmo 1,drawn,learned 匈 / glyph 平,19.14,26.63,drawn,learned 匈 / glyph 平,19.14,26.63,drawn,learned 匈 / glyph 平,19.14,26.63,False,False,False
+匉,U+5309,⿹勹平,GHTKP,reg,default,TW-Kai,drawn,glyph 匉,39.15,99.67,drawn,glyph 匉,39.15,99.67,drawn,glyph 匉,39.15,99.67,False,False,False
+匉,U+5309,⿹勹平,GHTKP,reg,held out,TW-Kai,drawn,learned 匌 / glyph 平,40.85,47.22,drawn,learned 匌 / glyph 平,40.85,47.22,drawn,learned 匌 / glyph 平,40.85,47.22,False,False,False
+匉,U+5309,⿹勹平,GHTKP,pen,default,Kureedo,drawn,glyph 匉,26.0,99.93,drawn,glyph 匉,26.0,99.93,drawn,glyph 匉,26.0,99.93,False,False,False
+匉,U+5309,⿹勹平,GHTKP,pen,held out,Kureedo,drawn,learned 匌 / glyph 平,58.3,68.01,drawn,learned 匌 / glyph 平,58.3,68.01,drawn,learned 匌 / glyph 平,58.3,68.01,False,False,False
+匊,U+530A,⿹勹米,GHTJKP,sans,default,Noto Sans,drawn,glyph 匊,65.63,98.24,drawn,glyph 匊,65.63,98.24,drawn,glyph 匊,65.63,98.24,False,False,False
+匊,U+530A,⿹勹米,GHTJKP,sans,held out,Noto Sans,drawn,learned 匈 / learned 氣,49.44,50.33,drawn,learned 匈 / learned 氣,49.44,50.33,drawn,learned 匈 / learned 氣,49.44,50.33,False,False,False
+匊,U+530A,⿹勹米,GHTJKP,serif,default,Noto Serif,drawn,glyph 匊,63.65,98.13,drawn,glyph 匊,63.65,98.13,drawn,glyph 匊,63.65,98.13,False,False,False
+匊,U+530A,⿹勹米,GHTJKP,serif,held out,Noto Serif,drawn,learned 匈 / learned 𥸥,70.13,68.35,drawn,learned 匈 / learned 𥸥,70.13,68.35,drawn,learned 匈 / learned 𥸥,70.13,68.35,False,False,False
+匊,U+530A,⿹勹米,GHTJKP,fang,default,Jigmo 1,drawn,instance 掬,17.61,13.02,drawn,instance 掬,17.61,13.02,drawn,instance 掬,17.61,13.02,False,False,False
+匊,U+530A,⿹勹米,GHTJKP,fang,held out,Jigmo 1,drawn,learned 匈 / glyph 米,15.68,19.91,drawn,learned 匈 / glyph 米,15.68,19.91,drawn,learned 匈 / glyph 米,15.68,19.91,False,False,False
+匊,U+530A,⿹勹米,GHTJKP,reg,default,TW-Kai,drawn,glyph 匊,26.93,99.69,drawn,glyph 匊,26.93,99.69,drawn,glyph 匊,26.93,99.69,False,False,False
+匊,U+530A,⿹勹米,GHTJKP,reg,held out,TW-Kai,drawn,learned 匋 / learned 椈,59.0,69.17,drawn,learned 匋 / learned 椈,59.0,69.17,drawn,learned 匋 / learned 椈,59.0,69.17,False,False,False
+匊,U+530A,⿹勹米,GHTJKP,pen,default,Kureedo,drawn,glyph 匊,33.07,99.92,drawn,glyph 匊,33.07,99.92,drawn,glyph 匊,33.07,99.92,False,False,False
+匊,U+530A,⿹勹米,GHTJKP,pen,held out,Kureedo,drawn,learned 匋 / learned 掬,44.31,51.12,drawn,learned 匋 / learned 掬,44.31,51.12,drawn,learned 匋 / learned 掬,44.31,51.12,False,False,False
+匋,U+530B,⿹勹缶,GHTJKP,sans,default,Noto Sans,drawn,glyph 匋,66.09,96.99,drawn,glyph 匋,66.09,96.99,drawn,glyph 匋,66.09,96.99,False,False,False
+匋,U+530B,⿹勹缶,GHTJKP,sans,held out,Noto Sans,drawn,learned 匈 / learned 萄,78.94,82.18,drawn,learned 匈 / learned 萄,78.94,82.18,drawn,learned 匈 / learned 萄,78.94,82.18,False,False,False
+匋,U+530B,⿹勹缶,GHTJKP,serif,default,Noto Serif,drawn,glyph 匋,68.47,98.22,drawn,glyph 匋,68.47,98.22,drawn,glyph 匋,68.47,98.22,False,False,False
+匋,U+530B,⿹勹缶,GHTJKP,serif,held out,Noto Serif,drawn,learned 匈 / learned 淘,66.35,67.61,drawn,learned 匈 / learned 淘,66.35,67.61,drawn,learned 匈 / learned 淘,66.35,67.61,False,False,False
+匋,U+530B,⿹勹缶,GHTJKP,fang,default,Jigmo 1,drawn,instance 淘,14.93,14.28,drawn,instance 淘,14.93,14.28,drawn,instance 淘,14.93,14.28,False,False,False
+匋,U+530B,⿹勹缶,GHTJKP,fang,held out,Jigmo 1,drawn,learned 匈 / glyph 缶,17.26,24.68,drawn,learned 匈 / glyph 缶,17.26,24.68,drawn,learned 匈 / glyph 缶,17.26,24.68,False,False,False
+匋,U+530B,⿹勹缶,GHTJKP,reg,default,TW-Kai,drawn,glyph 匋,31.11,99.81,drawn,glyph 匋,31.11,99.81,drawn,glyph 匋,31.11,99.81,False,False,False
+匋,U+530B,⿹勹缶,GHTJKP,reg,held out,TW-Kai,drawn,learned 訇 / learned 綯,33.6,35.16,drawn,learned 訇 / learned 綯,33.6,35.16,drawn,learned 訇 / learned 綯,33.6,35.16,False,False,False
+匋,U+530B,⿹勹缶,GHTJKP,pen,default,Kureedo,drawn,glyph 匋,35.47,99.91,drawn,glyph 匋,35.47,99.91,drawn,glyph 匋,35.47,99.91,False,False,False
+匋,U+530B,⿹勹缶,GHTJKP,pen,held out,Kureedo,drawn,learned 匊 / learned 淘,46.54,47.41,drawn,learned 匊 / learned 淘,46.54,47.41,drawn,learned 匊 / learned 淘,46.54,47.41,False,False,False
+匌,U+530C,⿹勹合,GTJKP,sans,default,Noto Sans,drawn,glyph 匌,62.24,97.71,drawn,glyph 匌,62.24,97.71,drawn,glyph 匌,62.24,97.71,False,False,False
+匌,U+530C,⿹勹合,GTJKP,sans,held out,Noto Sans,drawn,learned 匊 / glyph 合,80.42,81.21,drawn,learned 匊 / glyph 合,80.42,81.21,drawn,learned 匊 / glyph 合,80.42,81.21,False,False,False
+匌,U+530C,⿹勹合,GTJKP,serif,default,Noto Serif,drawn,glyph 匌,79.45,99.25,drawn,glyph 匌,79.45,99.25,drawn,glyph 匌,79.45,99.25,False,False,False
+匌,U+530C,⿹勹合,GTJKP,serif,held out,Noto Serif,drawn,learned 匊 / glyph 合,68.91,67.89,drawn,learned 匊 / glyph 合,68.91,67.89,drawn,learned 匊 / glyph 合,68.91,67.89,False,False,False
+匌,U+530C,⿹勹合,GTJKP,fang,default,Jigmo 1,drawn,learned 匈 / glyph 合,11.18,18.36,drawn,learned 匈 / glyph 合,11.18,18.36,drawn,learned 匈 / glyph 合,11.18,18.36,False,False,False
+匌,U+530C,⿹勹合,GTJKP,fang,held out,Jigmo 1,drawn,learned 匈 / glyph 合,11.13,15.82,drawn,learned 匈 / glyph 合,11.13,15.82,drawn,learned 匈 / glyph 合,11.13,15.82,False,False,False
+匌,U+530C,⿹勹合,GTJKP,reg,default,TW-Kai,drawn,glyph 匌,38.9,99.74,drawn,glyph 匌,38.9,99.74,drawn,glyph 匌,38.9,99.74,False,False,False
+匌,U+530C,⿹勹合,GTJKP,reg,held out,TW-Kai,drawn,learned 訇 / glyph 合,36.42,32.98,drawn,learned 訇 / glyph 合,36.42,32.98,drawn,learned 訇 / glyph 合,36.42,32.98,False,False,False
+匌,U+530C,⿹勹合,GTJKP,pen,default,Kureedo,drawn,glyph 匌,29.37,99.93,drawn,glyph 匌,29.37,99.93,drawn,glyph 匌,29.37,99.93,False,False,False
+匌,U+530C,⿹勹合,GTJKP,pen,held out,Kureedo,drawn,learned 匊 / glyph 合,60.59,64.85,drawn,learned 匊 / glyph 合,60.59,64.85,drawn,learned 匊 / glyph 合,60.59,64.85,False,False,False
+匍,U+530D,⿹勹甫,GHTJKPV,sans,default,Noto Sans,drawn,glyph 匍,59.92,96.81,drawn,glyph 匍,59.92,96.81,drawn,glyph 匍,59.92,96.81,False,False,False
+匍,U+530D,⿹勹甫,GHTJKPV,sans,held out,Noto Sans,drawn,learned 匓 / learned 葡,82.68,85.92,drawn,learned 匓 / learned 葡,82.68,85.92,drawn,learned 匓 / learned 葡,82.68,85.92,False,False,False
+匍,U+530D,⿹勹甫,GHTJKPV,serif,default,Noto Serif,drawn,glyph 匍,78.37,98.79,drawn,glyph 匍,78.37,98.79,drawn,glyph 匍,78.37,98.79,False,False,False
+匍,U+530D,⿹勹甫,GHTJKPV,serif,held out,Noto Serif,drawn,learned 匐 / learned 葡,77.68,76.55,drawn,learned 匐 / learned 葡,77.68,76.55,drawn,learned 匐 / learned 葡,77.68,76.55,False,False,False
+匍,U+530D,⿹勹甫,GHTJKPV,fang,default,Zhuque,drawn,glyph 匍,76.49,99.91,drawn,glyph 匍,76.49,99.91,drawn,glyph 匍,76.49,99.91,False,False,False
+匍,U+530D,⿹勹甫,GHTJKPV,fang,held out,Zhuque,drawn,learned 匐 / glyph 甫,27.7,38.37,drawn,learned 匐 / glyph 甫,27.7,38.37,drawn,learned 匐 / glyph 甫,27.7,38.37,False,False,False
+匍,U+530D,⿹勹甫,GHTJKPV,reg,default,TW-Kai,drawn,glyph 匍,47.21,99.7,drawn,glyph 匍,47.21,99.7,drawn,glyph 匍,47.21,99.7,False,False,False
+匍,U+530D,⿹勹甫,GHTJKPV,reg,held out,TW-Kai,drawn,learned 匌 / glyph 甫,52.72,56.73,drawn,learned 匌 / glyph 甫,52.72,56.73,drawn,learned 匌 / glyph 甫,52.72,56.73,False,False,False
+匍,U+530D,⿹勹甫,GHTJKPV,pen,default,Kureedo,drawn,glyph 匍,38.54,99.91,drawn,glyph 匍,38.54,99.91,drawn,glyph 匍,38.54,99.91,False,False,False
+匍,U+530D,⿹勹甫,GHTJKPV,pen,held out,Kureedo,drawn,learned 匐 / glyph 甫,74.79,76.07,drawn,learned 匐 / glyph 甫,74.79,76.07,drawn,learned 匐 / glyph 甫,74.79,76.07,False,False,False
+匎,U+530E,⿹勹奄,GHTK,sans,default,Noto Sans,drawn,glyph 匎,57.3,95.8,drawn,glyph 匎,57.3,95.8,drawn,glyph 匎,57.3,95.8,False,False,False
+匎,U+530E,⿹勹奄,GHTK,sans,held out,Noto Sans,drawn,learned 匐 / glyph 奄,78.65,80.91,drawn,learned 匐 / glyph 奄,78.65,80.91,drawn,learned 匐 / glyph 奄,78.65,80.91,False,False,False
+匎,U+530E,⿹勹奄,GHTK,serif,default,Noto Serif,drawn,glyph 匎,81.18,98.69,drawn,glyph 匎,81.18,98.69,drawn,glyph 匎,81.18,98.69,False,False,False
+匎,U+530E,⿹勹奄,GHTK,serif,held out,Noto Serif,drawn,learned 匐 / glyph 奄,67.68,69.79,drawn,learned 匐 / glyph 奄,67.68,69.79,drawn,learned 匐 / glyph 奄,67.68,69.79,False,False,False
+匎,U+530E,⿹勹奄,GHTK,fang,default,Jigmo 1,drawn,learned 匐 / glyph 奄,12.71,22.1,drawn,learned 匐 / glyph 奄,12.71,22.1,drawn,learned 匐 / glyph 奄,12.71,22.1,False,False,False
+匎,U+530E,⿹勹奄,GHTK,fang,held out,Jigmo 1,drawn,learned 匐 / glyph 奄,17.27,26.86,drawn,learned 匐 / glyph 奄,17.27,26.86,drawn,learned 匐 / glyph 奄,17.27,26.86,False,False,False
+匎,U+530E,⿹勹奄,GHTK,reg,default,TW-Kai,drawn,glyph 匎,35.1,99.72,drawn,glyph 匎,35.1,99.72,drawn,glyph 匎,35.1,99.72,False,False,False
+匎,U+530E,⿹勹奄,GHTK,reg,held out,TW-Kai,drawn,learned 匌 / glyph 奄,43.29,38.28,drawn,learned 匌 / glyph 奄,43.29,38.28,drawn,learned 匌 / glyph 奄,43.29,38.28,False,False,False
+匎,U+530E,⿹勹奄,GHTK,pen,default,Kureedo,drawn,glyph 匎,39.63,99.91,drawn,glyph 匎,39.63,99.91,drawn,glyph 匎,39.63,99.91,False,False,False
+匎,U+530E,⿹勹奄,GHTK,pen,held out,Kureedo,drawn,learned 匍 / glyph 奄,49.71,68.53,drawn,learned 匍 / glyph 奄,49.71,68.53,drawn,learned 匍 / glyph 奄,49.71,68.53,False,False,False
+匐,U+5310,⿹勹畐,GHTJKPV,sans,default,Noto Sans,drawn,glyph 匐,63.97,97.4,drawn,glyph 匐,63.97,97.4,drawn,glyph 匐,63.97,97.4,False,False,False
+匐,U+5310,⿹勹畐,GHTJKPV,sans,held out,Noto Sans,drawn,learned 匓 / learned 蔔,78.05,81.23,drawn,learned 匓 / learned 蔔,78.05,81.23,drawn,learned 匓 / learned 蔔,78.05,81.23,False,False,False
+匐,U+5310,⿹勹畐,GHTJKPV,serif,default,Noto Serif,drawn,glyph 匐,78.44,98.64,drawn,glyph 匐,78.44,98.64,drawn,glyph 匐,78.44,98.64,False,False,False
+匐,U+5310,⿹勹畐,GHTJKPV,serif,held out,Noto Serif,drawn,learned 匍 / learned 蔔,71.77,73.84,drawn,learned 匍 / learned 蔔,71.77,73.84,drawn,learned 匍 / learned 蔔,71.77,73.84,False,False,False
+匐,U+5310,⿹勹畐,GHTJKPV,fang,default,Zhuque,drawn,glyph 匐,59.91,99.92,drawn,glyph 匐,59.91,99.92,drawn,glyph 匐,59.91,99.92,False,False,False
+匐,U+5310,⿹勹畐,GHTJKPV,fang,held out,Zhuque,drawn,learned 匈 / host 富 / host 畜,26.23,26.15,drawn,learned 匈 / host 富 / host 畜,26.23,26.15,drawn,learned 匈 / host 富 / host 畜,26.23,26.15,False,False,False
+匐,U+5310,⿹勹畐,GHTJKPV,reg,default,TW-Kai,drawn,glyph 匐,28.17,99.69,drawn,glyph 匐,28.17,99.69,drawn,glyph 匐,28.17,99.69,False,False,False
+匐,U+5310,⿹勹畐,GHTJKPV,reg,held out,TW-Kai,drawn,learned 匋 / glyph 畐,54.41,67.28,drawn,learned 匋 / glyph 畐,54.41,67.28,drawn,learned 匋 / glyph 畐,54.41,67.28,False,False,False
+匐,U+5310,⿹勹畐,GHTJKPV,pen,default,Kureedo,drawn,glyph 匐,43.78,99.91,drawn,glyph 匐,43.78,99.91,drawn,glyph 匐,43.78,99.91,False,False,False
+匐,U+5310,⿹勹畐,GHTJKPV,pen,held out,Kureedo,drawn,learned 匍 / glyph 畐,76.17,79.98,drawn,learned 匍 / glyph 畐,76.17,79.98,drawn,learned 匍 / glyph 畐,76.17,79.98,False,False,False
+匑,U+5311,⿹勹躬,GHTJKP,sans,default,Noto Sans,drawn,glyph 匑,57.04,97.17,drawn,glyph 匑,57.04,97.17,drawn,glyph 匑,57.04,97.17,False,False,False
+匑,U+5311,⿹勹躬,GHTJKP,sans,held out,Noto Sans,drawn,learned 匓 / glyph 躬,64.9,65.74,drawn,learned 匓 / glyph 躬,64.9,65.74,drawn,learned 匓 / glyph 躬,64.9,65.74,False,False,False
+匑,U+5311,⿹勹躬,GHTJKP,serif,default,Noto Serif,drawn,glyph 匑,74.19,98.64,drawn,glyph 匑,74.19,98.64,drawn,glyph 匑,74.19,98.64,False,False,False
+匑,U+5311,⿹勹躬,GHTJKP,serif,held out,Noto Serif,drawn,learned 匓 / glyph 躬,54.7,58.55,drawn,learned 匓 / glyph 躬,54.7,58.55,drawn,learned 匓 / glyph 躬,54.7,58.55,False,False,False
+匑,U+5311,⿹勹躬,GHTJKP,fang,default,Jigmo 1,drawn,learned 匐 / glyph 躬,13.86,21.01,drawn,learned 匐 / glyph 躬,13.86,21.01,drawn,learned 匐 / glyph 躬,13.86,21.01,False,False,False
+匑,U+5311,⿹勹躬,GHTJKP,fang,held out,Jigmo 1,drawn,learned 匐 / glyph 躬,16.91,26.37,drawn,learned 匐 / glyph 躬,16.91,26.37,drawn,learned 匐 / glyph 躬,16.91,26.37,False,False,False
+匑,U+5311,⿹勹躬,GHTJKP,reg,default,TW-Kai,drawn,glyph 匑,38.11,99.65,drawn,glyph 匑,38.11,99.65,drawn,glyph 匑,38.11,99.65,False,False,False
+匑,U+5311,⿹勹躬,GHTJKP,reg,held out,TW-Kai,drawn,learned 匍 / glyph 躬,58.88,59.99,drawn,learned 匍 / glyph 躬,58.88,59.99,drawn,learned 匍 / glyph 躬,58.88,59.99,False,False,False
+匑,U+5311,⿹勹躬,GHTJKP,pen,default,Kureedo,drawn,glyph 匑,35.4,99.91,drawn,glyph 匑,35.4,99.91,drawn,glyph 匑,35.4,99.91,False,False,False
+匑,U+5311,⿹勹躬,GHTJKP,pen,held out,Kureedo,drawn,learned 匍 / glyph 躬,39.43,51.12,drawn,learned 匍 / glyph 躬,39.43,51.12,drawn,learned 匍 / glyph 躬,39.43,51.12,False,False,False
+匒,U+5312,⿹勹荅,GHTP,sans,default,Noto Sans,drawn,glyph 匒,64.86,97.18,drawn,glyph 匒,64.86,97.18,drawn,glyph 匒,64.86,97.18,False,False,False
+匒,U+5312,⿹勹荅,GHTP,sans,held out,Noto Sans,drawn,learned 甸 / glyph 荅,53.7,55.47,drawn,learned 甸 / glyph 荅,53.7,55.47,drawn,learned 甸 / glyph 荅,53.7,55.47,False,False,False
+匒,U+5312,⿹勹荅,GHTP,serif,default,Noto Serif,drawn,glyph 匒,78.42,99.59,drawn,glyph 匒,78.42,99.59,drawn,glyph 匒,78.42,99.59,False,False,False
+匒,U+5312,⿹勹荅,GHTP,serif,held out,Noto Serif,drawn,learned 訇 / glyph 荅,64.44,71.0,drawn,learned 訇 / glyph 荅,64.44,71.0,drawn,learned 訇 / glyph 荅,64.44,71.0,False,False,False
+匒,U+5312,⿹勹荅,GHTP,fang,default,Jigmo 1,drawn,learned 匐 / instance 塔,12.24,16.68,drawn,learned 匐 / instance 塔,12.24,16.68,drawn,learned 匐 / instance 塔,12.24,16.68,False,False,False
+匒,U+5312,⿹勹荅,GHTP,fang,held out,Jigmo 1,drawn,learned 匐 / learned 莒 / learned 搭,12.93,16.47,drawn,learned 匐 / learned 莒 / learned 搭,12.93,16.47,drawn,learned 匐 / learned 莒 / learned 搭,12.93,16.47,False,False,False
+匒,U+5312,⿹勹荅,GHTP,reg,default,TW-Kai,drawn,glyph 匒 kept / TW-Kai: 艹,40.17,89.3,drawn,glyph 匒 kept / TW-Kai: 艹,40.17,89.3,drawn,glyph 匒 kept / TW-Kai: 艹,40.17,89.3,False,False,False
+匒,U+5312,⿹勹荅,GHTP,reg,held out,TW-Kai,drawn,learned 匑 / glyph 荅 kept / TW-Kai: 艹,59.7,60.78,drawn,learned 匑 / glyph 荅 kept / TW-Kai: 艹,59.7,60.78,drawn,learned 匑 / glyph 荅 kept / TW-Kai: 艹,59.7,60.78,False,False,False
+匒,U+5312,⿹勹荅,GHTP,pen,default,Kureedo,drawn,glyph 匒,35.49,99.9,drawn,glyph 匒,35.49,99.9,drawn,glyph 匒,35.49,99.9,False,False,False
+匒,U+5312,⿹勹荅,GHTP,pen,held out,Kureedo,drawn,learned 匐 / glyph 荅,55.9,71.26,drawn,learned 匐 / glyph 荅,55.9,71.26,drawn,learned 匐 / glyph 荅,55.9,71.26,False,False,False
+匓,U+5313,⿹勹⿰{18}殳,G,sans,default,Noto Sans,No glyph or sequence draws {18}.,,,,No glyph or sequence draws {18}.,,,,No glyph or sequence draws {18}.,,,,False,False,False
+匓,U+5313,⿹勹⿰{18}殳,G,sans,held out,Noto Sans,No glyph or sequence draws {18}.,,,,No glyph or sequence draws {18}.,,,,No glyph or sequence draws {18}.,,,,False,False,False
+匓,U+5313,⿹勹⿰{18}殳,G,serif,default,Noto Serif,No glyph or sequence draws {18}.,,,,No glyph or sequence draws {18}.,,,,No glyph or sequence draws {18}.,,,,False,False,False
+匓,U+5313,⿹勹⿰{18}殳,G,serif,held out,Noto Serif,No glyph or sequence draws {18}.,,,,No glyph or sequence draws {18}.,,,,No glyph or sequence draws {18}.,,,,False,False,False
+匓,U+5313,⿹勹⿰{18}殳,G,fang,default,Jigmo 1,No glyph or sequence draws {18}.,,,,No glyph or sequence draws {18}.,,,,No glyph or sequence draws {18}.,,,,False,False,False
+匓,U+5313,⿹勹⿰{18}殳,G,fang,held out,Jigmo 1,No glyph or sequence draws {18}.,,,,No glyph or sequence draws {18}.,,,,No glyph or sequence draws {18}.,,,,False,False,False
+匓,U+5313,⿹勹⿰{18}殳,G,reg,default,TW-Kai,No glyph or sequence draws {18}.,,,,No glyph or sequence draws {18}.,,,,No glyph or sequence draws {18}.,,,,False,False,False
+匓,U+5313,⿹勹⿰{18}殳,G,reg,held out,TW-Kai,No glyph or sequence draws {18}.,,,,No glyph or sequence draws {18}.,,,,No glyph or sequence draws {18}.,,,,False,False,False
+匓,U+5313,⿹勹⿰{18}殳,G,pen,default,Kureedo,No glyph or sequence draws {18}.,,,,No glyph or sequence draws {18}.,,,,No glyph or sequence draws {18}.,,,,False,False,False
+匓,U+5313,⿹勹⿰{18}殳,G,pen,held out,Kureedo,No glyph or sequence draws {18}.,,,,No glyph or sequence draws {18}.,,,,No glyph or sequence draws {18}.,,,,False,False,False
+匓,U+5313,⿹勹𣪘,TJK,sans,default,Noto Sans,drawn,glyph 匓,60.06,97.17,drawn,glyph 匓,60.06,97.17,drawn,glyph 匓,60.06,97.17,False,False,False
+匓,U+5313,⿹勹𣪘,TJK,sans,held out,Noto Sans,drawn,learned 匐 / glyph 𣪘,80.37,80.02,drawn,learned 匐 / glyph 𣪘,80.37,80.02,drawn,learned 匐 / glyph 𣪘,80.37,80.02,False,False,False
+匓,U+5313,⿹勹𣪘,TJK,serif,default,Noto Serif,drawn,glyph 匓,71.18,99.19,drawn,glyph 匓,71.18,99.19,drawn,glyph 匓,71.18,99.19,False,False,False
+匓,U+5313,⿹勹𣪘,TJK,serif,held out,Noto Serif,drawn,learned 匑 / glyph 𣪘,79.55,80.62,drawn,learned 匑 / glyph 𣪘,79.55,80.62,drawn,learned 匑 / glyph 𣪘,79.55,80.62,False,False,False
+匓,U+5313,⿹勹𣪘,TJK,fang,default,Jigmo 1,drawn,learned 匐 / learned 敫 / learned 壱 / learned 骰,14.11,19.67,drawn,learned 匐 / learned 敫 / learned 壱 / learned 骰,14.11,19.67,drawn,learned 匐 / learned 敫 / learned 壱 / learned 骰,14.11,19.67,False,False,False
+匓,U+5313,⿹勹𣪘,TJK,fang,held out,Jigmo 1,drawn,learned 匐 / learned 敫 / learned 壱 / learned 骰,14.11,19.67,drawn,learned 匐 / learned 敫 / learned 壱 / learned 骰,14.11,19.67,drawn,learned 匐 / learned 敫 / learned 壱 / learned 骰,14.11,19.67,False,False,False
+匓,U+5313,⿹勹𣪘,TJK,reg,default,TW-Kai,drawn,glyph 匓,24.81,99.61,drawn,glyph 匓,24.81,99.61,drawn,glyph 匓,24.81,99.61,False,False,False
+匓,U+5313,⿹勹𣪘,TJK,reg,held out,TW-Kai,drawn,learned 匋 / glyph 𣪘,47.18,46.53,drawn,learned 匋 / glyph 𣪘,47.18,46.53,drawn,learned 匋 / glyph 𣪘,47.18,46.53,False,False,False
+匓,U+5313,⿹勹𣪘,TJK,pen,default,Kureedo,drawn,glyph 匓,36.36,99.92,drawn,glyph 匓,36.36,99.92,drawn,glyph 匓,36.36,99.92,False,False,False
+匓,U+5313,⿹勹𣪘,TJK,pen,held out,Kureedo,drawn,learned 匍 / glyph 𣪘,34.01,54.59,drawn,learned 匍 / glyph 𣪘,34.01,54.59,drawn,learned 匍 / glyph 𣪘,34.01,54.59,False,False,False
+匔,U+5314,⿹勹躳,GTK,sans,default,Noto Sans,drawn,glyph 匔,66.37,96.44,drawn,glyph 匔,66.37,96.44,drawn,glyph 匔,66.37,96.44,False,False,False
+匔,U+5314,⿹勹躳,GTK,sans,held out,Noto Sans,drawn,learned 匓 / glyph 躳,64.29,65.67,drawn,learned 匓 / glyph 躳,64.29,65.67,drawn,learned 匓 / glyph 躳,64.29,65.67,False,False,False
+匔,U+5314,⿹勹躳,GTK,serif,default,Noto Serif,drawn,glyph 匔,72.42,99.42,drawn,glyph 匔,72.42,99.42,drawn,glyph 匔,72.42,99.42,False,False,False
+匔,U+5314,⿹勹躳,GTK,serif,held out,Noto Serif,drawn,learned 匓 / glyph 躳,39.08,38.58,drawn,learned 匓 / glyph 躳,39.08,38.58,drawn,learned 匓 / glyph 躳,39.08,38.58,False,False,False
+匔,U+5314,⿹勹躳,GTK,fang,default,Jigmo 1,drawn,learned 匐 / learned 射 / learned 梠,16.34,20.96,drawn,learned 匐 / learned 射 / learned 梠,16.34,20.96,drawn,learned 匐 / learned 射 / learned 梠,16.34,20.96,False,False,False
+匔,U+5314,⿹勹躳,GTK,fang,held out,Jigmo 1,drawn,learned 匐 / learned 射 / learned 梠,16.34,20.96,drawn,learned 匐 / learned 射 / learned 梠,16.34,20.96,drawn,learned 匐 / learned 射 / learned 梠,16.34,20.96,False,False,False
+匔,U+5314,⿹勹躳,GTK,reg,default,TW-Kai,drawn,glyph 匔,50.92,99.75,drawn,glyph 匔,50.92,99.75,drawn,glyph 匔,50.92,99.75,False,False,False
+匔,U+5314,⿹勹躳,GTK,reg,held out,TW-Kai,drawn,learned 匑 / glyph 躳,50.86,50.98,drawn,learned 匑 / glyph 躳,50.86,50.98,drawn,learned 匑 / glyph 躳,50.86,50.98,False,False,False
+匔,U+5314,⿹勹躳,GTK,pen,default,Kureedo,drawn,glyph 匔,35.86,99.9,drawn,glyph 匔,35.86,99.9,drawn,glyph 匔,35.86,99.9,False,False,False
+匔,U+5314,⿹勹躳,GTK,pen,held out,Kureedo,drawn,learned 匍 / glyph 躳,41.39,59.5,drawn,learned 匍 / glyph 躳,41.39,59.5,drawn,learned 匍 / glyph 躳,41.39,59.5,False,False,False
+句,U+53E5,⿹勹口,GHTJKPV,sans,default,Noto Sans,drawn,glyph 句,64.27,97.48,drawn,glyph 句,64.27,97.48,drawn,glyph 句,64.27,97.48,False,False,False
+句,U+53E5,⿹勹口,GHTJKPV,sans,held out,Noto Sans,drawn,learned 匇 / learned 局,78.99,80.18,drawn,learned 匇 / learned 局,78.99,80.18,drawn,learned 匇 / learned 局,78.99,80.18,False,False,False
+句,U+53E5,⿹勹口,GHTJKPV,serif,default,Noto Serif,drawn,glyph 句,74.36,98.39,drawn,glyph 句,74.36,98.39,drawn,glyph 句,74.36,98.39,False,False,False
+句,U+53E5,⿹勹口,GHTJKPV,serif,held out,Noto Serif,drawn,learned 匇 / learned 哉,63.36,64.27,drawn,learned 匇 / learned 哉,63.36,64.27,drawn,learned 匇 / learned 哉,63.36,64.27,False,False,False
+句,U+53E5,⿹勹口,GHTJKPV,fang,default,Zhuque,drawn,glyph 句,33.62,99.93,drawn,glyph 句,33.62,99.93,drawn,glyph 句,33.62,99.93,False,False,False
+句,U+53E5,⿹勹口,GHTJKPV,fang,held out,Zhuque,drawn,learned 勿 / glyph 口,39.77,33.92,drawn,learned 勿 / glyph 口,39.77,33.92,drawn,learned 勿 / glyph 口,39.77,33.92,False,False,False
+句,U+53E5,⿹勹口,GHTJKPV,reg,default,TW-Kai,drawn,glyph 句,20.77,99.76,drawn,glyph 句,20.77,99.76,drawn,glyph 句,20.77,99.76,False,False,False
+句,U+53E5,⿹勹口,GHTJKPV,reg,held out,TW-Kai,drawn,learned 勾 / learned 戓,50.65,61.01,drawn,learned 勾 / learned 戓,50.65,61.01,drawn,learned 勾 / learned 戓,50.65,61.01,False,False,False
+句,U+53E5,⿹勹口,GHTJKPV,pen,default,Kureedo,drawn,glyph 句,28.59,99.94,drawn,glyph 句,28.59,99.94,drawn,glyph 句,28.59,99.94,False,False,False
+句,U+53E5,⿹勹口,GHTJKPV,pen,held out,Kureedo,drawn,learned 匇 / glyph 口,47.19,53.13,drawn,learned 匇 / glyph 口,47.19,53.13,drawn,learned 匇 / glyph 口,47.19,53.13,False,False,False
+旬,U+65EC,⿹勹日,GHTJKPV,sans,default,Noto Sans,drawn,glyph 旬,73.7,98.69,drawn,glyph 旬,73.7,98.69,drawn,glyph 旬,73.7,98.69,False,False,False
+旬,U+65EC,⿹勹日,GHTJKPV,sans,held out,Noto Sans,drawn,learned 匌 / learned 𬀦,44.43,45.24,drawn,learned 匌 / learned 𬀦,44.43,45.24,drawn,learned 匌 / learned 𬀦,44.43,45.24,False,False,False
+旬,U+65EC,⿹勹日,GHTJKPV,serif,default,Noto Serif,drawn,glyph 旬,81.6,98.41,drawn,glyph 旬,81.6,98.41,drawn,glyph 旬,81.6,98.41,False,False,False
+旬,U+65EC,⿹勹日,GHTJKPV,serif,held out,Noto Serif,drawn,learned 𠣕 / glyph 日,48.59,48.48,drawn,learned 𠣕 / glyph 日,48.59,48.48,drawn,learned 𠣕 / glyph 日,48.59,48.48,False,False,False
+旬,U+65EC,⿹勹日,GHTJKPV,fang,default,Zhuque,drawn,glyph 旬,32.24,99.93,drawn,glyph 旬,32.24,99.93,drawn,glyph 旬,32.24,99.93,False,False,False
+旬,U+65EC,⿹勹日,GHTJKPV,fang,held out,Zhuque,drawn,learned 勿 / learned 洵,31.45,31.56,drawn,learned 勿 / learned 洵,31.45,31.56,drawn,learned 勿 / learned 洵,31.45,31.56,False,False,False
+旬,U+65EC,⿹勹日,GHTJKPV,reg,default,TW-Kai,drawn,glyph 旬,23.56,99.7,drawn,glyph 旬,23.56,99.7,drawn,glyph 旬,23.56,99.7,False,False,False
+旬,U+65EC,⿹勹日,GHTJKPV,reg,held out,TW-Kai,drawn,learned 勼 / learned 筍,70.48,66.26,drawn,learned 勼 / learned 筍,70.48,66.26,drawn,learned 勼 / learned 筍,70.48,66.26,False,False,False
+旬,U+65EC,⿹勹日,GHTJKPV,pen,default,Kureedo,drawn,glyph 旬,28.65,32.85,drawn,glyph 旬,28.65,32.85,drawn,glyph 旬,28.65,32.85,False,False,False
+旬,U+65EC,⿹勹日,GHTJKPV,pen,held out,Kureedo,drawn,learned 匃 / learned 洵,70.86,73.78,drawn,learned 匃 / learned 洵,70.86,73.78,drawn,learned 匃 / learned 洵,70.86,73.78,False,False,False
+灳,U+7073,⿹勹火,GT,sans,default,Noto Sans,drawn,glyph 灳,50.58,96.15,drawn,glyph 灳,50.58,96.15,drawn,glyph 灳,50.58,96.15,False,False,False
+灳,U+7073,⿹勹火,GT,sans,held out,Noto Sans,drawn,learned 匂 / learned 烖,36.53,37.16,drawn,learned 匂 / learned 烖,36.53,37.16,drawn,learned 匂 / learned 烖,36.53,37.16,False,False,False
+灳,U+7073,⿹勹火,GT,serif,default,Noto Serif,drawn,glyph 灳,70.95,97.95,drawn,glyph 灳,70.95,97.95,drawn,glyph 灳,70.95,97.95,False,False,False
+灳,U+7073,⿹勹火,GT,serif,held out,Noto Serif,drawn,learned 句 / learned 烖,48.31,50.43,drawn,learned 句 / learned 烖,48.31,50.43,drawn,learned 句 / learned 烖,48.31,50.43,False,False,False
+灳,U+7073,⿹勹火,GT,fang,default,Jigmo 1,drawn,learned 勿 / glyph 火,6.54,9.72,drawn,learned 勿 / glyph 火,6.54,9.72,drawn,learned 勿 / glyph 火,6.54,9.72,False,False,False
+灳,U+7073,⿹勹火,GT,fang,held out,Jigmo 1,drawn,learned 勿 / glyph 火,9.64,17.3,drawn,learned 勿 / glyph 火,9.64,17.3,drawn,learned 勿 / glyph 火,9.64,17.3,False,False,False
+灳,U+7073,⿹勹火,GT,reg,default,TW-Kai,drawn,glyph 灳,28.56,99.65,drawn,glyph 灳,28.56,99.65,drawn,glyph 灳,28.56,99.65,False,False,False
+灳,U+7073,⿹勹火,GT,reg,held out,TW-Kai,drawn,learned 旬 / glyph 火,50.95,49.87,drawn,learned 旬 / glyph 火,50.95,49.87,drawn,learned 旬 / glyph 火,50.95,49.87,False,False,False
+灳,U+7073,⿹勹火,GT,pen,default,Kureedo,drawn,glyph 灳,23.21,99.92,drawn,glyph 灳,23.21,99.92,drawn,glyph 灳,23.21,99.92,False,False,False
+灳,U+7073,⿹勹火,GT,pen,held out,Kureedo,drawn,learned 匂 / glyph 火,35.77,36.66,drawn,learned 匂 / glyph 火,35.77,36.66,drawn,learned 匂 / glyph 火,35.77,36.66,False,False,False
+甸,U+7538,⿹勹田,GHTJKP,sans,default,Noto Sans,drawn,glyph 甸,66.47,98.36,drawn,glyph 甸,66.47,98.36,drawn,glyph 甸,66.47,98.36,False,False,False
+甸,U+7538,⿹勹田,GHTJKP,sans,held out,Noto Sans,drawn,learned 匈 / glyph 田,66.04,65.35,drawn,learned 匈 / glyph 田,66.04,65.35,drawn,learned 匈 / glyph 田,66.04,65.35,False,False,False
+甸,U+7538,⿹勹田,GHTJKP,serif,default,Noto Serif,drawn,glyph 甸,64.53,97.86,drawn,glyph 甸,64.53,97.86,drawn,glyph 甸,64.53,97.86,False,False,False
+甸,U+7538,⿹勹田,GHTJKP,serif,held out,Noto Serif,drawn,learned 匋 / glyph 田,72.6,82.88,drawn,learned 匋 / glyph 田,72.6,82.88,drawn,learned 匋 / glyph 田,72.6,82.88,False,False,False
+甸,U+7538,⿹勹田,GHTJKP,fang,default,Zhuque,drawn,glyph 甸,48.39,99.92,drawn,glyph 甸,48.39,99.92,drawn,glyph 甸,48.39,99.92,False,False,False
+甸,U+7538,⿹勹田,GHTJKP,fang,held out,Zhuque,drawn,learned 匈 / glyph 田,27.61,34.22,drawn,learned 匈 / glyph 田,27.61,34.22,drawn,learned 匈 / glyph 田,27.61,34.22,False,False,False
+甸,U+7538,⿹勹田,GHTJKP,reg,default,TW-Kai,drawn,glyph 甸,34.97,99.67,drawn,glyph 甸,34.97,99.67,drawn,glyph 甸,34.97,99.67,False,False,False
+甸,U+7538,⿹勹田,GHTJKP,reg,held out,TW-Kai,drawn,learned 匊 / learned 蜔,48.78,51.24,drawn,learned 匊 / learned 蜔,48.78,51.24,drawn,learned 匊 / learned 蜔,48.78,51.24,False,False,False
+甸,U+7538,⿹勹田,GHTJKP,pen,default,Kureedo,drawn,glyph 甸,29.33,99.93,drawn,glyph 甸,29.33,99.93,drawn,glyph 甸,29.33,99.93,False,False,False
+甸,U+7538,⿹勹田,GHTJKP,pen,held out,Kureedo,drawn,learned 匈 / learned 𣵦,73.21,76.51,drawn,learned 匈 / learned 𣵦,73.21,76.51,drawn,learned 匈 / learned 𣵦,73.21,76.51,False,False,False
+訇,U+8A07,⿹勹言,GHTJKP,sans,default,Noto Sans,drawn,glyph 訇,65.45,97.52,drawn,glyph 訇,65.45,97.52,drawn,glyph 訇,65.45,97.52,False,False,False
+訇,U+8A07,⿹勹言,GHTJKP,sans,held out,Noto Sans,drawn,learned 句 / glyph 言,45.51,46.8,drawn,learned 句 / glyph 言,45.51,46.8,drawn,learned 句 / glyph 言,45.51,46.8,False,False,False
+訇,U+8A07,⿹勹言,GHTJKP,serif,default,Noto Serif,drawn,glyph 訇,73.64,98.76,drawn,glyph 訇,73.64,98.76,drawn,glyph 訇,73.64,98.76,False,False,False
+訇,U+8A07,⿹勹言,GHTJKP,serif,held out,Noto Serif,drawn,learned 旬 / glyph 言,34.31,34.61,drawn,learned 旬 / glyph 言,34.31,34.61,drawn,learned 旬 / glyph 言,34.31,34.61,False,False,False
+訇,U+8A07,⿹勹言,GHTJKP,fang,default,Zhuque,drawn,glyph 訇,57.93,99.92,drawn,glyph 訇,57.93,99.92,drawn,glyph 訇,57.93,99.92,False,False,False
+訇,U+8A07,⿹勹言,GHTJKP,fang,held out,Zhuque,drawn,learned 勾 / glyph 言,17.71,18.59,drawn,learned 勾 / glyph 言,17.71,18.59,drawn,learned 勾 / glyph 言,17.71,18.59,False,False,False
+訇,U+8A07,⿹勹言,GHTJKP,reg,default,TW-Kai,drawn,glyph 訇,28.41,99.67,drawn,glyph 訇,28.41,99.67,drawn,glyph 訇,28.41,99.67,False,False,False
+訇,U+8A07,⿹勹言,GHTJKP,reg,held out,TW-Kai,drawn,learned 旬 / glyph 言,27.3,41.59,drawn,learned 旬 / glyph 言,27.3,41.59,drawn,learned 旬 / glyph 言,27.3,41.59,False,False,False
+訇,U+8A07,⿹勹言,GHTJKP,pen,default,Kureedo,drawn,glyph 訇,44.82,99.91,drawn,glyph 訇,44.82,99.91,drawn,glyph 訇,44.82,99.91,False,False,False
+訇,U+8A07,⿹勹言,GHTJKP,pen,held out,Kureedo,drawn,learned 匂 / glyph 言,25.61,29.82,drawn,learned 匂 / glyph 言,25.61,29.82,drawn,learned 匂 / glyph 言,25.61,29.82,False,False,False
+㔨,U+3528,⿹勹背,GT,sans,default,Noto Sans,drawn,glyph 㔨,61.81,96.88,drawn,glyph 㔨,61.81,96.88,drawn,glyph 㔨,61.81,96.88,False,False,False
+㔨,U+3528,⿹勹背,GT,sans,held out,Noto Sans,drawn,learned 匓 / glyph 背,65.03,65.76,drawn,learned 匓 / glyph 背,65.03,65.76,drawn,learned 匓 / glyph 背,65.03,65.76,False,False,False
+㔨,U+3528,⿹勹背,GT,serif,default,Noto Serif,drawn,glyph 㔨,81.04,98.92,drawn,glyph 㔨,81.04,98.92,drawn,glyph 㔨,81.04,98.92,False,False,False
+㔨,U+3528,⿹勹背,GT,serif,held out,Noto Serif,drawn,learned 匍 / glyph 背,51.22,52.63,drawn,learned 匍 / glyph 背,51.22,52.63,drawn,learned 匍 / glyph 背,51.22,52.63,False,False,False
+㔨,U+3528,⿹勹背,GT,fang,default,Jigmo 1,drawn,learned 匐 / glyph 背,12.34,19.69,drawn,learned 匐 / glyph 背,12.34,19.69,drawn,learned 匐 / glyph 背,12.34,19.69,False,False,False
+㔨,U+3528,⿹勹背,GT,fang,held out,Jigmo 1,drawn,learned 匐 / glyph 背,15.78,23.73,drawn,learned 匐 / glyph 背,15.78,23.73,drawn,learned 匐 / glyph 背,15.78,23.73,False,False,False
+㔨,U+3528,⿹勹背,GT,reg,default,TW-Kai,drawn,glyph 㔨,31.37,99.72,drawn,glyph 㔨,31.37,99.72,drawn,glyph 㔨,31.37,99.72,False,False,False
+㔨,U+3528,⿹勹背,GT,reg,held out,TW-Kai,drawn,learned 匌 / glyph 背,59.4,58.77,drawn,learned 匌 / glyph 背,59.4,58.77,drawn,learned 匌 / glyph 背,59.4,58.77,False,False,False
+㔨,U+3528,⿹勹背,GT,pen,default,Kureedo,drawn,glyph 㔨,33.24,99.91,drawn,glyph 㔨,33.24,99.91,drawn,glyph 㔨,33.24,99.91,False,False,False
+㔨,U+3528,⿹勹背,GT,pen,held out,Kureedo,drawn,learned 匐 / glyph 背,42.04,52.85,drawn,learned 匐 / glyph 背,42.04,52.85,drawn,learned 匐 / glyph 背,42.04,52.85,False,False,False
+㔩,U+3529,⿹勹盍,GTKP,sans,default,Noto Sans,drawn,glyph 㔩,61.83,96.64,drawn,glyph 㔩,61.83,96.64,drawn,glyph 㔩,61.83,96.64,False,False,False
+㔩,U+3529,⿹勹盍,GTKP,sans,held out,Noto Sans,drawn,learned 匓 / glyph 盍,81.61,81.56,drawn,learned 匓 / glyph 盍,81.61,81.56,drawn,learned 匓 / glyph 盍,81.61,81.56,False,False,False
+㔩,U+3529,⿹勹盍,GTKP,serif,default,Noto Serif,drawn,glyph 㔩,61.09,97.84,drawn,glyph 㔩,61.09,97.84,drawn,glyph 㔩,61.09,97.84,False,False,False
+㔩,U+3529,⿹勹盍,GTKP,serif,held out,Noto Serif,drawn,learned 匑 / glyph 盍,59.86,65.38,drawn,learned 匑 / glyph 盍,59.86,65.38,drawn,learned 匑 / glyph 盍,59.86,65.38,False,False,False
+㔩,U+3529,⿹勹盍,GTKP,fang,default,Jigmo 1,drawn,learned 匐 / glyph 盍,12.44,26.75,drawn,learned 匐 / glyph 盍,12.44,26.75,drawn,learned 匐 / glyph 盍,12.44,26.75,False,False,False
+㔩,U+3529,⿹勹盍,GTKP,fang,held out,Jigmo 1,drawn,learned 匐 / glyph 盍,18.92,29.92,drawn,learned 匐 / glyph 盍,18.92,29.92,drawn,learned 匐 / glyph 盍,18.92,29.92,False,False,False
+㔩,U+3529,⿹勹盍,GTKP,reg,default,TW-Kai,drawn,glyph 㔩,26.04,99.73,drawn,glyph 㔩,26.04,99.73,drawn,glyph 㔩,26.04,99.73,False,False,False
+㔩,U+3529,⿹勹盍,GTKP,reg,held out,TW-Kai,drawn,learned 匓 / glyph 盍,29.62,28.19,drawn,learned 匓 / glyph 盍,29.62,28.19,drawn,learned 匓 / glyph 盍,29.62,28.19,False,False,False
+㔩,U+3529,⿹勹盍,GTKP,pen,default,Kureedo,drawn,glyph 㔩,34.98,99.91,drawn,glyph 㔩,34.98,99.91,drawn,glyph 㔩,34.98,99.91,False,False,False
+㔩,U+3529,⿹勹盍,GTKP,pen,held out,Kureedo,drawn,learned 匍 / glyph 盍,40.44,53.34,drawn,learned 匍 / glyph 盍,40.44,53.34,drawn,learned 匍 / glyph 盍,40.44,53.34,False,False,False
+㔪,U+352A,⿹勹鹵,GT,sans,default,Noto Sans,drawn,glyph 㔪,58.26,96.21,drawn,glyph 㔪,58.26,96.21,drawn,glyph 㔪,58.26,96.21,False,False,False
+㔪,U+352A,⿹勹鹵,GT,sans,held out,Noto Sans,drawn,learned 匓 / learned 㲶,43.49,45.52,drawn,learned 匓 / learned 㲶,43.49,45.52,drawn,learned 匓 / learned 㲶,43.49,45.52,False,False,False
+㔪,U+352A,⿹勹鹵,GT,serif,default,Noto Serif,drawn,glyph 㔪,61.63,98.62,drawn,glyph 㔪,61.63,98.62,drawn,glyph 㔪,61.63,98.62,False,False,False
+㔪,U+352A,⿹勹鹵,GT,serif,held out,Noto Serif,drawn,learned 匍 / learned 㲶,68.9,73.53,drawn,learned 匍 / learned 㲶,68.9,73.53,drawn,learned 匍 / learned 㲶,68.9,73.53,False,False,False
+㔪,U+352A,⿹勹鹵,GT,fang,default,Jigmo 1,drawn,learned 匐 / glyph 鹵,13.95,24.64,drawn,learned 匐 / glyph 鹵,13.95,24.64,drawn,learned 匐 / glyph 鹵,13.95,24.64,False,False,False
+㔪,U+352A,⿹勹鹵,GT,fang,held out,Jigmo 1,drawn,learned 匐 / glyph 鹵,20.56,29.77,drawn,learned 匐 / glyph 鹵,20.56,29.77,drawn,learned 匐 / glyph 鹵,20.56,29.77,False,False,False
+㔪,U+352A,⿹勹鹵,GT,reg,default,TW-Kai,drawn,glyph 㔪,22.05,99.65,drawn,glyph 㔪,22.05,99.65,drawn,glyph 㔪,22.05,99.65,False,False,False
+㔪,U+352A,⿹勹鹵,GT,reg,held out,TW-Kai,drawn,learned 匓 / glyph 鹵,41.52,51.22,drawn,learned 匓 / glyph 鹵,41.52,51.22,drawn,learned 匓 / glyph 鹵,41.52,51.22,False,False,False
+㔪,U+352A,⿹勹鹵,GT,pen,default,Kureedo,drawn,glyph 㔪,33.84,99.91,drawn,glyph 㔪,33.84,99.91,drawn,glyph 㔪,33.84,99.91,False,False,False
+㔪,U+352A,⿹勹鹵,GT,pen,held out,Kureedo,drawn,learned 匍 / glyph 鹵,34.73,54.45,drawn,learned 匍 / glyph 鹵,34.73,54.45,drawn,learned 匍 / glyph 鹵,34.73,54.45,False,False,False
+䀏,U+400F,⿹勹目,GTKP,sans,default,Noto Sans,drawn,glyph 䀏,71.03,97.75,drawn,glyph 䀏,71.03,97.75,drawn,glyph 䀏,71.03,97.75,False,False,False
+䀏,U+400F,⿹勹目,GTKP,sans,held out,Noto Sans,drawn,learned 匈 / glyph 目,77.55,77.12,drawn,learned 匈 / glyph 目,77.55,77.12,drawn,learned 匈 / glyph 目,77.55,77.12,False,False,False
+䀏,U+400F,⿹勹目,GTKP,serif,default,Noto Serif,drawn,glyph 䀏,74.61,98.55,drawn,glyph 䀏,74.61,98.55,drawn,glyph 䀏,74.61,98.55,False,False,False
+䀏,U+400F,⿹勹目,GTKP,serif,held out,Noto Serif,drawn,learned 匈 / glyph 目,61.91,62.48,drawn,learned 匈 / glyph 目,61.91,62.48,drawn,learned 匈 / glyph 目,61.91,62.48,False,False,False
+䀏,U+400F,⿹勹目,GTKP,fang,default,Jigmo 1,drawn,learned 匈 / glyph 目,13.14,16.37,drawn,learned 匈 / glyph 目,13.14,16.37,drawn,learned 匈 / glyph 目,13.14,16.37,False,False,False
+䀏,U+400F,⿹勹目,GTKP,fang,held out,Jigmo 1,drawn,learned 匈 / glyph 目,20.47,30.07,drawn,learned 匈 / glyph 目,20.47,30.07,drawn,learned 匈 / glyph 目,20.47,30.07,False,False,False
+䀏,U+400F,⿹勹目,GTKP,reg,default,TW-Kai,drawn,glyph 䀏,28.47,99.76,drawn,glyph 䀏,28.47,99.76,drawn,glyph 䀏,28.47,99.76,False,False,False
+䀏,U+400F,⿹勹目,GTKP,reg,held out,TW-Kai,drawn,learned 訇 / glyph 目,43.19,51.33,drawn,learned 訇 / glyph 目,43.19,51.33,drawn,learned 訇 / glyph 目,43.19,51.33,False,False,False
+䀏,U+400F,⿹勹目,GTKP,pen,default,Kureedo,drawn,glyph 䀏,33.69,99.91,drawn,glyph 䀏,33.69,99.91,drawn,glyph 䀏,33.69,99.91,False,False,False
+䀏,U+400F,⿹勹目,GTKP,pen,held out,Kureedo,drawn,learned 匈 / glyph 目,70.11,62.18,drawn,learned 匈 / glyph 目,70.11,62.18,drawn,learned 匈 / glyph 目,70.11,62.18,False,False,False
+𠣌,U+208CC,⿹勹𠂇,T,sans,default,Plangothic P1,drawn,glyph 𠣌,54.69,93.0,drawn,glyph 𠣌,54.69,93.0,drawn,glyph 𠣌,54.69,93.0,False,False,False
+𠣌,U+208CC,⿹勹𠂇,T,sans,held out,Plangothic P1,drawn,learned 勿 / glyph 𠂇,54.23,64.55,drawn,learned 勿 / glyph 𠂇,54.23,64.55,drawn,learned 勿 / glyph 𠂇,54.23,64.55,False,False,False
+𠣌,U+208CC,⿹勹𠂇,T,serif,default,Jigmo 2,drawn,glyph 𠣌,62.87,84.54,drawn,glyph 𠣌,62.87,84.54,drawn,glyph 𠣌,62.87,84.54,False,False,False
+𠣌,U+208CC,⿹勹𠂇,T,serif,held out,Jigmo 2,drawn,learned 匂 / glyph 𠂇,39.28,46.78,drawn,learned 匂 / glyph 𠂇,39.28,46.78,drawn,learned 匂 / glyph 𠂇,39.28,46.78,False,False,False
+𠣌,U+208CC,⿹勹𠂇,T,fang,default,Jigmo 2,drawn,learned 勾 / learned 詼,8.73,11.92,drawn,learned 勾 / learned 詼,8.73,11.92,drawn,learned 勾 / learned 詼,8.73,11.92,False,False,False
+𠣌,U+208CC,⿹勹𠂇,T,fang,held out,Jigmo 2,drawn,learned 勾 / learned 詼,8.73,11.92,drawn,learned 勾 / learned 詼,8.73,11.92,drawn,learned 勾 / learned 詼,8.73,11.92,False,False,False
+𠣌,U+208CC,⿹勹𠂇,T,reg,default,TW-Kai B,drawn,glyph 𠣌,27.6,99.77,drawn,glyph 𠣌,27.6,99.77,drawn,glyph 𠣌,27.6,99.77,False,False,False
+𠣌,U+208CC,⿹勹𠂇,T,reg,held out,TW-Kai B,drawn,learned 勾 / learned 戎,42.64,43.3,drawn,learned 勾 / learned 戎,42.64,43.3,drawn,learned 勾 / learned 戎,42.64,43.3,False,False,False
+𠣌,U+208CC,⿹勹𠂇,T,pen,default,,drawn,learned 勾 / glyph 𠂇,,,drawn,learned 勾 / glyph 𠂇,,,drawn,learned 勾 / glyph 𠂇,,,False,False,False
+𠣌,U+208CC,⿹勹𠂇,T,pen,held out,,drawn,learned 勾 / glyph 𠂇,,,drawn,learned 勾 / glyph 𠂇,,,drawn,learned 勾 / glyph 𠂇,,,False,False,False
+𠣍,U+208CD,⿹勹干,GT,sans,default,Plangothic P1,drawn,glyph 𠣍,58.68,95.37,drawn,glyph 𠣍,58.68,95.37,drawn,glyph 𠣍,58.68,95.37,False,False,False
+𠣍,U+208CD,⿹勹干,GT,sans,held out,Plangothic P1,drawn,learned 句 / glyph 干,54.61,63.5,drawn,learned 句 / glyph 干,54.61,63.5,drawn,learned 句 / glyph 干,54.61,63.5,False,False,False
+𠣍,U+208CD,⿹勹干,GT,serif,default,Jigmo 2,drawn,glyph 𠣍,63.63,84.77,drawn,glyph 𠣍,63.63,84.77,drawn,glyph 𠣍,63.63,84.77,False,False,False
+𠣍,U+208CD,⿹勹干,GT,serif,held out,Jigmo 2,drawn,learned 句 / glyph 干,37.7,42.16,drawn,learned 句 / glyph 干,37.7,42.16,drawn,learned 句 / glyph 干,37.7,42.16,False,False,False
+𠣍,U+208CD,⿹勹干,GT,fang,default,Jigmo 2,drawn,learned 勿 / glyph 干,13.31,20.5,drawn,learned 勿 / glyph 干,13.31,20.5,drawn,learned 勿 / glyph 干,13.31,20.5,False,False,False
+𠣍,U+208CD,⿹勹干,GT,fang,held out,Jigmo 2,drawn,learned 勿 / glyph 干,12.51,19.45,drawn,learned 勿 / glyph 干,12.51,19.45,drawn,learned 勿 / glyph 干,12.51,19.45,False,False,False
+𠣍,U+208CD,⿹勹干,GT,reg,default,TW-Kai B,drawn,glyph 𠣍,24.51,99.66,drawn,glyph 𠣍,24.51,99.66,drawn,glyph 𠣍,24.51,99.66,False,False,False
+𠣍,U+208CD,⿹勹干,GT,reg,held out,TW-Kai B,drawn,learned 旬 / glyph 干,54.41,48.74,drawn,learned 旬 / glyph 干,54.41,48.74,drawn,learned 旬 / glyph 干,54.41,48.74,False,False,False
+𠣍,U+208CD,⿹勹干,GT,pen,default,,drawn,learned 勾 / glyph 干,,,drawn,learned 勾 / glyph 干,,,drawn,learned 勾 / glyph 干,,,False,False,False
+𠣍,U+208CD,⿹勹干,GT,pen,held out,,drawn,learned 勾 / glyph 干,,,drawn,learned 勾 / glyph 干,,,drawn,learned 勾 / glyph 干,,,False,False,False
+𠣎,U+208CE,⿹勹幺,GT,sans,default,Plangothic P1,drawn,glyph 𠣎,50.58,94.0,drawn,glyph 𠣎,50.58,94.0,drawn,glyph 𠣎,50.58,94.0,False,False,False
+𠣎,U+208CE,⿹勹幺,GT,sans,held out,Plangothic P1,drawn,learned 旬 / glyph 幺,57.05,64.04,drawn,learned 旬 / glyph 幺,57.05,64.04,drawn,learned 旬 / glyph 幺,57.05,64.04,False,False,False
+𠣎,U+208CE,⿹勹幺,GT,serif,default,Jigmo 2,drawn,glyph 𠣎,63.63,87.62,drawn,glyph 𠣎,63.63,87.62,drawn,glyph 𠣎,63.63,87.62,False,False,False
+𠣎,U+208CE,⿹勹幺,GT,serif,held out,Jigmo 2,drawn,learned 句 / glyph 幺,28.95,26.51,drawn,learned 句 / glyph 幺,28.95,26.51,drawn,learned 句 / glyph 幺,28.95,26.51,False,False,False
+𠣎,U+208CE,⿹勹幺,GT,fang,default,Jigmo 2,drawn,learned 勾 / glyph 幺,9.49,13.74,drawn,learned 勾 / glyph 幺,9.49,13.74,drawn,learned 勾 / glyph 幺,9.49,13.74,False,False,False
+𠣎,U+208CE,⿹勹幺,GT,fang,held out,Jigmo 2,drawn,learned 勾 / glyph 幺,14.54,16.48,drawn,learned 勾 / glyph 幺,14.54,16.48,drawn,learned 勾 / glyph 幺,14.54,16.48,False,False,False
+𠣎,U+208CE,⿹勹幺,GT,reg,default,TW-Kai B,drawn,glyph 𠣎,27.09,99.64,drawn,glyph 𠣎,27.09,99.64,drawn,glyph 𠣎,27.09,99.64,False,False,False
+𠣎,U+208CE,⿹勹幺,GT,reg,held out,TW-Kai B,drawn,learned 旬 / glyph 幺,54.74,57.19,drawn,learned 旬 / glyph 幺,54.74,57.19,drawn,learned 旬 / glyph 幺,54.74,57.19,False,False,False
+𠣎,U+208CE,⿹勹幺,GT,pen,default,,drawn,learned 旬 / glyph 幺,,,drawn,learned 旬 / glyph 幺,,,drawn,learned 旬 / glyph 幺,,,False,False,False
+𠣎,U+208CE,⿹勹幺,GT,pen,held out,,drawn,learned 旬 / glyph 幺,,,drawn,learned 旬 / glyph 幺,,,drawn,learned 旬 / glyph 幺,,,False,False,False
+𠣏,U+208CF,⿹勹{117},G,sans,default,Plangothic P1,No glyph or sequence draws {117}.,,,,No glyph or sequence draws {117}.,,,,No glyph or sequence draws {117}.,,,,False,False,False
+𠣏,U+208CF,⿹勹{117},G,sans,held out,Plangothic P1,No glyph or sequence draws {117}.,,,,No glyph or sequence draws {117}.,,,,No glyph or sequence draws {117}.,,,,False,False,False
+𠣏,U+208CF,⿹勹{117},G,serif,default,Jigmo 2,No glyph or sequence draws {117}.,,,,No glyph or sequence draws {117}.,,,,No glyph or sequence draws {117}.,,,,False,False,False
+𠣏,U+208CF,⿹勹{117},G,serif,held out,Jigmo 2,No glyph or sequence draws {117}.,,,,No glyph or sequence draws {117}.,,,,No glyph or sequence draws {117}.,,,,False,False,False
+𠣏,U+208CF,⿹勹{117},G,fang,default,Jigmo 2,No glyph or sequence draws {117}.,,,,No glyph or sequence draws {117}.,,,,No glyph or sequence draws {117}.,,,,False,False,False
+𠣏,U+208CF,⿹勹{117},G,fang,held out,Jigmo 2,No glyph or sequence draws {117}.,,,,No glyph or sequence draws {117}.,,,,No glyph or sequence draws {117}.,,,,False,False,False
+𠣏,U+208CF,⿹勹{117},G,reg,default,TW-Kai B,No glyph or sequence draws {117}.,,,,No glyph or sequence draws {117}.,,,,No glyph or sequence draws {117}.,,,,False,False,False
+𠣏,U+208CF,⿹勹{117},G,reg,held out,TW-Kai B,No glyph or sequence draws {117}.,,,,No glyph or sequence draws {117}.,,,,No glyph or sequence draws {117}.,,,,False,False,False
+𠣏,U+208CF,⿹勹{117},G,pen,default,,No glyph or sequence draws {117}.,,,,No glyph or sequence draws {117}.,,,,No glyph or sequence draws {117}.,,,,False,False,False
+𠣏,U+208CF,⿹勹{117},G,pen,held out,,No glyph or sequence draws {117}.,,,,No glyph or sequence draws {117}.,,,,No glyph or sequence draws {117}.,,,,False,False,False
+𠣏,U+208CF,⿹勹止,T,sans,default,Plangothic P1,drawn,learned 句 / glyph 止,53.91,61.36,drawn,learned 句 / glyph 止,53.91,61.36,drawn,learned 句 / glyph 止,53.91,61.36,False,False,False
+𠣏,U+208CF,⿹勹止,T,sans,held out,Plangothic P1,drawn,learned 句 / glyph 止,53.91,61.36,drawn,learned 句 / glyph 止,53.91,61.36,drawn,learned 句 / glyph 止,53.91,61.36,False,False,False
+𠣏,U+208CF,⿹勹止,T,serif,default,Jigmo 2,drawn,learned 句 / glyph 止,39.64,46.56,drawn,learned 句 / glyph 止,39.64,46.56,drawn,learned 句 / glyph 止,39.64,46.56,False,False,False
+𠣏,U+208CF,⿹勹止,T,serif,held out,Jigmo 2,drawn,learned 句 / glyph 止,39.64,46.56,drawn,learned 句 / glyph 止,39.64,46.56,drawn,learned 句 / glyph 止,39.64,46.56,False,False,False
+𠣏,U+208CF,⿹勹止,T,fang,default,Jigmo 2,drawn,learned 勾 / glyph 止,13.92,23.21,drawn,learned 勾 / glyph 止,13.92,23.21,drawn,learned 勾 / glyph 止,13.92,23.21,False,False,False
+𠣏,U+208CF,⿹勹止,T,fang,held out,Jigmo 2,drawn,learned 勾 / glyph 止,13.92,23.21,drawn,learned 勾 / glyph 止,13.92,23.21,drawn,learned 勾 / glyph 止,13.92,23.21,False,False,False
+𠣏,U+208CF,⿹勹止,T,reg,default,TW-Kai B,drawn,learned 旬 / glyph 止,38.84,48.57,drawn,learned 旬 / glyph 止,38.84,48.57,drawn,learned 旬 / glyph 止,38.84,48.57,False,False,False
+𠣏,U+208CF,⿹勹止,T,reg,held out,TW-Kai B,drawn,learned 旬 / glyph 止,38.84,48.57,drawn,learned 旬 / glyph 止,38.84,48.57,drawn,learned 旬 / glyph 止,38.84,48.57,False,False,False
+𠣏,U+208CF,⿹勹止,T,pen,default,,drawn,learned 旬 / glyph 止,,,drawn,learned 旬 / glyph 止,,,drawn,learned 旬 / glyph 止,,,False,False,False
+𠣏,U+208CF,⿹勹止,T,pen,held out,,drawn,learned 旬 / glyph 止,,,drawn,learned 旬 / glyph 止,,,drawn,learned 旬 / glyph 止,,,False,False,False
+𠣐,U+208D0,⿹勹⿱丶丆,G,sans,default,Plangothic P1,drawn,glyph 𠣐,49.19,95.66,drawn,glyph 𠣐,49.19,95.66,drawn,glyph 𠣐,49.19,95.66,False,False,False
+𠣐,U+208D0,⿹勹⿱丶丆,G,sans,held out,Plangothic P1,drawn,learned 勾 / learned 户 / learned 𦫺,35.3,40.56,drawn,learned 勾 / learned 户 / learned 𦫺,35.3,40.56,drawn,learned 勾 / learned 户 / learned 𦫺,35.3,40.56,False,False,False
+𠣐,U+208D0,⿹勹⿱丶丆,G,serif,default,Jigmo 2,drawn,glyph 𠣐,63.56,84.94,drawn,glyph 𠣐,63.56,84.94,drawn,glyph 𠣐,63.56,84.94,False,False,False
+𠣐,U+208D0,⿹勹⿱丶丆,G,serif,held out,Jigmo 2,drawn,learned 匂 / host 主 / glyph 丆,29.98,36.0,drawn,learned 匂 / host 主 / glyph 丆,29.98,36.0,drawn,learned 匂 / host 主 / glyph 丆,29.98,36.0,False,False,False
+𠣐,U+208D0,⿹勹⿱丶丆,G,fang,default,Jigmo 2,drawn,learned 勾 / glyph 广,7.66,11.52,drawn,learned 勾 / glyph 广,7.66,11.52,drawn,learned 勾 / glyph 广,7.66,11.52,False,False,False
+𠣐,U+208D0,⿹勹⿱丶丆,G,fang,held out,Jigmo 2,drawn,learned 勾 / learned 广 / learned 二 / glyph 丿,8.91,13.48,drawn,learned 勾 / learned 广 / learned 二 / glyph 丿,8.91,13.48,drawn,learned 勾 / learned 广 / learned 二 / glyph 丿,8.91,13.48,False,False,False
+𠣐,U+208D0,⿹勹⿱丶丆,G,reg,default,TW-Kai B,drawn,glyph 𠣐,30.54,99.75,drawn,glyph 𠣐,30.54,99.75,drawn,glyph 𠣐,30.54,99.75,False,False,False
+𠣐,U+208D0,⿹勹⿱丶丆,G,reg,held out,TW-Kai B,drawn,learned 勻 / learned 户 / glyph 丆,33.69,32.42,drawn,learned 勻 / learned 户 / glyph 丆,33.69,32.42,drawn,learned 勻 / learned 户 / glyph 丆,33.69,32.42,False,False,False
+𠣐,U+208D0,⿹勹⿱丶丆,G,pen,default,,drawn,learned 勾 / glyph 广,,,drawn,learned 勾 / glyph 广,,,drawn,learned 勾 / glyph 广,,,False,False,False
+𠣐,U+208D0,⿹勹⿱丶丆,G,pen,held out,,drawn,learned 勾 / learned 户 / glyph 丆,,,drawn,learned 勾 / learned 户 / glyph 丆,,,drawn,learned 勾 / learned 户 / glyph 丆,,,False,False,False
+𠣐,U+208D0,⿹勹⿱亠丿,X,sans,default,Plangothic P1,drawn,learned 勾 / learned 亡 / glyph 丿,39.19,44.87,drawn,learned 勾 / learned 亡 / glyph 丿,39.19,44.87,drawn,learned 勾 / learned 亡 / glyph 丿,39.19,44.87,False,False,False
+𠣐,U+208D0,⿹勹⿱亠丿,X,sans,held out,Plangothic P1,drawn,learned 勾 / learned 亡 / glyph 丿,39.19,44.87,drawn,learned 勾 / learned 亡 / glyph 丿,39.19,44.87,drawn,learned 勾 / learned 亡 / glyph 丿,39.19,44.87,False,False,False
+𠣐,U+208D0,⿹勹⿱亠丿,X,serif,default,Jigmo 2,drawn,learned 匂 / learned 亡 / glyph 丿,27.19,32.83,drawn,learned 匂 / learned 亡 / glyph 丿,27.19,32.83,drawn,learned 匂 / learned 亡 / glyph 丿,27.19,32.83,False,False,False
+𠣐,U+208D0,⿹勹⿱亠丿,X,serif,held out,Jigmo 2,drawn,learned 匂 / learned 亡 / glyph 丿,27.19,32.83,drawn,learned 匂 / learned 亡 / glyph 丿,27.19,32.83,drawn,learned 匂 / learned 亡 / glyph 丿,27.19,32.83,False,False,False
+𠣐,U+208D0,⿹勹⿱亠丿,X,fang,default,Jigmo 2,drawn,learned 勿 / learned 立 / glyph 丿,6.89,10.36,drawn,learned 勿 / learned 立 / glyph 丿,6.89,10.36,drawn,learned 勿 / learned 立 / glyph 丿,6.89,10.36,False,False,False
+𠣐,U+208D0,⿹勹⿱亠丿,X,fang,held out,Jigmo 2,drawn,learned 勿 / learned 立 / glyph 丿,6.89,10.36,drawn,learned 勿 / learned 立 / glyph 丿,6.89,10.36,drawn,learned 勿 / learned 立 / glyph 丿,6.89,10.36,False,False,False
+𠣐,U+208D0,⿹勹⿱亠丿,X,reg,default,TW-Kai B,drawn,learned 勾 / host 六 / glyph 丿,23.33,28.01,drawn,learned 勾 / host 六 / glyph 丿,23.33,28.01,drawn,learned 勾 / host 六 / glyph 丿,23.33,28.01,False,False,False
+𠣐,U+208D0,⿹勹⿱亠丿,X,reg,held out,TW-Kai B,drawn,learned 勾 / host 六 / glyph 丿,23.33,28.01,drawn,learned 勾 / host 六 / glyph 丿,23.33,28.01,drawn,learned 勾 / host 六 / glyph 丿,23.33,28.01,False,False,False
+𠣐,U+208D0,⿹勹⿱亠丿,X,pen,default,,drawn,learned 匇 / learned 立 / glyph 丿,,,drawn,learned 匇 / learned 立 / glyph 丿,,,drawn,learned 匇 / learned 立 / glyph 丿,,,False,False,False
+𠣐,U+208D0,⿹勹⿱亠丿,X,pen,held out,,drawn,learned 匇 / learned 立 / glyph 丿,,,drawn,learned 匇 / learned 立 / glyph 丿,,,drawn,learned 匇 / learned 立 / glyph 丿,,,False,False,False
+𠣑,U+208D1,⿹勹元,GT,sans,default,Plangothic P1,drawn,glyph 𠣑,89.91,95.97,drawn,glyph 𠣑,89.91,95.97,drawn,glyph 𠣑,89.91,95.97,False,False,False
+𠣑,U+208D1,⿹勹元,GT,sans,held out,Plangothic P1,drawn,learned 旬 / glyph 元,45.89,38.79,drawn,learned 旬 / glyph 元,45.89,38.79,drawn,learned 旬 / glyph 元,45.89,38.79,False,False,False
+𠣑,U+208D1,⿹勹元,GT,serif,default,Jigmo 2,drawn,glyph 𠣑,61.47,86.69,drawn,glyph 𠣑,61.47,86.69,drawn,glyph 𠣑,61.47,86.69,False,False,False
+𠣑,U+208D1,⿹勹元,GT,serif,held out,Jigmo 2,drawn,learned 旬 / glyph 元,12.37,10.99,drawn,learned 旬 / glyph 元,12.37,10.99,drawn,learned 旬 / glyph 元,12.37,10.99,False,False,False
+𠣑,U+208D1,⿹勹元,GT,fang,default,Jigmo 2,drawn,learned 匈 / glyph 元,12.11,14.12,drawn,learned 匈 / glyph 元,12.11,14.12,drawn,learned 匈 / glyph 元,12.11,14.12,False,False,False
+𠣑,U+208D1,⿹勹元,GT,fang,held out,Jigmo 2,drawn,learned 匈 / glyph 元,13.96,8.17,drawn,learned 匈 / glyph 元,13.96,8.17,drawn,learned 匈 / glyph 元,13.96,8.17,False,False,False
+𠣑,U+208D1,⿹勹元,GT,reg,default,TW-Kai B,drawn,glyph 𠣑,29.08,99.77,drawn,glyph 𠣑,29.08,99.77,drawn,glyph 𠣑,29.08,99.77,False,False,False
+𠣑,U+208D1,⿹勹元,GT,reg,held out,TW-Kai B,drawn,learned 訇 / glyph 元,45.57,48.57,drawn,learned 訇 / glyph 元,45.57,48.57,drawn,learned 訇 / glyph 元,45.57,48.57,False,False,False
+𠣑,U+208D1,⿹勹元,GT,pen,default,,drawn,learned 匈 / glyph 元,,,drawn,learned 匈 / glyph 元,,,drawn,learned 匈 / glyph 元,,,False,False,False
+𠣑,U+208D1,⿹勹元,GT,pen,held out,,drawn,learned 匈 / glyph 元,,,drawn,learned 匈 / glyph 元,,,drawn,learned 匈 / glyph 元,,,False,False,False
+𠣒,U+208D2,⿹勹仁,GT,sans,default,Plangothic P1,drawn,glyph 𠣒,50.67,95.95,drawn,glyph 𠣒,50.67,95.95,drawn,glyph 𠣒,50.67,95.95,False,False,False
+𠣒,U+208D2,⿹勹仁,GT,sans,held out,Plangothic P1,drawn,learned 句 / glyph 仁,49.66,52.56,drawn,learned 句 / glyph 仁,49.66,52.56,drawn,learned 句 / glyph 仁,49.66,52.56,False,False,False
+𠣒,U+208D2,⿹勹仁,GT,serif,default,Jigmo 2,drawn,glyph 𠣒,63.43,84.44,drawn,glyph 𠣒,63.43,84.44,drawn,glyph 𠣒,63.43,84.44,False,False,False
+𠣒,U+208D2,⿹勹仁,GT,serif,held out,Jigmo 2,drawn,learned 匂 / glyph 仁,36.07,41.76,drawn,learned 匂 / glyph 仁,36.07,41.76,drawn,learned 匂 / glyph 仁,36.07,41.76,False,False,False
+𠣒,U+208D2,⿹勹仁,GT,fang,default,Jigmo 2,drawn,learned 勿 / glyph 仁,8.36,15.08,drawn,learned 勿 / glyph 仁,8.36,15.08,drawn,learned 勿 / glyph 仁,8.36,15.08,False,False,False
+𠣒,U+208D2,⿹勹仁,GT,fang,held out,Jigmo 2,drawn,learned 勿 / glyph 仁,7.3,12.15,drawn,learned 勿 / glyph 仁,7.3,12.15,drawn,learned 勿 / glyph 仁,7.3,12.15,False,False,False
+𠣒,U+208D2,⿹勹仁,GT,reg,default,TW-Kai B,drawn,glyph 𠣒,22.46,99.68,drawn,glyph 𠣒,22.46,99.68,drawn,glyph 𠣒,22.46,99.68,False,False,False
+𠣒,U+208D2,⿹勹仁,GT,reg,held out,TW-Kai B,drawn,learned 旬 / glyph 仁,61.85,61.93,drawn,learned 旬 / glyph 仁,61.85,61.93,drawn,learned 旬 / glyph 仁,61.85,61.93,False,False,False
+𠣒,U+208D2,⿹勹仁,GT,pen,default,,drawn,learned 匇 / glyph 仁,,,drawn,learned 匇 / glyph 仁,,,drawn,learned 匇 / glyph 仁,,,False,False,False
+𠣒,U+208D2,⿹勹仁,GT,pen,held out,,drawn,learned 匇 / glyph 仁,,,drawn,learned 匇 / glyph 仁,,,drawn,learned 匇 / glyph 仁,,,False,False,False
+𠣓,U+208D3,⿹勹云,T,sans,default,Plangothic P1,drawn,glyph 𠣓,51.12,92.4,drawn,glyph 𠣓,51.12,92.4,drawn,glyph 𠣓,51.12,92.4,False,False,False
+𠣓,U+208D3,⿹勹云,T,sans,held out,Plangothic P1,drawn,learned 匌 / glyph 云,60.87,70.85,drawn,learned 匌 / glyph 云,60.87,70.85,drawn,learned 匌 / glyph 云,60.87,70.85,False,False,False
+𠣓,U+208D3,⿹勹云,T,serif,default,Jigmo 2,drawn,glyph 𠣓,60.53,83.45,drawn,glyph 𠣓,60.53,83.45,drawn,glyph 𠣓,60.53,83.45,False,False,False
+𠣓,U+208D3,⿹勹云,T,serif,held out,Jigmo 2,drawn,learned 旬 / glyph 云,45.82,53.88,drawn,learned 旬 / glyph 云,45.82,53.88,drawn,learned 旬 / glyph 云,45.82,53.88,False,False,False
+𠣓,U+208D3,⿹勹云,T,fang,default,Jigmo 2,drawn,learned 勿 / glyph 云,6.56,15.4,drawn,learned 勿 / glyph 云,6.56,15.4,drawn,learned 勿 / glyph 云,6.56,15.4,False,False,False
+𠣓,U+208D3,⿹勹云,T,fang,held out,Jigmo 2,drawn,learned 勿 / glyph 云,6.63,9.69,drawn,learned 勿 / glyph 云,6.63,9.69,drawn,learned 勿 / glyph 云,6.63,9.69,False,False,False
+𠣓,U+208D3,⿹勹云,T,reg,default,TW-Kai B,drawn,glyph 𠣓,28.81,99.77,drawn,glyph 𠣓,28.81,99.77,drawn,glyph 𠣓,28.81,99.77,False,False,False
+𠣓,U+208D3,⿹勹云,T,reg,held out,TW-Kai B,drawn,learned 匊 / glyph 云,56.65,60.0,drawn,learned 匊 / glyph 云,56.65,60.0,drawn,learned 匊 / glyph 云,56.65,60.0,False,False,False
+𠣓,U+208D3,⿹勹云,T,pen,default,,drawn,learned 匈 / glyph 云,,,drawn,learned 匈 / glyph 云,,,drawn,learned 匈 / glyph 云,,,False,False,False
+𠣓,U+208D3,⿹勹云,T,pen,held out,,drawn,learned 匈 / glyph 云,,,drawn,learned 匈 / glyph 云,,,drawn,learned 匈 / glyph 云,,,False,False,False
+𠣕,U+208D5,⿹勹主,GH,sans,default,Noto Sans,drawn,glyph 𠣕,60.26,97.5,drawn,glyph 𠣕,60.26,97.5,drawn,glyph 𠣕,60.26,97.5,False,False,False
+𠣕,U+208D5,⿹勹主,GH,sans,held out,Noto Sans,drawn,learned 匌 / glyph 主,77.69,78.96,drawn,learned 匌 / glyph 主,77.69,78.96,drawn,learned 匌 / glyph 主,77.69,78.96,False,False,False
+𠣕,U+208D5,⿹勹主,GH,serif,default,Noto Serif,drawn,glyph 𠣕,64.64,98.17,drawn,glyph 𠣕,64.64,98.17,drawn,glyph 𠣕,64.64,98.17,False,False,False
+𠣕,U+208D5,⿹勹主,GH,serif,held out,Noto Serif,drawn,learned 旬 / glyph 主,48.08,48.36,drawn,learned 旬 / glyph 主,48.08,48.36,drawn,learned 旬 / glyph 主,48.08,48.36,False,False,False
+𠣕,U+208D5,⿹勹主,GH,fang,default,Jigmo 2,drawn,learned 匈 / glyph 主,14.97,19.26,drawn,learned 匈 / glyph 主,14.97,19.26,drawn,learned 匈 / glyph 主,14.97,19.26,False,False,False
+𠣕,U+208D5,⿹勹主,GH,fang,held out,Jigmo 2,drawn,learned 匈 / glyph 主,14.26,20.24,drawn,learned 匈 / glyph 主,14.26,20.24,drawn,learned 匈 / glyph 主,14.26,20.24,False,False,False
+𠣕,U+208D5,⿹勹主,GH,reg,default,TW-Kai B,drawn,glyph 𠣕,41.75,99.71,drawn,glyph 𠣕,41.75,99.71,drawn,glyph 𠣕,41.75,99.71,False,False,False
+𠣕,U+208D5,⿹勹主,GH,reg,held out,TW-Kai B,drawn,learned 勼 / glyph 主,64.9,70.52,drawn,learned 勼 / glyph 主,64.9,70.52,drawn,learned 勼 / glyph 主,64.9,70.52,False,False,False
+𠣕,U+208D5,⿹勹主,GH,pen,default,,drawn,learned 匈 / glyph 主,,,drawn,learned 匈 / glyph 主,,,drawn,learned 匈 / glyph 主,,,False,False,False
+𠣕,U+208D5,⿹勹主,GH,pen,held out,,drawn,learned 匈 / glyph 主,,,drawn,learned 匈 / glyph 主,,,drawn,learned 匈 / glyph 主,,,False,False,False
+𠣖,U+208D6,⿹勹玄,GT,sans,default,Plangothic P1,drawn,glyph 𠣖,57.19,94.29,drawn,glyph 𠣖,57.19,94.29,drawn,glyph 𠣖,57.19,94.29,False,False,False
+𠣖,U+208D6,⿹勹玄,GT,sans,held out,Plangothic P1,drawn,learned 匋 / glyph 玄,71.02,74.5,drawn,learned 匋 / glyph 玄,71.02,74.5,drawn,learned 匋 / glyph 玄,71.02,74.5,False,False,False
+𠣖,U+208D6,⿹勹玄,GT,serif,default,Jigmo 2,drawn,glyph 𠣖,62.4,84.28,drawn,glyph 𠣖,62.4,84.28,drawn,glyph 𠣖,62.4,84.28,False,False,False
+𠣖,U+208D6,⿹勹玄,GT,serif,held out,Jigmo 2,drawn,learned 匈 / glyph 玄,36.62,41.8,drawn,learned 匈 / glyph 玄,36.62,41.8,drawn,learned 匈 / glyph 玄,36.62,41.8,False,False,False
+𠣖,U+208D6,⿹勹玄,GT,fang,default,Jigmo 2,drawn,learned 匈 / glyph 玄,10.45,20.84,drawn,learned 匈 / glyph 玄,10.45,20.84,drawn,learned 匈 / glyph 玄,10.45,20.84,False,False,False
+𠣖,U+208D6,⿹勹玄,GT,fang,held out,Jigmo 2,drawn,learned 匈 / glyph 玄,12.91,25.44,drawn,learned 匈 / glyph 玄,12.91,25.44,drawn,learned 匈 / glyph 玄,12.91,25.44,False,False,False
+𠣖,U+208D6,⿹勹玄,GT,reg,default,TW-Kai B,drawn,glyph 𠣖,29.87,99.71,drawn,glyph 𠣖,29.87,99.71,drawn,glyph 𠣖,29.87,99.71,False,False,False
+𠣖,U+208D6,⿹勹玄,GT,reg,held out,TW-Kai B,drawn,learned 匊 / glyph 玄,54.9,58.34,drawn,learned 匊 / glyph 玄,54.9,58.34,drawn,learned 匊 / glyph 玄,54.9,58.34,False,False,False
+𠣖,U+208D6,⿹勹玄,GT,pen,default,,drawn,learned 匌 / glyph 玄,,,drawn,learned 匌 / glyph 玄,,,drawn,learned 匌 / glyph 玄,,,False,False,False
+𠣖,U+208D6,⿹勹玄,GT,pen,held out,,drawn,learned 匌 / glyph 玄,,,drawn,learned 匌 / glyph 玄,,,drawn,learned 匌 / glyph 玄,,,False,False,False
+𠣗,U+208D7,⿹勹去,GT,sans,default,Plangothic P1,drawn,glyph 𠣗,51.73,91.0,drawn,glyph 𠣗,51.73,91.0,drawn,glyph 𠣗,51.73,91.0,False,False,False
+𠣗,U+208D7,⿹勹去,GT,sans,held out,Plangothic P1,drawn,learned 匋 / learned 厾,45.63,51.96,drawn,learned 匋 / learned 厾,45.63,51.96,drawn,learned 匋 / learned 厾,45.63,51.96,False,False,False
+𠣗,U+208D7,⿹勹去,GT,serif,default,Jigmo 2,drawn,glyph 𠣗,62.63,84.11,drawn,glyph 𠣗,62.63,84.11,drawn,glyph 𠣗,62.63,84.11,False,False,False
+𠣗,U+208D7,⿹勹去,GT,serif,held out,Jigmo 2,drawn,learned 匈 / learned 厾,35.99,40.48,drawn,learned 匈 / learned 厾,35.99,40.48,drawn,learned 匈 / learned 厾,35.99,40.48,False,False,False
+𠣗,U+208D7,⿹勹去,GT,fang,default,Jigmo 2,drawn,learned 匈 / glyph 去,14.35,22.41,drawn,learned 匈 / glyph 去,14.35,22.41,drawn,learned 匈 / glyph 去,14.35,22.41,False,False,False
+𠣗,U+208D7,⿹勹去,GT,fang,held out,Jigmo 2,drawn,learned 匈 / glyph 去,13.3,24.4,drawn,learned 匈 / glyph 去,13.3,24.4,drawn,learned 匈 / glyph 去,13.3,24.4,False,False,False
+𠣗,U+208D7,⿹勹去,GT,reg,default,TW-Kai B,drawn,glyph 𠣗,33.92,99.78,drawn,glyph 𠣗,33.92,99.78,drawn,glyph 𠣗,33.92,99.78,False,False,False
+𠣗,U+208D7,⿹勹去,GT,reg,held out,TW-Kai B,drawn,learned 訇 / glyph 去,41.57,46.66,drawn,learned 訇 / glyph 去,41.57,46.66,drawn,learned 訇 / glyph 去,41.57,46.66,False,False,False
+𠣗,U+208D7,⿹勹去,GT,pen,default,,drawn,learned 匊 / glyph 去,,,drawn,learned 匊 / glyph 去,,,drawn,learned 匊 / glyph 去,,,False,False,False
+𠣗,U+208D7,⿹勹去,GT,pen,held out,,drawn,learned 匊 / glyph 去,,,drawn,learned 匊 / glyph 去,,,drawn,learned 匊 / glyph 去,,,False,False,False
+𠣘,U+208D8,⿹勹舟,GT,sans,default,Plangothic P1,drawn,glyph 𠣘,57.34,93.16,drawn,glyph 𠣘,57.34,93.16,drawn,glyph 𠣘,57.34,93.16,False,False,False
+𠣘,U+208D8,⿹勹舟,GT,sans,held out,Plangothic P1,drawn,learned 匋 / glyph 舟,67.28,70.09,drawn,learned 匋 / glyph 舟,67.28,70.09,drawn,learned 匋 / glyph 舟,67.28,70.09,False,False,False
+𠣘,U+208D8,⿹勹舟,GT,serif,default,Jigmo 2,drawn,glyph 𠣘,66.58,85.79,drawn,glyph 𠣘,66.58,85.79,drawn,glyph 𠣘,66.58,85.79,False,False,False
+𠣘,U+208D8,⿹勹舟,GT,serif,held out,Jigmo 2,drawn,learned 匈 / glyph 舟,46.94,50.01,drawn,learned 匈 / glyph 舟,46.94,50.01,drawn,learned 匈 / glyph 舟,46.94,50.01,False,False,False
+𠣘,U+208D8,⿹勹舟,GT,fang,default,Jigmo 2,drawn,learned 匈 / glyph 舟,12.2,21.53,drawn,learned 匈 / glyph 舟,12.2,21.53,drawn,learned 匈 / glyph 舟,12.2,21.53,False,False,False
+𠣘,U+208D8,⿹勹舟,GT,fang,held out,Jigmo 2,drawn,learned 匈 / glyph 舟,12.21,20.1,drawn,learned 匈 / glyph 舟,12.21,20.1,drawn,learned 匈 / glyph 舟,12.21,20.1,False,False,False
+𠣘,U+208D8,⿹勹舟,GT,reg,default,TW-Kai B,drawn,glyph 𠣘,32.27,99.69,drawn,glyph 𠣘,32.27,99.69,drawn,glyph 𠣘,32.27,99.69,False,False,False
+𠣘,U+208D8,⿹勹舟,GT,reg,held out,TW-Kai B,drawn,learned 匌 / glyph 舟,61.47,60.1,drawn,learned 匌 / glyph 舟,61.47,60.1,drawn,learned 匌 / glyph 舟,61.47,60.1,False,False,False
+𠣘,U+208D8,⿹勹舟,GT,pen,default,,drawn,learned 匊 / glyph 舟,,,drawn,learned 匊 / glyph 舟,,,drawn,learned 匊 / glyph 舟,,,False,False,False
+𠣘,U+208D8,⿹勹舟,GT,pen,held out,,drawn,learned 匊 / glyph 舟,,,drawn,learned 匊 / glyph 舟,,,drawn,learned 匊 / glyph 舟,,,False,False,False
+𠣙,U+208D9,⿹勹亘,GT,sans,default,Plangothic P1,drawn,glyph 𠣙,62.21,91.49,drawn,glyph 𠣙,62.21,91.49,drawn,glyph 𠣙,62.21,91.49,False,False,False
+𠣙,U+208D9,⿹勹亘,GT,sans,held out,Plangothic P1,drawn,learned 匋 / glyph 亘,73.62,75.75,drawn,learned 匋 / glyph 亘,73.62,75.75,drawn,learned 匋 / glyph 亘,73.62,75.75,False,False,False
+𠣙,U+208D9,⿹勹亘,GT,serif,default,Jigmo 2,drawn,glyph 𠣙,59.42,82.67,drawn,glyph 𠣙,59.42,82.67,drawn,glyph 𠣙,59.42,82.67,False,False,False
+𠣙,U+208D9,⿹勹亘,GT,serif,held out,Jigmo 2,drawn,learned 匈 / glyph 亘,36.75,42.61,drawn,learned 匈 / glyph 亘,36.75,42.61,drawn,learned 匈 / glyph 亘,36.75,42.61,False,False,False
+𠣙,U+208D9,⿹勹亘,GT,fang,default,Jigmo 2,drawn,learned 匈 / glyph 亘,10.54,18.53,drawn,learned 匈 / glyph 亘,10.54,18.53,drawn,learned 匈 / glyph 亘,10.54,18.53,False,False,False
+𠣙,U+208D9,⿹勹亘,GT,fang,held out,Jigmo 2,drawn,learned 匈 / glyph 亘,14.07,25.34,drawn,learned 匈 / glyph 亘,14.07,25.34,drawn,learned 匈 / glyph 亘,14.07,25.34,False,False,False
+𠣙,U+208D9,⿹勹亘,GT,reg,default,TW-Kai B,drawn,glyph 𠣙,26.18,99.67,drawn,glyph 𠣙,26.18,99.67,drawn,glyph 𠣙,26.18,99.67,False,False,False
+𠣙,U+208D9,⿹勹亘,GT,reg,held out,TW-Kai B,drawn,learned 匋 / glyph 亘,39.03,43.02,drawn,learned 匋 / glyph 亘,39.03,43.02,drawn,learned 匋 / glyph 亘,39.03,43.02,False,False,False
+𠣙,U+208D9,⿹勹亘,GT,pen,default,,drawn,learned 匊 / glyph 亘,,,drawn,learned 匊 / glyph 亘,,,drawn,learned 匊 / glyph 亘,,,False,False,False
+𠣙,U+208D9,⿹勹亘,GT,pen,held out,,drawn,learned 匊 / glyph 亘,,,drawn,learned 匊 / glyph 亘,,,drawn,learned 匊 / glyph 亘,,,False,False,False
+𠣚,U+208DA,⿹勹⿱二日,GT,sans,default,Plangothic P1,drawn,glyph 𠣚,61.66,92.06,drawn,glyph 𠣚,61.66,92.06,drawn,glyph 𠣚,61.66,92.06,False,False,False
+𠣚,U+208DA,⿹勹⿱二日,GT,sans,held out,Plangothic P1,drawn,learned 甸 / learned 忈 / learned 㫖,52.94,56.17,drawn,learned 甸 / learned 忈 / learned 㫖,52.94,56.17,drawn,learned 甸 / learned 忈 / learned 㫖,52.94,56.17,False,False,False
+𠣚,U+208DA,⿹勹⿱二日,GT,serif,default,Jigmo 2,drawn,glyph 𠣚,52.22,82.99,drawn,glyph 𠣚,52.22,82.99,drawn,glyph 𠣚,52.22,82.99,False,False,False
+𠣚,U+208DA,⿹勹⿱二日,GT,serif,held out,Jigmo 2,drawn,learned 匍 / glyph 二 / learned 㫖,32.62,27.87,drawn,learned 匍 / glyph 二 / learned 㫖,32.62,27.87,drawn,learned 匍 / glyph 二 / learned 㫖,32.62,27.87,False,False,False
+𠣚,U+208DA,⿹勹⿱二日,GT,fang,default,Jigmo 2,drawn,learned 匐 / glyph 二 / learned 旨,12.23,19.05,drawn,learned 匐 / glyph 二 / learned 旨,12.23,19.05,drawn,learned 匐 / glyph 二 / learned 旨,12.23,19.05,False,False,False
+𠣚,U+208DA,⿹勹⿱二日,GT,fang,held out,Jigmo 2,drawn,learned 匐 / glyph 二 / learned 旨,12.23,19.05,drawn,learned 匐 / glyph 二 / learned 旨,12.23,19.05,drawn,learned 匐 / glyph 二 / learned 旨,12.23,19.05,False,False,False
+𠣚,U+208DA,⿹勹⿱二日,GT,reg,default,TW-Kai B,drawn,glyph 𠣚,27.42,99.67,drawn,glyph 𠣚,27.42,99.67,drawn,glyph 𠣚,27.42,99.67,False,False,False
+𠣚,U+208DA,⿹勹⿱二日,GT,reg,held out,TW-Kai B,drawn,learned 匓 / learned 忈 / learned 㫖,36.29,42.86,drawn,learned 匓 / learned 忈 / learned 㫖,36.29,42.86,drawn,learned 匓 / learned 忈 / learned 㫖,36.29,42.86,False,False,False
+𠣚,U+208DA,⿹勹⿱二日,GT,pen,default,,drawn,learned 匐 / learned 忈 / learned 昔,,,drawn,learned 匐 / learned 忈 / learned 昔,,,drawn,learned 匐 / learned 忈 / learned 昔,,,False,False,False
+𠣚,U+208DA,⿹勹⿱二日,GT,pen,held out,,drawn,learned 匐 / learned 忈 / learned 昔,,,drawn,learned 匐 / learned 忈 / learned 昔,,,drawn,learned 匐 / learned 忈 / learned 昔,,,False,False,False
+𠣜,U+208DC,⿹勹虫,TV,sans,default,Plangothic P1,drawn,glyph 𠣜,64.32,94.79,drawn,glyph 𠣜,64.32,94.79,drawn,glyph 𠣜,64.32,94.79,False,False,False
+𠣜,U+208DC,⿹勹虫,TV,sans,held out,Plangothic P1,drawn,learned 匋 / learned 蛓,55.28,61.45,drawn,learned 匋 / learned 蛓,55.28,61.45,drawn,learned 匋 / learned 蛓,55.28,61.45,False,False,False
+𠣜,U+208DC,⿹勹虫,TV,serif,default,Jigmo 2,drawn,glyph 𠣜,68.1,86.37,drawn,glyph 𠣜,68.1,86.37,drawn,glyph 𠣜,68.1,86.37,False,False,False
+𠣜,U+208DC,⿹勹虫,TV,serif,held out,Jigmo 2,drawn,learned 匈 / learned 蛓,40.11,49.62,drawn,learned 匈 / learned 蛓,40.11,49.62,drawn,learned 匈 / learned 蛓,40.11,49.62,False,False,False
+𠣜,U+208DC,⿹勹虫,TV,fang,default,Jigmo 2,drawn,learned 匈 / glyph 虫,12.75,18.56,drawn,learned 匈 / glyph 虫,12.75,18.56,drawn,learned 匈 / glyph 虫,12.75,18.56,False,False,False
+𠣜,U+208DC,⿹勹虫,TV,fang,held out,Jigmo 2,drawn,learned 匈 / glyph 虫,14.27,24.12,drawn,learned 匈 / glyph 虫,14.27,24.12,drawn,learned 匈 / glyph 虫,14.27,24.12,False,False,False
+𠣜,U+208DC,⿹勹虫,TV,reg,default,TW-Kai B,drawn,glyph 𠣜,32.48,99.76,drawn,glyph 𠣜,32.48,99.76,drawn,glyph 𠣜,32.48,99.76,False,False,False
+𠣜,U+208DC,⿹勹虫,TV,reg,held out,TW-Kai B,drawn,learned 匊 / learned 蛓,62.58,62.04,drawn,learned 匊 / learned 蛓,62.58,62.04,drawn,learned 匊 / learned 蛓,62.58,62.04,False,False,False
+𠣜,U+208DC,⿹勹虫,TV,pen,default,,drawn,learned 匊 / glyph 虫,,,drawn,learned 匊 / glyph 虫,,,drawn,learned 匊 / glyph 虫,,,False,False,False
+𠣜,U+208DC,⿹勹虫,TV,pen,held out,,drawn,learned 匊 / glyph 虫,,,drawn,learned 匊 / glyph 虫,,,drawn,learned 匊 / glyph 虫,,,False,False,False
+𠣞,U+208DE,⿹勹車,GT,sans,default,Plangothic P1,drawn,glyph 𠣞,66.72,93.84,drawn,glyph 𠣞,66.72,93.84,drawn,glyph 𠣞,66.72,93.84,False,False,False
+𠣞,U+208DE,⿹勹車,GT,sans,held out,Plangothic P1,drawn,learned 匐 / learned 載,49.49,49.58,drawn,learned 匐 / learned 載,49.49,49.58,drawn,learned 匐 / learned 載,49.49,49.58,False,False,False
+𠣞,U+208DE,⿹勹車,GT,serif,default,Jigmo 2,drawn,glyph 𠣞,64.64,84.92,drawn,glyph 𠣞,64.64,84.92,drawn,glyph 𠣞,64.64,84.92,False,False,False
+𠣞,U+208DE,⿹勹車,GT,serif,held out,Jigmo 2,drawn,learned 匍 / learned 載,35.57,32.59,drawn,learned 匍 / learned 載,35.57,32.59,drawn,learned 匍 / learned 載,35.57,32.59,False,False,False
+𠣞,U+208DE,⿹勹車,GT,fang,default,Jigmo 2,drawn,learned 匐 / glyph 車,13.76,24.75,drawn,learned 匐 / glyph 車,13.76,24.75,drawn,learned 匐 / glyph 車,13.76,24.75,False,False,False
+𠣞,U+208DE,⿹勹車,GT,fang,held out,Jigmo 2,drawn,learned 匐 / glyph 車,16.82,33.05,drawn,learned 匐 / glyph 車,16.82,33.05,drawn,learned 匐 / glyph 車,16.82,33.05,False,False,False
+𠣞,U+208DE,⿹勹車,GT,reg,default,TW-Kai B,drawn,glyph 𠣞,31.17,99.61,drawn,glyph 𠣞,31.17,99.61,drawn,glyph 𠣞,31.17,99.61,False,False,False
+𠣞,U+208DE,⿹勹車,GT,reg,held out,TW-Kai B,drawn,learned 匋 / glyph 車,39.65,49.65,drawn,learned 匋 / glyph 車,39.65,49.65,drawn,learned 匋 / glyph 車,39.65,49.65,False,False,False
+𠣞,U+208DE,⿹勹車,GT,pen,default,,drawn,learned 匐 / learned 儎,,,drawn,learned 匐 / learned 儎,,,drawn,learned 匐 / learned 儎,,,False,False,False
+𠣞,U+208DE,⿹勹車,GT,pen,held out,,drawn,learned 匐 / learned 儎,,,drawn,learned 匐 / learned 儎,,,drawn,learned 匐 / learned 儎,,,False,False,False
+𠣟,U+208DF,⿹勹夋,GT,sans,default,Plangothic P1,drawn,glyph 𠣟,52.85,92.7,drawn,glyph 𠣟,52.85,92.7,drawn,glyph 𠣟,52.85,92.7,False,False,False
+𠣟,U+208DF,⿹勹夋,GT,sans,held out,Plangothic P1,drawn,learned 匓 / glyph 夋,61.94,64.08,drawn,learned 匓 / glyph 夋,61.94,64.08,drawn,learned 匓 / glyph 夋,61.94,64.08,False,False,False
+𠣟,U+208DF,⿹勹夋,GT,serif,default,Jigmo 2,drawn,glyph 𠣟,63.53,84.87,drawn,glyph 𠣟,63.53,84.87,drawn,glyph 𠣟,63.53,84.87,False,False,False
+𠣟,U+208DF,⿹勹夋,GT,serif,held out,Jigmo 2,drawn,learned 匍 / glyph 夋,31.35,29.79,drawn,learned 匍 / glyph 夋,31.35,29.79,drawn,learned 匍 / glyph 夋,31.35,29.79,False,False,False
+𠣟,U+208DF,⿹勹夋,GT,fang,default,Jigmo 2,drawn,learned 匈 / glyph 夋,14.06,24.31,drawn,learned 匈 / glyph 夋,14.06,24.31,drawn,learned 匈 / glyph 夋,14.06,24.31,False,False,False
+𠣟,U+208DF,⿹勹夋,GT,fang,held out,Jigmo 2,drawn,learned 匈 / glyph 夋,16.58,27.25,drawn,learned 匈 / glyph 夋,16.58,27.25,drawn,learned 匈 / glyph 夋,16.58,27.25,False,False,False
+𠣟,U+208DF,⿹勹夋,GT,reg,default,TW-Kai B,drawn,glyph 𠣟,39.63,99.67,drawn,glyph 𠣟,39.63,99.67,drawn,glyph 𠣟,39.63,99.67,False,False,False
+𠣟,U+208DF,⿹勹夋,GT,reg,held out,TW-Kai B,drawn,learned 匓 / glyph 夋,40.39,33.85,drawn,learned 匓 / glyph 夋,40.39,33.85,drawn,learned 匓 / glyph 夋,40.39,33.85,False,False,False
+𠣟,U+208DF,⿹勹夋,GT,pen,default,,drawn,learned 匐 / glyph 夋,,,drawn,learned 匐 / glyph 夋,,,drawn,learned 匐 / glyph 夋,,,False,False,False
+𠣟,U+208DF,⿹勹夋,GT,pen,held out,,drawn,learned 匐 / glyph 夋,,,drawn,learned 匐 / glyph 夋,,,drawn,learned 匐 / glyph 夋,,,False,False,False
+𠣠,U+208E0,⿹勹⿱⺊𠕁,GT,sans,default,Plangothic P1,drawn,glyph 𠣠,57.1,99.39,drawn,glyph 𠣠,57.1,99.39,drawn,glyph 𠣠,57.1,99.39,False,False,False
+𠣠,U+208E0,⿹勹⿱⺊𠕁,GT,sans,held out,Plangothic P1,drawn,learned 匐 / host 貞 / host 㕟,45.09,48.12,drawn,learned 匐 / host 貞 / host 㕟,45.09,48.12,drawn,learned 匐 / host 貞 / host 㕟,45.09,48.12,False,False,False
+𠣠,U+208E0,⿹勹⿱⺊𠕁,GT,serif,default,Jigmo 2,drawn,glyph 𠣠,70.32,87.62,drawn,glyph 𠣠,70.32,87.62,drawn,glyph 𠣠,70.32,87.62,False,False,False
+𠣠,U+208E0,⿹勹⿱⺊𠕁,GT,serif,held out,Jigmo 2,drawn,learned 匐 / host 卓 / host 嗣,39.64,34.14,drawn,learned 匐 / host 卓 / host 嗣,39.64,34.14,drawn,learned 匐 / host 卓 / host 嗣,39.64,34.14,False,False,False
+𠣠,U+208E0,⿹勹⿱⺊𠕁,GT,fang,default,Jigmo 2,No glyph or sequence draws ⺊.,,,,No glyph or sequence draws ⺊.,,,,No glyph or sequence draws ⺊.,,,,False,False,False
+𠣠,U+208E0,⿹勹⿱⺊𠕁,GT,fang,held out,Jigmo 2,No glyph or sequence draws ⺊.,,,,No glyph or sequence draws ⺊.,,,,No glyph or sequence draws ⺊.,,,,False,False,False
+𠣠,U+208E0,⿹勹⿱⺊𠕁,GT,reg,default,TW-Kai B,drawn,glyph 𠣠,25.8,99.76,drawn,glyph 𠣠,25.8,99.76,drawn,glyph 𠣠,25.8,99.76,False,False,False
+𠣠,U+208E0,⿹勹⿱⺊𠕁,GT,reg,held out,TW-Kai B,drawn,learned 匓 / glyph ⺊ / host 嗣,46.6,55.04,drawn,learned 匓 / glyph ⺊ / host 嗣,46.6,55.04,drawn,learned 匓 / glyph ⺊ / host 嗣,46.6,55.04,False,False,False
+𠣠,U+208E0,⿹勹⿱⺊𠕁,GT,pen,default,,drawn,learned 匍 / glyph ⺊ / host 嗣,,,drawn,learned 匍 / glyph ⺊ / host 嗣,,,drawn,learned 匍 / glyph ⺊ / host 嗣,,,False,False,False
+𠣠,U+208E0,⿹勹⿱⺊𠕁,GT,pen,held out,,drawn,learned 匍 / glyph ⺊ / host 嗣,,,drawn,learned 匍 / glyph ⺊ / host 嗣,,,drawn,learned 匍 / glyph ⺊ / host 嗣,,,False,False,False
+𠣡,U+208E1,⿹勹⿱八旦,GT,sans,default,Plangothic P1,drawn,glyph 𠣡,59.74,92.48,drawn,glyph 𠣡,59.74,92.48,drawn,glyph 𠣡,59.74,92.48,False,False,False
+𠣡,U+208E1,⿹勹⿱八旦,GT,sans,held out,Plangothic P1,drawn,learned 匐 / learned 兌 / learned 笪,54.38,56.73,drawn,learned 匐 / learned 兌 / learned 笪,54.38,56.73,drawn,learned 匐 / learned 兌 / learned 笪,54.38,56.73,False,False,False
+𠣡,U+208E1,⿹勹⿱八旦,GT,serif,default,Jigmo 2,drawn,glyph 𠣡,61.57,83.57,drawn,glyph 𠣡,61.57,83.57,drawn,glyph 𠣡,61.57,83.57,False,False,False
+𠣡,U+208E1,⿹勹⿱八旦,GT,serif,held out,Jigmo 2,drawn,learned 匑 / learned 鎹 / learned 笪,43.18,39.0,drawn,learned 匑 / learned 鎹 / learned 笪,43.18,39.0,drawn,learned 匑 / learned 鎹 / learned 笪,43.18,39.0,False,False,False
+𠣡,U+208E1,⿹勹⿱八旦,GT,fang,default,Jigmo 2,drawn,learned 匐 / learned 公 / learned 笪,11.28,19.37,drawn,learned 匐 / learned 公 / learned 笪,11.28,19.37,drawn,learned 匐 / learned 公 / learned 笪,11.28,19.37,False,False,False
+𠣡,U+208E1,⿹勹⿱八旦,GT,fang,held out,Jigmo 2,drawn,learned 匐 / learned 公 / learned 笪,11.28,19.37,drawn,learned 匐 / learned 公 / learned 笪,11.28,19.37,drawn,learned 匐 / learned 公 / learned 笪,11.28,19.37,False,False,False
+𠣡,U+208E1,⿹勹⿱八旦,GT,reg,default,TW-Kai B,drawn,glyph 𠣡,23.1,99.74,drawn,glyph 𠣡,23.1,99.74,drawn,glyph 𠣡,23.1,99.74,False,False,False
+𠣡,U+208E1,⿹勹⿱八旦,GT,reg,held out,TW-Kai B,drawn,learned 匓 / learned 㒶 / learned 笪,37.9,45.65,drawn,learned 匓 / learned 㒶 / learned 笪,37.9,45.65,drawn,learned 匓 / learned 㒶 / learned 笪,37.9,45.65,False,False,False
+𠣡,U+208E1,⿹勹⿱八旦,GT,pen,default,,drawn,learned 匍 / learned 燧 / learned 笪,,,drawn,learned 匍 / learned 燧 / learned 笪,,,drawn,learned 匍 / learned 燧 / learned 笪,,,False,False,False
+𠣡,U+208E1,⿹勹⿱八旦,GT,pen,held out,,drawn,learned 匍 / learned 燧 / learned 笪,,,drawn,learned 匍 / learned 燧 / learned 笪,,,drawn,learned 匍 / learned 燧 / learned 笪,,,False,False,False
+𠣤,U+208E4,⿹勹⿱日兮,GT,sans,default,Plangothic P1,drawn,glyph 𠣤,59.97,95.04,drawn,glyph 𠣤,59.97,95.04,drawn,glyph 𠣤,59.97,95.04,False,False,False
+𠣤,U+208E4,⿹勹⿱日兮,GT,sans,held out,Plangothic P1,drawn,learned 匑 / learned 昌 / learned 諡,50.07,52.48,drawn,learned 匑 / learned 昌 / learned 諡,50.07,52.48,drawn,learned 匑 / learned 昌 / learned 諡,50.07,52.48,False,False,False
+𠣤,U+208E4,⿹勹⿱日兮,GT,serif,default,Jigmo 2,drawn,glyph 𠣤,60.05,84.04,drawn,glyph 𠣤,60.05,84.04,drawn,glyph 𠣤,60.05,84.04,False,False,False
+𠣤,U+208E4,⿹勹⿱日兮,GT,serif,held out,Jigmo 2,drawn,learned 匑 / learned 昂 / learned 諡,29.73,25.94,drawn,learned 匑 / learned 昂 / learned 諡,29.73,25.94,drawn,learned 匑 / learned 昂 / learned 諡,29.73,25.94,False,False,False
+𠣤,U+208E4,⿹勹⿱日兮,GT,fang,default,Jigmo 2,drawn,learned 匐 / learned 昊 / glyph 兮,14.89,23.59,drawn,learned 匐 / learned 昊 / glyph 兮,14.89,23.59,drawn,learned 匐 / learned 昊 / glyph 兮,14.89,23.59,False,False,False
+𠣤,U+208E4,⿹勹⿱日兮,GT,fang,held out,Jigmo 2,drawn,learned 匐 / learned 昊 / glyph 兮,14.89,23.59,drawn,learned 匐 / learned 昊 / glyph 兮,14.89,23.59,drawn,learned 匐 / learned 昊 / glyph 兮,14.89,23.59,False,False,False
+𠣤,U+208E4,⿹勹⿱日兮,GT,reg,default,TW-Kai B,drawn,glyph 𠣤,37.64,99.67,drawn,glyph 𠣤,37.64,99.67,drawn,glyph 𠣤,37.64,99.67,False,False,False
+𠣤,U+208E4,⿹勹⿱日兮,GT,reg,held out,TW-Kai B,drawn,learned 匓 / learned 昰 / glyph 兮,27.74,25.18,drawn,learned 匓 / learned 昰 / glyph 兮,27.74,25.18,drawn,learned 匓 / learned 昰 / glyph 兮,27.74,25.18,False,False,False
+𠣤,U+208E4,⿹勹⿱日兮,GT,pen,default,,drawn,learned 匍 / learned 昰 / glyph 兮,,,drawn,learned 匍 / learned 昰 / glyph 兮,,,drawn,learned 匍 / learned 昰 / glyph 兮,,,False,False,False
+𠣤,U+208E4,⿹勹⿱日兮,GT,pen,held out,,drawn,learned 匍 / learned 昰 / glyph 兮,,,drawn,learned 匍 / learned 昰 / glyph 兮,,,drawn,learned 匍 / learned 昰 / glyph 兮,,,False,False,False
+𠣥,U+208E5,⿹勹豖,GT,sans,default,Plangothic P1,drawn,glyph 𠣥,56.81,93.79,drawn,glyph 𠣥,56.81,93.79,drawn,glyph 𠣥,56.81,93.79,False,False,False
+𠣥,U+208E5,⿹勹豖,GT,sans,held out,Plangothic P1,drawn,learned 匓 / glyph 豖,54.87,54.88,drawn,learned 匓 / glyph 豖,54.87,54.88,drawn,learned 匓 / glyph 豖,54.87,54.88,False,False,False
+𠣥,U+208E5,⿹勹豖,GT,serif,default,Jigmo 2,drawn,glyph 𠣥,59.43,84.62,drawn,glyph 𠣥,59.43,84.62,drawn,glyph 𠣥,59.43,84.62,False,False,False
+𠣥,U+208E5,⿹勹豖,GT,serif,held out,Jigmo 2,drawn,learned 匍 / glyph 豖,26.73,23.72,drawn,learned 匍 / glyph 豖,26.73,23.72,drawn,learned 匍 / glyph 豖,26.73,23.72,False,False,False
+𠣥,U+208E5,⿹勹豖,GT,fang,default,Jigmo 2,drawn,learned 匐 / learned 瘃,15.25,28.74,drawn,learned 匐 / learned 瘃,15.25,28.74,drawn,learned 匐 / learned 瘃,15.25,28.74,False,False,False
+𠣥,U+208E5,⿹勹豖,GT,fang,held out,Jigmo 2,drawn,learned 匐 / learned 瘃,15.25,28.74,drawn,learned 匐 / learned 瘃,15.25,28.74,drawn,learned 匐 / learned 瘃,15.25,28.74,False,False,False
+𠣥,U+208E5,⿹勹豖,GT,reg,default,TW-Kai B,drawn,glyph 𠣥,30.52,99.75,drawn,glyph 𠣥,30.52,99.75,drawn,glyph 𠣥,30.52,99.75,False,False,False
+𠣥,U+208E5,⿹勹豖,GT,reg,held out,TW-Kai B,drawn,learned 匌 / glyph 豖,23.32,31.99,drawn,learned 匌 / glyph 豖,23.32,31.99,drawn,learned 匌 / glyph 豖,23.32,31.99,False,False,False
+𠣥,U+208E5,⿹勹豖,GT,pen,default,,drawn,learned 匊 / glyph 豖,,,drawn,learned 匊 / glyph 豖,,,drawn,learned 匊 / glyph 豖,,,False,False,False
+𠣥,U+208E5,⿹勹豖,GT,pen,held out,,drawn,learned 匊 / glyph 豖,,,drawn,learned 匊 / glyph 豖,,,drawn,learned 匊 / glyph 豖,,,False,False,False
+𠣦,U+208E6,⿹勹炗,GT,sans,default,Plangothic P1,drawn,glyph 𠣦,58.12,95.05,drawn,glyph 𠣦,58.12,95.05,drawn,glyph 𠣦,58.12,95.05,False,False,False
+𠣦,U+208E6,⿹勹炗,GT,sans,held out,Plangothic P1,drawn,learned 匋 / glyph 炗,50.73,50.23,drawn,learned 匋 / glyph 炗,50.73,50.23,drawn,learned 匋 / glyph 炗,50.73,50.23,False,False,False
+𠣦,U+208E6,⿹勹炗,GT,serif,default,Jigmo 2,drawn,glyph 𠣦,62.4,85.01,drawn,glyph 𠣦,62.4,85.01,drawn,glyph 𠣦,62.4,85.01,False,False,False
+𠣦,U+208E6,⿹勹炗,GT,serif,held out,Jigmo 2,drawn,learned 訇 / glyph 炗,32.96,33.22,drawn,learned 訇 / glyph 炗,32.96,33.22,drawn,learned 訇 / glyph 炗,32.96,33.22,False,False,False
+𠣦,U+208E6,⿹勹炗,GT,fang,default,Jigmo 2,drawn,learned 匐 / learned 黃 / learned 災,10.79,23.87,drawn,learned 匐 / learned 黃 / learned 災,10.79,23.87,drawn,learned 匐 / learned 黃 / learned 災,10.79,23.87,False,False,False
+𠣦,U+208E6,⿹勹炗,GT,fang,held out,Jigmo 2,drawn,learned 匐 / learned 黃 / learned 災,10.79,23.87,drawn,learned 匐 / learned 黃 / learned 災,10.79,23.87,drawn,learned 匐 / learned 黃 / learned 災,10.79,23.87,False,False,False
+𠣦,U+208E6,⿹勹炗,GT,reg,default,TW-Kai B,drawn,glyph 𠣦,27.96,99.72,drawn,glyph 𠣦,27.96,99.72,drawn,glyph 𠣦,27.96,99.72,False,False,False
+𠣦,U+208E6,⿹勹炗,GT,reg,held out,TW-Kai B,drawn,learned 匋 / glyph 炗,36.44,41.44,drawn,learned 匋 / glyph 炗,36.44,41.44,drawn,learned 匋 / glyph 炗,36.44,41.44,False,False,False
+𠣦,U+208E6,⿹勹炗,GT,pen,default,,drawn,learned 匊 / glyph 炗,,,drawn,learned 匊 / glyph 炗,,,drawn,learned 匊 / glyph 炗,,,False,False,False
+𠣦,U+208E6,⿹勹炗,GT,pen,held out,,drawn,learned 匊 / glyph 炗,,,drawn,learned 匊 / glyph 炗,,,drawn,learned 匊 / glyph 炗,,,False,False,False
+𠣭,U+208ED,⿹勹咅,G,sans,default,Plangothic P1,drawn,glyph 𠣭,59.76,93.44,drawn,glyph 𠣭,59.76,93.44,drawn,glyph 𠣭,59.76,93.44,False,False,False
+𠣭,U+208ED,⿹勹咅,G,sans,held out,Plangothic P1,drawn,learned 匋 / glyph 咅,51.02,54.02,drawn,learned 匋 / glyph 咅,51.02,54.02,drawn,learned 匋 / glyph 咅,51.02,54.02,False,False,False
+𠣭,U+208ED,⿹勹咅,G,serif,default,Jigmo 2,drawn,glyph 𠣭,60.73,83.37,drawn,glyph 𠣭,60.73,83.37,drawn,glyph 𠣭,60.73,83.37,False,False,False
+𠣭,U+208ED,⿹勹咅,G,serif,held out,Jigmo 2,drawn,learned 訇 / glyph 咅,37.99,35.82,drawn,learned 訇 / glyph 咅,37.99,35.82,drawn,learned 訇 / glyph 咅,37.99,35.82,False,False,False
+𠣭,U+208ED,⿹勹咅,G,fang,default,Jigmo 2,drawn,learned 匐 / instance 菩,13.71,27.32,drawn,learned 匐 / instance 菩,13.71,27.32,drawn,learned 匐 / instance 菩,13.71,27.32,False,False,False
+𠣭,U+208ED,⿹勹咅,G,fang,held out,Jigmo 2,drawn,learned 匐 / learned 音 / learned 吝,13.1,26.15,drawn,learned 匐 / learned 音 / learned 吝,13.1,26.15,drawn,learned 匐 / learned 音 / learned 吝,13.1,26.15,False,False,False
+𠣭,U+208ED,⿹勹咅,G,reg,default,TW-Kai B,drawn,glyph 𠣭,37.06,99.75,drawn,glyph 𠣭,37.06,99.75,drawn,glyph 𠣭,37.06,99.75,False,False,False
+𠣭,U+208ED,⿹勹咅,G,reg,held out,TW-Kai B,drawn,learned 匌 / glyph 咅,43.08,52.39,drawn,learned 匌 / glyph 咅,43.08,52.39,drawn,learned 匌 / glyph 咅,43.08,52.39,False,False,False
+𠣭,U+208ED,⿹勹咅,G,pen,default,,drawn,learned 匊 / glyph 咅,,,drawn,learned 匊 / glyph 咅,,,drawn,learned 匊 / glyph 咅,,,False,False,False
+𠣭,U+208ED,⿹勹咅,G,pen,held out,,drawn,learned 匊 / glyph 咅,,,drawn,learned 匊 / glyph 咅,,,drawn,learned 匊 / glyph 咅,,,False,False,False
+𠣮,U+208EE,⿹勹羍,GTP,sans,default,Plangothic P1,drawn,glyph 𠣮,59.38,92.06,drawn,glyph 𠣮,59.38,92.06,drawn,glyph 𠣮,59.38,92.06,False,False,False
+𠣮,U+208EE,⿹勹羍,GTP,sans,held out,Plangothic P1,drawn,learned 匐 / glyph 羍,66.03,64.14,drawn,learned 匐 / glyph 羍,66.03,64.14,drawn,learned 匐 / glyph 羍,66.03,64.14,False,False,False
+𠣮,U+208EE,⿹勹羍,GTP,serif,default,Jigmo 2,drawn,glyph 𠣮,61.89,83.71,drawn,glyph 𠣮,61.89,83.71,drawn,glyph 𠣮,61.89,83.71,False,False,False
+𠣮,U+208EE,⿹勹羍,GTP,serif,held out,Jigmo 2,drawn,learned 匍 / glyph 羍,36.93,35.19,drawn,learned 匍 / glyph 羍,36.93,35.19,drawn,learned 匍 / glyph 羍,36.93,35.19,False,False,False
+𠣮,U+208EE,⿹勹羍,GTP,fang,default,Jigmo 2,drawn,learned 匐 / glyph 大 / glyph 羊,15.81,23.56,drawn,learned 匐 / glyph 大 / glyph 羊,15.81,23.56,drawn,learned 匐 / glyph 大 / glyph 羊,15.81,23.56,False,False,False
+𠣮,U+208EE,⿹勹羍,GTP,fang,held out,Jigmo 2,drawn,learned 匐 / glyph 大 / glyph 羊,15.81,23.56,drawn,learned 匐 / glyph 大 / glyph 羊,15.81,23.56,drawn,learned 匐 / glyph 大 / glyph 羊,15.81,23.56,False,False,False
+𠣮,U+208EE,⿹勹羍,GTP,reg,default,TW-Kai B,drawn,glyph 𠣮,33.38,99.63,drawn,glyph 𠣮,33.38,99.63,drawn,glyph 𠣮,33.38,99.63,False,False,False
+𠣮,U+208EE,⿹勹羍,GTP,reg,held out,TW-Kai B,drawn,learned 匌 / glyph 羍,55.13,57.68,drawn,learned 匌 / glyph 羍,55.13,57.68,drawn,learned 匌 / glyph 羍,55.13,57.68,False,False,False
+𠣮,U+208EE,⿹勹羍,GTP,pen,default,,drawn,learned 匐 / glyph 羍,,,drawn,learned 匐 / glyph 羍,,,drawn,learned 匐 / glyph 羍,,,False,False,False
+𠣮,U+208EE,⿹勹羍,GTP,pen,held out,,drawn,learned 匐 / glyph 羍,,,drawn,learned 匐 / glyph 羍,,,drawn,learned 匐 / glyph 羍,,,False,False,False
+𠣯,U+208EF,⿹勹苗,GTV,sans,default,Plangothic P1,drawn,glyph 𠣯,59.66,94.09,drawn,glyph 𠣯,59.66,94.09,drawn,glyph 𠣯,59.66,94.09,False,False,False
+𠣯,U+208EF,⿹勹苗,GTV,sans,held out,Plangothic P1,drawn,learned 匐 / glyph 苗,61.13,60.26,drawn,learned 匐 / glyph 苗,61.13,60.26,drawn,learned 匐 / glyph 苗,61.13,60.26,False,False,False
+𠣯,U+208EF,⿹勹苗,GTV,serif,default,Jigmo 2,drawn,glyph 𠣯,67.28,86.08,drawn,glyph 𠣯,67.28,86.08,drawn,glyph 𠣯,67.28,86.08,False,False,False
+𠣯,U+208EF,⿹勹苗,GTV,serif,held out,Jigmo 2,drawn,learned 匍 / glyph 苗,36.74,32.88,drawn,learned 匍 / glyph 苗,36.74,32.88,drawn,learned 匍 / glyph 苗,36.74,32.88,False,False,False
+𠣯,U+208EF,⿹勹苗,GTV,fang,default,Jigmo 2,drawn,learned 匐 / glyph 苗,15.7,25.84,drawn,learned 匐 / glyph 苗,15.7,25.84,drawn,learned 匐 / glyph 苗,15.7,25.84,False,False,False
+𠣯,U+208EF,⿹勹苗,GTV,fang,held out,Jigmo 2,drawn,learned 匐 / glyph 苗,16.42,28.98,drawn,learned 匐 / glyph 苗,16.42,28.98,drawn,learned 匐 / glyph 苗,16.42,28.98,False,False,False
+𠣯,U+208EF,⿹勹苗,GTV,reg,default,TW-Kai B,drawn,glyph 𠣯 kept / TW-Kai: 艹,22.97,93.18,drawn,glyph 𠣯 kept / TW-Kai: 艹,22.97,93.18,drawn,glyph 𠣯 kept / TW-Kai: 艹,22.97,93.18,False,False,False
+𠣯,U+208EF,⿹勹苗,GTV,reg,held out,TW-Kai B,drawn,learned 匋 / glyph 苗 kept / TW-Kai: 艹,45.26,44.03,drawn,learned 匋 / glyph 苗 kept / TW-Kai: 艹,45.26,44.03,drawn,learned 匋 / glyph 苗 kept / TW-Kai: 艹,45.26,44.03,False,False,False
+𠣯,U+208EF,⿹勹苗,GTV,pen,default,,drawn,learned 匐 / glyph 苗,,,drawn,learned 匐 / glyph 苗,,,drawn,learned 匐 / glyph 苗,,,False,False,False
+𠣯,U+208EF,⿹勹苗,GTV,pen,held out,,drawn,learned 匐 / glyph 苗,,,drawn,learned 匐 / glyph 苗,,,drawn,learned 匐 / glyph 苗,,,False,False,False
+𠣰,U+208F0,⿹勹者,GTP,sans,default,Plangothic P1,drawn,glyph 𠣰,60.57,94.3,drawn,glyph 𠣰,60.57,94.3,drawn,glyph 𠣰,60.57,94.3,False,False,False
+𠣰,U+208F0,⿹勹者,GTP,sans,held out,Plangothic P1,drawn,learned 匓 / glyph 者,53.59,59.75,drawn,learned 匓 / glyph 者,53.59,59.75,drawn,learned 匓 / glyph 者,53.59,59.75,False,False,False
+𠣰,U+208F0,⿹勹者,GTP,serif,default,Jigmo 2,drawn,glyph 𠣰,63.19,84.62,drawn,glyph 𠣰,63.19,84.62,drawn,glyph 𠣰,63.19,84.62,False,False,False
+𠣰,U+208F0,⿹勹者,GTP,serif,held out,Jigmo 2,drawn,learned 匍 / glyph 者,30.26,31.11,drawn,learned 匍 / glyph 者,30.26,31.11,drawn,learned 匍 / glyph 者,30.26,31.11,False,False,False
+𠣰,U+208F0,⿹勹者,GTP,fang,default,Jigmo 2,drawn,learned 匐 / glyph 者,14.5,24.94,drawn,learned 匐 / glyph 者,14.5,24.94,drawn,learned 匐 / glyph 者,14.5,24.94,False,False,False
+𠣰,U+208F0,⿹勹者,GTP,fang,held out,Jigmo 2,drawn,learned 匐 / glyph 者,21.29,29.68,drawn,learned 匐 / glyph 者,21.29,29.68,drawn,learned 匐 / glyph 者,21.29,29.68,False,False,False
+𠣰,U+208F0,⿹勹者,GTP,reg,default,TW-Kai B,drawn,glyph 𠣰,36.27,99.72,drawn,glyph 𠣰,36.27,99.72,drawn,glyph 𠣰,36.27,99.72,False,False,False
+𠣰,U+208F0,⿹勹者,GTP,reg,held out,TW-Kai B,drawn,learned 匋 / glyph 者,44.78,51.58,drawn,learned 匋 / glyph 者,44.78,51.58,drawn,learned 匋 / glyph 者,44.78,51.58,False,False,False
+𠣰,U+208F0,⿹勹者,GTP,pen,default,,drawn,learned 匊 / glyph 者,,,drawn,learned 匊 / glyph 者,,,drawn,learned 匊 / glyph 者,,,False,False,False
+𠣰,U+208F0,⿹勹者,GTP,pen,held out,,drawn,learned 匊 / glyph 者,,,drawn,learned 匊 / glyph 者,,,drawn,learned 匊 / glyph 者,,,False,False,False
+𠣱,U+208F1,⿹勹⿱⺊囬,GT,sans,default,Plangothic P1,drawn,glyph 𠣱,56.48,94.7,drawn,glyph 𠣱,56.48,94.7,drawn,glyph 𠣱,56.48,94.7,False,False,False
+𠣱,U+208F1,⿹勹⿱⺊囬,GT,sans,held out,Plangothic P1,drawn,learned 匑 / learned 偼 / learned 圗,39.79,42.97,drawn,learned 匑 / learned 偼 / learned 圗,39.79,42.97,drawn,learned 匑 / learned 偼 / learned 圗,39.79,42.97,False,False,False
+𠣱,U+208F1,⿹勹⿱⺊囬,GT,serif,default,Jigmo 2,drawn,glyph 𠣱,69.54,87.05,drawn,glyph 𠣱,69.54,87.05,drawn,glyph 𠣱,69.54,87.05,False,False,False
+𠣱,U+208F1,⿹勹⿱⺊囬,GT,serif,held out,Jigmo 2,drawn,learned 匑 / learned 鹵 / learned 𭍥,27.75,25.44,drawn,learned 匑 / learned 鹵 / learned 𭍥,27.75,25.44,drawn,learned 匑 / learned 鹵 / learned 𭍥,27.75,25.44,False,False,False
+𠣱,U+208F1,⿹勹⿱⺊囬,GT,fang,default,Jigmo 2,No glyph or sequence draws ⺊.,,,,No glyph or sequence draws ⺊.,,,,No glyph or sequence draws ⺊.,,,,False,False,False
+𠣱,U+208F1,⿹勹⿱⺊囬,GT,fang,held out,Jigmo 2,No glyph or sequence draws ⺊.,,,,No glyph or sequence draws ⺊.,,,,No glyph or sequence draws ⺊.,,,,False,False,False
+𠣱,U+208F1,⿹勹⿱⺊囬,GT,reg,default,TW-Kai B,drawn,glyph 𠣱,26.82,99.74,drawn,glyph 𠣱,26.82,99.74,drawn,glyph 𠣱,26.82,99.74,False,False,False
+𠣱,U+208F1,⿹勹⿱⺊囬,GT,reg,held out,TW-Kai B,drawn,learned 匓 / glyph ⺊ / glyph 囬,28.28,30.74,drawn,learned 匓 / glyph ⺊ / glyph 囬,28.28,30.74,drawn,learned 匓 / glyph ⺊ / glyph 囬,28.28,30.74,False,False,False
+𠣱,U+208F1,⿹勹⿱⺊囬,GT,pen,default,,drawn,learned 匍 / glyph ⺊ / glyph 囬,,,drawn,learned 匍 / glyph ⺊ / glyph 囬,,,drawn,learned 匍 / glyph ⺊ / glyph 囬,,,False,False,False
+𠣱,U+208F1,⿹勹⿱⺊囬,GT,pen,held out,,drawn,learned 匍 / glyph ⺊ / glyph 囬,,,drawn,learned 匍 / glyph ⺊ / glyph 囬,,,drawn,learned 匍 / glyph ⺊ / glyph 囬,,,False,False,False
+𠣲,U+208F2,⿹勹⿱艹𠙽,G,sans,default,Plangothic P1,drawn,glyph 𠣲,57.76,95.32,drawn,glyph 𠣲,57.76,95.32,drawn,glyph 𠣲,57.76,95.32,False,False,False
+𠣲,U+208F2,⿹勹⿱艹𠙽,G,sans,held out,Plangothic P1,drawn,learned 匓 / learned 苳 / learned 𫡺,34.49,34.28,drawn,learned 匓 / learned 苳 / learned 𫡺,34.49,34.28,drawn,learned 匓 / learned 苳 / learned 𫡺,34.49,34.28,False,False,False
+𠣲,U+208F2,⿹勹⿱艹𠙽,G,serif,default,Jigmo 2,drawn,glyph 𠣲,59.29,85.46,drawn,glyph 𠣲,59.29,85.46,drawn,glyph 𠣲,59.29,85.46,False,False,False
+𠣲,U+208F2,⿹勹⿱艹𠙽,G,serif,held out,Jigmo 2,drawn,learned 匐 / learned 茉 / glyph 𠙽,30.33,26.24,drawn,learned 匐 / learned 茉 / glyph 𠙽,30.33,26.24,drawn,learned 匐 / learned 茉 / glyph 𠙽,30.33,26.24,False,False,False
+𠣲,U+208F2,⿹勹⿱艹𠙽,G,fang,default,Jigmo 2,drawn,learned 匐 / learned 蓇 / glyph 凵 / glyph 士,11.91,22.57,drawn,learned 匐 / learned 蓇 / glyph 凵 / glyph 士,11.91,22.57,drawn,learned 匐 / learned 蓇 / glyph 凵 / glyph 士,11.91,22.57,False,False,False
+𠣲,U+208F2,⿹勹⿱艹𠙽,G,fang,held out,Jigmo 2,drawn,learned 匐 / learned 蓇 / glyph 凵 / glyph 士,11.91,22.57,drawn,learned 匐 / learned 蓇 / glyph 凵 / glyph 士,11.91,22.57,drawn,learned 匐 / learned 蓇 / glyph 凵 / glyph 士,11.91,22.57,False,False,False
+𠣲,U+208F2,⿹勹⿱艹𠙽,G,reg,default,TW-Kai B,drawn,glyph 𠣲,30.93,99.74,drawn,glyph 𠣲,30.93,99.74,drawn,glyph 𠣲,30.93,99.74,False,False,False
+𠣲,U+208F2,⿹勹⿱艹𠙽,G,reg,held out,TW-Kai B,drawn,learned 匓 / TW-Kai: 艹 / glyph 𠙽,30.15,38.76,drawn,learned 匓 / TW-Kai: 艹 / glyph 𠙽,30.15,38.76,drawn,learned 匓 / TW-Kai: 艹 / glyph 𠙽,30.15,38.76,False,False,False
+𠣲,U+208F2,⿹勹⿱艹𠙽,G,pen,default,,drawn,learned 匍 / learned 莠 / instance 屆,,,drawn,learned 匍 / learned 莠 / instance 屆,,,drawn,learned 匍 / learned 莠 / instance 屆,,,False,False,False
+𠣲,U+208F2,⿹勹⿱艹𠙽,G,pen,held out,,drawn,learned 匍 / learned 莠 / glyph 凵 / glyph 士,,,drawn,learned 匍 / learned 莠 / glyph 凵 / glyph 士,,,drawn,learned 匍 / learned 莠 / glyph 凵 / glyph 士,,,False,False,False
+𠣴,U+208F4,⿹勹复,GT,sans,default,Plangothic P1,drawn,glyph 𠣴,59.96,91.78,drawn,glyph 𠣴,59.96,91.78,drawn,glyph 𠣴,59.96,91.78,False,False,False
+𠣴,U+208F4,⿹勹复,GT,sans,held out,Plangothic P1,drawn,learned 匋 / glyph 复,64.64,65.37,drawn,learned 匋 / glyph 复,64.64,65.37,drawn,learned 匋 / glyph 复,64.64,65.37,False,False,False
+𠣴,U+208F4,⿹勹复,GT,serif,default,Jigmo 2,drawn,glyph 𠣴,58.4,83.21,drawn,glyph 𠣴,58.4,83.21,drawn,glyph 𠣴,58.4,83.21,False,False,False
+𠣴,U+208F4,⿹勹复,GT,serif,held out,Jigmo 2,drawn,learned 匍 / glyph 复,46.0,52.99,drawn,learned 匍 / glyph 复,46.0,52.99,drawn,learned 匍 / glyph 复,46.0,52.99,False,False,False
+𠣴,U+208F4,⿹勹复,GT,fang,default,Jigmo 2,drawn,learned 匐 / glyph 复,18.73,20.45,drawn,learned 匐 / glyph 复,18.73,20.45,drawn,learned 匐 / glyph 复,18.73,20.45,False,False,False
+𠣴,U+208F4,⿹勹复,GT,fang,held out,Jigmo 2,drawn,learned 匐 / glyph 复,20.49,24.44,drawn,learned 匐 / glyph 复,20.49,24.44,drawn,learned 匐 / glyph 复,20.49,24.44,False,False,False
+𠣴,U+208F4,⿹勹复,GT,reg,default,TW-Kai B,drawn,glyph 𠣴,24.04,99.64,drawn,glyph 𠣴,24.04,99.64,drawn,glyph 𠣴,24.04,99.64,False,False,False
+𠣴,U+208F4,⿹勹复,GT,reg,held out,TW-Kai B,drawn,learned 匓 / glyph 复,33.88,36.89,drawn,learned 匓 / glyph 复,33.88,36.89,drawn,learned 匓 / glyph 复,33.88,36.89,False,False,False
+𠣴,U+208F4,⿹勹复,GT,pen,default,,drawn,learned 匍 / glyph 复,,,drawn,learned 匍 / glyph 复,,,drawn,learned 匍 / glyph 复,,,False,False,False
+𠣴,U+208F4,⿹勹复,GT,pen,held out,,drawn,learned 匍 / glyph 复,,,drawn,learned 匍 / glyph 复,,,drawn,learned 匍 / glyph 复,,,False,False,False
+𠣵,U+208F5,⿹勹尃,GT,sans,default,Plangothic P1,drawn,glyph 𠣵,55.91,87.16,drawn,glyph 𠣵,55.91,87.16,drawn,glyph 𠣵,55.91,87.16,False,False,False
+𠣵,U+208F5,⿹勹尃,GT,sans,held out,Plangothic P1,drawn,learned 匑 / glyph 尃,57.61,59.81,drawn,learned 匑 / glyph 尃,57.61,59.81,drawn,learned 匑 / glyph 尃,57.61,59.81,False,False,False
+𠣵,U+208F5,⿹勹尃,GT,serif,default,Jigmo 2,drawn,glyph 𠣵,57.09,82.94,drawn,glyph 𠣵,57.09,82.94,drawn,glyph 𠣵,57.09,82.94,False,False,False
+𠣵,U+208F5,⿹勹尃,GT,serif,held out,Jigmo 2,drawn,learned 匑 / glyph 尃,44.47,51.5,drawn,learned 匑 / glyph 尃,44.47,51.5,drawn,learned 匑 / glyph 尃,44.47,51.5,False,False,False
+𠣵,U+208F5,⿹勹尃,GT,fang,default,Jigmo 2,drawn,learned 匐 / host 搏 / host 將,13.44,17.98,drawn,learned 匐 / host 搏 / host 將,13.44,17.98,drawn,learned 匐 / host 搏 / host 將,13.44,17.98,False,False,False
+𠣵,U+208F5,⿹勹尃,GT,fang,held out,Jigmo 2,drawn,learned 匐 / host 搏 / host 將,13.44,17.98,drawn,learned 匐 / host 搏 / host 將,13.44,17.98,drawn,learned 匐 / host 搏 / host 將,13.44,17.98,False,False,False
+𠣵,U+208F5,⿹勹尃,GT,reg,default,TW-Kai B,drawn,glyph 𠣵,37.07,99.76,drawn,glyph 𠣵,37.07,99.76,drawn,glyph 𠣵,37.07,99.76,False,False,False
+𠣵,U+208F5,⿹勹尃,GT,reg,held out,TW-Kai B,drawn,learned 匌 / glyph 尃,57.36,64.51,drawn,learned 匌 / glyph 尃,57.36,64.51,drawn,learned 匌 / glyph 尃,57.36,64.51,False,False,False
+𠣵,U+208F5,⿹勹尃,GT,pen,default,,drawn,learned 匍 / glyph 尃,,,drawn,learned 匍 / glyph 尃,,,drawn,learned 匍 / glyph 尃,,,False,False,False
+𠣵,U+208F5,⿹勹尃,GT,pen,held out,,drawn,learned 匍 / glyph 尃,,,drawn,learned 匍 / glyph 尃,,,drawn,learned 匍 / glyph 尃,,,False,False,False
+𠣸,U+208F8,⿹勹𡕨,GT,sans,default,Plangothic P1,drawn,glyph 𠣸,56.07,82.4,drawn,glyph 𠣸,56.07,82.4,drawn,glyph 𠣸,56.07,82.4,False,False,False
+𠣸,U+208F8,⿹勹𡕨,GT,sans,held out,Plangothic P1,drawn,learned 匐 / glyph 𡕨,51.89,49.66,drawn,learned 匐 / glyph 𡕨,51.89,49.66,drawn,learned 匐 / glyph 𡕨,51.89,49.66,False,False,False
+𠣸,U+208F8,⿹勹𡕨,GT,serif,default,Jigmo 2,drawn,glyph 𠣸,49.45,82.06,drawn,glyph 𠣸,49.45,82.06,drawn,glyph 𠣸,49.45,82.06,False,False,False
+𠣸,U+208F8,⿹勹𡕨,GT,serif,held out,Jigmo 2,drawn,learned 匐 / glyph 𡕨,20.37,32.38,drawn,learned 匐 / glyph 𡕨,20.37,32.38,drawn,learned 匐 / glyph 𡕨,20.37,32.38,False,False,False
+𠣸,U+208F8,⿹勹𡕨,GT,fang,default,Jigmo 2,drawn,learned 匐 / host 襄 / glyph 吕 / host 変,12.38,19.78,drawn,learned 匐 / host 襄 / glyph 吕 / host 変,12.38,19.78,drawn,learned 匐 / host 襄 / glyph 吕 / host 変,12.38,19.78,False,False,False
+𠣸,U+208F8,⿹勹𡕨,GT,fang,held out,Jigmo 2,drawn,learned 匐 / host 襄 / glyph 吕 / host 変,12.38,19.78,drawn,learned 匐 / host 襄 / glyph 吕 / host 変,12.38,19.78,drawn,learned 匐 / host 襄 / glyph 吕 / host 変,12.38,19.78,False,False,False
+𠣸,U+208F8,⿹勹𡕨,GT,reg,default,TW-Kai B,drawn,glyph 𠣸,30.06,99.68,drawn,glyph 𠣸,30.06,99.68,drawn,glyph 𠣸,30.06,99.68,False,False,False
+𠣸,U+208F8,⿹勹𡕨,GT,reg,held out,TW-Kai B,drawn,learned 匓 / glyph 𡕨,48.25,51.94,drawn,learned 匓 / glyph 𡕨,48.25,51.94,drawn,learned 匓 / glyph 𡕨,48.25,51.94,False,False,False
+𠣸,U+208F8,⿹勹𡕨,GT,pen,default,,No glyph or sequence draws 𡕨.,,,,No glyph or sequence draws 𡕨.,,,,No glyph or sequence draws 𡕨.,,,,False,False,False
+𠣸,U+208F8,⿹勹𡕨,GT,pen,held out,,No glyph or sequence draws 𡕨.,,,,No glyph or sequence draws 𡕨.,,,,No glyph or sequence draws 𡕨.,,,,False,False,False
+𠣹,U+208F9,⿹勹既,GT,sans,default,Plangothic P1,drawn,glyph 𠣹,53.02,92.83,drawn,glyph 𠣹,53.02,92.83,drawn,glyph 𠣹,53.02,92.83,False,False,False
+𠣹,U+208F9,⿹勹既,GT,sans,held out,Plangothic P1,drawn,learned 匓 / glyph 既,65.57,68.63,drawn,learned 匓 / glyph 既,65.57,68.63,drawn,learned 匓 / glyph 既,65.57,68.63,False,False,False
+𠣹,U+208F9,⿹勹既,GT,serif,default,Jigmo 2,drawn,glyph 𠣹,65.59,85.44,drawn,glyph 𠣹,65.59,85.44,drawn,glyph 𠣹,65.59,85.44,False,False,False
+𠣹,U+208F9,⿹勹既,GT,serif,held out,Jigmo 2,drawn,learned 匑 / glyph 既,34.94,49.6,drawn,learned 匑 / glyph 既,34.94,49.6,drawn,learned 匑 / glyph 既,34.94,49.6,False,False,False
+𠣹,U+208F9,⿹勹既,GT,fang,default,Jigmo 2,drawn,learned 匐 / glyph 既,17.32,19.47,drawn,learned 匐 / glyph 既,17.32,19.47,drawn,learned 匐 / glyph 既,17.32,19.47,False,False,False
+𠣹,U+208F9,⿹勹既,GT,fang,held out,Jigmo 2,drawn,learned 匐 / glyph 既,18.24,27.98,drawn,learned 匐 / glyph 既,18.24,27.98,drawn,learned 匐 / glyph 既,18.24,27.98,False,False,False
+𠣹,U+208F9,⿹勹既,GT,reg,default,TW-Kai B,drawn,glyph 𠣹,30.53,99.75,drawn,glyph 𠣹,30.53,99.75,drawn,glyph 𠣹,30.53,99.75,False,False,False
+𠣹,U+208F9,⿹勹既,GT,reg,held out,TW-Kai B,drawn,learned 匓 / glyph 既,31.34,33.99,drawn,learned 匓 / glyph 既,31.34,33.99,drawn,learned 匓 / glyph 既,31.34,33.99,False,False,False
+𠣹,U+208F9,⿹勹既,GT,pen,default,,drawn,learned 匍 / glyph 既,,,drawn,learned 匍 / glyph 既,,,drawn,learned 匍 / glyph 既,,,False,False,False
+𠣹,U+208F9,⿹勹既,GT,pen,held out,,drawn,learned 匍 / glyph 既,,,drawn,learned 匍 / glyph 既,,,drawn,learned 匍 / glyph 既,,,False,False,False
+𠣽,U+208FD,⿹勹敢,GT,sans,default,Plangothic P1,drawn,glyph 𠣽,49.13,94.1,drawn,glyph 𠣽,49.13,94.1,drawn,glyph 𠣽,49.13,94.1,False,False,False
+𠣽,U+208FD,⿹勹敢,GT,sans,held out,Plangothic P1,drawn,learned 匑 / glyph 敢,62.26,63.26,drawn,learned 匑 / glyph 敢,62.26,63.26,drawn,learned 匑 / glyph 敢,62.26,63.26,False,False,False
+𠣽,U+208FD,⿹勹敢,GT,serif,default,Jigmo 2,drawn,glyph 𠣽,66.08,85.91,drawn,glyph 𠣽,66.08,85.91,drawn,glyph 𠣽,66.08,85.91,False,False,False
+𠣽,U+208FD,⿹勹敢,GT,serif,held out,Jigmo 2,drawn,learned 匑 / glyph 敢,33.38,44.34,drawn,learned 匑 / glyph 敢,33.38,44.34,drawn,learned 匑 / glyph 敢,33.38,44.34,False,False,False
+𠣽,U+208FD,⿹勹敢,GT,fang,default,Jigmo 2,drawn,learned 匐 / glyph 敢,15.6,18.86,drawn,learned 匐 / glyph 敢,15.6,18.86,drawn,learned 匐 / glyph 敢,15.6,18.86,False,False,False
+𠣽,U+208FD,⿹勹敢,GT,fang,held out,Jigmo 2,drawn,learned 匐 / glyph 敢,22.29,30.91,drawn,learned 匐 / glyph 敢,22.29,30.91,drawn,learned 匐 / glyph 敢,22.29,30.91,False,False,False
+𠣽,U+208FD,⿹勹敢,GT,reg,default,TW-Kai B,drawn,glyph 𠣽,29.57,99.71,drawn,glyph 𠣽,29.57,99.71,drawn,glyph 𠣽,29.57,99.71,False,False,False
+𠣽,U+208FD,⿹勹敢,GT,reg,held out,TW-Kai B,drawn,learned 匓 / glyph 敢,33.03,38.91,drawn,learned 匓 / glyph 敢,33.03,38.91,drawn,learned 匓 / glyph 敢,33.03,38.91,False,False,False
+𠣽,U+208FD,⿹勹敢,GT,pen,default,,drawn,learned 匍 / glyph 敢,,,drawn,learned 匍 / glyph 敢,,,drawn,learned 匍 / glyph 敢,,,False,False,False
+𠣽,U+208FD,⿹勹敢,GT,pen,held out,,drawn,learned 匍 / glyph 敢,,,drawn,learned 匍 / glyph 敢,,,drawn,learned 匍 / glyph 敢,,,False,False,False
+𠣾,U+208FE,⿹勹復,GT,sans,default,Plangothic P1,drawn,glyph 𠣾,64.61,88.0,drawn,glyph 𠣾,64.61,88.0,drawn,glyph 𠣾,64.61,88.0,False,False,False
+𠣾,U+208FE,⿹勹復,GT,sans,held out,Plangothic P1,drawn,learned 匑 / glyph 復,59.62,64.76,drawn,learned 匑 / glyph 復,59.62,64.76,drawn,learned 匑 / glyph 復,59.62,64.76,False,False,False
+𠣾,U+208FE,⿹勹復,GT,serif,default,Jigmo 2,drawn,glyph 𠣾,61.99,84.56,drawn,glyph 𠣾,61.99,84.56,drawn,glyph 𠣾,61.99,84.56,False,False,False
+𠣾,U+208FE,⿹勹復,GT,serif,held out,Jigmo 2,drawn,learned 匓 / glyph 復,49.44,59.07,drawn,learned 匓 / glyph 復,49.44,59.07,drawn,learned 匓 / glyph 復,49.44,59.07,False,False,False
+𠣾,U+208FE,⿹勹復,GT,fang,default,Jigmo 2,drawn,learned 匐 / glyph 復,15.26,21.79,drawn,learned 匐 / glyph 復,15.26,21.79,drawn,learned 匐 / glyph 復,15.26,21.79,False,False,False
+𠣾,U+208FE,⿹勹復,GT,fang,held out,Jigmo 2,drawn,learned 匐 / glyph 復,17.93,29.49,drawn,learned 匐 / glyph 復,17.93,29.49,drawn,learned 匐 / glyph 復,17.93,29.49,False,False,False
+𠣾,U+208FE,⿹勹復,GT,reg,default,TW-Kai B,drawn,glyph 𠣾,30.58,99.67,drawn,glyph 𠣾,30.58,99.67,drawn,glyph 𠣾,30.58,99.67,False,False,False
+𠣾,U+208FE,⿹勹復,GT,reg,held out,TW-Kai B,drawn,learned 匓 / glyph 復,39.33,42.08,drawn,learned 匓 / glyph 復,39.33,42.08,drawn,learned 匓 / glyph 復,39.33,42.08,False,False,False
+𠣾,U+208FE,⿹勹復,GT,pen,default,Kureedo,drawn,glyph 𠣾,34.17,99.91,drawn,glyph 𠣾,34.17,99.91,drawn,glyph 𠣾,34.17,99.91,False,False,False
+𠣾,U+208FE,⿹勹復,GT,pen,held out,Kureedo,drawn,learned 匍 / glyph 復,34.44,48.48,drawn,learned 匍 / glyph 復,34.44,48.48,drawn,learned 匍 / glyph 復,34.44,48.48,False,False,False
+𠣿,U+208FF,⿹勹㲃,GT,sans,default,Plangothic P1,drawn,glyph 𠣿,64.17,91.18,drawn,glyph 𠣿,64.17,91.18,drawn,glyph 𠣿,64.17,91.18,False,False,False
+𠣿,U+208FF,⿹勹㲃,GT,sans,held out,Plangothic P1,drawn,learned 匓 / glyph 㲃,76.29,80.63,drawn,learned 匓 / glyph 㲃,76.29,80.63,drawn,learned 匓 / glyph 㲃,76.29,80.63,False,False,False
+𠣿,U+208FF,⿹勹㲃,GT,serif,default,Jigmo 2,drawn,glyph 𠣿,64.95,85.46,drawn,glyph 𠣿,64.95,85.46,drawn,glyph 𠣿,64.95,85.46,False,False,False
+𠣿,U+208FF,⿹勹㲃,GT,serif,held out,Jigmo 2,drawn,learned 匑 / glyph 㲃,38.06,54.58,drawn,learned 匑 / glyph 㲃,38.06,54.58,drawn,learned 匑 / glyph 㲃,38.06,54.58,False,False,False
+𠣿,U+208FF,⿹勹㲃,GT,fang,default,Jigmo 2,No glyph or sequence draws ⺊.,,,,No glyph or sequence draws ⺊.,,,,No glyph or sequence draws ⺊.,,,,False,False,False
+𠣿,U+208FF,⿹勹㲃,GT,fang,held out,Jigmo 2,No glyph or sequence draws ⺊.,,,,No glyph or sequence draws ⺊.,,,,No glyph or sequence draws ⺊.,,,,False,False,False
+𠣿,U+208FF,⿹勹㲃,GT,reg,default,TW-Kai B,drawn,glyph 𠣿,23.0,99.75,drawn,glyph 𠣿,23.0,99.75,drawn,glyph 𠣿,23.0,99.75,False,False,False
+𠣿,U+208FF,⿹勹㲃,GT,reg,held out,TW-Kai B,drawn,learned 匓 / glyph 㲃,46.53,42.6,drawn,learned 匓 / glyph 㲃,46.53,42.6,drawn,learned 匓 / glyph 㲃,46.53,42.6,False,False,False
+𠣿,U+208FF,⿹勹㲃,GT,pen,default,,drawn,learned 匍 / glyph 㲃,,,drawn,learned 匍 / glyph 㲃,,,drawn,learned 匍 / glyph 㲃,,,False,False,False
+𠣿,U+208FF,⿹勹㲃,GT,pen,held out,,drawn,learned 匍 / glyph 㲃,,,drawn,learned 匍 / glyph 㲃,,,drawn,learned 匍 / glyph 㲃,,,False,False,False
+𠤂,U+20902,⿹勹⿰身⿱二弓,G,sans,default,Plangothic P1,drawn,glyph 𠤂,59.27,89.68,drawn,glyph 𠤂,59.27,89.68,drawn,glyph 𠤂,59.27,89.68,False,False,False
+𠤂,U+20902,⿹勹⿰身⿱二弓,G,sans,held out,Plangothic P1,drawn,learned 匑 / learned 躭 / host 忈 / host 芎,47.37,50.5,drawn,learned 匑 / learned 躭 / host 忈 / host 芎,47.37,50.5,drawn,learned 匑 / learned 躭 / host 忈 / host 芎,47.37,50.5,False,False,False
+𠤂,U+20902,⿹勹⿰身⿱二弓,G,serif,default,Jigmo 2,drawn,glyph 𠤂,53.24,84.15,drawn,glyph 𠤂,53.24,84.15,drawn,glyph 𠤂,53.24,84.15,False,False,False
+𠤂,U+20902,⿹勹⿰身⿱二弓,G,serif,held out,Jigmo 2,drawn,learned 匑 / learned 躬 / glyph 二 / host 芎,28.95,35.44,drawn,learned 匑 / learned 躬 / glyph 二 / host 芎,28.95,35.44,drawn,learned 匑 / learned 躬 / glyph 二 / host 芎,28.95,35.44,False,False,False
+𠤂,U+20902,⿹勹⿰身⿱二弓,G,fang,default,Jigmo 2,drawn,learned 匐 / learned 躬 / glyph 二 / learned 芎,13.47,18.46,drawn,learned 匐 / learned 躬 / glyph 二 / learned 芎,13.47,18.46,drawn,learned 匐 / learned 躬 / glyph 二 / learned 芎,13.47,18.46,False,False,False
+𠤂,U+20902,⿹勹⿰身⿱二弓,G,fang,held out,Jigmo 2,drawn,learned 匐 / learned 躬 / glyph 二 / learned 芎,13.47,18.46,drawn,learned 匐 / learned 躬 / glyph 二 / learned 芎,13.47,18.46,drawn,learned 匐 / learned 躬 / glyph 二 / learned 芎,13.47,18.46,False,False,False
+𠤂,U+20902,⿹勹⿰身⿱二弓,G,reg,default,TW-Kai B,drawn,glyph 𠤂,45.54,99.66,drawn,glyph 𠤂,45.54,99.66,drawn,glyph 𠤂,45.54,99.66,False,False,False
+𠤂,U+20902,⿹勹⿰身⿱二弓,G,reg,held out,TW-Kai B,drawn,learned 匓 / learned 射 / learned 忈 / learned 芎,29.31,32.86,drawn,learned 匓 / learned 射 / learned 忈 / learned 芎,29.31,32.86,drawn,learned 匓 / learned 射 / learned 忈 / learned 芎,29.31,32.86,False,False,False
+𠤂,U+20902,⿹勹⿰身⿱二弓,G,pen,default,,drawn,learned 匍 / learned 躭 / learned 忈 / learned 芎,,,drawn,learned 匍 / learned 躭 / learned 忈 / learned 芎,,,drawn,learned 匍 / learned 躭 / learned 忈 / learned 芎,,,False,False,False
+𠤂,U+20902,⿹勹⿰身⿱二弓,G,pen,held out,,drawn,learned 匍 / learned 躭 / learned 忈 / learned 芎,,,drawn,learned 匍 / learned 躭 / learned 忈 / learned 芎,,,drawn,learned 匍 / learned 躭 / learned 忈 / learned 芎,,,False,False,False
+𠤄,U+20904,⿹勹⿱𥫗幸,GT,sans,default,Plangothic P1,drawn,glyph 𠤄,56.56,86.52,drawn,glyph 𠤄,56.56,86.52,drawn,glyph 𠤄,56.56,86.52,False,False,False
+𠤄,U+20904,⿹勹⿱𥫗幸,GT,sans,held out,Plangothic P1,drawn,learned 匑 / learned 筷 / learned 睪,42.68,49.48,drawn,learned 匑 / learned 筷 / learned 睪,42.68,49.48,drawn,learned 匑 / learned 筷 / learned 睪,42.68,49.48,False,False,False
+𠤄,U+20904,⿹勹⿱𥫗幸,GT,serif,default,Jigmo 2,drawn,glyph 𠤄,49.66,80.91,drawn,glyph 𠤄,49.66,80.91,drawn,glyph 𠤄,49.66,80.91,False,False,False
+𠤄,U+20904,⿹勹⿱𥫗幸,GT,serif,held out,Jigmo 2,drawn,learned 匑 / learned 筧 / learned 睪,19.88,28.58,drawn,learned 匑 / learned 筧 / learned 睪,19.88,28.58,drawn,learned 匑 / learned 筧 / learned 睪,19.88,28.58,False,False,False
+𠤄,U+20904,⿹勹⿱𥫗幸,GT,fang,default,Jigmo 2,drawn,learned 匐 / learned 筧 / glyph 幸,13.38,20.72,drawn,learned 匐 / learned 筧 / glyph 幸,13.38,20.72,drawn,learned 匐 / learned 筧 / glyph 幸,13.38,20.72,False,False,False
+𠤄,U+20904,⿹勹⿱𥫗幸,GT,fang,held out,Jigmo 2,drawn,learned 匐 / learned 筧 / glyph 幸,13.38,20.72,drawn,learned 匐 / learned 筧 / glyph 幸,13.38,20.72,drawn,learned 匐 / learned 筧 / glyph 幸,13.38,20.72,False,False,False
+𠤄,U+20904,⿹勹⿱𥫗幸,GT,reg,default,TW-Kai B,drawn,glyph 𠤄,33.82,99.77,drawn,glyph 𠤄,33.82,99.77,drawn,glyph 𠤄,33.82,99.77,False,False,False
+𠤄,U+20904,⿹勹⿱𥫗幸,GT,reg,held out,TW-Kai B,drawn,learned 匓 / host 䈞 / glyph 幸,27.48,24.61,drawn,learned 匓 / host 䈞 / glyph 幸,27.48,24.61,drawn,learned 匓 / host 䈞 / glyph 幸,27.48,24.61,False,False,False
+𠤄,U+20904,⿹勹⿱𥫗幸,GT,pen,default,Kureedo,drawn,glyph 𠤄,42.95,99.9,drawn,glyph 𠤄,42.95,99.9,drawn,glyph 𠤄,42.95,99.9,False,False,False
+𠤄,U+20904,⿹勹⿱𥫗幸,GT,pen,held out,Kureedo,drawn,learned 匍 / learned 筦 / learned 圛,25.86,36.09,drawn,learned 匍 / learned 筦 / learned 圛,25.86,36.09,drawn,learned 匍 / learned 筦 / learned 圛,25.86,36.09,False,False,False
+𠤅,U+20905,⿹勹蓋,GT,sans,default,Plangothic P1,drawn,glyph 𠤅,56.83,83.08,drawn,glyph 𠤅,56.83,83.08,drawn,glyph 𠤅,56.83,83.08,False,False,False
+𠤅,U+20905,⿹勹蓋,GT,sans,held out,Plangothic P1,drawn,learned 匓 / glyph 蓋,65.19,62.87,drawn,learned 匓 / glyph 蓋,65.19,62.87,drawn,learned 匓 / glyph 蓋,65.19,62.87,False,False,False
+𠤅,U+20905,⿹勹蓋,GT,serif,default,Jigmo 2,drawn,glyph 𠤅,56.64,82.78,drawn,glyph 𠤅,56.64,82.78,drawn,glyph 𠤅,56.64,82.78,False,False,False
+𠤅,U+20905,⿹勹蓋,GT,serif,held out,Jigmo 2,drawn,learned 匑 / glyph 蓋,27.23,32.58,drawn,learned 匑 / glyph 蓋,27.23,32.58,drawn,learned 匑 / glyph 蓋,27.23,32.58,False,False,False
+𠤅,U+20905,⿹勹蓋,GT,fang,default,Jigmo 2,drawn,learned 匐 / glyph 蓋,17.44,20.93,drawn,learned 匐 / glyph 蓋,17.44,20.93,drawn,learned 匐 / glyph 蓋,17.44,20.93,False,False,False
+𠤅,U+20905,⿹勹蓋,GT,fang,held out,Jigmo 2,drawn,learned 匐 / glyph 蓋,21.3,28.38,drawn,learned 匐 / glyph 蓋,21.3,28.38,drawn,learned 匐 / glyph 蓋,21.3,28.38,False,False,False
+𠤅,U+20905,⿹勹蓋,GT,reg,default,TW-Kai B,drawn,glyph 𠤅 kept / TW-Kai: 艹,24.56,93.84,drawn,glyph 𠤅 kept / TW-Kai: 艹,24.56,93.84,drawn,glyph 𠤅 kept / TW-Kai: 艹,24.56,93.84,False,False,False
+𠤅,U+20905,⿹勹蓋,GT,reg,held out,TW-Kai B,drawn,learned 匓 / glyph 蓋 kept / TW-Kai: 艹,29.61,28.25,drawn,learned 匓 / glyph 蓋 kept / TW-Kai: 艹,29.61,28.25,drawn,learned 匓 / glyph 蓋 kept / TW-Kai: 艹,29.61,28.25,False,False,False
+𠤅,U+20905,⿹勹蓋,GT,pen,default,,drawn,learned 匍 / glyph 蓋,,,drawn,learned 匍 / glyph 蓋,,,drawn,learned 匍 / glyph 蓋,,,False,False,False
+𠤅,U+20905,⿹勹蓋,GT,pen,held out,,drawn,learned 匍 / glyph 蓋,,,drawn,learned 匍 / glyph 蓋,,,drawn,learned 匍 / glyph 蓋,,,False,False,False
+𠤇,U+20907,⿹勹𢕒,GT,sans,default,Plangothic P1,drawn,glyph 𠤇,61.86,80.91,drawn,glyph 𠤇,61.86,80.91,drawn,glyph 𠤇,61.86,80.91,False,False,False
+𠤇,U+20907,⿹勹𢕒,GT,sans,held out,Plangothic P1,drawn,learned 匐 / glyph 𢕒,56.69,61.05,drawn,learned 匐 / glyph 𢕒,56.69,61.05,drawn,learned 匐 / glyph 𢕒,56.69,61.05,False,False,False
+𠤇,U+20907,⿹勹𢕒,GT,serif,default,Jigmo 2,drawn,glyph 𠤇,59.07,83.47,drawn,glyph 𠤇,59.07,83.47,drawn,glyph 𠤇,59.07,83.47,False,False,False
+𠤇,U+20907,⿹勹𢕒,GT,serif,held out,Jigmo 2,drawn,learned 匑 / glyph 𢕒,36.62,50.3,drawn,learned 匑 / glyph 𢕒,36.62,50.3,drawn,learned 匑 / glyph 𢕒,36.62,50.3,False,False,False
+𠤇,U+20907,⿹勹𢕒,GT,fang,default,Jigmo 2,drawn,learned 匐 / learned 徳 / host 襄 / glyph 吕 / host 変,12.63,22.95,drawn,learned 匐 / learned 徳 / host 襄 / glyph 吕 / host 変,12.63,22.95,drawn,learned 匐 / learned 徳 / host 襄 / glyph 吕 / host 変,12.63,22.95,False,False,False
+𠤇,U+20907,⿹勹𢕒,GT,fang,held out,Jigmo 2,drawn,learned 匐 / learned 徳 / host 襄 / glyph 吕 / host 変,12.63,22.95,drawn,learned 匐 / learned 徳 / host 襄 / glyph 吕 / host 変,12.63,22.95,drawn,learned 匐 / learned 徳 / host 襄 / glyph 吕 / host 変,12.63,22.95,False,False,False
+𠤇,U+20907,⿹勹𢕒,GT,reg,default,TW-Kai B,drawn,glyph 𠤇,20.8,99.6,drawn,glyph 𠤇,20.8,99.6,drawn,glyph 𠤇,20.8,99.6,False,False,False
+𠤇,U+20907,⿹勹𢕒,GT,reg,held out,TW-Kai B,drawn,learned 匓 / glyph 𢕒,46.32,52.09,drawn,learned 匓 / glyph 𢕒,46.32,52.09,drawn,learned 匓 / glyph 𢕒,46.32,52.09,False,False,False
+𠤇,U+20907,⿹勹𢕒,GT,pen,default,,No glyph or sequence draws 𢕒.,,,,No glyph or sequence draws 𢕒.,,,,No glyph or sequence draws 𢕒.,,,,False,False,False
+𠤇,U+20907,⿹勹𢕒,GT,pen,held out,,No glyph or sequence draws 𢕒.,,,,No glyph or sequence draws 𢕒.,,,,No glyph or sequence draws 𢕒.,,,,False,False,False
+𠤈,U+20908,⿹勹⿱⿲人人人⿲个个个,GT,sans,default,Plangothic P1,drawn,glyph 𠤈,56.11,94.35,drawn,glyph 𠤈,56.11,94.35,drawn,glyph 𠤈,56.11,94.35,False,False,False
+𠤈,U+20908,⿹勹⿱⿲人人人⿲个个个,GT,sans,held out,Plangothic P1,drawn,learned 匑 / host 佸 / glyph 人 / host 閄 / glyph 个 / glyph 个 / host 𭩭,41.2,46.39,drawn,learned 匑 / host 佸 / glyph 人 / host 閄 / glyph 个 / glyph 个 / host 𭩭,41.2,46.39,drawn,learned 匑 / host 佸 / glyph 人 / host 閄 / glyph 个 / glyph 个 / host 𭩭,41.2,46.39,False,False,False
+𠤈,U+20908,⿹勹⿱⿲人人人⿲个个个,GT,serif,default,Jigmo 2,drawn,glyph 𠤈,65.79,85.82,drawn,glyph 𠤈,65.79,85.82,drawn,glyph 𠤈,65.79,85.82,False,False,False
+𠤈,U+20908,⿹勹⿱⿲人人人⿲个个个,GT,serif,held out,Jigmo 2,drawn,learned 匑 / host 㑂 / host 𢬛 / host 閄 / glyph 个 / glyph 个 / host 𣃘,31.84,29.69,drawn,learned 匑 / host 㑂 / host 𢬛 / host 閄 / glyph 个 / glyph 个 / host 𣃘,31.84,29.69,drawn,learned 匑 / host 㑂 / host 𢬛 / host 閄 / glyph 个 / glyph 个 / host 𣃘,31.84,29.69,False,False,False
+𠤈,U+20908,⿹勹⿱⿲人人人⿲个个个,GT,fang,default,Jigmo 2,drawn,learned 匐 / host 从 / glyph 人 / host 臥 / glyph 个 / glyph 个 / glyph 个,12.91,20.9,drawn,learned 匐 / host 从 / glyph 人 / host 臥 / glyph 个 / glyph 个 / glyph 个,12.91,20.9,drawn,learned 匐 / host 从 / glyph 人 / host 臥 / glyph 个 / glyph 个 / glyph 个,12.91,20.9,False,False,False
+𠤈,U+20908,⿹勹⿱⿲人人人⿲个个个,GT,fang,held out,Jigmo 2,drawn,learned 匐 / host 从 / glyph 人 / host 臥 / glyph 个 / glyph 个 / glyph 个,12.91,20.9,drawn,learned 匐 / host 从 / glyph 人 / host 臥 / glyph 个 / glyph 个 / glyph 个,12.91,20.9,drawn,learned 匐 / host 从 / glyph 人 / host 臥 / glyph 个 / glyph 个 / glyph 个,12.91,20.9,False,False,False
+𠤈,U+20908,⿹勹⿱⿲人人人⿲个个个,GT,reg,default,TW-Kai B,drawn,glyph 𠤈,21.99,99.62,drawn,glyph 𠤈,21.99,99.62,drawn,glyph 𠤈,21.99,99.62,False,False,False
+𠤈,U+20908,⿹勹⿱⿲人人人⿲个个个,GT,reg,held out,TW-Kai B,drawn,learned 匓 / host 侘 / glyph 人 / host 畒 / glyph 个 / glyph 个 / glyph 个,36.19,41.69,drawn,learned 匓 / host 侘 / glyph 人 / host 畒 / glyph 个 / glyph 个 / glyph 个,36.19,41.69,drawn,learned 匓 / host 侘 / glyph 人 / host 畒 / glyph 个 / glyph 个 / glyph 个,36.19,41.69,False,False,False
+𠤈,U+20908,⿹勹⿱⿲人人人⿲个个个,GT,pen,default,,drawn,learned 匍 / host 坐 / glyph 人 / host 㽗 / glyph 个 / glyph 个 / host 𠮶,,,drawn,learned 匍 / host 坐 / glyph 人 / host 㽗 / glyph 个 / glyph 个 / host 𠮶,,,drawn,learned 匍 / host 坐 / glyph 人 / host 㽗 / glyph 个 / glyph 个 / host 𠮶,,,False,False,False
+𠤈,U+20908,⿹勹⿱⿲人人人⿲个个个,GT,pen,held out,,drawn,learned 匍 / host 坐 / glyph 人 / host 㽗 / glyph 个 / glyph 个 / host 𠮶,,,drawn,learned 匍 / host 坐 / glyph 人 / host 㽗 / glyph 个 / glyph 个 / host 𠮶,,,drawn,learned 匍 / host 坐 / glyph 人 / host 㽗 / glyph 个 / glyph 个 / host 𠮶,,,False,False,False
+𠤊,U+2090A,⿹勹窮,GT,sans,default,Plangothic P1,drawn,glyph 𠤊,56.95,86.09,drawn,glyph 𠤊,56.95,86.09,drawn,glyph 𠤊,56.95,86.09,False,False,False
+𠤊,U+2090A,⿹勹窮,GT,sans,held out,Plangothic P1,drawn,learned 匑 / glyph 窮,56.95,56.28,drawn,learned 匑 / glyph 窮,56.95,56.28,drawn,learned 匑 / glyph 窮,56.95,56.28,False,False,False
+𠤊,U+2090A,⿹勹窮,GT,serif,default,Jigmo 2,drawn,glyph 𠤊,60.62,84.04,drawn,glyph 𠤊,60.62,84.04,drawn,glyph 𠤊,60.62,84.04,False,False,False
+𠤊,U+2090A,⿹勹窮,GT,serif,held out,Jigmo 2,drawn,learned 匓 / glyph 窮,32.53,49.77,drawn,learned 匓 / glyph 窮,32.53,49.77,drawn,learned 匓 / glyph 窮,32.53,49.77,False,False,False
+𠤊,U+2090A,⿹勹窮,GT,fang,default,Jigmo 2,drawn,learned 匐 / glyph 窮,19.88,24.03,drawn,learned 匐 / glyph 窮,19.88,24.03,drawn,learned 匐 / glyph 窮,19.88,24.03,False,False,False
+𠤊,U+2090A,⿹勹窮,GT,fang,held out,Jigmo 2,drawn,learned 匐 / glyph 窮,20.93,27.42,drawn,learned 匐 / glyph 窮,20.93,27.42,drawn,learned 匐 / glyph 窮,20.93,27.42,False,False,False
+𠤊,U+2090A,⿹勹窮,GT,reg,default,TW-Kai B,drawn,glyph 𠤊,29.17,99.64,drawn,glyph 𠤊,29.17,99.64,drawn,glyph 𠤊,29.17,99.64,False,False,False
+𠤊,U+2090A,⿹勹窮,GT,reg,held out,TW-Kai B,drawn,learned 匓 / glyph 窮,39.48,41.26,drawn,learned 匓 / glyph 窮,39.48,41.26,drawn,learned 匓 / glyph 窮,39.48,41.26,False,False,False
+𠤊,U+2090A,⿹勹窮,GT,pen,default,,drawn,learned 匍 / glyph 窮,,,drawn,learned 匍 / glyph 窮,,,drawn,learned 匍 / glyph 窮,,,False,False,False
+𠤊,U+2090A,⿹勹窮,GT,pen,held out,,drawn,learned 匍 / glyph 窮,,,drawn,learned 匍 / glyph 窮,,,drawn,learned 匍 / glyph 窮,,,False,False,False
+𠤋,U+2090B,⿹勹蟲,GT,sans,default,Plangothic P1,drawn,glyph 𠤋,61.67,84.21,drawn,glyph 𠤋,61.67,84.21,drawn,glyph 𠤋,61.67,84.21,False,False,False
+𠤋,U+2090B,⿹勹蟲,GT,sans,held out,Plangothic P1,drawn,learned 匓 / glyph 蟲,52.26,58.0,drawn,learned 匓 / glyph 蟲,52.26,58.0,drawn,learned 匓 / glyph 蟲,52.26,58.0,False,False,False
+𠤋,U+2090B,⿹勹蟲,GT,serif,default,Jigmo 2,drawn,glyph 𠤋,71.99,84.55,drawn,glyph 𠤋,71.99,84.55,drawn,glyph 𠤋,71.99,84.55,False,False,False
+𠤋,U+2090B,⿹勹蟲,GT,serif,held out,Jigmo 2,drawn,learned 匑 / glyph 蟲,51.17,61.58,drawn,learned 匑 / glyph 蟲,51.17,61.58,drawn,learned 匑 / glyph 蟲,51.17,61.58,False,False,False
+𠤋,U+2090B,⿹勹蟲,GT,fang,default,Jigmo 2,drawn,learned 匐 / glyph 蟲,17.64,25.32,drawn,learned 匐 / glyph 蟲,17.64,25.32,drawn,learned 匐 / glyph 蟲,17.64,25.32,False,False,False
+𠤋,U+2090B,⿹勹蟲,GT,fang,held out,Jigmo 2,drawn,learned 匐 / glyph 蟲,21.65,32.01,drawn,learned 匐 / glyph 蟲,21.65,32.01,drawn,learned 匐 / glyph 蟲,21.65,32.01,False,False,False
+𠤋,U+2090B,⿹勹蟲,GT,reg,default,TW-Kai B,drawn,glyph 𠤋,29.15,99.64,drawn,glyph 𠤋,29.15,99.64,drawn,glyph 𠤋,29.15,99.64,False,False,False
+𠤋,U+2090B,⿹勹蟲,GT,reg,held out,TW-Kai B,drawn,learned 匓 / glyph 蟲,59.4,61.74,drawn,learned 匓 / glyph 蟲,59.4,61.74,drawn,learned 匓 / glyph 蟲,59.4,61.74,False,False,False
+𠤋,U+2090B,⿹勹蟲,GT,pen,default,,drawn,learned 匍 / glyph 蟲,,,drawn,learned 匍 / glyph 蟲,,,drawn,learned 匍 / glyph 蟲,,,False,False,False
+𠤋,U+2090B,⿹勹蟲,GT,pen,held out,,drawn,learned 匍 / glyph 蟲,,,drawn,learned 匍 / glyph 蟲,,,drawn,learned 匍 / glyph 蟲,,,False,False,False
+𠤍,U+2090D,⿹勹雚,G,sans,default,Plangothic P1,drawn,glyph 𠤍,56.05,83.84,drawn,glyph 𠤍,56.05,83.84,drawn,glyph 𠤍,56.05,83.84,False,False,False
+𠤍,U+2090D,⿹勹雚,G,sans,held out,Plangothic P1,drawn,learned 匓 / glyph 雚,60.56,53.94,drawn,learned 匓 / glyph 雚,60.56,53.94,drawn,learned 匓 / glyph 雚,60.56,53.94,False,False,False
+𠤍,U+2090D,⿹勹雚,G,serif,default,Jigmo 2,drawn,glyph 𠤍,68.51,82.95,drawn,glyph 𠤍,68.51,82.95,drawn,glyph 𠤍,68.51,82.95,False,False,False
+𠤍,U+2090D,⿹勹雚,G,serif,held out,Jigmo 2,drawn,learned 匑 / glyph 雚,34.47,44.76,drawn,learned 匑 / glyph 雚,34.47,44.76,drawn,learned 匑 / glyph 雚,34.47,44.76,False,False,False
+𠤍,U+2090D,⿹勹雚,G,fang,default,Jigmo 2,drawn,learned 匐 / host 薹 / host 歡,16.47,20.33,drawn,learned 匐 / host 薹 / host 歡,16.47,20.33,drawn,learned 匐 / host 薹 / host 歡,16.47,20.33,False,False,False
+𠤍,U+2090D,⿹勹雚,G,fang,held out,Jigmo 2,drawn,learned 匐 / host 薹 / host 歡,16.47,20.33,drawn,learned 匐 / host 薹 / host 歡,16.47,20.33,drawn,learned 匐 / host 薹 / host 歡,16.47,20.33,False,False,False
+𠤍,U+2090D,⿹勹雚,G,reg,default,TW-Kai B,drawn,glyph 𠤍,35.96,99.62,drawn,glyph 𠤍,35.96,99.62,drawn,glyph 𠤍,35.96,99.62,False,False,False
+𠤍,U+2090D,⿹勹雚,G,reg,held out,TW-Kai B,drawn,learned 匑 / glyph 雚 kept / TW-Kai: 艹,46.46,46.06,drawn,learned 匑 / glyph 雚 kept / TW-Kai: 艹,46.46,46.06,drawn,learned 匑 / glyph 雚 kept / TW-Kai: 艹,46.46,46.06,False,False,False
+𠤍,U+2090D,⿹勹雚,G,pen,default,,drawn,learned 匍 / glyph 雚,,,drawn,learned 匍 / glyph 雚,,,drawn,learned 匍 / glyph 雚,,,False,False,False
+𠤍,U+2090D,⿹勹雚,G,pen,held out,,drawn,learned 匍 / glyph 雚,,,drawn,learned 匍 / glyph 雚,,,drawn,learned 匍 / glyph 雚,,,False,False,False
+𧍀,U+27340,⿹勹䖵,G,sans,default,Plangothic P1,drawn,glyph 𧍀,63.46,92.68,drawn,glyph 𧍀,63.46,92.68,drawn,glyph 𧍀,63.46,92.68,False,False,False
+𧍀,U+27340,⿹勹䖵,G,sans,held out,Plangothic P1,drawn,learned 匑 / glyph 䖵,61.99,68.59,drawn,learned 匑 / glyph 䖵,61.99,68.59,drawn,learned 匑 / glyph 䖵,61.99,68.59,False,False,False
+𧍀,U+27340,⿹勹䖵,G,serif,default,Jigmo 2,drawn,glyph 𧍀,72.07,87.43,drawn,glyph 𧍀,72.07,87.43,drawn,glyph 𧍀,72.07,87.43,False,False,False
+𧍀,U+27340,⿹勹䖵,G,serif,held out,Jigmo 2,drawn,learned 匑 / glyph 䖵,38.2,39.06,drawn,learned 匑 / glyph 䖵,38.2,39.06,drawn,learned 匑 / glyph 䖵,38.2,39.06,False,False,False
+𧍀,U+27340,⿹勹䖵,G,fang,default,Jigmo 2,drawn,learned 匐 / learned 蚜 / learned 蝕,14.87,21.91,drawn,learned 匐 / learned 蚜 / learned 蝕,14.87,21.91,drawn,learned 匐 / learned 蚜 / learned 蝕,14.87,21.91,False,False,False
+𧍀,U+27340,⿹勹䖵,G,fang,held out,Jigmo 2,drawn,learned 匐 / learned 蚜 / learned 蝕,14.87,21.91,drawn,learned 匐 / learned 蚜 / learned 蝕,14.87,21.91,drawn,learned 匐 / learned 蚜 / learned 蝕,14.87,21.91,False,False,False
+𧍀,U+27340,⿹勹䖵,G,reg,default,TW-Kai B,drawn,glyph 𧍀,48.53,99.71,drawn,glyph 𧍀,48.53,99.71,drawn,glyph 𧍀,48.53,99.71,False,False,False
+𧍀,U+27340,⿹勹䖵,G,reg,held out,TW-Kai B,drawn,learned 匓 / glyph 䖵,30.59,38.11,drawn,learned 匓 / glyph 䖵,30.59,38.11,drawn,learned 匓 / glyph 䖵,30.59,38.11,False,False,False
+𧍀,U+27340,⿹勹䖵,G,pen,default,,drawn,learned 匍 / glyph 䖵,,,drawn,learned 匍 / glyph 䖵,,,drawn,learned 匍 / glyph 䖵,,,False,False,False
+𧍀,U+27340,⿹勹䖵,G,pen,held out,,drawn,learned 匍 / glyph 䖵,,,drawn,learned 匍 / glyph 䖵,,,drawn,learned 匍 / glyph 䖵,,,False,False,False
+𧥻,U+2797B,⿹勹⿱二言,GT,sans,default,Plangothic P1,drawn,glyph 𧥻,57.95,81.67,drawn,glyph 𧥻,57.95,81.67,drawn,glyph 𧥻,57.95,81.67,False,False,False
+𧥻,U+2797B,⿹勹⿱二言,GT,sans,held out,Plangothic P1,drawn,learned 甸 / learned 忈 / glyph 言,31.76,34.01,drawn,learned 甸 / learned 忈 / glyph 言,31.76,34.01,drawn,learned 甸 / learned 忈 / glyph 言,31.76,34.01,False,False,False
+𧥻,U+2797B,⿹勹⿱二言,GT,serif,default,Jigmo 2,drawn,glyph 𧥻,44.59,77.75,drawn,glyph 𧥻,44.59,77.75,drawn,glyph 𧥻,44.59,77.75,False,False,False
+𧥻,U+2797B,⿹勹⿱二言,GT,serif,held out,Jigmo 2,drawn,learned 訇 / glyph 二 / glyph 言,18.3,27.52,drawn,learned 訇 / glyph 二 / glyph 言,18.3,27.52,drawn,learned 訇 / glyph 二 / glyph 言,18.3,27.52,False,False,False
+𧥻,U+2797B,⿹勹⿱二言,GT,fang,default,Jigmo 2,drawn,learned 匈 / glyph 二 / glyph 言,13.14,15.17,drawn,learned 匈 / glyph 二 / glyph 言,13.14,15.17,drawn,learned 匈 / glyph 二 / glyph 言,13.14,15.17,False,False,False
+𧥻,U+2797B,⿹勹⿱二言,GT,fang,held out,Jigmo 2,drawn,learned 匈 / glyph 二 / glyph 言,13.14,15.17,drawn,learned 匈 / glyph 二 / glyph 言,13.14,15.17,drawn,learned 匈 / glyph 二 / glyph 言,13.14,15.17,False,False,False
+𧥻,U+2797B,⿹勹⿱二言,GT,reg,default,TW-Kai B,drawn,glyph 𧥻,25.03,99.69,drawn,glyph 𧥻,25.03,99.69,drawn,glyph 𧥻,25.03,99.69,False,False,False
+𧥻,U+2797B,⿹勹⿱二言,GT,reg,held out,TW-Kai B,drawn,learned 匓 / host 忈 / glyph 言,20.49,24.45,drawn,learned 匓 / host 忈 / glyph 言,20.49,24.45,drawn,learned 匓 / host 忈 / glyph 言,20.49,24.45,False,False,False
+𧥻,U+2797B,⿹勹⿱二言,GT,pen,default,,drawn,learned 匊 / host 忈 / glyph 言,,,drawn,learned 匊 / host 忈 / glyph 言,,,drawn,learned 匊 / host 忈 / glyph 言,,,False,False,False
+𧥻,U+2797B,⿹勹⿱二言,GT,pen,held out,,drawn,learned 匊 / host 忈 / glyph 言,,,drawn,learned 匊 / host 忈 / glyph 言,,,drawn,learned 匊 / host 忈 / glyph 言,,,False,False,False
+𫧀,U+2B9C0,⿹勹土,G,sans,default,Plangothic P1,drawn,glyph 𫧀,57.51,96.05,drawn,glyph 𫧀,57.51,96.05,drawn,glyph 𫧀,57.51,96.05,False,False,False
+𫧀,U+2B9C0,⿹勹土,G,sans,held out,Plangothic P1,drawn,learned 匇 / glyph 土,54.78,61.18,drawn,learned 匇 / glyph 土,54.78,61.18,drawn,learned 匇 / glyph 土,54.78,61.18,False,False,False
+𫧀,U+2B9C0,⿹勹土,G,serif,default,Jigmo 2,drawn,glyph 𫧀,63.59,85.44,drawn,glyph 𫧀,63.59,85.44,drawn,glyph 𫧀,63.59,85.44,False,False,False
+𫧀,U+2B9C0,⿹勹土,G,serif,held out,Jigmo 2,drawn,learned 句 / glyph 土,32.96,42.02,drawn,learned 句 / glyph 土,32.96,42.02,drawn,learned 句 / glyph 土,32.96,42.02,False,False,False
+𫧀,U+2B9C0,⿹勹土,G,fang,default,Jigmo 2,drawn,learned 勾 / glyph 土,11.43,18.48,drawn,learned 勾 / glyph 土,11.43,18.48,drawn,learned 勾 / glyph 土,11.43,18.48,False,False,False
+𫧀,U+2B9C0,⿹勹土,G,fang,held out,Jigmo 2,drawn,learned 勾 / glyph 土,10.42,18.1,drawn,learned 勾 / glyph 土,10.42,18.1,drawn,learned 勾 / glyph 土,10.42,18.1,False,False,False
+𫧀,U+2B9C0,⿹勹土,G,reg,default,,drawn,learned 勾 / glyph 土,,,drawn,learned 勾 / glyph 土,,,drawn,learned 勾 / glyph 土,,,False,False,False
+𫧀,U+2B9C0,⿹勹土,G,reg,held out,,drawn,learned 勾 / glyph 土,,,drawn,learned 勾 / glyph 土,,,drawn,learned 勾 / glyph 土,,,False,False,False
+𫧀,U+2B9C0,⿹勹土,G,pen,default,,drawn,learned 勾 / glyph 土,,,drawn,learned 勾 / glyph 土,,,drawn,learned 勾 / glyph 土,,,False,False,False
+𫧀,U+2B9C0,⿹勹土,G,pen,held out,,drawn,learned 勾 / glyph 土,,,drawn,learned 勾 / glyph 土,,,drawn,learned 勾 / glyph 土,,,False,False,False
+𫧁,U+2B9C1,⿹勹⿲丨丨丨,G,sans,default,Plangothic P1,drawn,glyph 𫧁,55.46,88.21,drawn,glyph 𫧁,55.46,88.21,drawn,glyph 𫧁,55.46,88.21,False,False,False
+𫧁,U+2B9C1,⿹勹⿲丨丨丨,G,sans,held out,Plangothic P1,drawn,learned 句 / host 刂 / host 川 / host 川,39.72,40.19,drawn,learned 句 / host 刂 / host 川 / host 川,39.72,40.19,drawn,learned 句 / host 刂 / host 川 / host 川,39.72,40.19,False,False,False
+𫧁,U+2B9C1,⿹勹⿲丨丨丨,G,serif,default,Jigmo 2,drawn,glyph 𫧁,75.32,88.71,drawn,glyph 𫧁,75.32,88.71,drawn,glyph 𫧁,75.32,88.71,False,False,False
+𫧁,U+2B9C1,⿹勹⿲丨丨丨,G,serif,held out,Jigmo 2,drawn,learned 句 / host 旧 / host 遝 / glyph 丨,32.26,36.86,drawn,learned 句 / host 旧 / host 遝 / glyph 丨,32.26,36.86,drawn,learned 句 / host 旧 / host 遝 / glyph 丨,32.26,36.86,False,False,False
+𫧁,U+2B9C1,⿹勹⿲丨丨丨,G,fang,default,Jigmo 2,drawn,learned 勿 / host 旧 / host 川 / host 川,11.15,14.86,drawn,learned 勿 / host 旧 / host 川 / host 川,11.15,14.86,drawn,learned 勿 / host 旧 / host 川 / host 川,11.15,14.86,False,False,False
+𫧁,U+2B9C1,⿹勹⿲丨丨丨,G,fang,held out,Jigmo 2,drawn,learned 勿 / host 旧 / host 川 / host 川,11.15,14.86,drawn,learned 勿 / host 旧 / host 川 / host 川,11.15,14.86,drawn,learned 勿 / host 旧 / host 川 / host 川,11.15,14.86,False,False,False
+𫧁,U+2B9C1,⿹勹⿲丨丨丨,G,reg,default,,drawn,learned 訇 / host 刂 / host 川 / host 川,,,drawn,learned 訇 / host 刂 / host 川 / host 川,,,drawn,learned 訇 / host 刂 / host 川 / host 川,,,False,False,False
+𫧁,U+2B9C1,⿹勹⿲丨丨丨,G,reg,held out,,drawn,learned 訇 / host 刂 / host 川 / host 川,,,drawn,learned 訇 / host 刂 / host 川 / host 川,,,drawn,learned 訇 / host 刂 / host 川 / host 川,,,False,False,False
+𫧁,U+2B9C1,⿹勹⿲丨丨丨,G,pen,default,,drawn,learned 旬 / host 旧 / host 川 / host 川,,,drawn,learned 旬 / host 旧 / host 川 / host 川,,,drawn,learned 旬 / host 旧 / host 川 / host 川,,,False,False,False
+𫧁,U+2B9C1,⿹勹⿲丨丨丨,G,pen,held out,,drawn,learned 旬 / host 旧 / host 川 / host 川,,,drawn,learned 旬 / host 旧 / host 川 / host 川,,,drawn,learned 旬 / host 旧 / host 川 / host 川,,,False,False,False
+𫧄,U+2B9C4,⿹勹朕,G,sans,default,Plangothic P1,drawn,glyph 𫧄,57.56,96.0,drawn,glyph 𫧄,57.56,96.0,drawn,glyph 𫧄,57.56,96.0,False,False,False
+𫧄,U+2B9C4,⿹勹朕,G,sans,held out,Plangothic P1,drawn,learned 匓 / glyph 朕,62.81,59.57,drawn,learned 匓 / glyph 朕,62.81,59.57,drawn,learned 匓 / glyph 朕,62.81,59.57,False,False,False
+𫧄,U+2B9C4,⿹勹朕,G,serif,default,Jigmo 2,drawn,glyph 𫧄,65.78,85.76,drawn,glyph 𫧄,65.78,85.76,drawn,glyph 𫧄,65.78,85.76,False,False,False
+𫧄,U+2B9C4,⿹勹朕,G,serif,held out,Jigmo 2,drawn,learned 匍 / glyph 朕,25.25,34.51,drawn,learned 匍 / glyph 朕,25.25,34.51,drawn,learned 匍 / glyph 朕,25.25,34.51,False,False,False
+𫧄,U+2B9C4,⿹勹朕,G,fang,default,Jigmo 2,drawn,learned 匐 / glyph 朕,13.19,17.63,drawn,learned 匐 / glyph 朕,13.19,17.63,drawn,learned 匐 / glyph 朕,13.19,17.63,False,False,False
+𫧄,U+2B9C4,⿹勹朕,G,fang,held out,Jigmo 2,drawn,learned 匐 / glyph 朕,20.92,30.91,drawn,learned 匐 / glyph 朕,20.92,30.91,drawn,learned 匐 / glyph 朕,20.92,30.91,False,False,False
+𫧄,U+2B9C4,⿹勹朕,G,reg,default,,drawn,learned 匓 / glyph 朕,,,drawn,learned 匓 / glyph 朕,,,drawn,learned 匓 / glyph 朕,,,False,False,False
+𫧄,U+2B9C4,⿹勹朕,G,reg,held out,,drawn,learned 匓 / glyph 朕,,,drawn,learned 匓 / glyph 朕,,,drawn,learned 匓 / glyph 朕,,,False,False,False
+𫧄,U+2B9C4,⿹勹朕,G,pen,default,,drawn,learned 匍 / glyph 朕,,,drawn,learned 匍 / glyph 朕,,,drawn,learned 匍 / glyph 朕,,,False,False,False
+𫧄,U+2B9C4,⿹勹朕,G,pen,held out,,drawn,learned 匍 / glyph 朕,,,drawn,learned 匍 / glyph 朕,,,drawn,learned 匍 / glyph 朕,,,False,False,False
+𫧅,U+2B9C5,⿹勹䋣,G,sans,default,Plangothic P1,drawn,glyph 𫧅,52.52,88.57,drawn,glyph 𫧅,52.52,88.57,drawn,glyph 𫧅,52.52,88.57,False,False,False
+𫧅,U+2B9C5,⿹勹䋣,G,sans,held out,Plangothic P1,drawn,learned 匑 / glyph 䋣,62.55,62.05,drawn,learned 匑 / glyph 䋣,62.55,62.05,drawn,learned 匑 / glyph 䋣,62.55,62.05,False,False,False
+𫧅,U+2B9C5,⿹勹䋣,G,serif,default,Jigmo 2,drawn,glyph 𫧅,74.88,85.72,drawn,glyph 𫧅,74.88,85.72,drawn,glyph 𫧅,74.88,85.72,False,False,False
+𫧅,U+2B9C5,⿹勹䋣,G,serif,held out,Jigmo 2,drawn,learned 匓 / glyph 䋣,28.24,34.99,drawn,learned 匓 / glyph 䋣,28.24,34.99,drawn,learned 匓 / glyph 䋣,28.24,34.99,False,False,False
+𫧅,U+2B9C5,⿹勹䋣,G,fang,default,Jigmo 2,drawn,learned 匐 / glyph 每 / learned 欒,15.32,19.39,drawn,learned 匐 / glyph 每 / learned 欒,15.32,19.39,drawn,learned 匐 / glyph 每 / learned 欒,15.32,19.39,False,False,False
+𫧅,U+2B9C5,⿹勹䋣,G,fang,held out,Jigmo 2,drawn,learned 匐 / glyph 每 / learned 欒,15.32,19.39,drawn,learned 匐 / glyph 每 / learned 欒,15.32,19.39,drawn,learned 匐 / glyph 每 / learned 欒,15.32,19.39,False,False,False
+𫧅,U+2B9C5,⿹勹䋣,G,reg,default,,drawn,learned 匌 / glyph 䋣,,,drawn,learned 匌 / glyph 䋣,,,drawn,learned 匌 / glyph 䋣,,,False,False,False
+𫧅,U+2B9C5,⿹勹䋣,G,reg,held out,,drawn,learned 匌 / glyph 䋣,,,drawn,learned 匌 / glyph 䋣,,,drawn,learned 匌 / glyph 䋣,,,False,False,False
+𫧅,U+2B9C5,⿹勹䋣,G,pen,default,,drawn,learned 匍 / glyph 䋣,,,drawn,learned 匍 / glyph 䋣,,,drawn,learned 匍 / glyph 䋣,,,False,False,False
+𫧅,U+2B9C5,⿹勹䋣,G,pen,held out,,drawn,learned 匍 / glyph 䋣,,,drawn,learned 匍 / glyph 䋣,,,drawn,learned 匍 / glyph 䋣,,,False,False,False
+𫧆,U+2B9C6,⿹勹⿱庚糸,G,sans,default,Plangothic P1,drawn,glyph 𫧆,55.94,80.26,drawn,glyph 𫧆,55.94,80.26,drawn,glyph 𫧆,55.94,80.26,False,False,False
+𫧆,U+2B9C6,⿹勹⿱庚糸,G,sans,held out,Plangothic P1,drawn,learned 匑 / glyph 庚 / learned 纂,47.73,44.91,drawn,learned 匑 / glyph 庚 / learned 纂,47.73,44.91,drawn,learned 匑 / glyph 庚 / learned 纂,47.73,44.91,False,False,False
+𫧆,U+2B9C6,⿹勹⿱庚糸,G,serif,default,Jigmo 2,drawn,glyph 𫧆,56.99,82.9,drawn,glyph 𫧆,56.99,82.9,drawn,glyph 𫧆,56.99,82.9,False,False,False
+𫧆,U+2B9C6,⿹勹⿱庚糸,G,serif,held out,Jigmo 2,drawn,learned 匑 / glyph 庚 / learned 纂,26.17,31.89,drawn,learned 匑 / glyph 庚 / learned 纂,26.17,31.89,drawn,learned 匑 / glyph 庚 / learned 纂,26.17,31.89,False,False,False
+𫧆,U+2B9C6,⿹勹⿱庚糸,G,fang,default,Jigmo 2,drawn,learned 匐 / glyph 庚 / glyph 糸,14.85,20.68,drawn,learned 匐 / glyph 庚 / glyph 糸,14.85,20.68,drawn,learned 匐 / glyph 庚 / glyph 糸,14.85,20.68,False,False,False
+𫧆,U+2B9C6,⿹勹⿱庚糸,G,fang,held out,Jigmo 2,drawn,learned 匐 / glyph 庚 / glyph 糸,14.85,20.68,drawn,learned 匐 / glyph 庚 / glyph 糸,14.85,20.68,drawn,learned 匐 / glyph 庚 / glyph 糸,14.85,20.68,False,False,False
+𫧆,U+2B9C6,⿹勹⿱庚糸,G,reg,default,,drawn,learned 匓 / glyph 庚 / host 縻,,,drawn,learned 匓 / glyph 庚 / host 縻,,,drawn,learned 匓 / glyph 庚 / host 縻,,,False,False,False
+𫧆,U+2B9C6,⿹勹⿱庚糸,G,reg,held out,,drawn,learned 匓 / glyph 庚 / host 縻,,,drawn,learned 匓 / glyph 庚 / host 縻,,,drawn,learned 匓 / glyph 庚 / host 縻,,,False,False,False
+𫧆,U+2B9C6,⿹勹⿱庚糸,G,pen,default,,drawn,learned 匍 / glyph 庚 / learned 縻,,,drawn,learned 匍 / glyph 庚 / learned 縻,,,drawn,learned 匍 / glyph 庚 / learned 縻,,,False,False,False
+𫧆,U+2B9C6,⿹勹⿱庚糸,G,pen,held out,,drawn,learned 匍 / glyph 庚 / learned 縻,,,drawn,learned 匍 / glyph 庚 / learned 縻,,,drawn,learned 匍 / glyph 庚 / learned 縻,,,False,False,False
+𭅄,U+2D144,⿹勹又,S,sans,default,Plangothic P1,drawn,glyph 𭅄,60.54,97.68,drawn,glyph 𭅄,60.54,97.68,drawn,glyph 𭅄,60.54,97.68,False,False,False
+𭅄,U+2D144,⿹勹又,S,sans,held out,Plangothic P1,drawn,learned 句 / glyph 又,46.2,45.17,drawn,learned 句 / glyph 又,46.2,45.17,drawn,learned 句 / glyph 又,46.2,45.17,False,False,False
+𭅄,U+2D144,⿹勹又,S,serif,default,Jigmo 2,drawn,glyph 𭅄,62.2,84.57,drawn,glyph 𭅄,62.2,84.57,drawn,glyph 𭅄,62.2,84.57,False,False,False
+𭅄,U+2D144,⿹勹又,S,serif,held out,Jigmo 2,drawn,learned 句 / glyph 又,30.04,35.22,drawn,learned 句 / glyph 又,30.04,35.22,drawn,learned 句 / glyph 又,30.04,35.22,False,False,False
+𭅄,U+2D144,⿹勹又,S,fang,default,Jigmo 2,drawn,learned 勿 / glyph 又,5.75,9.11,drawn,learned 勿 / glyph 又,5.75,9.11,drawn,learned 勿 / glyph 又,5.75,9.11,False,False,False
+𭅄,U+2D144,⿹勹又,S,fang,held out,Jigmo 2,drawn,learned 勿 / glyph 又,9.61,9.43,drawn,learned 勿 / glyph 又,9.61,9.43,drawn,learned 勿 / glyph 又,9.61,9.43,False,False,False
+𭅄,U+2D144,⿹勹又,S,reg,default,,drawn,learned 旬 / glyph 又,,,drawn,learned 旬 / glyph 又,,,drawn,learned 旬 / glyph 又,,,False,False,False
+𭅄,U+2D144,⿹勹又,S,reg,held out,,drawn,learned 旬 / glyph 又,,,drawn,learned 旬 / glyph 又,,,drawn,learned 旬 / glyph 又,,,False,False,False
+𭅄,U+2D144,⿹勹又,S,pen,default,,drawn,learned 旬 / glyph 又,,,drawn,learned 旬 / glyph 又,,,drawn,learned 旬 / glyph 又,,,False,False,False
+𭅄,U+2D144,⿹勹又,S,pen,held out,,drawn,learned 旬 / glyph 又,,,drawn,learned 旬 / glyph 又,,,drawn,learned 旬 / glyph 又,,,False,False,False
+𭅅,U+2D145,⿹勹⿺𠃊又,J,sans,default,Plangothic P1,drawn,glyph 𭅅,67.05,96.07,drawn,glyph 𭅅,67.05,96.07,drawn,glyph 𭅅,67.05,96.07,False,False,False
+𭅅,U+2D145,⿹勹⿺𠃊又,J,sans,held out,Plangothic P1,drawn,learned 甸 / glyph 𠃊 / glyph 又,51.36,50.16,drawn,learned 甸 / glyph 𠃊 / glyph 又,51.36,50.16,drawn,learned 甸 / glyph 𠃊 / glyph 又,51.36,50.16,False,False,False
+𭅅,U+2D145,⿹勹⿺𠃊又,J,serif,default,Jigmo 2,drawn,glyph 𭅅,62.58,85.2,drawn,glyph 𭅅,62.58,85.2,drawn,glyph 𭅅,62.58,85.2,False,False,False
+𭅅,U+2D145,⿹勹⿺𠃊又,J,serif,held out,Jigmo 2,drawn,learned 訇 / enclosing 𠃊 / glyph 又,25.22,24.76,drawn,learned 訇 / enclosing 𠃊 / glyph 又,25.22,24.76,drawn,learned 訇 / enclosing 𠃊 / glyph 又,25.22,24.76,False,False,False
+𭅅,U+2D145,⿹勹⿺𠃊又,J,fang,default,Jigmo 2,drawn,learned 匐 / glyph 𠃊 / glyph 又,10.12,21.73,drawn,learned 匐 / glyph 𠃊 / glyph 又,10.12,21.73,drawn,learned 匐 / glyph 𠃊 / glyph 又,10.12,21.73,False,False,False
+𭅅,U+2D145,⿹勹⿺𠃊又,J,fang,held out,Jigmo 2,drawn,learned 匐 / glyph 𠃊 / glyph 又,10.12,21.73,drawn,learned 匐 / glyph 𠃊 / glyph 又,10.12,21.73,drawn,learned 匐 / glyph 𠃊 / glyph 又,10.12,21.73,False,False,False
+𭅅,U+2D145,⿹勹⿺𠃊又,J,reg,default,,drawn,learned 匓 / glyph 𠃊 / glyph 又,,,drawn,learned 匓 / glyph 𠃊 / glyph 又,,,drawn,learned 匓 / glyph 𠃊 / glyph 又,,,False,False,False
+𭅅,U+2D145,⿹勹⿺𠃊又,J,reg,held out,,drawn,learned 匓 / glyph 𠃊 / glyph 又,,,drawn,learned 匓 / glyph 𠃊 / glyph 又,,,drawn,learned 匓 / glyph 𠃊 / glyph 又,,,False,False,False
+𭅅,U+2D145,⿹勹⿺𠃊又,J,pen,default,,drawn,learned 匊 / glyph 𠃊 / glyph 又,,,drawn,learned 匊 / glyph 𠃊 / glyph 又,,,drawn,learned 匊 / glyph 𠃊 / glyph 又,,,False,False,False
+𭅅,U+2D145,⿹勹⿺𠃊又,J,pen,held out,,drawn,learned 匊 / glyph 𠃊 / glyph 又,,,drawn,learned 匊 / glyph 𠃊 / glyph 又,,,drawn,learned 匊 / glyph 𠃊 / glyph 又,,,False,False,False
+𭅆,U+2D146,⿹勹井,S,sans,default,Plangothic P1,drawn,glyph 𭅆,51.83,94.38,drawn,glyph 𭅆,51.83,94.38,drawn,glyph 𭅆,51.83,94.38,False,False,False
+𭅆,U+2D146,⿹勹井,S,sans,held out,Plangothic P1,drawn,learned 匌 / glyph 井,74.49,86.29,drawn,learned 匌 / glyph 井,74.49,86.29,drawn,learned 匌 / glyph 井,74.49,86.29,False,False,False
+𭅆,U+2D146,⿹勹井,S,serif,default,Jigmo 2,drawn,glyph 𭅆,65.37,85.88,drawn,glyph 𭅆,65.37,85.88,drawn,glyph 𭅆,65.37,85.88,False,False,False
+𭅆,U+2D146,⿹勹井,S,serif,held out,Jigmo 2,drawn,learned 匊 / glyph 井,38.13,44.23,drawn,learned 匊 / glyph 井,38.13,44.23,drawn,learned 匊 / glyph 井,38.13,44.23,False,False,False
+𭅆,U+2D146,⿹勹井,S,fang,default,Jigmo 2,drawn,learned 匈 / glyph 井,14.19,25.34,drawn,learned 匈 / glyph 井,14.19,25.34,drawn,learned 匈 / glyph 井,14.19,25.34,False,False,False
+𭅆,U+2D146,⿹勹井,S,fang,held out,Jigmo 2,drawn,learned 匈 / glyph 井,14.03,25.04,drawn,learned 匈 / glyph 井,14.03,25.04,drawn,learned 匈 / glyph 井,14.03,25.04,False,False,False
+𭅆,U+2D146,⿹勹井,S,reg,default,,drawn,learned 匌 / glyph 井,,,drawn,learned 匌 / glyph 井,,,drawn,learned 匌 / glyph 井,,,False,False,False
+𭅆,U+2D146,⿹勹井,S,reg,held out,,drawn,learned 匌 / glyph 井,,,drawn,learned 匌 / glyph 井,,,drawn,learned 匌 / glyph 井,,,False,False,False
+𭅆,U+2D146,⿹勹井,S,pen,default,,drawn,learned 匊 / glyph 井,,,drawn,learned 匊 / glyph 井,,,drawn,learned 匊 / glyph 井,,,False,False,False
+𭅆,U+2D146,⿹勹井,S,pen,held out,,drawn,learned 匊 / glyph 井,,,drawn,learned 匊 / glyph 井,,,drawn,learned 匊 / glyph 井,,,False,False,False
+𭅇,U+2D147,⿹勹占,S,sans,default,Plangothic P1,drawn,glyph 𭅇,53.98,93.01,drawn,glyph 𭅇,53.98,93.01,drawn,glyph 𭅇,53.98,93.01,False,False,False
+𭅇,U+2D147,⿹勹占,S,sans,held out,Plangothic P1,drawn,learned 旬 / glyph 占,53.3,67.95,drawn,learned 旬 / glyph 占,53.3,67.95,drawn,learned 旬 / glyph 占,53.3,67.95,False,False,False
+𭅇,U+2D147,⿹勹占,S,serif,default,Jigmo 2,drawn,glyph 𭅇,65.64,85.37,drawn,glyph 𭅇,65.64,85.37,drawn,glyph 𭅇,65.64,85.37,False,False,False
+𭅇,U+2D147,⿹勹占,S,serif,held out,Jigmo 2,drawn,learned 旬 / glyph 占,33.45,41.6,drawn,learned 旬 / glyph 占,33.45,41.6,drawn,learned 旬 / glyph 占,33.45,41.6,False,False,False
+𭅇,U+2D147,⿹勹占,S,fang,default,Jigmo 2,drawn,learned 勾 / glyph 占,8.23,14.19,drawn,learned 勾 / glyph 占,8.23,14.19,drawn,learned 勾 / glyph 占,8.23,14.19,False,False,False
+𭅇,U+2D147,⿹勹占,S,fang,held out,Jigmo 2,drawn,learned 勾 / glyph 占,10.13,16.17,drawn,learned 勾 / glyph 占,10.13,16.17,drawn,learned 勾 / glyph 占,10.13,16.17,False,False,False
+𭅇,U+2D147,⿹勹占,S,reg,default,,drawn,learned 旬 / glyph 占,,,drawn,learned 旬 / glyph 占,,,drawn,learned 旬 / glyph 占,,,False,False,False
+𭅇,U+2D147,⿹勹占,S,reg,held out,,drawn,learned 旬 / glyph 占,,,drawn,learned 旬 / glyph 占,,,drawn,learned 旬 / glyph 占,,,False,False,False
+𭅇,U+2D147,⿹勹占,S,pen,default,,drawn,learned 旬 / glyph 占,,,drawn,learned 旬 / glyph 占,,,drawn,learned 旬 / glyph 占,,,False,False,False
+𭅇,U+2D147,⿹勹占,S,pen,held out,,drawn,learned 旬 / glyph 占,,,drawn,learned 旬 / glyph 占,,,drawn,learned 旬 / glyph 占,,,False,False,False
+𭅈,U+2D148,⿹勹市,S,sans,default,Plangothic P1,drawn,glyph 𭅈,57.01,97.94,drawn,glyph 𭅈,57.01,97.94,drawn,glyph 𭅈,57.01,97.94,False,False,False
+𭅈,U+2D148,⿹勹市,S,sans,held out,Plangothic P1,drawn,learned 匌 / glyph 市,75.82,74.44,drawn,learned 匌 / glyph 市,75.82,74.44,drawn,learned 匌 / glyph 市,75.82,74.44,False,False,False
+𭅈,U+2D148,⿹勹市,S,serif,default,Jigmo 2,drawn,glyph 𭅈,67.81,86.85,drawn,glyph 𭅈,67.81,86.85,drawn,glyph 𭅈,67.81,86.85,False,False,False
+𭅈,U+2D148,⿹勹市,S,serif,held out,Jigmo 2,drawn,learned 匌 / glyph 市,35.93,37.77,drawn,learned 匌 / glyph 市,35.93,37.77,drawn,learned 匌 / glyph 市,35.93,37.77,False,False,False
+𭅈,U+2D148,⿹勹市,S,fang,default,Jigmo 2,drawn,learned 匈 / glyph 市,9.1,17.06,drawn,learned 匈 / glyph 市,9.1,17.06,drawn,learned 匈 / glyph 市,9.1,17.06,False,False,False
+𭅈,U+2D148,⿹勹市,S,fang,held out,Jigmo 2,drawn,learned 匈 / glyph 市,16.16,23.92,drawn,learned 匈 / glyph 市,16.16,23.92,drawn,learned 匈 / glyph 市,16.16,23.92,False,False,False
+𭅈,U+2D148,⿹勹市,S,reg,default,,drawn,learned 匌 / glyph 市,,,drawn,learned 匌 / glyph 市,,,drawn,learned 匌 / glyph 市,,,False,False,False
+𭅈,U+2D148,⿹勹市,S,reg,held out,,drawn,learned 匌 / glyph 市,,,drawn,learned 匌 / glyph 市,,,drawn,learned 匌 / glyph 市,,,False,False,False
+𭅈,U+2D148,⿹勹市,S,pen,default,,drawn,learned 匊 / glyph 市,,,drawn,learned 匊 / glyph 市,,,drawn,learned 匊 / glyph 市,,,False,False,False
+𭅈,U+2D148,⿹勹市,S,pen,held out,,drawn,learned 匊 / glyph 市,,,drawn,learned 匊 / glyph 市,,,drawn,learned 匊 / glyph 市,,,False,False,False
+𭅊,U+2D14A,⿹勹⿱䒑{117},J,sans,default,Plangothic P1,No glyph or sequence draws {117}.,,,,No glyph or sequence draws {117}.,,,,No glyph or sequence draws {117}.,,,,False,False,False
+𭅊,U+2D14A,⿹勹⿱䒑{117},J,sans,held out,Plangothic P1,No glyph or sequence draws {117}.,,,,No glyph or sequence draws {117}.,,,,No glyph or sequence draws {117}.,,,,False,False,False
+𭅊,U+2D14A,⿹勹⿱䒑{117},J,serif,default,Jigmo 2,No glyph or sequence draws {117}.,,,,No glyph or sequence draws {117}.,,,,No glyph or sequence draws {117}.,,,,False,False,False
+𭅊,U+2D14A,⿹勹⿱䒑{117},J,serif,held out,Jigmo 2,No glyph or sequence draws {117}.,,,,No glyph or sequence draws {117}.,,,,No glyph or sequence draws {117}.,,,,False,False,False
+𭅊,U+2D14A,⿹勹⿱䒑{117},J,fang,default,Jigmo 2,No glyph or sequence draws {117}.,,,,No glyph or sequence draws {117}.,,,,No glyph or sequence draws {117}.,,,,False,False,False
+𭅊,U+2D14A,⿹勹⿱䒑{117},J,fang,held out,Jigmo 2,No glyph or sequence draws {117}.,,,,No glyph or sequence draws {117}.,,,,No glyph or sequence draws {117}.,,,,False,False,False
+𭅊,U+2D14A,⿹勹⿱䒑{117},J,reg,default,,No glyph or sequence draws {117}.,,,,No glyph or sequence draws {117}.,,,,No glyph or sequence draws {117}.,,,,False,False,False
+𭅊,U+2D14A,⿹勹⿱䒑{117},J,reg,held out,,No glyph or sequence draws {117}.,,,,No glyph or sequence draws {117}.,,,,No glyph or sequence draws {117}.,,,,False,False,False
+𭅊,U+2D14A,⿹勹⿱䒑{117},J,pen,default,,No glyph or sequence draws {117}.,,,,No glyph or sequence draws {117}.,,,,No glyph or sequence draws {117}.,,,,False,False,False
+𭅊,U+2D14A,⿹勹⿱䒑{117},J,pen,held out,,No glyph or sequence draws {117}.,,,,No glyph or sequence draws {117}.,,,,No glyph or sequence draws {117}.,,,,False,False,False
+𭅋,U+2D14B,⿹勹豆,K,sans,default,Plangothic P1,drawn,glyph 𭅋,53.97,88.78,drawn,glyph 𭅋,53.97,88.78,drawn,glyph 𭅋,53.97,88.78,False,False,False
+𭅋,U+2D14B,⿹勹豆,K,sans,held out,Plangothic P1,drawn,learned 匋 / glyph 豆,57.75,61.66,drawn,learned 匋 / glyph 豆,57.75,61.66,drawn,learned 匋 / glyph 豆,57.75,61.66,False,False,False
+𭅋,U+2D14B,⿹勹豆,K,serif,default,Jigmo 2,drawn,glyph 𭅋,54.18,81.45,drawn,glyph 𭅋,54.18,81.45,drawn,glyph 𭅋,54.18,81.45,False,False,False
+𭅋,U+2D14B,⿹勹豆,K,serif,held out,Jigmo 2,drawn,learned 匈 / glyph 豆,14.54,25.62,drawn,learned 匈 / glyph 豆,14.54,25.62,drawn,learned 匈 / glyph 豆,14.54,25.62,False,False,False
+𭅋,U+2D14B,⿹勹豆,K,fang,default,Jigmo 2,drawn,learned 匈 / glyph 豆,7.4,17.12,drawn,learned 匈 / glyph 豆,7.4,17.12,drawn,learned 匈 / glyph 豆,7.4,17.12,False,False,False
+𭅋,U+2D14B,⿹勹豆,K,fang,held out,Jigmo 2,drawn,learned 匈 / glyph 豆,12.2,25.36,drawn,learned 匈 / glyph 豆,12.2,25.36,drawn,learned 匈 / glyph 豆,12.2,25.36,False,False,False
+𭅋,U+2D14B,⿹勹豆,K,reg,default,,drawn,learned 匋 / glyph 豆,,,drawn,learned 匋 / glyph 豆,,,drawn,learned 匋 / glyph 豆,,,False,False,False
+𭅋,U+2D14B,⿹勹豆,K,reg,held out,,drawn,learned 匋 / glyph 豆,,,drawn,learned 匋 / glyph 豆,,,drawn,learned 匋 / glyph 豆,,,False,False,False
+𭅋,U+2D14B,⿹勹豆,K,pen,default,,drawn,learned 匊 / glyph 豆,,,drawn,learned 匊 / glyph 豆,,,drawn,learned 匊 / glyph 豆,,,False,False,False
+𭅋,U+2D14B,⿹勹豆,K,pen,held out,,drawn,learned 匊 / glyph 豆,,,drawn,learned 匊 / glyph 豆,,,drawn,learned 匊 / glyph 豆,,,False,False,False
+𰅛,U+3015B,⿹勹八,S,sans,default,Plangothic P2,drawn,glyph 𰅛,64.92,91.66,drawn,glyph 𰅛,64.92,91.66,drawn,glyph 𰅛,64.92,91.66,False,False,False
+𰅛,U+3015B,⿹勹八,S,sans,held out,Plangothic P2,drawn,learned 勾 / glyph 八,63.77,67.07,drawn,learned 勾 / glyph 八,63.77,67.07,drawn,learned 勾 / glyph 八,63.77,67.07,False,False,False
+𰅛,U+3015B,⿹勹八,S,serif,default,Jigmo 3,drawn,glyph 𰅛,71.69,87.79,drawn,glyph 𰅛,71.69,87.79,drawn,glyph 𰅛,71.69,87.79,False,False,False
+𰅛,U+3015B,⿹勹八,S,serif,held out,Jigmo 3,drawn,learned 勾 / glyph 八,50.6,52.44,drawn,learned 勾 / glyph 八,50.6,52.44,drawn,learned 勾 / glyph 八,50.6,52.44,False,False,False
+𰅛,U+3015B,⿹勹八,S,fang,default,Jigmo 3,drawn,learned 勾 / glyph 八,11.9,19.93,drawn,learned 勾 / glyph 八,11.9,19.93,drawn,learned 勾 / glyph 八,11.9,19.93,False,False,False
+𰅛,U+3015B,⿹勹八,S,fang,held out,Jigmo 3,drawn,learned 勾 / glyph 八,10.17,22.22,drawn,learned 勾 / glyph 八,10.17,22.22,drawn,learned 勾 / glyph 八,10.17,22.22,False,False,False
+𰅛,U+3015B,⿹勹八,S,reg,default,,drawn,learned 勻 / glyph 八,,,drawn,learned 勻 / glyph 八,,,drawn,learned 勻 / glyph 八,,,False,False,False
+𰅛,U+3015B,⿹勹八,S,reg,held out,,drawn,learned 勻 / glyph 八,,,drawn,learned 勻 / glyph 八,,,drawn,learned 勻 / glyph 八,,,False,False,False
+𰅛,U+3015B,⿹勹八,S,pen,default,,drawn,learned 勾 / glyph 八,,,drawn,learned 勾 / glyph 八,,,drawn,learned 勾 / glyph 八,,,False,False,False
+𰅛,U+3015B,⿹勹八,S,pen,held out,,drawn,learned 勾 / glyph 八,,,drawn,learned 勾 / glyph 八,,,drawn,learned 勾 / glyph 八,,,False,False,False
+𱑁,U+31441,⿹勹熏,B,sans,default,Plangothic P2,drawn,glyph 𱑁,60.84,87.07,drawn,glyph 𱑁,60.84,87.07,drawn,glyph 𱑁,60.84,87.07,False,False,False
+𱑁,U+31441,⿹勹熏,B,sans,held out,Plangothic P2,drawn,learned 匑 / glyph 熏,49.18,49.54,drawn,learned 匑 / glyph 熏,49.18,49.54,drawn,learned 匑 / glyph 熏,49.18,49.54,False,False,False
+𱑁,U+31441,⿹勹熏,B,serif,default,Jigmo 3,drawn,glyph 𱑁,55.54,82.25,drawn,glyph 𱑁,55.54,82.25,drawn,glyph 𱑁,55.54,82.25,False,False,False
+𱑁,U+31441,⿹勹熏,B,serif,held out,Jigmo 3,drawn,learned 匑 / glyph 熏,29.24,44.26,drawn,learned 匑 / glyph 熏,29.24,44.26,drawn,learned 匑 / glyph 熏,29.24,44.26,False,False,False
+𱑁,U+31441,⿹勹熏,B,fang,default,Jigmo 3,drawn,learned 匐 / glyph 熏,17.7,23.57,drawn,learned 匐 / glyph 熏,17.7,23.57,drawn,learned 匐 / glyph 熏,17.7,23.57,False,False,False
+𱑁,U+31441,⿹勹熏,B,fang,held out,Jigmo 3,drawn,learned 匐 / glyph 熏,20.89,27.91,drawn,learned 匐 / glyph 熏,20.89,27.91,drawn,learned 匐 / glyph 熏,20.89,27.91,False,False,False
+𱑁,U+31441,⿹勹熏,B,reg,default,,drawn,learned 匓 / glyph 熏,,,drawn,learned 匓 / glyph 熏,,,drawn,learned 匓 / glyph 熏,,,False,False,False
+𱑁,U+31441,⿹勹熏,B,reg,held out,,drawn,learned 匓 / glyph 熏,,,drawn,learned 匓 / glyph 熏,,,drawn,learned 匓 / glyph 熏,,,False,False,False
+𱑁,U+31441,⿹勹熏,B,pen,default,,drawn,learned 匍 / glyph 熏,,,drawn,learned 匍 / glyph 熏,,,drawn,learned 匍 / glyph 熏,,,False,False,False
+𱑁,U+31441,⿹勹熏,B,pen,held out,,drawn,learned 匍 / glyph 熏,,,drawn,learned 匍 / glyph 熏,,,drawn,learned 匍 / glyph 熏,,,False,False,False
+,,⿹勹百,,sans,default,,drawn,learned 匋 / glyph 百,,,drawn,learned 匋 / glyph 百,,,drawn,host 匍 / glyph 百,,,False,True,True
+,,⿹勹百,,sans,held out,,drawn,learned 匋 / glyph 百,,,drawn,learned 匋 / glyph 百,,,drawn,host 匍 / glyph 百,,,False,True,True
+,,⿹勹百,,serif,default,,drawn,learned 匈 / glyph 百,,,drawn,learned 匈 / glyph 百,,,drawn,host 匍 / glyph 百,,,False,True,True
+,,⿹勹百,,serif,held out,,drawn,learned 匈 / glyph 百,,,drawn,learned 匈 / glyph 百,,,drawn,host 匍 / glyph 百,,,False,True,True
+,,⿹勹百,,fang,default,,drawn,learned 勿 / glyph 百,,,drawn,host 訇 / glyph 百,,,drawn,host 訇 / glyph 百,,,True,True,True
+,,⿹勹百,,fang,held out,,drawn,learned 勿 / glyph 百,,,drawn,host 訇 / glyph 百,,,drawn,host 訇 / glyph 百,,,True,True,True
+,,⿹勹百,,reg,default,,drawn,learned 匋 / glyph 百,,,drawn,learned 匋 / glyph 百,,,drawn,host 匍 / glyph 百,,,False,True,True
+,,⿹勹百,,reg,held out,,drawn,learned 匋 / glyph 百,,,drawn,learned 匋 / glyph 百,,,drawn,host 匍 / glyph 百,,,False,True,True
+,,⿹勹百,,pen,default,,drawn,learned 匊 / glyph 百,,,drawn,learned 匊 / glyph 百,,,drawn,host 匍 / glyph 百,,,False,True,True
+,,⿹勹百,,pen,held out,,drawn,learned 匊 / glyph 百,,,drawn,learned 匊 / glyph 百,,,drawn,host 匍 / glyph 百,,,False,True,True
+,,⿹勹首,,sans,default,,drawn,learned 匓 / glyph 首,,,drawn,learned 匓 / glyph 首,,,drawn,learned 匓 / glyph 首,,,False,False,False
+,,⿹勹首,,sans,held out,,drawn,learned 匓 / glyph 首,,,drawn,learned 匓 / glyph 首,,,drawn,learned 匓 / glyph 首,,,False,False,False
+,,⿹勹首,,serif,default,,drawn,learned 匍 / glyph 首,,,drawn,learned 匍 / glyph 首,,,drawn,learned 匍 / glyph 首,,,False,False,False
+,,⿹勹首,,serif,held out,,drawn,learned 匍 / glyph 首,,,drawn,learned 匍 / glyph 首,,,drawn,learned 匍 / glyph 首,,,False,False,False
+,,⿹勹首,,fang,default,,drawn,learned 匈 / glyph 首,,,drawn,learned 匈 / glyph 首,,,drawn,learned 匈 / glyph 首,,,False,False,False
+,,⿹勹首,,fang,held out,,drawn,learned 匈 / glyph 首,,,drawn,learned 匈 / glyph 首,,,drawn,learned 匈 / glyph 首,,,False,False,False
+,,⿹勹首,,reg,default,,drawn,learned 匋 / glyph 首,,,drawn,learned 匋 / glyph 首,,,drawn,learned 匋 / glyph 首,,,False,False,False
+,,⿹勹首,,reg,held out,,drawn,learned 匋 / glyph 首,,,drawn,learned 匋 / glyph 首,,,drawn,learned 匋 / glyph 首,,,False,False,False
+,,⿹勹首,,pen,default,,drawn,learned 匋 / glyph 首,,,drawn,learned 匋 / glyph 首,,,drawn,learned 匋 / glyph 首,,,False,False,False
+,,⿹勹首,,pen,held out,,drawn,learned 匋 / glyph 首,,,drawn,learned 匋 / glyph 首,,,drawn,learned 匋 / glyph 首,,,False,False,False
+,,⿹勹白,,sans,default,,drawn,learned 匌 / glyph 白,,,drawn,learned 匌 / glyph 白,,,drawn,learned 匌 / glyph 白,,,False,False,False
+,,⿹勹白,,sans,held out,,drawn,learned 匌 / glyph 白,,,drawn,learned 匌 / glyph 白,,,drawn,learned 匌 / glyph 白,,,False,False,False
+,,⿹勹白,,serif,default,,drawn,learned 匊 / glyph 白,,,drawn,learned 匊 / glyph 白,,,drawn,learned 匊 / glyph 白,,,False,False,False
+,,⿹勹白,,serif,held out,,drawn,learned 匊 / glyph 白,,,drawn,learned 匊 / glyph 白,,,drawn,learned 匊 / glyph 白,,,False,False,False
+,,⿹勹白,,fang,default,,drawn,learned 匈 / glyph 白,,,drawn,learned 匈 / glyph 白,,,drawn,learned 匈 / glyph 白,,,False,False,False
+,,⿹勹白,,fang,held out,,drawn,learned 匈 / glyph 白,,,drawn,learned 匈 / glyph 白,,,drawn,learned 匈 / glyph 白,,,False,False,False
+,,⿹勹白,,reg,default,,drawn,learned 匊 / glyph 白,,,drawn,learned 匊 / glyph 白,,,drawn,learned 匊 / glyph 白,,,False,False,False
+,,⿹勹白,,reg,held out,,drawn,learned 匊 / glyph 白,,,drawn,learned 匊 / glyph 白,,,drawn,learned 匊 / glyph 白,,,False,False,False
+,,⿹勹白,,pen,default,,drawn,learned 旬 / glyph 白,,,drawn,learned 旬 / glyph 白,,,drawn,learned 旬 / glyph 白,,,False,False,False
+,,⿹勹白,,pen,held out,,drawn,learned 旬 / glyph 白,,,drawn,learned 旬 / glyph 白,,,drawn,learned 旬 / glyph 白,,,False,False,False
+,,⿹勹自,,sans,default,,drawn,learned 匋 / glyph 自,,,drawn,learned 匋 / glyph 自,,,drawn,learned 匋 / glyph 自,,,False,False,False
+,,⿹勹自,,sans,held out,,drawn,learned 匋 / glyph 自,,,drawn,learned 匋 / glyph 自,,,drawn,learned 匋 / glyph 自,,,False,False,False
+,,⿹勹自,,serif,default,,drawn,learned 匈 / glyph 自,,,drawn,learned 匈 / glyph 自,,,drawn,learned 匈 / glyph 自,,,False,False,False
+,,⿹勹自,,serif,held out,,drawn,learned 匈 / glyph 自,,,drawn,learned 匈 / glyph 自,,,drawn,learned 匈 / glyph 自,,,False,False,False
+,,⿹勹自,,fang,default,,drawn,learned 匈 / glyph 自,,,drawn,learned 匈 / glyph 自,,,drawn,learned 匈 / glyph 自,,,False,False,False
+,,⿹勹自,,fang,held out,,drawn,learned 匈 / glyph 自,,,drawn,learned 匈 / glyph 自,,,drawn,learned 匈 / glyph 自,,,False,False,False
+,,⿹勹自,,reg,default,,drawn,learned 匊 / glyph 自,,,drawn,learned 匊 / glyph 自,,,drawn,learned 匊 / glyph 自,,,False,False,False
+,,⿹勹自,,reg,held out,,drawn,learned 匊 / glyph 自,,,drawn,learned 匊 / glyph 自,,,drawn,learned 匊 / glyph 自,,,False,False,False
+,,⿹勹自,,pen,default,,drawn,learned 甸 / glyph 自,,,drawn,learned 甸 / glyph 自,,,drawn,learned 甸 / glyph 自,,,False,False,False
+,,⿹勹自,,pen,held out,,drawn,learned 甸 / glyph 自,,,drawn,learned 甸 / glyph 自,,,drawn,learned 甸 / glyph 自,,,False,False,False
