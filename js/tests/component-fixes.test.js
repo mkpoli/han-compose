@@ -925,3 +925,44 @@ describe('日進斗金 ⿱⿰日斗⿺辶⿰隹金', () => {
     expect(incomeBoxes('⿰⿱日斗⿱進金', 'regular', region)).toBeNull()
   })
 })
+
+describe('吉祥如意 ⿳士⿲女口意祥', () => {
+  const frame = [0, 0, 1000, 1000]
+  const sample = origin => part(origin, frame, frame, [[100, 100, 900, 900]])
+  const tree = ['⿳', '士', ['⿲', '女', '口', '意'], '祥']
+  const makeComposer = fontStyle => {
+    const face = [50, -80, 950, 840]
+    const composer = Object.create(Composer.prototype)
+    composer.fontStyle = fontStyle
+    composer.face = face
+    composer.excluded = () => false
+    composer.glyph = ch => sample(`glyph ${ch}`).part
+    return { composer, face }
+  }
+
+  it('centers 士 over 口 beside 女 and 意 with 祥 below across all five faces', () => {
+    for (const fontStyle of ['sans', 'serif', 'fangsong', 'regular', 'pen-writing']) {
+      const { composer, face } = makeComposer(fontStyle)
+      const out = composer.auspiciousInscription(tree, face)
+      expect(out).toHaveLength(5)
+      const [scholar, woman, mouth, mind, auspice] = out.map(p => p.target)
+      // 士 centered directly over 口 (forming 吉), 女 beside 口 (forming 如), 意 to the right, 祥 below.
+      expect((scholar[0] + scholar[2]) / 2).toBeCloseTo((mouth[0] + mouth[2]) / 2, 4)
+      expect(scholar[1]).toBeGreaterThan(mouth[3])
+      expect(woman[2]).toBeLessThan(mouth[0])
+      expect(mouth[2]).toBeLessThan(mind[0])
+      expect(auspice[3]).toBeLessThan(woman[1])
+      expect(auspice[3]).toBeLessThan(mind[1])
+
+      const nested = composer.auspiciousInscription(tree, [450, -80, 950, 560])
+      expect(nested[1].target[0]).toBeGreaterThan(450 + 0.05 * 500)
+      expect(nested[0].target[3]).toBeLessThan(560 - 0.05 * 640)
+    }
+  })
+
+  it('respects exclusions', () => {
+    const { composer, face } = makeComposer('sans')
+    composer.excluded = ch => ch === '祥'
+    expect(composer.auspiciousInscription(tree, face)).toBeNull()
+  })
+})
