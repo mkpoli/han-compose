@@ -120,6 +120,9 @@ committed.
   where a BabelStone sequence draws the character wrongly, because an operand is not the shape drawn
   or a single shape is listed stroke by stroke. Each row keeps the sequence it replaces and the
   reason. `src/han_compose/compose.py` reads it after BabelStone's.
+- `data/vocab/han-ids-extension-j.tsv`, `js/src/extension-j-ids.json`: the sequences of the CJK
+  Extension J ideographs, from `ids_lv2.txt` of yi-bai/ids at `2597437b` (MIT, Copyright (c) 2021 Yi
+  Bai; `data/licences/yi-bai-ids-MIT.txt`), which BabelStone's file of 2025-06-27 does not reach.
 - `data/vocab/han-atomic.tsv`: hfhchan/ids (MIT, Copyright (c) 2021 Henry Chan), of which only the
   list of characters it leaves undecomposed is used. Source record: `data/sources/hfhchan-ids.yaml`.
   Rebuilt by `scripts/build_han_atomic.py`.
