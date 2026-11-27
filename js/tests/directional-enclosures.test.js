@@ -1,150 +1,76 @@
 import { expect, it } from 'bun:test'
-import { derived, partOf, pathMask, pathRings, placed, pointsBox, svgPath, union } from '../src/geometry.js'
+import { pathMask, pathRings, pointsBox, union } from '../src/geometry.js'
 import { compose, createSource, sketch } from '../src/loader.js'
-import { files, shards } from './fixtures/small-export.js'
+import { character, files, shards } from './fixtures/small-export.js'
 // Noto Serif CJK JP export b53713c2da0e. Sources and licence in docs/licensing.md.
 import records from './fixtures/directional-enclosures.json' with { type: 'json' }
 
-function source(overrides = {}) {
-  const data = { ...files, ...shards('g', Object.entries({ ...records, ...overrides })) }
-  return createSource(async key => data[key] === undefined ? null : new Uint8Array(Buffer.from(data[key])).buffer)
+function source(box = [0.15, -0.03, 0.70, 0.55], extra = {}) {
+  // A fixed layout prediction makes the learned opening reproducible. The PUA
+  // glyph has the identical 百 outline and follows the ordinary placement.
+  const model = JSON.parse(files['layout.json'])
+  model.seeds[0][1] = Buffer.from(Float32Array.from([0.05, -0.06, 0.94, 0.84, ...box]).buffer).toString('base64')
+  const data = { ...files, 'layout.json': JSON.stringify(model), ...shards('g',
+    Object.entries({ ...records, '\uE000': records.百, '\uE001': records.自,
+      'ˊ': character('ˊ', [[740, 640, 790, 760]]), ...extra })) }
+  return createSource(async name => data[name] === undefined ? null : Uint8Array.from(Buffer.from(data[name])).buffer)
 }
 
-function normalized(path) {
-  const rings = pathRings(path, 12)
-  const [l, b, r, t] = union(rings.map(pointsBox))
-  return rings.map(ring => ring.map((v, i) => i % 2 ? (v - b) / (t - b) : (v - l) / (r - l)))
+const options = { fontStyle: 'serif', separate: true }
+const bounds = d => union(pathRings(d, 32).map(pointsBox))
+function overlap(parts) {
+  const [outer, inner] = parts.map(p => pathMask(p.d, 256))
+  return inner.reduce((total, pixel, i) => total + (pixel & outer[i]), 0) /
+    inner.reduce((total, pixel) => total + pixel, 0)
 }
 
-const references = [
-  ['⿵', '門', '日', '間'],
-  ['⿹', '勹', '田', '甸'],
-  ['⿸', '尸', '由', '届'],
-  ['⿷', '匚', '甲', '匣'],
-  ['⿴', '囗', '古', '固'],
-  ['⿴', '囗', '口', '回'],
-]
-const otherCandidates = { 甸: { 旬: {} }, 固: { 回: {} }, 回: { 固: {} } }
-for (const [op, outer, held, host] of references) {
-  const fixture = overrides => source({ ...otherCandidates[host], ...overrides })
-  it(`places 自 inside ${outer} at its position in ${host}`, async () => {
-    const ids = op + outer + '自', src = fixture(), face = { fontStyle: 'serif' }
-    const record = records[host].G, glyph = partOf(record)
-    const cut = char => derived(glyph, record.ls[char].map(i => glyph.contours[i]))
-    const frameCut = cut(outer), innerBox = cut(held).box
-    const frameOutline = normalized(svgPath([placed(frameCut, frameCut.box, frameCut.box, 1, host)]))
-    const preview = await sketch(src, ids, face)
-    const withoutCut = fixture({ [host]: { ...records[host], G: { ...records[host].G, ls: {} } } })
-    for (const layout of ['composed', 'cells']) {
-      const options = { ...face, separate: true, layout }
-      const { d, parts } = await compose(src, ids, options)
-      const original = await compose(withoutCut, ids, options)
-      const bounds = path => union(pathRings(path, 32).map(pointsBox))
-      const before = bounds(original.d)
-      expect(Math.max(...bounds(d).map((edge, i) => Math.abs(edge - before[i])))).toBeLessThan(0.2)
-      expect(parts).toHaveLength(2)
-      const [frame, inner] = parts
-      expect(frame.origin).toBe('host ' + host)
-      if (layout === 'cells') expect([frame.leaf, inner.leaf]).toEqual([0, 1])
-      else expect(parts.map(p => p.box)).toEqual(preview.map(p => p.box))
-      const actual = normalized(frame.d)
-      expect(actual.map(c => c.length)).toEqual(frameOutline.map(c => c.length))
-      for (let i = 0; i < actual.length; i++) {
-        expect(Math.max(...actual[i].map((v, j) => Math.abs(v - frameOutline[i][j])))).toBeLessThan(0.001)
-      }
-      const [x, y, width, height] = inner.box
-      const [left, top, w, h] = frame.box
-      const [l, b, r, t] = frameCut.box
-      const cx = ((innerBox[0] + innerBox[2]) / 2 - l) / (r - l)
-      const cy = (t - (innerBox[1] + innerBox[3]) / 2) / (t - b)
-      expect(Math.abs((x + width / 2 - left) / w - cx)).toBeLessThan(0.01)
-      expect(Math.abs((y + height / 2 - top) / h - cy)).toBeLessThan(0.01)
-      const mask = pathMask(frame.d, 256)
-      expect(pathMask(inner.d, 256).some((ink, i) => ink && mask[i])).toBe(false)
-    }
-  })
+it('clears overlapping 百 while retaining its frame, stroke contours and nearly all its size', async () => {
+  const src = source()
+  const baseline = await compose(src, '⿹勹\uE000', options)
+  const after = await compose(src, '⿹勹百', options)
+  expect(overlap(baseline.parts)).toBeGreaterThan(0.01)
+  expect(overlap(after.parts)).toBe(0)
+  expect(after.parts[0].d).toBe(baseline.parts[0].d)
+  expect(bounds(after.d)).toEqual(bounds(baseline.d))
+  const before = bounds(baseline.parts[1].d), revised = bounds(after.parts[1].d)
+  const sx = (revised[2] - revised[0]) / (before[2] - before[0])
+  const sy = (revised[3] - revised[1]) / (before[3] - before[1])
+  expect(sx).toBeGreaterThan(0.949)
+  expect(sx).toBeLessThan(1.001)
+  expect(Math.abs(sx - sy)).toBeLessThan(0.001)
+  const oldRings = pathRings(baseline.parts[1].d, 8), newRings = pathRings(after.parts[1].d, 8)
+  expect(newRings.map(r => r.length)).toEqual(oldRings.map(r => r.length))
+  for (const [i, ring] of newRings.entries()) {
+    expect(Math.max(...ring.map((v, j) =>
+      Math.abs(v - revised[j % 2] - (oldRings[i][j] - before[j % 2]) * sx)))).toBeLessThan(0.3)
+  }
+  expect((await sketch(source(), '⿹勹百', options))[1].box).toEqual(after.parts[1].box)
+})
 
-  it(`requires an eligible native cut of ${host} and preserves the original spelling`, async () => {
-    const opts = { fontStyle: 'serif', separate: true }, ids = op + outer + '自'
-    const record = records[host], plain = fixture(), excluded = { ...opts, exclude: [host] }
-    const noLabels = fixture({ [host]: { ...record, G: { ...record.G, ls: {} } } })
-    const fallback = await compose(noLabels, ids, opts)
-    expect((await compose(plain, ids, excluded)).d).toBe(fallback.d)
-    expect((await compose(plain, ids, opts)).d).not.toBe(fallback.d)
-    const overlaps = { ...record.G.ls, [held]: record.G.ls[outer] }
-    for (const glyph of [{ ...record.G, v: 0 }, { ...record.G, ls: overlaps }]) {
-      const unverified = fixture({ [host]: { ...record, G: glyph } })
-      expect((await compose(unverified, ids, opts)).d).toBe(fallback.d)
+it('keeps ordinary positioning for clear ink and other directions', async () => {
+  const src = source([0.29, 0.2, 0.67, 0.49])
+  for (const [seq, control] of [['⿹勹百', '⿹勹\uE000'], ['⿵門自', '⿵門\uE001']]) {
+    for (const layout of ['cells', 'composed']) {
+      const opts = { ...options, layout }
+      expect((await compose(src, seq, opts)).d).toBe((await compose(src, control, opts)).d)
     }
-    for (const native of [host, op + outer + held]) {
-      expect((await compose(plain, native, opts)).d).toBe((await compose(noLabels, native, opts)).d)
-    }
-  })
-}
-
-it('gives an encoded whole glyph priority over the synthetic fit for its description', async () => {
-  const ids = '⿵門自', encoded = '\uE001'
-  const extra = { [ids]: { e: encoded }, [encoded]: { ...records.自, s: ids } }
-  const src = source(extra), options = { fontStyle: 'serif' }
-  const native = await compose(src, encoded, options)
-  expect((await compose(src, ids, options)).d).toBe(native.d)
-  const unlabeled = source({ ...extra, 間: { ...records.間, G: { ...records.間.G, ls: {} } } })
-  for (const layout of ['cells', 'composed']) {
-    const editable = { ...options, separate: true, layout }
-    expect((await compose(src, ids, editable)).d).toBe((await compose(unlabeled, ids, editable)).d)
   }
 })
 
-for (const [ids, host, fallback] of [['⿹勹自', '旬', '甸'], ['⿸广自', '庙', null]]) {
-  it(`uses the verified contours of unlabelled ${host} only for a matching outline`, async () => {
-    const opts = { fontStyle: 'serif', separate: true }
-    const { parts } = await compose(source(), ids, opts)
-    expect(parts[0].origin).toBe('host ' + host)
-    const record = records[host], glyph = partOf(record.G)
-    const cut = derived(glyph, [4, 5, 6].map(i => glyph.contours[i]))
-    const native = normalized(svgPath([placed(cut, cut.box, cut.box, 1, host)]))
-    const actual = normalized(parts[0].d)
-    expect(actual.map(c => c.length)).toEqual(native.map(c => c.length))
-    for (let i = 0; i < actual.length; i++) {
-      expect(Math.max(...actual[i].map((v, j) => Math.abs(v - native[i][j])))).toBeLessThan(0.001)
-    }
-    const nativeSpelling = await compose(source(), record.s, { fontStyle: 'serif' })
-    expect(nativeSpelling.d).toBe((await compose(source(), host, { fontStyle: 'serif' })).d)
-    for (const G of [{ ...record.G, p: record.G.p.toReversed() }, { ...record.G, v: 0 }]) {
-      const changed = await compose(source({ [host]: { ...record, G } }), ids, opts)
-      expect(changed.parts[0].origin).not.toBe('host ' + host)
-      if (fallback) expect(changed.parts[0].origin).toBe('host ' + fallback)
-    }
-  })
-}
+it('sketches the moved leaf beside a loose mark and leaves missing outlines editable', async () => {
+  const marked = await compose(source(), '⿹勹百ˊ', options)
+  expect(marked.origins).toContain('mark ˊ')
+  const before = await compose(source(), '⿹勹\uE000ˊ', options)
+  expect(marked.parts[0].d).toBe(before.parts[0].d)
+  expect(marked.parts.at(-1).d).toBe(before.parts.at(-1).d)
+  expect((await sketch(source(), '⿹勹百ˊ', options))[1].box).toEqual(marked.parts[1].box)
+  expect(await sketch(source(undefined, { 百: {} }), '⿹勹百', options)).toHaveLength(2)
+})
 
-for (const ids of ['⿰口⿵門自', '⿱口⿵門自']) {
-  it(`preserves the sibling and enclosure ink bounds in ${ids}`, async () => {
-    const missing = { 間: { ...records.間, G: { ...records.間.G, ls: {} } } }
-    const preview = await sketch(source(), ids, { fontStyle: 'serif' })
-    const extent = parts => union(parts.slice(1).flatMap(p => pathRings(p.d, 32).map(pointsBox)))
-    for (const layout of ['composed', 'cells']) {
-      const options = { fontStyle: 'serif', separate: true, layout }
-      const latest = await compose(source(), ids, options)
-      const original = await compose(source(missing), ids, options)
-      expect(latest.parts.map(part => part.origin)).toContain('host 間')
-      expect(latest.parts[0].d).toBe(original.parts[0].d)
-      if (layout === 'composed') expect(preview.map(leaf => leaf.box)).toEqual(latest.parts.map(p => p.box))
-      else expect(latest.parts.map(p => p.leaf)).toEqual([0, 1, 2])
-      const before = extent(original.parts)
-      expect(Math.max(...extent(latest.parts).map((v, i) => Math.abs(v - before[i])))).toBeLessThan(0.2)
-    }
-  })
-}
-
-it('uses the native frame when an encoded identity has no drawable whole glyph', async () => {
-  const ids = '⿵門自', encoded = '\uE001'
-  const identity = { [ids]: { e: encoded }, [encoded]: { s: ids } }
-  const options = { fontStyle: 'serif' }
-  for (const config of [options, { ...options, separate: true }, { ...options, separate: true, layout: 'cells' }]) {
-    const ordinary = await compose(source(), ids, config)
-    const glyphless = await compose(source(identity), ids, config)
-    expect(glyphless.parts[0].origin).toBe('host 間')
-    expect(glyphless.d).toBe(ordinary.d)
-  }
+it('retains an encoded whole glyph and its editable decomposition', async () => {
+  const src = source(undefined, { '⿹勹百': { e: '\uE002' }, '\uE002': { ...records.口, s: '⿹勹百' } })
+  const plain = { fontStyle: 'serif' }
+  expect((await compose(src, '⿹勹百', plain)).d).toBe((await compose(src, '\uE002', plain)).d)
+  const other = source(undefined, { '⿹勹\uE000': { e: '\uE002' }, '\uE002': { ...records.口, s: '⿹勹\uE000' } })
+  expect((await compose(src, '⿹勹百', options)).d).toBe((await compose(other, '⿹勹\uE000', options)).d)
 })

@@ -1,7 +1,7 @@
 // @ts-nocheck
 import { hexOf } from './sha256.js'
 import { brushQiRows } from './qi-brush-cuts.js'
-import { backwards, crossings, segments, windingOf, derived, drawnContours, makePart, mapped, partInk, placed, pointsBox, rings, union } from './geometry.js'
+import { backwards, segments, windingOf, derived, drawnContours, makePart, mapped, partInk, placed, pointsBox, rings, union } from './geometry.js'
 
 export const qiReference = '⿳吅犬吅'
 const sequences = new Set(['⿳吅犬𫩏', '⿳吅太吅', '⿳吅𡗜吅', '⿳吅大𫩏', '⿳𫩏犬吅', '⿳𫩏大吅'])
@@ -66,6 +66,20 @@ function fit(part, target, sameWindingAs = part) {
     }
     return { ...c, light: points, heavy: points }
   })
+}
+
+// Positions where the outline crosses a line parallel to one of its axes.
+function crossings(polygons, axis, value) {
+  const values = []
+  for (const ring of polygons) {
+    for (let i = 0, j = ring.length - 2; i < ring.length; j = i, i += 2) {
+      const a = ring[i + axis], b = ring[j + axis]
+      if ((a > value) === (b > value)) continue
+      const other = 1 - axis
+      values.push(ring[i + other] + (ring[j + other] - ring[i + other]) * (value - a) / (b - a))
+    }
+  }
+  return values.sort((a, b) => a - b)
 }
 
 function dividedMouth(pair, post) {

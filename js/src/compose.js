@@ -1,8 +1,8 @@
 // @ts-nocheck: a port of han-compose's Python, kept line for line; its types are the arrays it reads.
 import { ratePart, rateParts } from './rate-drawing.js'
 import { containsRateForm, exactRateForm, rateFormsFor } from './rate-forms.js'
+import { checkedHook, clearHookContacts, markHook } from './directional-enclosures.js'
 import { hookFloor } from './hook-floor.js'
-import { directionalParts, directionalReferences } from './directional-enclosures.js'
 import { fitHookDonor, lowerHookSeat, openHookCounters } from './hook-seat.js'
 import { stackedHookPart } from './stacked-hook.js'
 import fangsongZhi from './fangsong-zhi.json' with { type: 'json' }
@@ -854,7 +854,6 @@ export const designedSources = (tree, style = 'sans') => {
     }
     if (!Array.isArray(node)) return
     const [op, ...children] = node
-    for (const [host] of directionalReferences(node) ?? []) out.add(host)
     if (op === '⿺' && children[1] === '首') out.add('馗')
     if (op === '⿺' && children[0] === '𡕚') { out.add('夂'); out.add('見') }
     if (isThornRow(node)) {
@@ -1476,7 +1475,8 @@ export class Composer {
       // Loose marks annotate the whole drawing; they take no part in its layout or weight.
       if (!marks) fitRecordedInk(this, sequence, out)
       if (marks) out.push(...markParts(this, marks, frame, face))
-      return this.fitNestedEnclosureInk(out, tree, frame, false, sequence, marks)
+      clearHookContacts(this, out)
+      return out
     } finally { this.face = previous }
   }
 
@@ -1557,6 +1557,11 @@ export class Composer {
       out.push(...parts)
     }
     const walk = (node, box, depth) => {
+      const start = out.length
+      place(node, box, depth)
+      if (checkedHook(node)) markHook(this, node, out.slice(start))
+    }
+    const place = (node, box, depth) => {
       const rate = this.rateMetric(keyOf(node)) && rateParts(keyOf(node), this.fontStyle, target(box), depth === 0)
       if (rate) {
         if (leafIndices) rate[0].leaf = leaf++
@@ -1623,11 +1628,6 @@ export class Composer {
           if (leafIndices) part.leaf = leaf++
           out.push(part)
         }
-        return
-      }
-      const directional = directionalParts(this, node, cell, depth === 0, true)
-      if (directional) {
-        directional.forEach((part, i) => emitCell(part, node[i + 1]))
         return
       }
       const hooked = this.hookFrame(node, cell, depth === 0)
@@ -1726,7 +1726,8 @@ export class Composer {
     else if (!this.partial && this.staticFace) this.staticBalance(out)
     this.fitMetricKeInterior(out, tree)
     fitClawInterior(out, tree, this.fontStyle, true)
-    return this.fitNestedEnclosureInk(out, tree, region, true)
+    clearHookContacts(this, out)
+    return out
   }
 
   /**
@@ -1741,6 +1742,18 @@ export class Composer {
     const frame = this.face.slice(), face = this.faceBeside(marks)
     const leaves = this.sketched(sequence)
     if (face.some((edge, at) => edge !== frame[at])) for (const leaf of leaves) leaf.box = mapped(leaf.box, frame, face)
+    if (/⿹勹[白百首]/u.test(sequence)) {
+      const editable = Object.create(this)
+      editable.separate = true
+      try {
+        const drawn = editable.compose(sequence, marks).filter(p => !p.origin?.startsWith('mark '))
+        if (drawn.length === leaves.length && drawn.every((p, i) => !p.cut && (p.leaf === undefined || p.leaf === i))) {
+          for (const [i, p] of drawn.entries()) if (p.clearedHook) leaves[i].box = drawnBox(p)
+        }
+      } catch (error) {
+        if (!(error instanceof LookupError)) throw error
+      }
+    }
     return leaves
   }
 
@@ -1761,7 +1774,6 @@ export class Composer {
     editable.separate = true
     const partitioned = this.leafCutSketch(sequence)
     if (partitioned) return partitioned
-    let nestedDirectional = false
     const out = []
     const walk = (node, region, atRoot) => {
       const yuan = this.yuanParts(node, region)
@@ -1799,12 +1811,6 @@ export class Composer {
       if (frame) {
         out.push({ index: out.length, box: frame.frame.target, empty: false })
         walk(node[2], (atRoot && metricKeSeat(node, this.fontStyle, frame.frame)) || frame.room, false)
-        return
-      }
-      const directional = directionalParts(editable, node, region, atRoot)
-      if (directional) {
-        if (!atRoot) nestedDirectional = true
-        for (const part of directional) out.push({ index: out.length, box: part.target, empty: false })
         return
       }
       const hooked = this.hookFrame(node, region, atRoot)
@@ -1870,11 +1876,6 @@ export class Composer {
       } else kids.forEach(kid => walk(kid, region, false))
     }
     walk(this.normalizeYan(this.cancelTransforms(this.parse(sequence))), this.face.slice(), true)
-    if (nestedDirectional) {
-      const drawn = editable.compose(sequence)
-      if (drawn.length === out.length && drawn.every((p, i) => !p.cut && p.empty === undefined &&
-          (p.leaf === undefined || p.leaf === i))) return drawn.map((p, index) => ({ index, empty: false, box: drawnBox(p) }))
-    }
     return out
   }
 
@@ -1961,7 +1962,9 @@ export class Composer {
   node(node, region, atRoot = false, sideBySide = false) {
     const rate = rateParts(keyOf(node), this.fontStyle, region, atRoot)
     if (rate && !this.excluded(exactRateForm(keyOf(node)).host)) return rate
-    return this.constructed(node, region, atRoot) ?? componentFix(keyOf(node), this.drawNode(node, region, atRoot, sideBySide), this, region)
+    const parts = this.constructed(node, region, atRoot) ?? componentFix(keyOf(node), this.drawNode(node, region, atRoot, sideBySide), this, region)
+    if (checkedHook(node)) markHook(this, node, parts)
+    return parts
   }
 
   /** The parts a nested construct draws `node` with in `region`: null for a description that is no
@@ -2195,7 +2198,7 @@ export class Composer {
       }
     }
     if (atRoot && !hasSlot(node)) {
-      const reference = this.enclosureInkBounds(node)
+      const reference = this.hookInkBounds(node)
       if (reference) {
         const actual = union(groupRings(parts, 32).map(pointsBox))
         if (actual[2] > actual[0] && actual[3] > actual[1]) {
@@ -2230,52 +2233,21 @@ export class Composer {
     return { parts, room }
   }
 
-  /** Compare like-for-like after the parent has spaced and weighted its children.
-   * The expanded strokes of surrounding siblings also belong to the original row. */
-  fitNestedEnclosureInk(parts, node, region, cells, sequence, marks = '') {
-    if (!parts.some(p => p.directionalGroup)) return parts
-    const ordinary = this.enclosureBaseline(this.separate, false, cells ? this.face : region)
-    const original = cells ? ordinary.cellLayout(node, region) : ordinary.compose(sequence, marks)
-    if (original.length !== parts.length || parts.some((p, i) => p.flips || p.cut || p.empty !== undefined ||
-        original[i].flips || original[i].cut || original[i].empty !== undefined ||
-        (!p.directionalGroup && p.origin !== original[i].origin))) return original
-    const bounds = group => union(groupRings(group, 32).map(pointsBox))
-    const out = original.slice()
-    for (let i = 0; i < parts.length; i++) {
-      if (!parts[i].directionalGroup) continue
-      const group = parts.slice(i, i + 2)
-      if (group.length !== 2 || group[0].directionalGroup !== group[1].directionalGroup) return original
-      const from = bounds(group), to = bounds(original.slice(i, i + 2))
-      for (const [j, part] of group.entries()) {
-        out[i + j] = { ...part, target: mapped(part.target, from, to) }
-        delete out[i + j].directionalGroup
-      }
-      i++
-    }
-    return out
-  }
-
-  enclosureBaseline(separate, hook = false, face = this.face) {
-    const ordinary = new Composer(this.data, { face, fontStyle: this.fontStyle,
-      exclude: this.exclude, keepBars: this.keepBars, separate })
-    ordinary.measuringDirectionalInk = true
-    ordinary.measuringHookInk = hook
-    return ordinary
-  }
-
   /** Keep the established root ink extent, including overshoot after stroke weighting.
    * A fresh composer isolates the ordinary layout's joints and weight adjustments.
    * The result is local to this loader pass, since more source shards can arrive. */
-  enclosureInkBounds(node, mode = 'hook', region = this.face) {
-    const sequence = keyOf(node)
-    const separate = mode !== 'hook' && this.separate
-    const key = [mode, separate, sequence, ...region].join('|')
-    this.enclosureInkMeasurements ??= new Map()
-    if (!this.enclosureInkMeasurements.has(key)) {
-      const ordinary = this.enclosureBaseline(separate, mode === 'hook')
+  hookInkBounds(node) {
+    const key = keyOf(node)
+    this.hookInkMeasurements ??= new Map()
+    if (!this.hookInkMeasurements.has(key)) {
+      const ordinary = new Composer(this.data, {
+        face: this.face, fontStyle: this.fontStyle, exclude: this.exclude,
+        keepBars: this.keepBars,
+      })
+      ordinary.measuringHookInk = true
       let bounds = null
       try {
-        const baseline = mode === 'cells' ? ordinary.cellLayout(node, region) : ordinary.compose(sequence)
+        const baseline = ordinary.compose(key)
         if (baseline.length && baseline.every(part => part.empty === undefined && !part.cut)) {
           const ink = union(groupRings(baseline, 32).map(pointsBox))
           if (ink.every(Number.isFinite) && ink[2] > ink[0] && ink[3] > ink[1]) bounds = ink
@@ -2283,9 +2255,9 @@ export class Composer {
       } catch (error) {
         if (!(error instanceof LookupError)) throw error
       }
-      this.enclosureInkMeasurements.set(key, bounds)
+      this.hookInkMeasurements.set(key, bounds)
     }
-    return this.enclosureInkMeasurements.get(key)
+    return this.hookInkMeasurements.get(key)
   }
 
   /** Place the enclosing strokes and map their opening into the same cell. */
@@ -2645,8 +2617,6 @@ export class Composer {
         ?? [region[0] + x0 * w, region[1] + y0 * h, region[0] + x1 * w, region[1] + y1 * h]
       return [...cutFrame, ...this.node(children[1], room)]
     }
-    const directional = directionalParts(this, node, region, atRoot)
-    if (directional) return directional
     // Native compound forms have no trained layout features; fit their actual outlines. A nested row
     // that holds an unreadable linear compound has no learned box to follow: the crossed shares place it.
     const hooked = this.hookFrame(node, region, atRoot)

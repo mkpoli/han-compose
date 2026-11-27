@@ -1,122 +1,59 @@
 // @ts-nocheck
-import { directionalDonorCut } from './directional-donor-cuts.js'
-import { crossings, derived, fill, fitted, groupRings, grown, mapped, partOf, placed, pointsBox, shrunk, union } from './geometry.js'
+import { fill, groupRings, grown, mapped, pointsBox, shrunk, union } from './geometry.js'
 
-// Each reference encloses a rectangular body in this orientation. A face
-// supplies its own outline and the contour labels for both components.
-const references = new Map([
-  ['⿵門', [['間', '日']]],
-  ['⿹勹', [['旬', '日'], ['甸', '田'], ['匈', '凶']]],
-  ['⿸广', [['庙', '由']]],
-  ['⿸尸', [['届', '由']]],
-  ['⿷匚', [['匣', '甲']]],
-  ['⿴囗', [['固', '古'], ['回', '口']]],
-])
-const boxed = new Set('口日目自白百田由首')
+const bodies = new Set(['白', '百', '首'])
+export const checkedHook = node => Array.isArray(node) && !node.note && node[0] === '⿹' && node[1] === '勹' && bodies.has(node[2])
 
-export function directionalReferences(node) {
-  if (!Array.isArray(node) || node.note || !boxed.has(node[2])) return null
-  return typeof node[1] === 'string' ? references.get(node[0] + node[1]) : null
+// Keep the two editable operands identifiable through their parent's spacing
+// and weight passes, which can create or remove contact with the hook.
+export function markHook(composer, node, parts) {
+  if (!checkedHook(node) || parts.length !== 2 || !['glyph ' + node[2], 'cells ' + node[2]].includes(parts[1].origin)) return
+  const key = node.join(''), encoded = composer.bySequence(key)
+  if (composer.spelled.has(key) || (encoded && (composer.glyph(encoded) || composer.excluded(encoded))) ||
+      [key, ...node.slice(1)].some(ch => composer.excluded(ch) || composer.forced(ch))) return
+  const group = Symbol()
+  for (const p of parts) p.hookPair = group
 }
 
-function nativeParts(record, outer, inner, host) {
-  if (record?.v !== 1) return null
-  let frame = record.ls?.[outer], content = record.ls?.[inner]
-  if (!frame?.length || !content?.length || frame.length + content.length !== record.p.length ||
-      !record.p.every((_, i) => frame.includes(i) !== content.includes(i))) {
-    const cut = directionalDonorCut(record, host)
-    if (!cut) return null
-    frame = cut.frame
-    content = cut.contents
-  }
-  const glyph = partOf(record)
-  return [derived(glyph, frame.map(i => glyph.contours[i])), derived(glyph, content.map(i => glyph.contours[i]))]
-}
+const bounds = parts => union(groupRings(parts, 32).map(pointsBox))
 
-// Measure upright and level strokes away from terminal flares and intersections.
-function stemWidths(part) {
-  const rings = groupRings([part], 12), box = union(rings.map(pointsBox))
-  return [0, 1].map(axis => {
-    const lengths = [], across = 1 - axis
-    // Uprights flank the lower rectangular body under the crowns of 自, 百 and 首.
-    const stations = axis === 0 ? [0.17, 0.23, 0.28, 0.34, 0.39, 0.45, 0.51]
-      : [0.27, 0.31, 0.34, 0.37, 0.63, 0.66, 0.69, 0.73]
-    for (const at of stations) {
-      const edges = crossings(rings, across, box[across] + at * (box[across + 2] - box[across]))
-      if (edges.length < 4) continue
-      for (let i = 1; i < edges.length; i += 2) {
-        if (axis === 0 && i !== 1 && i !== edges.length - 1) continue
-        const length = edges[i] - edges[i - 1]
-        if (length > 0.005 * (box[axis + 2] - box[axis]) && length < 0.21 * (box[axis + 2] - box[axis])) lengths.push(length)
+export function clearHookContacts(composer, parts) {
+  if (composer.partial) return
+  for (let i = 1; i < parts.length; i++) {
+    const inner = parts[i], outer = parts[i - 1]
+    if (!inner.hookPair || inner.hookPair !== outer.hookPair || inner.flips || outer.flips || inner.cut || outer.cut) continue
+    const pair = [outer, inner], footprint = bounds(pair)
+    if (composer.collide([outer], [inner], footprint, 256) < 0.01) continue
+    const body = bounds([inner]), frame = bounds([outer]), n = 160
+    const sx = (footprint[2] - footprint[0]) / n, sy = (footprint[3] - footprint[1]) / n
+    // Count the hook and all adjacent ink as obstacles. One pixel of margin
+    // gives roughly six font units of clearance in a full-size character.
+    const obstacles = parts.filter(p => p !== inner && !p.cut && p.empty === undefined)
+    const blocked = grown(fill(groupRings(obstacles), n, footprint), n, 1)
+    const candidates = []
+    for (const scale of [1, 0.975, 0.95]) {
+      const seat = shrunk(body, scale)
+      const probe = { ...inner, target: mapped(inner.target, body, seat) }
+      const mask = fill(groupRings([probe]), n, footprint)
+      const ink = []
+      mask.forEach((value, index) => { if (value) ink.push(index) })
+      for (let x = -16; x <= 16; x++) for (let y = -16; y <= 16; y++) {
+        const dx = x * sx, dy = y * sy
+        const shifted = [seat[0] + dx, seat[1] + dy, seat[2] + dx, seat[3] + dy]
+        const moved = union([frame, shifted])
+        if (moved.some((edge, j) => Math.abs(edge - footprint[j]) > 0.1)) continue
+        const shrink = 2 * (1 - scale) * Math.max(body[2] - body[0], body[3] - body[1])
+        candidates.push({ score: dx * dx + dy * dy + shrink * shrink, offset: x - n * y, ink, shifted })
       }
     }
-    lengths.sort((a, b) => a - b)
-    return lengths[Math.floor(lengths.length / 2)]
-  })
-}
-
-function matchStems(content, reference) {
-  const native = stemWidths(placed(reference, reference.box, reference.box, 0, ''))
-  const light = stemWidths(content), heavy = stemWidths({ ...content, weight: [1, 1] })
-  return light.map((width, axis) => {
-    const delta = heavy[axis] - width
-    if (!(native[axis] > width) || !Number.isFinite(delta) || Math.abs(delta) < 1) return 0
-    return Math.max(-0.8, Math.min(1, (native[axis] - width) / delta))
-  })
-}
-
-export function directionalParts(composer, node, region, atRoot, cells = false) {
-  const donors = directionalReferences(node)
-  if (!donors || composer.measuringDirectionalInk) return null
-  const [op, outer, inner] = node, sequence = op + outer + inner
-  const encoded = composer.bySequence(sequence)
-  if ((encoded && (composer.drawnGlyph(encoded, !atRoot) || composer.excluded(encoded) || composer.forced(encoded))) || composer.spelled.has(sequence) || donors.some(([, ch]) => ch === inner) ||
-      [outer, inner, sequence].some(ch => composer.excluded(ch) || composer.forced(ch)) || !composer.own(inner)) return null
-  // The donor fit lives in font coordinates. Layout probes may ask for this
-  // sequence in several regions during a single synchronous loader pass.
-  const cache = composer.directionalFitCache ??= new Map()
-  if (!cache.has(sequence)) cache.set(sequence, fitNativeOpening(composer, donors, outer, inner))
-  const fit = cache.get(sequence)
-  if (!fit) return null
-  const target = atRoot ? composer.enclosureInkBounds(node, cells ? 'cells' : 'directional', region) : region
-  if (!target) return null
-  const parts = fit.parts.map(part => ({ ...part, weight: [...part.weight], target: mapped(part.target, fit.source, target) }))
-  if (!atRoot) {
-    const group = Symbol()
-    for (const part of parts) part.directionalGroup = group
-  }
-  return parts
-}
-
-function fitNativeOpening(composer, donors, outer, inner) {
-  const glyph = composer.glyph(inner)
-  const ink = union(glyph.contours.map(c => pointsBox(c.light)))
-  for (const [host, held] of donors) {
-    if ([host, held].some(ch => composer.excluded(ch) || composer.forced(ch))) continue
-    const cut = nativeParts(composer.glyphRecord(host), outer, held, host)
-    if (!cut) continue
-    const [outerPart, reference] = cut
-    const frame = { ...placed(outerPart, outerPart.box, outerPart.box, composer.ink(host), `host ${host}`), fixed: true }
-    const seat = fitted(ink, reference.box, 1.2)
-    const content = { ...placed(glyph, ink, seat, composer.ink(inner), `glyph ${inner}`), fixed: true }
-    // A projecting hook can enter an empty corner of the native component's
-    // bounding box. Check the replacement's ink before accepting that seat.
-    const size = 128, bounds = union([outerPart.box, reference.box])
-    const blocked = grown(fill(groupRings([frame]), size, bounds), size, 1)
-    for (const scale of [1, 0.94, 0.88]) {
-      const opening = scale === 1 ? seat : shrunk(seat, scale)
-      content.target = opening
-      content.source = ink
-      content.weight = [0, 0]
-      content.weight = matchStems(content, reference)
-      const weightedInk = union(groupRings([content], 32).map(pointsBox))
-      content.source = mapped(weightedInk, opening, ink)
-      const mask = fill(groupRings([content]), size, bounds)
-      if (mask.some((value, i) => value && blocked[i])) continue
-      const parts = [frame, content]
-      const source = union(groupRings(parts, 32).map(pointsBox))
-      return { parts, source }
+    candidates.sort((a, b) => a.score - b.score)
+    for (const candidate of candidates) {
+      if (candidate.ink.some(index => blocked[index + candidate.offset])) continue
+      const probe = { ...inner, target: mapped(inner.target, body, candidate.shifted) }
+      if (composer.collide(obstacles, [probe], footprint, 256) > 0) continue
+      inner.target = probe.target
+      inner.clearedHook = true
+      break
     }
   }
-  return null
 }
