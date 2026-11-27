@@ -1960,7 +1960,7 @@ export class Composer {
     const out = []
     const walk = (node, region, atRoot) => {
       if (Array.isArray(node) && node[0] === '⿱') {
-        const boxes = incomeBoxes(keyOf(node), this.fontStyle, region)
+        const boxes = incomeBoxes(keyOf(node), this.fontStyle, region, this.face)
         if (boxes) {
           for (const box of boxes) out.push({ index: out.length, box, empty: false })
           return

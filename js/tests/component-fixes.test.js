@@ -765,13 +765,39 @@ describe('日進斗金 ⿱⿰日斗⿺辶⿰隹金', () => {
     }
   })
 
-  it('handles Regular’s encoded 𪰍 top pair and ignores unrecognized layouts or the swapped IDS', () => {
+  it('insets left and top edges when nested inside a larger face', () => {
+    const face = [38, -81, 967, 840]
+    const rightRegion = [450, -81, 967, 840]
+    const lowerRegion = [38, -81, 967, 580]
+    const rightBoxes = incomeBoxes(INCOME_IDS, 'sans', rightRegion, face)
+    const rootRight = incomeBoxes(INCOME_IDS, 'sans', rightRegion)
+    expect(rightBoxes[2][0]).toBeGreaterThan(rootRight[2][0])
+    expect(rightBoxes[1][3]).toBeCloseTo(rootRight[1][3], 6)
+    const lowerBoxes = incomeBoxes(INCOME_IDS, 'sans', lowerRegion, face)
+    const rootLower = incomeBoxes(INCOME_IDS, 'sans', lowerRegion)
+    expect(lowerBoxes[1][3]).toBeLessThan(rootLower[1][3])
+    expect(lowerBoxes[2][0]).toBeCloseTo(rootLower[2][0], 6)
+  })
+
+  it('handles encoded 𪰍 top pair and ignores unrecognized layouts or the swapped IDS', () => {
     const region = [89, -56, 915, 800]
     const four = ['glyph 𪰍', 'glyph 辶', 'learned 䳡', 'learned 唫'].map(sample)
     const out = COMPONENT_FIXES[INCOME_IDS].apply(four, { fontStyle: 'regular' }, region)
     const boxes = incomeBoxes(INCOME_IDS, 'regular', region)
     expect(out[0].target).toEqual(union([boxes[0], boxes[1]]))
     expect(out.slice(1).map(p => p.target)).toEqual(boxes.slice(2))
+
+    const splitComposer = {
+      fontStyle: 'regular',
+      face: region,
+      drawNode: () => [sample('learned 㫑'), sample('learned 斘')],
+    }
+    const splitOut = COMPONENT_FIXES[INCOME_IDS].apply(four, splitComposer, region)
+    expect(splitOut).toHaveLength(5)
+    expect(splitOut.map(p => p.target)).toEqual(boxes)
+
+    const misshapedFive = ['glyph 𪰍', 'glyph 辶', 'learned 䳡', 'learned 唫', 'glyph 一'].map(sample)
+    expect(COMPONENT_FIXES[INCOME_IDS].apply(misshapedFive, { fontStyle: 'regular' }, region)).toBe(misshapedFive)
 
     const unrelated = ['glyph 日', 'glyph 辶', 'learned 䳡', 'learned 唫'].map(sample)
     expect(COMPONENT_FIXES[INCOME_IDS].apply(unrelated, { fontStyle: 'regular' }, region)).toBe(unrelated)
