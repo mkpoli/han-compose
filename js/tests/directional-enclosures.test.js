@@ -158,3 +158,14 @@ for (const [face, fontStyle] of [['sans', 'sans'], ['serif', 'serif'], ['reg', '
     expect(direct.origins).toEqual(['glyph 匍'])
   })
 }
+
+it('places TW-Kai 百 near the right edge of the native 勹 centre range', async () => {
+  const src = source([0.24, 0.09, 0.70, 0.63], openings.reg)
+  const result = await compose(src, '⿹勹百', { fontStyle: 'regular', separate: true })
+  expect(result.origins).toEqual(['host 匍', 'glyph 百'])
+  const [frame, body] = result.parts.map(p => bounds(p.d))
+  const centre = ((body[0] + body[2]) / 2 - frame[0]) / (frame[2] - frame[0])
+  // 匂 sets the measured upper endpoint. The placement grid spans 160 cells.
+  expect(centre).toBeGreaterThan(0.4159 - 1 / 160)
+  expect(centre).toBeLessThanOrEqual(0.4159)
+})

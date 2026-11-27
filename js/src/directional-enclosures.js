@@ -91,9 +91,9 @@ function refineBai(composer, outer, inner, siblings, footprint) {
   const reference = baiReference(composer, outer, frame)
   if (!reference) return false
   const { hook, aim } = reference
-  // TW-Kai's left stroke projects beyond 甫. Move 百 into the opening.
+  // TW-Kai 匂 has the rightmost inner centre among the ten native 勹 references.
+  if (style === 'regular') aim[0] = l + 0.4159 * (r - l)
   // Lift Kureedo's body away from the return at the foot of 勹.
-  if (style === 'regular') aim[0] = Math.max(aim[0], l + 0.43 * (r - l))
   if (style === 'pen-writing') aim[1] += 0.035 * (t - b)
   if (siblings.length && composer.collide(siblings, [hook], footprint, 256) > 0) return false
   const scales = style === 'fangsong' ? [1, 0.975, 0.95] : [1, 0.975, 0.95, 0.925, 0.90]
