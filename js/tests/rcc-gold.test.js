@@ -1,6 +1,6 @@
 import { expect, it } from 'bun:test'
 import { compose, createSource, sketch } from '../src/loader.js'
-import { pathMask } from '../src/geometry.js'
+import { cutContours, partOf, pathMask } from '../src/geometry.js'
 import { files, shards } from './fixtures/small-export.js'
 // Noto Sans CJK JP 2.004 and Zhuque Fangsong, SIL Open Font License 1.1.
 import records from './fixtures/rcc-gold.json' with { type: 'json' }
@@ -9,7 +9,7 @@ const ids = '⿰金⿳冖丷⿸⿻[1:]丿口乚'
 const touches = (a, b) => a.some((ink, i) => ink && b[i])
 
 for (const [fontStyle, glyphs] of Object.entries(records)) {
-  it(`joins the diagonal and lower hook to the box in ${fontStyle}`, async () => {
+  it(`places the native right-column roof above the crossed box in ${fontStyle}`, async () => {
     const data = { ...files, ...shards('g', Object.entries(glyphs)) }
     const source = createSource(async name => data[name] === undefined ? null : new Uint8Array(Buffer.from(data[name])).buffer)
     const cold = await sketch(source, ids, { fontStyle })
@@ -27,7 +27,12 @@ for (const [fontStyle, glyphs] of Object.entries(records)) {
       const dabTop = dabs.map(mask => Math.floor(mask.findIndex(Boolean) / 384) * 1000 / 384)
       expect(dabTop[1]).toBeLessThan(crest + (shoulder - crest) * .42)
       expect(dabTop[1]).toBeLessThan(dabTop[0])
-      expect(touches(crown, mouth)).toBe(true)
+      const donor = fontStyle === 'fangsong' ? '暝' : '䤟'
+      const indices = fontStyle === 'serif' ? [8, 9, 10] : fontStyle === 'fangsong' ? [7] : [0]
+      const [l, b, r, t] = cutContours(partOf(glyphs[donor].G), indices).box
+      const [, , w, h] = parts[1].box
+      expect(Math.abs(h / w - (t - b) / (r - l))).toBeLessThan(.035)
+      expect(touches(crown, mouth)).toBe(false)
       expect(touches(crown, dots)).toBe(false)
       expect(touches(dots, slash)).toBe(true)
       expect(touches(slash, mouth)).toBe(true)
@@ -51,7 +56,7 @@ for (const [fontStyle, glyphs] of Object.entries(records)) {
     expect((await sketch(source, alt, { fontStyle })).map(p => p.box))
       .toEqual([0, 1, 2, 3, 5, 4].map(i => cold[i].box))
     if (fontStyle === 'sans') {
-      for (const excluded of [ids, '鋭', '兎', '冞', '⿳冖丷⿸⿻[1:]丿口乚', '⿸⿻[1:]丿口乚', '⿻[1:]丿口']) {
+      for (const excluded of [ids, '鋭', '兎', '冞', '䤟', '⿳冖丷⿸⿻[1:]丿口乚', '⿸⿻[1:]丿口乚', '⿻[1:]丿口']) {
         expect((await compose(source, ids, { fontStyle, exclude: [excluded] })).origins).not.toContain('R+07DF 金')
       }
     }
