@@ -37,6 +37,10 @@ export declare function derived(from: any, contours: any, box: any): {
     contours: any[];
     box: number[];
 };
+export declare function cutContours(glyph: any, indices: any, box?: undefined): {
+    contours: any[];
+    box: number[];
+};
 export declare function contourSections(contours: any, ...sections: any[]): {
     ops: any[];
     light: Float64Array<ArrayBuffer>;
