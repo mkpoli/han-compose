@@ -915,6 +915,9 @@ export const designedSources = (tree, style = 'sans') => {
  *  own glyph. */
 /** The most a stroke running along a row or a stack may be thick, as a share of its length. */
 const ACROSS_THICK = 0.3
+/** How the part an enclosure already holds and a second part written into it stand together:
+ *  stacked under an upper-left enclosure, side by side over a lower-left one. */
+const HELD_TOGETHER = { '⿸': '⿱', '⿺': '⿰' }
 /** How many of a character's cuts for a place are tried for a foot to cut away. */
 const FOOTLESS_HOSTS = 6
 const FOOTLESS = { '𲎰': { host: '五' }, '𲐬': { host: '巫', doubled: true } }
@@ -3819,11 +3822,15 @@ export class Composer {
     if (grid) return grid.tree
     const enclosure = this.splitEnclosure(node)
     if (enclosure) return enclosure.tree
-    if (node[0] !== '⿸' || node.length !== 3 || typeof node[1] !== 'string') return node
-    let outer
-    try { outer = this.parse(this.sequenceOf(node[1]) ?? '') } catch { return node }
-    if (Array.isArray(outer) && outer[0] === '⿸' && outer.length === 3
-      && !(typeof outer[1] === 'string' && (this.sequenceOf(outer[1]) ?? '').startsWith('⿸'))) return ['⿸', outer[1], ['⿱', outer[2], node[2]]]
+    // An enclosure round a second part holds both: 疒 of 病 hangs over 丙 and what is written
+    // under it, and 辶 of 遲 runs under 犀 and what is written beside it.
+    const held = Object.hasOwn(HELD_TOGETHER, node[0]) ? HELD_TOGETHER[node[0]] : null
+    if (!held || node.length !== 3) return node
+    let outer = node[1]
+    if (typeof outer === 'string') { try { outer = this.parse(this.sequenceOf(outer) ?? '') } catch { return node } }
+    else if (node[0] === '⿸') return node
+    if (Array.isArray(outer) && outer[0] === node[0] && outer.length === 3 && !outer.note
+      && !(typeof outer[1] === 'string' && (this.sequenceOf(outer[1]) ?? '').startsWith(node[0]))) return [node[0], outer[1], [held, outer[2], node[2]]]
     return node
   }
 

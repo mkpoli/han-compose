@@ -185,6 +185,23 @@ it('draws bars beside another part from their own glyph, not a cut spread on the
   expect((await compose(sourceOf(trees), '⿰木口', { fontStyle: 'sans' })).origins.some(origin => origin.endsWith(' 休'))).toBe(true)
 })
 
+// 甲 is ⿺厃木, as 遲 is ⿺辶犀: a part written into it stands beside 木 over the same foot.
+it('holds a part written into a lower-left enclosure beside the part already held', async () => {
+  const held = { ...character('甲', [[100, 0, 900, 800]]), s: '⿺厃木' }
+  const hung = { ...character('乙', [[100, 0, 900, 800]]), s: '⿸厃木' }
+  const entries = { 甲: held, 乙: hung }
+  const input = { ...files, 'identity.json': identityOf(Object.entries({ ...records, ...entries })), ...shards('g', Object.entries(entries)) }
+  const source = sourceOf(input)
+  await compose(source, '⿺甲口')
+  await compose(source, '⿸乙口')
+  const composer = new Composer(source.store(), { fontStyle: 'sans' })
+  expect(composer.respelled(['⿺', '甲', '口'])).toEqual(['⿺', '厃', ['⿰', '木', '口']])
+  expect(composer.respelled(['⿺', ['⿺', '厃', '木'], '口'])).toEqual(['⿺', '厃', ['⿰', '木', '口']])
+  expect(composer.respelled(['⿸', '乙', '口'])).toEqual(['⿸', '厃', ['⿱', '木', '口']])
+  // A lower-left enclosure round an upper-left one is no such pair.
+  expect(composer.respelled(['⿺', '乙', '口'])).toEqual(['⿺', '乙', '口'])
+})
+
 it('keeps the outline of another face when the sequence of its character cannot be drawn', async () => {
   const foreign = { ...character('𲎰', [[100, 0, 300, 800]]), s: '⿰木牙' }
   foreign.G.v = 0
