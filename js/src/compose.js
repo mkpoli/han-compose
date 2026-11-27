@@ -6,7 +6,7 @@ import { finishGrassTang, isGrassTang, markGrassTang } from './grass-tang.js'
 import { containsU26201, u26201Choice } from './u26201-forms.js'
 import { u26201Part, yaoPart } from './u26201-part.js'
 import { ratePart, rateParts } from './rate-drawing.js'
-import { containsRateForm, exactRateForm, rateFormsFor } from './rate-forms.js'
+import { containsRateForm, rateRenderChoice, rateFormsFor } from './rate-forms.js'
 import { checkedHook, clearHookContacts, markHook } from './directional-enclosures.js'
 import { hookFloor } from './hook-floor.js'
 import { fitHookDonor, lowerHookSeat, openHookCounters } from './hook-seat.js'
@@ -1000,9 +1000,9 @@ export class Composer {
     if (form) return yaoPart('folded')
     const pair = this.yaoChoice(text)
     if (pair) return u26201Part({})
-    const choice = exactRateForm(text)
+    const choice = rateRenderChoice(text)
     if (!choice || this.excluded(choice.host)) return null
-    return ratePart(rateFormsFor(text)[0].text, this.fontStyle)
+    return ratePart(rateFormsFor(choice.host)[0].text, this.fontStyle)
   }
   // An export may supply a native 𦈁 in its own face. An explicit component choice
   // draws the selected design even when that export also has the base character.
@@ -1023,7 +1023,7 @@ export class Composer {
       const origin = form ? 'Noto Serif CJK · 幺（重繪）' : '文津宋體 · 𦈁'
       return [{ ...placed(part, part.box, target, partInk(part), origin), fixed: true }]
     }
-    const rate = exactRateForm(text)
+    const rate = rateRenderChoice(text)
     return rate && !this.excluded(rate.host) ? rateParts(text, this.fontStyle, region, atRoot) : null
   }
   parse = sequence => {
@@ -1305,7 +1305,7 @@ export class Composer {
   crossings(node, axis, seen = new Set()) {
     const text = keyOf(node), reviewed = this.reviewedMetric(text)
     if (reviewed) {
-      const key = (resolveYaoForm(text) ? '&VR-5E7A-02;' : u26201Choice(text) ? '𦈁' : rateFormsFor(text)[0].text) + '|' + axis
+      const key = (resolveYaoForm(text) ? '&VR-5E7A-02;' : u26201Choice(text) ? '𦈁' : rateRenderChoice(text).host) + '|' + axis
       if (!this.crossingCache.has(key)) this.crossingCache.set(key, strokeCrossings(reviewed, axis))
       return this.crossingCache.get(key)
     }

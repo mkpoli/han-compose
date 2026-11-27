@@ -27,7 +27,7 @@ export function yaoPart(id) {
 }
 
 /** @param {string} d SVG path in a 1000-unit em. */
-function svgPart(d) {
+export function svgPart(d) {
   const contours = splitSubpaths(d).map(path => {
     const ops = [], points = []
     for (const s of parsePath(path).segments) {
