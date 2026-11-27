@@ -96,6 +96,10 @@ export declare const COMPONENT_FIXES: {
         };
         apply(parts: any, composer: any): any;
     };
+    '\u2FF0\u821F\u82D7': {
+        glyphs: {};
+        apply(parts: any, composer: any): any;
+    };
     '\u2FF0\u8ECA\u30C8': {
         glyphs: {
             ト: string;
