@@ -2320,7 +2320,7 @@ export class Composer {
     const explicit = Array.isArray(outer)
     if (explicit && (outer.note || outer[0] !== '⿱')) return null
     if (!explicit && (this.excluded(outer) || this.forced(outer) || lowerLeftFrames.has(outer) ||
-        outer === '几' || outer === '木' || outer === '爪' || ENCLOSURE_TAILS[outer] || enclosureEntry('⿺', outer, this.fontStyle))) return null
+        outer === '几' || outer === '乙' || outer === '木' || outer === '爪' || ENCLOSURE_TAILS[outer] || enclosureEntry('⿺', outer, this.fontStyle))) return null
     if (this.bySequence(keyOf(node))) return null
     let glyph = explicit ? null : this.glyph(outer)
     let topCount = 0
@@ -3212,6 +3212,15 @@ export class Composer {
         ...flip, about: mapped([...flip.about, ...flip.about], box, seat).slice(0, 2),
       }))
     }
+  }
+
+  /** Whether the face draws `ch` as one turned stroke `turnedSweep` presses round another part. */
+  turned(ch) {
+    const glyph = this.own(ch) && !this.excluded(ch) ? this.glyph(ch) : null
+    if (!glyph) return false
+    const part = placed(glyph, glyph.box, glyph.box, this.ink(ch), `glyph ${ch}`)
+    const contours = drawnContours(part), box = union(contours.map(pointsBox))
+    return turnedSweep(part, contours, box, Infinity, this.C) !== undefined
   }
 
   /** The designed tail of `node`'s pressed enclosure, or null where the face draws none. */
@@ -4118,6 +4127,9 @@ export class Composer {
       }
       // Inside a variation sequence, which is drawn from its glyph, a part is set into the opening.
       let part = i === 1 && op in this.ENCLOSE && this.variantRecord(keyOf(children[0])) ? null : this.host(op, i, child, [...children.slice(0, i), ...children.slice(i + 1)], box, region === null)
+      // A turned stroke cut from beside another part (乙 in 鳦) has no foot drawn out to hold one:
+      // the face's own glyph is pressed instead.
+      if (part && op === '⿺' && i === 0 && part.record.op !== op && typeof child === 'string' && this.turned(child)) part = null
       if (op in this.ENCLOSE && i === 0 && (!part || (typeof child === 'string' && this.own(child)
         && stretchOf(part.piece.box, box) > C.ENCLOSING_STRETCH))) {
         // An enclosing part no host draws in its place, or every host squeezes, is drawn as its kin's.
@@ -6278,6 +6290,8 @@ export function sweptPart(p, edge, C, tail = null) {
   const boxes = contours.map(pointsBox)
   const x0 = Math.min(...boxes.map(b => b[0])), y0 = Math.min(...boxes.map(b => b[1]))
   const x1 = Math.max(...boxes.map(b => b[2])), y1 = Math.max(...boxes.map(b => b[3]))
+  const turned = turnedSweep(p, contours, [x0, y0, x1, y1], edge, C)
+  if (turned !== undefined) return turned
   const [reach, foot] = C.SWEEP_REACH
   const sweeps = boxes.map((b, k) => [b, k]).filter(([b]) => b[2] >= x1 - reach * (x1 - x0) && b[1] <= y0 + foot * (y1 - y0)
     && b[3] - b[1] >= C.SWEEP_RISE * (y1 - y0)).map(([, k]) => k)
@@ -6324,6 +6338,86 @@ export function sweptPart(p, edge, C, tail = null) {
   const drawn = derived(p.part, [at(p.part.contours[sweep], drawnOut)])
   return [placed(strokes, strokes.box, pressedBox, p.native, `swept ${p.origin}`, p.weight),
     placed(drawn, drawn.box, drawn.box.slice(), p.native, `swept ${p.origin}`, p.weight)]
+}
+
+/** The rows sampled for a turned stroke's shape, the share of the width a foot or a head spans, the
+ *  share a stem may take and the least it leans across, where a rising hook begins across and ends up the glyph, and the share of
+ *  the height over which the pressing eases in above the foot. */
+const TURNED = { rows: 24, wide: 0.6, stem: 0.3, lean: 0.2, hook: [0.6, 0.5], ease: 0.1 }
+
+/**
+ * 乙 round the lower left of another part: one stroke turning at the upper right, falling to the
+ * lower left and running out along the foot. Its head is pressed left of `edge` and the falling
+ * stroke leans after it, each row moved as a whole so the stroke keeps its width, while the foot and
+ * its hook stay. Undefined where the glyph is no such stroke, null where it needs no pressing.
+ */
+function turnedSweep(p, contours, [x0, y0, x1, y1], edge, C) {
+  const w = x1 - x0, h = y1 - y0
+  if (!(w > 0 && h > 0)) return undefined
+  const polys = rings(p.part.contours, contours, 12).map(ring => {
+    const out = []
+    for (let i = 0; i + 1 < ring.length; i += 2) out.push([ring[i], ring[i + 1]])
+    return out
+  })
+  // The ink along a row, overlapping outlines joined, without the hook rising from the foot's end.
+  const runs = y => {
+    const spans = polys.flatMap(poly => spansAt(poly, y)).sort((a, b) => a[0] - b[0])
+    const out = []
+    for (const span of spans) {
+      if (out.length && span[0] <= out.at(-1)[1]) out.at(-1)[1] = Math.max(out.at(-1)[1], span[1])
+      else out.push(span.slice())
+    }
+    return out.filter(run => !(run[0] >= x0 + TURNED.hook[0] * w && y < y0 + TURNED.hook[1] * h))
+  }
+  const rowY = k => y0 + (k + 0.5) * h / TURNED.rows
+  const rows = Array.from({ length: TURNED.rows }, (_, k) => runs(rowY(k)))
+  let footRow = -1
+  for (let k = 0; k < TURNED.rows * 0.4; k++) if (rows[k].some(run => run[1] - run[0] >= TURNED.wide * w)) footRow = k
+  if (footRow < 0) return undefined
+  // Above the foot a single stem climbs to the right, and the head reaches across the glyph.
+  const stems = [], body = rows.slice(footRow + 2, Math.round(TURNED.rows * 0.75))
+  for (const row of body) {
+    if (row.length !== 1 || row[0][1] - row[0][0] > TURNED.stem * w) return undefined
+    if (stems.length && row[0][1] < stems.at(-1)[1] - 0.02 * w) return undefined
+    stems.push(row[0])
+  }
+  if (stems.length < 4 || stems[0][1] > x0 + 0.5 * w || stems.at(-1)[1] - stems[0][1] < TURNED.lean * w) return undefined
+  // The turn is the lowest row whose ink reaches the head's right end: every row from there up
+  // is pressed from that end, so a head that rises or thins keeps its two edges together.
+  let head = -Infinity, turn = y1
+  for (let k = 4 * TURNED.rows - 1; k >= 2 * TURNED.rows; k--) {
+    const y = y0 + (k + 0.5) * h / (4 * TURNED.rows), right = runs(y).at(-1)?.[1] ?? -Infinity
+    if (right > head) head = right
+    if (right >= head - 0.01 * w) turn = y
+  }
+  if (!(head >= x0 + TURNED.wide * w)) return undefined
+  if (head <= edge) return null
+  edge = Math.max(edge, x0 + C.SWEEP_PRESSED * (head - x0))
+  const widths = stems.map(run => run[1] - run[0]).sort((a, b) => a - b), stem = widths[widths.length >> 1]
+  // The turn moves as a whole, a stem's width in from the head's end, and lands on the edge.
+  const press = (head - edge) / Math.max(head - stem - x0, 1)
+  const footTop = y0 + (footRow + 1) * h / TURNED.rows
+  const moved = contours.map(pts => pts.map((x, i) => {
+    if (i % 2) return 0
+    const y = Math.min(Math.max(pts[i + 1], y0 + 1), y1 - 1)
+    const ease = Math.min(1, (y - footTop) / (TURNED.ease * h))
+    if (!(ease > 0)) return 0
+    const right = y >= turn ? head : runs(y).at(-1)?.[1]
+    if (right === undefined || (x >= x0 + TURNED.hook[0] * w && y < y0 + TURNED.hook[1] * h)) return 0
+    const from = Math.max(x0, Math.min(x, right - stem))
+    return -press * (from - x0) * ease
+  }))
+  const [sx, sy] = scaleOf(p)
+  const cx = (p.source[0] + p.source[2]) / 2, cy = (p.source[1] + p.source[3]) / 2
+  const gx = (p.target[0] + p.target[2]) / 2, gy = (p.target[1] + p.target[3]) / 2
+  const drawn = derived(p.part, p.part.contours.map((c, k) => {
+    const map = src => { const out = new Float64Array(src.length); for (let i = 0; i < src.length; i += 2) { out[i] = (src[i] - cx) * sx + gx + moved[k][i]; out[i + 1] = (src[i + 1] - cy) * sy + gy } return out }
+    const own = c.width ?? [0, 1].map(axis => C.STEM_CURVE[axis][0] + C.STEM_CURVE[axis][1] * p.native / 1000)
+    const baked = c.scaled ?? [1, 1]
+    return { ops: c.ops, light: map(c.light), heavy: map(c.heavy), width: [own[0] * sx, own[1] * sy],
+      scaled: [baked[0] * sx, baked[1] * sy], foreign: c.foreign, kindred: c.kindred }
+  }))
+  return [placed(drawn, drawn.box, drawn.box.slice(), p.native, `swept ${p.origin}`, p.weight)]
 }
 
 /**
@@ -6584,6 +6678,38 @@ function cutAt(poly, cut, above) {
  *  above its upper edge the cut is made (a share of the glyph's height), and the largest piece, as
  *  a share of the glyph's box, that is the stroke's own end standing above that edge. */
 const FOOT_COLUMNS = 80, FOOT_THICK = 1.4, FOOT_SHOWN = 0.3, FOOT_CLEAR = 0.012, FOOT_END = 0.008
+/** The room left between the two parts of a doubled flank, as a share of the height they stand in. */
+const FLANK_GAP = 0.06
+/**
+ * A glyph whose parts on either side of its stem are each drawn twice, one above the other: the 人
+ * pair of 巫 without its foot becomes the four of 𲐬. The two copies share the height from the
+ * stem's foot to the part's top and keep the part's width. Null where no part stands clear of the
+ * stem on both sides.
+ */
+function doubledFlanks(glyph) {
+  const boxes = glyph.contours.map(c => pointsBox(c.light))
+  const [x0, y0, x1, y1] = union(boxes)
+  const middle = (x0 + x1) / 2, level = y0 + 0.3 * (y1 - y0)
+  const stem = glyph.contours.flatMap(c => spansAt(flattenRing(c), level))
+    .reduce((best, run) => !best || Math.abs((run[0] + run[1]) / 2 - middle) < Math.abs((best[0] + best[1]) / 2 - middle) ? run : best, null)
+  if (!stem) return null
+  const centre = (stem[0] + stem[1]) / 2
+  const sides = [boxes.map((b, k) => b[2] <= centre ? k : -1), boxes.map((b, k) => b[0] >= centre ? k : -1)].map(side => side.filter(k => k >= 0))
+  if (sides.some(side => !side.length)) return null
+  const flanks = new Set(sides.flat())
+  const out = glyph.contours.filter((_, k) => !flanks.has(k))
+  if (!out.length) return null
+  for (const side of sides) {
+    const box = union(side.map(k => boxes[k])), height = box[3] - y0
+    const each = (height - FLANK_GAP * height) / 2, scale = Math.min(1, each / (box[3] - box[1]))
+    for (const base of [y0, box[3] - scale * (box[3] - box[1])]) {
+      const set = points => points.map((v, i) => i % 2 ? base + (v - box[1]) * scale : v)
+      for (const k of side) out.push({ ...glyph.contours[k], light: set(glyph.contours[k].light), heavy: set(glyph.contours[k].heavy) })
+    }
+  }
+  return derived(glyph, out)
+}
+
 /**
  * A glyph without its bottom stroke. The stroke's upper edge is read where nothing stands on it:
  * in each column the lowest run of ink, kept where that run is no thicker than the stroke. A line
@@ -6678,38 +6804,6 @@ function cutAbove(polys, cut) {
     }
   }
   if (crossings.length % 2) return null
-/** The room left between the two parts of a doubled flank, as a share of the height they stand in. */
-const FLANK_GAP = 0.06
-/**
- * A glyph whose parts on either side of its stem are each drawn twice, one above the other: the 人
- * pair of 巫 without its foot becomes the four of 𲐬. The two copies share the height from the
- * stem's foot to the part's top and keep the part's width. Null where no part stands clear of the
- * stem on both sides.
- */
-function doubledFlanks(glyph) {
-  const boxes = glyph.contours.map(c => pointsBox(c.light))
-  const [x0, y0, x1, y1] = union(boxes)
-  const middle = (x0 + x1) / 2, level = y0 + 0.3 * (y1 - y0)
-  const stem = glyph.contours.flatMap(c => spansAt(flattenRing(c), level))
-    .reduce((best, run) => !best || Math.abs((run[0] + run[1]) / 2 - middle) < Math.abs((best[0] + best[1]) / 2 - middle) ? run : best, null)
-  if (!stem) return null
-  const centre = (stem[0] + stem[1]) / 2
-  const sides = [boxes.map((b, k) => b[2] <= centre ? k : -1), boxes.map((b, k) => b[0] >= centre ? k : -1)].map(side => side.filter(k => k >= 0))
-  if (sides.some(side => !side.length)) return null
-  const flanks = new Set(sides.flat())
-  const out = glyph.contours.filter((_, k) => !flanks.has(k))
-  if (!out.length) return null
-  for (const side of sides) {
-    const box = union(side.map(k => boxes[k])), height = box[3] - y0
-    const each = (height - FLANK_GAP * height) / 2, scale = Math.min(1, each / (box[3] - box[1]))
-    for (const base of [y0, box[3] - scale * (box[3] - box[1])]) {
-      const set = points => points.map((v, i) => i % 2 ? base + (v - box[1]) * scale : v)
-      for (const k of side) out.push({ ...glyph.contours[k], light: set(glyph.contours[k].light), heavy: set(glyph.contours[k].heavy) })
-    }
-  }
-  return derived(glyph, out)
-}
-
   const order = crossings.slice().sort((a, b) => a.point[0] - b.point[0])
   const mate = new Map()
   for (let i = 0; i + 1 < order.length; i += 2) {
