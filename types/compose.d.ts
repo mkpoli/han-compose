@@ -76,6 +76,7 @@ export declare class Composer {
     };
     resolutions: Map<any, any>;
     chains: Map<any, any>;
+    columns: any[];
     joints: any[];
     sweeps: any[];
     /** How much smaller than it was laid out the character is drawn, beside marks that take a margin. */
