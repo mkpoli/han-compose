@@ -1,5 +1,6 @@
-import { cutContours, derived, fitted, mapped, partInk, partOf, placed } from './geometry.js'
+import { centre, cutContours, derived, fitted, mapped, partInk, partOf, placed } from './geometry.js'
 import { exportInkBox, recordedInkBox } from './chain-ink.js'
+import { drawingChain } from './chain-corrections.js'
 import cuts from './host-chain-cuts.json' with { type: 'json' }
 import { recordedNativeRecord } from './recorded-native.js'
 import { reconnectStroke } from './stroke-donors.js'
@@ -25,11 +26,19 @@ const notoFallbackFrames = new Set(['#(-一丨b𠃌)', '#(一-𠃍丨b𠃌)'])
 // https://github.com/yi-bai/ids/blob/2597437b/ids_lv0.txt
 // Numbers select whole contours. Runs join the original light and heavy
 // outline across the two ends of an attached stroke or bar.
-const nativeCuts = /** @type {Record<string, {host: string, uprightGap?: Record<string, number[]>, strokeSpans?: Record<string, number[][][]>, standalonePen?: Record<string, {scale: number, rise: number}>, hookRun?: Record<string, number[]>, faces: Record<string, [string, string | string[], (number | number[][])[]]>}>} */ (/** @type {unknown} */ (cuts))
+const nativeCuts = /** @type {Record<string, {host: string, standaloneNativeSize?: boolean, uprightGap?: Record<string, number[]>, strokeSpans?: Record<string, number[][][]>, standalonePen?: Record<string, {scale: number, rise: number}>, hookRun?: Record<string, number[]>, faces: Record<string, [string, string | string[], (number | number[][])[]]>}>} */ (/** @type {unknown} */ (cuts))
 
 /** @param {any} node @param {string} style */
 export function chainHost(node, style) {
   return nativeCuts[node]?.faces[style]?.[0]
+}
+
+/** A one-leaf grid uses the same native frame as ordinary standalone composition.
+ * @param {import('./compose.js').Composer} composer @param {string} written @param {number[]} region */
+export function standaloneHostParts(composer, written, region) {
+  const node = drawingChain(written)
+  return nativeCuts[node]?.standaloneNativeSize && !composer.excluded(written)
+    ? hostChainParts(composer, node, region, true, written) : null
 }
 
 /** Place the complete native glyph so its bearings and weight survive layout.
@@ -202,6 +211,15 @@ export function hostChainParts(composer, node, region, atRoot, written = node) {
   const face = cutFace(node, composer.fontStyle, digest, notoFallbackFrames.has(node))
   if (!face) return null
   const native = cutPiece(partOf(record), source.faces[face][2])
+  const origin = `chain ${node}, cut from ${char}`
+  if (atRoot && source.standaloneNativeSize) {
+    // The turn in 乐 spans the character. In isolation keep its width, height
+    // and brush weight together, moving only its centre into the writing face.
+    const from = centre(native.box), to = centre(composer.C.face)
+    const frame = native.box.map((edge, i) => edge - from[i % 2] + to[i % 2])
+    const target = mapped(frame, composer.C.face, region)
+    return [{ ...placed(native, native.box, target, partInk(native), origin), fixed: true, standaloneNativeSize: true }]
+  }
   const gap = source?.uprightGap?.[composer.fontStyle]
   const spans = source.strokeSpans?.[face], hookRun = source.hookRun?.[face]
   // The exact donor has already passed all exclusions. Its standalone size
@@ -218,7 +236,7 @@ export function hostChainParts(composer, node, region, atRoot, written = node) {
   if (spans && frame) piece = fitStrokeSpans(native, spans, frame, hookRun, pen)
   else if (gap && frame) piece = widenUprightGap(native, gap, frame)
   const target = atRoot ? mapped(frame ?? piece.box, composer.C.face, region) : region
-  const placedFrame = placed(piece, piece.box, target, partInk(piece), `chain ${node}, cut from ${char}`)
+  const placedFrame = placed(piece, piece.box, target, partInk(piece), origin)
   if (spans && !atRoot) return [{ ...placedFrame, strokeSpans: spans, hookRun }]
   return [placedFrame]
 }

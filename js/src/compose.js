@@ -48,7 +48,7 @@ import { toConjoiningJamo } from './hangul.js'
 import { componentFix } from './component-fixes.js'
 import { isOutbound, markFace, markParts } from './marks.js'
 import { youChainDonors, youChainParts } from './you-chain.js'
-import { chainHost, hostChainParts, fitNestedHostChains } from './host-chain.js'
+import { chainHost, hostChainParts, standaloneHostParts, fitNestedHostChains } from './host-chain.js'
 import { birdChainParts } from './bird-chain.js'
 import { birdOutlineDonors, birdOutlineParts } from './bird-outline.js'
 import { fitRecordedInk } from './chain-ink.js'
@@ -1627,7 +1627,8 @@ export class Composer {
           return
         }
         if (isChain(node)) {
-          const group = this.node(node, inset(target(box)))
+          const single = leafIndices && depth === 0 ? standaloneHostParts(this, node, target(box)) : null
+          const group = single ?? this.node(node, inset(target(box)))
           for (const part of group) {
             part.origin = `cells ${node} (${part.origin})`
             if (leafIndices) part.leaf = leaf

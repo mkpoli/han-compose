@@ -23,7 +23,7 @@ export function recordedInkBox(composer, key) {
 /** Preserve a previously drawable form's ink extent at its original em scale.
  * @param {any} composer @param {string} key @param {any[]} parts */
 export function fitRecordedInk(composer, key, parts) {
-  if (!parts.length) return
+  if (!parts.length || (parts.length === 1 && parts[0].standaloneNativeSize)) return
   const box = recordedInkBox(composer, key)
   if (!Array.isArray(box) || parts.some(p => p.empty !== undefined || p.cut)) return
   const target = mapped(box, composer.C.face, composer.face)

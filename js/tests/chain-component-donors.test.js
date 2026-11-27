@@ -1,26 +1,31 @@
 import { expect, test } from 'bun:test'
 import { fitNestedHostChains, hostChainParts, hostContextParts } from '../src/host-chain.js'
-import { derived, fill, partOf, pathMask, pathRings, placed, pointsBox, rings, svgPath, union } from '../src/geometry.js'
+import { centre, derived, fill, partOf, pathMask, pathRings, placed, pointsBox, rings, svgPath, union } from '../src/geometry.js'
 import { compose, createSource, sketch } from '../src/loader.js'
 import { documentSource } from '../src/document-source.js'
-import { files, shards } from './fixtures/small-export.js'
-// Format-7 Noto Sans CJK and Zhuque FangSong outlines from the primary exports.
+import { constants, files, shards } from './fixtures/small-export.js'
+// Format-7 outlines from the five published faces.
 import records from './fixtures/chain-component-donors.json' with { type: 'json' }
 
-test('preserves the thickness of the flat foot of 乐 in both standalone proportions', () => {
-  const face = [0, -120, 1000, 880], record = records.sans.乐
-  const composer = { fontStyle: 'sans', C: { face }, data: { manifest: { composer: { commit: 'a83fc941166b' } } },
-    excluded: () => false, glyphRecord: ch => ch === '乐' ? record : null }
-  const key = '#(丿𠃊)', foot = pointsBox(partOf(record).contours[5].light)
-  const widths = []
-  for (const written of [key, '#(丿𠃊>)']) {
-    const [frame] = hostChainParts(composer, key, face, true, written)
-    const bar = pointsBox(frame.part.contours[2].light)
-    const yScale = (frame.target[3] - frame.target[1]) / (frame.source[3] - frame.source[1])
-    expect((bar[3] - bar[1]) * yScale).toBeCloseTo(foot[3] - foot[1], 1)
-    widths.push(frame.target[2] - frame.target[0])
+test('both isolated spellings of the flat turn keep the native size and weight of 乐 in every face', async () => {
+  const key = '#(丿𠃊)', face = constants.face
+  const commits = { sans: 'a83fc941166b', serif: '8156f838798c', regular: 'c14ee5e08798',
+    fangsong: '9f797e2322d2', 'pen-writing': 'ce3eaafda8f9' }
+  for (const [fontStyle, commit] of Object.entries(commits)) {
+    const G = records[fontStyle].乐
+    const composer = { fontStyle, excluded: () => false, glyphRecord: () => G }
+    const [{ part }] = hostChainParts(composer, key, face, false)
+    const from = centre(part.box), to = centre(face)
+    const centered = part.box.map((edge, i) => edge + to[i % 2] - from[i % 2])
+    const reference = svgPath([placed(part, part.box, centered, 1, 'native 乐')])
+    const input = { ...files, ...shards('g', [['乐', { G }]]) }
+    input['manifest.json'] = JSON.stringify({ ...JSON.parse(input['manifest.json']), composer: { commit } })
+    const source = createSource(async name => input[name] ? Uint8Array.from(Buffer.from(input[name])).buffer : null)
+    for (const written of [key, '#(丿𠃊>)']) for (const layout of ['auto', 'cells']) for (const separate of [false, true]) {
+      const drawing = await compose(source, written, { fontStyle, layout, separate })
+      expect(drawing.d).toBe(reference)
+    }
   }
-  expect(widths[0]).toBeLessThan(widths[1] * 0.6)
 })
 
 test('draws both spellings of three missing FangSong components as editable native outlines', async () => {
