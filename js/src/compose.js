@@ -36,10 +36,10 @@ import { grassShape } from './variants.js'
 // before drawing again). A store that holds the export's identity table also answers
 // `data.identity(key)`: the key's sequence and the character it describes, without its record; one
 // over an export with a kin table answers `data.kin()` with it (`kin`, `kinOuter`).
-import { EM_BOX, area, centre, count, cutContours, derived, drawnBox, drawnContours, fill, fitted, grown, groupRings, makePart, mapped, partInk, partOf,
+import { EM_BOX, area, centre, contourSections, count, cutContours, derived, drawnBox, drawnContours, fill, fitted, grown, groupRings, makePart, mapped, partInk, partOf,
   placed, pointsBox, pyRound, raster, rings, scaleOf, shrunk, square, stretchOf, targetFor, union, windingOf, within } from './geometry.js'
 import { grassPairs, connectedGrass, contextualGrass } from './grass-forms.js'
-import { ownFormsOnly, componentParts, componentPosition, componentPositionBox, componentRecord, containsComponentForm, hasForcedForms, containsForcedForm, isComponentForm, isForcedCharacter, isGroupedForm, isNativeForm } from './component-forms.js'
+import { ownFormsOnly, componentParts, componentPosition, componentPositionBox, componentRecord, containsComponentForm, hasForcedForms, containsForcedForm, isComponentForm, isForcedCharacter, isAtomicForm, isGroupedForm, isNativeForm } from './component-forms.js'
 import { features, forward } from './layout.js'
 import { CONSTRUCTS, BODY_FORMS, IVD_FORMS, SURROUND_CONSTRUCTS, bodyForm, constructBody, constructHosts, constructParts, ivdParts } from './constructs.js'
 import { pyramidCells, pyramidOnBaseLayout } from './pyramid.js'
@@ -58,6 +58,7 @@ import { fitRecordedInk } from './chain-ink.js'
 import { correctedChain, drawingChain } from './chain-corrections.js'
 import { historicalNativeChar } from './historical-chains.js'
 import { guideChainParts, guideChainDonor } from './guide-chain-cuts.js'
+import { booklet, bookletParts } from './rcc-booklet.js'
 import { rccParts, rccDonors, rccLeafBoxes, numberRccLeaves, editableRccParts } from './rcc-forms.js'
 import { recordedNativeGlyph } from './recorded-native.js'
 import { recordedArcParts, recordedArcDonors } from './recorded-arcs.js'
@@ -1532,7 +1533,7 @@ export class Composer {
       if (!marks) fitRecordedInk(this, sequence, out)
       if (marks) out.push(...markParts(this, marks, frame, face))
       clearHookContacts(this, out)
-      if (this.fontStyle === 'pen-writing') finishGrassTang(out, this)
+      if (this.fontStyle === 'pen-writing') this.finishPenParts(out)
       if (out.some(p => p.dottedHe)) fitDottedHe(out, this.fontStyle)
       return this.separate ? editableRccParts(out) : out
     } finally { this.face = previous }
@@ -1671,7 +1672,7 @@ export class Composer {
           out.push(...group)
           return
         }
-        if (node === '艹' || node === '⺿' || node === '⻀') {
+        if (node === '艹' || node === '⺿' || node === '⻀' || isAtomicForm(node, this.fontStyle)) {
           const form = componentParts(node, undefined, this.fontStyle)?.[0]
           if (form) {
             form.target = fitted(form.source, inset(target(box)), Math.max(this.C.STRETCH, CELL_STRETCH))
@@ -1690,7 +1691,8 @@ export class Composer {
         return
       }
       const cell = target(box)
-      const parts = this.doubleTurnParts(node, cell) ?? brushSweepParts(this, node, cell, depth > 0) ?? this.thornRowParts(node, cell) ?? yiCrossParts(this, node, cell) ?? ghostParts(this, node, cell) ?? this.qiParts(node, cell)
+      const recorded = keyOf(node) === booklet ? bookletParts(this, cell) : null
+      const parts = recorded ?? this.doubleTurnParts(node, cell) ?? brushSweepParts(this, node, cell, depth > 0) ?? this.thornRowParts(node, cell) ?? yiCrossParts(this, node, cell) ?? ghostParts(this, node, cell) ?? this.qiParts(node, cell)
       if (parts) {
         for (const part of parts) {
           if (leafIndices) part.leaf = leaf++
@@ -1801,7 +1803,7 @@ export class Composer {
     this.fitMetricKeInterior(out, tree)
     fitClawInterior(out, tree, this.fontStyle, true)
     clearHookContacts(this, out)
-    if (this.fontStyle === 'pen-writing') finishGrassTang(out, this)
+    if (this.fontStyle === 'pen-writing') this.finishPenParts(out)
     if (out.some(p => p.dottedHe)) fitDottedHe(out, this.fontStyle)
     return out
   }
@@ -2020,11 +2022,23 @@ export class Composer {
       const glyph = this.glyph(h.h)
       if (!glyph) return makePart([], h.b.slice())
       piece = cutContours(glyph, h.k, h.b.slice())
+      // Kureedo's fourth 魚 dot touches 辶 in 鰱, so its whole-contour fish cut loses the dot.
+      if (this.fontStyle === 'pen-writing' && h.h === '鰱' && h.k.join(',') === '0,3,6,7,8,10,4,9,12'
+        && hexOf(JSON.stringify(this.glyphRecord('鰱').p)) === 'c6e852294435a77ddb8457275669637d93d0bbcc527032a0d6d9638af98d58c8') {
+        const dot = contourSections(glyph.contours, [2, 69, 81])
+        piece.withFishDot = { ...piece, contours: [...piece.contours, dot] }
+      }
       Object.defineProperty(h, '_piece', { value: piece, enumerable: false })
     }
     // A piece cut along KanjiVG's groups, which a drawing using it credits.
     if (h.kv && !piece.kv) Object.defineProperty(piece, 'kv', { value: true, enumerable: false })
     return piece
+  }
+
+  finishPenParts(parts) {
+    finishGrassTang(parts, this)
+    // Restore the shared stroke after spacing and weight have used the original host metrics.
+    for (const p of parts) if (p.part.withFishDot) p.part = p.part.withFishDot
   }
 
   /** A ranked host as the callers take it: the entry, and its piece read when first asked for. */
@@ -2552,7 +2566,7 @@ export class Composer {
       const variant = ivdParts(ivd, key, ivdRecord, this.fontStyle, region, atRoot)
       if (variant) return variant
     }
-    const allowBundled = (!nativeSource || !this.excluded(nativeSource)) && (!this.separate || isGroupedForm(key, this.fontStyle)) && !ivdRecord
+    const allowBundled = (!nativeSource || !this.excluded(nativeSource)) && (!this.separate || isGroupedForm(key, this.fontStyle) || isAtomicForm(key, this.fontStyle)) && !ivdRecord
     const repeated = this.declaredParts(key, region, atRoot, allowBundled)
     if (repeated) return repeated
     const hasRepetition = containsComponentForm(key, this.fontStyle)

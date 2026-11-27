@@ -439,6 +439,24 @@ export const COMPONENT_FIXES = {
       }), grass]
     },
   },
+  '⿰魚遂': {
+    glyphs: {},
+    apply(parts, composer) {
+      if (composer.fontStyle !== 'fangsong' || parts.length !== 2) return parts
+      const [fish, follow] = parts
+      if (fish.origin !== 'learned 鯝' || follow.origin !== 'learned 𬭼') return parts
+      const left = boxOf(fish), right = boxOf(follow)
+      // In 鰱, the back of 魚 and the turns of 辶 interlock along the centre.
+      const gap = right[0] - left[2]
+      if (gap <= 0 || widthOf(left) <= 0 || widthOf(right) <= 0) return parts
+      // The fish's outermost point and the tip of 辶 fall on different rows.
+      // Share the empty strip in proportion to the ink widths, fixing both outer edges.
+      const scale = 1 + gap / (widthOf(left) + widthOf(right))
+      const widen = (part, edge) => ({ ...part, target: part.target.map((v, i) =>
+        i % 2 ? v : edge + (v - edge) * scale) })
+      return [widen(fish, left[0]), widen(follow, right[2])]
+    },
+  },
   '⿰忄実': {
     glyphs: {},
     apply: heartColumnSpacing,
