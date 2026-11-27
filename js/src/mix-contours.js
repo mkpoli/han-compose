@@ -1292,6 +1292,140 @@ export function splitIslands(polygons, prefer = 'neck') {
   return fine.map((_, j) => faces.map((face) => [/** @type {number[][][][]} */ (face)[j]]))
 }
 
+/** Two faces can each run together strokes the other keeps apart, so that neither is a
+ * coarser form of the other and an island of one lies over parts of several islands of
+ * the other. Each such island is cut by the islands it lies over, in either face, until
+ * every piece lies over one piece of the other face, and those are paired.
+ * Null when nothing needed cutting or the pieces do not pair off.
+ * @param {number[][][][][]} polygons two faces' islands
+ * @returns {{ region: number[][][][][], cut: boolean }[] | null} per pair, each face's one island */
+export function sharedIslands(polygons) {
+  if (polygons.length !== 2 || polygons.some((islands) => !islands.length)) return null
+  /** @type {{ island: number[][][], cut: boolean, stuck?: boolean }[][]} */
+  const faces = polygons.map((islands) => islands.map((island) => ({ island, cut: false })))
+  // Points just inside an island's outline, which say what ink of the other face it lies over.
+  const probes = (/** @type {number[][][]} */ island) => {
+    const points = dense(island[0], 3),
+      n = points.length,
+      sign = turning(island[0]) > 0 ? 1 : -1
+    return points
+      .map((p, i) => {
+        const a = points[(i + n - 1) % n],
+          b = points[(i + 1) % n],
+          length = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1
+        return [p[0] - (sign * 2 * (b[1] - a[1])) / length, p[1] + (sign * 2 * (b[0] - a[0])) / length]
+      })
+      .filter((q) => inside(q, island[0]) && !island.slice(1).some((hole) => inside(q, hole)))
+  }
+  const holds = (/** @type {number[][][]} */ island, /** @type {number[]} */ q) =>
+    inside(q, island[0]) && !island.slice(1).some((hole) => inside(q, hole))
+  /** How many of an island's probes lie over, or nearest to, each island of the other face.
+   * @param {number} f @param {number[][][]} island */
+  const leans = (f, island) => {
+    const points = probes(island)
+    const others = faces[1 - f].map(({ island: other }) => ({ other, outline: dense(other[0], 3) }))
+    const counts = others.map(() => 0)
+    for (const q of points) {
+      let best = -1,
+        least = Infinity
+      for (const [j, { other, outline }] of others.entries()) {
+        const d = holds(other, q)
+          ? 0
+          : outline.reduce((m, p) => Math.min(m, Math.hypot(p[0] - q[0], p[1] - q[1])), Infinity)
+        if (d < least) {
+          least = d
+          best = j
+        }
+      }
+      if (best >= 0 && least < 24) counts[best]++
+    }
+    return { counts, least: Math.max(6, 0.15 * points.length) }
+  }
+  /** Per face and island, the other face's islands it shares ink with: each leans on the
+   * other with a good part of its outline. A stroke's tip that strays over a neighbour
+   * leans on it, but the neighbour does not lean back.
+   * @returns {{ j: number, count: number }[][][]} */
+  const partners = () => {
+    const all = faces.map((islands, f) => islands.map(({ island }) => leans(f, island)))
+    return all.map((islands, f) =>
+      islands.map(({ counts, least }, x) =>
+        counts
+          .flatMap((count, j) =>
+            count >= least && all[1 - f][j].counts[x] >= all[1 - f][j].least ? [{ j, count }] : []
+          )
+          .sort((a, b) => b.count - a.count)
+      )
+    )
+  }
+  let any = false
+  for (let round = 0; round < 12; round++) {
+    /** @type {{ f: number, x: number, over: { j: number, count: number }[] } | null} */
+    let next = null
+    const shared = partners()
+    for (const f of [0, 1])
+      for (const [x, entry] of faces[f].entries()) {
+        if (entry.stuck) continue
+        const over = shared[f][x]
+        if (over.length > 1 && (!next || over[1].count > next.over[1].count)) next = { f, x, over }
+      }
+    if (!next) break
+    const { f, x, over } = next
+    const { island } = faces[f][x]
+    const pieces = cutRing(
+      island[0],
+      over.map(({ j }) => ({ ring: faces[1 - f][j].island[0], solid: true })),
+      true,
+      true,
+      island.slice(1)
+    )
+    const cut = pieces?.map((piece) => ({ island: [piece], cut: true }))
+    if (!cut || island.slice(1).some((hole) => !cut.some((piece) => inside(hole[0], piece.island[0])))) {
+      faces[f][x].stuck = true
+      continue
+    }
+    for (const hole of island.slice(1))
+      /** @type {{ island: number[][][] }} */ (
+        cut.find((piece) => inside(hole[0], piece.island[0]))
+      ).island.push(hole)
+    faces[f].splice(x, 1, ...cut)
+    any = true
+  }
+  if (!any) return null
+  // Pieces that lie over each other and nothing else pair off; the rest pair by position.
+  const over = partners()
+  /** @type {{ region: number[][][][][], cut: boolean }[]} */
+  const out = []
+  const used = faces.map(() => new Set())
+  for (const [i, mine] of over[0].entries()) {
+    if (mine.length !== 1) continue
+    const j = mine[0].j
+    if (used[1].has(j) || over[1][j].length !== 1 || over[1][j][0].j !== i) continue
+    used[0].add(i)
+    used[1].add(j)
+    out.push({
+      region: [[faces[0][i].island], [faces[1][j].island]],
+      cut: faces[0][i].cut || faces[1][j].cut
+    })
+  }
+  const rest = faces.map((islands, f) => islands.filter((_, i) => !used[f].has(i)))
+  if (rest[0].length !== rest[1].length) return null
+  if (rest[0].length) {
+    const matched = matchRegions(
+      rest.map((islands) => islands.map(({ island }) => island)),
+      (p) => p[0]
+    )
+    if (!matched) return null
+    for (const [k, island] of matched[0].entries()) {
+      const pair = [island, matched[1][k]]
+      out.push({
+        region: pair.map((p) => [p]),
+        cut: pair.some((p, f) => rest[f].find((entry) => entry.island === p)?.cut)
+      })
+    }
+  }
+  return out
+}
+
 /** Map one ring from a source bounding box into a destination bounding box.
  * @param {number[][]} ring @param {number[]} dst @param {number[]} [src] */
 function fitRingToBox(ring, dst, src = ringBox(ring)) {
