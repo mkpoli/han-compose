@@ -16,7 +16,14 @@ export const sources = {
     author: 'Unicode Consortium', edition: '2026-08-03',
     url: 'https://www.unicode.org/ivd/data/2026-08-03/IVD_Sequences.txt',
     sequence: '5E7A E0100', collection: 'Adobe-Japan1', identifier: 'CID+4739',
-    outlineWitness: 'https://glyphwiki.org/wiki/u5e7a-ue0100@13',
+    // The registration identifies a glyphic subset. GlyphWiki supplies this particular drawing.
+    outlineWitness: {
+      source: 'https://glyphwiki.org/api/glyph?name=u5e7a-ue0100@13',
+      program: '99:0:0:0:0:200:200:u5e7a-j',
+      // The alias has an unversioned target. Freeze the resolution used for this example.
+      target: 'https://glyphwiki.org/api/glyph?name=u5e7a-j@2',
+      resolved: '2026-11-27',
+    },
   },
 }
 
