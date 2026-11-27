@@ -1,3 +1,4 @@
+export declare const isNumberedReference: (text: any, style: any) => boolean;
 /** Faces whose bundled forms come only from their own font: Noto's must not stand in for them. @param {string} style */
 export declare const ownFormsOnly: (style: string) => style is "fangsong" | "pen-writing" | "regular";
 export declare const containsComponentForm: (text: any, style?: string) => boolean;

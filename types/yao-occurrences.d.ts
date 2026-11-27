@@ -12,20 +12,31 @@ export declare function yaoDecomposition(host: string): {
         url: string;
         sha256: string;
         file?: undefined;
+        licence?: undefined;
     } | {
-        sha256?: undefined;
         author: string;
         title: string;
         date: string;
         url: string;
         file?: undefined;
-    } | {
+        licence?: undefined;
         sha256?: undefined;
-        author?: undefined;
+    } | {
         date?: undefined;
-        url?: undefined;
         title: string;
         file: string;
+        author?: undefined;
+        licence?: undefined;
+        url?: undefined;
+        sha256?: undefined;
+    } | {
+        date?: undefined;
+        file?: undefined;
+        author: string;
+        title: string;
+        licence: string;
+        url: string;
+        sha256: string;
     };
 } | null;
 export type YaoOccurrence = {

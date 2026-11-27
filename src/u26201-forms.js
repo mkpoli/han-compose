@@ -10,7 +10,7 @@ for (const left of forms) {
   const lhs = ['⿱𠂹⿱' + left + '小']
   if (left === '幺') lhs.push('𦃃', '⿱𠂹糸')
   for (const right of forms) {
-    const rhs = ['⿳亠⿴{11}' + right + '十']
+    const rhs = ['⿳亠⿴{11}' + right + '十', '⿳亠⿴&X-00011;' + right + '十']
     if (right === '幺') rhs.push('率')
     const pair = { left: resolveYaoForm(left)?.text, right: resolveYaoForm(right)?.text }
     for (const a of lhs) for (const b of rhs) choices.set('⿰' + a + b, pair)

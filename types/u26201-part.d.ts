@@ -6,3 +6,5 @@ export declare function u26201Part({ left, right }: {
 }): any;
 /** @param {string} id Canonical variant ID. */
 export declare function yaoPart(id: string): any;
+/** @param {string} d SVG path in a 1000-unit em. */
+export declare function svgPart(d: string): any;

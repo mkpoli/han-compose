@@ -202,6 +202,12 @@ export type RateForm = typeof families[number]['forms'][number] & {
 export declare const rateFormsFor: (text: string) => readonly RateForm[];
 /** The selected drawing, only for an explicitly qualified spelling. @param {string} text */
 export declare const exactRateForm: (text: string) => RateForm | undefined;
+/** @param {string} text @returns {{host:string,index:number,returning:boolean}|undefined} */
+export declare const rateRenderChoice: (text: string) => {
+    host: string;
+    index: number;
+    returning: boolean;
+} | undefined;
 /** Whether an expression contains a qualified 率, including inside another operand. @param {string} text */
 export declare const containsRateForm: (text: string) => boolean;
 export {};
