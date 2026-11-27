@@ -1,7 +1,7 @@
 // @ts-check
 import constants from './constants.json' with { type: 'json' }
 import hostsIndex from './yao-hosts.json' with { type: 'json' }
-import { ASCENT, derived, fill, makePart, mapped, partInk, pathRings, placed, pointsBox, rings, svgPath, union } from './geometry.js'
+import { ASCENT, derived, fill, fitted, makePart, partInk, pathRings, placed, pointsBox, rings, svgPath, union } from './geometry.js'
 import { prepareWeight } from './mix-contours.js'
 import { tokens } from './tokens.js'
 import { arity, splitToneMarks } from './tree.js'
@@ -502,8 +502,164 @@ export function alignedYaoGroups(glyph, host, siteCount) {
   return result
 }
 
+/** Extract [x, y] vertices of a contour's light path.
+ * @param {{ light: ArrayLike<number> }} contour @returns {[number, number][]} */
+function contourPoints(contour) {
+  /** @type {[number, number][]} */
+  const pts = []
+  for (let i = 0; i < contour.light.length; i += 2) pts.push([contour.light[i], contour.light[i + 1]])
+  return pts
+}
+
+/** Affine/smooth coordinate remap of a contour, preserving its exact native Bezier commands.
+ * @param {{ ops: any[], light: ArrayLike<number> }} contour
+ * @param {(x: number, y: number) => [number, number]} fn */
+function mapContour(contour, fn) {
+  const light = []
+  for (let i = 0; i < contour.light.length; i += 2) {
+    const [nx, ny] = fn(contour.light[i], contour.light[i + 1])
+    light.push(nx, ny)
+  }
+  return { ops: contour.ops, light, heavy: light }
+}
+
+/** Centerline x of the middle diagonal stroke at height `y`.
+ * @param {{ c: { light: ArrayLike<number> }, b: number[] }} midDiag @param {number} y */
+function midXAtY(midDiag, y) {
+  const pts = contourPoints(midDiag.c)
+  const band = (midDiag.b[3] - midDiag.b[1]) * 0.14
+  let minX = Infinity, maxX = -Infinity
+  for (const [px, py] of pts) {
+    if (Math.abs(py - y) <= band) {
+      if (px < minX) minX = px
+      if (px > maxX) maxX = px
+    }
+  }
+  if (minX <= maxX) return (minX + maxX) / 2
+  const t = Math.max(0, Math.min(1, (y - midDiag.b[1]) / Math.max(1, midDiag.b[3] - midDiag.b[1])))
+  return midDiag.b[0] + t * (midDiag.b[2] - midDiag.b[0])
+}
+
+/**
+ * Identify the 5 separate Noto Serif strokes of a native detached 幺 (`bar`, `dot`, `midDiag`,
+ * `topDiag`, `shortDot`). Returns null for merged/non-5-contour or non-detached faces so callers
+ * fall back cleanly to whole-幺 replacement.
+ * @param {{ contours: any[] }} glyph @param {number[]} indices @param {number[]} box
+ */
+export function classifyDetachedYao5(glyph, indices, box) {
+  if (indices.length !== 5) return null
+  const [x0, y0, x1, y1] = box
+  const w = x1 - x0, h = y1 - y0
+  if (w <= 0 || h <= 0) return null
+  const items = indices.map(ci => {
+    const c = glyph.contours[ci]
+    const b = pointsBox(c.light)
+    const nx0 = (b[0] - x0) / w, ny0 = (b[1] - y0) / h, nx1 = (b[2] - x0) / w, ny1 = (b[3] - y0) / h
+    return { ci, c, b, nx0, ny0, nx1, ny1, nw: nx1 - nx0, nh: ny1 - ny0 }
+  })
+  const bar = items.find(it => it.nx0 < 0.15 && it.ny0 < 0.12 && it.nw > 0.65 && it.ny1 < 0.42)
+  if (!bar) return null
+  const rem1 = items.filter(it => it !== bar)
+  const dot = rem1.find(it => it.nx1 > 0.90 && it.nx0 > 0.50 && it.ny0 < 0.12 && it.ny1 < 0.65)
+  if (!dot) return null
+  const rem2 = rem1.filter(it => it !== dot)
+  rem2.sort((a, b) => (b.nx1 - b.ny0) - (a.nx1 - a.ny0))
+  const midDiag = rem2[0]
+  if (midDiag.nx1 < 0.65 || midDiag.ny0 > 0.30) return null
+  const rem3 = rem2.slice(1)
+  rem3.sort((a, b) => b.ny1 - a.ny1)
+  const topDiag = rem3[0], shortDot = rem3[1]
+  if (topDiag.ny1 < 0.88 || shortDot.nx0 > 0.25 || shortDot.nx1 > 0.65) return null
+  // Confirm `shortDot` slopes downward-right (detached stroke, not an already-folded rising bar).
+  const pts = contourPoints(shortDot.c)
+  const midX = (shortDot.b[0] + shortDot.b[2]) / 2
+  let leftSum = 0, leftN = 0, rightSum = 0, rightN = 0
+  for (const [px, py] of pts) {
+    if (px < midX) { leftSum += py; leftN++ } else { rightSum += py; rightN++ }
+  }
+  if (!leftN || !rightN || leftSum / leftN <= rightSum / rightN) return null
+  return { bar, dot, midDiag, topDiag, shortDot, box }
+}
+
+/** Construct the folded (&VR-5E7A-02;) form directly from the host's native 5-contour 幺:
+ * keeps bar, dot, and midDiag untouched, extends topDiag's lower tip to the fold corner, and
+ * clones the native rising bar into the upper-left fold so all curves and stroke weights stay native.
+ * @param {NonNullable<ReturnType<typeof classifyDetachedYao5>>} cls */
+function foldedContoursFromNative(cls) {
+  const { bar, dot, midDiag, topDiag, box } = cls
+  const [x0, y0, x1, y1] = box
+  const w = x1 - x0, h = y1 - y0
+  const bh = Math.max(1, bar.b[3] - bar.b[1])
+  const bw = Math.max(1, bar.b[2] - bar.b[0])
+  const cornerX = x0 + w * 0.06
+  const cornerY = y0 + h * 0.48
+  const tdX0 = topDiag.b[0], tdY0 = topDiag.b[1], tdY1 = topDiag.b[3]
+  const dxCorner = (cornerX + w * 0.01) - tdX0
+  const dyCorner = cornerY - tdY0
+  const newTopDiag = mapContour(topDiag.c, (x, y) => {
+    const t = Math.max(0, Math.min(1, (tdY1 - y) / Math.max(1, tdY1 - tdY0)))
+    const ease = t * t
+    return [x + dxCorner * ease, y + dyCorner * ease]
+  })
+  const endY = cornerY + bh * 0.48
+  const midX = midXAtY(midDiag, endY)
+  const targetBar = [
+    cornerX - w * 0.025,
+    cornerY - bh * 0.30,
+    midX + w * 0.025,
+    endY + bh * 0.28,
+  ]
+  const tbw = targetBar[2] - targetBar[0], tbh = targetBar[3] - targetBar[1]
+  const upperBar = mapContour(bar.c, (x, y) => [
+    targetBar[0] + (x - bar.b[0]) * (tbw / bw),
+    targetBar[1] + (y - bar.b[1]) * (tbh / bh),
+  ])
+  return [bar.c, dot.c, midDiag.c, newTopDiag, upperBar]
+}
+
+/** Construct the returning (&VR-5E7A-03;) form directly from the host's native 5-contour 幺:
+ * keeps bar, dot, midDiag, and topDiag untouched, extends shortDot into midDiag, and places a
+ * returning cap stroke derived from shortDot into midDiag's upper-right head.
+ * @param {NonNullable<ReturnType<typeof classifyDetachedYao5>>} cls */
+function returningContoursFromNative(cls) {
+  const { bar, dot, midDiag, topDiag, shortDot, box } = cls
+  const [x0, y0, x1, y1] = box
+  const w = x1 - x0, h = y1 - y0
+  const sdX0 = shortDot.b[0], sdX1 = shortDot.b[2], sdY0 = shortDot.b[1], sdY1 = shortDot.b[3]
+  const sdw = Math.max(1, sdX1 - sdX0), sdh = Math.max(1, sdY1 - sdY0)
+  const targetCrossY = y0 + h * 0.40
+  const targetCrossX = midXAtY(midDiag, targetCrossY) + w * 0.02
+  const dx = Math.max(0, targetCrossX - sdX1)
+  const dy = Math.min(0, targetCrossY - sdY0)
+  const newShortDot = mapContour(shortDot.c, (x, y) => {
+    const t = Math.max(0, Math.min(1, (x - sdX0) / sdw))
+    const ease = t * t
+    return [x + dx * ease, y + dy * ease]
+  })
+  const midPts = contourPoints(midDiag.c)
+  const midRightCutoff = midDiag.b[0] + (midDiag.b[2] - midDiag.b[0]) * 0.65
+  let headX = midDiag.b[2], headY = midDiag.b[3], best = -Infinity
+  for (const [px, py] of midPts) {
+    if (px < midRightCutoff) continue
+    const s = py * 1.2 + px * 0.4
+    if (s > best) { best = s; headX = px; headY = py }
+  }
+  // Keep the returning cap modest in height and clear of topDiag so narrow 幺 (機/幼) stays crisp.
+  const capX0 = Math.max(x0 + w * 0.50, headX - w * 0.28)
+  const capX1 = Math.max(capX0 + w * 0.12, headX + w * 0.01)
+  const capY1 = Math.min(y1 - h * 0.05, headY + h * 0.085)
+  const capY0 = Math.min(capY1 - h * 0.07, headY - h * 0.045)
+  const cap = mapContour(shortDot.c, (x, y) => [
+    capX0 + (x - sdX0) * ((capX1 - capX0) / sdw),
+    capY0 + (y - sdY0) * ((capY1 - capY0) / sdh),
+  ])
+  return [bar.c, dot.c, midDiag.c, topDiag.c, newShortDot, cap]
+}
+
 /** Replace only the edited 幺 occurrence(s) inside `glyph`, keeping every other stroke and layout
- * proportion native to `host`. Returns null when `glyph` has no clean match for the host's sites.
+ * proportion native to `host`. On 5-contour native detached 幺 glyphs (Noto Serif CJK JP), keeps
+ * native strokes untouched for `detached` and edits only the upper turn for `folded`/`returning`;
+ * falls back to weight-matched whole-幺 replacement on merged/other glyphs.
  * @param {{ contours: any[], box: number[] }} glyph @param {string} host
  * @param {number[][]} paths @param {{ index: number, path: number[], formId: string }[]} edits
  * @param {number[]} region @param {boolean} atRoot */
@@ -511,23 +667,39 @@ export function replaceYaoInPart(glyph, host, paths, edits, region, atRoot) {
   const groups = alignedYaoGroups(glyph, host, paths.length)
   if (!groups) return null
   const cut = new Set()
+  /** @type {any[]} */
+  const nativeAdditions = []
   /** @type {{ group: YaoGroup, formId: string }[]} */
-  const swaps = []
+  const wholeSwaps = []
   for (const edit of edits) {
     const group = groups[edit.index]
     if (!group) return null
-    group.indices.forEach(i => cut.add(i))
-    swaps.push({ group, formId: edit.formId })
+    const native5 = classifyDetachedYao5(glyph, group.indices, group.box)
+    if (native5) {
+      if (edit.formId === 'detached') continue // Native strokes are already detached; preserve verbatim.
+      group.indices.forEach(i => cut.add(i))
+      if (edit.formId === 'folded') nativeAdditions.push(...foldedContoursFromNative(native5))
+      else if (edit.formId === 'returning') nativeAdditions.push(...returningContoursFromNative(native5))
+      else wholeSwaps.push({ group, formId: edit.formId })
+    } else {
+      group.indices.forEach(i => cut.add(i))
+      wholeSwaps.push({ group, formId: edit.formId })
+    }
   }
   const keep = glyph.contours.filter((_, i) => !cut.has(i))
+  const target = atRoot ? fitted(glyph.box, region, constants.STRETCH) : region
+  if (!wholeSwaps.length) {
+    const outPart = cut.size ? derived(glyph, [...keep, ...nativeAdditions], glyph.box) : glyph
+    return [{ ...placed(outPart, glyph.box, target, partInk(outPart), `${host} · 幺`), fixed: true }]
+  }
   const pieces = []
-  if (keep.length) pieces.push(placed(derived(glyph, keep, glyph.box), glyph.box, glyph.box, partInk(glyph), `glyph ${host}`))
-  for (const { group, formId } of swaps) {
+  const kept = [...keep, ...nativeAdditions]
+  if (kept.length) pieces.push(placed(derived(glyph, kept, glyph.box), glyph.box, glyph.box, partInk(glyph), `glyph ${host}`))
+  for (const { group, formId } of wholeSwaps) {
     const orig = makePart(group.indices.map(i => glyph.contours[i]))
     const rep = matchedYaoForTarget(formId, orig, group.box)
     pieces.push(placed(rep, rep.box, group.box, partInk(rep), `幺 · ${formId}`))
   }
   const merged = svgPart(svgPath(pieces))
-  const target = atRoot ? mapped(glyph.box, constants.face, region) : region
   return [{ ...placed(merged, glyph.box, target, partInk(merged), `${host} · 幺`), fixed: true }]
 }

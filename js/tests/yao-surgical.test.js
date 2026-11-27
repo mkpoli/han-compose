@@ -1,8 +1,8 @@
 import { expect, test } from 'bun:test'
-import { alignedYaoGroups, collapseYaoHost, collectYaoHosts, findYaoGroups, replaceYaoInPart } from '../src/yao-surgical.js'
+import { alignedYaoGroups, classifyDetachedYao5, collapseYaoHost, collectYaoHosts, findYaoGroups, replaceYaoInPart } from '../src/yao-surgical.js'
 import { selectYao, yaoOccurrences } from '../src/yao-occurrences.js'
 import { Composer } from '../src/compose.js'
-import { svgPath } from '../src/geometry.js'
+import { placed, svgPath } from '../src/geometry.js'
 import { yaoPart } from '../src/u26201-part.js'
 import { constants, records } from './fixtures/small-export.js'
 
@@ -52,4 +52,42 @@ test('surgical replacement preserves surrounding host strokes and edits only the
   // A fused glyph that leaves no lower sibling ink beneath a stacked 幺 (e.g. 糹 with fused dots) is rejected.
   const fusedSilk = { contours: shifted(yao, 60, 0.45), box: [60, -60, 440, 840] }
   expect(alignedYaoGroups(fusedSilk, '糹', 1)).toBeNull()
+})
+
+test('selecting detached on a native 5-contour detached 幺 preserves the original outline verbatim', () => {
+  // Synthetic 5-contour detached 幺 (bar, dot, midDiag, topDiag, downward-sloping shortDot) matching Noto Serif CJK JP.
+  const rect = (x0, y0, x1, y1) => ({
+    ops: [['M', 1, false], ['L', 1, false], ['L', 1, false], ['L', 1, false]],
+    light: [x0, y0, x1, y0, x1, y1, x0, y1],
+    heavy: [x0, y0, x1, y0, x1, y1, x0, y1],
+  })
+  const quad = pts => ({
+    ops: [['M', 1, false], ['L', 1, false], ['L', 1, false], ['L', 1, false]],
+    light: pts, heavy: pts,
+  })
+  const native5 = {
+    contours: [
+      rect(80, 0, 820, 110),                       // bar
+      quad([640, 290, 720, 310, 910, 20, 840, 0]), // dot
+      quad([700, 660, 760, 620, 260, 40, 200, 80]),// midDiag
+      quad([440, 830, 520, 790, 310, 470, 240, 510]), // topDiag
+      quad([100, 560, 150, 590, 350, 380, 290, 340]), // shortDot (down-right)
+    ],
+    box: [80, 0, 910, 830],
+  }
+  const classified = classifyDetachedYao5(native5, [0, 1, 2, 3, 4], native5.box)
+  expect(classified).not.toBeNull()
+  const original = svgPath([placed(native5, native5.box, native5.box, 0, '')])
+  const detached = replaceYaoInPart(native5, '幺', [[]], [{ index: 0, path: [], formId: 'detached' }], constants.face, true)
+  const folded = replaceYaoInPart(native5, '幺', [[]], [{ index: 0, path: [], formId: 'folded' }], constants.face, true)
+  const returning = replaceYaoInPart(native5, '幺', [[]], [{ index: 0, path: [], formId: 'returning' }], constants.face, true)
+  expect(detached).not.toBeNull()
+  expect(folded).not.toBeNull()
+  expect(returning).not.toBeNull()
+  // Native detached stays bit-for-bit identical in its contours; folded and returning each differ.
+  expect(detached[0].part).toBe(native5)
+  expect(svgPath(folded)).not.toBe(svgPath(detached))
+  expect(svgPath(returning)).not.toBe(svgPath(detached))
+  expect(svgPath(returning)).not.toBe(svgPath(folded))
+  expect(original.length).toBeGreaterThan(20)
 })
