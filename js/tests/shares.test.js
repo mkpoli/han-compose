@@ -163,6 +163,28 @@ it('cuts 𲎰 from the form 五 takes in the place it stands in', async () => {
   expect(out.origins).not.toContain('glyph 𲎰')
 })
 
+// 二 on the left has a cut in another face's font alone; the face's own cut is on the right, in
+// 仁, where its bars are spread to the height of 亻.
+it('draws bars beside another part from their own glyph, not a cut spread on the facing side', async () => {
+  const two = character('二', [[250, 550, 750, 620], [100, 200, 900, 270]])
+  const other = character('𠚧', [[100, 100, 400, 170], [100, 700, 400, 770], [600, 0, 900, 800]])
+  other.G.v = 0
+  const benevolent = character('仁', [[100, 0, 300, 800], [500, 650, 900, 720], [450, 50, 950, 120]])
+  const entries = { 二: two, '𠚧': other, 仁: benevolent }
+  const left = { h: '𠚧', i: 0, op: '⿰', ok: ['刂'], v: 0, c: { k: [0, 1], b: [100, 100, 400, 770], fr: [0, 0, 1000, 1000] } }
+  const right = { h: '仁', i: 1, op: '⿰', ok: ['亻'], v: 1, c: { k: [1, 2], b: [450, 50, 950, 720], fr: [0, 0, 1000, 1000] } }
+  const input = { ...files, 'identity.json': identityOf(Object.entries({ ...records, ...entries })), ...shards('g', Object.entries(entries)), ...shards('p', [['L\t二', [left]], ['R\t二', [right]]]) }
+  const out = await compose(sourceOf(input), '⿰二口', { fontStyle: 'sans' })
+  expect(out.origins).toContain('glyph 二')
+  // 木 has an upright, so its facing cut is still taken.
+  const wood = { h: '休', i: 1, op: '⿰', ok: ['亻'], v: 1, c: { k: [1, 2], b: [450, 0, 950, 800], fr: [0, 0, 1000, 1000] } }
+  const foreign = { h: '𠚧', i: 0, op: '⿰', ok: ['刂'], v: 0, c: { k: [0, 1], b: [100, 100, 400, 770], fr: [0, 0, 1000, 1000] } }
+  const rest = character('休', [[100, 0, 300, 800], [450, 500, 950, 570], [670, 0, 730, 800]])
+  const more = { ...entries, 休: rest }
+  const trees = { ...files, 'identity.json': identityOf(Object.entries({ ...records, ...more })), ...shards('g', Object.entries(more)), ...shards('p', [['L\t木', [foreign]], ['R\t木', [wood]]]) }
+  expect((await compose(sourceOf(trees), '⿰木口', { fontStyle: 'sans' })).origins.some(origin => origin.endsWith(' 休'))).toBe(true)
+})
+
 it('keeps the outline of another face when the sequence of its character cannot be drawn', async () => {
   const foreign = { ...character('𲎰', [[100, 0, 300, 800]]), s: '⿰木牙' }
   foreign.G.v = 0
