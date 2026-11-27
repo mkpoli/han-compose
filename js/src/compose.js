@@ -1333,11 +1333,16 @@ export class Composer {
     return native ?? reconstructStroke(ch, this.fontStyle, key => this.chainStroke(key)) ?? (record ? partOf(record) : null)
   }
 
-  recordedParts(node, region, key) {
+  recordedParts(node, region, key, atRoot) {
     const char = recordedDonor(key)
     if (!char || this.excluded(char) || (this.separate && Array.isArray(node))) return null
     if (this.exclude.size && (this.excluded(key) || leafTexts(node).some(leaf =>
       this.excluded(leaf) || (isChain(leaf) && parseChain(leaf)?.strokes.some(s => this.excluded(s.char)))))) return null
+    // A component can close a counter that its freestanding character leaves open, as in Kai 官.
+    if (this.fontStyle === 'regular' && char === '㠯' && isChain(node)) {
+      const cut = hostChainParts(this, drawingChain(node), region, atRoot, node)
+      if (cut) return cut
+    }
     const record = this.glyphRecord(char)
     const piece = record?.v === 1 ? partOf(record) : recordedNativeGlyph(this.fontStyle, char) ??
       (isChain(node) && STROKE_CHAINS[drawingChain(node).slice(2, -1)] === char ? this.chainStroke(char) : null)
@@ -2488,7 +2493,7 @@ export class Composer {
     if (interlocked) return interlocked
     const designed = this.variantParts(node, region)
     if (designed) return designed
-    const recorded = hasChain && this.recordedParts(node, region, key)
+    const recorded = hasChain && this.recordedParts(node, region, key, atRoot)
     if (recorded) return recorded
     const nativeSource = yanGlyphs.get(key) ?? yanSources.get(key)
     // A description the font draws as a variation sequence keeps that outline, where the export

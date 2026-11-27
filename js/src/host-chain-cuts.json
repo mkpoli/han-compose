@@ -106,8 +106,10 @@
   },
   "#(一-𠃍丨b一-𠃍)": {
     "host": "㠯",
-    "strokeSpans": {"fangsong": [[[430, 565]], [[55, 95], [365, 395]]]},
+    "strokeSpans": {"regular": [[[418, 528]], [[94, 143], [380, 420]]], "fangsong": [[[430, 565]], [[55, 95], [365, 395]]]},
+    "standalonePen": {"regular": {"scale": 1.25, "rise": 0.15}},
     "faces": {
+      "regular": ["官", "ed8ba4d971e1022e348decd47edce4993739e4568ce3b76a601eab1dd955d74d", [1, 2, 3]],
       "fangsong": ["官", "44d3b5a30d9f48f407b2707a09a28379f3aa5c90ad007323f3d626cd42b2df21", [0, 1, 2]]
     }
   },

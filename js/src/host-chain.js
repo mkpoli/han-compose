@@ -1,4 +1,4 @@
-import { cutContours, derived, mapped, partInk, partOf, placed } from './geometry.js'
+import { cutContours, derived, fitted, mapped, partInk, partOf, placed } from './geometry.js'
 import { exportInkBox, recordedInkBox } from './chain-ink.js'
 import cuts from './host-chain-cuts.json' with { type: 'json' }
 import { recordedNativeRecord } from './recorded-native.js'
@@ -25,7 +25,7 @@ const notoFallbackFrames = new Set(['#(-一丨b𠃌)', '#(一-𠃍丨b𠃌)'])
 // https://github.com/yi-bai/ids/blob/2597437b/ids_lv0.txt
 // Numbers select whole contours. Runs join the original light and heavy
 // outline across the two ends of an attached stroke or bar.
-const nativeCuts = /** @type {Record<string, {host: string, uprightGap?: Record<string, number[]>, strokeSpans?: Record<string, number[][][]>, hookRun?: Record<string, number[]>, faces: Record<string, [string, string | string[], (number | number[][])[]]>}>} */ (/** @type {unknown} */ (cuts))
+const nativeCuts = /** @type {Record<string, {host: string, uprightGap?: Record<string, number[]>, strokeSpans?: Record<string, number[][][]>, standalonePen?: Record<string, {scale: number, rise: number}>, hookRun?: Record<string, number[]>, faces: Record<string, [string, string | string[], (number | number[][])[]]>}>} */ (/** @type {unknown} */ (cuts))
 
 /** @param {any} node @param {string} style */
 export function chainHost(node, style) {
@@ -44,9 +44,11 @@ export function partitionChainHost(composer, glyph, region, host, leaves, groups
   return [{ ...whole, rccLeaf: 0, rccLeafCount: leaves.length, leafParts }]
 }
 
-// In 氾 the water strokes and the body share the placement of the native character.
+// In 官 the body sits under the roof. In 氾 the three water strokes and
+// the two-stroke body share the placement of the native character.
 const contextSpellings = new Map()
 for (const recipe of [
+  { style: 'regular', host: '官', op: '⿱', side: '宀', body: '㠯', chain: '#(一-𠃍丨b一-𠃍)', alias: '#(丨𠃍一𠃍一^v,0>4,3v4)' },
   { style: 'fangsong', host: '氾', op: '⿰', side: '氵', body: '㔾', chain: '#(-𠃌乚)', alias: '#(𠃌乚^)' },
 ]) {
   const strokes = parseChain(recipe.chain)?.strokes.map(stroke => stroke.char) ?? []
@@ -95,12 +97,23 @@ function widenUprightGap(piece, [left, right], box) {
 /** Share the size change between the registered spans on each axis. A hook
  * attached to a widening bar moves horizontally with its anchor. The range
  * addresses the packed donor's [contour, first point, last point, anchor point].
- * @param {any} piece @param {number[][][]} spans @param {number[]} box @param {number[]} [hookRun] */
-function fitStrokeSpans(piece, spans, box, hookRun) {
-  const shifts = spans.map((ranges, axis) => {
-    const change = (box[axis + 2] - box[axis]) - (piece.box[axis + 2] - piece.box[axis])
-    return Math.max(change / ranges.length, ...ranges.map(([lo, hi]) => lo - hi))
-  })
+ * @param {any} piece @param {number[][][]} spans @param {number[]} box @param {number[]} [hookRun]
+ * @param {{scale: number, rise: number}} [pen] */
+function fitStrokeSpans(piece, spans, box, hookRun, pen) {
+  // A wide standalone Kai 㠯 retains the rising bars of 官. Allocate their
+  // rise inside the target height before distributing space between counters.
+  const scale = pen?.scale ?? 1
+  const growth = spans.map((_, axis) =>
+    (box[axis + 2] - box[axis]) / scale - (piece.box[axis + 2] - piece.box[axis]))
+  const rise = growth[0] > 0 ? pen?.rise ?? 0 : 0
+  growth[1] -= growth[0] * rise
+  const shifts = spans.map((ranges, axis) => Math.max(growth[axis] / ranges.length, ...ranges.map(([lo, hi]) => lo - hi)))
+  /** @param {number} axis @param {number} station */
+  function shiftAt(axis, station) {
+    let shift = 0
+    for (const [lo, hi] of spans[axis]) shift += shifts[axis] * Math.max(0, Math.min(1, (station - lo) / (hi - lo)))
+    return shift
+  }
   return derived(piece, piece.contours.map((/** @type {any} */ c, /** @type {number} */ index) => {
     const hook = hookRun?.[0] === index ? hookRun : null
     /** @param {Float64Array} points */
@@ -109,11 +122,8 @@ function fitStrokeSpans(piece, spans, box, hookRun) {
       const inHook = hook && axis === 0 && i >= 2 * hook[1] && i <= 2 * hook[2]
       // Carry the grown master by the same offsets so the donor retains its brush weight.
       const station = inHook ? c.light[2 * hook[3]] : hook ? c.light[i] : value
-      let result = value
-      for (const [lo, hi] of spans[axis]) {
-        result += shifts[axis] * Math.max(0, Math.min(1, (station - lo) / (hi - lo)))
-      }
-      return result
+      const incline = axis === 1 && rise ? rise * shiftAt(0, points[i - 1]) : 0
+      return value + shiftAt(axis, station) + incline
     })
     return { ...c, light: stretch(c.light), heavy: stretch(c.heavy) }
   }))
@@ -196,10 +206,16 @@ export function hostChainParts(composer, node, region, atRoot, written = node) {
   const spans = source.strokeSpans?.[face], hookRun = source.hookRun?.[face]
   // The exact donor has already passed all exclusions. Its standalone size
   // also applies when the caller excludes an unrelated glyph.
-  const frame = atRoot && spans ? exportInkBox(composer.data?.manifest, written)
+  let frame = atRoot && spans ? exportInkBox(composer.data?.manifest, written)
     : atRoot && gap ? recordedInkBox(composer, written) : null
+  const pen = source.standalonePen?.[face]
+  if (atRoot && pen && !frame) {
+    const encoded = composer.glyphRecord(source.host)
+    const original = encoded?.v === 1 ? partOf(encoded).box : native.box
+    frame = fitted(original, composer.C.face, composer.C.STRETCH)
+  }
   let piece = native
-  if (spans && frame) piece = fitStrokeSpans(native, spans, frame, hookRun)
+  if (spans && frame) piece = fitStrokeSpans(native, spans, frame, hookRun, pen)
   else if (gap && frame) piece = widenUprightGap(native, gap, frame)
   const target = atRoot ? mapped(frame ?? piece.box, composer.C.face, region) : region
   const placedFrame = placed(piece, piece.box, target, partInk(piece), `chain ${node}, cut from ${char}`)

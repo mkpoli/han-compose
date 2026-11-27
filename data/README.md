@@ -117,8 +117,11 @@ at the selected face's stem weights. Straight frame segments can use the face's
 own 一 and 丨, and polygon corners use the intersections of the source lines.
 The native cuts in `js/src/host-chain-cuts.json` identify the attested host,
 the drawing glyph for each face, the digest of its encoded contours and the
-whole contours or endpoint runs to retain. The reference for the 𠆭 G form is the guide
-font's U+E00B instead.
+whole contours or endpoint runs to retain. For fitted cuts, `uprightGap` or
+`strokeSpans` mark the intervals that can change length. FangSong 㔾 uses
+`hookRun` to move the inner return with its stem, and Kai 㠯 uses `standalonePen`
+to retain the weight and incline of the bars when widened. The 𠆭 G form follows
+the guide font's U+E00B.
 
 The data keeps the [GlyphWiki glyph data license](licences/GlyphWiki.txt).
 Rebuild from the pinned `dump_newest_only.txt` in the
