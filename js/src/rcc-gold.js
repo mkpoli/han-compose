@@ -124,12 +124,13 @@ export function goldParts(composer, key, region) {
   if (records.some((r, i) => r?.v !== 1 || hexOf(JSON.stringify(r.p)) !== face.hashes[i])) return null
   const [sharp, rabbit, nativeRoof] = records.map(r => partOf(r))
   const metal = cutContours(sharp, face.gold)
-  const cap = face.capWeight
-    ? derived(nativeRoof, face.cover.map(i => weighted(nativeRoof.contours[i], face.capWeight[0], face.capWeight[1])))
+  const capWeight = face.capWeight, baseWeight = face.baseWeight
+  const cap = capWeight
+    ? derived(nativeRoof, face.cover.map(i => weighted(nativeRoof.contours[i], capWeight[0], capWeight[1])))
     : cutContours(nativeRoof, face.cover)
   const base = face.lower.map(group => derived(rabbit, group.map(c => {
     const raw = typeof c === 'number' ? rabbit.contours[c] : contourSections(rabbit.contours, ...c)
-    return face.baseWeight ? weighted(raw, face.baseWeight[0], face.baseWeight[1]) : raw
+    return baseWeight ? weighted(raw, baseWeight[0], baseWeight[1]) : raw
   })))
   // Coordinates of the crossing junction in native 兎, followed by the left
   // inset of the roof relative to the box below.
