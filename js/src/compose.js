@@ -31,7 +31,7 @@ import { grassShape } from './variants.js'
 // `data.identity(key)`: the key's sequence and the character it describes, without its record; one
 // over an export with a kin table answers `data.kin()` with it (`kin`, `kinOuter`).
 import { EM_BOX, area, centre, count, derived, drawnBox, drawnContours, fill, fitted, grown, groupRings, makePart, mapped, partInk, partOf,
-  placed, pointsBox, pyRound, raster, rings, scaleOf, shrunk, square, stretchOf, targetFor, union, windingOf, within } from './geometry.js'
+  placed, pointsBox, pyRound, raster, rings, scaleOf, shrunk, square, stems, stretchOf, targetFor, union, windingOf, within } from './geometry.js'
 import { grassPairs, connectedGrass, contextualGrass } from './grass-forms.js'
 import { ownFormsOnly, componentParts, componentPosition, componentPositionBox, componentRecord, containsComponentForm, hasForcedForms, containsForcedForm, isComponentForm, isForcedCharacter, isGroupedForm, isNativeForm } from './component-forms.js'
 import { features, forward } from './layout.js'
@@ -5393,20 +5393,40 @@ export class Composer {
     const ratio = [0, 1].map(axis => stem[axis][1] / stem[axis][0] - 1)
     // The stroke widths the whole drawing is brought to, which a placeholder's outline follows.
     this.stroke = [curve(density, 0), curve(density, 1)]
+    // The powers of a part's scale its stroke width follows in the font's own characters.
+    const powers = C.PART_STEMS
     for (const p of group) {
       if (p.empty !== undefined || p.fixed) continue
       const weight = [], target = p.target.slice(), scale = scaleOf(p)
+      // A static face's heavy master is its outline grown by one amount whatever the stroke, so a
+      // thin part's weight is counted against its own stem.
+      let ownStem = null
+      if (powers && C.STATIC) {
+        const size = 200
+        ownStem = stems(fill(rings(p.part.contours, p.part.contours.map(c => c.light), 2), size, EM_BOX), size, (EM_BOX[2] - EM_BOX[0]) / size)
+          .map((w, axis) => Number.isFinite(w) ? w : stem[axis][0])
+      }
       for (const axis of [0, 1]) {
         const box = p.balanceBox ?? p.source
         const extent = box[axis + 2] - box[axis]
         if (extent <= 2 * stem[axis][0]) {
-          const width = extent * curve(density, axis) / curve(p.native, axis), middle = (target[axis] + target[axis + 2]) / 2
+          const width = powers ? extent * Math.max(scale[1 - axis], 1e-6) ** powers[axis] : extent * curve(density, axis) / curve(p.native, axis)
+          const middle = (target[axis] + target[axis + 2]) / 2
           target[axis] = middle - width / 2
           target[axis + 2] = middle + width / 2
           weight.push(0)
           continue
         }
         const measured = p.part.contours[0]?.width
+        if (powers) {
+          // The stem the font gives a part at this scale, over the stem plain scaling leaves. A
+          // glyph of another design starts from the stem the font draws at its density.
+          const lift = measured && p.part.contours[0].foreign ? curve(p.native, axis) / measured[axis] : 1
+          const grownBy = ownStem ? (stem[axis][1] - stem[axis][0]) / ownStem[axis] : ratio[axis]
+          const least = C.PART_SCALE_LEAST ?? 0.3
+          weight.push(Math.min(p.weightLimit?.[axis] ?? C.WEIGHT_GROWTH ?? 3, Math.max(-0.6, (lift * Math.max(scale[axis], least) ** (powers[axis] - 1) - 1) / grownBy)))
+          continue
+        }
         const own = measured ? measured[axis] : curve(p.native, axis)
         weight.push(Math.min(p.weightLimit?.[axis] ?? 1, Math.max(-0.6, (curve(density, axis) / (scale[axis] * own) - 1) / ratio[axis])))
       }

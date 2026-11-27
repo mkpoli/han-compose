@@ -337,7 +337,7 @@ def test_a_composite_glyph_is_read_through_its_components() -> None:
 
 def test_fangsong_keeps_its_hosts_in_zhuque_and_takes_the_rest_from_jigmo() -> None:
     style = compose.STYLES["fangsong"]
-    assert style.heavy == 400 and style.weighted is False and style.own_hosts and not style.kindred
+    assert style.heavy == 400 and style.own_hosts and not style.kindred
     assert style.fallbacks == compose.STYLES["serif"].fallbacks
     assert compose_layout.layout_file("fangsong") == "compose-layout-v4-fangsong.npz"
     assert "fangsong" in web_export.OUTLINE_NOTES
@@ -346,8 +346,7 @@ def test_fangsong_keeps_its_hosts_in_zhuque_and_takes_the_rest_from_jigmo() -> N
 
 def test_woodblock_reads_nom_na_tong_and_no_other_font() -> None:
     style = compose.STYLES["woodblock"]
-    assert style.heavy == 400 and style.weighted and style.own_hosts and not style.kindred
-    assert style.part_stems is not None and all(0 < power < 1 for power in style.part_stems)
+    assert style.heavy == 400 and style.own_hosts and not style.kindred
     assert style.fallbacks == ()
     assert style.font.licence == compose.MIT and style.font.member is None
     assert compose_layout.layout_file("woodblock") == "compose-layout-v4-woodblock.npz"
@@ -370,7 +369,7 @@ def test_woodblock_lifts_its_full_ideographs_into_the_em() -> None:
 
 def test_regular_reads_tw_kai_and_its_extension_faces() -> None:
     style = compose.STYLES["regular"]
-    assert style.heavy == 400 and style.weighted is False and style.kindred and style.own_hosts
+    assert style.heavy == 400 and style.kindred and style.own_hosts
     assert style.y_shift > 0
     assert [source.member for source in (style.font, *style.fallbacks)] == ["TW-Kai.ttf", "TW-Kai-Ext-B.ttf", "TW-Kai-Ext-G.ttf"]
     assert style.font.licence == compose.OGL and "cns11643.gov.tw" in style.font.also
@@ -388,9 +387,8 @@ def test_regular_brings_its_1024_unit_em_to_the_composers_1000() -> None:
     assert font.stem[0][0] > 0 and font.has("𠀀")
 
 
-def test_pen_writing_reads_a_static_face_and_keeps_its_brush_weight(pen_writing: compose.Font) -> None:
+def test_pen_writing_reads_a_static_face(pen_writing: compose.Font) -> None:
     assert pen_writing.static and "fvar" not in pen_writing.font
-    assert pen_writing.style.weighted is False
     assert pen_writing.stem[0][0] > 0 and pen_writing.stem[1][0] > 0
     part = pen_writing.glyph("口")
     assert part is not None and part.contours
@@ -438,3 +436,35 @@ def test_a_part_weighted_by_scale_takes_the_stem_its_scale_calls_for() -> None:
     ratio = (100 / 60 - 1, 50 / 30 - 1)
     assert whole.weight == (0.0, 0.0)
     assert half.weight == pytest.approx(((0.5 ** -0.75 - 1) / ratio[0], (0.5 ** -0.5 - 1) / ratio[1]))
+
+
+def test_every_style_weights_its_parts_by_the_powers_measured_on_its_own_font() -> None:
+    for style in compose.STYLES.values():
+        assert style.part_stems is not None and all(0 < power < 1 for power in style.part_stems), style.name
+
+
+def test_a_static_face_counts_a_parts_weight_against_its_own_stem_and_holds_the_law_at_its_least_scale() -> None:
+    from types import SimpleNamespace
+
+    def frame(stroke: float) -> compose.Part:
+        outer = np.array([[200, 200], [200, 700], [700, 700], [700, 200]], dtype=float)
+        a, b = 200 + stroke, 700 - stroke
+        inner = np.array([[a, a], [b, a], [b, b], [a, b]], dtype=float)
+        ops = [("moveTo", 1, False)] + [("lineTo", 1, False)] * 3
+        return compose.Part([compose.Contour(ops, outer, outer.copy(), (stroke, stroke)), compose.Contour(ops, inner, inner.copy(), (stroke, stroke))])
+
+    real = compose.Font.__new__(compose.Font)
+    real.stem = ((60.0, 100.0), (40.0, 80.0))
+    font = SimpleNamespace(style=SimpleNamespace(part_stems=(0.25, 0.5)), stem=real.stem, static=True, glyph=lambda _: None,
+                           has=lambda _: False, width=lambda density, axis: 1.0, _measured=real._measured)
+    composer = compose.Composer(font, {})
+    composer.ink = lambda *_: 1.0
+    part = frame(50.0)
+    whole = compose.Placed(part, part.box, part.box)
+    half = compose.Placed(part, part.box, (200.0, 200.0, 450.0, 450.0))
+    tiny = compose.Placed(part, part.box, (200.0, 200.0, 250.0, 250.0))
+    composer._balance([whole, half, tiny])
+    # The frame's strokes are 50 wide and the heavy master 40 wider: grown by 40 / 50 at weight 1.
+    assert whole.weight == (0.0, 0.0)
+    assert half.weight == pytest.approx(((0.5 ** -0.75 - 1) / 0.8, (0.5 ** -0.5 - 1) / 0.8))
+    assert tiny.weight == pytest.approx(((compose.PART_SCALE_LEAST ** -0.75 - 1) / 0.8, (compose.PART_SCALE_LEAST ** -0.5 - 1) / 0.8))

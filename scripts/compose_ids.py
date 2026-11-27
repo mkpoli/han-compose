@@ -76,8 +76,7 @@ def _require_layout(composer: compose.Composer, style: str) -> None:
 def _composer(style: str = compose.DEFAULT_STYLE, **options) -> compose.Composer:
     """The composer in `style`, cutting hosts along KanjiVG's groups, with the learned layout and
     standalone model when `learn` and `learn-alone` have made them."""
-    composer = compose.Composer(compose.Font.of(_style(style)), compose.drawn_sequences(style),
-                                weighted=compose.STYLES[style].weighted, **options)
+    composer = compose.Composer(compose.Font.of(_style(style)), compose.drawn_sequences(style), **options)
     if _layout_path(style).exists():
         composer.layout = compose_layout.LayoutModel.load(_layout_path(style))
     composer.kvg = kanjivg_cuts.Cutter(composer)
@@ -444,8 +443,8 @@ def calibrate(sample: int = 1500, seed: int = 7, style: str = STYLE) -> None:
 
 @app.command("calibrate-parts")
 def calibrate_parts(sample: int = 700, seed: int = 11, style: str = STYLE) -> None:
-    """Fit the powers of a part's scale its stroke width follows in the font's own characters, for a
-    static style's `part_stems`: each part of a character cut cleanly in two against its own glyph."""
+    """Fit the powers of a part's scale its stroke width follows in the font's own characters, for the
+    style's `part_stems`: each part of a character cut cleanly in two against its own glyph."""
     composer = _composer(style)
 
     def stem(part: compose.Part) -> tuple[float, float] | None:
@@ -481,7 +480,7 @@ def calibrate_parts(sample: int = 700, seed: int = 11, style: str = STYLE) -> No
     powers = []
     for axis in (0, 1):
         data = np.array([row[axis] for row in rows])
-        data = data[(data[:, 0] > 0.2) & (data[:, 0] < 1.2) & (data[:, 1] > 0)]
+        data = data[(data[:, 0] > compose.PART_SCALE_LEAST) & (data[:, 0] < 1.2) & (data[:, 1] > 0)]
         x, y = np.log(data[:, 0]), np.log(data[:, 1])
         # Through the origin: a part at its glyph's size keeps its glyph's stem.
         powers.append(round(float((x * y).sum() / (x * x).sum()), 3))

@@ -23,9 +23,10 @@ from a character a type designer drew; a sequence (⿰亻哥) is drawn in three 
    the operator's axis and the extent its own host gave it across. A cut is used only when each
    piece looks like its operand. With no host, a nested sequence is drawn the same way, and a
    character from its own glyph.
-3. Weight. Noto thins its strokes as a character fills up (`Style.stem_curve`). Each part is moved
-   towards the heavy master, along x and along y apart, until its strokes have the width the
-   whole composed character's density calls for; a lone stroke keeps that width without scaling.
+3. Weight. A font thins a part drawn smaller than its glyph, by less than scaling does
+   (`Style.part_stems`). Each part is moved towards the heavy master, along x and along y apart,
+   until its strokes have the width the font gives a part of its scale; a lone stroke keeps that
+   width without scaling.
 
 The result is a set of closed outlines in the font's 1000-unit em, y up, drawn out by `svg_path`.
 Operands drawn across each other (⿻) are laid out as characters that overlay the same operands do.
@@ -103,15 +104,13 @@ class Style:
     heavy: int = 900
     synthetic_y: bool = False
     kindred: bool = True
-    #: Whether stroke weights are balanced across parts. A static brush face keeps its own weights.
-    weighted: bool = True
     #: Whether hosts come only from the main font, so a fallback never supplies a piece.
     own_hosts: bool = False
     #: How far up the style's glyphs move to meet the composer's em, in 1000-unit units.
     y_shift: float = 0.0
-    #: For a static face whose parts are weighted: the powers (across x, across y) of a part's scale
-    #: its stroke width follows in the font's own characters, measured by `calibrate-parts`. A part
-    #: drawn at 0.5 of its glyph keeps 0.5 ** k of its stem. None weights by density (`stem_curve`).
+    #: The powers (across x, across y) of a part's scale its stroke width follows in the font's own
+    #: characters, measured by `calibrate-parts`: a part drawn at 0.5 of its glyph keeps 0.5 ** k
+    #: of its stem. None weights by density alone (`stem_curve`).
     part_stems: tuple[float, float] | None = None
 
 
@@ -160,6 +159,7 @@ STYLES = {
          Source("PlangothicP2-Regular.ttf", f"{PLANGOTHIC_URL}/PlangothicP2-Regular.ttf",
                 "681933370adfe0fc7253f77735275a82fea09fe4f8adba907bdeb46c110daf8f", OFL)),
         ((85.34, -1.324), (86.93, -1.914)),
+        part_stems=(0.233, 0.350),
     ),
     # Noto Serif CJK JP 2.003 (Source Han Serif's design), whose horizontals stay about 30 units at
     # every weight from 200 to 900 while its verticals grow from 45 to 145.
@@ -174,6 +174,7 @@ STYLES = {
         ((67.77, -0.463), (22.31, 0.164)),
         synthetic_y=True,
         kindred=False,
+        part_stems=(0.147, 0.013),
     ),
     # Nôm Na Tống 5.20 (Nôm Na Group, Vietnamese Nôm Preservation Foundation): a static Song face cut
     # after woodblock printing, the reference font for Hán-Nôm encoding. No other font fills in
@@ -189,10 +190,10 @@ STYLES = {
         heavy=400,
         kindred=False,
         own_hosts=True,
-        # A cut Song face, not a brush: a part drawn smaller than its glyph is grown from the one
-        # weight the font has (`STATIC_GROW`) to the stem the font gives such a part. Measured on
-        # 1,983 parts of its own characters against their glyphs (`calibrate-parts`): a part at
-        # half size keeps 84% of its verticals and 89% of its horizontals.
+        # A part drawn smaller than its glyph is grown from the one weight the font has
+        # (`STATIC_GROW`) to the stem the font gives such a part. Measured on 1,983 parts of its
+        # own characters against their glyphs (`calibrate-parts`): a part at half size keeps 84%
+        # of its verticals and 89% of its horizontals.
         part_stems=(0.259, 0.171),
         # Its full ideographs span -151 to 848 of the em, Noto Serif's -78 to 837: the lift centres
         # them where Noto Serif's stand. They fill the em's whole height, so a stroke at the top
@@ -214,7 +215,7 @@ STYLES = {
         ((57.51, 0.271), (39.61, -1.297)),
         heavy=400,
         kindred=False,
-        weighted=False,
+        part_stems=(0.204, 0.144),
         own_hosts=True,
     ),
     # TW-Kai (CNS 11643 Kai, fonts version 11510.1): a static brush face whose Extension B and G
@@ -227,7 +228,7 @@ STYLES = {
         ((60.87, -1.34), (53.83, -1.756)),
         heavy=400,
         kindred=True,
-        weighted=False,
+        part_stems=(0.314, 0.303),
         own_hosts=True,
         # TW-Kai's typographic ascent is 820 on its 1024-unit em: 880 - 820 * 1000 / 1024.
         y_shift=79.2,
@@ -249,7 +250,7 @@ STYLES = {
         ((70.0, 0.0), (70.0, 0.0)),
         heavy=400,
         kindred=False,
-        weighted=False,
+        part_stems=(0.209, 0.256),
         own_hosts=True,
     ),
 
@@ -754,6 +755,9 @@ class Contour:
     width: tuple[float, float] | None = _Weighed(None)
     #: Works out `heavy` and `width` for every contour of the glyph, where they were left for later.
     weigh: Callable[[], None] | None = field(default=None, repr=False, compare=False)
+    #: Whether the contour is a fallback's of another design than the style's own font: its stroke
+    #: width is brought to the font's, where a part of the font's own keeps its glyph's.
+    foreign: bool = False
     #: Whether the contour is a kindred fallback's (`Style.kindred`): drawn in the variable font's
     #: design, its strokes joined into outlines as that fallback joins them.
     kindred: bool = False
@@ -931,7 +935,7 @@ class Font:
                         scale = fallback.scale
                         pen = DecomposingRecordingPen(fallback.glyphs)
                         fallback.glyphs[fallback.cmap[ord(char)]].draw(pen)
-                        contours = [Contour(ops, p * scale + self.shift, LATER, LATER, kindred=self.style.kindred) for ops, p in _contours(pen)]
+                        contours = [Contour(ops, p * scale + self.shift, LATER, LATER, kindred=self.style.kindred, foreign=not self.style.kindred) for ops, p in _contours(pen)]
                         self._later(contours, lambda contours=contours: self._grown_heavy(contours))
                         part = Part(contours) if contours else None
                         break
@@ -1384,6 +1388,9 @@ SQUEEZE = 0.15
 #: How far past the heavy master a part squeezed into a narrow box may grow: its stems keep the
 #: width the character's density calls for even when the box is a fraction of its own.
 WEIGHT_GROWTH = 3.0
+#: The smallest scale `Style.part_stems` is fitted on (`calibrate-parts`): a part drawn smaller
+#: still is weighted as one at this scale, and thins with it.
+PART_SCALE_LEAST = 0.2
 #: Fallback allocation for unreadable nested linear compounds: ink exponent, projected-crossing
 #: exponent, middle-operand multiplier, and inter-box gap as a fraction of the available axis.
 #: Negative gaps allow bounding boxes to overlap; `_space` checks their facing outlines afterwards.
@@ -1806,8 +1813,7 @@ class Composer:
     #: weight the result's density calls for. With both off, each operand's own glyph is squeezed
     #: into its share, the plainest way to compose, for comparison.
     hosted: bool = True
-    #: None takes the style's own setting (Kaisho's static brush keeps its weights).
-    weighted: bool | None = None
+    weighted: bool = True
     #: How many of the closest teachers the layout is agreed among.
     teachers: int = 3
     #: A learned layout (`compose_layout.LayoutModel`) for a whole character's two operands, when loaded.
@@ -1845,10 +1851,6 @@ class Composer:
     _typical: dict[tuple[str, str], tuple] = field(default_factory=dict, init=False, repr=False)
     _frames: list[set] = field(default_factory=list, init=False, repr=False)
     _reference_exclude: frozenset[str] = field(default_factory=frozenset, init=False, repr=False)
-
-    def __post_init__(self) -> None:
-        if self.weighted is None:
-            self.weighted = getattr(getattr(self.font, "style", None), "weighted", True)
 
     @cached_property
     def by_sequence(self) -> dict[str, str]:
@@ -3190,10 +3192,11 @@ class Composer:
         return out
 
     def _balance(self, placed: list[Placed]) -> None:
-        """Each part's strokes brought to the width the whole character's density calls for: a part
-        drawn in a sparser glyph is thinned, one squeezed along an axis is thickened along it. A
-        part no thicker than a stroke along an axis keeps its weight there. A part squeezed into a
-        narrow box may grow past the heavy master, up to `WEIGHT_GROWTH`."""
+        """Each part's strokes brought to the width the font gives a part of its scale
+        (`Style.part_stems`): one squeezed along an axis is thickened along it, short of its
+        glyph's width. A font without that law brings every part to the width the whole character's
+        density calls for. A part no thicker than a stroke along an axis keeps its weight there.
+        A part squeezed into a narrow box may grow past the heavy master, up to `WEIGHT_GROWTH`."""
         density = sum(self.ink("", p.part) * (p.scale[0] + p.scale[1]) / 2 for p in placed)
         ratio = [self.font.stem[axis][1] / self.font.stem[axis][0] - 1 for axis in (0, 1)]
         powers = getattr(getattr(self.font, "style", None), "part_stems", None)
@@ -3201,6 +3204,7 @@ class Composer:
             if p.fixed:
                 continue
             weight, target = [], list(p.target)
+            own_stem = self.font._measured(p.part.contours) if powers is not None and getattr(self.font, "static", False) else None
             for axis, s in enumerate(p.scale):
                 extent = p.source[axis + 2] - p.source[axis]
                 if extent <= 2 * self.font.stem[axis][0]:
@@ -3214,11 +3218,17 @@ class Composer:
                     target[axis], target[axis + 2] = middle - width / 2, middle + width / 2
                     weight.append(0.0)
                     continue
-                if powers is not None:
-                    # The stem the font gives a part at this scale, over the stem plain scaling leaves.
-                    weight.append(float(np.clip((max(s, 1e-6) ** (powers[axis] - 1) - 1) / ratio[axis], -0.6, WEIGHT_GROWTH)))
-                    continue
                 measured = p.part.contours[0].width
+                if powers is not None:
+                    # The stem the font gives a part at this scale, over the stem plain scaling
+                    # leaves. A glyph of another design starts from the stem the font draws at its
+                    # density, over its own.
+                    lift = self.font.width(p.native, axis) / measured[axis] if measured is not None and p.part.contours[0].foreign else 1.0
+                    # A static face's heavy master is its outline grown by one amount whatever the
+                    # stroke, so a thin part's weight is counted against its own stem.
+                    grown = ratio[axis] if own_stem is None else (self.font.stem[axis][1] - self.font.stem[axis][0]) / own_stem[axis]
+                    weight.append(float(np.clip((lift * max(s, PART_SCALE_LEAST) ** (powers[axis] - 1) - 1) / grown, -0.6, WEIGHT_GROWTH)))
+                    continue
                 own = measured[axis] if measured is not None else self.font.width(p.native, axis)
                 weight.append(float(np.clip((self.font.width(density, axis) / (s * own) - 1) / ratio[axis], -0.6, WEIGHT_GROWTH)))
             p.target = tuple(target)

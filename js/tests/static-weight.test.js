@@ -50,3 +50,43 @@ it('takes an inset heavy master the other way, as Kureedo\'s contours need', asy
   expect(thin.weight[0]).toBeLessThan(0)
   expect(thin.weight[0]).toBeGreaterThanOrEqual(-0.375)
 })
+
+const lawFiles = stems => ({
+  ...files,
+  'manifest.json': JSON.stringify({
+    ...JSON.parse(files['manifest.json']),
+    weighted: true,
+    heavy: 400,
+    constants: { ...constants, stem: [[60, 100], [40, 80]], PART_STEMS: stems, STATIC: true, PART_SCALE_LEAST: 0.3, WEIGHT_GROWTH: 3 },
+  }),
+})
+
+/** A square frame of `stroke`-wide strokes, drawn from the em's middle into `target`. */
+const frame = (stroke, target) => {
+  const ring = (a, b) => ({ ops: commands('MLLL'), light: Float64Array.from([a, a, a, b, b, b, b, a]),
+    heavy: Float64Array.from([a, a, a, b, b, b, b, a]), width: [stroke, stroke] })
+  const inner = ring(200 + stroke, 700 - stroke)
+  inner.light = Float64Array.from([200 + stroke, 200 + stroke, 700 - stroke, 200 + stroke, 700 - stroke, 700 - stroke, 200 + stroke, 700 - stroke])
+  inner.heavy = inner.light.slice()
+  return placed(makePart([ring(200, 700), inner]), [200, 200, 700, 700], target, 0, 'test')
+}
+
+it('weights a part by the measured powers of its scale, against its own stem', async () => {
+  const loaded = createSource(async name => {
+    const file = lawFiles([0.25, 0.5])[name]
+    return file === undefined ? null : new Blob([file]).arrayBuffer()
+  })
+  await loaded.ready()
+  const composer = new Composer(loaded.store(), { fontStyle: 'fangsong' })
+  expect(composer.staticFace).toBe(false)
+  const whole = frame(50, [200, 200, 700, 700]), half = frame(50, [200, 200, 450, 450])
+  composer.balance([whole, half])
+  expect(whole.weight).toEqual([0, 0])
+  // The frame's strokes are 50 wide and the heavy master 40 wider: grown by 40 / 50 at weight 1.
+  expect(half.weight[0]).toBeCloseTo((0.5 ** -0.75 - 1) / (40 / 50), 6)
+  expect(half.weight[1]).toBeCloseTo((0.5 ** -0.5 - 1) / (40 / 50), 6)
+  // Below the smallest measured scale a part is weighted as one at that scale.
+  const tiny = frame(50, [200, 200, 250, 250])
+  composer.balance([whole, tiny])
+  expect(tiny.weight[0]).toBeCloseTo((0.3 ** -0.75 - 1) / (40 / 50), 6)
+})

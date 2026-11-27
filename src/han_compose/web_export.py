@@ -161,7 +161,7 @@ def _r(values: Iterable[float], digits: int = 2) -> list[float]:
 def part_record(part: C.Part) -> dict:
     """A part's outlines: its box, and per contour its pen commands, its points at weight 400 and
     their move to the heavy weight (`HEAVY` in the constants), int16 in 1 / `QUANT` units, little-endian, x and y interleaved (an
-    outline outside int16's range is refused). A part a fallback font draws carries the stroke width measured on its glyph (`Contour.width`)."""
+    outline outside int16's range is refused). A part a fallback font or a static face draws carries the stroke width measured on its glyph (`Contour.width`), and one a fallback of another design draws is marked `f`."""
     contours = []
     for c in part.contours:
         light, heavy = np.round(c.light * QUANT), np.round(c.heavy * QUANT)
@@ -172,6 +172,8 @@ def part_record(part: C.Part) -> dict:
     out = {"b": _r(part.box), "p": contours}
     if part.contours and part.contours[0].width is not None:
         out["w"] = _r(part.contours[0].width)
+    if part.contours and part.contours[0].foreign:
+        out["f"] = 1
     return out
 
 
@@ -239,6 +241,9 @@ def constants(composer: C.Composer) -> dict:
     style = composer.font.style
     out["STEM_CURVE"] = [list(v) for v in style.stem_curve]
     out["HEAVY"] = style.heavy
+    if style.part_stems is not None:
+        out["PART_STEMS"] = list(style.part_stems)
+    out["STATIC"] = bool(composer.font.static)
     out["GROW_Y"] = round(composer.font.grow_y, 3)
     out["stem"] = [_r(s, 3) for s in composer.font.stem]
     out["face"] = _r(composer.face)
@@ -1209,7 +1214,7 @@ def _export(composer: C.Composer, out: Path, joyo: list[str] | None = None, pari
         "composer": {"repository": "https://github.com/mkpoli/han-compose", "commit": commit, "dirty": dirty,
                      "style": style.name, "layout_file": layout_file, **inputs},
         "style": style.name,
-        "em": C.EM, "ascent": C.ASCENT, "heavy": style.heavy, "weighted": style.weighted, "quant": QUANT,
+        "em": C.EM, "ascent": C.ASCENT, "heavy": style.heavy, "weighted": True, "quant": QUANT,
         "constants": constants(composer),
         "constants_note": "tuple keys are joined with a comma: SHARES[('⿳', 3)] is SHARES['⿳,3']",
         "spelled": sorted(composer.spelled),
