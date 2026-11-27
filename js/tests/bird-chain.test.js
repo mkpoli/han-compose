@@ -3,6 +3,7 @@ import { pathMask } from '../src/geometry.js'
 import { Composer } from '../src/compose.js'
 import { compose, createSource, sketch } from '../src/loader.js'
 import nativeDonors from './fixtures/bird-donors.json'
+import { birdOutlineParts } from '../src/bird-outline.js'
 import { birdChainChar, birdChainParts } from '../src/bird-chain.js'
 import { character, constants, files, records, shards } from './fixtures/small-export.js'
 
@@ -105,5 +106,12 @@ it('fits the Sans four-dot row under the frame in both bird widths', async () =>
     // 260-unit dot row. Allow for raster rounding at half an em.
     const expected = 23 / 260 * dots.box[3] * size / 1000
     expect(Math.abs(clearance - expected)).toBeLessThan(2)
+  }
+})
+
+it('respects excluded operands when drawing the four-dot chicken', () => {
+  const key = `⿰又⿱丿⿹⿴${CHAIN}丶灬`
+  for (const excluded of [key, '又', '丿', '丶', '灬']) {
+    expect(birdOutlineParts({ excluded: ch => ch === excluded }, key, [0, 0, 1000, 1000])).toBeNull()
   }
 })

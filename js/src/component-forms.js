@@ -1,5 +1,6 @@
 // @ts-nocheck
 // Shape-specific font-derived forms. Keep the caller's IDS; encoded counterparts can vary by region.
+import { containsRateForm } from './rate-forms.js'
 import generated from './component-forms.json' with { type: 'json' }
 import overrides from './component-forms-overrides.json' with { type: 'json' }
 import inwardGrass from './inward-grass-forms.json' with { type: 'json' }
@@ -55,7 +56,7 @@ const editorialForms = new Map(Object.entries(data.editorial ?? {}).flatMap(([id
 /** Faces whose bundled forms come only from their own font: Noto's must not stand in for them. @param {string} style */
 export const ownFormsOnly = style => style === 'regular' || style === 'pen-writing' || style === 'fangsong'
 const forms = style => styles[style] ?? (ownFormsOnly(style) ? null : styles.sans)
-export const containsComponentForm = (text, style = 'sans') => [...(forms(style)?.entries() ?? [])].some(([key, form]) => !form.native && text.includes(key))
+export const containsComponentForm = (text, style = 'sans') => containsRateForm(text) || [...(forms(style)?.entries() ?? [])].some(([key, form]) => !form.native && text.includes(key))
 export const isGroupedForm = (text, style = 'sans') => (forms(style)?.get(text)?.parts.length ?? 0) > 1
 export const isComponentForm = (text, style = 'sans') => forms(style)?.has(text) ?? false
 /** Whether `text` has a native form in `style`: one that keeps what the export knows of it. */
