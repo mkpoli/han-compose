@@ -1580,7 +1580,7 @@ export class Composer {
         return
       }
       const cell = target(box)
-      const parts = this.thornRowParts(node, cell) ?? yiCrossParts(this, node, cell) ?? ghostParts(this, node, cell) ?? this.qiParts(node, cell)
+      const parts = this.doubleTurnParts(node, cell) ?? this.thornRowParts(node, cell) ?? yiCrossParts(this, node, cell) ?? ghostParts(this, node, cell) ?? this.qiParts(node, cell)
       if (parts) {
         for (const part of parts) {
           if (leafIndices) part.leaf = leaf++
@@ -1737,7 +1737,7 @@ export class Composer {
         return
       }
       const repeated = isGroupedForm(keyOf(node), this.fontStyle) ? componentParts(keyOf(node), region, this.fontStyle, atRoot) : null
-      const designed = repeated ?? rccParts(editable, keyOf(node), region) ?? birdOutlineParts(this, keyOf(node), region) ?? this.thornRowParts(node, region) ?? yiCrossParts(this, node, region) ?? this.qiParts(node, region) ?? ghostParts(this, node, region) ?? this.muKoParts(node, region) ?? this.wheatFaceParts(node, region)
+      const designed = repeated ?? rccParts(editable, keyOf(node), region) ?? birdOutlineParts(this, keyOf(node), region) ?? this.doubleTurnParts(node, region) ?? this.thornRowParts(node, region) ?? yiCrossParts(this, node, region) ?? this.qiParts(node, region) ?? ghostParts(this, node, region) ?? this.muKoParts(node, region) ?? this.wheatFaceParts(node, region)
       if (designed) {
         const boxes = designed[0]?.rccGroup && rccLeafBoxes(designed, leafTexts(node).length)
         for (const box of boxes || designed.map(part => part.target)) out.push({ index: out.length, box, empty: false })
@@ -2327,6 +2327,8 @@ export class Composer {
     if (rcc) return rcc
     const bird = birdChainParts(this, node, region, atRoot) ?? birdOutlineParts(this, key, region)
     if (bird) return bird
+    const turns = this.doubleTurnParts(node, region)
+    if (turns) return turns
     const thorns = this.thornRowParts(node, region)
     if (thorns) return thorns
     const yi = yiCrossParts(this, node, region)
@@ -4517,6 +4519,22 @@ export class Composer {
     if (!best || best[0] > C.STRETCH) return null
     const piece = this.pieceOf(best[1])
     return placed(piece, piece.box, region.slice(), this.ink(best[1].h), `instance ${best[1].h}`)
+  }
+
+  /** The repetition mark in 日本的汉字 (2019), p. 95, has two turns offset vertically
+   *  by three tenths of the total ink height. Their opposed diagonals cross once. */
+  doubleTurnParts(node, region) {
+    if (!Array.isArray(node) || node.note || node[0] !== '⿻' || node[1] !== '𡿨' || node[2] !== '𡿨') return null
+    const parts = this.overlay(node.slice(1), region)
+    if (parts.length !== 2 || parts.some(p => p.origin !== 'glyph 𡿨')) return null
+    if (parts[0].target.some((v, i) => v !== parts[1].target[i])) return null
+    if (!this.partial && this.weighted) this.balance(parts)
+    if (!this.partial && this.staticFace) this.staticBalance(parts)
+    const ink = union(groupRings(parts, 24).map(pointsBox))
+    const [left, bottom, right, top] = ink
+    const offset = (top - bottom) * 0.30
+    const rows = [[left, bottom + offset, right, top], [left, bottom, right, top - offset]]
+    return parts.map((part, i) => ({ ...part, target: mapped(part.target, ink, rows[i]), fixed: true }))
   }
 
   /** Operands drawn across each other (⿻): whole from a character that draws them so
