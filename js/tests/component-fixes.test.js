@@ -164,6 +164,41 @@ describe('⿱一心', () => {
   })
 })
 
+it('balances Regular 身 and 化 at their placed scale and preserves their ink bounds', () => {
+  const body = part('learned 躭', [0, 0, 400, 800], [0, 0, 400, 800], [[10, 20, 390, 780]])
+  const flower = part('glyph 花 kept', [0, 0, 800, 800], [420, 0, 820, 800], [[30, 10, 780, 620]])
+  const grass = part('TW-Kai: 艹', [0, 0, 400, 80], [420, 700, 820, 780], [[0, 0, 400, 80]])
+  for (const p of [body, flower]) {
+    const c = p.part.contours[0], [l, b, r, t] = pointsBox(c.light)
+    c.ops = [['M', 1], ['L', 1], ['L', 1], ['L', 1]]
+    c.heavy = Float64Array.from([l - 20, b - 20, r + 20, b - 20, r + 20, t + 20, l - 20, t + 20])
+    c.width = [50, 40]
+  }
+  const parts = [body, flower, grass], stroke = [50, 40]
+  const face = {
+    fontStyle: 'regular', stem0: [[50, 90], [40, 80]], staticFace: true, stroke,
+    staticBalance(group) {
+      group[0].weight = [0, 0.5]
+      this.stroke = [45, 36]
+    },
+  }
+  const fixed = componentFix('⿰身花', parts, face)
+  expect(50 + fixed[0].weight[0] * 40).toBeCloseTo(Math.sqrt(50 * 25))
+  expect((50 + fixed[1].weight[0] * 40) / 2).toBeCloseTo(Math.sqrt(50 * 25))
+  for (const i of [0, 1]) {
+    const original = i === 0 ? { ...body, weight: [0, 0.5] } : flower
+    const a = pointsBox(drawnContours(original)[0]), b = pointsBox(drawnContours(fixed[i])[0])
+    for (const [edge, value] of a.entries()) expect(b[edge]).toBeCloseTo(value)
+    expect(fixed[i].fixed).toBe(true)
+  }
+  expect(fixed[2]).toBe(grass)
+  expect(body.weight).toEqual([0, 0])
+  expect(face.stroke).toBe(stroke)
+  expect(componentFix('⿰身花', parts, face)).toEqual(fixed)
+  expect(componentFix('⿰身花', parts, { ...face, fontStyle: 'serif' })).toBe(parts)
+  expect(componentFix('⿰身花', parts, { ...face, stem0: [[50, 50], [40, 40]] })).toBe(parts)
+})
+
 describe('C087 ⿻日丿', () => {
   it('keeps 丿 under 日’s top bar', () => {
     const frame = part('overlay 甲', [126, 178, 877, 777], [38, 173, 967, 757],

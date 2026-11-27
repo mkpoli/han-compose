@@ -4,7 +4,7 @@
 // description it corrects, the SHA-256 outlines of the glyphs it was read against, and the parts it
 // changes; an export drawing other outlines keeps the font's cut. The parts are plain placed pieces,
 // so the corrections work wherever the description is drawn, at any depth.
-import { derived, drawnContours, fitted, groupRings, makePart, mapped, partOf, placed, pointsBox, union } from './geometry.js'
+import { contourSections, derived, drawnContours, fitted, groupRings, makePart, mapped, partOf, placed, pointsBox, union } from './geometry.js'
 import { hexOf } from './sha256.js'
 
 // Interpolation factors for the hosted 口 outlines when fitted beside 乎.
@@ -315,6 +315,24 @@ export function joinXingStem(top, lower) {
   return { ...lower, part, source: part.box, target: part.box, weight: [0, 0] }
 }
 
+// The standalone 门 in the Pen export has a central vertical in place of the dot.
+// 闭 supplies a dotted three-sided door around the entire height of its inner glyph.
+function penDoor(char) {
+  return {
+    glyphs: { 闭: '6ece69c3cf7b4e294ee0d127ef5624c40142b755ae9d54cbdf681bb3ab5bb776' },
+    apply(parts, composer, region) {
+      if (composer.fontStyle !== 'pen-writing' || ['门', '闭', char].some(ch => composer.excluded(ch))) return parts
+      const host = composer.glyph('闭'), inner = composer.glyph(char)
+      if (!host || !inner) return parts
+      const frame = derived(host, [0, 2, 3].map(i => host.contours[i]))
+      const outer = mapped(frame.box, composer.C.face, region)
+      const room = mapped(char === '斗' ? [229, 36, 773, 597] : [272, 53, 724, 568], composer.C.face, region)
+      return [{ ...placed(frame, frame.box, outer, composer.ink('闭'), '闭 门'), fixed: true },
+        { ...placed(inner, inner.box, fitted(inner.box, room, 1.10), composer.ink(char), `glyph ${char}`), fixed: true }]
+    },
+  }
+}
+
 /**
  * The corrections, by description. `glyphs` ties each to the outlines it was read against.
  * A correction that cannot find the parts it names leaves the drawing as it is.
@@ -332,6 +350,135 @@ export const COMPONENT_FIXES = {
       const upper = mapped([.055, .54, .945, 1], [0, 0, 1, 1], frame)
       const lower = mapped([.12, 0, .88, .57], [0, 0, 1, 1], frame)
       return [{ ...top, target: upper }, { ...placed(xing, xing.box, lower, composer.ink('幸'), 'glyph 幸'), joinXing: true }]
+    },
+  },
+  '⿰貝並': {
+    glyphs: { 賦: 'adc3e80a626f45b4c611c368dea0e198bdd174b707ae9a4ea65fcf2e900f19bd' },
+    apply(parts, composer) {
+      if (composer.fontStyle !== 'fangsong' || parts.length !== 2) return parts
+      const [shell, aligned] = parts, source = composer.glyph('賦')
+      if (shell.part.contours.length !== 3 ||
+          !shell.part.contours.every((contour, i) => contour === source.contours[i + 1])) return parts
+      // The host cut owns the three separate contours of 貝. Its right foot runs
+      // into the baseline of 武, between commands 25 and 31 of their shared contour.
+      const foot = contourSections(source.contours, [0, 25, 31])
+      const part = { ...shell.part, contours: [...shell.part.contours, foot] }
+      if (part.strokes && source.strokes?.some(([id, cs]) => id === 6 && cs.length === 1 && cs[0] === 0))
+        part.strokes = [...part.strokes, [6, [3]]]
+      return [{ ...shell, part }, aligned]
+    },
+  },
+  '⿰水行': {
+    glyphs: {},
+    apply(parts, composer) {
+      if (parts.length !== 2) return parts
+      const [water, walk] = parts
+      // These hosts spell the left side with 氵. R+02BE writes the full 水.
+      if (!['learned 沼', 'learned 洽', 'transplant 汭', 'host 汳'].includes(water.origin)) return parts
+      if (composer.excluded('水')) return parts
+      let origin = 'glyph 水'
+      let glyph = composer.glyph('水')
+      if (!glyph) return parts
+      // 沀 supplies a full 水 already drawn for a narrow left column.
+      const donors = {
+        regular: ['6dafb97f1950523ebb5d09952864e54470734e98ae59b68aa0907c91e7fe7814', [0, 2]],
+        'pen-writing': ['14aa4b584364ccfb7a67fb5b595cc00009783a6e2911547cc3e4d3fff1cbd4cb', [1, 2]],
+      }
+      const donor = donors[composer.fontStyle]
+      const record = donor && !composer.excluded('沀') && composer.glyphRecord('沀')
+      if (record && hexOf(JSON.stringify(record.p)) === donor[0]) {
+        const host = partOf(record)
+        glyph = derived(host, donor[1].map(i => host.contours[i]))
+        origin = '水 from 沀'
+      }
+      if (!composer.partial) {
+        if (composer.weighted) composer.balance(parts)
+        else if (composer.staticFace) composer.staticBalance(parts)
+      }
+      const inkOf = part => union(groupRings([part], 24).map(pointsBox))
+      const left = inkOf(water), right = inkOf(walk), frame = union([left, right])
+      // The full 水 needs a two-sided column, as in 沀. Keep each part's vertical extent.
+      const width = widthOf(frame)
+      const leftRoom = [frame[0], left[1], frame[0] + .43 * width, left[3]]
+      const rightRoom = [frame[0] + .46 * width, right[1], frame[2], right[3]]
+      const full = placed(glyph, glyph.box, leftRoom, composer.ink(origin === 'glyph 水' ? '水' : '沀'), origin)
+      const neighbour = { ...walk, target: mapped(walk.target, right, rightRoom), fixed: true }
+      if (!composer.partial && composer.staticFace) composer.staticBalance([full, neighbour])
+      return [{ ...full, target: mapped(full.target, inkOf(full), leftRoom), fixed: true }, neighbour]
+    },
+  },
+  '⿸厂𤿁': {
+    glyphs: { '𤿁': ['265b41d9c34f6df9803deb35bcb60c79e090b55b7dac28605f1fa979e15c0435',
+      '04a5aa68d4ac68d4e9f9a3ba91d78abe33e8adc0c8febc265361b35ce190b628'] },
+    apply(parts, composer) {
+      const [shell, inner] = parts, sans = composer.fontStyle === 'sans'
+      if ((!sans && composer.fontStyle !== 'regular') || parts.length !== 2 || inner.origin !== 'glyph 𤿁' ||
+          shell.origin !== (sans ? 'learned 厲' : 'learned 原')) return parts
+      if (!composer.partial) {
+        if (composer.weighted) composer.balance(parts)
+        else if (composer.staticFace) composer.staticBalance(parts)
+      }
+      const [left, bottom, right, top] = union(groupRings([inner], 24).map(pointsBox))
+      const width = sans ? .976 : .94
+      // The six Sans counters close when its horizontal strokes take the full heavy master.
+      const fitted = sans ? { ...inner, weight: [inner.weight[0], Math.min(inner.weight[1], .2)] } : inner
+      const ink = union(groupRings([fitted], 24).map(pointsBox))
+      // The upper 白 grazes the roof, and the lower-left 白 crosses the slope.
+      // Keep the right edge and baseline of the encoded interior in place.
+      const room = [right - width * (right - left), bottom, right, bottom + .97 * (top - bottom)]
+      return [{ ...shell, fixed: true }, { ...fitted, fixed: true, target: mapped(inner.target, ink, room) }]
+    },
+  },
+  '⿵门斗': penDoor('斗'),
+  '⿵门T': penDoor('T'),
+  '⿰𛂦方': {
+    glyphs: {},
+    apply(parts, composer, region) {
+      if (!['fangsong', 'regular'].includes(composer.fontStyle) || parts.length !== 2 ||
+          composer.excluded('𛂦') || composer.excluded('方')) return parts
+      // Encoded 𭤪 gives the kana and 方 adjacent, full-height columns.
+      const kana = composer.glyph('𛂦'), side = composer.glyph('方')
+      if (!kana || !side) return parts
+      const cell = box => mapped(box, [0, 0, 1000, 1000], region)
+      return [placed(kana, kana.box, cell([28, 38, 475, 960]), composer.ink('𛂦'), 'glyph 𛂦'),
+        placed(side, side.box, cell([512, 24, 968, 960]), composer.ink('方'), 'glyph 方')]
+    },
+  },
+  '⿰身花': {
+    glyphs: {},
+    apply(parts, composer) {
+      const [body, flower, grass] = parts
+      if (composer.fontStyle !== 'regular' || parts.length !== 3 ||
+          body.origin !== 'learned 躭' || flower.origin !== 'glyph 花 kept' || grass.origin !== 'TW-Kai: 艹') return parts
+      const columns = [{ ...body }, { ...flower }]
+      const stems = columns.map(p => p.part.contours[0]?.width)
+      const growth = composer.stem0.map(([light, heavy]) => heavy - light)
+      if (stems.some(stem => !stem || stem.some(w => w <= 0)) || growth.some(step => step <= 0)) return parts
+      if (!composer.partial) {
+        const group = [...columns, { ...grass }], stroke = composer.stroke
+        try {
+          if (composer.weighted) composer.balance(group)
+          else if (composer.staticFace) composer.staticBalance(group)
+        } finally {
+          composer.stroke = stroke
+        }
+      }
+      const scales = columns.map(scaleOf)
+      if (scales.some(scale => scale.some(s => s <= 0))) return parts
+      // The geometric mean gives the two scaled stems reciprocal adjustment factors.
+      const aim = [0, 1].map(axis => Math.sqrt(
+        stems[0][axis] * scales[0][axis] * stems[1][axis] * scales[1][axis]))
+      const ink = p => union(groupRings([p], 24).map(pointsBox))
+      return [...columns.map((p, i) => {
+        const weight = aim.map((width, axis) => {
+          const adjustment = (width / scales[i][axis] - stems[i][axis]) / growth[axis]
+          return Math.max(-0.6, Math.min(1, adjustment))
+        })
+        const revised = { ...p, weight, fixed: true }
+        // Both pieces retain their previous visible bounds, including the brush tips.
+        revised.target = mapped(p.target, ink(revised), ink(p))
+        return revised
+      }), grass]
     },
   },
   '⿰忄実': {
