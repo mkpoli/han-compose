@@ -10,7 +10,7 @@ import donors from './fixtures/brush-sweep-fangsong.json' with { type: 'json' }
 import hosts from './fixtures/fangsong-tile-hosts.json' with { type: 'json' }
 
 const sources = { ...donors, ...hosts }
-const tileHosts = { 千: '仟', 厘: '糎', 十: '叶', 屯: '沌', 百: '栢' }
+const tileHosts = { 千: '仟', 厘: '糎', 十: '什', 屯: '沌', 百: '栢' }
 const input = { ...files, ...shards('g', Object.entries(sources)) }
 const source = () => createSource(async k => input[k] === undefined ? null : new Uint8Array(Buffer.from(input[k])).buffer)
 
@@ -51,10 +51,12 @@ it('keeps adjacent brush enclosures inside their cells', async () => {
   expect(rightEdge).toBeLessThan(leftEdge)
 })
 
-it('places inner ink at the horizontal centers of encoded reference glyphs', async () => {
-  // Centers relative to whole-glyph ink width in ZhongYi FangSong. The 竜内
-  // target comes from Jigmo because Zhuque Fangsong lacks the U+25A9E glyph.
-  const centers = { 瓦千: 0.740, 瓦厘: 0.657, 瓦十: 0.761, 瓦屯: 0.661,
+it('places inner ink at balanced horizontal centers inside each enclosure', async () => {
+  // Centers relative to whole-glyph ink width in ZhongYi FangSong for 千、厘、
+  // 屯、百、克千; 瓦十 centers the symmetric 什 filling in the shared 瓦 opening
+  // instead of ZhongYi's far-right 0.761. The 竜内 target comes from Jigmo
+  // because Zhuque Fangsong lacks the U+25A9E glyph.
+  const centers = { 瓦千: 0.740, 瓦厘: 0.657, 瓦十: 0.667, 瓦屯: 0.661,
     瓦百: 0.713, 克千: 0.758, 竜内: 0.733 }
   const src = source()
   for (const [pair, center] of Object.entries(centers)) {
@@ -113,7 +115,7 @@ it('uses the standalone 厘 when the 糎 donor cannot be separated or changes ou
 })
 
 it('reports KanjiVG attribution on host cuts and clears the shared frame on standalone fallback', async () => {
-  const centers = { 千: 0.740, 厘: 0.657, 十: 0.761, 屯: 0.661, 百: 0.713 }
+  const centers = { 千: 0.740, 厘: 0.657, 十: 0.667, 屯: 0.661, 百: 0.713 }
   const src = source()
   for (const [inner, center] of Object.entries(centers)) {
     const withHost = await compose(src, '⿺瓦' + inner, { fontStyle: 'fangsong', separate: true })
@@ -131,4 +133,22 @@ it('reports KanjiVG attribution on host cuts and clears the shared frame on stan
     const innerCenter = (boxes[1][0] + boxes[1][2]) / 2
     expect(Math.abs((innerCenter - left) / (right - left) - center), inner).toBeLessThan(0.012)
   }
+})
+
+it('centers the vertical stem of 十 symmetrically inside the 瓦 opening', async () => {
+  const { parts } = await compose(source(), '⿺瓦十', { fontStyle: 'fangsong', separate: true })
+  const [x0, y0, x1, y1] = union(pathRings(parts[1].d, 32).map(pointsBox))
+  const h = y1 - y0
+  const stemXs = []
+  for (const ring of pathRings(parts[1].d, 32)) {
+    for (let i = 0; i < ring.length; i += 2) {
+      if (ring[i + 1] >= y0 + 0.12 * h && ring[i + 1] <= y0 + 0.35 * h) stemXs.push(ring[i])
+    }
+  }
+  const stemMid = (Math.min(...stemXs) + Math.max(...stemXs)) / 2
+  // Crossbar arms stay balanced around the stem, and the stem sits near the opening center.
+  expect(Math.abs((stemMid - x0) / (x1 - x0) - 0.5)).toBeLessThan(0.02)
+  expect(stemMid).toBeGreaterThan(645)
+  expect(stemMid).toBeLessThan(685)
+  expect(x1).toBeLessThan(940)
 })
