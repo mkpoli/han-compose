@@ -556,5 +556,29 @@ def calibrate_parts(sample: int = 700, seed: int = 11, style: str = STYLE) -> No
                       "characters_cut_in_two": len(apart)}))
 
 
+@app.command("calibrate-gaps")
+def calibrate_gaps(sample: int = 900, seed: int = 5, style: str = STYLE) -> None:
+    """Measure the gap the font's own characters keep at the closest strokes of their two parts,
+    side by side and stacked, for the style's `facing_least`: the gap three in four keep."""
+    composer = _composer(style)
+    least = []
+    for op, axis in (("⿰", 0), ("⿱", 1)):
+        chars = sorted(ch for ch, s in composer.sequences.items() if s[0] == op and composer.font.own(ch))
+        closest = []
+        for char in random.Random(seed).sample(chars, min(sample, len(chars))):
+            try:
+                host = composer._host_node(char, compose.parse(composer.sequences[char]), ())
+            except (ValueError, LookupError):
+                continue
+            if host is None or len(host.pieces) != 2:
+                continue
+            first, second = (compose.Placed(piece, piece.box, piece.box) for piece in host.pieces)
+            gaps = compose._facing_gaps([first], [second], axis)
+            if gaps is not None:
+                closest.append(float(gaps.min()))
+        least.append(float(np.percentile(closest, 25)))
+    print(json.dumps({"style": style, "facing_least": least}))
+
+
 if __name__ == "__main__":
     app()
