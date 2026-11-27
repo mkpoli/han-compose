@@ -1,4 +1,5 @@
 // @ts-check
+import { resolveYaoForm } from './yao-forms.js'
 import { isNode, parseDescription as parse, splitDescription, tonesOf, withoutMarks, writeDescription as write } from './tree.js'
 import { isComponentForm, isGroupedForm } from './component-forms.js'
 import { u26201Choice } from './u26201-forms.js'
@@ -31,8 +32,8 @@ export function onlyBundled(sequence, separate = false, unicode = false, fontSty
     const node = typeof bare === 'string' ? grassShape(bare) ?? bare : bare
     // A cached component cut can coexist with a cut in the export's own font.
     const key = write(node)
-    if (key === '𦈁' && preferNativeHosts) return false
-    if (exactRateForm(key) || u26201Choice(key)) { filled = true; return true }
+    if ((key === '𦈁' || key === '幺󠄀') && preferNativeHosts) return false
+    if (exactRateForm(key) || u26201Choice(key) || resolveYaoForm(key)) { filled = true; return true }
     if (preferNativeHosts && typeof node === 'string' && key.startsWith('#(') && chainHost(drawingChain(key), fontStyle)) return false
     if ((separate ? isGroupedForm : isComponentForm)(key, fontStyle)) { filled = true; return true }
     // What ㇯ leaves of a character is read from the character's description and cuts, which only

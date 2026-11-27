@@ -1,7 +1,7 @@
 // @ts-check
 import { parsePath, splitSubpaths } from './document-path.js'
 import { ASCENT, makePart, wound } from './geometry.js'
-import { renderU26201 } from './render-u26201.js'
+import { renderU26201, yaoOutline } from './render-u26201.js'
 
 /** @type {Map<string, ReturnType<typeof makePart>>} */
 const cache = new Map()
@@ -12,8 +12,24 @@ export function u26201Part({ left, right }) {
   const key = (left ?? '') + '/' + (right ?? '')
   const saved = cache.get(key)
   if (saved) return saved
-  const outline = renderU26201(left, right)
-  const contours = splitSubpaths(outline.d).map(path => {
+  const part = svgPart(renderU26201(left, right).d)
+  cache.set(key, part)
+  return part
+}
+
+/** @param {string} id Canonical variant ID. */
+export function yaoPart(id) {
+  let part = cache.get(id)
+  if (!part) {
+    part = svgPart(yaoOutline(id).d)
+    cache.set(id, part)
+  }
+  return part
+}
+
+/** @param {string} d SVG path in a 1000-unit em. */
+function svgPart(d) {
+  const contours = splitSubpaths(d).map(path => {
     const ops = [], points = []
     for (const s of parsePath(path).segments) {
       if (s.type === 'Z') continue
@@ -23,7 +39,5 @@ export function u26201Part({ left, right }) {
     }
     return { ops, light: points, heavy: points }
   })
-  const part = wound(makePart(contours))
-  cache.set(key, part)
-  return part
+  return wound(makePart(contours))
 }

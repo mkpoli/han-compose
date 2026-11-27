@@ -48,6 +48,7 @@ $('original').closest('section').append(analysis)
 for (const [label, href] of [
   ['BabelStone IDS · 2025-06-27', sources['BabelStone IDS 2025-06-27'].url],
   ['Unicode IVD · 2026-08-03', sources.ivd.url],
+  ...family.related.map(ref => ['關聯準則 · ' + ref.name + ' #' + ref.id + '（' + [...ref.components].join('／') + '）', ref.url]),
   ['GlyphWiki資料授權', sources.glyphwiki.license],
   ['字型授權', './NOTICE.txt'],
 ]) {
@@ -64,7 +65,7 @@ for (const [index, form] of forms.entries()) {
   const list = el('ul')
   for (const ref of form.sources) {
     const label = ref.name === 'IVD' ? [ref.name, ref.sequence, ref.collection, ref.identifier] :
-      [ref.name, ref.region, ref.glyph]
+      [ref.name, ref.face, ref.regions?.join('/') ?? ref.region, ref.glyph]
     const link = el('a', label.filter(Boolean).join(' · '))
     link.href = ref.url
     const item = el('li')

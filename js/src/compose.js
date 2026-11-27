@@ -1,9 +1,10 @@
 // @ts-nocheck: a port of han-compose's Python, kept line for line; its types are the arrays it reads.
+import { resolveYaoForm } from './yao-forms.js'
 import { fangsongDottedHe, fitDottedHe, isDottedHe, markDottedHe } from './dotted-bopomofo.js'
 import { columnClearance, settleColumns } from './column-spacing.js'
 import { finishGrassTang, isGrassTang, markGrassTang } from './grass-tang.js'
 import { containsU26201, u26201Choice } from './u26201-forms.js'
-import { u26201Part } from './u26201-part.js'
+import { u26201Part, yaoPart } from './u26201-part.js'
 import { ratePart, rateParts } from './rate-drawing.js'
 import { containsRateForm, exactRateForm, rateFormsFor } from './rate-forms.js'
 import { checkedHook, clearHookContacts, markHook } from './directional-enclosures.js'
@@ -989,7 +990,14 @@ export class Composer {
     if (this.reviewedMetric(text)) return text
     return mapOperands(node, child => this.reviewedLeaves(child))
   }
+  standaloneYao(text) {
+    const form = resolveYaoForm(text)
+    if (!form || this.excluded(text) || this.excluded('幺')) return null
+    return text === '幺󠄀' && this.data.rec(text)?.G ? null : form
+  }
   reviewedMetric(text) {
+    const form = this.standaloneYao(text)
+    if (form) return yaoPart('folded')
     const pair = this.yaoChoice(text)
     if (pair) return u26201Part({})
     const choice = exactRateForm(text)
@@ -997,7 +1005,7 @@ export class Composer {
     return ratePart(rateFormsFor(text)[0].text, this.fontStyle)
   }
   // An export may supply a native 𦈁 in its own face. An explicit component choice
-  // draws the pinned witness even when that export also has the base character.
+  // draws the selected design even when that export also has the base character.
   yaoChoice(text) {
     const pair = u26201Choice(text)
     if (!pair || this.excluded('𦈁') || this.excluded(text)) return null
@@ -1008,10 +1016,11 @@ export class Composer {
   }
   reviewedParts(text, region, atRoot) {
     const pair = this.yaoChoice(text)
-    if (pair) {
-      const part = u26201Part(pair)
+    const form = this.standaloneYao(text)
+    if (pair || form) {
+      const part = form ? yaoPart(form.id) : u26201Part(pair)
       const target = atRoot ? mapped(part.box, componentConstants.face, region) : region
-      const origin = pair.left || pair.right ? 'Noto Serif CJK · 𦈁' : '文津宋體 · 𦈁'
+      const origin = form ? 'Noto Serif CJK · 幺（重繪）' : pair.left || pair.right ? 'Noto Serif CJK · 𦈁（組字）' : '文津宋體 · 𦈁'
       return [{ ...placed(part, part.box, target, partInk(part), origin), fixed: true }]
     }
     const rate = exactRateForm(text)
@@ -1296,7 +1305,7 @@ export class Composer {
   crossings(node, axis, seen = new Set()) {
     const text = keyOf(node), reviewed = this.reviewedMetric(text)
     if (reviewed) {
-      const key = (u26201Choice(text) ? '𦈁' : rateFormsFor(text)[0].text) + '|' + axis
+      const key = (resolveYaoForm(text) ? '&VR-5E7A-02;' : u26201Choice(text) ? '𦈁' : rateFormsFor(text)[0].text) + '|' + axis
       if (!this.crossingCache.has(key)) this.crossingCache.set(key, strokeCrossings(reviewed, axis))
       return this.crossingCache.get(key)
     }
