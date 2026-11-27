@@ -20,7 +20,7 @@ const spellings = new Map(['#(丿𠄌)', '#(丿𠃊)', '#(丿𠄌>)', '#(丿𠃊
 
 // A brush joins the two components. Following complementary runs on its outer
 // boundary and counter, then closing each cut, preserves the original joints.
-/** @type {Record<string, {hash: string, contours?: number[][], runs?: number[][][]}>} */
+/** @type {Record<string, {hash: string, contours: number[][]} | {hash: string, runs: number[][][]}>} */
 const cuts = {
   sans: { hash: 'dc0766112becba54514b928b0992636a2dcbc95c73b46c7baaacf5a33841611c', contours: [[2, 3, 4], [0, 1]] },
   serif: { hash: '6d592b294fab823b193e10c7bc4af94278de3173cb7e4cb38f65b7fbdf40b896', contours: [[0, 1, 3], [2, 4]] },
@@ -44,8 +44,8 @@ export function shiContextParts(composer, key, region) {
   if (!context || !cut || context.inputs.some(input => composer.excluded(input))) return null
   const record = composer.glyphRecord('氏')
   if (record?.v !== 1 || hexOf(JSON.stringify(record.p)) !== cut.hash) return null
-  const runs = cut.runs, leaves = [context.written, '𫠠']
-  const groups = runs ? (/** @type {any} */ final) => runs.map(operand =>
-    derived(final, [reconnectStroke(final.contours, operand)])) : /** @type {number[][]} */ (cut.contours)
+  const leaves = [context.written, '𫠠']
+  const groups = 'contours' in cut ? cut.contours : (/** @type {any} */ final) => cut.runs.map(operand =>
+    derived(final, [reconnectStroke(final.contours, operand)]))
   return partitionChainHost(composer, partOf(record), region, '氏', leaves, groups)
 }

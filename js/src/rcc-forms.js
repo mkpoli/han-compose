@@ -37,8 +37,9 @@ export function editableRccParts(parts) {
   return parts.flatMap(p => {
     if (!p.leafParts) return [p]
     const { leafParts, rccLeafCount: _groupSize, ...finished } = p
+    const hostPlacement = { source: p.source, target: p.target }
     return leafParts(p.part).map((/** @type {any[]} */ [part, origin], /** @type {number} */ index) => ({
-      ...finished, part, origin, source: part.box, target: mapped(part.box, p.source, p.target),
+      ...finished, part, origin, hostPlacement, source: part.box, target: mapped(part.box, p.source, p.target),
       rccLeaf: p.rccLeaf + index, leaf: p.leaf === undefined ? undefined : p.leaf + index,
     }))
   })

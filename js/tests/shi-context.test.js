@@ -1,7 +1,8 @@
 import { expect, test } from 'bun:test'
 import { compose, createSource, sketch } from '../src/loader.js'
 import { documentSource } from '../src/document-source.js'
-import { pathMask } from '../src/geometry.js'
+import { Composer } from '../src/compose.js'
+import { drawnContours, pathMask, svgPath } from '../src/geometry.js'
 import { character, files, shards } from './fixtures/small-export.js'
 // Format-7 published outlines from Noto Sans/Serif CJK JP, TW-Kai, Zhuque FangSong and Kureedo.
 import glyphs from './fixtures/shi.json' with { type: 'json' }
@@ -9,8 +10,9 @@ import glyphs from './fixtures/shi.json' with { type: 'json' }
 const angles = ['#(丿𠄌)', '#(丿𠃊)', '#(丿𠄌>)', '#(丿𠃊>)']
 const idsOf = left => '⿸' + left + '𫠠'
 const component = (char, id) => ({ id, kind: 'component', char })
-const sourceOf = entries => {
+const sourceOf = (entries, manifest = {}) => {
   const input = { ...files, ...shards('g', entries) }
+  input['manifest.json'] = JSON.stringify({ ...JSON.parse(input['manifest.json']), ...manifest })
   return createSource(async name => input[name] ? Uint8Array.from(Buffer.from(input[name])).buffer : null)
 }
 
@@ -37,6 +39,34 @@ test('places and edits the two written operands of 氏 from the same native glyp
     expect(editable.parts.map(p => p.leaf)).toEqual([0, 1, 2, 3])
     expect(pathMask(editable.d, 300)).toEqual(pathMask(ordinary.d, 300))
   }
+})
+
+test('retains Pen Writing’s rounded sweep coordinates when the final placement is split for editing', async () => {
+  const source = sourceOf([['氏', { G: glyphs['pen-writing'], ink: 6180.9 }]], { heavy: 400 })
+  const options = { fontStyle: 'pen-writing', face: [64.5, -88, 949, 799] }
+  const single = idsOf(angles[0])
+  for (const key of [single, '⿰' + single + single]) {
+    const ordinary = await compose(source, key, options), split = await compose(source, key, { ...options, separate: true })
+    for (const size of [256, 512, 1000]) {
+      const expected = pathMask(ordinary.d, size), actual = pathMask(split.d, size)
+      expect(actual.some((pixel, i) => pixel !== expected[i])).toBe(false)
+    }
+  }
+})
+
+test('an editable leaf follows a caller moving or resizing its target', async () => {
+  const options = { fontStyle: 'pen-writing', separate: true }, key = idsOf(angles[0])
+  const source = sourceOf([['氏', { G: glyphs['pen-writing'], ink: 6180.9 }]], { heavy: 400 })
+  await compose(source, key, options)
+  const [turn, sweep] = new Composer(source.store(), options).compose(key)
+  const [original] = drawnContours(turn), untouched = svgPath([sweep])
+  const base = turn.target.slice()
+  turn.target = base.map((edge, i) => edge + (i % 2 ? 0 : 32))
+  expect(drawnContours(turn)[0][0]).toBeCloseTo(original[0] + 32, 8)
+  expect(svgPath([turn])).not.toBe(svgPath([{ ...turn, target: base }]))
+  turn.target[2] += base[2] - base[0]
+  expect(drawnContours(turn)[0][0]).toBeCloseTo(base[0] + 32 + 2 * (original[0] - base[0]), 8)
+  expect(svgPath([sweep])).toBe(untouched)
 })
 
 test('keeps the ordinary component fallback for an excluded, unknown, or mismatched 氏 donor', async () => {
