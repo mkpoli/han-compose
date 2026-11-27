@@ -1,4 +1,4 @@
-"""Explicit IDS choices for the Chinese and Japanese centers and dot pairs of 率."""
+"""Explicit IDS choices for the center strokes and flanking strokes of 率."""
 from functools import cache
 import json
 from pathlib import Path
