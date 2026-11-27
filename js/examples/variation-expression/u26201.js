@@ -1,4 +1,6 @@
-import outlines from './yao-outlines.json' with { type: 'json' }
+import outlines from '../../src/yao-outlines.json' with { type: 'json' }
+
+import { u26201Forms } from '../../src/yao-forms.js'
 
 const babelstone = 'BabelStone IDS 2025-06-27'
 export const sources = {
@@ -50,8 +52,8 @@ export const family = {
     { ...axis('primitives', 'count', 'KAGE instructions'), witness: 'Dollar-separated records in each pinned KAGE program' },
     axis('inkWidth', 'width', 'GlyphWiki units'), axis('inkHeight', 'height', 'GlyphWiki units'),
   ],
-  forms: outlines.map(({ name, version, primitives, inkWidth, inkHeight, d }) => ({
-    id: name, text: name === 'u5e7a-j' ? '幺󠄀' : '&GW-' + name + ';',
+  forms: outlines.map(({ name, version, primitives, inkWidth, inkHeight, d }, index) => ({
+    ...u26201Forms[index],
     outline: { viewBox: '0 0 200 200', d },
     traits: { primitives: String(primitives), inkWidth: String(inkWidth), inkHeight: String(inkHeight) },
     sources: [
