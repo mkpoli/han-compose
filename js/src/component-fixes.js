@@ -4,7 +4,7 @@
 // description it corrects, the SHA-256 outlines of the glyphs it was read against, and the parts it
 // changes; an export drawing other outlines keeps the font's cut. The parts are plain placed pieces,
 // so the corrections work wherever the description is drawn, at any depth.
-import { contourSections, cutContours, derived, drawnBox, fill, fitted, groupRings, makePart, mapped, partOf, placed, pointsBox, targetFor, union } from './geometry.js'
+import { contourSections, cutContours, derived, drawnBox, fill, fitted, groupRings, joinedDrawing, makePart, mapped, partOf, placed, pointsBox, targetFor, union } from './geometry.js'
 import { hexOf } from './sha256.js'
 import { penGrassKu } from './grass-ku.js'
 
@@ -316,6 +316,13 @@ export function dotIn(composer, band) {
   return placed(glyph, glyph.box, target, composer.ink('丶'), 'dot 丶')
 }
 
+// In 廤 the 广 and 車 are one written operand, with 𠮟 on the lower row.
+export function kuRows(region) {
+  const target = box => mapped(box, [0, 0, 1, 1], region)
+  return [[0.025, 0.045, 0.96, 0.985], [0.31, 0.355, 0.935, 0.765],
+    [0.26, 0.035, 0.935, 0.315]].map(target)
+}
+
 // The second inscription in UHK 港生活's photograph of four red fai chun (日進斗金, 2015-02-12,
 // https://hk.ulifestyle.com.hk/topic/detail/200474/). Bounds are in reading order of the five
 // leaves of ⿱⿰日斗⿺辶⿰隹金: 日, 斗, 辶, 隹, 金.
@@ -409,6 +416,26 @@ function penDoor(char) {
  * A correction that cannot find the parts it names leaves the drawing as it is.
  */
 export const COMPONENT_FIXES = {
+  '⿸庫𠮟': {
+    glyphs: {},
+    apply(parts, composer, region) {
+      if (!['fangsong', 'regular', 'pen-writing'].includes(composer.fontStyle) || parts.length !== 3 ||
+          ['庫', '广', '車', '𠮟', '口', '七'].some(ch => composer.excluded(ch))) return parts
+      const [coverBox, carBox, footBox] = kuRows(region)
+      // The standalone 广 used under another radical has a lower roof than the cut from a host.
+      if (parts[0].origin === 'glyph 广') carBox[3] -= 0.10 * heightOf(region)
+      const cover = joinedDrawing([{ ...parts[0], target: coverBox }, { ...parts[1], target: carBox }], '庫 广車')
+      const foot = composer.own('𠮟') && composer.glyph('𠮟')
+      if (foot) return [cover, placed(foot, foot.box, footBox, composer.ink('𠮟'), 'glyph 𠮟')]
+      const mouth = composer.glyph('口'), seven = composer.glyph('七')
+      if (!mouth || !seven) return parts
+      const target = box => mapped(box, [0, 0, 1, 1], footBox)
+      return [cover, joinedDrawing([
+        placed(mouth, mouth.box, target([0, 0.08, 0.42, 0.90]), composer.ink('口'), 'glyph 口'),
+        placed(seven, seven.box, target([0.47, 0, 1, 1]), composer.ink('七'), 'glyph 七'),
+      ], '𠮟 口七')]
+    },
+  },
   '⿰舟邊': {
     glyphs: {},
     apply(parts, composer, region) {
