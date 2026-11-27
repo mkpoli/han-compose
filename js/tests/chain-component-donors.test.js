@@ -25,6 +25,14 @@ test('both isolated spellings of the flat turn keep the native size and weight o
       const drawing = await compose(source, written, { fontStyle, layout, separate })
       expect(drawing.d).toBe(reference)
     }
+    const aspect = path => {
+      const [left, bottom, right, top] = union(pathRings(path, 64).map(pointsBox))
+      return (right - left) / (top - bottom)
+    }
+    for (const layout of ['auto', 'cells']) {
+      const narrow = await compose(source, key, { fontStyle, layout, face: [0, 0, 500, 900] })
+      expect(aspect(narrow.d)).toBeCloseTo(aspect(reference), 2)
+    }
   }
 })
 

@@ -230,7 +230,7 @@ export function hostChainParts(composer, node, region, atRoot, written = node) {
     // and brush weight together, moving only its centre into the writing face.
     const from = centre(native.box), to = centre(composer.C.face)
     const frame = native.box.map((edge, i) => edge - from[i % 2] + to[i % 2])
-    const target = mapped(frame, composer.C.face, region)
+    const target = fitted(native.box, mapped(frame, composer.C.face, region), 1)
     return [{ ...placed(native, native.box, target, partInk(native), origin), fixed: true, standaloneNativeSize: true }]
   }
   const gap = source?.uprightGap?.[composer.fontStyle]
