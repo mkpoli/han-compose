@@ -5,6 +5,7 @@ import { describe, expect, it } from 'bun:test'
 import { COMPONENT_FIXES, clippedAbove, componentFix, dotIn, respanned, withoutContours } from 'han-compose/component-fixes'
 import { Composer } from 'han-compose/compose'
 import { drawnContours, groupRings, makePart, mapped, partOf, placed, pointsBox, union } from 'han-compose/geometry'
+import zhou from './fixtures/zhou-miao.json' with { type: 'json' }
 import kuruma from './fixtures/kuruma-to.json' with { type: 'json' }
 import { hexOf } from 'han-compose/sha256'
 
@@ -122,6 +123,30 @@ describe('⿱呼乙', () => {
       expect(componentFix('⿱呼乙', layout, composer)).toBe(layout)
     }
   })
+})
+
+it('uses 舳’s unemboldened 舟 beside 苗 and fits it at its final nested size', () => {
+  const source = partOf(zhou)
+  const boat = placed(source, source.box, [20, 70, 410, 850], 0, 'learned 艃', [0, 0.575])
+  const sprout = part('glyph 苗 kept', [0, 0, 500, 700], [440, 80, 900, 810], [[0, 0, 480, 670]])
+  const pair = [boat, sprout], face = {
+    fontStyle: 'regular', staticFace: true, excluded: () => false, glyphRecord: ch => ch === '舳' ? zhou : null,
+  }
+  const [tagged, right] = componentFix('⿰舟苗', pair, face)
+  expect(right).toBe(sprout)
+  const nested = { ...tagged, target: [25, 70, 220, 430], flips: [{ x: true, about: [240, 0] }] }
+  const corrected = { ...nested, ...tagged.finishOutline(nested) }
+  expect(corrected.part.contours).toEqual(zhou.ls.舟.map(i => source.contours[i]))
+  expect(corrected.weight).toEqual([0, 0])
+  const ink = p => union(groupRings([p], 24).map(pointsBox))
+  ink(nested).forEach((edge, i) => expect(ink(corrected)[i]).toBeCloseTo(edge, 6))
+  expect(tagged.finishOutline({ ...nested, cut: true })).toEqual({})
+  for (const override of [{ fontStyle: 'serif' }, { staticFace: false }, { partial: true },
+    { excluded: ch => ch === '舳' }, { glyphRecord: () => null }, { glyphRecord: () => ({ ...zhou, p: [] }) }]) {
+    expect(componentFix('⿰舟苗', pair, { ...face, ...override })).toBe(pair)
+  }
+  const otherHost = [{ ...boat, origin: 'learned 艘' }, sprout]
+  expect(componentFix('⿰舟苗', otherHost, face)).toBe(otherHost)
 })
 
 it('fits the native left 車 from 軋 and native 卜 into the final Regular ink bounds of ⿰車ト', () => {
