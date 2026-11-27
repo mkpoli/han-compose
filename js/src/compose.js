@@ -1,5 +1,6 @@
 // @ts-nocheck: a port of han-compose's Python, kept line for line; its types are the arrays it reads.
 import { columnClearance, settleColumns } from './column-spacing.js'
+import { finishGrassTang, isGrassTang, penGrassTang } from './grass-tang.js'
 import { ratePart, rateParts } from './rate-drawing.js'
 import { containsRateForm, exactRateForm, rateFormsFor } from './rate-forms.js'
 import { checkedHook, clearHookContacts, markHook } from './directional-enclosures.js'
@@ -840,6 +841,7 @@ export const designedSources = (tree, style = 'sans') => {
         }
       }
     }
+    if (style === 'pen-writing' && isGrassTang(key)) { out.add('䕋'); out.add('蓎') }
     const bird = birdOutlineDonors(key, style)
     if (bird.length) {
       bird.forEach(char => out.add(char))
@@ -1476,6 +1478,7 @@ export class Composer {
         const w = (sx1 - sx0) * scale, h = (sy1 - sy0) * scale
         part.target = [cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2]
       }
+      if (this.fontStyle === 'pen-writing') for (const part of out) finishGrassTang(part, this)
       this.fitMetricKeInterior(out, tree)
       for (const part of out) if (part.finishOutline) Object.assign(part, part.finishOutline(part))
       fitClawInterior(out, tree, this.fontStyle)
@@ -1557,7 +1560,8 @@ export class Composer {
       })
     }
     const emitCell = (part, key) => {
-      const parts = this.forced(key) ? this.replaceGlyph(part, key) : [part]
+      const parts = this.forced(key) ? this.replaceGlyph(part, key) :
+        (this.fontStyle === 'pen-writing' && key === '䕋' ? penGrassTang([part], this, key) : [part])
       if (leafIndices) {
         for (const drawn of parts) drawn.leaf = leaf
         leaf++
@@ -1672,7 +1676,12 @@ export class Composer {
           b[0] += w * CELL_MIDDLE_INSET
           b[2] -= w * CELL_MIDDLE_INSET
         }
+        const first = out.length
         kids.forEach((kid, i) => walk(kid, boxes[i], depth + 1))
+        if (this.fontStyle === 'pen-writing' && isGrassTang(keyOf(node))) {
+          const pair = out.slice(first)
+          out.splice(first, pair.length, ...penGrassTang(pair, this, keyOf(node)))
+        }
         return
       }
       if (op in this.ENCLOSE) {
@@ -1971,6 +1980,7 @@ export class Composer {
     const rate = rateParts(keyOf(node), this.fontStyle, region, atRoot)
     if (rate && !this.excluded(exactRateForm(keyOf(node)).host)) return rate
     const parts = this.constructed(node, region, atRoot) ?? componentFix(keyOf(node), this.drawNode(node, region, atRoot, sideBySide), this, region)
+    if (this.fontStyle === 'pen-writing' && isGrassTang(keyOf(node))) return penGrassTang(parts, this, keyOf(node))
     if (checkedHook(node)) markHook(this, node, parts)
     return parts
   }
