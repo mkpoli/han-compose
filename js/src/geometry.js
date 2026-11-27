@@ -117,6 +117,16 @@ export function derived(from, contours, box) {
   return part
 }
 
+// A complete native stroke remains addressable after its contours are renumbered.
+export function cutContours(glyph, indices, box = undefined) {
+  const part = derived(glyph, indices.map(i => glyph.contours[i]), box)
+  const strokes = (glyph.strokes ?? [])
+    .filter(([, contours]) => contours.every(i => indices.includes(i)))
+    .map(([id, contours]) => [id, contours.map(i => indices.indexOf(i))])
+  if (strokes.length) part.strokes = strokes
+  return part
+}
+
 // Join sections of the original contour along the boundaries of adjacent components.
 // Each triple names a contour and two pen commands. Start at the endpoint of the
 // first command, then copy the curves through the last, in both weight masters.
@@ -139,7 +149,8 @@ export function contourSections(contours, ...sections) {
       offset += n
     }
   }
-  return { ops, light: Float64Array.from(light), heavy: Float64Array.from(heavy), width: contours[0].width }
+  const { width, scaled, foreign, kindred } = contours[0]
+  return { ops, light: Float64Array.from(light), heavy: Float64Array.from(heavy), width, scaled, foreign, kindred }
 }
 
 
@@ -147,6 +158,8 @@ export function contourSections(contours, ...sections) {
 export function partOf(record, quant = 4) {
   if (record._part) return record._part
   const width = record.w ?? null
+  // A fallback's glyph: of another design than the style's font (`f`), or of the same (`k`).
+  const from = record.f === 1 ? { foreign: true } : record.k === 1 ? { kindred: true } : null
   const contours = record.p.map(([ops, light, delta]) => {
     const cmds = commands(ops), lo = int16(light), d = int16(delta)
     const l = new Float64Array(lo.length), h = new Float64Array(lo.length)
@@ -156,7 +169,7 @@ export function partOf(record, quant = 4) {
     // One closing on an implied point starts on a control point instead, so it is left alone.
     const n = l.length
     if (n >= 4 && !cmds.at(-1)[2] && l[0] === l[n - 2] && l[1] === l[n - 1]) { h[0] = h[n - 2]; h[1] = h[n - 1] }
-    return { ops: cmds, light: l, heavy: h, width }
+    return { ops: cmds, light: l, heavy: h, width, ...from }
   })
   const part = wound(makePart(contours, record.b.slice()))
   if (record.fixed) part.fixed = true

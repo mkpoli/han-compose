@@ -38,6 +38,14 @@
       "types": "./types/font-mix.d.ts",
       "default": "./src/font-mix.js"
     },
+    "./rate-drawing": {
+      "types": "./types/rate-drawing.d.ts",
+      "default": "./src/rate-drawing.js"
+    },
+    "./rate-forms": {
+      "types": "./types/rate-forms.d.ts",
+      "default": "./src/rate-forms.js"
+    },
     "./compose": {
       "types": "./types/compose.d.ts",
       "default": "./src/compose.js"
@@ -193,7 +201,11 @@
       "types": "./types/variants.d.ts",
       "default": "./src/variants.js"
     },
-    "./constants.json": "./src/constants.json"
+    "./constants.json": "./src/constants.json",
+    "./variation-registry": {
+      "types": "./types/variation-registry.d.ts",
+      "default": "./src/variation-registry.js"
+    }
   },
   "files": [
     "src",

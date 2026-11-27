@@ -4,7 +4,8 @@
 import { describe, expect, it } from 'bun:test'
 import { COMPONENT_FIXES, clippedAbove, componentFix, dotIn, respanned, withoutContours } from 'han-compose/component-fixes'
 import { Composer } from 'han-compose/compose'
-import { drawnContours, makePart, mapped, partOf, placed, pointsBox } from 'han-compose/geometry'
+import { drawnContours, groupRings, makePart, mapped, partOf, placed, pointsBox, union } from 'han-compose/geometry'
+import kuruma from './fixtures/kuruma-to.json' with { type: 'json' }
 import { hexOf } from 'han-compose/sha256'
 
 /** A placed part of rectangular contours: `boxes` in font units, drawn from `source` into `target`. */
@@ -123,6 +124,40 @@ describe('⿱呼乙', () => {
   })
 })
 
+it('fits the native left 車 from 軋 and native 卜 into the final Regular ink bounds of ⿰車ト', () => {
+  const car = part('learned 䡎', [0, 0, 160, 300], [40, 60, 200, 360], [[10, 20, 150, 280]])
+  car.part.contours[0].ops = [['M', 1], ['L', 1], ['L', 1], ['L', 1]]
+  const glyph = partOf(kuruma.ト)
+  const kana = placed(glyph, glyph.box, [230, 60, 330, 360], 0, 'glyph ト')
+  const pair = [car, kana], face = {
+    fontStyle: 'regular', staticFace: true, excluded: () => false, glyphRecord: ch => kuruma[ch],
+  }
+  const fixed = componentFix('⿰車ト', pair, face)
+  const box = p => union(groupRings([p], 24).map(pointsBox))
+  const [left, right] = fixed.map((p, i) => {
+    const nested = { ...p, target: [10 + 120 * i, 20, 90 + 120 * i, 170], flips: [{ x: true, about: [100, 0] }] }
+    const result = { ...nested, ...p.finishOutline(nested) }
+    for (const [axis, edge] of box(nested).entries()) expect(box(result)[axis]).toBeCloseTo(edge)
+    expect(p.finishOutline({ ...nested, fixed: true })).toEqual({})
+    return result
+  })
+  expect(left.origin).toBe('車 from 軋')
+  expect(left.part.contours).toEqual(partOf(kuruma.軋).contours.slice(0, 5))
+  expect(right.part).toBe(partOf(kuruma.卜))
+  expect(right.origin).toBe('glyph 卜')
+  for (const override of [{ excluded: ch => ch === '卜' }, { glyphRecord: ch => ch === '卜' ? null : kuruma[ch] },
+    { glyphRecord: ch => ch === '卜' ? { ...kuruma.卜, v: 0 } : kuruma[ch] }]) {
+    const fallback = componentFix('⿰車ト', pair, { ...face, ...override })
+    expect(fallback[0].finishOutline(fallback[0]).origin).toBe('車 from 軋')
+    expect(fallback[1].finishOutline(fallback[1]).part).toBe(glyph)
+    expect(fallback[1].finishOutline(fallback[1]).weight).toEqual([-0.8, -0.6])
+  }
+  for (const override of [{ partial: true }, { fontStyle: 'pen-writing' }, { excluded: ch => ch === '軋' },
+    { glyphRecord: ch => ch === '軋' ? null : kuruma[ch] }]) {
+    expect(componentFix('⿰車ト', pair, { ...face, ...override })).toBe(pair)
+  }
+})
+
 describe('⿱一心', () => {
   it('lowers Regular Kai’s 一 within its band at its own bar height', () => {
     const top = part('host 亍', [0, 0, 1000, 1000], [100, 544, 900, 880], [[100, 544, 900, 880]])
@@ -144,6 +179,41 @@ describe('⿱一心', () => {
     expect(fixed[1].target).toEqual([80, 0, 920, 540])
     expect(fixed[1].part).toBe(heart.part)
   })
+})
+
+it('balances Regular 身 and 化 at their placed scale and preserves their ink bounds', () => {
+  const body = part('learned 躭', [0, 0, 400, 800], [0, 0, 400, 800], [[10, 20, 390, 780]])
+  const flower = part('glyph 花 kept', [0, 0, 800, 800], [420, 0, 820, 800], [[30, 10, 780, 620]])
+  const grass = part('TW-Kai: 艹', [0, 0, 400, 80], [420, 700, 820, 780], [[0, 0, 400, 80]])
+  for (const p of [body, flower]) {
+    const c = p.part.contours[0], [l, b, r, t] = pointsBox(c.light)
+    c.ops = [['M', 1], ['L', 1], ['L', 1], ['L', 1]]
+    c.heavy = Float64Array.from([l - 20, b - 20, r + 20, b - 20, r + 20, t + 20, l - 20, t + 20])
+    c.width = [50, 40]
+  }
+  const parts = [body, flower, grass], stroke = [50, 40]
+  const face = {
+    fontStyle: 'regular', stem0: [[50, 90], [40, 80]], staticFace: true, stroke,
+    staticBalance(group) {
+      group[0].weight = [0, 0.5]
+      this.stroke = [45, 36]
+    },
+  }
+  const fixed = componentFix('⿰身花', parts, face)
+  expect(50 + fixed[0].weight[0] * 40).toBeCloseTo(Math.sqrt(50 * 25))
+  expect((50 + fixed[1].weight[0] * 40) / 2).toBeCloseTo(Math.sqrt(50 * 25))
+  for (const i of [0, 1]) {
+    const original = i === 0 ? { ...body, weight: [0, 0.5] } : flower
+    const a = pointsBox(drawnContours(original)[0]), b = pointsBox(drawnContours(fixed[i])[0])
+    for (const [edge, value] of a.entries()) expect(b[edge]).toBeCloseTo(value)
+    expect(fixed[i].fixed).toBe(true)
+  }
+  expect(fixed[2]).toBe(grass)
+  expect(body.weight).toEqual([0, 0])
+  expect(face.stroke).toBe(stroke)
+  expect(componentFix('⿰身花', parts, face)).toEqual(fixed)
+  expect(componentFix('⿰身花', parts, { ...face, fontStyle: 'serif' })).toBe(parts)
+  expect(componentFix('⿰身花', parts, { ...face, stem0: [[50, 50], [40, 40]] })).toBe(parts)
 })
 
 describe('C087 ⿻日丿', () => {

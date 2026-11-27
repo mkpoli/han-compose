@@ -2,17 +2,22 @@ import { rccChainContextParts, rccChainDonors } from './rcc-chain-contexts.js'
 import { numeralDonors, numeralParts } from './rcc-numerals.js'
 import { overlayContextDonors, overlayContextParts } from './rcc-overlays.js'
 import { k5Donors, k5Parts } from './k5h00030.js'
-import { union } from './geometry.js'
+import { angContextDonors, angContextParts } from './guide-chain-cuts.js'
+import { hostContextDonors, hostContextParts } from './host-chain.js'
+import { leContextDonors, leContextParts } from './le-context.js'
+import { mapped, union } from './geometry.js'
 
 /** @param {string} key @param {string} style */
 export const rccDonors = (key, style) => [
-  ...rccChainDonors(key, style), ...numeralDonors(key, style), ...overlayContextDonors(key, style), ...k5Donors(key),
+  ...hostContextDonors(key, style), ...angContextDonors(key), ...leContextDonors(key), ...rccChainDonors(key, style),
+  ...numeralDonors(key, style), ...overlayContextDonors(key, style), ...k5Donors(key),
 ]
 
 /** @param {import('./compose.js').Composer} composer @param {string} key @param {number[]} region @returns {any[] | null} */
 export function rccParts(composer, key, region) {
   /** @type {any[] | null} */
-  const parts = rccChainContextParts(composer, key, region) ?? numeralParts(composer, key, region) ??
+  const parts = hostContextParts(composer, key, region) ?? angContextParts(composer, key, region) ?? leContextParts(composer, key, region) ??
+    rccChainContextParts(composer, key, region) ?? numeralParts(composer, key, region) ??
     overlayContextParts(composer, key, region) ?? k5Parts(composer, key, region)
   if (parts && composer.separate && parts.every(p => Number.isInteger(p.rccLeaf))) {
     // Equal spellings can occur several times in one IDS. Each occurrence
@@ -23,10 +28,25 @@ export function rccParts(composer, key, region) {
   return parts
 }
 
+/** Split registered native hosts after their final placement and weight are known.
+ * @param {any[]} parts */
+export function editableRccParts(parts) {
+  if (!parts.some(p => p.leafParts)) return parts
+  return parts.flatMap(p => {
+    if (!p.leafParts) return [p]
+    const { leafParts, rccLeafCount: _groupSize, ...finished } = p
+    return leafParts(p.part).map((/** @type {any[]} */ [part, origin], /** @type {number} */ index) => ({
+      ...finished, part, origin, source: part.box, target: mapped(part.box, p.source, p.target),
+      rccLeaf: p.rccLeaf + index, leaf: p.leaf === undefined ? undefined : p.leaf + index,
+    }))
+  })
+}
+
 /** Combine all contours belonging to one source operand for its editor box.
  * @param {any[]} parts @param {number} count */
 export function rccLeafBoxes(parts, count) {
   if (!parts[0]?.rccGroup) return null
+  parts = editableRccParts(parts)
   const boxes = []
   for (let i = 0; i < count; i++) {
     const group = parts.filter(p => p.rccLeaf === i)
