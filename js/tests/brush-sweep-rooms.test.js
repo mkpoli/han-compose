@@ -1,6 +1,6 @@
 import { expect, it } from 'bun:test'
 import { compose, createSource, sketch } from '../src/loader.js'
-import { fill, pathRings, pointsBox, svgPath, union } from '../src/geometry.js'
+import { fill, partOf, pathRings, pointsBox, svgPath, union } from '../src/geometry.js'
 import { hexOf } from '../src/sha256.js'
 import { brushSweepParts } from '../src/brush-sweep-rooms.js'
 import { files, shards } from './fixtures/small-export.js'
@@ -102,5 +102,26 @@ it('preserves the five Fangsong 瓦 frames when fitting their contents', () => {
   for (const [inner, digest] of Object.entries(frames)) {
     const [frame] = brushSweepParts(composer, ['⿺', '瓦', inner], [0, -120, 1000, 880])
     expect(hexOf(svgPath([frame])), inner).toBe(digest)
+  }
+})
+
+it('moves the middle strokes of 厘 and 百 together at both weights', () => {
+  const composer = { fontStyle: 'fangsong', excluded: () => false, glyphRecord: ch => donors[ch].G }
+  for (const inner of ['厘', '百']) {
+    const donor = partOf(donors[inner].G)
+    const [, body] = brushSweepParts(composer, ['⿺', '瓦', inner], [0, -120, 1000, 880])
+    for (const weight of ['light', 'heavy']) {
+      const offsets = []
+      for (const [i, contour] of donor.contours.entries()) {
+        const original = contour[weight], fitted = body.part.contours[i][weight]
+        for (let j = 0; j < original.length; j += 2) {
+          if (original[j + 1] >= 220 && original[j + 1] <= 420) {
+            offsets.push(original[j] - fitted[j])
+          }
+        }
+      }
+      expect(Math.min(...offsets)).toBeGreaterThan(0)
+      expect(Math.max(...offsets) - Math.min(...offsets)).toBeLessThan(0.001)
+    }
   }
 })
