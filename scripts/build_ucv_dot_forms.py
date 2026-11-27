@@ -10,6 +10,7 @@ from fontTools.pens.recordingPen import RecordingPen
 from fontTools.pens.transformPen import TransformPen
 
 from build_grass_comparison import FONTS, Face, TTFont, bounds, fit
+from han_compose.compose import EM, STYLES
 
 
 def moved(contours, frame):
@@ -162,12 +163,27 @@ def clearance(body, dots):
         shape, outline(moved(dots, (x, y - d, x1, y1 - d))), pathops.PathOp.INTERSECTION).area > 1)
 
 
+def composer(contours, face, style):
+    """`contours` in the composer's 1000-unit em, placed as `compose.Font` places the face's glyphs.
+
+    TW-Kai draws on 1,024 units with its ascent at 820, so its glyphs shrink and rise to meet the
+    other faces.
+    """
+    scale = EM / face.font["head"].unitsPerEm
+    result = []
+    for contour in contours:
+        pen = RecordingPen()
+        contour.replay(TransformPen(pen, (scale, 0, 0, scale, 0, STYLES[style].y_shift)))
+        result.append(pen)
+    return result
+
+
 def forms(face, char, style):
     tables = [table for table in face.font["cmap"].tables if table.format == 14]
     if tables:
         names = [dict(tables[0].uvsDict.get(selector, [])) for selector in (0xE0100, 0xE0101)]
         if all(ord(char) in mapping for mapping in names):
-            return [encode(face.glyph_contours(mapping[ord(char)] or face.cmap[ord(char)]))
+            return [encode(composer(face.glyph_contours(mapping[ord(char)] or face.cmap[ord(char)]), face, style))
                     for mapping in names]
     contours = face.contours(char)
     if style == "regular" and char == "肖":
@@ -190,7 +206,7 @@ def forms(face, char, style):
     x, y, x1, y1 = bounds(pair)
     drop = clearance(body, pair) - clearance(body, left + right)
     pair = moved(pair, (x, y - drop, x1, y1 - drop))
-    return [encode(left + right + body), encode(pair + body)]
+    return [encode(composer(left + right + body, face, style)), encode(composer(pair + body, face, style))]
 
 
 def main():
