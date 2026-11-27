@@ -393,6 +393,28 @@ export const COMPONENT_FIXES = {
         placed(side, side.box, cell([512, 24, 968, 960]), composer.ink('方'), 'glyph 方')]
     },
   },
+  '⿱艹堀': {
+    glyphs: { 堀: 'f43243bd31c0029a0b42e359bec3243f319aa4d4d8c8500f62e67fb1f5a69542' },
+    apply(parts, composer) {
+      if (composer.fontStyle !== 'pen-writing' || !composer.staticFace || composer.partial || parts.length !== 2) return parts
+      const [head, body] = parts
+      if (head.origin !== 'learned 蔎' || body.origin !== 'glyph 堀') return parts
+      const [light, heavy] = composer.stem0[0]
+      if (!(heavy > light && light > 0)) return parts
+      const finishOutline = part => {
+        const [wx, wy] = part.weight
+        if (!wx || part.fixed || part.cut || part.flips?.length) return part
+        // In native 䓛, 艹 and the long downstroke of 尸 have similar widths.
+        // The static balancer's applied lift sets H/L. Taking the geometric mean
+        // of the native and balanced widths uses 1 / (1 + sqrt(H/L)) of its lift.
+        const ratio = 1 + Math.abs(wx) * (heavy / light - 1)
+        const revised = { ...part, weight: [wx / (1 + Math.sqrt(ratio)), wy] }
+        const ink = p => union(groupRings([p], 24).map(pointsBox))
+        return { weight: revised.weight, target: mapped(part.target, ink(revised), ink(part)) }
+      }
+      return [head, { ...body, finishOutline }]
+    },
+  },
   '⿰身花': {
     glyphs: {},
     apply(parts, composer) {
