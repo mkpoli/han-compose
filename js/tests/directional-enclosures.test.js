@@ -24,8 +24,8 @@ const references = [
   ['⿴', '囗', '古', '固'],
   ['⿴', '囗', '口', '回'],
 ]
+const otherCandidates = { 甸: { 旬: {} }, 固: { 回: {} }, 回: { 固: {} } }
 for (const [op, outer, held, host] of references) {
-  const otherCandidates = { 甸: { 旬: {} }, 固: { 回: {} }, 回: { 固: {} } }
   const fixture = overrides => source({ ...otherCandidates[host], ...overrides })
   it(`places 自 inside ${outer} at its position in ${host}`, async () => {
     const ids = op + outer + '自', src = fixture(), face = { fontStyle: 'serif' }
@@ -118,16 +118,33 @@ for (const [ids, host, fallback] of [['⿹勹自', '旬', '甸'], ['⿸广自', 
   })
 }
 
-it('retains the ink bounds of a nested enclosure in its parent region', async () => {
-  const ids = '⿰口⿵門自'
-  const missing = { 間: { ...records.間, G: { ...records.間.G, ls: {} } } }
-  for (const layout of ['composed', 'cells']) {
-    const options = { fontStyle: 'serif', separate: true, layout }
-    const latest = await compose(source(), ids, options)
-    const original = await compose(source(missing), ids, options)
-    expect(latest.parts.map(part => part.origin)).toContain('host 間')
+for (const ids of ['⿰口⿵門自', '⿱口⿵門自']) {
+  it(`preserves the sibling and enclosure ink bounds in ${ids}`, async () => {
+    const missing = { 間: { ...records.間, G: { ...records.間.G, ls: {} } } }
+    const preview = await sketch(source(), ids, { fontStyle: 'serif' })
     const extent = parts => union(parts.slice(1).flatMap(p => pathRings(p.d, 32).map(pointsBox)))
-    const before = extent(original.parts)
-    expect(Math.max(...extent(latest.parts).map((v, i) => Math.abs(v - before[i])))).toBeLessThan(0.2)
+    for (const layout of ['composed', 'cells']) {
+      const options = { fontStyle: 'serif', separate: true, layout }
+      const latest = await compose(source(), ids, options)
+      const original = await compose(source(missing), ids, options)
+      expect(latest.parts.map(part => part.origin)).toContain('host 間')
+      expect(latest.parts[0].d).toBe(original.parts[0].d)
+      if (layout === 'composed') expect(preview.map(leaf => leaf.box)).toEqual(latest.parts.map(p => p.box))
+      else expect(latest.parts.map(p => p.leaf)).toEqual([0, 1, 2])
+      const before = extent(original.parts)
+      expect(Math.max(...extent(latest.parts).map((v, i) => Math.abs(v - before[i])))).toBeLessThan(0.2)
+    }
+  })
+}
+
+it('uses the native frame when an encoded identity has no drawable whole glyph', async () => {
+  const ids = '⿵門自', encoded = '\uE001'
+  const identity = { [ids]: { e: encoded }, [encoded]: { s: ids } }
+  const options = { fontStyle: 'serif' }
+  for (const config of [options, { ...options, separate: true }, { ...options, separate: true, layout: 'cells' }]) {
+    const ordinary = await compose(source(), ids, config)
+    const glyphless = await compose(source(identity), ids, config)
+    expect(glyphless.parts[0].origin).toBe('host 間')
+    expect(glyphless.d).toBe(ordinary.d)
   }
 })

@@ -38,11 +38,16 @@ function stemWidths(part) {
   const rings = groupRings([part], 12), box = union(rings.map(pointsBox))
   return [0, 1].map(axis => {
     const lengths = [], across = 1 - axis
-    for (const at of [0.26, 0.35, 0.43, 0.57, 0.65, 0.74]) {
+    // Uprights flank the lower rectangular body under the crowns of 自, 百 and 首.
+    const stations = axis === 0 ? [0.17, 0.23, 0.28, 0.34, 0.39, 0.45, 0.51]
+      : [0.27, 0.31, 0.34, 0.37, 0.63, 0.66, 0.69, 0.73]
+    for (const at of stations) {
       const edges = crossings(rings, across, box[across] + at * (box[across + 2] - box[across]))
+      if (edges.length < 4) continue
       for (let i = 1; i < edges.length; i += 2) {
+        if (axis === 0 && i !== 1 && i !== edges.length - 1) continue
         const length = edges[i] - edges[i - 1]
-        if (length > 0 && length < (box[axis + 2] - box[axis]) / 3) lengths.push(length)
+        if (length > 0.005 * (box[axis + 2] - box[axis]) && length < 0.21 * (box[axis + 2] - box[axis])) lengths.push(length)
       }
     }
     lengths.sort((a, b) => a - b)
@@ -62,10 +67,28 @@ function matchStems(content, reference) {
 
 export function directionalParts(composer, node, region, atRoot, cells = false) {
   const donors = directionalReferences(node)
-  if (!donors || composer.measuringEnclosureInk) return null
+  if (!donors || composer.measuringDirectionalInk) return null
   const [op, outer, inner] = node, sequence = op + outer + inner
-  if (composer.bySequence(sequence) || composer.spelled.has(sequence) || donors.some(([, ch]) => ch === inner) ||
+  const encoded = composer.bySequence(sequence)
+  if ((encoded && (composer.drawnGlyph(encoded, !atRoot) || composer.excluded(encoded) || composer.forced(encoded))) || composer.spelled.has(sequence) || donors.some(([, ch]) => ch === inner) ||
       [outer, inner, sequence].some(ch => composer.excluded(ch) || composer.forced(ch)) || !composer.own(inner)) return null
+  // The donor fit lives in font coordinates. Layout probes may ask for this
+  // sequence in several regions during a single synchronous loader pass.
+  const cache = composer.directionalFitCache ??= new Map()
+  if (!cache.has(sequence)) cache.set(sequence, fitNativeOpening(composer, donors, outer, inner))
+  const fit = cache.get(sequence)
+  if (!fit) return null
+  const target = atRoot ? composer.enclosureInkBounds(node, cells ? 'cells' : 'directional', region) : region
+  if (!target) return null
+  const parts = fit.parts.map(part => ({ ...part, weight: [...part.weight], target: mapped(part.target, fit.source, target) }))
+  if (!atRoot) {
+    const group = Symbol()
+    for (const part of parts) part.directionalGroup = group
+  }
+  return parts
+}
+
+function fitNativeOpening(composer, donors, outer, inner) {
   const glyph = composer.glyph(inner)
   const ink = union(glyph.contours.map(c => pointsBox(c.light)))
   for (const [host, held] of donors) {
@@ -92,10 +115,7 @@ export function directionalParts(composer, node, region, atRoot, cells = false) 
       if (mask.some((value, i) => value && blocked[i])) continue
       const parts = [frame, content]
       const source = union(groupRings(parts, 32).map(pointsBox))
-      const mode = cells ? 'cells' : atRoot ? 'directional' : 'nested'
-      const target = composer.enclosureInkBounds(node, mode, region) ?? region
-      for (const p of parts) p.target = mapped(p.target, source, target)
-      return parts
+      return { parts, source }
     }
   }
   return null

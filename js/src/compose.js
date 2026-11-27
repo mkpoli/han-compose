@@ -1447,6 +1447,7 @@ export class Composer {
       fitClawInterior(out, tree, this.fontStyle)
       // Loose marks annotate the whole drawing; they take no part in its layout or weight.
       if (!marks) fitRecordedInk(this, sequence, out)
+      if (!marks) out = this.fitNestedEnclosureInk(out, tree, frame, false, sequence)
       if (marks) out.push(...markParts(this, marks, frame, face))
       return out
     } finally { this.face = previous }
@@ -1692,7 +1693,7 @@ export class Composer {
     else if (!this.partial && this.staticFace) this.staticBalance(out)
     this.fitMetricKeInterior(out, tree)
     fitClawInterior(out, tree, this.fontStyle, true)
-    return out
+    return this.fitNestedEnclosureInk(out, tree, region, true)
   }
 
   /**
@@ -1727,6 +1728,7 @@ export class Composer {
     editable.separate = true
     const partitioned = this.leafCutSketch(sequence)
     if (partitioned) return partitioned
+    let nestedDirectional = false
     const out = []
     const walk = (node, region, atRoot) => {
       const yuan = this.yuanParts(node, region)
@@ -1768,6 +1770,7 @@ export class Composer {
       }
       const directional = directionalParts(editable, node, region, atRoot)
       if (directional) {
+        if (!atRoot) nestedDirectional = true
         for (const part of directional) out.push({ index: out.length, box: part.target, empty: false })
         return
       }
@@ -1834,6 +1837,11 @@ export class Composer {
       } else kids.forEach(kid => walk(kid, region, false))
     }
     walk(this.normalizeYan(this.cancelTransforms(this.parse(sequence))), this.face.slice(), true)
+    if (nestedDirectional) {
+      const drawn = editable.compose(sequence)
+      if (drawn.length === out.length && drawn.every((p, i) => !p.cut && p.empty === undefined &&
+          (p.leaf === undefined || p.leaf === i))) return drawn.map((p, index) => ({ index, empty: false, box: drawnBox(p) }))
+    }
     return out
   }
 
@@ -2113,7 +2121,7 @@ export class Composer {
 
   /** Select a verified low hook only after the face's contextual forms have had priority. */
   hookFrame(node, region, atRoot) {
-    if (this.measuringEnclosureInk) return null
+    if (this.measuringHookInk) return null
     if (!Array.isArray(node) || node.note || node[0] !== '⿺') return null
     const [, outer] = node
     const explicit = Array.isArray(outer)
@@ -2192,6 +2200,39 @@ export class Composer {
     return { parts, room }
   }
 
+  /** Compare like-for-like after the parent has spaced and weighted its children.
+   * The expanded strokes of surrounding siblings also belong to the original row. */
+  fitNestedEnclosureInk(parts, node, region, cells, sequence) {
+    if (!parts.some(p => p.directionalGroup)) return parts
+    const ordinary = this.enclosureBaseline(this.separate)
+    const original = cells ? ordinary.cellLayout(node, region) : ordinary.compose(sequence)
+    if (original.length !== parts.length || parts.some((p, i) => p.flips || p.cut || p.empty !== undefined ||
+        original[i].flips || original[i].cut || original[i].empty !== undefined ||
+        (!p.directionalGroup && p.origin !== original[i].origin))) return original
+    const bounds = group => union(groupRings(group, 32).map(pointsBox))
+    const out = original.slice()
+    for (let i = 0; i < parts.length; i++) {
+      if (!parts[i].directionalGroup) continue
+      const group = parts.slice(i, i + 2)
+      if (group.length !== 2 || group[0].directionalGroup !== group[1].directionalGroup) return original
+      const from = bounds(group), to = bounds(original.slice(i, i + 2))
+      for (const [j, part] of group.entries()) {
+        out[i + j] = { ...part, target: mapped(part.target, from, to) }
+        delete out[i + j].directionalGroup
+      }
+      i++
+    }
+    return out
+  }
+
+  enclosureBaseline(separate, hook = false) {
+    const ordinary = new Composer(this.data, { face: this.face, fontStyle: this.fontStyle,
+      exclude: this.exclude, keepBars: this.keepBars, separate })
+    ordinary.measuringDirectionalInk = true
+    ordinary.measuringHookInk = hook
+    return ordinary
+  }
+
   /** Keep the established root ink extent, including overshoot after stroke weighting.
    * A fresh composer isolates the ordinary layout's joints and weight adjustments.
    * The result is local to this loader pass, since more source shards can arrive. */
@@ -2201,21 +2242,11 @@ export class Composer {
     const key = [mode, separate, sequence, ...region].join('|')
     this.enclosureInkMeasurements ??= new Map()
     if (!this.enclosureInkMeasurements.has(key)) {
-      const ordinary = new Composer(this.data, {
-        face: this.face, fontStyle: this.fontStyle, exclude: this.exclude,
-        keepBars: this.keepBars, separate,
-      })
-      ordinary.measuringEnclosureInk = true
+      const ordinary = this.enclosureBaseline(separate, mode === 'hook')
       let bounds = null
       try {
-        const baseline = mode === 'cells' ? ordinary.cellLayout(node, region)
-          : mode === 'nested' ? ordinary.node(node, region) : ordinary.compose(sequence)
+        const baseline = mode === 'cells' ? ordinary.cellLayout(node, region) : ordinary.compose(sequence)
         if (baseline.length && baseline.every(part => part.empty === undefined && !part.cut)) {
-          if (mode === 'nested' && !ordinary.partial) {
-            if (ordinary.weighted) ordinary.balance(baseline)
-            if (ordinary.staticFace) ordinary.staticBalance(baseline)
-            ordinary.settleJoints()
-          }
           const ink = union(groupRings(baseline, 32).map(pointsBox))
           if (ink.every(Number.isFinite) && ink[2] > ink[0] && ink[3] > ink[1]) bounds = ink
         }
