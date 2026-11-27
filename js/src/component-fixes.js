@@ -4,7 +4,7 @@
 // description it corrects, the SHA-256 outlines of the glyphs it was read against, and the parts it
 // changes; an export drawing other outlines keeps the font's cut. The parts are plain placed pieces,
 // so the corrections work wherever the description is drawn, at any depth.
-import { contourSections, cutContours, derived, fill, fitted, groupRings, makePart, mapped, partOf, placed, pointsBox, union } from './geometry.js'
+import { contourSections, cutContours, derived, drawnBox, fill, fitted, groupRings, makePart, mapped, partOf, placed, pointsBox, targetFor, union } from './geometry.js'
 import { hexOf } from './sha256.js'
 import { penGrassKu } from './grass-ku.js'
 
@@ -314,6 +314,10 @@ export function dotIn(composer, band) {
   const scale = Math.min(fit, em), middle = (band[0] + band[2]) / 2
   const target = [middle - width * scale / 2, band[1], middle + width * scale / 2, band[1] + height * scale]
   return placed(glyph, glyph.box, target, composer.ink('丶'), 'dot 丶')
+}
+
+export function enclosedZeroTarget(zero, opening) {
+  return targetFor(zero, mapped([0.16, 0.14, 0.84, 0.86], [0, 0, 1, 1], opening))
 }
 
 // The standalone 门 in the Pen export has a central vertical in place of the dot.
@@ -1045,6 +1049,17 @@ export const COMPONENT_FIXES = {
       const upper = { ...revised(top, contours), target: [top.target[0], lower.target[3] - 0.03 * height,
         top.target[2], top.target[3]] }
       return parts.map(part => part === mouth ? lower : part === top ? upper : part)
+    },
+  },
+  // 布依方塊古文字 shows a slightly upright oval with room on all four sides.
+  '⿴囗〇': {
+    glyphs: {},
+    apply(parts, composer) {
+      if (parts.length !== 2) return parts
+      const [frame, zero] = parts
+      const opening = composer.roomFromInk('⿴', [frame], drawnBox(frame))
+      if (!opening) return parts
+      return [frame, { ...zero, target: enclosedZeroTarget(zero, opening) }]
     },
   },
   // ⿵冂丨: the 丨 is laid in the frame's lower middle with its top short of the bar. In 㒳 and

@@ -50,7 +50,7 @@ import { hangulLetters } from './hangul-ids.js'
 import { toConjoiningJamo } from './hangul.js'
 import { tileHost } from './fangsong-tile.js'
 import { brushSweepRoom, brushSweepParts } from './brush-sweep-rooms.js'
-import { componentFix } from './component-fixes.js'
+import { componentFix, enclosedZeroTarget } from './component-fixes.js'
 import { isOutbound, markFace, markParts } from './marks.js'
 import { SI_CHAIN, siChainForm, siBendDonor } from './si-chain.js'
 import { youChainDonors, youChainParts } from './you-chain.js'
@@ -73,6 +73,7 @@ import { STROKE_CHAINS, customAt, splitToneMarks, toneMarksAt } from './tree.js'
 import { hexOf } from './sha256.js'
 import componentConstants from './constants.json' with { type: 'json' }
 import numberedFiveContext from '../data/numbered-five-context.json' with { type: 'json' }
+import fangsongZero from './fangsong-zero.json' with { type: 'json' }
 import wheatFaceCuts from '../data/wheat-face-cuts.json' with { type: 'json' }
 import alternateNe from './genzui-alternate-ne.json' with { type: 'json' }
 import pyramidCatalog from './pyramid-glyphs.json' with { type: 'json' }
@@ -1146,6 +1147,9 @@ export class Composer {
 
   glyphRecord(ch) {
     const record = this.rec(ch), glyph = record?.G
+    // Exports that selected Unicode letters omit U+3007 (Letter Number). Use Zhuque's own 〇
+    // when the source has no native record, including sources with a bundled fallback.
+    if (ch === '〇' && this.fontStyle === 'fangsong' && !glyph?.v) return fangsongZero
     // 盾 supplies the joined cliff, cross and eye of 貭; 貝 supplies its two feet.
     if (ch === '貭' && this.fontStyle === 'fangsong' && glyph?.v !== 1 &&
         !['貭', '盾', '貝'].some(donor => this.excluded(donor))) return fangsongZhi
@@ -1880,6 +1884,10 @@ export class Composer {
             }
             walk(kids[1], [(room[0] - f[0]) / width, 1 - (room[3] - f[1]) / height,
               (room[2] - f[0]) / width, 1 - (room[1] - f[1]) / height], depth + 1)
+            if (op === '⿴' && kids[0] === '囗' && kids[1] === '〇') {
+              const zero = out.at(-1)
+              zero.target = enclosedZeroTarget(zero, room)
+            }
             return
           }
         }

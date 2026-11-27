@@ -277,6 +277,8 @@ https://kanjivg.tagaini.net/".
 
 ### Manuscript form ⿰氵⿺木罒
 
+The FangSong fallback for 〇 is the U+3007 outline from Zhuque FangSong 0.212 (SIL OFL 1.1). [Font notices](../docs/licensing.md)
+
 The prepared form for ⿲㇇丨𰛅 in `src/water-stroke-row.json` cuts 水 into its left bend and hooked body, then inserts the short 丨 shown in the source. The outlines are adapted from Noto Sans CJK, Noto Serif CJK, Zhuque FangSong 0.212, Kureedo Full 0.5.0 (SIL OFL 1.1) and TW-Kai 11510.1 (數位發展部, Open Government Data License 1.0). [潮語十五音 reference](https://rare.glyphatlas.org/media/v2/3bbecda5aaee2182bb994d8cabd674aad5c4a14245b8ec4f8817e4064b2317ce.webp) · [Font notices](../docs/licensing.md)
 
 The prepared form for ⿺水巜 in `src/water-enclosure.json` narrows 水 above its sweeping right leg and sets 巜 in that opening. Zhuque supplies its two bends from 巛. The outlines are adapted from Zhuque FangSong 0.212, Kureedo Full 0.5.0, Noto Sans CJK JP 2.004 and Noto Serif CJK JP 2.003 (SIL OFL 1.1) and TW-Kai 11510.1 (數位發展部, Open Government Data License 1.0). [潮語十五音 reference](https://rare.glyphatlas.org/media/v2/095ea0b397c1652d3bec774a27980ede0ff58f774220eef38636844fcf1dceea.webp) · [Font notices](../docs/licensing.md)

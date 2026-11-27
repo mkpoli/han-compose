@@ -680,7 +680,8 @@ def own_letters(font: C.Font) -> set[str]:
     sequence (帰) is still written, on its own and as an operand."""
     import unicodedata
 
-    return {chr(point) for point in font.cmap if unicodedata.category(chr(point))[0] == "L"}
+    return {chr(point) for point in font.cmap
+            if point == 0x3007 or unicodedata.category(chr(point))[0] == "L"}
 
 
 def _leaf(key: str) -> bool:
