@@ -56,6 +56,20 @@ const drawing = await compose(sourceFor(ids, { bundled: true }), ids)
 const svg = drawingSvg(drawing)
 ```
 
+## Select a 幺 in another character
+
+`han-compose/yao-occurrences` exposes `yaoCharacters`, `yaoOccurrences(ids)`, `selectYao(ids, path, form)` and `yaoDecomposition(host)`. The index lists 3,596 encoded characters. It selects the first sourced decomposition that reaches 幺, records its regions, and expands only the ancestors of the edited occurrence. Unknown variation sequences and operands under stroke subtraction remain opaque.
+
+```js
+import { yaoOccurrences, selectYao } from 'han-compose/yao-occurrences'
+
+const [{path: left}, {path: right}] = yaoOccurrences('幽')
+const first = selectYao('幽', left, 'returning')
+const both = selectYao(first, right, 'detached') // ⿻山⿰&VR-5E7A-03;幺󠄀
+```
+
+The index uses BabelStone’s 2025-06-27 IDS, including numbered part {29} in 幾, the reviewed 率 catalogue, and the plain level-1 IDS from Yi Bai for additional hosts. Its build checks for cycles, and source identities travel with the one-step decompositions. Run `bun js/scripts/build-yao-occurrences.mjs` from the repository root to regenerate the data. [Andrew West, BabelStone IDS](https://www.babelstone.co.uk/CJK/IDS.TXT) · [Yi Bai, pinned level-1 IDS](https://github.com/yi-bai/ids/blob/da1e9f8a09e2ec8faaf176bac99203f978282041/ids_lv1.txt) · [Yi Bai data licence](../../data/licences/yi-bai-ids-MIT.txt)
+
 ## Save a catalogue with the design
 
 A portable archive holds an expression or pinned space with the referenced families, their source metadata and any supplied outlines. Reopen it independently of later catalogue edits. A URL still requires the external resource when its drawing was supplied only by reference.
