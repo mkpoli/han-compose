@@ -409,6 +409,56 @@ function penDoor(char) {
  * A correction that cannot find the parts it names leaves the drawing as it is.
  */
 export const COMPONENT_FIXES = {
+  '⿱龹幸': {
+    glyphs: {},
+    apply(parts, composer) {
+      if (parts.length !== 2 || composer.excluded('幸')) return parts
+      const xing = composer.glyph('幸')
+      if (!xing) return parts
+      const [top, bottom] = parts, frame = union([top.target, bottom.target])
+      const upperBox = composer.fontStyle === 'pen-writing'
+        ? mapped([.06, .50, .94, 1], [0, 0, 1, 1], frame)
+        : composer.fontStyle === 'serif'
+          ? mapped([.04, .50, .96, 1], [0, 0, 1, 1], frame)
+          : top.target
+      const upper = { ...top, target: upperBox }
+      const fw = frame[2] - frame[0], fh = frame[3] - frame[1], cx = (frame[0] + frame[2]) / 2
+      const minW = composer.fontStyle === 'pen-writing' ? 0.84 : 0.78
+      const bw = Math.min(fw * 0.90, Math.max(bottom.target[2] - bottom.target[0], fw * minW))
+      const size = 200, mid = size >> 1
+      const mt = fill(groupRings([{ ...upper, flips: [] }], 16), size, frame)
+      // Raise the unstretched 幸 from the baseline until it meets 龹's left and right legs
+      // without driving its central stem across 龹's lower bar.
+      const probe = frac => {
+        const box = [cx - bw / 2, frame[1], cx + bw / 2, frame[1] + frac * fh]
+        const cand = placed(xing, xing.box, box, composer.ink('幸'), 'glyph 幸')
+        const mb = fill(groupRings([cand], 16), size, frame)
+        let left = 0, right = 0, center = 0
+        for (let r = 0; r < size; r++) {
+          for (let c = 0; c < size; c++) {
+            if (!mt[r * size + c] || !mb[r * size + c]) continue
+            if (Math.abs(c - mid) <= 8) center++
+            else if (c < mid) left++
+            else right++
+          }
+        }
+        return { cand, left, right, center }
+      }
+      let best = null
+      for (let step = 520; step <= 780; step += 5) {
+        const res = probe(step / 1000)
+        if (res.center > 0) {
+          if (!best) best = probe((step - 5) / 1000).cand
+          break
+        }
+        if (res.left > 0 && res.right > 0) {
+          best = res.cand
+          break
+        }
+      }
+      return [upper, best ?? probe(0.64).cand]
+    },
+  },
   [INCOME_IDS]: {
     glyphs: {},
     apply(parts, composer, region) {
