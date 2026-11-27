@@ -12,7 +12,9 @@ it('composes missing 𡥦 recursively from its three 子 in both rows', async ()
   const source = sourceFor('子')
   for (const separate of [false, true]) {
     const drawing = await compose(source, '⿱𡥦𡥦', { fontStyle: 'pen-writing', separate })
-    expect(drawing.parts.map(p => p.origin)).toEqual(Array(6).fill('glyph 子'))
+    expect(drawing.parts.map(p => p.origin)).toEqual(Array(6).fill('cells 子'))
+    const single = await compose(source, '𡥦', { fontStyle: 'pen-writing', separate })
+    expect(single.parts.map(p => p.origin)).toEqual(Array(3).fill('glyph 子'))
   }
 })
 

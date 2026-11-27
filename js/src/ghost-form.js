@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { derived, mapped, partInk, partOf, placed } from './geometry.js'
+import { contourSections as outline, derived, mapped, partInk, partOf, placed } from './geometry.js'
 import { hexOf } from './sha256.js'
 
 const shapes = {
@@ -11,31 +11,6 @@ const shapes = {
 export const usesGhostForm = (node, style) => Object.hasOwn(shapes, style) &&
   node[0] === '⿷' && node[1]?.[0] === '⿱' && node[1][1] === '田' &&
   node[1][2] === '儿' && node[2] === '厶' && !node.note && !node[1].note
-
-// Join sections of the original contour along the boundaries of the three operands.
-// Each triple names a contour and two pen commands. Start at the endpoint of the
-// first command, then copy the curves through the last, in both weight masters.
-function outline(contours, ...sections) {
-  const ops = [], light = [], heavy = []
-  for (const [index, start, end] of sections) {
-    const c = contours[index]
-    let offset = 0
-    for (let i = 0; i <= end; i++) {
-      const n = 2 * c.ops[i][1]
-      if (i === start) {
-        ops.push([ops.length ? 'L' : 'M', 1, false])
-        light.push(...c.light.slice(offset + n - 2, offset + n))
-        heavy.push(...c.heavy.slice(offset + n - 2, offset + n))
-      } else if (i > start) {
-        ops.push(c.ops[i])
-        light.push(...c.light.slice(offset, offset + n))
-        heavy.push(...c.heavy.slice(offset, offset + n))
-      }
-      offset += n
-    }
-  }
-  return { ops, light: Float64Array.from(light), heavy: Float64Array.from(heavy), width: contours[0].width }
-}
 
 function operandContours(c, style) {
   if (style === 'serif') {
