@@ -53,6 +53,10 @@ export declare const COMPONENT_FIXES: {
         glyphs: {};
         apply(parts: any, composer: any, region: any): any;
     };
+    '\u2FF0\u8EAB\u82B1': {
+        glyphs: {};
+        apply(parts: any, composer: any): any;
+    };
     '\u2FF0\u5FC4\u5B9F': {
         glyphs: {};
         apply: typeof heartColumnSpacing;

@@ -377,6 +377,43 @@ export const COMPONENT_FIXES = {
         placed(side, side.box, cell([512, 24, 968, 960]), composer.ink('方'), 'glyph 方')]
     },
   },
+  '⿰身花': {
+    glyphs: {},
+    apply(parts, composer) {
+      const [body, flower, grass] = parts
+      if (composer.fontStyle !== 'regular' || parts.length !== 3 ||
+          body.origin !== 'learned 躭' || flower.origin !== 'glyph 花 kept' || grass.origin !== 'TW-Kai: 艹') return parts
+      const columns = [{ ...body }, { ...flower }]
+      const stems = columns.map(p => p.part.contours[0]?.width)
+      const growth = composer.stem0.map(([light, heavy]) => heavy - light)
+      if (stems.some(stem => !stem || stem.some(w => w <= 0)) || growth.some(step => step <= 0)) return parts
+      if (!composer.partial) {
+        const group = [...columns, { ...grass }], stroke = composer.stroke
+        try {
+          if (composer.weighted) composer.balance(group)
+          else if (composer.staticFace) composer.staticBalance(group)
+        } finally {
+          composer.stroke = stroke
+        }
+      }
+      const scales = columns.map(scaleOf)
+      if (scales.some(scale => scale.some(s => s <= 0))) return parts
+      // The geometric mean gives the two scaled stems reciprocal adjustment factors.
+      const aim = [0, 1].map(axis => Math.sqrt(
+        stems[0][axis] * scales[0][axis] * stems[1][axis] * scales[1][axis]))
+      const ink = p => union(groupRings([p], 24).map(pointsBox))
+      return [...columns.map((p, i) => {
+        const weight = aim.map((width, axis) => {
+          const adjustment = (width / scales[i][axis] - stems[i][axis]) / growth[axis]
+          return Math.max(-0.6, Math.min(1, adjustment))
+        })
+        const revised = { ...p, weight, fixed: true }
+        // Both pieces retain their previous visible bounds, including the brush tips.
+        revised.target = mapped(p.target, ink(revised), ink(p))
+        return revised
+      }), grass]
+    },
+  },
   '⿰忄実': {
     glyphs: {},
     apply: heartColumnSpacing,
