@@ -4742,7 +4742,7 @@ export class Composer {
     const designed = typeof child === 'string' ? this.designedCut(child) : null
     if (designed) return [placed(designed.piece, designed.piece.box, fitted(designed.piece.box, box, this.C.STRETCH), this.ink(designed.record.h), `host ${designed.record.h}`)]
     const group = this.node(child, box, false, sideBySide)
-    return narrow ? this.fillCell(child, group, box, pair) : group
+    return narrow ? this.fillCell(child, group, box, pair, sideBySide) : group
   }
 
   /** Whether the cells of the aligned operands `children` are as narrow as a row of three's: three
@@ -4755,8 +4755,12 @@ export class Composer {
    *  the cell would squeeze its glyph; in a pair beside another part, when those parts cover under
    *  `CELL_FILLED` of the cell (辶 under 周 in a quarter column, 曲 and 辰 apart in theirs), the glyph
    *  fills it after all, so one column of the row is not smaller than the next. */
-  fillCell(child, group, box, pair = false) {
-    if (group.length === 1 && !group[0].nativeAspect && group[0].origin.startsWith('glyph ')) group[0].target = fitted(group[0].source, box, this.C.ROW_STRETCH)
+  fillCell(child, group, box, pair = false, sideBySide = true) {
+    // A band of a stack of three is wide and low: a character flattened into it as far as a column
+    // narrows one closes its counters (the 人 of 囚 in ⿳⺈囚儿), so it keeps to `CELL_STRETCH` there.
+    const banded = !sideBySide && !pair && typeof child === 'string'
+    const stretch = banded ? Math.min(this.C.ROW_STRETCH, Math.max(this.C.STRETCH, this.C.CELL_STRETCH)) : this.C.ROW_STRETCH
+    if (group.length === 1 && !group[0].nativeAspect && group[0].origin.startsWith('glyph ')) group[0].target = fitted(group[0].source, box, stretch)
     else if (group.length > 1 && group[0].balanceBox && group.every(p => p.balanceBox === group[0].balanceBox)) {
       const frame = group[0].balanceBox, target = fitted(frame, box, this.C.ROW_STRETCH)
       for (const part of group) part.target = mapped(part.source, frame, target)
