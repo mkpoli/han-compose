@@ -77,8 +77,10 @@ const positions = Object.fromEntries(Object.entries(data.positions ?? {}).map(([
   new Map(Object.entries(entries).map(([name, group]) => [name,
     wound(makePart(group.map(([ops, points]) => ({ ops: commands(ops), light: points, heavy: points }))))]))]))
 const editorialForms = new Map(Object.entries(data.editorial ?? {}).flatMap(([id, entry]) => entry.forms.map(text => [text, id])))
+/** Faces drawn with a brush or a pen, whose strokes the brush-specific seats and cuts are measured on. @param {string} style */
+export const brushFace = style => style === 'regular' || style === 'pen-writing' || style === 'fangsong'
 /** Faces whose bundled forms come only from their own font: Noto's must not stand in for them. @param {string} style */
-export const ownFormsOnly = style => style === 'regular' || style === 'pen-writing' || style === 'fangsong'
+export const ownFormsOnly = style => brushFace(style) || style === 'woodblock'
 const forms = style => styles[style] ?? (ownFormsOnly(style) ? null : styles.sans)
 export const containsComponentForm = (text, style = 'sans') => containsRateForm(text) || [...(forms(style)?.entries() ?? [])].some(([key, form]) => !form.native && text.includes(key))
 export const isAtomicForm = (text, style) => forms(style)?.get(text)?.atomic === true
@@ -122,7 +124,7 @@ export function componentParts(text, region = constants.face, style = 'sans', at
   // complete native glyphs retain their designed proportions and side bearings.
   // Nested forms use the description's contextual row/column allocation.
   const target = atRoot ? mapped(frame, constants.face, region) : region
-  const font = style === 'regular' ? 'TW-Kai' : style === 'pen-writing' ? 'Kureedo' : style === 'fangsong' ? 'Zhuque Fangsong' : `Noto ${style === 'serif' ? 'Serif' : 'Sans'} CJK`
+  const font = style === 'regular' ? 'TW-Kai' : style === 'pen-writing' ? 'Kureedo' : style === 'fangsong' ? 'Zhuque Fangsong' : style === 'woodblock' ? 'Nôm Na Tống' : `Noto ${style === 'serif' ? 'Serif' : 'Sans'} CJK`
   const editorial = editorialForms.get(text)
   const origin = form.origin ?? (editorial ? `${editorial} editorial (${font}): ${text}`
     : text === '⿰冫⿱丿丶' || text === '⿰冫⿾冫' ? 'four-dot repetition' : `${font}: ${text}`)

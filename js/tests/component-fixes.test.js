@@ -34,6 +34,29 @@ function dotComposer() {
 }
 
 describe('a stroke correction', () => {
+  it('enlarges 幸 without distorting its contours until it meets 龹’s splayed legs', () => {
+    const rectOps = [['M', 1], ['L', 1], ['L', 1], ['L', 1]]
+    const juan = part('龹', [0, 500, 1000, 1000], [0, 500, 1000, 1000], [
+      [150, 720, 850, 770], [80, 500, 220, 740], [780, 500, 920, 740],
+    ])
+    const xingPart = part('glyph 幸', [0, 0, 1000, 1000], [0, 0, 1000, 500], [
+      [460, 0, 540, 1000], [100, 800, 900, 880],
+    ])
+    for (const p of [juan, xingPart]) for (const c of p.part.contours) c.ops = rectOps
+    const composer = {
+      fontStyle: 'serif', excluded: () => false, glyph: ch => ch === '幸' ? xingPart.part : null, ink: () => 1000,
+    }
+    const [upper, lower] = COMPONENT_FIXES['⿱龹幸'].apply([juan, xingPart], composer)
+    // Contours stay unstretched (same part object, no stem elongation).
+    expect(lower.part).toBe(xingPart.part)
+    expect(lower.target[1]).toBe(0)
+    expect(lower.target[3]).toBeGreaterThan(560)
+    expect(lower.target[3]).toBeLessThan(720)
+    expect(upper.target[3]).toBe(1000)
+    // Excluded 幸 leaves both parts unchanged.
+    expect(COMPONENT_FIXES['⿱龹幸'].apply([juan, xingPart], { ...composer, excluded: () => true })).toEqual([juan, xingPart])
+  })
+
   it('cuts a contour off at a height in the box it is drawn into', () => {
     const slash = part('x', [0, 0, 100, 1000], [0, 0, 1000, 1000], [[20, 0, 80, 1000]])
     const cut = clippedAbove(slash, [0], 600)
@@ -795,6 +818,44 @@ it('opens both gaps around 从 while preserving the bars of ⿱一丛', () => {
       expect(box(contour)[3]).toBeLessThan(884)
     }
   }
+})
+
+describe('⿰舟邊', () => {
+  const em = [0, 0, 1000, 1000]
+  const boat = part('learned 艭', em, [59, -37, 346, 770], [em])
+  const border = part('glyph 邊', em, [402, -4, 944, 772], [[0, 0, 1000, 300], [350, 400, 900, 1000]])
+
+  it('closes the excess gap in FangSong and Pen while leaving Sans and Serif alone', () => {
+    const gapOf = ([l, r]) => r.target[0] - l.target[2]
+    for (const fontStyle of ['fangsong', 'pen-writing']) {
+      const fixed = componentFix('⿰舟邊', [boat, border], { fontStyle })
+      expect(gapOf(fixed)).toBeLessThan(gapOf([boat, border]))
+      expect(gapOf(fixed)).toBeCloseTo(0.018 * (944 - 59), 5)
+    }
+    for (const fontStyle of ['sans', 'serif']) {
+      expect(componentFix('⿰舟邊', [boat, border], { fontStyle })).toEqual([boat, border])
+    }
+  })
+
+  it('expands Regular ⿰舟邊 to a full two-column frame at root without squashing 邊 contours', () => {
+    const face = [89, -56, 915, 800]
+    const [left, right] = componentFix('⿰舟邊', [boat, border], { fontStyle: 'regular', face }, face)
+    // Contours stay intact (no vertical 辶 squash).
+    expect(right.part).toBe(border.part)
+    expect(right.target[3] - right.target[1]).toBeGreaterThan(880)
+    expect(right.target[2] - right.target[0]).toBeGreaterThan(580)
+    expect(left.target[2]).toBeLessThan(right.target[0])
+    // Nested placements stay within their allocated region.
+    const nested = [327, -21, 914, 784]
+    const [nLeft, nRight] = componentFix('⿰舟邊', [
+      part('host 艭', em, [327, -21, 573, 784], [em]),
+      part('glyph 邊', em, [596, -21, 914, 784], [em]),
+    ], { fontStyle: 'regular', face }, nested)
+    expect(nLeft.target[0]).toBeCloseTo(nested[0], 6)
+    expect(nRight.target[2]).toBeCloseTo(nested[2], 6)
+    expect(nRight.target[1]).toBeCloseTo(nested[1], 6)
+    expect(nRight.target[3]).toBeCloseTo(nested[3], 6)
+  })
 })
 
 describe('日進斗金 ⿱⿰日斗⿺辶⿰隹金', () => {
