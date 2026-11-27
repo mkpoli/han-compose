@@ -57,6 +57,9 @@ committed.
   Greek glyphs are Alegreya's (Copyright 2011 The Alegreya Project Authors, SIL OFL 1.1). Its README asks
   that versions modified by others not be widely distributed before the official release; that
   request is not a licence term.
+  The U+00B7 contour in `js/src/dotted-bopomofo.js` comes from this release’s
+  `periodcentered` glyph. Its placement in ⿸ㄏ· follows the x row on
+  [PDF page 23 of 《注音新疆回文常用字表》](https://commons.wikimedia.org/wiki/File:NLC416-13jh006298-75095_注音新疆回文常用字表.pdf?page=23).
 - **Jigmo** (CC0 1.0), static. It draws the ideographs Zhuque lacks; its strokes keep their own weight.
 
 `serif`:
