@@ -116,6 +116,25 @@ it('draws an Extension J character from its sequence, in the parts of the face',
   const alone = { ...files, 'identity.json': identityOf(Object.entries({ ...records, '𲖀': foreign })), ...shards('g', [['𲖀', foreign]]) }
   expect((await compose(sourceOf(alone), '⿰木𲖀', { separate: true })).origins).toContain('glyph 𲖀')
 })
+// 𲎰 is 五 without its bottom stroke; no sequence spells that, so the face's own 五 is cut.
+it('cuts an Extension J character from the character of the face it is a part of', async () => {
+  const foreign = character('𲎰', [[100, 0, 900, 800]])
+  foreign.G.v = 0
+  const five = character('五', [[100, 0, 900, 80], [200, 80, 280, 700], [600, 80, 680, 700], [100, 700, 900, 780]])
+  const entries = { '𲎰': foreign, 五: five }
+  const input = { ...files, 'identity.json': identityOf(Object.entries({ ...records, ...entries })), ...shards('g', Object.entries(entries)) }
+  for (const fontStyle of ['sans', 'serif', 'fangsong', 'regular', 'pen-writing']) {
+    for (const sequence of ['𲎰', '⿰𲎰口']) {
+      const out = await compose(sourceOf(input), sequence, { separate: true, fontStyle })
+      // The upper bar and the two legs, without the bar they stood on.
+      expect(out.parts[0].d.match(/M/g)).toHaveLength(3)
+    }
+  }
+  // Without 五 the outline of the other face stays.
+  const alone = { ...files, 'identity.json': identityOf(Object.entries({ ...records, '𲎰': foreign })), ...shards('g', [['𲎰', foreign]]) }
+  expect((await compose(sourceOf(alone), '𲎰', { separate: true })).parts[0].d.match(/M/g)).toHaveLength(1)
+})
+
 it('keeps the outline of another face when the sequence of its character cannot be drawn', async () => {
   const foreign = { ...character('𲎰', [[100, 0, 300, 800]]), s: '⿰木牙' }
   foreign.G.v = 0

@@ -888,6 +888,10 @@ export const designedSources = (tree, style = 'sans') => {
 }
 
 // Left components the export carries no host cuts for, taken from a designed character's glyph.
+/** Extension J ideographs that are a character every face draws without its bottom stroke: 𲎰 is
+ *  五 above its lower 一, and 𲐬 is 巫 above its. No sequence says so; the cut is made in the
+ *  face's own glyph. */
+const FOOTLESS = { '𲎰': '五', '𲐬': '巫' }
 /** The sequences of the CJK Extension J ideographs whose parts a face can cut from its own
  *  characters (`scripts/build_extension_j_ids.py`). */
 const EXTENSION_J = /** @type {Record<string, string>} */ (extensionJ.sequences)
@@ -932,6 +936,7 @@ export class Composer {
     const m = data.manifest, c = m.constants
     this.C = c
     this.exclude = new Set(exclude)
+    this.footlessCuts = new Map()
     this._forced = new Map()
     this.spelled = new Set(m.spelled)
     this.AXIS = c.AXIS
@@ -1122,7 +1127,7 @@ export class Composer {
         (record.s || record.P?.length || Object.hasOwn(DESIGNED_CUTS, ch))) return null
     // An Extension J ideograph only a fallback font draws (Jigmo's Mincho, in every face) is
     // likewise drawn from its bundled sequence, its parts cut from the face's own characters.
-    if (glyph && glyph.v === 0 && !record.s && Object.hasOwn(EXTENSION_J, ch)) return null
+    if (glyph && glyph.v === 0 && !record.s && (Object.hasOwn(EXTENSION_J, ch) || Object.hasOwn(FOOTLESS, ch))) return null
     if (glyph && record.sg && !glyph.sg) glyph.sg = record.sg
     // The offline Unicode shard carries the connected radical at U+2EBE.
     return glyph ?? (ch === '艹' && !this.excluded('⺾') ? this.glyphRecord('⺾') : null)
@@ -1172,13 +1177,25 @@ export class Composer {
     if (!keep.length) return forms
     return [{ ...native, part: derived(glyph, keep, glyph.box), fixed: true, origin: `glyph ${char} kept` }, ...forms]
   }
-  glyph(ch) { const g = this.glyphRecord(ch); return g ? partOf(g) : null }
+  glyph(ch) { const g = this.glyphRecord(ch); return g ? partOf(g) : this.footless(ch) }
+  /** An ideograph of `FOOTLESS` cut from the face's own character, or null where the face draws
+   *  the ideograph itself, lacks the character, or the character's foot cannot be found. */
+  footless(ch) {
+    const host = Object.hasOwn(FOOTLESS, ch) ? FOOTLESS[ch] : null
+    if (!host || this.excluded(host) || this.glyphRecord(ch)) return null
+    const record = this.glyphRecord(host)
+    if (record?.v !== 1) return null
+    if (!this.footlessCuts.has(ch)) this.footlessCuts.set(ch, withoutFoot(partOf(record)))
+    return this.footlessCuts.get(ch)
+  }
   /** The glyph a whole character is drawn with: a body the font drew as another shape is replaced
    *  by `BODY_FORMS` where the export carries the glyph that cut was made for. A cut of the glyph
    *  (`pieceOf`) keeps the font's own contours. */
   drawnGlyph(ch, contain = false) {
     const record = this.glyphRecord(ch)
     if (!record) {
+      const cut = this.footless(ch)
+      if (cut) return cut
       const donor = strokeDonor(ch, this.fontStyle)
       if (!donor || this.excluded(ch) || this.excluded(donor)) return null
       return nativeStroke(ch, this.fontStyle, key => this.glyphRecord(key))
@@ -6387,6 +6404,129 @@ function cutAt(poly, cut, above) {
     if (ring.length >= 3) out.push(ring)
   }
   return out
+}
+
+/** A glyph's bottom stroke: the columns sampled across it, how far from the usual thickness a
+ *  column of the stroke alone may be, the least share of the columns that must show it, how far
+ *  above its upper edge the cut is made (a share of the glyph's height), and the largest piece, as
+ *  a share of the glyph's box, that is the stroke's own end standing above that edge. */
+const FOOT_COLUMNS = 80, FOOT_THICK = 1.4, FOOT_SHOWN = 0.3, FOOT_CLEAR = 0.012, FOOT_END = 0.008
+/**
+ * A glyph without its bottom stroke. The stroke's upper edge is read where nothing stands on it:
+ * in each column the lowest run of ink, kept where that run is no thicker than the stroke. A line
+ * fitted to those tops follows a brush stroke's rise, every outline is cut along it, and what is
+ * above stays. A small piece left on the line is the stroke's own serif or pressed end. Each
+ * master finds its own line, since a heavier stroke is thicker. Null where the foot holds no such
+ * stroke or the masters fall into different pieces.
+ */
+function withoutFoot(glyph) {
+  // One master's outlines, sheared so the line along its bottom stroke's upper edge lies level.
+  const levelled = master => {
+    const polys = glyph.contours.map(contour => flattenRing(contour, master))
+    const points = polys.flat()
+    const low = Math.min(...points.map(p => p[1])), high = Math.max(...points.map(p => p[1]))
+    const left = Math.min(...points.map(p => p[0])), right = Math.max(...points.map(p => p[0]))
+    const turned = polys.map(poly => poly.map(([x, y]) => [y, x]))
+    // The lowest run of ink in each column, as [x, its top, its thickness].
+    const runs = []
+    for (let k = 0; k < FOOT_COLUMNS; k++) {
+      const x = left + (right - left) * (k + 0.5) / FOOT_COLUMNS
+      const ys = turned.flatMap(poly => spansAt(poly, x)).flat().sort((p, q) => p - q)
+      if (ys.length >= 2 && ys[0] < low + (high - low) / 3) runs.push([x, ys[1], ys[1] - ys[0]])
+    }
+    if (!runs.length) return null
+    // The stroke spans the glyph, so its thickness is the usual one; a column through a stroke
+    // standing on it is thicker, and one through the stroke's tapering end thinner.
+    const usual = runs.map(run => run[2]).sort((p, q) => p - q)[runs.length >> 1]
+    const edge = runs.filter(run => run[2] <= FOOT_THICK * usual && run[2] >= usual / FOOT_THICK)
+    if (edge.length < FOOT_SHOWN * FOOT_COLUMNS) return null
+    const mx = edge.reduce((sum, run) => sum + run[0], 0) / edge.length, my = edge.reduce((sum, run) => sum + run[1], 0) / edge.length
+    const slope = edge.reduce((sum, run) => sum + (run[0] - mx) * (run[1] - my), 0) / Math.max(edge.reduce((sum, run) => sum + (run[0] - mx) ** 2, 0), 1)
+    return {
+      polys: polys.map(poly => poly.map(([x, y]) => [x, y - slope * (x - mx)])),
+      level: my + FOOT_CLEAR * (high - low), least: FOOT_END * (right - left) * (high - low),
+      back: ([x, y]) => [x, y + slope * (x - mx)],
+    }
+  }
+  const light = levelled('light'), heavy = levelled('heavy')
+  if (!light || !heavy) return null
+  const cut = cutAbove(light.polys, light.level)
+  if (!cut) return null
+  // The heavy master is cut at the same places along its outlines, each crossing where that edge
+  // meets its own line, so the two masters' points stay paired.
+  const twin = ({ poly, i, t }) => {
+    const ring = heavy.polys[poly], a = ring[i]
+    if (t === null) return a
+    const b = ring[(i + 1) % ring.length]
+    const at = b[1] !== a[1] && (a[1] > heavy.level) !== (b[1] > heavy.level) ? (heavy.level - a[1]) / (b[1] - a[1]) : t
+    return [a[0] + (b[0] - a[0]) * at, a[1] + (b[1] - a[1]) * at]
+  }
+  const contours = [
+    ...cut.whole.map(i => glyph.contours[i]),
+    // A small piece left on the line is the stroke's own serif or pressed end.
+    ...cut.pieces.map(piece => [piece.map(v => v.point), piece.map(twin)])
+      .filter(([ring]) => Math.abs(ringArea(ring)) > light.least)
+      .map(([ring, other]) => ringContour(ring.map(light.back), other.map(heavy.back), ringArea(ring) < 0)),
+  ]
+  if (!contours.length) return null
+  return derived(glyph, contours, pointsBox(contours.flatMap(contour => Array.from(contour.light))))
+}
+
+/**
+ * The outlines of one shape cut by the horizontal line y = `cut`, keeping what is above: the
+ * indices of the outlines wholly above (`whole`), and the pieces the crossed ones fall into
+ * (`pieces`). The crossings of every outline are paired along the line as a scanline fills them, so
+ * a counter the line opens joins the outline around it: two legs come out as two pieces, with no
+ * counter left between them. A piece is its points in order, each a vertex `i` of outline `poly`
+ * or a place `t` along the edge leaving it. Null where the outlines do not pair up.
+ */
+function cutAbove(polys, cut) {
+  const whole = [], chains = [], crossings = []
+  for (const [index, poly] of polys.entries()) {
+    const above = poly.map(p => p[1] > cut)
+    if (above.every(Boolean)) { whole.push(index); continue }
+    if (!above.some(Boolean)) continue
+    const walk = []
+    for (let i = 0; i < poly.length; i++) {
+      const a = poly[i], b = poly[(i + 1) % poly.length]
+      if (above[i]) walk.push({ point: a, poly: index, i, t: null })
+      if (above[i] === above[(i + 1) % poly.length]) continue
+      const t = (cut - a[1]) / (b[1] - a[1])
+      const crossing = { point: [a[0] + (b[0] - a[0]) * t, cut], poly: index, i, t, id: crossings.length, enters: !above[i] }
+      crossings.push(crossing)
+      walk.push(crossing)
+    }
+    const start = walk.findIndex(v => v.enters)
+    let chain = null
+    for (let k = 0; k < walk.length; k++) {
+      const v = walk[(start + k) % walk.length]
+      if (v.enters) { chain = [v]; chains.push(chain) } else chain?.push(v)
+      if (v.id !== undefined && !v.enters) chain = null
+    }
+  }
+  if (crossings.length % 2) return null
+  const order = crossings.slice().sort((a, b) => a.point[0] - b.point[0])
+  const mate = new Map()
+  for (let i = 0; i + 1 < order.length; i += 2) {
+    mate.set(order[i].id, order[i + 1])
+    mate.set(order[i + 1].id, order[i])
+  }
+  const byStart = new Map(chains.map(chain => [chain[0].id, chain]))
+  const pieces = [], used = new Set()
+  for (const first of chains) {
+    if (used.has(first[0].id)) continue
+    const ring = []
+    let at = first
+    while (at && !used.has(at[0].id)) {
+      used.add(at[0].id)
+      for (const v of at) ring.push(v)
+      const next = mate.get(at.at(-1).id)
+      if (!next?.enters) return null
+      at = byStart.get(next.id)
+    }
+    if (ring.length >= 3) pieces.push(ring)
+  }
+  return { whole, pieces }
 }
 
 /** A contour flattened into a polygon of [x, y] points, its curve chains sampled in `steps`. */
