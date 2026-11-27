@@ -4,8 +4,9 @@
 import { describe, expect, it } from 'bun:test'
 import { COMPONENT_FIXES, clippedAbove, componentFix, dotIn, respanned, withoutContours } from 'han-compose/component-fixes'
 import { Composer } from 'han-compose/compose'
-import { drawnContours, groupRings, makePart, mapped, partOf, placed, pointsBox, union } from 'han-compose/geometry'
+import { drawnContours, fill, groupRings, makePart, mapped, partOf, placed, pointsBox, union } from 'han-compose/geometry'
 import zhou from './fixtures/zhou-miao.json' with { type: 'json' }
+import gongRecord from './fixtures/fangsong-gong.json' with { type: 'json' }
 import kuruma from './fixtures/kuruma-to.json' with { type: 'json' }
 import { hexOf } from 'han-compose/sha256'
 
@@ -62,6 +63,65 @@ describe('a composition fix', () => {
     expect(componentFix('⿻口土', [earth], { glyphRecord: () => null })).toEqual([earth])
     expect(componentFix('⿻土口', [earth], { glyphRecord: () => null })).toEqual([earth])
   })
+})
+
+describe('FangSong ⿳吅工吅', () => {
+  const gong = partOf(gongRecord)
+  const composer = { fontStyle: 'fangsong', glyphRecord: () => gongRecord, glyph: () => gong }
+  const ink = group => union(groupRings(group, 24).map(pointsBox))
+  for (const split of [false, true]) {
+    it(`fits the two bars to the stroke weight of ${split ? 'separate mouths' : 'paired mouth cuts'}`, () => {
+      const row = (y, overhang = false) => (split ? [[0, 450], [550, 1000]] : [[0, 1000]]).map(([left, right]) => {
+        const source = [0, 0, right - left, 330]
+        const boxes = overhang ? [[0, 30, right - left, 330], [0, 0, 40, 330]] : [source]
+        const mouth = part('mouth', source, [left, y, right, y + 330], boxes)
+        Object.assign(mouth.part.contours[0], {
+          ops: [['M', 1], ['L', 1], ['L', 1], ['L', 1]], width: [50, split ? 30 : 50],
+        })
+        if (mouth.part.contours[1]) mouth.part.contours[1].ops = [['M', 1], ['L', 1], ['L', 1], ['L', 1]]
+        return mouth
+      })
+      const upper = row(670, true), lower = row(0)
+      const input = [...upper, placed(gong, gong.box, [0, 410, 1000, 590], 0, 'glyph 工'), ...lower]
+      const result = componentFix('⿳吅工吅', input, composer)
+      const bar = result[upper.length], mask = fill(groupRings([bar], 24), 1000, [0, 0, 1000, 1000])
+      // Sample each stroke through its body, away from the terminals and centre stem.
+      const edges = x => Array.from({ length: 999 }, (_, i) => i + 1)
+        .filter(y => mask[y * 1000 + x] !== mask[(y - 1) * 1000 + x])
+      const left = edges(300), right = edges(700)
+      expect(left).toHaveLength(4)
+      expect(right).toHaveLength(4)
+      for (const i of [0, 2]) {
+        const thickness = left[i + 1] - left[i]
+        const rise = ((left[i] + left[i + 1]) - (right[i] + right[i + 1])) / 800
+        expect(rise).toBeGreaterThan(0.025)
+        expect(rise).toBeLessThan(0.077)
+        expect(thickness).toBeGreaterThan(split ? 22 : 38)
+        expect(thickness).toBeLessThan(split ? 34 : 56)
+      }
+      expect(ink([bar])[3]).toBeLessThan(ink(result.slice(0, upper.length))[1])
+      expect(ink([bar])[1]).toBeGreaterThan(ink(result.slice(upper.length + 1))[3])
+      // The facing vertical channels above and below 工 stay optically balanced.
+      const gap = (a, b) => {
+        const ma = fill(groupRings(a, 24), 200, ink(result)), mb = fill(groupRings(b, 24), 200, ink(result)), gs = []
+        for (let col = 0; col < 200; col++) {
+          let la = -1, fb = -1
+          for (let row = 0; row < 200; row++) {
+            const k = row * 200 + col
+            if (ma[k]) la = row
+            if (mb[k] && fb < 0) fb = row
+          }
+          if (la >= 0 && fb >= 0) gs.push(fb - la)
+        }
+        gs.sort((x, y) => x - y)
+        return gs[gs.length >> 1]
+      }
+      expect(Math.abs(gap(result.slice(0, upper.length), [bar]) - gap([bar], result.slice(upper.length + 1)))).toBeLessThanOrEqual(2)
+      ink(result).forEach((edge, i) => expect(edge).toBeCloseTo(ink(input)[i], 5))
+      expect(componentFix('⿳吅工吅', result, composer)).toEqual(result)
+      expect(bar.part.strokes).toEqual(gong.strokes)
+    })
+  }
 })
 
 describe('⿱呼乙', () => {
