@@ -1,5 +1,5 @@
 // @ts-check
-import { settledRings, weightVectors } from './mix-outline.js'
+import { inkPolygons, settledRings, weightVectors } from './mix-outline.js'
 /** Points spaced by arc length, without the duplicate closing point.
  * @param {number[][]} ring @param {number} n */
 function sample(ring, n) {
@@ -2273,4 +2273,103 @@ export function prepareWeight(rings) {
       const pts = r.map(([x, y, dx, dy]) => [x + dx * (weight - 1), y + dy * (weight - 1)])
       return [...pts, pts[0]]
     })
+}
+
+/** Group the original stroke contours across faces before overlapping ink is united.
+ * A counter travels with the contour that encloses it. Several strokes may belong
+ * to one outline in another face.
+ * @param {number[][][]} shapes flat, registered xy pairs per face and contour
+ * @returns {number[][][][][][] | null} grouped polygons in each face */
+export function sourceGroups(shapes) {
+  const faces = shapes.map((shape) => {
+    const rings = shape.map((flat) => {
+      const ring = []
+      for (let i = 0; i < flat.length; i += 2) ring.push([flat[i], flat[i + 1]])
+      return [...ring, ring[0]]
+    })
+    const areas = rings.map(turning)
+    const sign = Math.sign(areas.reduce((a, b) => (Math.abs(a) > Math.abs(b) ? a : b), 0))
+    const strokes = rings.filter((_, i) => areas[i] * sign > 0).map((r) => [r])
+    for (const [i, ring] of rings.entries()) {
+      if (areas[i] * sign >= 0) continue
+      const owners = strokes.filter((s) => ring.slice(0, -1).every((p) => inside(p, s[0])))
+      if (owners.length !== 1) return []
+      owners[0].push(ring)
+    }
+    return strokes
+  })
+  const ref = faces.reduce((a, b) => (a.length <= b.length ? a : b))
+  if (ref.length < 2) return null
+  const probes = ref.map((stroke) => sample(stroke[0], 64))
+  const assignments = faces.map((face) => {
+    if (face === ref) return ref.map((_, i) => i)
+    const costs = face.map((stroke) => {
+      const points = sample(stroke[0], 32)
+      return ref.map((target, k) => {
+        let cost = 0
+        for (const p of points) {
+          const dist = Math.min(...probes[k].map((q) => (p[0] - q[0]) ** 2 + (p[1] - q[1]) ** 2))
+          cost += dist * (inside(p, target[0]) ? 0.35 : 1)
+        }
+        return cost / points.length
+      })
+    })
+    const owners = costs.map((row) => row.indexOf(Math.min(...row)))
+    // Reserve one stroke per target at the smallest increase over its nearest target.
+    const prices = face.map((_, i) =>
+      face.map((__, j) => (j < ref.length ? costs[i][j] - costs[i][owners[i]] : 0))
+    )
+    assignMinCost(prices).forEach((j, i) => {
+      if (j < ref.length) owners[i] = j
+    })
+    // A bar can lie nearer a neighbouring stroke than the frame it closes.
+    const united = (/** @type {number[]} */ indices) =>
+      inkPolygons(indices.flatMap((i) => face[i].map((r) => r.flat())))
+    const penalty = (/** @type {number[]} */ indices, /** @type {number} */ j) => {
+      if (!indices.length) return Infinity
+      const polys = united(indices)
+      return (
+        1500 * (polys.length - 1) +
+        1000 * Math.abs(polys.reduce((s, p) => s + p.length - 1, 0) - ref[j].length + 1) +
+        indices.reduce((s, i) => s + costs[i][j], 0)
+      )
+    }
+    const indices = ref.map((_, j) => owners.flatMap((owner, i) => (owner === j ? [i] : [])))
+    const scores = indices.map(penalty)
+    if (indices.some((ii, j) => united(ii).length !== 1 || united(ii)[0].length !== ref[j].length)) {
+      for (let pass = 0; pass < face.length; pass++) {
+        let gain = 1,
+          move
+        for (let i = 0; i < owners.length; i++) {
+          const from = owners[i]
+          if (indices[from].length < 2) continue
+          const left = indices[from].filter((k) => k !== i),
+            ls = penalty(left, from)
+          for (let j = 0; j < ref.length; j++)
+            if (j !== from) {
+              const right = [...indices[j], i],
+                rs = penalty(right, j)
+              const saved = scores[from] + scores[j] - ls - rs
+              if (saved > gain) {
+                gain = saved
+                move = { i, from, j, left, right, ls, rs }
+              }
+            }
+        }
+        if (!move) break
+        const { i, from, j, left, right, ls, rs } = move
+        indices[from] = left
+        indices[j] = right
+        scores[from] = ls
+        scores[j] = rs
+        owners[i] = j
+      }
+    }
+    return owners
+  })
+  return ref.map((_, j) =>
+    faces.map((face, f) =>
+      inkPolygons(face.flatMap((s, i) => (assignments[f][i] === j ? s.map((r) => r.flat()) : [])))
+    )
+  )
 }
