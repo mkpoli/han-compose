@@ -1,5 +1,6 @@
 // @ts-nocheck: a port of han-compose's Python, kept line for line; its types are the arrays it reads.
 import { resolveYaoForm } from './yao-forms.js'
+import { collectYaoHosts } from './yao-surgical.js'
 // The composer in the browser: han-compose's export (manifest, layout and the drawing data of each
 // key) loaded as a sequence needs it, and the sequence drawn from it as an SVG path. A file is
 // fetched once a page; a gzipped one (the export writes them so) is unpacked with DecompressionStream.
@@ -276,7 +277,10 @@ function keysOf(tree, out = [], separate = false, fontStyle = 'sans', root = tru
       return out
     }
   }
-  if (keyOf(tree) !== '幺󠄀' && resolveYaoForm(keyOf(tree))) return out
+  if (root) {
+    for (const host of collectYaoHosts(keyOf(tree))) out.push(host)
+  }
+  if (keyOf(tree) !== '幺󠄀' && resolveYaoForm(keyOf(tree))) { out.push('幺'); return out }
   if ((keyOf(tree) !== '𦈁' && u26201Choice(keyOf(tree))) || rateRenderChoice(keyOf(tree)) || (separate ? isGroupedForm : isComponentForm)(keyOf(tree), fontStyle)) return out
   if (!keyOf(tree).includes(EMPTY)) out.push(keyOf(tree))
   const designed = leafCutChar(keyOf(tree))

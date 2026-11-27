@@ -1,5 +1,6 @@
 // @ts-nocheck: a port of han-compose's Python, kept line for line; its types are the arrays it reads.
 import { resolveYaoForm } from './yao-forms.js'
+import { alignedYaoGroups, collapseYaoHost, containsYaoVariant, matchedYaoForTarget, replaceYaoInPart } from './yao-surgical.js'
 import { fangsongDottedHe, fitDottedHe, isDottedHe, markDottedHe } from './dotted-bopomofo.js'
 import { columnClearance, settleColumns } from './column-spacing.js'
 import { finishGrassTang, isGrassTang, markGrassTang } from './grass-tang.js'
@@ -995,14 +996,23 @@ export class Composer {
     if (!form || this.excluded(text) || this.excluded('幺')) return null
     return text === '幺󠄀' && this.data.rec(text)?.G ? null : form
   }
+  surgicalYao(text) {
+    if (!containsYaoVariant(text) || this.yaoChoice(text) || rateRenderChoice(text)) return null
+    const collapsed = collapseYaoHost(text, k => this.bySequence(k))
+    if (!collapsed || collapsed.host === '幺' || this.excluded(collapsed.host)) return null
+    const glyph = this.drawnGlyph(collapsed.host)
+    if (!glyph || !alignedYaoGroups(glyph, collapsed.host, collapsed.paths.length)) return null
+    return { ...collapsed, glyph }
+  }
   reviewedMetric(text) {
     const form = this.standaloneYao(text)
-    if (form) return yaoPart('folded')
+    if (form) return this.drawnGlyph('幺') ?? yaoPart('folded')
     const pair = this.yaoChoice(text)
     if (pair) return u26201Part({})
     const choice = rateRenderChoice(text)
-    if (!choice || this.excluded(choice.host)) return null
-    return ratePart(rateFormsFor(choice.host)[0].text, this.fontStyle)
+    if (choice && !this.excluded(choice.host)) return ratePart(rateFormsFor(choice.host)[0].text, this.fontStyle)
+    const surgical = this.surgicalYao(text)
+    return surgical ? surgical.glyph : null
   }
   // An export may supply a native 𦈁 in its own face. An explicit component choice
   // draws the selected design even when that export also has the base character.
@@ -1018,20 +1028,35 @@ export class Composer {
     const pair = this.yaoChoice(text)
     const form = this.standaloneYao(text)
     if (pair || form) {
-      const part = form ? yaoPart(form.id) : u26201Part(pair)
+      let part = form ? yaoPart(form.id) : u26201Part(pair)
+      if (form && !atRoot) {
+        const nativeYao = this.drawnGlyph('幺')
+        if (nativeYao) part = matchedYaoForTarget(form.id, nativeYao, region)
+      }
       const target = atRoot ? mapped(part.box, componentConstants.face, region) : region
       const origin = form ? 'Noto Serif CJK · 幺（重繪）' : '文津宋體 · 𦈁'
       return [{ ...placed(part, part.box, target, partInk(part), origin), fixed: true }]
     }
     const rate = rateRenderChoice(text)
-    return rate && !this.excluded(rate.host) ? rateParts(text, this.fontStyle, region, atRoot) : null
+    if (rate && !this.excluded(rate.host)) return rateParts(text, this.fontStyle, region, atRoot)
+    const surgical = this.surgicalYao(text)
+    if (surgical) {
+      const glyph = atRoot ? surgical.glyph : (this.drawnGlyph(surgical.host, true) ?? surgical.glyph)
+      return replaceYaoInPart(glyph, surgical.host, surgical.paths, surgical.edits, region, atRoot)
+    }
+    return null
   }
   parse = sequence => {
     const tree = parseTree(sequence, this.arity, true)
-    return containsRateForm(sequence) || containsU26201(sequence) ? this.reviewedLeaves(tree) : tree
+    return containsRateForm(sequence) || containsU26201(sequence) || containsYaoVariant(sequence) ? this.reviewedLeaves(tree) : tree
+  }
+  yaoHostRecord(key) {
+    if (this.standaloneYao(key)) return this.data.rec('幺')
+    const surgical = this.surgicalYao(key)
+    return surgical ? this.data.rec(surgical.host) : null
   }
   // A key holding an empty slot has no record and no hosts: nothing is asked for it.
-  rec = key => key.includes(EMPTY) ? null : this.formRecord(key) ?? this.variantRecord(key) ?? this.data.rec(key) ?? componentRecord(key, this.fontStyle)
+  rec = key => key.includes(EMPTY) ? null : this.formRecord(key) ?? this.variantRecord(key) ?? this.yaoHostRecord(key) ?? this.data.rec(key) ?? componentRecord(key, this.fontStyle)
   /**
    * The record of a character under a variation selector: its own outline, laid out as its base is.
    * The export records a variation sequence's outline alone, so what the layout reads of it (its
@@ -1305,7 +1330,7 @@ export class Composer {
   crossings(node, axis, seen = new Set()) {
     const text = keyOf(node), reviewed = this.reviewedMetric(text)
     if (reviewed) {
-      const key = (resolveYaoForm(text) ? '&VR-5E7A-02;' : u26201Choice(text) ? '𦈁' : rateRenderChoice(text).host) + '|' + axis
+      const key = (resolveYaoForm(text) ? '&VR-5E7A-02;' : u26201Choice(text) ? '𦈁' : rateRenderChoice(text)?.host ?? collapseYaoHost(text, k => this.bySequence(k))?.host ?? text) + '|' + axis
       if (!this.crossingCache.has(key)) this.crossingCache.set(key, strokeCrossings(reviewed, axis))
       return this.crossingCache.get(key)
     }
@@ -1603,7 +1628,7 @@ export class Composer {
     let slots = 0
     const number = node => node === EMPTY ? `${EMPTY}${slots++}` : Array.isArray(node) ? mapOperands(node, number) : node
     const key = keyOf(tree)
-    const numbered = number(containsRateForm(key) || containsU26201(key) ? this.reviewedLeaves(tree) : tree)
+    const numbered = number(containsRateForm(key) || containsU26201(key) || containsYaoVariant(key) ? this.reviewedLeaves(tree) : tree)
     const out = []
     let leaf = 0
     const f = region, width = f[2] - f[0], height = f[3] - f[1]

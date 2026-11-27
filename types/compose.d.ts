@@ -105,6 +105,7 @@ export declare class Composer {
         witnesses: string[];
         aliases: string[];
     } | null;
+    surgicalYao(text: any): any;
     reviewedMetric(text: any): any;
     yaoChoice(text: any): {
         left?: string;
@@ -121,6 +122,7 @@ export declare class Composer {
         fixed: boolean;
     }[] | null;
     parse: (sequence: any) => any;
+    yaoHostRecord(key: any): any;
     rec: (key: any) => any;
     /**
      * The record of a character under a variation selector: its own outline, laid out as its base is.
