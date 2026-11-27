@@ -114,6 +114,12 @@ export declare const COMPONENT_FIXES: {
         glyphs: {};
         apply(parts: any, composer: any): any;
     };
+    '\u2FF3\u5405\u5DE5\u5405': {
+        glyphs: {
+            工: string;
+        };
+        apply(parts: any, composer: any): any;
+    };
     '\u2FFB\u53E3\u571F': {
         glyphs: {
             口: string;
