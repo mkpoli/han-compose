@@ -2589,6 +2589,8 @@ export class Composer {
       const adopted = this.enclosureRow(op, children, region)
       if (adopted) return adopted
     }
+    const quadrant = this.quadrantSurround(op, children, region)
+    if (quadrant) return quadrant
     const stroke = op === '⿸' && this.strokeEnclosure(children, region)
     if (stroke) return stroke
     const legs = !this.separate && op === '⿸' && this.legEnclosure(children, region)
@@ -4894,6 +4896,46 @@ export class Composer {
   get partial() { return (this.data.missing?.size ?? 0) > 0 }
   fit(outer, inner, region, stem, C, options) { return this.partial ? false : fitInside(outer, inner, region, stem, C, options) }
   collide(outer, inner, region, size) { return this.partial ? 0 : collision(outer, inner, region, size) }
+
+  /** A cross or T keeps its full glyph while the operand fits proportionally in its open quadrant.
+   * Enclosure teachers and swept feet describe frames; two crossing bars use their actual opening.
+   */
+  quadrantSurround(op, children, region) {
+    if (!['⿸', '⿹', '⿺', '⿽'].includes(op) || typeof children[0] !== 'string') return null
+    if (this.excluded(children[0]) || this.enclosureForm(op, children[0]) || this.forced(children[0])) return null
+    const glyph = this.drawnGlyph(children[0])
+    if (!glyph || this.partial) return null
+    const outer = [this.place(glyph, region, this.ink(children[0]), `glyph ${children[0]}`)]
+    const size = 64, ink = fill(groupRings(outer), size, drawnBox(outer[0]))
+    const rows = [], cols = []
+    for (let i = 0; i < size; i++) {
+      let row = 0, col = 0
+      for (let j = 0; j < size; j++) { row += ink[i * size + j]; col += ink[j * size + i] }
+      if (row >= 0.65 * size) rows.push(i)
+      if (col >= 0.65 * size) cols.push(i)
+    }
+    if (!rows.length || !cols.length) return null
+    const r0 = rows[0], r1 = rows[rows.length - 1], c0 = cols[0], c1 = cols[cols.length - 1]
+    if (r1 - r0 >= 16 || c1 - c0 >= 16) return null
+    // A junction on both edges is an ordinary corner, such as 厂 or 广.
+    if (![(r0 + r1) / 2, (c0 + c1) / 2].some(mid => mid >= 16 && mid <= 48)) return null
+    let total = 0, rest = 0
+    for (let r = 0; r < size; r++) for (let c = 0; c < size; c++) {
+      total += ink[r * size + c]
+      // Allow the lean and terminals of brush and serif bars.
+      if ((r < r0 - 4 || r > r1 + 4) && (c < c0 - 4 || c > c1 + 4)) rest += ink[r * size + c]
+    }
+    if (rest > 0.12 * total) return null
+    const opening = this.room(op, outer, region)
+    if (!opening) return null
+    const room = shrunk(opening, this.C.OPENING_SHARE)
+    const own = typeof children[1] === 'string' && !this.excluded(children[1]) ? this.drawnGlyph(children[1]) : null
+    const inner = this.node(children[1], own ? own.box : this.face)
+    const source = bounds(inner), target = fitted(source, room, 1)
+    for (const part of inner) part.target = targetFor(part, mapped(drawnBox(part), source, target))
+    for (const part of [...outer, ...inner]) part.fixed = true
+    return [...outer, ...inner]
+  }
 
   /** The largest empty box inside `region` the placed enclosing part closes on its closed sides,
    *  `ROOM_MARGIN` stroke widths clear of its ink (`_room`). On an open side the box stops at the

@@ -3418,6 +3418,9 @@ class Composer:
             raise LookupError(f"{op} is not laid out.")
         if op == OVERLAY:
             return self._overlay(children, region)
+        quadrant = self._quadrant_surround(op, children, region)
+        if quadrant is not None:
+            return quadrant
         # An unreadable row can expand far beyond a single glyph's horizontal footprint.
         unknown = not at_root and op == "⿰" and any(self._unknown_aligned(c, 0) for c in children)
         if self.hosted and self.layout is not None and len(children) == 2 and (
@@ -3774,7 +3777,9 @@ class Composer:
                             frame = (min(b[0] for b in boxes), min(b[1] for b in boxes), max(b[2] for b in boxes), max(b[3] for b in boxes))
                             return [p for child, b in zip(children, boxes) for p in self._node(child, mapped(b, frame, region))]
                         return self._node((op, *children), region)
-                return self._node((AXIS_STACK, *children), region)
+                # Crosses have no upper or lower enclosure posture; their operands share the em.
+                if len(outer) != 1 or not _crossed_bars(outer[0].part):
+                    return self._node((AXIS_STACK, *children), region)
         if not teachers:
             em = (0.0, ASCENT - EM, EM, ASCENT)
             out = []
@@ -3974,6 +3979,34 @@ class Composer:
             piece = drawn.pieces[k]
             out.append(Placed(piece, piece.box, fitted(piece.box, room, CELL_STRETCH), native=self.ink(drawn.char), origin=f"host {drawn.char}"))
         return out
+
+    def _quadrant_surround(self, op: str, children: list[Node], region: Box) -> list[Placed] | None:
+        """A cross or T keeps its full glyph; the operand fits proportionally in its open quadrant.
+
+        Enclosure teachers and swept feet describe frames. Two crossing bars have no such posture:
+        their actual opening determines both placement and size, before those fallbacks run.
+        """
+        if op not in ("⿸", "⿹", "⿺", "⿽") or not isinstance(children[0], str):
+            return None
+        if children[0] in self.exclude:
+            return None
+        glyph = self.font.glyph(children[0])
+        if glyph is None or not _crossed_bars(glyph):
+            return None
+        outer = [self._place(glyph, region, self.ink(children[0]), f"glyph {children[0]}")]
+        room = self._room(op, outer, region)
+        if room is None:
+            return None
+        room = _shrunk(room, OPENING_SHARE)
+        own = self.font.glyph(children[1]) if isinstance(children[1], str) and children[1] not in self.exclude else None
+        inner = self._node(children[1], own.box if own is not None else self.face)
+        source = _ink_box(inner)
+        target = fitted(source, room, 1.0)
+        for part in inner:
+            part.target = mapped(part.target, source, target)
+        for part in outer + inner:
+            part.fixed = True
+        return outer + inner
 
     def _room(self, op: str, outer: list[Placed], region: Box, size: int = 48) -> Box | None:
         """The largest empty box inside `region` that the placed enclosing part closes on its
@@ -4216,6 +4249,23 @@ def _fit_under_cover(op: str, children: list[Node], groups: list[list[Placed]]) 
             for placed in lower:
                 placed.target = (placed.target[0], placed.target[1] + shift,
                                  placed.target[2], placed.target[3] + shift)
+
+
+def _crossed_bars(glyph: Part) -> bool:
+    """Two long bars meeting away from at least one edge, allowing brush lean and serif terminals."""
+    ink = fill(_rings(glyph.contours, [c.light for c in glyph.contours]), 64, glyph.box)
+    rows, cols = (np.flatnonzero(ink.sum(axis=axis) >= 0.65 * 64) for axis in (1, 0))
+    if not len(rows) or not len(cols):
+        return False
+    if rows[-1] - rows[0] >= 16 or cols[-1] - cols[0] >= 16:
+        return False
+    # A junction on both edges is an ordinary corner, such as 厂 or 广.
+    if not any(16 <= (band[0] + band[-1]) / 2 <= 48 for band in (rows, cols)):
+        return False
+    rest = ink.copy()
+    rest[max(0, rows[0] - 4):min(64, rows[-1] + 5)] = False
+    rest[:, max(0, cols[0] - 4):min(64, cols[-1] + 5)] = False
+    return rest.sum() <= 0.12 * ink.sum()
 
 
 def _ink_box(group: list[Placed]) -> Box:

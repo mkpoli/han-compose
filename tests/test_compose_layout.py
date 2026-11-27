@@ -203,7 +203,8 @@ def teacher_composer(monkeypatch, op, bare_index, extent):
     if axis == 0:
         intervals = [(100 - hi, 100 - lo) for lo, hi in intervals]
     boxes = [(lo, 0, hi, 100) if axis == 0 else (0, lo, 100, hi) for lo, hi in intervals]
-    source = SimpleNamespace(box=(0, 0, 100, 100))
+    points = np.array([(0, 0), (100, 0), (100, 100), (0, 100)], dtype=float)
+    source = C.Part([C.Contour([("moveTo", 1, False)] + [("lineTo", 1, False)] * 3, points, points.copy())])
     c = C.Composer(SimpleNamespace(glyph=lambda _: source), {})
     c._faces[None] = ((0, 0, 100, 100), set())
     c.__dict__["spelled"] = set()
