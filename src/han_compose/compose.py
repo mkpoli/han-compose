@@ -1,10 +1,11 @@
-"""Draw a character Unicode lacks from its Ideographic Description Sequence, in one of five styles.
+"""Draw a character Unicode lacks from its Ideographic Description Sequence, in one of six styles.
 
 `sans` draws in GenZui Sans, which takes its ideographs unchanged from Noto Sans JP at weight 400,
 which in turn draws them as Noto Sans CJK JP does. The composer reads Noto Sans CJK JP, the variable
 font that draws 30,289 ideographs to Noto Sans JP's 13,742 with the same outlines, so each outline is
 known at weight 400 and at the style's heavy weight with the same points. `serif` reads Noto Serif
-CJK JP, the variable Source Han Serif, the same way. `regular` reads TW-Kai, the CNS 11643 Kai, at
+CJK JP, the variable Source Han Serif, the same way. `woodblock` reads Nôm Na Tống, a Song face in
+the manner of woodblock-printed books, at one static weight, and draws nothing that font lacks. `regular` reads TW-Kai, the CNS 11643 Kai, at
 one static weight, with its Extension B and G faces drawing what the BMP face lacks. `pen-writing`
 reads Kureedo, the Klee One design extended with historical kana, at one static weight, with GenZui
 Sans drawing characters Kureedo lacks. `fangsong` reads Zhuque Fangsong the same way, with Jigmo
@@ -108,12 +109,17 @@ class Style:
     own_hosts: bool = False
     #: How far up the style's glyphs move to meet the composer's em, in 1000-unit units.
     y_shift: float = 0.0
+    #: For a static face whose parts are weighted: the powers (across x, across y) of a part's scale
+    #: its stroke width follows in the font's own characters, measured by `calibrate-parts`. A part
+    #: drawn at 0.5 of its glyph keeps 0.5 ** k of its stem. None weights by density (`stem_curve`).
+    part_stems: tuple[float, float] | None = None
 
 
 OFL = "SIL OFL 1.1"
 #: The licence Taiwan's open data platform applies by default; its Exhibit asks for the provider,
 #: the release and its version, and the licence's address where a work derived from the data is used.
 OGL = "Open Government Data License 1.0"
+MIT = "MIT"
 #: Plangothic P1 and P2 draw the CJK extensions in the Source Han Sans design Noto Sans CJK shares:
 #: the source of components Noto lacks (𦒱, 𡉵). Pinned as `scripts/build_vi_hani.py` pins them.
 PLANGOTHIC_URL = "https://github.com/Fitzgerald-Porthmouth-Koenigsegg/Plangothic-Project/releases/download/V2.9.5795"
@@ -169,6 +175,30 @@ STYLES = {
         synthetic_y=True,
         kindred=False,
     ),
+    # Nôm Na Tống 5.20 (Nôm Na Group, Vietnamese Nôm Preservation Foundation): a static Song face cut
+    # after woodblock printing, the reference font for Hán-Nôm encoding. No other font fills in
+    # what it lacks.
+    "woodblock": Style(
+        "woodblock",
+        Source("NomNaTong-Regular-5.20.ttf",
+               "https://github.com/nomfoundation/font/releases/download/v5.20/NomNaTong-Regular.ttf",
+               "67a1a68a85566275bbbf72b3501714bbe24628e74f1762ea812a5bd3a8d606e1", MIT),
+        (),
+        # Fitted on 1,500 of its ideographs (`calibrate`).
+        ((65.09, -1.129), (28.14, -0.417)),
+        heavy=400,
+        kindred=False,
+        own_hosts=True,
+        # A cut Song face, not a brush: a part drawn smaller than its glyph is grown from the one
+        # weight the font has (`STATIC_GROW`) to the stem the font gives such a part. Measured on
+        # 1,983 parts of its own characters against their glyphs (`calibrate-parts`): a part at
+        # half size keeps 84% of its verticals and 89% of its horizontals.
+        part_stems=(0.259, 0.171),
+        # Its full ideographs span -151 to 848 of the em, Noto Serif's -78 to 837: the lift centres
+        # them where Noto Serif's stand. They fill the em's whole height, so a stroke at the top
+        # or the foot can pass its edge by a few units.
+        y_shift=31.0,
+    ),
     # Zhuque Fangsong 0.212 (technical preview), recut from the 1932 南宋 type. It is a static font, so
     # 400 is also the heavy master; Jigmo draws the ideographs it lacks, in the nearest pinned design.
     "fangsong": Style(
@@ -186,7 +216,8 @@ STYLES = {
         kindred=False,
         weighted=False,
         own_hosts=True,
-    ),    # TW-Kai (CNS 11643 Kai, fonts version 11510.1): a static brush face whose Extension B and G
+    ),
+    # TW-Kai (CNS 11643 Kai, fonts version 11510.1): a static brush face whose Extension B and G
     # faces draw the ideographs the BMP face lacks, in the same design.
     "regular": Style(
         "regular",
@@ -618,6 +649,15 @@ def japanese_sequences() -> dict[str, str]:
     return out
 
 
+def drawn_sequences(style: str) -> dict[str, str]:
+    """The descriptions used to index and draw the glyphs in this style."""
+    sequences = japanese_sequences()
+    if style == "fangsong":
+        # Zhuque draws both with 柬. Indexing the Japanese forms lets 練 donate 柬 to ⿰山東.
+        sequences.update({"練": "⿰糹柬", "煉": "⿰火柬"})
+    return sequences
+
+
 #: BabelStone's tag for another analysis of the same shape, not a glyph of its own (主 as ⿱亠土).
 ANALYSIS = "X"
 
@@ -821,7 +861,7 @@ class Font:
     def family(self) -> tuple[float, float] | None:
         """The fallbacks' stroke widths against this font's at 400, across x and across y: None where
         the fallbacks are of this font's design. Measured when a fallback glyph is first weighed."""
-        if self.style.kindred:
+        if self.style.kindred or not self.fallbacks:
             return None
         fallback = next(f for f in self.fallbacks if ord("丨") in f.cmap and ord("一") in f.cmap)
         widths = []
@@ -940,7 +980,10 @@ class Font:
         font is static."""
         width = None
         if self.static:
-            heavy, width = [_grown(c.light, (STATIC_GROW, STATIC_GROW)) for c in contours], self._measured(contours)
+            # `_grown` moves a point to its contour's left, outward where ink lies to the right. A
+            # face wound the other way (Nôm Na Tống, Kureedo) grows by the same amount to the right.
+            by = -STATIC_GROW if _ink_on_left(contours) else STATIC_GROW
+            heavy, width = [_grown(c.light, (by, by)) for c in contours], self._measured(contours)
         else:
             pen = DecomposingRecordingPen(self.heavy)
             self.heavy[name].draw(pen)
@@ -970,6 +1013,17 @@ def _across(rings: list[np.ndarray], axis: int) -> float:
     if not widths:
         raise ValueError("No line across the stroke's middle meets its outline twice.")
     return float(np.median(widths))
+
+
+def _ink_on_left(contours: list[Contour]) -> bool:
+    """Whether a glyph's ink lies to the left of its contours' direction: its largest contour, an
+    outer one, runs anticlockwise with y up. TrueType winds outer contours clockwise, PostScript
+    anticlockwise, and a font converted from one keeps the other's direction."""
+    def area(points: np.ndarray) -> float:
+        x, y = points[:, 0], points[:, 1]
+        return 0.5 * float(np.sum(x * np.roll(y, -1) - np.roll(x, -1) * y))
+    areas = [area(c.light) for c in contours if len(c.light) >= 3]
+    return bool(areas) and max(areas, key=abs) > 0
 
 
 def _grown(points: np.ndarray, by: tuple[float, float]) -> np.ndarray:
@@ -1161,6 +1215,25 @@ def enclosures(part: Part, op: str) -> list[tuple[Part, Part]]:
     ranked = sorted(units, key=depth, reverse=True)
     return [(Part([c for u in ranked[k:] for c in u]), Part([c for u in ranked[:k] for c in u]))
             for k in range(1, len(ranked))]
+
+
+def _names_stroke(node: Node) -> bool:
+    """Whether a sequence names a CJK Strokes character (㇇) among its operands."""
+    if isinstance(node, str):
+        return 0x31C0 <= ord(node[0]) <= 0x31EF
+    return any(_names_stroke(n) for n in node[1:])
+
+
+#: The least extent a part's scale is measured over: a lone stroke's width says little of its scale.
+EVEN_LEAST = 60.0
+
+
+def _evenness(parts: list[Placed]) -> float:
+    """How evenly a drawing scales its parts: the least scale any part takes along x or y over the
+    greatest, 1 where every part keeps the proportions and the relative size its source drew."""
+    scales = [(p.target[k + 2] - p.target[k]) / (p.source[k + 2] - p.source[k])
+              for p in parts if not p.cut for k in (0, 1) if p.source[k + 2] - p.source[k] >= EVEN_LEAST]
+    return min(scales) / max(scales) if scales and min(scales) > 0 else 0.0
 
 
 def mapped(box: Box, frame: Box, region: Box) -> Box:
@@ -3123,6 +3196,7 @@ class Composer:
         narrow box may grow past the heavy master, up to `WEIGHT_GROWTH`."""
         density = sum(self.ink("", p.part) * (p.scale[0] + p.scale[1]) / 2 for p in placed)
         ratio = [self.font.stem[axis][1] / self.font.stem[axis][0] - 1 for axis in (0, 1)]
+        powers = getattr(getattr(self.font, "style", None), "part_stems", None)
         for p in placed:
             if p.fixed:
                 continue
@@ -3130,11 +3204,19 @@ class Composer:
             for axis, s in enumerate(p.scale):
                 extent = p.source[axis + 2] - p.source[axis]
                 if extent <= 2 * self.font.stem[axis][0]:
-                    # A lone stroke across this axis: drawn at the width the density calls for, not scaled.
-                    width = extent * self.font.width(density, axis) / self.font.width(p.native, axis)
+                    # A lone stroke across this axis: drawn at the width the density calls for, not
+                    # scaled; in a face weighted by scale, at the width its length's scale calls for.
+                    if powers is not None:
+                        width = extent * max(p.scale[1 - axis], 1e-6) ** powers[axis]
+                    else:
+                        width = extent * self.font.width(density, axis) / self.font.width(p.native, axis)
                     middle = (target[axis] + target[axis + 2]) / 2
                     target[axis], target[axis + 2] = middle - width / 2, middle + width / 2
                     weight.append(0.0)
+                    continue
+                if powers is not None:
+                    # The stem the font gives a part at this scale, over the stem plain scaling leaves.
+                    weight.append(float(np.clip((max(s, 1e-6) ** (powers[axis] - 1) - 1) / ratio[axis], -0.6, WEIGHT_GROWTH)))
                     continue
                 measured = p.part.contours[0].width
                 own = measured[axis] if measured is not None else self.font.width(p.native, axis)
@@ -3163,8 +3245,16 @@ class Composer:
                 part.target = mapped(part.target, frame, region)
         return parts
 
-    def _node(self, node: Node, region: Box, at_root: bool = False) -> list[Placed]:
-        """`node` drawn into `region`; at the root, the whole character, laid out in the em."""
+    def _foreign(self, char: str) -> bool:
+        """Whether only a fallback font of another design draws `char`."""
+        style = getattr(self.font, "style", None)
+        own = getattr(self.font, "own", None)
+        return style is not None and own is not None and not getattr(style, "kindred", True) and not own(char)
+
+    def _node(self, node: Node, region: Box, at_root: bool = False, regroup: bool = True) -> list[Placed]:
+        """`node` drawn into `region`; at the root, the whole character, laid out in the em. A row or
+        column of three is also drawn as each pairing of its neighbours (⿲氵木目 as ⿰氵⿰木目 and
+        ⿰⿰氵木目) unless `regroup` is off, and the drawing that scales its parts most evenly is kept."""
         if node == ("⿺", ("⿱", "𡗗", "夂"), "面") and (parts := self._wheat_face(region)):
             return parts
         if isinstance(node, str) and is_jamo_run(node):
@@ -3198,6 +3288,12 @@ class Composer:
             # character (日 as ⿴囗一) is a part in its own right: the glyph stays.
             if tree is not None and (self.stroked(tree) or encoded in self.atomic):
                 squeezed = False
+            if tree is not None and glyph is not None and self.hosted and self._foreign(encoded) and not _names_stroke(tree):
+                # A character only a fallback of another design draws (靇 in Jigmo's Mincho, in a
+                # Fangsong drawing) is drawn from its sequence in the main font; its fallback
+                # glyph stays where the sequence names a CJK stroke or cannot be drawn. `stroked`
+                # is no test here: a brush face draws 走 as one outline.
+                squeezed = True
             if glyph is not None and not (squeezed and tree is not None):
                 return [self._place(glyph, region, self.ink(encoded), f"glyph {encoded}")]
             if tree is None:
@@ -3229,6 +3325,20 @@ class Composer:
         # Resolve each node's original identity before changing its rendering layout.
         node = self._respelled(node)
         op, children = node[0], list(node[1:])
+        if (regroup and self.hosted and op in ("⿲", "⿳") and len(children) == 3
+                and not all(key(c) == key(children[0]) for c in children[1:])):
+            # Few characters hold a part in the middle of three, so it often has no host and its
+            # whole glyph is squeezed into the slot (木 a third as wide in ⿲氵木目). Two operands
+            # have hosts and a learned layout: the same row is drawn through them as well.
+            pair = "⿰" if op == "⿲" else "⿱"
+            first, middle, last = children
+            drawings = [self._node(node, region, at_root, regroup=False)]
+            for tree in ((pair, first, (pair, middle, last)), (pair, (pair, first, middle), last)):
+                try:
+                    drawings.append(self._node(tree, region, at_root))
+                except LookupError:
+                    continue
+            return max(drawings, key=_evenness)
         if op == VARIANT:
             return self._node(children[0], region, at_root)
         if op in ("⿾", "⿿"):
