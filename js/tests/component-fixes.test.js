@@ -34,6 +34,29 @@ function dotComposer() {
 }
 
 describe('a stroke correction', () => {
+  it('enlarges 幸 without distorting its contours until it meets 龹’s splayed legs', () => {
+    const rectOps = [['M', 1], ['L', 1], ['L', 1], ['L', 1]]
+    const juan = part('龹', [0, 500, 1000, 1000], [0, 500, 1000, 1000], [
+      [150, 720, 850, 770], [80, 500, 220, 740], [780, 500, 920, 740],
+    ])
+    const xingPart = part('glyph 幸', [0, 0, 1000, 1000], [0, 0, 1000, 500], [
+      [460, 0, 540, 1000], [100, 800, 900, 880],
+    ])
+    for (const p of [juan, xingPart]) for (const c of p.part.contours) c.ops = rectOps
+    const composer = {
+      fontStyle: 'serif', excluded: () => false, glyph: ch => ch === '幸' ? xingPart.part : null, ink: () => 1000,
+    }
+    const [upper, lower] = COMPONENT_FIXES['⿱龹幸'].apply([juan, xingPart], composer)
+    // Contours stay unstretched (same part object, no stem elongation).
+    expect(lower.part).toBe(xingPart.part)
+    expect(lower.target[1]).toBe(0)
+    expect(lower.target[3]).toBeGreaterThan(560)
+    expect(lower.target[3]).toBeLessThan(720)
+    expect(upper.target[3]).toBe(1000)
+    // Excluded 幸 leaves both parts unchanged.
+    expect(COMPONENT_FIXES['⿱龹幸'].apply([juan, xingPart], { ...composer, excluded: () => true })).toEqual([juan, xingPart])
+  })
+
   it('cuts a contour off at a height in the box it is drawn into', () => {
     const slash = part('x', [0, 0, 100, 1000], [0, 0, 1000, 1000], [[20, 0, 80, 1000]])
     const cut = clippedAbove(slash, [0], 600)
