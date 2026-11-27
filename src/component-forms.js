@@ -38,7 +38,7 @@ const styles = Object.fromEntries(Object.entries(data.forms).map(([style, forms]
 for (const [style, groups] of Object.entries(splitGrass)) styles[style].set('⺿', formOf(groups))
 for (const [style, groups] of Object.entries(inwardGrass)) styles[style].set('⻀', formOf(groups))
 // Adobe-Japan1 and Hanyo-Denshi register each of the two dot orientations.
-for (const [style, characters] of Object.entries(dotForms)) {
+for (const [style, characters] of Object.entries(dotForms.dots)) {
   for (const [char, pair] of Object.entries(characters)) {
     pair.forEach((contours, i) => {
       const form = { ...formOf([contours]), atomic: true }
@@ -46,6 +46,12 @@ for (const [style, characters] of Object.entries(dotForms)) {
         styles[style].set(char + String.fromCodePoint(selector), form)
       }
     })
+  }
+}
+// Whole-character fits for composed IDS. Leave operand-based layouts to the normal renderer.
+for (const [style, sequences] of Object.entries(dotForms.ids)) {
+  for (const [sequence, contours] of Object.entries(sequences)) {
+    styles[style].set(sequence, formOf([contours]))
   }
 }
 // The manuscript's water, enclosing 木 and net. Both descriptions share the same outlines.
