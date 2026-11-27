@@ -142,7 +142,7 @@ export declare class Composer {
         base: any;
         cell: any;
         layers: any;
-    }, region: any): any[];
+    }, region: any): any;
     /**
      * The base of a pyramid, drawn as a cell: a plain component fits its box with the wider stretch
      * a cell allows, so a wide, short base row fills its width. Anything else is drawn as usual.
@@ -450,11 +450,11 @@ export declare class Composer {
      *  gap. The letters come from the bundled Bopomofo outlines; without this a three-letter spelling
      *  shares by ink and the ㄙ, ㄨ and ㄥ fill the cell unevenly.
      *  @param {(string | any[])[]} children @param {number[]} region */
-    bopomofoBlock(children: (string | any[])[], region: number[]): any[];
+    bopomofoBlock(children: (string | any[])[], region: number[]): any;
     /** Two syllables in one block, set at the split the manuscript's blocks keep: the upper takes
      *  the top 54%, the lower the rest, and the lower reaches a little into the upper's band so the
      *  pair closes up rather than standing apart as two characters. @param {(string | any[])[]} children @param {number[]} region */
-    hangulBlock(children: (string | any[])[], region: number[]): any[];
+    hangulBlock(children: (string | any[])[], region: number[]): any;
     /** A run of conjoining jamo that no glyph spells, stood in its syllable's 配置: the initial
      *  above a horizontal vowel or beside a vertical one, the final below, and the 아래아 a dot of
      *  its own under the initial. Every letter is drawn from its own outline, so the run carries the
@@ -464,7 +464,7 @@ export declare class Composer {
     /** A syllable carrying tone marks: it keeps only the part of the box the marks leave free, at the
      *  right, and the marks stand at the left as the tone of the syllable is written.
      *  @param {string} base @param {string} tones @param {number[]} region */
-    toneLeaf(base: string, tones: string, region: number[], cell?: boolean): any[];
+    toneLeaf(base: string, tones: string, region: number[], cell?: boolean): any;
     /** The brush exports have no 𮇇. The two upper strokes of their own 米
      * sit on either side of the tall stem of their enclosing 木. */
     brushRiceFrame(rice: any, [left, right]: [any, any]): {
@@ -503,7 +503,7 @@ export declare class Composer {
     /** An enclosing part drawn as its kin's (`_kin_outer`): 足 round 羽 in 䟳 as 走's sweep, cut from a
      *  host, under 口 in 土's place; ⿱𡗗夂 round 面 as 麥's sweep, under 𡗗 in 來's place. Null when
      *  no host cuts. */
-    kinOuter(op: any, outer: any, kin: any, inner: any, box: any, innerBox: any): any[] | null;
+    kinOuter(op: any, outer: any, kin: any, inner: any, box: any, innerBox: any): any;
     /** An upper part drawn into a kin's upper room, its foot lowered as far as it stands short of the
      *  lower part where the kin's own upper part stands (`_settled`): 𡗗's 人 ends above 夊 where 來's
      *  legs reach into it in 麥. Each part's own gap counts, so a part ending lower than its
@@ -537,7 +537,7 @@ export declare class Composer {
     /** Place an arbitrary inner operand in the room designed for these native enclosures. */
     yanStackedDays(outer: any, contents: any): "" | boolean | undefined;
     /** Any ⿸ whose contents begin ⿱儿: the native legs join the enclosing bar. */
-    legEnclosure(children: any, region: any): any[] | null;
+    legEnclosure(children: any, region: any): any;
     /**
      * ⿸ whose upper-left operand is a bare stroke no character is described with there (丿, 丶, 丨).
      * Such a stroke's glyph runs across the whole face and encloses nothing, so the layout a real
@@ -562,7 +562,7 @@ export declare class Composer {
         contours: any[];
         box: number[];
     })[] | null;
-    yanEnclosure(children: any, region: any): any[] | null;
+    yanEnclosure(children: any, region: any): any;
     leafOwners(tree: any): {
         owners: any;
         split: boolean;
@@ -680,7 +680,7 @@ export declare class Composer {
     frameHalves(glyph: any, char: string, region: number[]): any[] | null;
     /** A frame drawn as two halves with its inner part between them (𦥑 in ⿴𦥑囟 reads as ⿲), or
      *  null for any other enclosure. */
-    splitFrame(op: any, children: any, region: any): any[] | null;
+    splitFrame(op: any, children: any, region: any): any;
     /** Whether `op` over `children` is a frame `splitFrame` draws as two halves. */
     splitsFrame(op: any, children: any): boolean;
     /** The boxes the learned layout gives a node's operands (`_learned_boxes`), carried into `region`
@@ -759,11 +759,14 @@ export declare class Composer {
         native: any;
         origin: any;
     } | null;
+    /** The repetition mark in 日本的汉字 (2019), p. 95, has two turns offset vertically
+     *  by three tenths of the total ink height. Their opposed diagonals cross once. */
+    doubleTurnParts(node: any, region: any): any;
     /** Operands drawn across each other (⿻): whole from a character that draws them so
      *  (`overlayGroup`), else where characters overlaying like operands put them. */
     overlay(children: any, region: any): any;
     /** A side-by-side pair in the two cells a stroke down the middle of an opening makes (山's in 幽). */
-    cells(op: any, outer: any, region: any, inner: any): any[] | null;
+    cells(op: any, outer: any, region: any, inner: any): any;
     /** ⿾ its operand mirrored left to right, ⿿ turned half round, about the region's centre. */
     flipped(op: any, child: any, region: any, atRoot: any): any;
     /** ㇯ a character less a component or a stroke KanjiVG names in it (鹿 less 比, 兵 less 丶): its
@@ -800,7 +803,7 @@ export declare class Composer {
     /** ㇯ the first operand less the second: its own outlines where the export cut them, else the
      *  glyph without what KanjiVG names so (`less`, which knows no index), else what is left of its
      *  description, else the second operand cut out of it. */
-    subtracted(node: any, region: any, atRoot: any): any[];
+    subtracted(node: any, region: any, atRoot: any): any;
     /**
      * What is left of a character when parts are taken out of it (㇯馬灬, ㇯㇯卿𠂎卩, ㇯[1]王一), drawn from the
      * character's own outlines: each part that stays is the cut the export made of it in that
