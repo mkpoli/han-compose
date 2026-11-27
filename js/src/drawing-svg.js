@@ -43,7 +43,7 @@ const colour = (value, fallback) => /^(?:#(?:[0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8}
  * @property {string} [cut]
  * @property {{ index: number, box: number[] }[]} [slots]
  * @property {number[] | null} [stroke]
- * @property {{ d: string, cut?: boolean, leaf?: number }[]} [parts]
+ * @property {{ d: string, cut?: boolean, leaf?: number, operandOnly?: boolean }[]} [parts]
  * @property {(string | null)[]} [transforms]
  * @property {{ text: string, box: number[], part?: number, flip?: [boolean, boolean], cut?: boolean, restored?: boolean }[]} [emoji]
  */
@@ -83,7 +83,7 @@ export function drawingSvg(drawing, { background = null, ink = '#000000', paddin
   const groupedEmoji = Boolean(!hasCut && emoji.length && pieces?.every(piece => Number.isInteger(piece.leaf))
     && emoji.some(item => inPart(item)))
   const split = !hasCut && (groupedEmoji || transforms?.some(transform => typeof transform === 'string' && transform))
-    && pieces?.every(piece => typeof piece.d === 'string')
+    && pieces?.every(piece => typeof piece.d === 'string' && !piece.operandOnly)
   /**
    * @param {{ text: string, box: number[], flip?: [boolean, boolean], cut?: boolean, part?: number }} item
    * @param {string} [attribute]
