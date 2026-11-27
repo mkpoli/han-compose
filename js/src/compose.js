@@ -49,7 +49,7 @@ import { hangulLetters } from './hangul-ids.js'
 import { toConjoiningJamo } from './hangul.js'
 import { componentFix } from './component-fixes.js'
 import { isOutbound, markFace, markParts } from './marks.js'
-import { SI_CHAIN, siChainForm, siTerminal } from './si-chain.js'
+import { SI_CHAIN, siChainForm, siBendDonor } from './si-chain.js'
 import { youChainDonors, youChainParts } from './you-chain.js'
 import { chainHost, hostChainParts, standaloneHostParts, fitNestedHostChains } from './host-chain.js'
 import { birdChainParts } from './bird-chain.js'
@@ -833,7 +833,8 @@ export const designedSources = (tree, style = 'sans') => {
   const visit = node => {
     if (node === SI_CHAIN) {
       out.add('巳')
-      out.add(siTerminal(style))
+      const bend = siBendDonor(style)
+      if (bend) out.add(bend)
     }
     const key = keyOf(node)
     if (key === '⿰舟苗' && style === 'regular') out.add('舳')

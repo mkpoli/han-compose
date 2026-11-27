@@ -1,15 +1,14 @@
 import { expect, test } from 'bun:test'
-import { pathMask, pathRings, pointsBox, union } from '../src/geometry.js'
+import { fill, pathMask, pathRings, pointsBox, union } from '../src/geometry.js'
 import { compose, createSource, sketch } from '../src/loader.js'
-import { SI_CHAIN } from '../src/si-chain.js'
+import { SI_CHAIN, siBendDonor } from '../src/si-chain.js'
 import faces from './fixtures/si-chain.json'
 import metrics from '../src/chain-ink-metrics.json'
 import { character, files, records, shards } from './fixtures/small-export.js'
 
-// Native 巳 and terminal outlines, from the versioned exports at
-// https://ids-input-composer.mkpoli.workers.dev/ (Sans 0bd3ee83a5e2, Regular c14ee5e08798,
-// Serif, Fangsong and Pen-writing b53713c2da0e). The printed straight-foot form is in
-// https://rare.glyphatlas.org/en/entry/3156
+// Native 巳 and bend donors from the published font exports. The figure in
+// parentheses at 統外字登記 row 579 is the reference for the upper counter.
+// https://rare.glyphatlas.org/en/entry/3156#sighting-3322
 function sourceFor(glyphs, commit) {
   const native = Object.fromEntries(Object.entries(glyphs).map(([char, G]) => [char, { G, o: G.p.length, ink: 7000 }]))
   const inputs = { ...records, 一: character('一', [[100, 350, 900, 420]]),
@@ -17,6 +16,20 @@ function sourceFor(glyphs, commit) {
   const data = { ...files, ...shards('g', Object.entries(inputs)) }
   if (commit) data['manifest.json'] = JSON.stringify({ ...JSON.parse(files['manifest.json']), composer: { commit } })
   return createSource(async name => data[name] === undefined ? null : Uint8Array.from(Buffer.from(data[name])).buffer)
+}
+
+// Centers of uninterrupted ink spans along a cross-section, as fractions of ink extent.
+function inkCenters(size, filled) {
+  const centers = []
+  let start
+  for (let i = 0; i <= size; i++) {
+    if (i < size && filled(i)) start ??= i
+    else if (start !== undefined) {
+      centers.push((start + i) / (2 * size))
+      start = undefined
+    }
+  }
+  return centers
 }
 
 for (const [fontStyle, glyphs] of Object.entries(faces)) {
@@ -27,9 +40,17 @@ for (const [fontStyle, glyphs] of Object.entries(faces)) {
     const host = await draw('巳'), chain = await draw(SI_CHAIN)
     expect(chain.parts[0].box).toEqual(host.parts[0].box)
     const native = pathMask(host.d, size), revised = pathMask(chain.d, size)
-    // The cap is the only change to the silhouette. The entire upper half,
-    // including the counter and both ends of the middle bar, stays identical.
-    expect(revised.slice(0, size * 64)).toEqual(native.slice(0, size * 64))
+    const rings = pathRings(chain.d, 48)
+    const normalized = fill(rings, size, union(rings.map(pointsBox)))
+    const bars = inkCenters(size, y => normalized[y * size + Math.round(0.45 * size)])
+    const walls = inkCenters(size, x => normalized[Math.round(0.23 * size) * size + x])
+    expect(bars).toHaveLength(3)
+    expect(walls).toHaveLength(2)
+    expect(bars[1]).toBeGreaterThan(0.35)
+    expect(bars[1]).toBeLessThan(0.405)
+    expect(walls[1]).toBeGreaterThan(0.71)
+    expect(walls[1]).toBeLessThan(0.85)
+    expect(revised.some((pixel, i) => i % size < size / 2 && i >= 0.78 * size * size && pixel !== native[i])).toBe(true)
     const hasHook = mask => mask.some((ink, i) => {
       const x = (i % size) / size, y = Math.floor(i / size) / size
       return ink && x > 0.84 && y > 0.60 && y < 0.80
@@ -41,16 +62,16 @@ for (const [fontStyle, glyphs] of Object.entries(faces)) {
     }
     expect((await draw(`⿰口${SI_CHAIN}`, { layout: 'cells' })).origins).toContain(`cells ${SI_CHAIN} (glyph ${SI_CHAIN})`)
     for (const char of ['一', '𠃍', '㇄']) await expect(draw(SI_CHAIN, { exclude: [char] })).rejects.toThrow(SI_CHAIN)
-    const fallback = draw(SI_CHAIN, { exclude: ['巳'] })
-    if (fontStyle === 'fangsong') {
-      await expect(fallback).rejects.toThrow(SI_CHAIN)
-      await expect(draw(SI_CHAIN, { exclude: ['匚'] })).rejects.toThrow(SI_CHAIN)
-    } else expect((await fallback).origins).toEqual(Array(3).fill(`chain ${SI_CHAIN}`))
+    for (const donor of ['巳', siBendDonor(fontStyle)]) {
+      const fallback = draw(SI_CHAIN, { exclude: [donor] })
+      if (fontStyle === 'fangsong') await expect(fallback).rejects.toThrow(SI_CHAIN)
+      else expect((await fallback).origins).toEqual(Array(3).fill(`chain ${SI_CHAIN}`))
+    }
   })
 }
 
 test('falls back to the constituent strokes when either cut has a different contour revision', async () => {
-  for (const char of ['巳', '㇄']) {
+  for (const char of ['巳', '匸']) {
     const original = faces.sans[char]
     const changed = { ...original, p: [...original.p, original.p[0]] }
     const source = sourceFor({ ...faces.sans, [char]: changed })
