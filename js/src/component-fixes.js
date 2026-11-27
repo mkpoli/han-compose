@@ -309,6 +309,22 @@ function penDoor(char) {
  * A correction that cannot find the parts it names leaves the drawing as it is.
  */
 export const COMPONENT_FIXES = {
+  '⿱投石': {
+    glyphs: {},
+    apply(parts, composer) {
+      const [hand, stone] = parts
+      if (parts.length !== 2) return parts
+      if (composer.fontStyle === 'pen-writing' && hand.origin === 'glyph 投') {
+        // The complete 投 shrinks into a shallow row; bring its strokes up to the weight of 石.
+        return [{ ...hand, weight: [-.65, -.65], fixed: true }, stone]
+      }
+      if (composer.fontStyle !== 'regular') return parts
+      const frame = union([hand.target, stone.target])
+      return [{ ...hand, target: mapped([0.0161, 0.521, 0.9991, 1.002], [0, 0, 1, 1], frame) },
+        // Center the ink of 石 below 投 as in 硩 and 磐. Its 口 pulls the ink right of the box center.
+        { ...stone, target: mapped([0.0, -0.0, 0.8121, 0.481], [0, 0, 1, 1], frame) }]
+    },
+  },
   '⿰貝並': {
     glyphs: { 賦: 'adc3e80a626f45b4c611c368dea0e198bdd174b707ae9a4ea65fcf2e900f19bd' },
     apply(parts, composer) {
