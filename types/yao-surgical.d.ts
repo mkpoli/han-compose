@@ -39,14 +39,24 @@ export declare function matchedYaoForTarget(formId: string, originalPart: {
     contours: any[];
     box: number[];
 }, targetBox: number[]): any;
-/** Cached site-aligned 幺 groups for `glyph` (or null if fewer than `siteCount` clean matches exist,
- * or if a candidate swallows a lower stacked sibling such as 小/{86} in a fused fallback glyph).
+/** Look up `han-decompose`-verified contour indices for `host` on primary Source Han Serif glyphs,
+ * returning site-aligned groups without running geometric search, or null when uncatalogued.
  * @param {{ contours: any[], box: number[] }} glyph @param {string} host @param {number} siteCount
+ * @param {string} [fontStyle] @param {boolean} [isPrimary] @returns {YaoGroup[] | null} */
+export declare function decomposedYaoGroups(glyph: {
+    contours: any[];
+    box: number[];
+}, host: string, siteCount: number, fontStyle?: string, isPrimary?: boolean): YaoGroup[] | null;
+/** Cached site-aligned 幺 groups for `glyph`: prefers `han-decompose`'s verified contour cuts on
+ * primary Source Han Serif glyphs, falling back to geometric detection on uncatalogued hosts or
+ * other faces (rejecting fused glyphs that swallow a lower stacked sibling).
+ * @param {{ contours: any[], box: number[] }} glyph @param {string} host @param {number} siteCount
+ * @param {string} [fontStyle] @param {boolean} [isPrimary]
  * @returns {YaoGroup[] | null} */
 export declare function alignedYaoGroups(glyph: {
     contours: any[];
     box: number[];
-}, host: string, siteCount: number): YaoGroup[] | null;
+}, host: string, siteCount: number, fontStyle?: string, isPrimary?: boolean): YaoGroup[] | null;
 /**
  * Identify the 5 separate Noto Serif strokes of a native detached 幺 (`bar`, `dot`, `midDiag`,
  * `topDiag`, `shortDot`). Returns null for merged/non-5-contour or non-detached faces so callers
@@ -119,7 +129,8 @@ export declare function classifyDetachedYao5(glyph: {
  * falls back to weight-matched whole-幺 replacement on merged/other glyphs.
  * @param {{ contours: any[], box: number[] }} glyph @param {string} host
  * @param {number[][]} paths @param {{ index: number, path: number[], formId: string }[]} edits
- * @param {number[]} region @param {boolean} atRoot */
+ * @param {number[]} region @param {boolean} atRoot
+ * @param {{ fontStyle?: string, isPrimary?: boolean, nativeInk?: number | null }} [opts] */
 export declare function replaceYaoInPart(glyph: {
     contours: any[];
     box: number[];
@@ -127,7 +138,18 @@ export declare function replaceYaoInPart(glyph: {
     index: number;
     path: number[];
     formId: string;
-}[], region: number[], atRoot: boolean): {
+}[], region: number[], atRoot: boolean, opts?: {
+    fontStyle?: string;
+    isPrimary?: boolean;
+    nativeInk?: number | null;
+}): {
+    part: any;
+    source: any;
+    target: any;
+    weight: number[];
+    native: any;
+    origin: any;
+}[] | {
     part: any;
     source: any;
     target: any;

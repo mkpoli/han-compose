@@ -119,7 +119,6 @@ export declare class Composer {
         weight: number[];
         native: any;
         origin: any;
-        fixed: boolean;
     }[] | null;
     parse: (sequence: any) => any;
     yaoHostRecord(key: any): any;

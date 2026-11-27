@@ -1,5 +1,6 @@
 // @ts-check
 import constants from './constants.json' with { type: 'json' }
+import decomposeCuts from './yao-decompose-cuts.json' with { type: 'json' }
 import hostsIndex from './yao-hosts.json' with { type: 'json' }
 import { ASCENT, derived, fill, fitted, makePart, partInk, pathRings, placed, pointsBox, rings, svgPath, union } from './geometry.js'
 import { prepareWeight } from './mix-contours.js'
@@ -470,18 +471,42 @@ export function matchedYaoForTarget(formId, originalPart, targetBox) {
   return part
 }
 
+/** @type {Record<string, [number, number[][]]>} */
+const verifiedSerifCuts = /** @type {any} */ (decomposeCuts.cuts)
+
+/** Look up `han-decompose`-verified contour indices for `host` on primary Source Han Serif glyphs,
+ * returning site-aligned groups without running geometric search, or null when uncatalogued.
+ * @param {{ contours: any[], box: number[] }} glyph @param {string} host @param {number} siteCount
+ * @param {string} [fontStyle] @param {boolean} [isPrimary] @returns {YaoGroup[] | null} */
+export function decomposedYaoGroups(glyph, host, siteCount, fontStyle = 'serif', isPrimary = true) {
+  if (fontStyle !== 'serif' || !isPrimary) return null
+  const entry = verifiedSerifCuts[host]
+  if (!entry || entry[0] !== glyph.contours.length || entry[1].length !== siteCount) return null
+  const groups = []
+  for (const indices of entry[1]) {
+    if (!indices.length || indices.some(i => i < 0 || i >= glyph.contours.length)) return null
+    const box = union(indices.map(i => pointsBox(glyph.contours[i].light)))
+    groups.push({ indices, box, score: 1, rawScore: 1 })
+  }
+  return alignGroupsToSites(host, groups, glyph.box)
+}
+
 /** @type {WeakMap<object, Map<string, YaoGroup[] | null>>} */
 const detectedCache = new WeakMap()
 
-/** Cached site-aligned 幺 groups for `glyph` (or null if fewer than `siteCount` clean matches exist,
- * or if a candidate swallows a lower stacked sibling such as 小/{86} in a fused fallback glyph).
+/** Cached site-aligned 幺 groups for `glyph`: prefers `han-decompose`'s verified contour cuts on
+ * primary Source Han Serif glyphs, falling back to geometric detection on uncatalogued hosts or
+ * other faces (rejecting fused glyphs that swallow a lower stacked sibling).
  * @param {{ contours: any[], box: number[] }} glyph @param {string} host @param {number} siteCount
+ * @param {string} [fontStyle] @param {boolean} [isPrimary]
  * @returns {YaoGroup[] | null} */
-export function alignedYaoGroups(glyph, host, siteCount) {
+export function alignedYaoGroups(glyph, host, siteCount, fontStyle = 'serif', isPrimary = true) {
   let byHost = detectedCache.get(glyph)
   if (!byHost) { byHost = new Map(); detectedCache.set(glyph, byHost) }
-  const cacheKey = `${host}:${siteCount}`
+  const cacheKey = `${host}:${siteCount}:${fontStyle}:${isPrimary ? 1 : 0}`
   if (byHost.has(cacheKey)) return byHost.get(cacheKey) ?? null
+  const verified = decomposedYaoGroups(glyph, host, siteCount, fontStyle, isPrimary)
+  if (verified) { byHost.set(cacheKey, verified); return verified }
   const found = findYaoGroups(glyph, siteCount)
   let result = found.length === siteCount ? alignGroupsToSites(host, found, glyph.box) : null
   if (result) {
@@ -560,7 +585,7 @@ export function classifyDetachedYao5(glyph, indices, box) {
   const bar = items.find(it => it.nx0 < 0.15 && it.ny0 < 0.12 && it.nw > 0.65 && it.ny1 < 0.42)
   if (!bar) return null
   const rem1 = items.filter(it => it !== bar)
-  const dot = rem1.find(it => it.nx1 > 0.90 && it.nx0 > 0.50 && it.ny0 < 0.12 && it.ny1 < 0.65)
+  const dot = rem1.find(it => it.nx1 > 0.80 && it.nx0 > 0.50 && it.ny0 < 0.12 && it.ny1 < 0.65)
   if (!dot) return null
   const rem2 = rem1.filter(it => it !== dot)
   rem2.sort((a, b) => (b.nx1 - b.ny0) - (a.nx1 - a.ny0))
@@ -569,7 +594,7 @@ export function classifyDetachedYao5(glyph, indices, box) {
   const rem3 = rem2.slice(1)
   rem3.sort((a, b) => b.ny1 - a.ny1)
   const topDiag = rem3[0], shortDot = rem3[1]
-  if (topDiag.ny1 < 0.88 || shortDot.nx0 > 0.25 || shortDot.nx1 > 0.65) return null
+  if (topDiag.ny1 < 0.88 || shortDot.nx0 > 0.25 || shortDot.nx1 > 0.72) return null
   // Confirm `shortDot` slopes downward-right (detached stroke, not an already-folded rising bar).
   const pts = contourPoints(shortDot.c)
   const midX = (shortDot.b[0] + shortDot.b[2]) / 2
@@ -662,9 +687,11 @@ function returningContoursFromNative(cls) {
  * falls back to weight-matched whole-幺 replacement on merged/other glyphs.
  * @param {{ contours: any[], box: number[] }} glyph @param {string} host
  * @param {number[][]} paths @param {{ index: number, path: number[], formId: string }[]} edits
- * @param {number[]} region @param {boolean} atRoot */
-export function replaceYaoInPart(glyph, host, paths, edits, region, atRoot) {
-  const groups = alignedYaoGroups(glyph, host, paths.length)
+ * @param {number[]} region @param {boolean} atRoot
+ * @param {{ fontStyle?: string, isPrimary?: boolean, nativeInk?: number | null }} [opts] */
+export function replaceYaoInPart(glyph, host, paths, edits, region, atRoot, opts = {}) {
+  const { fontStyle = 'serif', isPrimary = true, nativeInk = null } = opts
+  const groups = alignedYaoGroups(glyph, host, paths.length, fontStyle, isPrimary)
   if (!groups) return null
   const cut = new Set()
   /** @type {any[]} */
@@ -689,7 +716,12 @@ export function replaceYaoInPart(glyph, host, paths, edits, region, atRoot) {
   const keep = glyph.contours.filter((_, i) => !cut.has(i))
   const target = atRoot ? fitted(glyph.box, region, constants.STRETCH) : region
   if (!wholeSwaps.length) {
-    const outPart = cut.size ? derived(glyph, [...keep, ...nativeAdditions], glyph.box) : glyph
+    if (!cut.size) {
+      // Every edited site is already native detached: place identically to the unedited host glyph.
+      const fit = fitted(glyph.box, region, constants.STRETCH)
+      return [placed(glyph, glyph.box, fit, nativeInk ?? partInk(glyph), `glyph ${host}`)]
+    }
+    const outPart = derived(glyph, [...keep, ...nativeAdditions], glyph.box)
     return [{ ...placed(outPart, glyph.box, target, partInk(outPart), `${host} · 幺`), fixed: true }]
   }
   const pieces = []
