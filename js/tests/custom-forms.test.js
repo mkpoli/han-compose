@@ -5,7 +5,8 @@ import { addCutForms, componentDrawing, isComponentForm } from '../src/component
 import { hasCustomComponent } from '../src/custom-forms.js'
 import { compose, createSource } from '../src/loader.js'
 import { sourceFor, traitsOf } from '../src/source.js'
-import { files } from './fixtures/small-export.js'
+import sansChains from './fixtures/sans-chain-turns.json' with { type: 'json' }
+import { files, records, shards } from './fixtures/small-export.js'
 
 const data = JSON.parse(gunzipSync(readFileSync(new URL('../data/custom-forms.json.gz', import.meta.url))).toString('utf8'))
 // &CDP-8958; is 冐 without ⺜ in both faces; #(-𠃍㇉) has a form written by hand.
@@ -81,4 +82,18 @@ it('draws a description that names one through the source a page asks for', asyn
   const { customFormsSource } = await import('../src/custom-forms.js')
   expect(customFormsSource({ load: async () => data }).modelFiles()).toEqual([])
   expect(customFormsSource({ load: async () => data, fallback: { modelFiles: () => ['identity'] } }).modelFiles()).toEqual(['identity'])
+})
+
+it('prefers the selected face’s 之 over a cached Plangothic cut on the public source path', async () => {
+  const key = '#(㇇乀)'
+  const options = { fontStyle: 'sans', read: async () => data }
+  const fallback = await compose(sourceFor(key, options), key)
+  expect(fallback.origins).toEqual(['Plangothic P2: #(㇇乀), cut from 𱦍'])
+
+  // Noto Sans CJK JP 2.004 (SIL OFL 1.1), as encoded by format 7.
+  const fixture = { ...files, ...shards('g', Object.entries({ ...records, 之: { G: sansChains.之 } })) }
+  const exported = createSource(async name => fixture[name] === undefined ? null : new Uint8Array(Buffer.from(fixture[name])).buffer)
+  const native = await compose(sourceFor(key, { ...options, exported }), key)
+  expect(native.origins).toEqual(['chain #(㇇乀), cut from 之'])
+  expect(native.d).not.toBe(fallback.d)
 })
