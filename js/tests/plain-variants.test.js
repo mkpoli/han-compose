@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 import { hasVariationSelector, plainBase, plainVariantSource } from '../src/plain-variants.js'
+import { traitKey, traitsOf } from '../src/source.js'
 
 const PLAIN = '丑\u{E0100}'
 const OWN = '者\u{E0101}'
@@ -42,5 +43,11 @@ describe('sequences a face draws with its plain glyph', () => {
   it('stay missing in a face that registers none', () => {
     const store = plainVariantSource({ fallback: holding(['丑']), style: 'fangsong' }).store()
     expect(store.rec(PLAIN)).toBeNull()
+  })
+
+  it('read the export through their own source, whatever was drawn before', () => {
+    // The worker keeps one source per trait set: a sequence without a selector must not hand a
+    // plain sequence the source that lacks its base records.
+    expect(traitKey(traitsOf('⿱⺌月'))).not.toBe(traitKey(traitsOf('⿱⺌月\u{E0100}')))
   })
 })
