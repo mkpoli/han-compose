@@ -147,6 +147,22 @@ uv run python js/scripts/recorded-native.py --cache /path/to/cache \
   --output js/src/recorded-native.json
 ```
 
+## `vocab/han-ids-extension-j.tsv`
+
+The description of each CJK Extension J ideograph (U+323B0–U+33479, Unicode 17.0), `char<TAB>sequence`,
+4,267 of the block's 4,298. BabelStone's IDS.TXT of 2025-06-27 stops at Unicode 16.0, so these come from
+`ids_lv2.txt` of [`yi-bai/ids`](https://github.com/yi-bai/ids) at
+[`2597437b`](https://github.com/yi-bai/ids/tree/2597437b928e8d530b7ae09cf53fe5ec7868569c). A row's
+first description is kept, without its region note. A description with a stroke chain, an unencoded
+component, an overlay (⿻) or a CJK Strokes character is left out, and its ideograph stays a whole glyph.
+Yi Bai's descriptions follow that project's own analysis and are not checked here against the code charts.
+
+`uv run python scripts/build_extension_j_ids.py` rebuilds it with `js/src/extension-j-ids.json`, the
+copy the browser composer bundles. The composers draw an Extension J ideograph from this sequence, in
+the face's own parts, where only a fallback font of another design (Jigmo) draws its glyph.
+
+Licence: MIT, Copyright (c) 2021 Yi Bai; see `data/licences/yi-bai-ids-MIT.txt`.
+
 ## `plain-variants.json`
 
 The variation sequences Noto Sans CJK JP 2.004 and Noto Serif CJK JP 2.003 register with the base
