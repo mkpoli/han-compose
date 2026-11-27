@@ -1,6 +1,8 @@
 // @ts-nocheck: a port of han-compose's Python, kept line for line; its types are the arrays it reads.
+import { columnClearance, settleColumns } from './column-spacing.js'
 import { ratePart, rateParts } from './rate-drawing.js'
 import { containsRateForm, exactRateForm, rateFormsFor } from './rate-forms.js'
+import { checkedHook, clearHookContacts, markHook } from './directional-enclosures.js'
 import { hookFloor } from './hook-floor.js'
 import { fitHookDonor, lowerHookSeat, openHookCounters } from './hook-seat.js'
 import { stackedHookPart } from './stacked-hook.js'
@@ -964,6 +966,7 @@ export class Composer {
     // Each stroke chain's drawing.
     this.chains = new Map()
     // Stacked operand pairs, settled against their ink once the drawing is weighted.
+    this.columns = []
     this.joints = []
     // Swept glyphs with the part each holds over its foot, refitted once the drawing is weighted.
     this.sweeps = []
@@ -1396,6 +1399,7 @@ export class Composer {
   compose(sequence, marks = '') {
     this.approximate.clear()
     this.nativeEnclosures.clear()
+    this.columns.length = 0
     this.joints.length = 0
     this.sweeps.length = 0
     this.carried = 1
@@ -1475,8 +1479,10 @@ export class Composer {
       for (const part of out) if (part.finishOutline) Object.assign(part, part.finishOutline(part))
       fitClawInterior(out, tree, this.fontStyle)
       // Loose marks annotate the whole drawing; they take no part in its layout or weight.
+      if (!subtracts(tree)) settleColumns(this.columns, out, this.fontStyle)
       if (!marks) fitRecordedInk(this, sequence, out)
       if (marks) out.push(...markParts(this, marks, frame, face))
+      clearHookContacts(this, out)
       return this.separate ? editableRccParts(out) : out
     } finally { this.face = previous }
   }
@@ -1558,6 +1564,11 @@ export class Composer {
       out.push(...parts)
     }
     const walk = (node, box, depth) => {
+      const start = out.length
+      place(node, box, depth)
+      if (checkedHook(node)) markHook(this, node, out.slice(start))
+    }
+    const place = (node, box, depth) => {
       const rate = this.rateMetric(keyOf(node)) && rateParts(keyOf(node), this.fontStyle, target(box), depth === 0)
       if (rate) {
         if (leafIndices) rate[0].leaf = leaf++
@@ -1722,6 +1733,7 @@ export class Composer {
     else if (!this.partial && this.staticFace) this.staticBalance(out)
     this.fitMetricKeInterior(out, tree)
     fitClawInterior(out, tree, this.fontStyle, true)
+    clearHookContacts(this, out)
     return out
   }
 
@@ -1737,6 +1749,18 @@ export class Composer {
     const frame = this.face.slice(), face = this.faceBeside(marks)
     const leaves = this.sketched(sequence)
     if (face.some((edge, at) => edge !== frame[at])) for (const leaf of leaves) leaf.box = mapped(leaf.box, frame, face)
+    if (/⿹勹[白百首]/u.test(sequence)) {
+      const editable = Object.create(this)
+      editable.separate = true
+      try {
+        const drawn = editable.compose(sequence, marks).filter(p => !p.origin?.startsWith('mark '))
+        if (drawn.length === leaves.length && drawn.every((p, i) => !p.cut && (p.leaf === undefined || p.leaf === i))) {
+          for (const [i, p] of drawn.entries()) if (p.clearedHook) leaves[i].box = drawnBox(p)
+        }
+      } catch (error) {
+        if (!(error instanceof LookupError)) throw error
+      }
+    }
     return leaves
   }
 
@@ -1945,7 +1969,9 @@ export class Composer {
   node(node, region, atRoot = false, sideBySide = false) {
     const rate = rateParts(keyOf(node), this.fontStyle, region, atRoot)
     if (rate && !this.excluded(exactRateForm(keyOf(node)).host)) return rate
-    return this.constructed(node, region, atRoot) ?? componentFix(keyOf(node), this.drawNode(node, region, atRoot, sideBySide), this, region)
+    const parts = this.constructed(node, region, atRoot) ?? componentFix(keyOf(node), this.drawNode(node, region, atRoot, sideBySide), this, region)
+    if (checkedHook(node)) markHook(this, node, parts)
+    return parts
   }
 
   /** The parts a nested construct draws `node` with in `region`: null for a description that is no
@@ -3865,7 +3891,8 @@ export class Composer {
     }
     // 𭰲 (⿰氵⿵冂并) keeps about a fifth of a stem between the water and the frame; a described
     // ⿰氵⿵冂… tends to close it to nothing.
-    if (op === '⿰' && children[0] === '氵' && Array.isArray(children[1]) && children[1][0] === '⿵') {
+    const waterFrame = op === '⿰' && children[0] === '氵' && Array.isArray(children[1]) && children[1][0] === '⿵'
+    if (waterFrame) {
       const gap = 0.02 * (this.face[2] - this.face[0]), b = boxes[1]
       if (b[2] - b[0] > gap * 4) { b[0] = b[0] + gap; b[2] = Math.min(b[2] + gap, this.face[2]) }
     }
@@ -4026,7 +4053,13 @@ export class Composer {
             const cut = [Math.max(opening[0], box[0]), Math.max(opening[1], box[1]), Math.min(opening[2], box[2]), Math.min(opening[3], box[3])]
             if (cut[0] < cut[2] && cut[1] < cut[3]) box = cut
           }
-        } else return this.node(['⿰', ...children], frameOf)
+        } else {
+          // This row places the foot of an enclosure. Its clearance belongs to the enclosure.
+          const count = this.columns.length
+          const pair = this.node(['⿰', ...children], frameOf)
+          this.columns.length = count
+          return pair
+        }
       }
       if (op in this.ENCLOSE && i === 1 && groups[0].every(p => p.origin.startsWith('glyph'))) {
         groups.push([placed(source, source.box, fitted(source.box, box, C.STRETCH), this.ink(drawn.h), `learned ${drawn.h}`)])
@@ -4072,7 +4105,7 @@ export class Composer {
     this.joinUnderCover(op, children, groups)
     // 𭰲 (⿰氵⿵冂并) sets the water at 5–31% and the frame at 33–93% of the face; a described
     // row stretched the frame wider. Keep the reference's shares and the gap between them.
-    if (op === '⿰' && children[0] === '氵' && Array.isArray(children[1]) && children[1][0] === '⿵') {
+    if (waterFrame) {
       const a = union(groups[0].map(p => p.target)), b = union(groups[1].map(p => p.target))
       const want = 0.02 * (this.face[2] - this.face[0]), gap = b[0] - a[2]
       if (gap < want) {
@@ -4095,6 +4128,7 @@ export class Composer {
     }
     this.seatInDesignedFrame(op, children, groups)
     this.recordJoints(op, groups)
+    if (!this.partial && this.AXIS[op] === 0 && columnClearance[this.fontStyle] && !waterFrame) this.columns.push(groups)
     return this.flatten(groups)
   }
 
@@ -4420,7 +4454,8 @@ export class Composer {
     this.joinUnderCover(op, children, groups)
     // 𭰲 (⿰氵⿵冂并) sets the water at 5–31% and the frame at 33–93% of the face; a described
     // row stretched the frame wider. Keep the reference's shares and the gap between them.
-    if (op === '⿰' && children[0] === '氵' && Array.isArray(children[1]) && children[1][0] === '⿵') {
+    const waterFrame = op === '⿰' && children[0] === '氵' && Array.isArray(children[1]) && children[1][0] === '⿵'
+    if (waterFrame) {
       const a = union(groups[0].map(p => p.target)), b = union(groups[1].map(p => p.target))
       const want = 0.02 * (this.face[2] - this.face[0]), gap = b[0] - a[2]
       if (gap < want) {
@@ -4443,6 +4478,7 @@ export class Composer {
     }
     this.seatInDesignedFrame(op, children, groups)
     this.recordJoints(op, groups)
+    if (!this.partial && this.AXIS[op] === 0 && columnClearance[this.fontStyle] && !waterFrame && !compactYan) this.columns.push(groups)
     return this.flatten(groups)
   }
 
