@@ -4,7 +4,7 @@
 // description it corrects, the SHA-256 outlines of the glyphs it was read against, and the parts it
 // changes; an export drawing other outlines keeps the font's cut. The parts are plain placed pieces,
 // so the corrections work wherever the description is drawn, at any depth.
-import { contourSections, cutContours, derived, fitted, groupRings, makePart, mapped, partOf, placed, pointsBox, union } from './geometry.js'
+import { contourSections, cutContours, derived, fill, fitted, groupRings, makePart, mapped, partOf, placed, pointsBox, union } from './geometry.js'
 import { hexOf } from './sha256.js'
 import { penGrassKu } from './grass-ku.js'
 
@@ -66,6 +66,25 @@ function barsOf(part) {
   return part.part.contours.map((contour, index) => ({ index, box: boxIn(part, contour) }))
     .filter(({ box }) => widthOf(box) > 0.5 * width && heightOf(box) < 0.2 * widthOf(box))
     .sort((a, b) => a.box[1] - b.box[1])
+}
+
+/** The median and minimum vertical gap between an upper and a lower group's rings inside `box`. */
+function verticalGap(upper, lower, box, size = 200) {
+  const a = fill(upper, size, box), b = fill(lower, size, box), gaps = []
+  for (let col = 0; col < size; col++) {
+    let lastA = -1, firstB = -1
+    for (let row = 0; row < size; row++) {
+      const i = row * size + col
+      if (a[i]) lastA = row
+      if (b[i] && firstB < 0) firstB = row
+    }
+    if (lastA >= 0 && firstB >= 0) gaps.push(firstB - lastA)
+  }
+  if (!gaps.length) return null
+  gaps.sort((x, y) => x - y)
+  const n = gaps.length, mid = n >> 1, scale = (box[3] - box[1]) / size
+  const median = n % 2 ? gaps[mid] : (gaps[mid - 1] + gaps[mid]) / 2
+  return { median: median * scale, min: gaps[0] * scale }
 }
 
 /** Fit 工 into a shallow row by shortening its stem between the two brush strokes. */
@@ -624,8 +643,19 @@ export const COMPONENT_FIXES = {
       } finally {
         composer.stroke = stroke
       }
-      const ink = group => union(groupRings(group, 24).map(pointsBox))
-      const before = ink(original), after = ink(fitted)
+      const rowRings = [fitted.slice(0, middle), [fitted[middle]], fitted.slice(middle + 1)].map(g => groupRings(g, 24))
+      const after = union(rowRings.flat().map(pointsBox))
+      const topGap = verticalGap(rowRings[0], rowRings[1], after)
+      const bottomGap = verticalGap(rowRings[1], rowRings[2], after)
+      if (topGap && bottomGap && topGap.min > 0 && bottomGap.min > 0) {
+        const gongBox = union(rowRings[1].map(pointsBox))
+        const lo = Math.max(after[1] - gongBox[1], -bottomGap.min / 2)
+        const hi = Math.min(after[3] - gongBox[3], topGap.min / 2)
+        const shift = Math.max(lo, Math.min(hi, (topGap.median - bottomGap.median) / 2))
+        const t = fitted[middle].target
+        fitted[middle] = { ...fitted[middle], target: [t[0], t[1] + shift, t[2], t[3] + shift] }
+      }
+      const before = union(groupRings(original, 24).map(pointsBox))
       return fitted.map(p => ({ ...p, fixed: true, target: mapped(p.target, after, before) }))
     },
   },
