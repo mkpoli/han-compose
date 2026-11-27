@@ -55,11 +55,14 @@ export const grassFamily = {
     { id: 'crossbar', property: 'continuity', locus: [{ path: [] }], values: ['joined', 'divided'] },
     { id: 'shape', property: 'outline', locus: [{ path: [] }], values: ['艹', '⺿', '⻀'] },
   ],
-  forms: [...grassShapes].filter(([text]) => text.startsWith('艹') && [...text].length === 2 &&
-    /** @type {number} */ (text.codePointAt(1)) >= 0xe0100).map(([text, shape]) => ({
-    id: /** @type {number} */ (text.codePointAt(1)).toString(16).toUpperCase(),
-    text, traits: { crossbar: shape === '艹' ? 'joined' : 'divided', shape },
-  })),
-  source: { name: 'Unicode IVD', edition: '2026-08-03',
-    url: 'https://www.unicode.org/ivd/data/2026-08-03/IVD_Sequences.txt' },
+  forms: [...grassShapes].filter(([text]) => text !== '艹').map(([text, shape]) => {
+    const [base, selector] = [...text]
+    const id = (selector ?? base).codePointAt(0)?.toString(16).toUpperCase() ?? ''
+    const kind = !selector ? 'character' : id.startsWith('E01') ? 'ivs' : 'svs'
+    return { id, text, kind, traits: { crossbar: shape === '艹' ? 'joined' : 'divided', shape } }
+  }),
+  sources: [
+    'https://www.unicode.org/ivd/data/2026-08-03/IVD_Sequences.txt',
+    'https://www.unicode.org/Public/16.0.0/ucd/StandardizedVariants.txt',
+  ],
 }

@@ -168,6 +168,7 @@ export function ivdFamilies(input, edition, collections) {
   const families = new Map()
   /** @type {Map<string,IvdForm>} */
   const forms = new Map()
+  const identifiers = new Set()
   for (const { fields, line } of ivdRows(input)) {
     const seq = /^([A-F\d]{4,6})\s+([A-F\d]{5})$/iu.exec(fields[0])
     if (!seq || !IVD_IDENTIFIER.test(fields[1]) || !IVD_IDENTIFIER.test(fields[2]) || (known && !known.has(fields[1]))) {
@@ -181,6 +182,9 @@ export function ivdFamilies(input, edition, collections) {
     if (!/\p{Ideographic}/u.test(base) || base.normalize('NFKD') !== base) {
       throw new SyntaxError(`Invalid IVD base at line ${line}`)
     }
+    const identifierKey = [base, fields[1], fields[2]].join(';')
+    if (identifiers.has(identifierKey)) throw new SyntaxError(`Repeated IVD glyph identifier at line ${line}`)
+    identifiers.add(identifierKey)
     let family = families.get(base)
     if (!family) {
       family = { id: 'IVD/' + cp.toString(16).toUpperCase(), source, subjects: [base], forms: [] }

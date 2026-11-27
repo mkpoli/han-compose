@@ -71,7 +71,7 @@ test('a criterion retains contextual evidence and source form order; named glyph
 
 test('a custom family represents an observed combination without inventing a missing one', () => {
   const [rate] = rateVariationFamilies.filter(f => f.id === 'rate/率')
-  const subset = { ...rate, id: 'subset', axes: rate.axes.map(({ examples, ...axis }) => axis), forms: [rate.forms[0], rate.forms[3]] }
+  const subset = { ...rate, id: 'subset', axes: rate.axes.map(({ examples: _examples, ...axis }) => axis), forms: [rate.forms[0], rate.forms[3]] }
   const r = createVariationRegistry([subset])
   expect(r.match('subset', { center: '1', sides: '2' })).toEqual([])
   subset.forms.pop()
@@ -101,4 +101,9 @@ test('each axis can point to a pair of witnesses holding the other difference fi
 test('an operand cannot absorb a selected mark from its neighbour', () => {
   const r = createVariationRegistry([{ id: 'marks', subjects: ['水'], forms: [{ id: 'tone', text: '〮' }] }])
   expect(() => r.select('⿰木水', [1], 'marks', 'tone')).toThrow('operand boundaries')
+})
+
+test('a collection can reuse an identifier on another base but cannot assign it twice on one base', () => {
+  expect(() => ivdFamilies(registrations + '7387 E0110; Adobe-Japan1; CID+3952', '2026-08-03')).toThrow('Repeated IVD')
+  expect(ivdFamilies(registrations + '8279 E0100; Adobe-Japan1; CID+3952', '2026-08-03')).toHaveLength(2)
 })

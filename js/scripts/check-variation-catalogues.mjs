@@ -12,13 +12,13 @@ const iwds = JSON.parse(readFileSync(iwdsPath, 'utf8'))
 const collectionsText = readFileSync(collectionsPath, 'utf8')
 const collections = ivdCollections(collectionsText)
 const families = ivdFamilies(ivdText, edition, collections)
-const collectionRows = collectionsText.split(/\r?\n/).map(line => line.split('#')[0].trim()).filter(Boolean)
+const collectionRows = collectionsText.split(/\r?\n/).map(line => line.trim()).filter(line => line && !line.startsWith('#'))
 assert.deepEqual(families[0].source.collections.map(row => [row.collection, row.pattern, row.url]),
   collectionRows.map(line => line.split(';').map(field => field.trim())))
 const rules = ucvFamilies(iwds)
 const registry = createVariationRegistry([...families, ...rules, ...rateVariationFamilies, grassFamily])
 
-const sourceRows = ivdText.split(/\r?\n/).map(line => line.split('#')[0].trim()).filter(Boolean)
+const sourceRows = ivdText.split(/\r?\n/).map(line => line.trim()).filter(line => line && !line.startsWith('#'))
 const imported = []
 for (const family of families) {
   for (const form of family.forms) {
@@ -43,7 +43,9 @@ for (const [index, rule] of rules.entries()) {
   }
 }
 for (const form of grassFamily.forms) {
-  assert.ok(registry.at(form.text, []).some(hit => hit.family.id === 'IVD/8279' && hit.forms.length === 1))
+  const hits = registry.at(form.text, [])
+  assert.equal(hits.find(hit => hit.family.id === grassFamily.id)?.forms[0].text, form.text)
+  if (form.kind === 'ivs') assert.ok(hits.some(hit => hit.family.id === 'IVD/8279' && hit.forms.length === 1))
 }
 for (const form of registry.familiesFor('率').find(family => family.id === 'rate/率').forms) {
   for (const ref of form.sources) {

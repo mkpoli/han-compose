@@ -31,6 +31,8 @@ For 率, the center construction and the direction of the flanking strokes give 
 
 The two identifiers in each of the first two rows name the same Adobe glyph. A source claim on that 率 component belongs to that occurrence. Enclosing it in `⿰虫…` produces a spelling for 蟀 without asserting a registration for the whole compound. [IRG, N2978, 2026-10-20](https://www.unicode.org/irg/docs/n2978-Complete.pdf) · [Unicode, IVD sequences, 2026-08-03](https://www.unicode.org/ivd/data/2026-08-03/IVD_Sequences.txt)
 
+The grass radical catalogue retains the encoded radical forms, two compatibility ideographs, two standardized variants and six IVSes as distinct spellings. For example, `艹︀` and `艹` share the same contextual drawing, and reopening either one recovers the original text. Plain `艹` leaves the drawing unspecified. [Unicode, StandardizedVariants.txt, 16.0](https://www.unicode.org/Public/16.0.0/ucd/StandardizedVariants.txt)
+
 ## Describe another difference
 
 | Field | Meaning |
