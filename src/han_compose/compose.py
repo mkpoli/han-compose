@@ -23,9 +23,10 @@ from a character a type designer drew; a sequence (⿰亻哥) is drawn in three 
    the operator's axis and the extent its own host gave it across. A cut is used only when each
    piece looks like its operand. With no host, a nested sequence is drawn the same way, and a
    character from its own glyph.
-3. Weight. Noto thins its strokes as a character fills up (`Style.stem_curve`). Each part is moved
-   towards the heavy master, along x and along y apart, until its strokes have the width the
-   whole composed character's density calls for; a lone stroke keeps that width without scaling.
+3. Weight. A font thins a part drawn smaller than its glyph, by less than scaling does
+   (`Style.part_stems`). Each part is moved towards the heavy master, along x and along y apart,
+   until its strokes have the width the font gives a part of its scale; a lone stroke keeps that
+   width without scaling.
 
 The result is a set of closed outlines in the font's 1000-unit em, y up, drawn out by `svg_path`.
 Operands drawn across each other (⿻) are laid out as characters that overlay the same operands do.
@@ -50,6 +51,8 @@ from typing import Self
 import numpy as np
 from fontTools.pens.recordingPen import DecomposingRecordingPen
 from fontTools.ttLib import TTFont
+
+from .rate_forms import contains_rate_form, rate_part
 
 from ._raster import fill
 from ._raster import ring as _ring
@@ -103,16 +106,25 @@ class Style:
     heavy: int = 900
     synthetic_y: bool = False
     kindred: bool = True
-    #: Whether stroke weights are balanced across parts. A static brush face keeps its own weights.
-    weighted: bool = True
     #: Whether hosts come only from the main font, so a fallback never supplies a piece.
     own_hosts: bool = False
     #: How far up the style's glyphs move to meet the composer's em, in 1000-unit units.
     y_shift: float = 0.0
-    #: For a static face whose parts are weighted: the powers (across x, across y) of a part's scale
-    #: its stroke width follows in the font's own characters, measured by `calibrate-parts`. A part
-    #: drawn at 0.5 of its glyph keeps 0.5 ** k of its stem. None weights by density (`stem_curve`).
+    #: Least gap two neighbouring parts keep at their closest strokes, side by side and stacked:
+    #: the gap three in four of the font's own characters keep there (`calibrate-gaps`). A touching
+    #: pair reads 4, one raster cell: Noto's stacked parts interlock, a brush face's stand apart.
+    facing_least: tuple[float, float] = (12.0, 8.0)
+    #: The powers (across x, across y) of a part's scale its stroke width is brought to, measured by
+    #: `calibrate-parts`: a part drawn at 0.5 of its glyph keeps 0.5 ** k of its stem. They are the
+    #: powers the font's own characters follow, brought toward plain scaling as far as makes a
+    #: weighted glyph hold the ink of the font's own part. None weights by density alone
+    #: (`stem_curve`).
     part_stems: tuple[float, float] | None = None
+    #: How far the stroke widths of two parts of one character differ in the font's own characters,
+    #: the wider over the narrower across x and across y, in four of five of them
+    #: (`calibrate-parts`). Parts drawn from hosts of unlike weight are held within it. None leaves
+    #: each part at the width `part_stems` gives it.
+    part_spread: tuple[float, float] | None = None
 
 
 OFL = "SIL OFL 1.1"
@@ -160,6 +172,8 @@ STYLES = {
          Source("PlangothicP2-Regular.ttf", f"{PLANGOTHIC_URL}/PlangothicP2-Regular.ttf",
                 "681933370adfe0fc7253f77735275a82fea09fe4f8adba907bdeb46c110daf8f", OFL)),
         ((85.34, -1.324), (86.93, -1.914)),
+        part_stems=(0.348, 0.448),
+        part_spread=(1.13, 1.24),
     ),
     # Noto Serif CJK JP 2.003 (Source Han Serif's design), whose horizontals stay about 30 units at
     # every weight from 200 to 900 while its verticals grow from 45 to 145.
@@ -174,6 +188,9 @@ STYLES = {
         ((67.77, -0.463), (22.31, 0.164)),
         synthetic_y=True,
         kindred=False,
+        part_stems=(0.147, 0.013),
+        part_spread=(1.09, 1.09),
+        facing_least=(8.0, 4.0),
     ),
     # Nôm Na Tống 5.20 (Nôm Na Group, Vietnamese Nôm Preservation Foundation): a static Song face cut
     # after woodblock printing, the reference font for Hán-Nôm encoding. No other font fills in
@@ -189,15 +206,16 @@ STYLES = {
         heavy=400,
         kindred=False,
         own_hosts=True,
-        # A cut Song face, not a brush: a part drawn smaller than its glyph is grown from the one
-        # weight the font has (`STATIC_GROW`) to the stem the font gives such a part. Measured on
-        # 1,983 parts of its own characters against their glyphs (`calibrate-parts`): a part at
-        # half size keeps 84% of its verticals and 89% of its horizontals.
-        part_stems=(0.259, 0.171),
+        # A part drawn smaller than its glyph is grown from the one weight the font has
+        # (`STATIC_GROW`) toward the stem the font gives such a part, as far as its ink matches the
+        # ink of the font's own parts (`calibrate-parts`, on 1,983 parts).
+        part_stems=(0.370, 0.295),
+        part_spread=(1.13, 1.26),
         # Its full ideographs span -151 to 848 of the em, Noto Serif's -78 to 837: the lift centres
         # them where Noto Serif's stand. They fill the em's whole height, so a stroke at the top
         # or the foot can pass its edge by a few units.
         y_shift=31.0,
+        facing_least=(24.0, 21.0),
     ),
     # Zhuque Fangsong 0.212 (technical preview), recut from the 1932 南宋 type. It is a static font, so
     # 400 is also the heavy master; Jigmo draws the ideographs it lacks, in the nearest pinned design.
@@ -214,8 +232,10 @@ STYLES = {
         ((57.51, 0.271), (39.61, -1.297)),
         heavy=400,
         kindred=False,
-        weighted=False,
+        part_stems=(0.364, 0.315),
+        part_spread=(1.11, 1.17),
         own_hosts=True,
+        facing_least=(16.0, 16.0),
     ),
     # TW-Kai (CNS 11643 Kai, fonts version 11510.1): a static brush face whose Extension B and G
     # faces draw the ideographs the BMP face lacks, in the same design.
@@ -227,10 +247,12 @@ STYLES = {
         ((60.87, -1.34), (53.83, -1.756)),
         heavy=400,
         kindred=True,
-        weighted=False,
+        part_stems=(0.417, 0.407),
+        part_spread=(1.29, 1.46),
         own_hosts=True,
         # TW-Kai's typographic ascent is 820 on its 1024-unit em: 880 - 820 * 1000 / 1024.
         y_shift=79.2,
+        facing_least=(24.0, 20.0),
     ),
     # Kureedo 0.5.0 Full: Klee One's kaisho and historical kana, with every public code point LXGW
     # WenKai Light 1.530 has and Klee lacks. It is a static font, so 400 is also the heavy master;
@@ -249,8 +271,10 @@ STYLES = {
         ((70.0, 0.0), (70.0, 0.0)),
         heavy=400,
         kindred=False,
-        weighted=False,
+        part_stems=(0.328, 0.368),
+        part_spread=(1.16, 1.26),
         own_hosts=True,
+        facing_least=(25.0, 24.0),
     ),
 
 }
@@ -414,6 +438,20 @@ def _selector(char: str) -> bool:
     return 0xFE00 <= point <= 0xFE0F or 0xE0100 <= point <= 0xE01EF
 
 
+#: A component written in full where characters write its positional form: `&HC-u91d1-full;` is
+#: 金 as it stands alone, on the left too, where plain 金 is drawn as 釒.
+FULL_FORM = re.compile(r"&HC-u([0-9a-f]{4,6})-full;")
+#: The longest entity, in code points, as `js/` reads one (`CUSTOM_LONGEST`).
+ENTITY_LONGEST = 48
+
+
+@cache
+def full_form(text: str) -> str | None:
+    """The character an entity writes in full (`FULL_FORM`), None for anything else."""
+    found = FULL_FORM.fullmatch(text) if text.startswith("&") else None
+    return chr(int(found[1], 16)) if found else None
+
+
 #: The operators zi.tools writes a modifier after: an overlay's matrix, an enclosure's index (`⿻[1:]丨日`).
 MODIFIABLE = frozenset("⿻⿴⿵⿶⿷⿼㇯")
 MODIFIER = re.compile(r"[0-9:,._xabcdlr|-]+")
@@ -504,6 +542,11 @@ def _read(chars: list[str], at: int, sequence: str) -> tuple[Node, int]:
     char = chars[at]
     at += 1
     arity = 2 if char in BINARY else 3 if char in TERNARY else 1 if char in UNARY else 0
+    if char == "&":
+        # An entity (`&HC-u91d1-full;`) is one component, kept as written.
+        end = next((k for k in range(at, min(len(chars), at + ENTITY_LONGEST)) if chars[k] == ";"), None)
+        if end is not None and re.fullmatch(r"[A-Za-z][A-Za-z0-9+_-]*", "".join(chars[at:end])):
+            return "".join(chars[at - 1:end + 1]), end + 1
     if not arity:
         # Only an initial opens a run: every other leaf is spared the look.
         end = _jamo_run(chars, at - 1) if "\u1100" <= char <= "\u115e" or "\ua960" <= char <= "\ua97c" else None
@@ -637,10 +680,14 @@ def constructs() -> dict[str, dict]:
 
 def japanese_sequences() -> dict[str, str]:
     """Each ideograph's sequence as BabelStone gives it for Japan, else its first; sequences naming
-    an unencoded component ({n}) or an unnameable one (？) are left out. A sequence in
+    an unencoded component ({n}) or an unnameable one (？) are left out. An Extension J ideograph
+    has the sequence `data/vocab/han-ids-extension-j.tsv` gives it. A sequence in
     `data/vocab/han-ids-drawn.tsv` replaces the source's where its operands are not the shapes the
     glyph draws (㞙 as ⿸尸⿱毛水)."""
     out = dict(_japanese()[0])
+    # BabelStone's table stops at Unicode 16.0: Extension J is described by Yi Bai's.
+    for char, sequence in read_rows("han-ids-extension-j.tsv"):
+        out.setdefault(char, sequence)
     for char, sequence, _source, _note in read_rows("han-ids-drawn.tsv"):
         if sequence == char:
             out.pop(char, None)
@@ -754,6 +801,13 @@ class Contour:
     width: tuple[float, float] | None = _Weighed(None)
     #: Works out `heavy` and `width` for every contour of the glyph, where they were left for later.
     weigh: Callable[[], None] | None = field(default=None, repr=False, compare=False)
+    #: Whether the contour is a fallback's of another design than the style's own font: its stroke
+    #: width is brought to the font's, where a part of the font's own keeps its glyph's.
+    foreign: bool = False
+    #: The scale already drawn into the points (and into `width`), across x and across y, where a
+    #: part's contours were set at the size they are drawn at: its weight counts it with the
+    #: placement's.
+    scaled: tuple[float, float] = (1.0, 1.0)
     #: Whether the contour is a kindred fallback's (`Style.kindred`): drawn in the variable font's
     #: design, its strokes joined into outlines as that fallback joins them.
     kindred: bool = False
@@ -766,6 +820,10 @@ class Contour:
     @cached_property
     def box(self) -> Box:
         return (*self.light.min(axis=0), *self.light.max(axis=0))
+
+    @cached_property
+    def has_cubic(self) -> bool:
+        return any(op == "curveTo" for op, _, _ in self.ops)
 
     @cached_property
     def length(self) -> float:
@@ -902,6 +960,8 @@ class Font:
         """The glyph a character draws with, with a variation selector only as the font maps that sequence."""
         if len(char) == 1:
             return self.cmap.get(ord(char))
+        if (whole := full_form(char)) is not None:
+            return self.cmap.get(ord(whole))
         if len(char) == 2 and _selector(char[1]) and (ord(char[0]), ord(char[1])) in self.variants:
             return self.variants[(ord(char[0]), ord(char[1]))] or self.cmap.get(ord(char[0]))
         return None
@@ -917,11 +977,14 @@ class Font:
         return self._name(char) is not None
 
     def has(self, char: str) -> bool:
+        char = full_form(char) or char
         return self._name(char) is not None or (len(char) == 1 and any(ord(char) in f.cmap for f in self.fallbacks))
 
     def glyph(self, char: str) -> Part | None:
         """The glyph's outline at weight 400. Its heavy outline, and its stroke width where that is
         measured, are worked out when a contour is first asked for either (`Contour.weigh`)."""
+        if (whole := full_form(char)) is not None:
+            return self.glyph(whole)
         if char not in self._parts:
             part = None
             name = self._name(char)
@@ -931,7 +994,7 @@ class Font:
                         scale = fallback.scale
                         pen = DecomposingRecordingPen(fallback.glyphs)
                         fallback.glyphs[fallback.cmap[ord(char)]].draw(pen)
-                        contours = [Contour(ops, p * scale + self.shift, LATER, LATER, kindred=self.style.kindred) for ops, p in _contours(pen)]
+                        contours = [Contour(ops, p * scale + self.shift, LATER, LATER, kindred=self.style.kindred, foreign=not self.style.kindred) for ops, p in _contours(pen)]
                         self._later(contours, lambda contours=contours: self._grown_heavy(contours))
                         part = Part(contours) if contours else None
                         break
@@ -1224,6 +1287,22 @@ def _names_stroke(node: Node) -> bool:
     return any(_names_stroke(n) for n in node[1:])
 
 
+#: Least characters holding an enclosing part whose enclosed parts tell its room (`_enclosed_room`).
+ROOM_HOSTS = 3
+
+
+def _moved_into(box: Box, room: Box) -> Box:
+    """`box` moved the least way that brings it inside `room`, shrunk about its centre in its own
+    proportions first where it is wider or taller than the room."""
+    width, height = box[2] - box[0], box[3] - box[1]
+    scale = min(1.0, (room[2] - room[0]) / max(width, 1e-9), (room[3] - room[1]) / max(height, 1e-9))
+    cx, cy = (box[0] + box[2]) / 2, (box[1] + box[3]) / 2
+    width, height = width * scale, height * scale
+    x0 = min(max(cx - width / 2, room[0]), room[2] - width)
+    y0 = min(max(cy - height / 2, room[1]), room[3] - height)
+    return (x0, y0, x0 + width, y0 + height)
+
+
 #: The least extent a part's scale is measured over: a lone stroke's width says little of its scale.
 EVEN_LEAST = 60.0
 
@@ -1379,11 +1458,17 @@ CLEARED = frozenset("⿴⿵⿶⿷⿺")
 #: Least gap two neighbouring parts keep where they face each other, side by side and stacked: the
 #: median gap along their facing edges, as 95% of drawn characters keep it (measured on 800).
 FACING = (72.0, 53.0)
+#: Least gap two neighbouring parts keep at their closest strokes, side by side and stacked, where
+#: a style measures none of its own (`Style.facing_least`).
+FACING_LEAST = (12.0, 12.0)
 #: Most of its length a part gives up to make room for its neighbour.
 SQUEEZE = 0.15
 #: How far past the heavy master a part squeezed into a narrow box may grow: its stems keep the
 #: width the character's density calls for even when the box is a fraction of its own.
 WEIGHT_GROWTH = 3.0
+#: The smallest scale `Style.part_stems` is fitted on (`calibrate-parts`): a part drawn smaller
+#: still is weighted as one at this scale, and thins with it.
+PART_SCALE_LEAST = 0.2
 #: Fallback allocation for unreadable nested linear compounds: ink exponent, projected-crossing
 #: exponent, middle-operand multiplier, and inter-box gap as a fraction of the available axis.
 #: Negative gaps allow bounding boxes to overlap; `_space` checks their facing outlines afterwards.
@@ -1806,8 +1891,7 @@ class Composer:
     #: weight the result's density calls for. With both off, each operand's own glyph is squeezed
     #: into its share, the plainest way to compose, for comparison.
     hosted: bool = True
-    #: None takes the style's own setting (Kaisho's static brush keeps its weights).
-    weighted: bool | None = None
+    weighted: bool = True
     #: How many of the closest teachers the layout is agreed among.
     teachers: int = 3
     #: A learned layout (`compose_layout.LayoutModel`) for a whole character's two operands, when loaded.
@@ -1828,6 +1912,8 @@ class Composer:
     #: Internal comparison sketches keep the ink-only shares at every depth.
     _reference_only: bool = field(default=False, init=False, repr=False)
     _rank_pick: int = field(default=0, init=False, repr=False)
+    _columns: list = field(default_factory=list, init=False, repr=False)
+    _spaced: list = field(default_factory=list, init=False, repr=False)
     _root_ranks: list[float] = field(default_factory=list, init=False, repr=False)
     _expanding: set[str] = field(default_factory=set, init=False, repr=False)
     _inks: dict[str, float] = field(default_factory=dict, init=False, repr=False)
@@ -1845,10 +1931,6 @@ class Composer:
     _typical: dict[tuple[str, str], tuple] = field(default_factory=dict, init=False, repr=False)
     _frames: list[set] = field(default_factory=list, init=False, repr=False)
     _reference_exclude: frozenset[str] = field(default_factory=frozenset, init=False, repr=False)
-
-    def __post_init__(self) -> None:
-        if self.weighted is None:
-            self.weighted = getattr(getattr(self.font, "style", None), "weighted", True)
 
     @cached_property
     def by_sequence(self) -> dict[str, str]:
@@ -1996,9 +2078,22 @@ class Composer:
             return tuple(float(v) for v in np.median(np.array(boxes), axis=0)) if boxes else (0.0, ASCENT - EM, EM, ASCENT)
         return self._memo(self._faces, None, median)
 
+    def _rate_metric(self, node: Node) -> Part | None:
+        style = getattr(getattr(self.font, "style", None), "name", None)
+        return rate_part(key(node), style, self.exclude, metric=True)
+
+    def _rate_leaves(self, node: Node) -> Node:
+        if isinstance(node, str):
+            return node
+        if self._rate_metric(node) is not None:
+            return key(node)
+        return renoded(node, (self._rate_leaves(child) for child in node[1:]))
+
     def ink(self, node: Node, part: Part | None = None, seen: frozenset[str] = frozenset()) -> float:
         """Permitted outline length, or an IDS estimate for missing and excluded glyphs. Unknown
         analyses use permitted 永, or one em of nominal outline when it is unavailable."""
+        if part is None:
+            part = self._rate_metric(node)
         if part is not None:
             return sum(c.length for c in part.contours)
         self._reference_context()
@@ -2026,6 +2121,8 @@ class Composer:
         glyph to read adds its operands' along that axis, and takes the most of operands side by
         side across it; an enclosed or overlaid part adds to its enclosing one. Unknown analyses
         count as 永."""
+        if (rate := self._rate_metric(node)) is not None:
+            return _crossings(rate, axis)
         self._reference_context()
         if isinstance(node, tuple):
             encoded = self.by_sequence.get(key(node))
@@ -2050,7 +2147,7 @@ class Composer:
 
     def _unknown(self, node: Node) -> bool:
         """Whether a compound operand has no permitted glyph encoding."""
-        if not isinstance(node, tuple):
+        if not isinstance(node, tuple) or self._rate_metric(node) is not None:
             return False
         encoded = self.by_sequence.get(key(node))
         return encoded is None or encoded in self.exclude or self.font.glyph(encoded) is None
@@ -2063,6 +2160,8 @@ class Composer:
     def aspect(self, node: Node, seen: frozenset[str] = frozenset()) -> float:
         """An operand's natural width over height: its glyph's, or for a sequence the operands'
         put side by side or stacked; an enclosure takes its enclosing operand's."""
+        if (rate := self._rate_metric(node)) is not None:
+            return max(rate.box[2] - rate.box[0], 1) / max(rate.box[3] - rate.box[1], 1)
         self._reference_context()
         if isinstance(node, str):
             glyph = self.font.glyph(node) if node not in self.exclude else None
@@ -3072,10 +3171,14 @@ class Composer:
         """The parts that draw `sequence`, with the loose marks written after it (⿰木口́): a mark
         beside the drawing takes a margin the character shrinks out of, and none takes part in its
         layout or weight. LookupError when an operand can be drawn no way."""
+        self._columns.clear()
+        self._spaced.clear()
         tree, marks = described(sequence)
         if marks:
             from .marks import marked
             return marked(self, key(tree), marks)
+        if contains_rate_form(sequence):
+            tree = self._rate_leaves(tree)
         tree = self._standalone_expanded_overlay(self._standalone_pyramid(
             self._standalone_repeated_grid(self._normalize_repeated_grids(
                 self._normalize_requested_enclosures(self._cancel_transforms(tree))))))
@@ -3112,15 +3215,21 @@ class Composer:
         if self._beside is not None:
             # The character as it is laid out in the whole face, carried into what its marks leave:
             # whatever placed its parts (a glyph, hosts, the learned layout), it shrinks as one.
-            placed = type(placed)(replace(p, target=mapped(p.target, self.face, self._beside)) for p in placed)
+            carried = {id(p): replace(p, target=mapped(p.target, self.face, self._beside)) for p in placed}
+            self._columns = [[[carried.get(id(p), p) for p in group] for group in row] for row in self._columns]
+            self._spaced = [(axis, *([carried.get(id(p), p) for p in group] for group in pair)) for axis, *pair in self._spaced]
+            placed = type(placed)(carried[id(p)] for p in placed)
         if self.weighted:
             self._balance(placed)
+            self._clear(placed)
         # The guide's ink is the character in the whole face, not in what marks beside it leave.
         if self.guide is not None and self._beside is None:
             placed = self.guide.fit(self, key(tree), placed)
         spec = constructs().get(sequence)
         if spec:
             placed = self._construct(spec, placed)
+        if self._columns and SUBTRACT not in sequence:
+            _settle_columns(self._columns, placed, COLUMN_CLEARANCE[self.font.style.name])
         return placed
 
     def _reranked(self, tree: Node, placed: list[Placed]) -> list[tuple[float, list[Placed], list[float]]]:
@@ -3190,39 +3299,88 @@ class Composer:
         return out
 
     def _balance(self, placed: list[Placed]) -> None:
-        """Each part's strokes brought to the width the whole character's density calls for: a part
-        drawn in a sparser glyph is thinned, one squeezed along an axis is thickened along it. A
-        part no thicker than a stroke along an axis keeps its weight there. A part squeezed into a
-        narrow box may grow past the heavy master, up to `WEIGHT_GROWTH`."""
+        """Each part's strokes brought to the width the font gives a part of its scale
+        (`Style.part_stems`): one squeezed along an axis is thickened along it, short of its
+        glyph's width. A font without that law brings every part to the width the whole character's
+        density calls for. A part no thicker than a stroke along an axis keeps its weight there.
+        A part squeezed into a narrow box may grow past the heavy master, up to `WEIGHT_GROWTH`."""
         density = sum(self.ink("", p.part) * (p.scale[0] + p.scale[1]) / 2 for p in placed)
         ratio = [self.font.stem[axis][1] / self.font.stem[axis][0] - 1 for axis in (0, 1)]
         powers = getattr(getattr(self.font, "style", None), "part_stems", None)
+        spread = getattr(getattr(self.font, "style", None), "part_spread", None)
+        # Per axis, each weighted part with the stroke width it is drawn at before weighting and
+        # how far a weight of 1 widens it.
+        drawn: tuple[list, list] = ([], [])
         for p in placed:
             if p.fixed:
                 continue
             weight, target = [], list(p.target)
+            first = p.part.contours[0]
+            # A static face's own outline is grown by one amount whatever the stroke, so its weight
+            # is counted against its glyph's stem. A fallback's is grown in proportion to its stem.
+            flat = getattr(self.font, "static", False) and first.width is not None and not (first.kindred or first.foreign)
             for axis, s in enumerate(p.scale):
                 extent = p.source[axis + 2] - p.source[axis]
                 if extent <= 2 * self.font.stem[axis][0]:
                     # A lone stroke across this axis: drawn at the width the density calls for, not
                     # scaled; in a face weighted by scale, at the width its length's scale calls for.
                     if powers is not None:
-                        width = extent * max(p.scale[1 - axis], 1e-6) ** powers[axis]
+                        along = max(p.scale[1 - axis] * first.scaled[1 - axis], PART_SCALE_LEAST)
+                        width = extent / first.scaled[axis] * along ** powers[axis]
                     else:
                         width = extent * self.font.width(density, axis) / self.font.width(p.native, axis)
                     middle = (target[axis] + target[axis + 2]) / 2
                     target[axis], target[axis + 2] = middle - width / 2, middle + width / 2
                     weight.append(0.0)
                     continue
+                measured = first.width
                 if powers is not None:
-                    # The stem the font gives a part at this scale, over the stem plain scaling leaves.
-                    weight.append(float(np.clip((max(s, 1e-6) ** (powers[axis] - 1) - 1) / ratio[axis], -0.6, WEIGHT_GROWTH)))
+                    # The stem the font gives a part at this scale, over the stem plain scaling
+                    # leaves. A glyph of another design starts from the stem the font draws at its
+                    # density, over its own.
+                    own = None if measured is None else measured[axis] / first.scaled[axis]
+                    lift = self.font.width(p.native, axis) / own if own is not None and first.foreign else 1.0
+                    grown = ratio[axis]
+                    if flat:
+                        grown = (self.font.stem[axis][1] - self.font.stem[axis][0]) / own
+                    elif axis == 1 and own is None and getattr(self.font, "grow_y", 0.0):
+                        # Horizontals grown synthetically grow by one amount too.
+                        grown = (self.font.stem[1][1] - self.font.stem[1][0]) / self.font.width(p.native, 1)
+                    at = max(s * first.scaled[axis], PART_SCALE_LEAST)
+                    weight.append(float(np.clip((lift * at ** (powers[axis] - 1) - 1) / grown, -0.6, WEIGHT_GROWTH)))
+                    stated = measured[axis] if measured is not None else self.font.width(p.native, axis) * first.scaled[axis]
+                    drawn[axis].append((p, stated * s, grown))
                     continue
-                measured = p.part.contours[0].width
                 own = measured[axis] if measured is not None else self.font.width(p.native, axis)
                 weight.append(float(np.clip((self.font.width(density, axis) / (s * own) - 1) / ratio[axis], -0.6, WEIGHT_GROWTH)))
             p.target = tuple(target)
             p.weight = (weight[0], weight[1])
+        if spread is not None:
+            self._even(drawn, spread)
+
+    def _even(self, drawn: tuple[list, list], spread: tuple[float, float]) -> None:
+        """Parts of one character held within the font's own spread of a common stroke width. A
+        character's parts are drawn with one stroke width in the font, whatever their sizes; parts
+        cut from hosts of unlike weight (雲 from 霻, 龍龍 from the crowded 龘) come out further
+        apart than any two parts of the font's own characters. The common width is the mean of the
+        parts' widths by their ink, and a part outside the spread about it is weighted to its edge."""
+        for axis in (0, 1):
+            parts = drawn[axis]
+            if len(parts) < 2:
+                continue
+            widths = np.array([base * (1 + p.weight[axis] * grown) for p, base, grown in parts])
+            inks = np.array([self.ink("", p.part) * (p.scale[0] + p.scale[1]) / 2 for p, _, _ in parts])
+            if (widths <= 0).any() or inks.sum() <= 0:
+                continue
+            common = float(np.exp((inks * np.log(widths)).sum() / inks.sum()))
+            # Two parts each within the root of the spread of the common width are within the spread.
+            edge = math.sqrt(spread[axis])
+            for (p, base, grown), width in zip(parts, widths):
+                held = float(np.clip(width, common / edge, common * edge))
+                if held != width:
+                    weight = list(p.weight)
+                    weight[axis] = float(np.clip((held / base - 1) / grown, -0.6, WEIGHT_GROWTH))
+                    p.weight = (weight[0], weight[1])
 
     def _wheat_face(self, region: Box) -> list[Placed]:
         """The checked 榛, sweep and 麺 cuts for the described enclosure in Zhuque and TW-Kai."""
@@ -3245,6 +3403,21 @@ class Composer:
                 part.target = mapped(part.target, frame, region)
         return parts
 
+    def _joined(self, node: Node) -> Node:
+        """`node` with each operand that spells a drawn character replaced by that character, from
+        the innermost out: ⿱艹⿰口南 as ⿱艹喃."""
+        if type(node) is not tuple:
+            return node
+        operands = []
+        for operand in node[1:]:
+            operand = self._joined(operand)
+            if type(operand) is tuple and key(operand) not in self.spelled:
+                name = self.by_sequence.get(key(operand))
+                if name is not None and name not in self.exclude:
+                    operand = name
+            operands.append(operand)
+        return (node[0], *operands)
+
     def _foreign(self, char: str) -> bool:
         """Whether only a fallback font of another design draws `char`."""
         style = getattr(self.font, "style", None)
@@ -3255,11 +3428,19 @@ class Composer:
         """`node` drawn into `region`; at the root, the whole character, laid out in the em. A row or
         column of three is also drawn as each pairing of its neighbours (⿲氵木目 as ⿰氵⿰木目 and
         ⿰⿰氵木目) unless `regroup` is off, and the drawing that scales its parts most evenly is kept."""
+        text = key(node)
+        style = getattr(getattr(self.font, "style", None), "name", None)
+        if (part := rate_part(text, style, self.exclude)) is not None:
+            return [Placed(part, part.box, part.box if at_root else region, origin=f"率 {text}", fixed=True)]
         if node == ("⿺", ("⿱", "𡗗", "夂"), "面") and (parts := self._wheat_face(region)):
             return parts
         if isinstance(node, str) and is_jamo_run(node):
             return self._jamo_syllable(node, region)
         encoded = node if isinstance(node, str) else None if key(node) in self.spelled else self.by_sequence.get(key(node))
+        if encoded is None and type(node) is tuple and key(node) not in self.spelled:
+            # A character written with an operand spelled out (𬞑 as ⿱艹⿰口南, where its own
+            # sequence is ⿱艹喃) is that character.
+            encoded = self.by_sequence.get(key(self._joined(node)))
         if at_root and not isinstance(node, str):
             # Characters sharing a sequence (申 由 甲 are all ⿻日丨): the one redrawn is the one
             # excluded, never another that happens to have the same sequence.
@@ -3383,6 +3564,9 @@ class Composer:
             raise LookupError(f"{op} is not laid out.")
         if op == OVERLAY:
             return self._overlay(children, region)
+        quadrant = self._quadrant_surround(op, children, region)
+        if quadrant is not None:
+            return quadrant
         # An unreadable row can expand far beyond a single glyph's horizontal footprint.
         unknown = not at_root and op == "⿰" and any(self._unknown_aligned(c, 0) for c in children)
         if self.hosted and self.layout is not None and len(children) == 2 and (
@@ -3447,6 +3631,64 @@ class Composer:
         _fit_under_cover(op, children, groups)
         return [p for group in groups for p in group]
 
+    def _enclosed_room(self, op: str, outer: Node, placed: list[Placed]) -> Box | None:
+        """The room the characters written `op` round `outer` give what they enclose, carried onto
+        `outer` as placed: the lower quartile of their enclosed parts' left and foot and the upper
+        quartile of their right and head, as shares of the enclosing part's own box. None with fewer than `ROOM_HOSTS` such characters cut
+        cleanly."""
+        share = self._enclosed_share(op, key(outer))
+        if share is None:
+            return None
+        around = (min(p.target[0] for p in placed), min(p.target[1] for p in placed),
+                  max(p.target[2] for p in placed), max(p.target[3] for p in placed))
+        return mapped(share, (0.0, 0.0, 1.0, 1.0), around)
+
+    def _enclosed_share(self, op: str, outer: str) -> Box | None:
+        found = self._enclosed_shares.get((op, outer), False)
+        if found is not False and not self.exclude:
+            return found
+        rooms = []
+        for char in self._written_round.get((op, outer), ()):
+            if char in self.exclude or not self.font.own(char) or self.wrong_cut(char):
+                continue
+            try:
+                host = self._host_node(char, parse(self.sequences[char]), ())
+            except (ValueError, LookupError):
+                continue
+            if host is None or len(host.pieces) != 2:
+                continue
+            around, held = host.pieces[0].box, host.pieces[1].box
+            width, height = around[2] - around[0], around[3] - around[1]
+            if width > 0 and height > 0:
+                rooms.append(((held[0] - around[0]) / width, (held[1] - around[1]) / height,
+                              (held[2] - around[0]) / width, (held[3] - around[1]) / height))
+        share = None
+        if len(rooms) >= ROOM_HOSTS:
+            # The outer quartile of each edge: one character's stray stroke (勿's 丿 past 勹's foot)
+            # widens no room, and the room is no smaller than most of these characters use.
+            share = tuple(float(np.percentile([r[k] for r in rooms], 25 if k < 2 else 75)) for k in range(4))
+        if not self.exclude:
+            self._enclosed_shares[(op, outer)] = share
+        return share
+
+    @cached_property
+    def _enclosed_shares(self) -> dict[tuple[str, str], Box | None]:
+        return {}
+
+    @cached_property
+    def _written_round(self) -> dict[tuple[str, str], list[str]]:
+        """(enclosing operator, enclosing part) → the characters whose sequence is written so."""
+        out: dict[tuple[str, str], list[str]] = {}
+        for char, sequence in self.sequences.items():
+            if sequence[:1] in ENCLOSE:
+                try:
+                    tree = parse(sequence)
+                except (ValueError, StopIteration):
+                    continue
+                if isinstance(tree, tuple) and len(tree) == 3:
+                    out.setdefault((tree[0], key(tree[1])), []).append(char)
+        return out
+
     def _learned_boxes(self, op: str, keys: list[str], region: Box | None) -> list[Box] | None:
         """The boxes the learned layout gives a node's two operands (`_learned`), carried into
         `region` when nested; None when one has no extent."""
@@ -3502,6 +3744,14 @@ class Composer:
                 part = None
             if part is None:
                 if op in ENCLOSE and i == 1:
+                    room = None
+                    if outer_hosted:
+                        # The network places a part it never saw enclosed by guess (龍 hanging out
+                        # of 勹's foot): it stays in the room this enclosing part's own characters
+                        # give what they enclose.
+                        room = self._enclosed_room(op, children[0], groups[0])
+                        if room is not None:
+                            box = _moved_into(box, room)
                     # Drawn into its learned box, then kept clear of the enclosing strokes (面
                     # beside 麦's sweep in 麺), growing up to the opening where that is larger
                     # (目 fills the room under 龵 in 看).
@@ -3509,6 +3759,9 @@ class Composer:
                     opening = self._room(op, groups[0], region or self.face)
                     # The opening already includes stroke clearance from _room.
                     limit = box if opening is None or _area(opening) <= _area(box) else opening
+                    if outer_hosted and room is not None:
+                        # The opening reaches wherever no stroke lies; the part stays in its room.
+                        limit = box
                     feasible = _fit_inside(groups[0], groups[1], region or self.face, self.font.stem[0][0], room=limit)
                     inner_fitted = (feasible and region is None and outer_hosted and self.reuse and self.standalone is not None
                                     and isinstance(child, str) and child not in self.exclude and len(groups[1]) == 1
@@ -3540,7 +3793,11 @@ class Composer:
                 else:
                     # A part drawn alone that does not sweep under the other (瓜, whose last stroke
                     # falls short of 交 in 㼎) stands beside it.
-                    return self._node(("⿰", *children), region or self.face)
+                    # The enclosure owns the clearance of this substitute row.
+                    count = len(self._columns)
+                    pair = self._node(("⿰", *children), region or self.face)
+                    del self._columns[count:]
+                    return pair
             if op in ENCLOSE and i == 1 and all(p.origin.startswith("glyph") for p in groups[0]):
                 # The enclosing part is a bare glyph, drawn for standing alone: the opening its
                 # strokes leave is far smaller than a designer's (龵's sweep over 目 in 看). The
@@ -3676,6 +3933,8 @@ class Composer:
 
     def _outlines(self, node: Node, seen: frozenset[str] = frozenset()) -> int:
         """Total permitted outline count; zero means that at least one operand is unknown."""
+        if (rate := self._rate_metric(node)) is not None:
+            return len(rate.contours)
         self._reference_context()
         if isinstance(node, str):
             if node not in self.exclude:
@@ -3733,7 +3992,9 @@ class Composer:
                             frame = (min(b[0] for b in boxes), min(b[1] for b in boxes), max(b[2] for b in boxes), max(b[3] for b in boxes))
                             return [p for child, b in zip(children, boxes) for p in self._node(child, mapped(b, frame, region))]
                         return self._node((op, *children), region)
-                return self._node((AXIS_STACK, *children), region)
+                # Crosses have no upper or lower enclosure posture; their operands share the em.
+                if len(outer) != 1 or not _crossed_bars(outer[0].part):
+                    return self._node((AXIS_STACK, *children), region)
         if not teachers:
             em = (0.0, ASCENT - EM, EM, ASCENT)
             out = []
@@ -3934,6 +4195,34 @@ class Composer:
             out.append(Placed(piece, piece.box, fitted(piece.box, room, CELL_STRETCH), native=self.ink(drawn.char), origin=f"host {drawn.char}"))
         return out
 
+    def _quadrant_surround(self, op: str, children: list[Node], region: Box) -> list[Placed] | None:
+        """A cross or T keeps its full glyph; the operand fits proportionally in its open quadrant.
+
+        Enclosure teachers and swept feet describe frames. Two crossing bars have no such posture:
+        their actual opening determines both placement and size, before those fallbacks run.
+        """
+        if op not in ("⿸", "⿹", "⿺", "⿽") or not isinstance(children[0], str):
+            return None
+        if children[0] in self.exclude:
+            return None
+        glyph = self.font.glyph(children[0])
+        if glyph is None or not _crossed_bars(glyph):
+            return None
+        outer = [self._place(glyph, region, self.ink(children[0]), f"glyph {children[0]}")]
+        room = self._room(op, outer, region)
+        if room is None:
+            return None
+        room = _shrunk(room, OPENING_SHARE)
+        own = self.font.glyph(children[1]) if isinstance(children[1], str) and children[1] not in self.exclude else None
+        inner = self._node(children[1], own.box if own is not None else self.face)
+        source = _ink_box(inner)
+        target = fitted(source, room, 1.0)
+        for part in inner:
+            part.target = mapped(part.target, source, target)
+        for part in outer + inner:
+            part.fixed = True
+        return outer + inner
+
     def _room(self, op: str, outer: list[Placed], region: Box, size: int = 48) -> Box | None:
         """The largest empty box inside `region` that the placed enclosing part closes on its
         closed sides (`ENCLOSE`), at least `ROOM_MARGIN` stroke widths clear of its ink."""
@@ -3976,17 +4265,34 @@ class Composer:
     def _space(self, axis: int, groups: list[list[Placed]]) -> None:
         """Neighbouring parts moved apart where they face each other closer than `FACING`, the gap
         nineteen in twenty drawn characters keep: each gives up half the shortfall on its facing side."""
+        if axis == 0 and getattr(getattr(self.font, "style", None), "name", None) in COLUMN_CLEARANCE:
+            self._columns.append(groups)
         for a, b in pairwise(groups):
-            gap = _facing(a, b, axis)
-            if gap is None or gap >= FACING[axis]:
+            self._spaced.append((axis, a, b))
+            gaps = _facing_gaps(a, b, axis)
+            if gaps is None:
                 continue
-            half = (FACING[axis] - gap) / 2
-            first, second = (a, b) if axis == 0 else (b, a)  # lower x first; y is up, so the stacked lower part first
-            # No part gives up more than `SQUEEZE` of its length: parts drawn into each other are a
-            # layout fault this pass does not mend.
-            limit = lambda group: SQUEEZE * (max(p.target[axis + 2] for p in group) - min(p.target[axis] for p in group))
-            _squeeze(first, axis, 0.0, -min(half, limit(first)))
-            _squeeze(second, axis, min(half, limit(second)), 0.0)
+            # The median misses one stroke reaching its neighbour (the foot of 艹 on the head of
+            # 南): the closest pair of strokes keeps the style's least gap as well.
+            least = getattr(getattr(self.font, "style", None), "facing_least", FACING_LEAST)[axis]
+            short = max(FACING[axis] - float(np.median(gaps)), least - float(gaps.min()))
+            if short <= 0:
+                continue
+            _apart(a, b, axis, short)
+
+    def _clear(self, placed: list[Placed]) -> None:
+        """The style's least gap kept between neighbouring parts once they carry their weights:
+        `_space` measures them as laid out, and a part weighted afterwards grows into the gap."""
+        drawn = {id(p) for p in placed}
+        least = getattr(getattr(self.font, "style", None), "facing_least", FACING_LEAST)
+        for axis, a, b in self._spaced:
+            if not all(id(p) in drawn and not p.fixed and not p.cut for p in (*a, *b)):
+                continue
+            if not any(any(p.weight) for p in (*a, *b)):
+                continue
+            gaps = _facing_gaps(a, b, axis)
+            if gaps is not None and least[axis] > gaps.min():
+                _apart(a, b, axis, least[axis] - float(gaps.min()))
 
     @staticmethod
     def _stretch(source: Box, target: Box) -> float:
@@ -4158,7 +4464,8 @@ def _fit_under_cover(op: str, children: list[Node], groups: list[list[Placed]]) 
             shift = ((cover_box[0] + cover_box[2]) / 2 - bar_centre) / scale
             move = lambda points, source_centre=source_centre, shift=shift, factor=factor: np.column_stack([
                 source_centre + shift + (points[:, 0] - source_centre) * factor, points[:, 1]])
-            replacement = Contour(contour.ops, move(contour.light), move(contour.heavy), contour.width)
+            replacement = Contour(contour.ops, move(contour.light), move(contour.heavy), contour.width,
+                                  kindred=contour.kindred, foreign=contour.foreign, scaled=contour.scaled)
             contours = [replacement if c is contour else c for c in placed.part.contours]
             placed.part = Part(contours)
             break
@@ -4173,6 +4480,23 @@ def _fit_under_cover(op: str, children: list[Node], groups: list[list[Placed]]) 
             for placed in lower:
                 placed.target = (placed.target[0], placed.target[1] + shift,
                                  placed.target[2], placed.target[3] + shift)
+
+
+def _crossed_bars(glyph: Part) -> bool:
+    """Two long bars meeting away from at least one edge, allowing brush lean and serif terminals."""
+    ink = fill(_rings(glyph.contours, [c.light for c in glyph.contours]), 64, glyph.box)
+    rows, cols = (np.flatnonzero(ink.sum(axis=axis) >= 0.65 * 64) for axis in (1, 0))
+    if not len(rows) or not len(cols):
+        return False
+    if rows[-1] - rows[0] >= 16 or cols[-1] - cols[0] >= 16:
+        return False
+    # A junction on both edges is an ordinary corner, such as 厂 or 广.
+    if not any(16 <= (band[0] + band[-1]) / 2 <= 48 for band in (rows, cols)):
+        return False
+    rest = ink.copy()
+    rest[max(0, rows[0] - 4):min(64, rows[-1] + 5)] = False
+    rest[:, max(0, cols[0] - 4):min(64, cols[-1] + 5)] = False
+    return rest.sum() <= 0.12 * ink.sum()
 
 
 def _ink_box(group: list[Placed]) -> Box:
@@ -4261,7 +4585,8 @@ def _swept(placed: Placed, edge: float) -> list[Placed] | None:
         # The contours stand at the size they are drawn at, so the stroke widths they state are the
         # scaled ones: `_balance` reads them against a scale of one.
         width = None if c.width is None else (c.width[0] * scale[0], c.width[1] * scale[1])
-        return Contour(c.ops, move((c.light - centre) * scale + goal), move((c.heavy - centre) * scale + goal), width)
+        return Contour(c.ops, move((c.light - centre) * scale + goal), move((c.heavy - centre) * scale + goal), width,
+                       kindred=c.kindred, foreign=c.foreign, scaled=(c.scaled[0] * scale[0], c.scaled[1] * scale[1]))
 
     # The other strokes pressed by their target box, so that weighting thickens their stems back.
     strokes = Part([at(c, lambda p: p) for k, c in enumerate(placed.part.contours) if k != sweep])
@@ -4372,6 +4697,93 @@ def _fit_inside(outer: list[Placed], inner: list[Placed], region: Box, stem: flo
     return False
 
 
+# Tenth-percentile and nearest clearances relative to a native pair's width.
+COLUMN_CLEARANCE = {"serif": (0.088, 0.011), "pen-writing": (0.104, 0.028)}
+
+
+def _column_profile(left: list[Placed], right: list[Placed]) -> tuple | None:
+    """Ink boxes and width, relative tenth-percentile and nearest gaps, and room between strokes."""
+    size = 250
+    rings = [[r for part in group for r in _rings(part.part.contours, part.contours(), 24)]
+             for group in (left, right)]
+    if not all(rings):
+        return None
+    points = [np.concatenate(group) for group in rings]
+    boxes = [(v[:, 0].min(), v[:, 1].min(), v[:, 0].max(), v[:, 1].max()) for v in points]
+    a, b = boxes
+    width = b[2] - a[0]
+    frame = (a[0], min(a[1], b[1]), b[2], max(a[3], b[3]))
+    if not (width > 0 and frame[3] > frame[1] and a[0] < b[0] and a[2] < b[2]):
+        return None
+    first, second = (fill(group, size, frame) for group in rings)
+    shared = np.any(first, axis=1) & np.any(second, axis=1)
+    if np.sum(shared) < 5:
+        return None
+    gaps = np.sort(np.argmax(second[shared], axis=1) + np.argmax(first[shared, ::-1], axis=1) - (size - 1))
+    def has_counters(mask):
+        occupied = np.any(mask, axis=1)
+        starts = mask[:, 0].astype(int) + np.count_nonzero(mask[:, 1:] & ~mask[:, :-1].astype(bool), axis=1)
+        return 4 * np.count_nonzero(starts >= 2) >= np.count_nonzero(occupied)
+
+    return boxes, width, gaps[len(gaps) // 10] / size, gaps[0] / size, has_counters(first) and has_counters(second)
+
+
+def _settle_columns(rows: list, placed: list[Placed], clearance: tuple[float, float]) -> None:
+    """Fit independent columns horizontally, keeping their final weights and visible outer edges."""
+    if any(p.cut for p in placed):
+        return
+    widths = {id(p): p.target[2] - p.target[0] for p in placed}
+    broad, nearest = clearance
+    for groups in rows:
+        run = []
+        for i in range(1, len(groups) + 1):
+            if i < len(groups):
+                left, right = groups[i-1:i+1]
+                parts = [*left, *right]
+                eligible = left and right and all(id(p) in widths and not p.fixed and not p.cut for p in parts)
+                same_host = eligible and parts[0].origin.startswith(("learned ", "host ", "teacher ")) and all(
+                    p.origin == parts[0].origin for p in parts)
+                profile = _column_profile(left, right) if eligible and not same_host else None
+                if profile is not None:
+                    boxes, width, low, closest, counters = profile
+                    distance = width * min(low - broad, closest - nearest)
+                    if counters and distance > 0:
+                        run.append((boxes, distance))
+                        continue
+            if run:
+                _fit_column_run(groups[i-len(run)-1:i], run, widths)
+                run = []
+
+
+def _fit_column_run(groups: list, seams: list, widths: dict) -> None:
+    """Close all excess seams in the run together, so its middle column scales once."""
+    boxes = [seams[0][0][0], *(pair[1] for pair, _ in seams)]
+    left, right = boxes[0][0], boxes[-1][2]
+    width = right - left
+    distances = [distance for _, distance in seams] + [0.]
+    total = sum(distances)
+    scale, offset = 1., 0.
+    for group, box, distance in zip(groups, boxes, distances, strict=True):
+        if offset > 0:
+            scale = min(scale, (box[0] - left) / offset)
+        if total > offset:
+            scale = min(scale, (right - box[2]) / (total - offset))
+        for p in group:
+            current, original = p.target[2] - p.target[0], widths[id(p)]
+            if original <= 0:
+                return
+            scale = min(scale, width / total * (1 - current / (original * 1.06)))
+        offset += distance
+    if scale <= 0:
+        return
+    stretch, offset = width / (width - scale * total), 0.
+    for group, distance in zip(groups, distances, strict=True):
+        for p in group:
+            x0, y0, x1, y1 = p.target
+            p.target = (left + (x0 - left - offset) * stretch, y0, left + (x1 - left - offset) * stretch, y1)
+        offset += scale * distance
+
+
 def _squeeze(group: list[Placed], axis: int, low: float, high: float) -> None:
     """A group of placed parts moved in from its low and high edges along `axis`, together."""
     lo = min(p.target[axis] for p in group)
@@ -4385,9 +4797,27 @@ def _squeeze(group: list[Placed], axis: int, low: float, high: float) -> None:
 
 
 def _facing(a: list[Placed], b: list[Placed], axis: int, size: int = 250) -> float | None:
-    """The median gap between two groups along their facing edges, in font units: per row (side by
+    """The median gap between two groups along their facing edges (`_facing_gaps`)."""
+    gaps = _facing_gaps(a, b, axis, size)
+    return None if gaps is None else float(np.median(gaps))
+
+
+def _apart(a: list[Placed], b: list[Placed], axis: int, short: float) -> None:
+    """Two neighbouring groups moved `short` apart, each giving up half on its facing side. `a` is
+    the left or upper group."""
+    half = short / 2
+    first, second = (a, b) if axis == 0 else (b, a)  # lower x first; y is up, so the stacked lower part first
+    # No part gives up more than `SQUEEZE` of its length: parts drawn into each other are a
+    # layout fault this pass does not mend.
+    limit = lambda group: SQUEEZE * (max(p.target[axis + 2] for p in group) - min(p.target[axis] for p in group))
+    _squeeze(first, axis, 0.0, -min(half, limit(first)))
+    _squeeze(second, axis, min(half, limit(second)), 0.0)
+
+
+def _facing_gaps(a: list[Placed], b: list[Placed], axis: int, size: int = 250) -> np.ndarray | None:
+    """The gaps between two groups along their facing edges, in font units: per row (side by
     side) or column (stacked) where both have ink, from the end of the first to the start of the
-    second. `a` is the left or upper group."""
+    second. `a` is the left or upper group. None where fewer than five lines hold both."""
     box = (0.0, ASCENT - EM, EM, ASCENT)
     ma = fill([r for p in a for r in _rings(p.part.contours, p.contours())], size, box)
     mb = fill([r for p in b for r in _rings(p.part.contours, p.contours())], size, box)
@@ -4398,12 +4828,12 @@ def _facing(a: list[Placed], b: list[Placed], axis: int, size: int = 250) -> flo
         ra, rb = np.nonzero(ma[:, line])[0], np.nonzero(mb[:, line])[0]
         if len(ra) and len(rb):
             gaps.append(rb.min() - ra.max())
-    return float(np.median(gaps)) * EM / size if len(gaps) >= 5 else None
+    return np.array(gaps, dtype=float) * EM / size if len(gaps) >= 5 else None
 
 
 # ------------------------------------------------------------------ output
 def _segments(ops: list[tuple[str, int, bool]], points: np.ndarray) -> list[tuple[str, list[np.ndarray]]]:
-    """A contour as ('M' | 'L' | 'Q', points) segments, with TrueType's implied on-curve points made explicit."""
+    """A contour as SVG path segments, with TrueType's implied on-curve points made explicit."""
     at, out = 0, []
     for op, n, implied in ops:
         pts = [np.asarray(p) for p in points[at:at + n]]
@@ -4412,6 +4842,8 @@ def _segments(ops: list[tuple[str, int, bool]], points: np.ndarray) -> list[tupl
             out.append(("M", [pts[0]]))
         elif op == "lineTo":
             out.append(("L", [pts[0]]))
+        elif op == "curveTo":
+            out.append(("C", pts))
         elif op == "qCurveTo":
             if implied:
                 # Only off-curve points: the contour starts midway between the last and the first.
@@ -4502,6 +4934,20 @@ def _rings(contours: list[Contour], points: list[np.ndarray], steps: int = 6) ->
     rings = []
     t = _steps(steps).ravel()
     for contour, pts in zip(contours, points):
+        if contour.has_cubic:
+            ring = []
+            for command, points_in_segment in _segments(contour.ops, pts):
+                if command in ("M", "L"):
+                    ring.append(points_in_segment[0])
+                    continue
+                # De Casteljau evaluates both quadratic and cubic Béziers.
+                controls = np.stack([ring[-1], *points_in_segment])[:, None, :]
+                for _ in points_in_segment:
+                    controls = (1 - t[:, None]) * controls[:-1] + t[:, None] * controls[1:]
+                ring.extend(controls[0])
+            if len(ring) >= 3:
+                rings.append(np.asarray(ring))
+            continue
         first, second, curved, offs, lines, samples, size = _ring_plan(tuple(contour.ops), steps)
         if size >= 3:
             rings.append(_ring(pts, first, second, curved, offs, lines, samples, size, t))
