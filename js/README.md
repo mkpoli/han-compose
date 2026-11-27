@@ -42,6 +42,7 @@ One source serves any number of sequences and keeps what it has loaded.
 |---|---|---|
 | Sans | `'sans'` | Noto Sans CJK JP, Plangothic |
 | Serif (明朝) | `'serif'` | Noto Serif CJK JP, Jigmo |
+| Woodblock (刻本明體) | `'woodblock'` | Nôm Na Tống |
 | Fangsong (仿宋) | `'fangsong'` | Zhuque Fangsong, Jigmo |
 | Regular Kai (正楷) | `'regular'` | TW-Kai, TW-Kai Ext-B, TW-Kai Ext-G |
 | Wen Kai (文楷) | `'pen-writing'` | Kureedo Full, GenZui Sans |
@@ -230,6 +231,10 @@ tokens('⿰亻⿱七木')[2]
 // { path: [1], start: 2, end: 5, tokenEnd: 3, text: '⿱' }
 ```
 
+### Analysing variant forms
+
+An IDS operand can carry an exact IVS, an explicit decomposition or a custom component reference. The registry indexes these spellings by occurrence, visual feature and source. See [Variation registry](../docs/design/variation-registry.md) for the catalogue format, a worked example and source import commands.
+
 ## Entry points
 
 | Import | |
@@ -273,6 +278,12 @@ https://kanjivg.tagaini.net/".
 
 ### Manuscript form ⿰氵⿺木罒
 
+The FangSong fallback for 〇 is the U+3007 outline from Zhuque FangSong 0.212 (SIL OFL 1.1). [Font notices](../docs/licensing.md)
+
+The prepared form for ⿲㇇丨𰛅 in `src/water-stroke-row.json` cuts 水 into its left bend and hooked body, then inserts the short 丨 shown in the source. The outlines are adapted from Noto Sans CJK, Noto Serif CJK, Zhuque FangSong 0.212, Kureedo Full 0.5.0 (SIL OFL 1.1) and TW-Kai 11510.1 (數位發展部, Open Government Data License 1.0). [潮語十五音 reference](https://rare.glyphatlas.org/media/v2/3bbecda5aaee2182bb994d8cabd674aad5c4a14245b8ec4f8817e4064b2317ce.webp) · [Font notices](../docs/licensing.md)
+
+The prepared form for ⿺水巜 in `src/water-enclosure.json` narrows 水 above its sweeping right leg and sets 巜 in that opening. Zhuque supplies its two bends from 巛. The outlines are adapted from Zhuque FangSong 0.212, Kureedo Full 0.5.0, Noto Sans CJK JP 2.004 and Noto Serif CJK JP 2.003 (SIL OFL 1.1) and TW-Kai 11510.1 (數位發展部, Open Government Data License 1.0). [潮語十五音 reference](https://rare.glyphatlas.org/media/v2/095ea0b397c1652d3bec774a27980ede0ff58f774220eef38636844fcf1dceea.webp) · [Font notices](../docs/licensing.md)
+
 The prepared form in `src/mu-net-forms.json` takes 氵 from 河, the left 木 from 林, the sweeping stroke from 木, and 罒 from 罪 (買 in Fangsong). ⿺沐罒 groups the first two components as 沐. The outlines are adapted from GenZui Sans 0.105, Noto Serif CJK JP 2.003, Zhuque Fangsong 0.212 and Kureedo Full 0.5.0 under SIL OFL 1.1. The Regular Kai outlines are adapted from TW-Kai 11510.1, 數位發展部 (Ministry of Digital Affairs), CNS11643中文標準交換碼全字庫, under the Open Government Data License 1.0. [Font sources and notices](https://github.com/mkpoli/han-compose/blob/main/docs/licensing.md)
 
 For ⿺木 followed by another operand, the same enclosing 木 holds the operand in the opening above its final stroke. 术 and its spelling ⿺木丶 retain their ordinary 木.
@@ -284,3 +295,11 @@ The FangSong form of 貭 uses the joined upper body of 盾 and the feet of 貝 f
 Noto Serif Hentaigana supplies 𛂦 (hentaigana HA-9) for the FangSong and Regular pairings when the selected font lacks it. The two columns of ⿰𛂦方 follow the encoded form 𭤪. [Noto Serif Hentaigana](https://github.com/notofonts/hentaigana) · [SIL Open Font License 1.1](../data/licences/OFL-NotoSerifHentaigana.txt)
 
 The ㅏ and ㄴ in the FangSong drawing of ⿱⿰◇ㅏㄴ retain their positions in Gowun Batang’s 안, with a diamond from Zhuque Fangsong in the initial position. [Gowun Batang source](https://github.com/yangheeryu/Gowun-Batang) · [SIL Open Font License 1.1](../data/licences/OFL-GowunBatang.txt)
+
+### 率 form selection
+
+`rateFormsFor(text)` from `han-compose/rate-forms` returns four choices for 率 and 36 compounds. Each has an `id`, `host`, `label`, and `text`. Store the chosen `text` in place of the selected IDS subtree. Calling the function on that subtree recovers the same choices.
+
+Two choices use structural IDS spellings. Two use Adobe-Japan1 sequences for 率. A compound wraps that component in its own IDS. `rateDrawing(text, style)` from `han-compose/rate-drawing` returns the reviewed 1000-unit SVG path for an exact choice in one of the five supported faces.
+
+The [Unicode IVD](https://www.unicode.org/ivd/data/2026-08-03/IVD_Sequences.txt) registers 率 VS17 as Adobe-Japan1 CID+3952 and 率 VS18 as CID+14085. Other registered sequences of the host can open the picker. The gallery compares 𳅀 against the [Plangothic P2 source](https://github.com/Fitzgerald-Porthmouth-Koenigsegg/Plangothic-Project).

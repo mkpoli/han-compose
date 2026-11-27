@@ -7,7 +7,7 @@ const composer = (style, record, exclude = []) => new Composer({
 }, { fontStyle: style, exclude })
 
 it('uses brush components when a FangSong export has only a fallback glyph', () => {
-  const record = character('⺀', [[0, 0, 300, 300]])
+  const record = { ...character('⺀', [[0, 0, 300, 300]]), P: ['B'] }
   record.G.v = 0
   expect(composer('fangsong', record).glyphRecord('⺀').p).toHaveLength(2)
   expect(composer('fangsong', record, ['冬']).glyphRecord('⺀')).toBeNull()
