@@ -95,7 +95,8 @@ only local files and writes one result file per face and corpus.
 
 The standalone ink metrics use the five shipped format-7 exports and the renderer
 at `b1893d86`. The 16 source-drawn RCC forms use the ink bounds of each
-complete spelling on `dff29daa`. They apply only to a previously drawable spelling in its matching
+complete spelling on `dff29daa`. R+0C30’s current spelling uses the bounds
+from `1cc982ba`. They apply only to a previously drawable spelling in its matching
 export. For 33 chains, the interior proportions come from zi.tools’ drawing on
 2026-11-25. The measurement matches each directed segment and its endpoints and
 rejects ambiguous mappings and duplicate drawing programs. To regenerate, save

@@ -30,7 +30,7 @@ import { grassShape } from './variants.js'
 // before drawing again). A store that holds the export's identity table also answers
 // `data.identity(key)`: the key's sequence and the character it describes, without its record; one
 // over an export with a kin table answers `data.kin()` with it (`kin`, `kinOuter`).
-import { EM_BOX, area, centre, count, derived, drawnBox, drawnContours, fill, fitted, grown, groupRings, makePart, mapped, partInk, partOf,
+import { EM_BOX, area, centre, count, cutContours, derived, drawnBox, drawnContours, fill, fitted, grown, groupRings, makePart, mapped, partInk, partOf,
   placed, pointsBox, pyRound, raster, rings, scaleOf, shrunk, square, stretchOf, targetFor, union, windingOf, within } from './geometry.js'
 import { grassPairs, connectedGrass, contextualGrass } from './grass-forms.js'
 import { ownFormsOnly, componentParts, componentPosition, componentPositionBox, componentRecord, containsComponentForm, hasForcedForms, containsForcedForm, isComponentForm, isForcedCharacter, isGroupedForm, isNativeForm } from './component-forms.js'
@@ -1889,12 +1889,7 @@ export class Composer {
     if (!piece) {
       const glyph = this.glyph(h.h)
       if (!glyph) return makePart([], h.b.slice())
-      piece = derived(glyph, h.k.map(k => glyph.contours[k]), h.b.slice())
-      // A stroke the piece holds whole stays addressable, its contours renumbered to the piece.
-      const strokes = (glyph.strokes ?? [])
-        .filter(([, contours]) => contours.every(contour => h.k.includes(contour)))
-        .map(([id, contours]) => [id, contours.map(contour => h.k.indexOf(contour))])
-      if (strokes.length) piece.strokes = strokes
+      piece = cutContours(glyph, h.k, h.b.slice())
       Object.defineProperty(h, '_piece', { value: piece, enumerable: false })
     }
     // A piece cut along KanjiVG's groups, which a drawing using it credits.
@@ -3055,12 +3050,7 @@ export class Composer {
     const groups = cuts[hexOf(JSON.stringify(record.p))]
     if (!this.separate || !groups || groups.length !== count(node)) return [placed(glyph, glyph.box, target, this.ink(char), `glyph ${char}`)]
     return groups.map(group => {
-      const part = derived(glyph, group.map(index => glyph.contours[index]))
-      // A stroke the piece holds whole stays addressable, its contours renumbered to the piece.
-      const strokes = (glyph.strokes ?? [])
-        .filter(([, contours]) => contours.every(contour => group.includes(contour)))
-        .map(([id, contours]) => [id, contours.map(contour => group.indexOf(contour))])
-      if (strokes.length) part.strokes = strokes
+      const part = cutContours(glyph, group)
       return { ...placed(part, part.box, mapped(part.box, glyph.box, target), this.ink(char), `glyph ${char}`), balanceBox: glyph.box }
     })
   }
