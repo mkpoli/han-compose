@@ -661,10 +661,14 @@ def constructs() -> dict[str, dict]:
 
 def japanese_sequences() -> dict[str, str]:
     """Each ideograph's sequence as BabelStone gives it for Japan, else its first; sequences naming
-    an unencoded component ({n}) or an unnameable one (？) are left out. A sequence in
+    an unencoded component ({n}) or an unnameable one (？) are left out. An Extension J ideograph
+    has the sequence `data/vocab/han-ids-extension-j.tsv` gives it. A sequence in
     `data/vocab/han-ids-drawn.tsv` replaces the source's where its operands are not the shapes the
     glyph draws (㞙 as ⿸尸⿱毛水)."""
     out = dict(_japanese()[0])
+    # BabelStone's table stops at Unicode 16.0: Extension J is described by Yi Bai's.
+    for char, sequence in read_rows("han-ids-extension-j.tsv"):
+        out.setdefault(char, sequence)
     for char, sequence, _source, _note in read_rows("han-ids-drawn.tsv"):
         if sequence == char:
             out.pop(char, None)
