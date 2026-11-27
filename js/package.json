@@ -201,7 +201,11 @@
       "types": "./types/variants.d.ts",
       "default": "./src/variants.js"
     },
-    "./constants.json": "./src/constants.json"
+    "./constants.json": "./src/constants.json",
+    "./variation-registry": {
+      "types": "./types/variation-registry.d.ts",
+      "default": "./src/variation-registry.js"
+    }
   },
   "files": [
     "src",

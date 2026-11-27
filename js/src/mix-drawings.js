@@ -5,6 +5,7 @@ import {
   groupRegions,
   matchRegions,
   prepareCorrespondence,
+  sharedIslands,
   splitIslands,
   tangled,
   prepareWeight
@@ -129,17 +130,20 @@ function prepareInk(paths, strokes) {
   const cuts = new WeakSet()
   /** Correspondences already worked out for a region. @type {WeakMap<object, ReturnType<typeof prepareCorrespondence>>} */
   const prepared = new WeakMap()
+  /** The same, worked out with a cut piece's checks, for regions that are not cut.
+   * @type {WeakMap<object, ReturnType<typeof prepareCorrespondence>>} */
+  const strained = new WeakMap()
   const blendOf = (/** @type {number[][][][][]} */ region) => {
     if (!prepared.has(region)) prepared.set(region, prepareCorrespondence(region, cuts.has(region)))
     return prepared.get(region) ?? null
   }
   /** Faces that split the ink into different numbers of islands still match the
    * islands they share; only the groups that differ fall back to distance fields.
-   * @param {number[][][][][]} polygons */
-  const regionsOf = (polygons) => {
+   * @param {number[][][][][]} polygons @param {boolean} [through] cut through counters the finer face lacks */
+  const pairedRegions = (polygons, through = false) => {
     const matched = matchRegions(polygons, (p) => p[0])
     if (matched?.[0].length) return matched[0].map((_, i) => matched.map((p) => [p[i]]))
-    let split = matched ? null : splitIslands(polygons)
+    let split = matched ? null : splitIslands(polygons, 'neck', through)
     if (split) {
       for (const region of split) cuts.add(region)
       // The narrowest neck can lie partway along a stroke that runs into its neighbour, and
@@ -147,17 +151,92 @@ function prepareInk(paths, strokes) {
       // outline's notches instead is kept where it leaves more pieces with a counterpart.
       const unmatched = (/** @type {number[][][][][][]} */ regions) =>
         regions.filter((region) => !blendOf(region)).length
+      const strain = (/** @type {number[][][][][][]} */ regions) =>
+        regions.reduce((sum, region) => sum + (blendOf(region)?.strain ?? 0), 0)
       if (unmatched(split)) {
-        const anchored = splitIslands(polygons, true)
+        const anchored = splitIslands(polygons, 'notch', through)
         if (anchored) {
           for (const region of anchored) cuts.add(region)
           if (unmatched(anchored) < unmatched(split)) split = anchored
+        }
+      }
+      // Where the pieces still blend with strain, the nearest outline has likely put a
+      // stroke with the wrong piece; a cut chosen by how the pieces fit is kept if it eases it.
+      if (unmatched(split) || strain(split) > 0.08) {
+        const fitted = splitIslands(polygons, 'fit', through)
+        if (fitted) {
+          for (const region of fitted) cuts.add(region)
+          const fewer = unmatched(fitted) - unmatched(split)
+          if (fewer < 0 || (!fewer && strain(fitted) < strain(split) - 0.03)) split = fitted
         }
       }
       return split
     }
     const grouped = matched ? [] : groupRegions(polygons, (p) => p[0], 0.06 * side)
     return grouped.length ? grouped : [polygons]
+  }
+  /** Each face can also run together strokes the other keeps apart, and its islands then
+   * pair with islands that hold other strokes. Cutting both faces to the pieces they share
+   * is kept where more of the ink then blends outline to outline, or blends with less strain.
+   * @param {number[][][][][]} polygons */
+  const regionsOf = (polygons) => {
+    const paired = pairedRegions(polygons)
+    const area = (/** @type {number[][][][][]} */ region) =>
+      region[0].reduce(
+        (sum, island) =>
+          sum +
+          Math.abs(
+            island[0].reduce((twice, p, i, ring) => {
+              const q = ring[(i + 1) % ring.length]
+              return twice + p[0] * q[1] - q[0] * p[1]
+            }, 0)
+          ) /
+            2,
+        0
+      )
+    const checked = (/** @type {number[][][][][]} */ region) => {
+      if (!strained.has(region)) strained.set(region, prepareCorrespondence(region, true))
+      return strained.get(region) ?? null
+    }
+    /** Ink left to the distance field, and the strain of the rest.
+     * @param {number[][][][][][]} regions */
+    const judged = (regions) => {
+      let lost = 0,
+        strain = 0
+      for (const region of regions) {
+        const blend = cuts.has(region) ? blendOf(region) : checked(region)
+        if (blend) strain += blend.strain
+        else lost += area(region)
+      }
+      return { lost, strain }
+    }
+    const total = paired.reduce((sum, region) => sum + area(region), 0) || 1
+    let best = paired,
+      was = judged(paired)
+    const offer = (/** @type {number[][][][][][] | null} */ regions, strict = false) => {
+      if (!regions) return
+      const now = judged(regions)
+      const gained = (was.lost - now.lost) / total
+      if (strict ? gained > 0.05 : gained > 0.02 || (gained > -0.02 && now.strain < was.strain - 0.05)) {
+        best = regions
+        was = now
+      }
+    }
+    const sharedRegions = (/** @type {boolean} */ through) => {
+      const shared = sharedIslands(polygons, through)
+      for (const { region, cut } of shared ?? []) if (cut) cuts.add(region)
+      return shared && shared.map(({ region }) => region)
+    }
+    offer(sharedRegions(false))
+    // Strokes that close a loop in one face leave a counter the other face lacks, and no cut
+    // can part them while it stands. Where ink is still lost or strained, the same pairings
+    // are tried with such counters cut through. The seam that opens a counter shows as a
+    // hairline in the mix, so this is kept only where it wins back a good part of the ink.
+    if (was.lost) {
+      offer(pairedRegions(polygons, true), true)
+      offer(sharedRegions(true), true)
+    }
+    return best
   }
   // Blend stroke by stroke where the faces label their strokes alike. A stroke is a
   // simple shape whose corners match reliably; the union of several is not.
@@ -194,6 +273,7 @@ function prepareInk(paths, strokes) {
   // Regions without a contour correspondence share one distance field, which keeps
   // their strokes registered to each other.
   const matched = regions.map(blendOf)
+  /** @type {((shares: number[], weight: number) => number[][][])[]} */
   const blenders = matched.flatMap((blend) => blend ?? [])
   const rest = regions.filter((_, i) => !matched[i])
   if (rest.length)
