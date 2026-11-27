@@ -979,6 +979,8 @@ export class Composer {
     this.footlessPieces = new WeakMap()
     this._forced = new Map()
     this.spelled = new Set(m.spelled)
+    // Operator TAB enclosing part → the room its own characters give what they enclose (`rooms`).
+    this.rooms = m.rooms ?? {}
     this.AXIS = c.AXIS
     this.ENCLOSE = { ...c.ENCLOSE, ...EXTRA_ENCLOSE }
     this.INSIDE = { ...c.INSIDE, ...EXTRA_INSIDE }
@@ -4305,7 +4307,8 @@ export class Composer {
       // beyond STRETCH is no form for that place (示's square glyph in a left column); 身 also takes
       // the left column's narrow form from 射, 躬 or 躭.
       if (!part && ownParts && typeof child === 'string' && !this.excluded(child)
-        && !(op === '⿰' && i === 0 && keyOf(child) === '身' && this.hasLeftBody(child))) {
+        && !(op === '⿰' && i === 0 && keyOf(child) === '身' && this.hasLeftBody(child))
+        && !(op in this.ENCLOSE && i === 1 && this.keptRoom(op, children[0], groups[0], box))) {
         const designed = this.designedCut(child)
         if (designed) {
           groups.push([this.place(designed.piece, box, this.ink(designed.record.h), `host ${designed.record.h}`)])
@@ -4341,12 +4344,16 @@ export class Composer {
           // An opening that overlaps little of the layout's box is a pocket beside the part. 𦉪's
           // own hook splits off a small box below it; 丅 belongs in the frame's wide opening under
           // the roof.
-          const tight = opening && area(opening) < area(box) && within(box, opening) >= C.ROOM_TRUST
+          // The network places a part it never saw enclosed by guess (龍 hanging out of 勹's foot):
+          // under an enclosing part cut from a host it stays in the room that part's own characters
+          // give what they enclose (`_enclosed_room`).
+          const kept = this.keptRoom(op, children[0], groups[0], box)
+          const tight = !kept && opening && area(opening) < area(box) && within(box, opening) >= C.ROOM_TRUST
           const grid = tight ? this.gridTree(child) : null
-          const inner = tight ? opening : box
+          const inner = kept ?? (tight ? opening : box)
           // A part centred in a room alone would sit away from a short arm: open the room out over
           // the sides the enclosure closes.
-          const anchor = opening && (tight || area(opening) > area(box)) ? centre(this.held(opening, op, frameOf)) : centre(inner)
+          const anchor = !kept && opening && (tight || area(opening) > area(box)) ? centre(this.held(opening, op, frameOf)) : centre(inner)
           groups.push(grid ? this.cellLayout(grid, inner, { leafIndices: false }) : this.node(child, inner))
           this.fit(groups[0], groups[1], frameOf, stem, C, { room: inner, anchor })
         } else {
@@ -4857,6 +4864,15 @@ export class Composer {
     if (!glyph) return false
     const ink = tightBox(glyph)
     return this.outlines(child) > 1 && ink[2] - ink[0] <= MIDDLE_FLAT * (ink[3] - ink[1])
+  }
+
+  /** `box` brought inside the room the characters written `op` round `outer` give what they enclose,
+   *  under an enclosing part cut from a host (`_enclosed_room`); null where the export gives that
+   *  part no room or the part is drawn another way. */
+  keptRoom(op, outer, drawn, box) {
+    const share = this.rooms[`${op}\t${keyOf(outer)}`]
+    if (!share || !drawn?.length || !drawn.every(p => /^(learned|host|teacher) /.test(p.origin))) return null
+    return movedInto(box, mapped(share, [0, 0, 1, 1], union(drawn.map(p => p.target))))
   }
 
   /** A sequence drawn whole somewhere in the font, in any place but the left or the top (`_instance`). */
@@ -6342,6 +6358,18 @@ function apart(a, b, axis, short, most) {
   const limit = group => most * (Math.max(...group.map(p => p.target[axis + 2])) - Math.min(...group.map(p => p.target[axis])))
   squeeze(first, axis, 0, -Math.min(half, limit(first)))
   squeeze(second, axis, Math.min(half, limit(second)), 0)
+}
+
+/** `box` moved the least way that brings it inside `room`, shrunk about its centre in its own
+ *  proportions first where it is wider or taller than the room (`_moved_into`). */
+function movedInto(box, room) {
+  let width = box[2] - box[0], height = box[3] - box[1]
+  const scale = Math.min(1, (room[2] - room[0]) / Math.max(width, 1e-9), (room[3] - room[1]) / Math.max(height, 1e-9))
+  const cx = (box[0] + box[2]) / 2, cy = (box[1] + box[3]) / 2
+  width *= scale; height *= scale
+  const x0 = Math.min(Math.max(cx - width / 2, room[0]), room[2] - width)
+  const y0 = Math.min(Math.max(cy - height / 2, room[1]), room[3] - height)
+  return [x0, y0, x0 + width, y0 + height]
 }
 
 function squeeze(group, axis, low, high) {
