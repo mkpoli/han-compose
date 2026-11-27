@@ -1,5 +1,6 @@
 import { expect, it } from 'bun:test'
 import { createSource, compose, sketch } from '../src/loader.js'
+import { editableRccParts } from '../src/rcc-forms.js'
 import { documentSource } from '../src/document-source.js'
 import { files, shards } from './fixtures/small-export.js'
 import { partOf, pathMask, svgPath } from '../src/geometry.js'
@@ -131,12 +132,15 @@ it('edits the complete 馬 as a native frame, 𰀁 and four dots at its final we
     ] },
     { id: id + 'd', kind: 'component', char: '灬' },
   ] })
-  for (const fontStyle of ['regular', 'fangsong']) {
-    const exportFiles = { ...files, ...shards('g', [['馬', { G: donors[fontStyle].馬 }]]) }
+  for (const [fontStyle, drawnFace] of [['sans', 'sans'], ['regular', 'regular'], ['fangsong', 'fangsong'], ['regular', 'sans']]) {
+    const exportFiles = { ...files, ...shards('g', [['馬', { G: donors[drawnFace].馬 }], ['冖', { G: donors.sans.冖, ink: 2564.9, nl: 1, o: 1 }]]) }
     const source = createSource(async name => exportFiles[name] ? Uint8Array.from(Buffer.from(exportFiles[name])).buffer : null)
     expect(rccChainDonors(written, fontStyle)).toEqual(['馬'])
     for (const [ids, root] of [
       [written, horseNode('a')],
+      ['⿱冖' + written, { id: 'under-cover', kind: 'operator', op: '⿱', children: [
+        { id: 'cover', kind: 'component', char: '冖' }, horseNode('a'),
+      ] }],
       ['⿰' + written + written, { id: 'pair', kind: 'operator', op: '⿰', children: [horseNode('a'), horseNode('b')] }],
       ['⿱三' + written, { id: 'stack', kind: 'operator', op: '⿱', children: [
         { id: 'top', kind: 'component', char: '三' }, horseNode('a'),
@@ -147,6 +151,7 @@ it('edits the complete 馬 as a native frame, 𰀁 and four dots at its final we
       const layout = await sketch(source, ids, { fontStyle })
       expect(normal.parts.some(p => p.origin.includes('glyph 馬'))).toBe(true)
       expect(split.parts.map(p => p.leaf)).toEqual(layout.map(p => p.index))
+      expect(split.parts.filter(p => p.origin === '𰀁 from 馬').length).toBeGreaterThan(0)
       expect(documentSource({ root }, split, layout).issues).toEqual([])
       expect(pathMask(split.d, 256)).toEqual(pathMask(normal.d, 256))
     }
@@ -154,5 +159,19 @@ it('edits the complete 馬 as a native frame, 𰀁 and four dots at its final we
       const source = { ...composer(fontStyle), separate: true, excluded: char => char === blocked }
       expect(rccChainContextParts(source, written, em)).toBeNull()
     }
+  }
+})
+
+
+it('recognizes a Noto fallback only for the full editable 馬', () => {
+  const written = '⿹⿷#(-一丨b𠃌)𰀁灬'
+  const fallback = { ...composer('sans'), fontStyle: 'regular', separate: true,
+    place: (part, target, native, origin) => ({ part, source: part.box, target, native, origin }) }
+  expect(rccChainContextParts(fallback, horse, em)).toBeNull()
+  const split = editableRccParts(rccChainContextParts(fallback, written, em))
+  expect(split.map(p => p.rccLeaf)).toEqual([0, 1, 2])
+  expect(editableRccParts(split)).toBe(split)
+  for (const record of [{ ...donors.sans.馬, v: 2 }, { ...donors.sans.馬, p: [] }]) {
+    expect(rccChainContextParts({ ...fallback, glyphRecord: () => record }, written, em)).toBeNull()
   }
 })

@@ -38,20 +38,29 @@ function widenUprightGap(piece, [left, right], box) {
     ({ ...c, light: spread(c.light), heavy: spread(c.heavy) })))
 }
 
-/** @param {any} record @param {[string, string | string[], (number | number[][])[]] | undefined} cut
- * @param {string} digest */
-function matchingPiece(record, cut, digest) {
-  if (!cut || !(Array.isArray(cut[1]) ? cut[1].includes(digest) : cut[1] === digest)) return null
-  const glyph = partOf(record)
-  return derived(glyph, cut[2].map(index => typeof index === 'number'
+/** @param {string} node @param {string} style @param {string} digest @param {boolean} allowNoto */
+function cutFace(node, style, digest, allowNoto) {
+  const faces = nativeCuts[node].faces
+  // Some brush exports return the pinned Sans or Serif outline for this host.
+  return (allowNoto ? [style, 'sans', 'serif'] : [style]).find(face => {
+    const expected = faces[face]?.[1]
+    return Array.isArray(expected) ? expected.includes(digest) : expected === digest
+  })
+}
+
+/** @param {any} glyph @param {(number | number[][])[]} cuts */
+function cutPiece(glyph, cuts) {
+  return derived(glyph, cuts.map(index => typeof index === 'number'
     ? glyph.contours[index] : reconnectStroke(glyph.contours, index)))
 }
 
-/** The 馬 outline used for both the standalone chain and the outer operand of R+07B4.
- * @param {any} record @param {string} style */
-export function horseFrame(record, style) {
+/** Select the frame only after the exact donor has been identified. Layout
+ * may adjust its coordinates before the editable operands are cut.
+ * @param {any} record @param {string} style @param {boolean} allowNoto */
+export function horseFrameCut(record, style, allowNoto) {
   if (record?.v !== 1) return null
-  return matchingPiece(record, nativeCuts['#(-一丨b𠃌)'].faces[style], hexOf(JSON.stringify(record.p)))
+  const node = '#(-一丨b𠃌)', face = cutFace(node, style, hexOf(JSON.stringify(record.p)), allowNoto)
+  return face ? { face, frame: (/** @type {any} */ glyph) => cutPiece(glyph, nativeCuts[node].faces[face][2]) } : null
 }
 
 /** Place a leaf drawn from an attested host whose frame has its own contours.
@@ -68,13 +77,9 @@ export function hostChainParts(composer, node, region, atRoot, written = node) {
   const record = live?.v === 1 ? live : cut && recordedNativeRecord(composer.fontStyle, char)
   if (!record) return null
   const digest = hexOf(JSON.stringify(record.p))
-  let native = matchingPiece(record, cut, digest)
-  // A brush export can serve a fallback Noto glyph. For 馬 and 島 the
-  // verified Noto cut applies whenever those exact contours are returned.
-  if (!native && notoFallbackFrames.has(node)) {
-    native = matchingPiece(record, source.faces.sans, digest) ?? matchingPiece(record, source.faces.serif, digest)
-  }
-  if (!native) return null
+  const face = cutFace(node, composer.fontStyle, digest, notoFallbackFrames.has(node))
+  if (!face) return null
+  const native = cutPiece(partOf(record), source.faces[face][2])
   const gap = source?.uprightGap?.[composer.fontStyle]
   const frame = gap && atRoot ? recordedInkBox(composer, written) : null
   const piece = gap && frame ? widenUprightGap(native, gap, frame) : native

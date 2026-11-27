@@ -1,6 +1,6 @@
 import componentCuts from './rcc-component-cuts.json' with { type: 'json' }
 import { derived, mapped, partInk, partOf, placed, rings, segments, union } from './geometry.js'
-import { horseFrame } from './host-chain.js'
+import { horseFrameCut } from './host-chain.js'
 import { hexOf } from './sha256.js'
 
 const water = '⿰氵⿱亠⿶#(𠃍-𠃊一)凵'
@@ -303,26 +303,31 @@ export function rccChainContextParts(composer, key, region) {
     return [...exterior, draw(initial, initial.box, 'ㄴ of 노', 2), draw(final, final.box, 'ㅗ of 노', 2)]
   }
 
-  const cut = horseCuts.get(composer.fontStyle)
-  if (!cut) return null
   const record = composer.glyphRecord('馬')
-  const body = horseFrame(record, composer.fontStyle)
-  if (!body) return null
+  const hostCut = horseFrameCut(record, composer.fontStyle, key === completeHorse)
+  if (!hostCut) return null
+  const cut = horseCuts.get(hostCut.face)
+  if (!cut) return null
   const glyph = partOf(record)
-  const inner = piece(glyph, cut.inner)
   if (key === completeHorse) {
     const host = composer.place(glyph, region, partInk(glyph), `chain ${key}, glyph 馬`)
-    // Keep the native host whole during layout and weight balancing. Its
-    // three editable leaves inherit the same finished transform and weight.
-    const pieces = [body, inner, piece(glyph, cut.removed)]
+    // Layout and weight balancing act on the complete native host. Cut its
+    // final contours so a bar narrowed under a cover stays narrowed.
     const names = ['#(-一丨b𠃌) from 馬', '𰀁 from 馬', '灬 from 馬']
     /** @param {any} p */
-    const leafParts = p => pieces.map((part, i) => ({
-      ...p, part, origin: names[i], source: part.box, target: mapped(part.box, p.source, p.target),
-      rccLeaf: i, leaf: p.leaf === undefined ? undefined : p.leaf + i,
-    }))
-    return [{ ...host, rccLeaf: 0, leafParts }]
+    const leafParts = p => {
+      const finished = { ...p }
+      delete finished.leafParts
+      delete finished.rccLeafCount
+      const pieces = [hostCut.frame(p.part), piece(p.part, cut.inner), piece(p.part, cut.removed)]
+      return pieces.map((part, i) => ({
+        ...finished, part, origin: names[i], source: part.box, target: mapped(part.box, p.source, p.target),
+        rccLeaf: i, leaf: p.leaf === undefined ? undefined : p.leaf + i,
+      }))
+    }
+    return [{ ...host, rccLeaf: 0, rccLeafCount: 3, leafParts }]
   }
+  const body = hostCut.frame(glyph), inner = piece(glyph, cut.inner)
   const foot = native(composer, '乙')
   if (!foot) return null
   const box = union([body.box, inner.box])

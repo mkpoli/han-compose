@@ -1421,8 +1421,7 @@ export class Composer {
         this.face = face
         this.carried = (face[2] - face[0]) / (frame[2] - frame[0])
       }
-      // Separated drawings retain reading order. Only publish ownership when every
-      // rendered leaf produced exactly one piece (including empty placeholders).
+      // Separated drawings retain the written leaf order, including empty placeholders.
       const ownership = this.separate ? this.leafOwners(tree) : null
       // A toned syllable draws more parts than leaves, so its drawing needs the owners even where
       // the tree was not split.
@@ -1434,10 +1433,14 @@ export class Composer {
         let owner = 0, current = null
         for (const part of out) {
           if (part.origin?.startsWith('mark ')) part.leaf = current
-          else part.leaf = current = ownership.owners[owner++]
+          else {
+            part.leaf = ownership.owners[owner]
+            // A native host may still hold several leaves while the whole glyph is weighted.
+            owner += part.rccLeafCount ?? 1
+            current = ownership.owners[owner - 1]
+          }
         }
-        // The walk only answers for a drawing of one part per leaf; another keeps the leaves it
-        // was drawn with.
+        // Keep existing assignments if the drawing covers a different number of leaves.
         if (owner !== ownership.owners.length) out.forEach((part, i) => {
           if (before[i] === undefined) delete part.leaf
           else part.leaf = before[i]
