@@ -894,10 +894,11 @@ export const designedSources = (tree, style = 'sans') => {
 }
 
 // Left components the export carries no host cuts for, taken from a designed character's glyph.
-/** Extension J ideographs that are a character every face draws without its bottom stroke: 𲎰 is
- *  五 above its lower 一, and 𲐬 is 巫 above its. No sequence says so; the cut is made in the
- *  face's own glyph. */
-const FOOTLESS = { '𲎰': '五', '𲐬': '巫' }
+/** Extension J ideographs drawn from a character every face draws, without its bottom stroke: 𲎰
+ *  is 五 above its lower 一. 𲐬 is 巫 above its, with a second 人 under each 人 beside the stem
+ *  (`doubled`), as the code chart draws its 𠈌. No sequence says so; the cut is made in the face's
+ *  own glyph. */
+const FOOTLESS = { '𲎰': { host: '五' }, '𲐬': { host: '巫', doubled: true } }
 /** The sequences of the CJK Extension J ideographs whose parts a face can cut from its own
  *  characters (`scripts/build_extension_j_ids.py`). */
 const EXTENSION_J = /** @type {Record<string, string>} */ (extensionJ.sequences)
@@ -1187,11 +1188,14 @@ export class Composer {
   /** An ideograph of `FOOTLESS` cut from the face's own character, or null where the face draws
    *  the ideograph itself, lacks the character, or the character's foot cannot be found. */
   footless(ch) {
-    const host = Object.hasOwn(FOOTLESS, ch) ? FOOTLESS[ch] : null
-    if (!host || this.excluded(host) || this.glyphRecord(ch)) return null
-    const record = this.glyphRecord(host)
+    const form = Object.hasOwn(FOOTLESS, ch) ? FOOTLESS[ch] : null
+    if (!form || this.excluded(form.host) || this.glyphRecord(ch)) return null
+    const record = this.glyphRecord(form.host)
     if (record?.v !== 1) return null
-    if (!this.footlessCuts.has(ch)) this.footlessCuts.set(ch, withoutFoot(partOf(record)))
+    if (!this.footlessCuts.has(ch)) {
+      const cut = withoutFoot(partOf(record))
+      this.footlessCuts.set(ch, cut && form.doubled ? doubledFlanks(cut) : cut)
+    }
     return this.footlessCuts.get(ch)
   }
   /** The glyph a whole character is drawn with: a body the font drew as another shape is replaced
@@ -6674,6 +6678,38 @@ function cutAbove(polys, cut) {
     }
   }
   if (crossings.length % 2) return null
+/** The room left between the two parts of a doubled flank, as a share of the height they stand in. */
+const FLANK_GAP = 0.06
+/**
+ * A glyph whose parts on either side of its stem are each drawn twice, one above the other: the 人
+ * pair of 巫 without its foot becomes the four of 𲐬. The two copies share the height from the
+ * stem's foot to the part's top and keep the part's width. Null where no part stands clear of the
+ * stem on both sides.
+ */
+function doubledFlanks(glyph) {
+  const boxes = glyph.contours.map(c => pointsBox(c.light))
+  const [x0, y0, x1, y1] = union(boxes)
+  const middle = (x0 + x1) / 2, level = y0 + 0.3 * (y1 - y0)
+  const stem = glyph.contours.flatMap(c => spansAt(flattenRing(c), level))
+    .reduce((best, run) => !best || Math.abs((run[0] + run[1]) / 2 - middle) < Math.abs((best[0] + best[1]) / 2 - middle) ? run : best, null)
+  if (!stem) return null
+  const centre = (stem[0] + stem[1]) / 2
+  const sides = [boxes.map((b, k) => b[2] <= centre ? k : -1), boxes.map((b, k) => b[0] >= centre ? k : -1)].map(side => side.filter(k => k >= 0))
+  if (sides.some(side => !side.length)) return null
+  const flanks = new Set(sides.flat())
+  const out = glyph.contours.filter((_, k) => !flanks.has(k))
+  if (!out.length) return null
+  for (const side of sides) {
+    const box = union(side.map(k => boxes[k])), height = box[3] - y0
+    const each = (height - FLANK_GAP * height) / 2, scale = Math.min(1, each / (box[3] - box[1]))
+    for (const base of [y0, box[3] - scale * (box[3] - box[1])]) {
+      const set = points => points.map((v, i) => i % 2 ? base + (v - box[1]) * scale : v)
+      for (const k of side) out.push({ ...glyph.contours[k], light: set(glyph.contours[k].light), heavy: set(glyph.contours[k].heavy) })
+    }
+  }
+  return derived(glyph, out)
+}
+
   const order = crossings.slice().sort((a, b) => a.point[0] - b.point[0])
   const mate = new Map()
   for (let i = 0; i + 1 < order.length; i += 2) {

@@ -135,6 +135,20 @@ it('cuts an Extension J character from the character of the face it is a part of
   expect((await compose(sourceOf(alone), '𲎰', { separate: true })).parts[0].d.match(/M/g)).toHaveLength(1)
 })
 
+// 𲐬 is 巫 without its bottom stroke and with four 人: the 人 on each side of the stem is doubled.
+it('draws 𲐬 from the 巫 of the face with a second 人 under each 人', async () => {
+  const foreign = character('𲐬', [[100, 0, 900, 800]])
+  foreign.G.v = 0
+  const shaman = character('巫', [[100, 0, 900, 80], [460, 80, 540, 720], [100, 720, 900, 800], [200, 200, 350, 600], [650, 200, 800, 600]])
+  const entries = { '𲐬': foreign, 巫: shaman }
+  const input = { ...files, 'identity.json': identityOf(Object.entries({ ...records, ...entries })), ...shards('g', Object.entries(entries)) }
+  for (const fontStyle of ['sans', 'serif', 'fangsong', 'regular', 'pen-writing']) {
+    const out = await compose(sourceOf(input), '𲐬', { separate: true, fontStyle })
+    // The bar, the stem and two 人 on each side of it.
+    expect(out.parts[0].d.match(/M/g)).toHaveLength(6)
+  }
+})
+
 it('keeps the outline of another face when the sequence of its character cannot be drawn', async () => {
   const foreign = { ...character('𲎰', [[100, 0, 300, 800]]), s: '⿰木牙' }
   foreign.G.v = 0
