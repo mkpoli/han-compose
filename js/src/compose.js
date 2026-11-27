@@ -48,7 +48,7 @@ import { pyramidRows, pyramidOnBase } from './pyramid-rows.js'
 import { hangulClusterAt, jamoClass } from './hangul.js'
 import { hangulLetters } from './hangul-ids.js'
 import { toConjoiningJamo } from './hangul.js'
-import { componentFix, incomeBoxes } from './component-fixes.js'
+import { componentFix, INCOME_IDS, incomeBoxes } from './component-fixes.js'
 import { isOutbound, markFace, markParts } from './marks.js'
 import { SI_CHAIN, siChainForm, siBendDonor } from './si-chain.js'
 import { youChainDonors, youChainParts } from './you-chain.js'
@@ -870,7 +870,6 @@ export const designedSources = (tree, style = 'sans') => {
     }
     if (!Array.isArray(node)) return
     const [op, ...children] = node
-    if (op === '⿰' && ['regular', 'pen-writing'].includes(style) && keyOf(node) === '⿰⿱日斗⿱進金') out.add('進')
     if (op === '⿺' && children[1] === '首') out.add('馗')
     if (op === '⿺' && children[0] === '𡕚') { out.add('夂'); out.add('見') }
     if (isThornRow(node)) {
@@ -1645,7 +1644,7 @@ export class Composer {
     // Cell scaffolds already have a complete layout; searching every repeated subtree adds no evidence.
     if (this.pyramid(tree) || this.pyramidWithBase(tree)) return false
     const key = keyOf(tree)
-    if (['regular', 'pen-writing'].includes(this.fontStyle) && key.includes('⿰⿱日斗⿱進金')) return false
+    if (key.includes(INCOME_IDS)) return false
     if (containsRateForm(key) || this.bySequence(key) || this.spelled.has(key)) return false
     if (isGroupedForm(key, this.fontStyle) || isComponentForm(key, this.fontStyle)) return false
     let leaves = 0, supported = true
@@ -1952,8 +1951,8 @@ export class Composer {
     if (partitioned) return partitioned
     const out = []
     const walk = (node, region, atRoot) => {
-      if (Array.isArray(node) && node[0] === '⿰') {
-        const boxes = incomeBoxes(keyOf(node), this, region)
+      if (Array.isArray(node) && node[0] === '⿱') {
+        const boxes = incomeBoxes(keyOf(node), this.fontStyle, region)
         if (boxes) {
           for (const box of boxes) out.push({ index: out.length, box, empty: false })
           return
