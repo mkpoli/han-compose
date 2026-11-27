@@ -2,9 +2,12 @@
 // and tied to the outlines it was read against, so these tests exercise the correction itself on
 // the shapes it was written for, and the guard that leaves another export's drawing alone.
 import { describe, expect, it } from 'bun:test'
-import { COMPONENT_FIXES, clippedAbove, componentFix, dotIn, respanned, withoutContours } from 'han-compose/component-fixes'
+import { COMPONENT_FIXES, INCOME_IDS, WEALTH_IDS, clippedAbove, componentFix, dotIn, incomeBoxes, respanned, wealthBoxes, withoutContours } from 'han-compose/component-fixes'
 import { Composer } from 'han-compose/compose'
-import { drawnContours, makePart, mapped, partOf, placed, pointsBox } from 'han-compose/geometry'
+import { drawnContours, fill, groupRings, makePart, mapped, partOf, placed, pointsBox, union } from 'han-compose/geometry'
+import zhou from './fixtures/zhou-miao.json' with { type: 'json' }
+import gongRecord from './fixtures/fangsong-gong.json' with { type: 'json' }
+import kuruma from './fixtures/kuruma-to.json' with { type: 'json' }
 import { hexOf } from 'han-compose/sha256'
 
 /** A placed part of rectangular contours: `boxes` in font units, drawn from `source` into `target`. */
@@ -60,6 +63,65 @@ describe('a composition fix', () => {
     expect(componentFix('⿻口土', [earth], { glyphRecord: () => null })).toEqual([earth])
     expect(componentFix('⿻土口', [earth], { glyphRecord: () => null })).toEqual([earth])
   })
+})
+
+describe('FangSong ⿳吅工吅', () => {
+  const gong = partOf(gongRecord)
+  const composer = { fontStyle: 'fangsong', glyphRecord: () => gongRecord, glyph: () => gong }
+  const ink = group => union(groupRings(group, 24).map(pointsBox))
+  for (const split of [false, true]) {
+    it(`fits the two bars to the stroke weight of ${split ? 'separate mouths' : 'paired mouth cuts'}`, () => {
+      const row = (y, overhang = false) => (split ? [[0, 450], [550, 1000]] : [[0, 1000]]).map(([left, right]) => {
+        const source = [0, 0, right - left, 330]
+        const boxes = overhang ? [[0, 30, right - left, 330], [0, 0, 40, 330]] : [source]
+        const mouth = part('mouth', source, [left, y, right, y + 330], boxes)
+        Object.assign(mouth.part.contours[0], {
+          ops: [['M', 1], ['L', 1], ['L', 1], ['L', 1]], width: [50, split ? 30 : 50],
+        })
+        if (mouth.part.contours[1]) mouth.part.contours[1].ops = [['M', 1], ['L', 1], ['L', 1], ['L', 1]]
+        return mouth
+      })
+      const upper = row(670, true), lower = row(0)
+      const input = [...upper, placed(gong, gong.box, [0, 410, 1000, 590], 0, 'glyph 工'), ...lower]
+      const result = componentFix('⿳吅工吅', input, composer)
+      const bar = result[upper.length], mask = fill(groupRings([bar], 24), 1000, [0, 0, 1000, 1000])
+      // Sample each stroke through its body, away from the terminals and centre stem.
+      const edges = x => Array.from({ length: 999 }, (_, i) => i + 1)
+        .filter(y => mask[y * 1000 + x] !== mask[(y - 1) * 1000 + x])
+      const left = edges(300), right = edges(700)
+      expect(left).toHaveLength(4)
+      expect(right).toHaveLength(4)
+      for (const i of [0, 2]) {
+        const thickness = left[i + 1] - left[i]
+        const rise = ((left[i] + left[i + 1]) - (right[i] + right[i + 1])) / 800
+        expect(rise).toBeGreaterThan(0.025)
+        expect(rise).toBeLessThan(0.077)
+        expect(thickness).toBeGreaterThan(split ? 22 : 38)
+        expect(thickness).toBeLessThan(split ? 34 : 56)
+      }
+      expect(ink([bar])[3]).toBeLessThan(ink(result.slice(0, upper.length))[1])
+      expect(ink([bar])[1]).toBeGreaterThan(ink(result.slice(upper.length + 1))[3])
+      // The facing vertical channels above and below 工 stay optically balanced.
+      const gap = (a, b) => {
+        const ma = fill(groupRings(a, 24), 200, ink(result)), mb = fill(groupRings(b, 24), 200, ink(result)), gs = []
+        for (let col = 0; col < 200; col++) {
+          let la = -1, fb = -1
+          for (let row = 0; row < 200; row++) {
+            const k = row * 200 + col
+            if (ma[k]) la = row
+            if (mb[k] && fb < 0) fb = row
+          }
+          if (la >= 0 && fb >= 0) gs.push(fb - la)
+        }
+        gs.sort((x, y) => x - y)
+        return gs[gs.length >> 1]
+      }
+      expect(Math.abs(gap(result.slice(0, upper.length), [bar]) - gap([bar], result.slice(upper.length + 1)))).toBeLessThanOrEqual(2)
+      ink(result).forEach((edge, i) => expect(edge).toBeCloseTo(ink(input)[i], 5))
+      expect(componentFix('⿳吅工吅', result, composer)).toEqual(result)
+      expect(bar.part.strokes).toEqual(gong.strokes)
+    })
+  }
 })
 
 describe('⿱呼乙', () => {
@@ -123,6 +185,64 @@ describe('⿱呼乙', () => {
   })
 })
 
+it('uses 舳’s unemboldened 舟 beside 苗 and fits it at its final nested size', () => {
+  const source = partOf(zhou)
+  const boat = placed(source, source.box, [20, 70, 410, 850], 0, 'learned 艃', [0, 0.575])
+  const sprout = part('glyph 苗 kept', [0, 0, 500, 700], [440, 80, 900, 810], [[0, 0, 480, 670]])
+  const pair = [boat, sprout], face = {
+    fontStyle: 'regular', staticFace: true, excluded: () => false, glyphRecord: ch => ch === '舳' ? zhou : null,
+  }
+  const [tagged, right] = componentFix('⿰舟苗', pair, face)
+  expect(right).toBe(sprout)
+  const nested = { ...tagged, target: [25, 70, 220, 430], flips: [{ x: true, about: [240, 0] }] }
+  const corrected = { ...nested, ...tagged.finishOutline(nested) }
+  expect(corrected.part.contours).toEqual(zhou.ls.舟.map(i => source.contours[i]))
+  expect(corrected.weight).toEqual([0, 0])
+  const ink = p => union(groupRings([p], 24).map(pointsBox))
+  ink(nested).forEach((edge, i) => expect(ink(corrected)[i]).toBeCloseTo(edge, 6))
+  expect(tagged.finishOutline({ ...nested, cut: true })).toEqual({})
+  for (const override of [{ fontStyle: 'serif' }, { staticFace: false }, { partial: true },
+    { excluded: ch => ch === '舳' }, { glyphRecord: () => null }, { glyphRecord: () => ({ ...zhou, p: [] }) }]) {
+    expect(componentFix('⿰舟苗', pair, { ...face, ...override })).toBe(pair)
+  }
+  const otherHost = [{ ...boat, origin: 'learned 艘' }, sprout]
+  expect(componentFix('⿰舟苗', otherHost, face)).toBe(otherHost)
+})
+
+it('fits the native left 車 from 軋 and native 卜 into the final Regular ink bounds of ⿰車ト', () => {
+  const car = part('learned 䡎', [0, 0, 160, 300], [40, 60, 200, 360], [[10, 20, 150, 280]])
+  car.part.contours[0].ops = [['M', 1], ['L', 1], ['L', 1], ['L', 1]]
+  const glyph = partOf(kuruma.ト)
+  const kana = placed(glyph, glyph.box, [230, 60, 330, 360], 0, 'glyph ト')
+  const pair = [car, kana], face = {
+    fontStyle: 'regular', staticFace: true, excluded: () => false, glyphRecord: ch => kuruma[ch],
+  }
+  const fixed = componentFix('⿰車ト', pair, face)
+  const box = p => union(groupRings([p], 24).map(pointsBox))
+  const [left, right] = fixed.map((p, i) => {
+    const nested = { ...p, target: [10 + 120 * i, 20, 90 + 120 * i, 170], flips: [{ x: true, about: [100, 0] }] }
+    const result = { ...nested, ...p.finishOutline(nested) }
+    for (const [axis, edge] of box(nested).entries()) expect(box(result)[axis]).toBeCloseTo(edge)
+    expect(p.finishOutline({ ...nested, fixed: true })).toEqual({})
+    return result
+  })
+  expect(left.origin).toBe('車 from 軋')
+  expect(left.part.contours).toEqual(partOf(kuruma.軋).contours.slice(0, 5))
+  expect(right.part).toBe(partOf(kuruma.卜))
+  expect(right.origin).toBe('glyph 卜')
+  for (const override of [{ excluded: ch => ch === '卜' }, { glyphRecord: ch => ch === '卜' ? null : kuruma[ch] },
+    { glyphRecord: ch => ch === '卜' ? { ...kuruma.卜, v: 0 } : kuruma[ch] }]) {
+    const fallback = componentFix('⿰車ト', pair, { ...face, ...override })
+    expect(fallback[0].finishOutline(fallback[0]).origin).toBe('車 from 軋')
+    expect(fallback[1].finishOutline(fallback[1]).part).toBe(glyph)
+    expect(fallback[1].finishOutline(fallback[1]).weight).toEqual([-0.8, -0.6])
+  }
+  for (const override of [{ partial: true }, { fontStyle: 'pen-writing' }, { excluded: ch => ch === '軋' },
+    { glyphRecord: ch => ch === '軋' ? null : kuruma[ch] }]) {
+    expect(componentFix('⿰車ト', pair, { ...face, ...override })).toBe(pair)
+  }
+})
+
 describe('⿱一心', () => {
   it('lowers Regular Kai’s 一 within its band at its own bar height', () => {
     const top = part('host 亍', [0, 0, 1000, 1000], [100, 544, 900, 880], [[100, 544, 900, 880]])
@@ -144,6 +264,23 @@ describe('⿱一心', () => {
     expect(fixed[1].target).toEqual([80, 0, 920, 540])
     expect(fixed[1].part).toBe(heart.part)
   })
+})
+
+it('fits FangSong 魚 and 遂 to the space between their outer ink edges', () => {
+  const fish = part('learned 鯝', [0, 0, 400, 900], [0, 50, 400, 950], [[40, 80, 360, 720]])
+  const follow = part('learned 𬭼', [0, 0, 500, 800], [450, 100, 950, 900], [[35, 10, 500, 700]])
+  const pair = [fish, follow]
+  const corrected = componentFix('⿰魚遂', pair, { fontStyle: 'fangsong' })
+  const [left, right] = corrected.map(p => targetBox(p, p.part.contours[0]))
+  expect(left[0]).toBeCloseTo(40)
+  expect(right[2]).toBeCloseTo(950)
+  expect(left[2]).toBeCloseTo(right[0])
+  expect([left[1], left[3], right[1], right[3]]).toEqual([130, 770, 110, 800])
+  expect(corrected[0].part).toBe(fish.part)
+  expect(corrected[1].part).toBe(follow.part)
+  expect(componentFix('⿰魚遂', pair, { fontStyle: 'serif' })).toBe(pair)
+  const otherCut = [fish, { ...follow, origin: 'glyph 遂' }]
+  expect(componentFix('⿰魚遂', otherCut, { fontStyle: 'fangsong' })).toBe(otherCut)
 })
 
 it('balances Regular 身 and 化 at their placed scale and preserves their ink bounds', () => {
@@ -658,4 +795,102 @@ it('opens both gaps around 从 while preserving the bars of ⿱一丛', () => {
       expect(box(contour)[3]).toBeLessThan(884)
     }
   }
+})
+
+describe('日進斗金 ⿱⿰日斗⿺辶⿰隹金', () => {
+  const frame = [0, 0, 1000, 1000]
+  const sample = origin => part(origin, frame, frame, [[100, 100, 900, 900]])
+  const five = () => ['host 旰', 'host 枓', 'glyph 辶', 'learned 䳡', 'learned 唫'].map(sample)
+
+  it('places all five leaves in reading order across all five faces and nested regions', () => {
+    for (const fontStyle of ['sans', 'serif', 'fangsong', 'regular', 'pen-writing']) {
+      for (const region of [[38, -81, 967, 840], [450, 0, 950, 800]]) {
+        const boxes = incomeBoxes(INCOME_IDS, fontStyle, region)
+        expect(boxes).toHaveLength(5)
+        const out = COMPONENT_FIXES[INCOME_IDS].apply(five(), { fontStyle }, region)
+        expect(out.map(p => p.target)).toEqual(boxes)
+        const [day, dou, walk, bird, gold] = out.map(p => p.target)
+        // 日 beside 斗 on the top row, clear of 辶, 隹 and 金 below.
+        expect(day[2]).toBeLessThan(dou[0])
+        expect(day[1]).toBeGreaterThan(walk[3])
+        expect(dou[1]).toBeGreaterThan(bird[3])
+        expect(dou[1]).toBeGreaterThan(gold[3])
+        // 辶 spans beneath both 隹 and 金, with 隹 clear of 金 horizontally.
+        expect(walk[0]).toBeLessThan(bird[0])
+        expect(walk[2]).toBeGreaterThan(gold[2])
+        expect(walk[1]).toBeLessThan(bird[1])
+        expect(walk[1]).toBeLessThan(gold[1])
+        expect(bird[2]).toBeLessThan(gold[0])
+      }
+    }
+  })
+
+  it('insets left and top edges when nested inside a larger face', () => {
+    const face = [38, -81, 967, 840]
+    const rightRegion = [450, -81, 967, 840]
+    const lowerRegion = [38, -81, 967, 580]
+    const rightBoxes = incomeBoxes(INCOME_IDS, 'sans', rightRegion, face)
+    const rootRight = incomeBoxes(INCOME_IDS, 'sans', rightRegion)
+    expect(rightBoxes[2][0]).toBeGreaterThan(rootRight[2][0])
+    expect(rightBoxes[1][3]).toBeCloseTo(rootRight[1][3], 6)
+    const lowerBoxes = incomeBoxes(INCOME_IDS, 'sans', lowerRegion, face)
+    const rootLower = incomeBoxes(INCOME_IDS, 'sans', lowerRegion)
+    expect(lowerBoxes[1][3]).toBeLessThan(rootLower[1][3])
+    expect(lowerBoxes[2][0]).toBeCloseTo(rootLower[2][0], 6)
+  })
+
+  it('handles encoded 𪰍 top pair and ignores unrecognized layouts or the swapped IDS', () => {
+    const region = [89, -56, 915, 800]
+    const four = ['glyph 𪰍', 'glyph 辶', 'learned 䳡', 'learned 唫'].map(sample)
+    const out = COMPONENT_FIXES[INCOME_IDS].apply(four, { fontStyle: 'regular' }, region)
+    const boxes = incomeBoxes(INCOME_IDS, 'regular', region)
+    expect(out[0].target).toEqual(union([boxes[0], boxes[1]]))
+    expect(out.slice(1).map(p => p.target)).toEqual(boxes.slice(2))
+
+    const splitComposer = {
+      fontStyle: 'regular',
+      face: region,
+      drawNode: () => [sample('learned 㫑'), sample('learned 斘')],
+    }
+    const splitOut = COMPONENT_FIXES[INCOME_IDS].apply(four, splitComposer, region)
+    expect(splitOut).toHaveLength(5)
+    expect(splitOut.map(p => p.target)).toEqual(boxes)
+
+    const misshapedFive = ['glyph 𪰍', 'glyph 辶', 'learned 䳡', 'learned 唫', 'glyph 一'].map(sample)
+    expect(COMPONENT_FIXES[INCOME_IDS].apply(misshapedFive, { fontStyle: 'regular' }, region)).toBe(misshapedFive)
+
+    const unrelated = ['glyph 日', 'glyph 辶', 'learned 䳡', 'learned 唫'].map(sample)
+    expect(COMPONENT_FIXES[INCOME_IDS].apply(unrelated, { fontStyle: 'regular' }, region)).toBe(unrelated)
+    expect(incomeBoxes('⿰⿱日斗⿱進金', 'regular', region)).toBeNull()
+  })
+})
+
+describe('招財進寶 ⿺辶⿱宀⿱⿰王尔⿲隹貝招', () => {
+  const frame = [0, 0, 1000, 1000]
+  const sample = origin => part(origin, frame, frame, [[100, 100, 900, 900]])
+  const seven = () => ['glyph 辶', 'glyph 宀', 'glyph 王', 'glyph 尔', 'glyph 隹', 'glyph 貝', 'glyph 招'].map(sample)
+
+  it('places all seven leaves in CDL order for FangSong, Regular, and Pen, with nested edge clearance', () => {
+    const face = [53, -110, 950, 800]
+    for (const fontStyle of ['fangsong', 'regular', 'pen-writing']) {
+      const boxes = wealthBoxes(WEALTH_IDS, fontStyle, face, face)
+      expect(boxes).toHaveLength(7)
+      const out = COMPONENT_FIXES[WEALTH_IDS].apply(seven(), { fontStyle, face }, face)
+      expect(out.map(p => p.target)).toEqual(boxes)
+      const [walk, roof, king, er, bird, shell, beckon] = out.map(p => p.target)
+      expect(roof[1]).toBeGreaterThan(king[3])
+      expect(king[2]).toBeLessThan(er[0])
+      expect(bird[2]).toBeLessThan(shell[0])
+      expect(shell[2]).toBeLessThan(beckon[0])
+      expect(walk[0]).toBeLessThan(bird[0])
+      expect(walk[1]).toBeLessThan(bird[1])
+
+      const nested = wealthBoxes(WEALTH_IDS, fontStyle, [450, -110, 950, 560], face)
+      const unnested = wealthBoxes(WEALTH_IDS, fontStyle, [450, -110, 950, 560])
+      expect(nested[0][0]).toBeGreaterThan(unnested[0][0])
+      expect(nested[1][3]).toBeLessThan(unnested[1][3])
+    }
+    expect(wealthBoxes(WEALTH_IDS, 'sans', face, face)).toBeNull()
+    expect(wealthBoxes(WEALTH_IDS, 'serif', face, face)).toBeNull()
+  })
 })
