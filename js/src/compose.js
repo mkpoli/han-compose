@@ -61,6 +61,7 @@ import { rccParts, rccDonors, rccLeafBoxes, numberRccLeaves, editableRccParts } 
 import { recordedNativeGlyph } from './recorded-native.js'
 import { recordedArcParts, recordedArcDonors } from './recorded-arcs.js'
 import { recordedChainNative } from './recorded-chains.js'
+import { excludedShiContext } from './shi-context.js'
 import { nativeStroke, reconstructStroke, strokeDonor } from './stroke-donors.js'
 import { chainForm, chainRoom, isChain, parseChain } from './stroke-chain.js'
 import { STROKE_CHAINS, customAt, splitToneMarks, toneMarksAt } from './tree.js'
@@ -1340,7 +1341,7 @@ export class Composer {
   recordedParts(node, region, key, atRoot) {
     const char = recordedDonor(key)
     if (!char || this.excluded(char) || (this.separate && Array.isArray(node))) return null
-    if (this.exclude.size && (this.excluded(key) || leafTexts(node).some(leaf =>
+    if (this.exclude.size && (this.excluded(key) || (char === '氏' && excludedShiContext(this, key)) || leafTexts(node).some(leaf =>
       this.excluded(leaf) || (isChain(leaf) && parseChain(leaf)?.strokes.some(s => this.excluded(s.char)))))) return null
     // A component can close a counter that its freestanding character leaves open, as in Kai 官.
     if (this.fontStyle === 'regular' && char === '㠯' && isChain(node)) {

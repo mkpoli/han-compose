@@ -400,9 +400,14 @@ export function targetFor(p, box) {
 
 /** A placed part's contours as drawn: flat [x, y, …] arrays in font units, y up. */
 export function drawnContours(p) {
-  const [sx, sy] = scaleOf(p)
-  const cx = (p.source[0] + p.source[2]) / 2, cy = (p.source[1] + p.source[3]) / 2
-  const gx = (p.target[0] + p.target[2]) / 2, gy = (p.target[1] + p.target[3]) / 2
+  // Deferred leaves carry tight editor boxes. Drawing with the original host transform
+  // keeps the very same rounded curve coordinates along their shared boundaries.
+  const host = p.hostPlacement
+  const hostBox = host && mapped(p.source, host.source, host.target)
+  const frame = hostBox?.every((edge, i) => edge === p.target[i]) ? host : p
+  const [sx, sy] = scaleOf(frame)
+  const cx = (frame.source[0] + frame.source[2]) / 2, cy = (frame.source[1] + frame.source[3]) / 2
+  const gx = (frame.target[0] + frame.target[2]) / 2, gy = (frame.target[1] + frame.target[3]) / 2
   const [wx, wy] = p.weight
   return p.part.contours.map(c => {
     const out = new Float64Array(c.light.length)
