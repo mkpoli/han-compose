@@ -46,6 +46,9 @@ export declare function contourSections(contours: any, ...sections: any[]): {
     light: Float64Array<ArrayBuffer>;
     heavy: Float64Array<ArrayBuffer>;
     width: any;
+    scaled: any;
+    foreign: any;
+    kindred: any;
 };
 /** A part record of the export (`b`, `p`, `w`) read as a part, decoded once. */
 export declare function partOf(record: any, quant?: number): any;

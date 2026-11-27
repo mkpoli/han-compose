@@ -959,6 +959,10 @@ export declare class Composer {
      *  draw, so only thinner parts take a weight and none is thinned below the face's 400. */
     staticBalance(group: any): void;
     balance(group: any): void;
+    /** Parts of one character held within the font's own spread of a common stroke width
+     *  (`Composer._even`): the common width is the mean of the parts' widths by their ink, and a part
+     *  outside the spread about it is weighted to its edge. */
+    even(drawn: any, spread: any): void;
 }
 /** The three bands a three-band stack over a compound foot takes, after the dictionary glyph's 羔
  *  over 口 over 𦉪十: the top 0.64 of the region wide and 0.38 of its height, the mouth 0.30 and

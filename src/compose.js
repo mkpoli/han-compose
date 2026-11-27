@@ -5615,25 +5615,75 @@ export class Composer {
     const ratio = [0, 1].map(axis => stem[axis][1] / stem[axis][0] - 1)
     // The stroke widths the whole drawing is brought to, which a placeholder's outline follows.
     this.stroke = [curve(density, 0), curve(density, 1)]
+    // The powers of a part's scale its stroke width follows in the font's own characters.
+    const powers = C.PART_STEMS
+    // Per axis, each weighted part with the stroke width it is drawn at before weighting and how
+    // far a weight of 1 widens it.
+    const drawn = [[], []]
     for (const p of group) {
       if (p.empty !== undefined || p.fixed) continue
       const weight = [], target = p.target.slice(), scale = scaleOf(p)
+      const first = p.part.contours[0], baked = first?.scaled ?? [1, 1]
+      // A static face's own outline is grown by one amount whatever the stroke, so its weight is
+      // counted against its glyph's stem. A fallback's is grown in proportion to its stem.
+      const flat = Boolean(powers && C.STATIC && first?.width && !first.kindred && !first.foreign)
       for (const axis of [0, 1]) {
         const box = p.balanceBox ?? p.source
         const extent = box[axis + 2] - box[axis]
         if (extent <= 2 * stem[axis][0]) {
-          const width = extent * curve(density, axis) / curve(p.native, axis), middle = (target[axis] + target[axis + 2]) / 2
+          const width = powers ? extent / baked[axis] * Math.max(scale[1 - axis] * baked[1 - axis], C.PART_SCALE_LEAST) ** powers[axis]
+            : extent * curve(density, axis) / curve(p.native, axis)
+          const middle = (target[axis] + target[axis + 2]) / 2
           target[axis] = middle - width / 2
           target[axis + 2] = middle + width / 2
           weight.push(0)
           continue
         }
-        const measured = p.part.contours[0]?.width
+        const measured = first?.width
+        if (powers) {
+          // The stem the font gives a part at this scale, over the stem plain scaling leaves. A
+          // glyph of another design starts from the stem the font draws at its density. A glyph
+          // of the variable font states no width unless a sweep set one on it.
+          const stated = measured && (C.STATIC || first.kindred || first.foreign) ? measured[axis] / baked[axis] : null
+          const lift = stated !== null && first.foreign ? curve(p.native, axis) / stated : 1
+          let grownBy = ratio[axis]
+          if (flat) grownBy = (stem[axis][1] - stem[axis][0]) / stated
+          // Horizontals grown synthetically grow by one amount too.
+          else if (axis === 1 && stated === null && C.GROW_Y) grownBy = (stem[1][1] - stem[1][0]) / curve(p.native, 1)
+          const at = Math.max(scale[axis] * baked[axis], C.PART_SCALE_LEAST)
+          weight.push(Math.min(p.weightLimit?.[axis] ?? C.WEIGHT_GROWTH, Math.max(-0.6, (lift * at ** (powers[axis] - 1) - 1) / grownBy)))
+          const base = (stated !== null ? measured[axis] : curve(p.native, axis) * baked[axis]) * scale[axis]
+          drawn[axis].push([p, base, grownBy])
+          continue
+        }
         const own = measured ? measured[axis] : curve(p.native, axis)
         weight.push(Math.min(p.weightLimit?.[axis] ?? 1, Math.max(-0.6, (curve(density, axis) / (scale[axis] * own) - 1) / ratio[axis])))
       }
       p.target = target
       p.weight = weight
+    }
+    if (C.PART_SPREAD) this.even(drawn, C.PART_SPREAD)
+  }
+
+  /** Parts of one character held within the font's own spread of a common stroke width
+   *  (`Composer._even`): the common width is the mean of the parts' widths by their ink, and a part
+   *  outside the spread about it is weighted to its edge. */
+  even(drawn, spread) {
+    for (const axis of [0, 1]) {
+      const parts = drawn[axis]
+      if (parts.length < 2) continue
+      const widths = parts.map(([p, base, grown]) => base * (1 + p.weight[axis] * grown))
+      const inks = parts.map(([p]) => { const [sx, sy] = scaleOf(p); return (p.inkLength ?? partInk(p.part)) * (sx + sy) / 2 })
+      const total = inks.reduce((a, b) => a + b, 0)
+      if (widths.some(w => !(w > 0)) || !(total > 0)) continue
+      const common = Math.exp(widths.reduce((sum, w, i) => sum + inks[i] * Math.log(w), 0) / total)
+      // Two parts each within the root of the spread of the common width are within the spread.
+      const edge = Math.sqrt(spread[axis])
+      parts.forEach(([p, base, grown], i) => {
+        const held = Math.min(common * edge, Math.max(common / edge, widths[i]))
+        if (held === widths[i]) return
+        p.weight[axis] = Math.min(p.weightLimit?.[axis] ?? this.C.WEIGHT_GROWTH, Math.max(-0.6, (held / base - 1) / grown))
+      })
     }
   }
 }
@@ -6161,7 +6211,9 @@ export function sweptPart(p, edge, C, tail = null) {
     // scaled ones: `balance` reads them against a scale of one. A glyph stating none takes the
     // width its ink calls for, as `balance` would.
     const own = c.width ?? [0, 1].map(axis => C.STEM_CURVE[axis][0] + C.STEM_CURVE[axis][1] * p.native / 1000)
-    return { ops: c.ops, light: map(c.light), heavy: map(c.heavy), width: [own[0] * sx, own[1] * sy] }
+    const baked = c.scaled ?? [1, 1]
+    return { ops: c.ops, light: map(c.light), heavy: map(c.heavy), width: [own[0] * sx, own[1] * sy],
+      scaled: [baked[0] * sx, baked[1] * sy], foreign: c.foreign, kindred: c.kindred }
   }
   const strokes = derived(p.part, p.part.contours.filter((_, k) => k !== sweep).map(c => at(c, q => q)))
   const box = strokes.box
@@ -6197,7 +6249,7 @@ export function pressedEnclosure(p, sweep, share = ENCLOSURE_SHARE, tail = null)
     }
     return out
   }
-  const mapped = p.part.contours.map(c => ({ ops: c.ops, light: mapX(c.light), heavy: mapX(c.heavy), width: c.width }))
+  const mapped = p.part.contours.map(c => ({ ...c, light: mapX(c.light), heavy: mapX(c.heavy) }))
   if (tail) {
     const grafted = graftTail(mapped, sweep, x0, width, tail)
     if (grafted) return placed(makePart(grafted, p.part.box.slice()), p.source, p.target, p.native, `enclosure ${p.origin}`, p.weight)
