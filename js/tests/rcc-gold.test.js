@@ -18,6 +18,15 @@ for (const [fontStyle, glyphs] of Object.entries(records)) {
       expect(parts.map(p => p.origin)).toEqual([...'金冖丷丿口乚'].map(ch => 'R+07DF ' + ch))
       if (separate) expect(parts.map(p => p.leaf)).toEqual([0, 1, 2, 3, 4, 5])
       const [gold, crown, dots, slash, mouth, hook] = parts.map(p => pathMask(p.d, 384))
+      const dabs = parts[2].d.match(/M[^M]+/g).map(d => pathMask(d, 384))
+      expect(dabs).toHaveLength(2)
+      expect(touches(dabs[0], dabs[1])).toBe(false)
+      expect(touches(dabs[0], mouth)).toBe(false)
+      expect(touches(dabs[1], slash)).toBe(true)
+      const crest = parts[1].box[1], shoulder = parts[3].box[1]
+      const dabTop = dabs.map(mask => Math.floor(mask.findIndex(Boolean) / 384) * 1000 / 384)
+      expect(dabTop[1]).toBeLessThan(crest + (shoulder - crest) * .42)
+      expect(dabTop[1]).toBeLessThan(dabTop[0])
       expect(touches(crown, mouth)).toBe(true)
       expect(touches(crown, dots)).toBe(false)
       expect(touches(dots, slash)).toBe(true)
@@ -42,7 +51,7 @@ for (const [fontStyle, glyphs] of Object.entries(records)) {
     expect((await sketch(source, alt, { fontStyle })).map(p => p.box))
       .toEqual([0, 1, 2, 3, 5, 4].map(i => cold[i].box))
     if (fontStyle === 'sans') {
-      for (const excluded of [ids, '鋭', '兎', '冥', '半', '⿳冖丷⿸⿻[1:]丿口乚', '⿸⿻[1:]丿口乚', '⿻[1:]丿口']) {
+      for (const excluded of [ids, '鋭', '兎', '冞', '⿳冖丷⿸⿻[1:]丿口乚', '⿸⿻[1:]丿口乚', '⿻[1:]丿口']) {
         expect((await compose(source, ids, { fontStyle, exclude: [excluded] })).origins).not.toContain('R+07DF 金')
       }
     }
