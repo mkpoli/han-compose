@@ -4,8 +4,9 @@
 // description it corrects, the SHA-256 outlines of the glyphs it was read against, and the parts it
 // changes; an export drawing other outlines keeps the font's cut. The parts are plain placed pieces,
 // so the corrections work wherever the description is drawn, at any depth.
-import { contourSections, derived, fitted, groupRings, makePart, mapped, partOf, placed, pointsBox, union } from './geometry.js'
+import { contourSections, cutContours, derived, fill, fitted, groupRings, makePart, mapped, partOf, placed, pointsBox, union } from './geometry.js'
 import { hexOf } from './sha256.js'
+import { penGrassKu } from './grass-ku.js'
 
 // Interpolation factors for the hosted 口 outlines when fitted beside 乎.
 const mouthWeights = {
@@ -36,6 +37,13 @@ const boxOf = part => {
   return [Math.min(...boxes.map(b => b[0])), Math.min(...boxes.map(b => b[1])),
     Math.max(...boxes.map(b => b[2])), Math.max(...boxes.map(b => b[3]))]
 }
+/** Fit a replacement to the visible edges of the final placed outline, before parent flips. */
+function fitInk(revised, original) {
+  if (original.fixed || original.cut) return {}
+  const ink = p => union(groupRings([{ ...p, flips: undefined }], 24).map(pointsBox))
+  return { ...revised, target: mapped(revised.target, ink(revised), ink(original)) }
+}
+
 const widthOf = box => box[2] - box[0]
 const heightOf = box => box[3] - box[1]
 const centreX = box => (box[0] + box[2]) / 2
@@ -60,20 +68,50 @@ function barsOf(part) {
     .sort((a, b) => a.box[1] - b.box[1])
 }
 
-/** The lowest ink on the vertical line through `xTarget`: under a roof's legs, its bar's underside. */
-function inkBottomAt(part, xTarget) {
-  const [sx, sy] = scaleOf(part), x = part.source[0] + (xTarget - part.target[0]) / sx
-  let low = Infinity
-  for (const contour of part.part.contours) {
-    const light = contour.light, n = light.length / 2
-    for (let i = 0; i < n; i++) {
-      const j = (i + 1) % n, x1 = light[i * 2], y1 = light[i * 2 + 1], x2 = light[j * 2], y2 = light[j * 2 + 1]
-      if (x1 === x2 || (x1 - x) * (x2 - x) > 0) continue
-      const y = y1 + (y2 - y1) * (x - x1) / (x2 - x1)
-      if (y < low) low = y
+/** The median and minimum vertical gap between an upper and a lower group's rings inside `box`. */
+function verticalGap(upper, lower, box, size = 200) {
+  const a = fill(upper, size, box), b = fill(lower, size, box), gaps = []
+  for (let col = 0; col < size; col++) {
+    let lastA = -1, firstB = -1
+    for (let row = 0; row < size; row++) {
+      const i = row * size + col
+      if (a[i]) lastA = row
+      if (b[i] && firstB < 0) firstB = row
     }
+    if (lastA >= 0 && firstB >= 0) gaps.push(firstB - lastA)
   }
-  return low === Infinity ? boxOf(part)[1] : part.target[1] + (low - part.source[1]) * sy
+  if (!gaps.length) return null
+  gaps.sort((x, y) => x - y)
+  const n = gaps.length, mid = n >> 1, scale = (box[3] - box[1]) / size
+  const median = n % 2 ? gaps[mid] : (gaps[mid - 1] + gaps[mid]) / 2
+  return { median: median * scale, min: gaps[0] * scale }
+}
+
+/** Fit 工 into a shallow row by shortening its stem between the two brush strokes. */
+function shortenGong(placedGong, gong, mouthWidth) {
+  const { target } = placedGong
+  const box = gong.box, fullHeight = heightOf(box)
+  const sx = widthOf(target) / widthOf(box)
+  const sy = Math.min(sx, mouthWidth / gong.contours[0].width[1])
+  const height = Math.min(fullHeight, heightOf(target) / sy)
+  if (!(height > 0 && height < fullHeight)) return { ...placedGong, part: gong, source: box, target }
+  // Each crossbar, including its brush tip, occupies the outer 18% of the native outline.
+  const end = Math.min(fullHeight * 0.18, height * 0.45)
+  // The lower bar rises about 1 in 20. Scale its thickness about that incline.
+  const shear = 0.05 * (sx / sy - 1)
+  const cx = centreX(box)
+  const contours = gong.contours.map(contour => {
+    const light = contour.light.slice(), heavy = contour.heavy.slice()
+    for (let i = 1; i < light.length; i += 2) {
+      const alongStem = (light[i] - box[1] - end) / (fullHeight - 2 * end)
+      const shift = (fullHeight - height) * Math.max(0, Math.min(1, alongStem))
+      light[i] += shear * (light[i - 1] - cx) - shift
+      heavy[i] += shear * (heavy[i - 1] - cx) - shift
+    }
+    return { ...contour, light, heavy }
+  })
+  const source = [box[0], box[1], box[2], box[1] + height]
+  return { ...placedGong, part: { ...gong, contours, box: source }, source, target }
 }
 
 /** The lowest edge of a part's wide ink: its lowest bar, under any thin stroke that runs past it. */
@@ -301,6 +339,22 @@ function penDoor(char) {
  * A correction that cannot find the parts it names leaves the drawing as it is.
  */
 export const COMPONENT_FIXES = {
+  '⿱投石': {
+    glyphs: {},
+    apply(parts, composer) {
+      const [hand, stone] = parts
+      if (parts.length !== 2) return parts
+      if (composer.fontStyle === 'pen-writing' && hand.origin === 'glyph 投') {
+        // The complete 投 shrinks into a shallow row; bring its strokes up to the weight of 石.
+        return [{ ...hand, weight: [-.65, -.65], fixed: true }, stone]
+      }
+      if (composer.fontStyle !== 'regular') return parts
+      const frame = union([hand.target, stone.target])
+      return [{ ...hand, target: mapped([0.0161, 0.521, 0.9991, 1.002], [0, 0, 1, 1], frame) },
+        // Center the ink of 石 below 投 as in 硩 and 磐. Its 口 pulls the ink right of the box center.
+        { ...stone, target: mapped([0.0, -0.0, 0.8121, 0.481], [0, 0, 1, 1], frame) }]
+    },
+  },
   '⿰貝並': {
     glyphs: { 賦: 'adc3e80a626f45b4c611c368dea0e198bdd174b707ae9a4ea65fcf2e900f19bd' },
     apply(parts, composer) {
@@ -393,6 +447,14 @@ export const COMPONENT_FIXES = {
         placed(side, side.box, cell([512, 24, 968, 960]), composer.ink('方'), 'glyph 方')]
     },
   },
+  '⿱艹堀': {
+    glyphs: {
+      堀: 'f43243bd31c0029a0b42e359bec3243f319aa4d4d8c8500f62e67fb1f5a69542',
+      '䕋': '41fe0e171f99af334c530521fd232c29532c4f566d3435eb8f064f148ce2f740',
+      '䓛': '24db65003a6ef60f8a9efcece91167f5bb035ea042a02da399a8babbf48e11e8',
+    },
+    apply: penGrassKu,
+  },
   '⿰身花': {
     glyphs: {},
     apply(parts, composer) {
@@ -428,6 +490,24 @@ export const COMPONENT_FIXES = {
         revised.target = mapped(p.target, ink(revised), ink(p))
         return revised
       }), grass]
+    },
+  },
+  '⿰魚遂': {
+    glyphs: {},
+    apply(parts, composer) {
+      if (composer.fontStyle !== 'fangsong' || parts.length !== 2) return parts
+      const [fish, follow] = parts
+      if (fish.origin !== 'learned 鯝' || follow.origin !== 'learned 𬭼') return parts
+      const left = boxOf(fish), right = boxOf(follow)
+      // In 鰱, the back of 魚 and the turns of 辶 interlock along the centre.
+      const gap = right[0] - left[2]
+      if (gap <= 0 || widthOf(left) <= 0 || widthOf(right) <= 0) return parts
+      // The fish's outermost point and the tip of 辶 fall on different rows.
+      // Share the empty strip in proportion to the ink widths, fixing both outer edges.
+      const scale = 1 + gap / (widthOf(left) + widthOf(right))
+      const widen = (part, edge) => ({ ...part, target: part.target.map((v, i) =>
+        i % 2 ? v : edge + (v - edge) * scale) })
+      return [widen(fish, left[0]), widen(follow, right[2])]
     },
   },
   '⿰忄実': {
@@ -469,9 +549,45 @@ export const COMPONENT_FIXES = {
       return [{ ...wei, finishOutline }, cheng, gong]
     },
   },
+  '⿰舟苗': {
+    glyphs: {},
+    apply(parts, composer) {
+      const boat = parts[0]
+      if (composer.fontStyle !== 'regular' || !composer.staticFace || composer.partial || composer.excluded('舳') ||
+          boat?.origin !== 'learned 艃' || boat.fixed) return parts
+      // In 舳 the narrow boat sits beside the enclosed 由, as it does beside 苗’s 田.
+      const record = composer.glyphRecord('舳')
+      if (record?.v !== 1 || !record.ls?.舟?.length ||
+          hexOf(JSON.stringify(record.p)) !== '69594bf137680197f31cc87bd11c7899a30d9f11cc7c259d727bd14a2c5c47a8') return parts
+      const cut = cutContours(partOf(record), record.ls.舟)
+      const finishOutline = p => fitInk(placed(cut, cut.box, p.target, p.native, '舟 from 舳'), p)
+      return [{ ...boat, finishOutline }, ...parts.slice(1)]
+    },
+  },
   // 𠷃 (BabelStone: ⿰口⿳穴𠆢又) has a broad, shallow 又. Its component's
   // proportions also occur in 𥔉. Keep both inner parts within 穴's outer span.
 
+  '⿰車ト': {
+    glyphs: { ト: 'ab453d8c58c4b817de9f562aaec9f1a600d347b59257584f93ff451e3d087c93' },
+    apply(parts, composer) {
+      if (composer.fontStyle !== 'regular' || !composer.staticFace || composer.partial || parts.length !== 2) return parts
+      const [car, kana] = parts
+      if (car.fixed || kana.fixed || car.origin !== 'learned 䡎' || kana.origin !== 'glyph ト' || composer.excluded('軋')) return parts
+      const record = composer.glyphRecord('軋')
+      if (record?.v !== 1 || hexOf(JSON.stringify(record.p)) !== '2bc1ae0f90e8ec4da0e920154e1b30487cd0a3f157fe252070b673a885244c1d') return parts
+      // 軋 places 車 beside a single stroke. Its last contour is the right-hand hook.
+      const column = cutContours(partOf(record), [0, 1, 2, 3, 4])
+      const buRecord = !composer.excluded('卜') && composer.glyphRecord('卜')
+      const right = buRecord?.v === 1 ? partOf(buRecord) : null
+      return [
+        { ...car, finishOutline: p => fitInk(placed(column, column.box, p.target, p.native, '車 from 軋'), p) },
+        // At this width the native 卜 needs a small lift to retain the approved upright and arm weights.
+        { ...kana, finishOutline: p => fitInk(right
+          ? placed(right, right.box, p.target, p.native, 'glyph 卜', [0.17, 0.08])
+          : { ...p, weight: [-0.8, -0.6] }, p) },
+      ]
+    },
+  },
   '⿰生意': {
     glyphs: {},
     apply(parts, composer) {
@@ -491,6 +607,56 @@ export const COMPONENT_FIXES = {
       const frame = union(parts.map(part => part.target))
       return [{ ...sheng, target: mapped([0, .035, .43, .965], [0, 0, 1, 1], frame) },
         { ...yi, target: mapped([.438, 0, 1, 1], [0, 0, 1, 1], frame) }]
+    },
+  },
+  '⿳吅工吅': {
+    glyphs: { '工': '681e3af08c44f984ad14700a49907b9839eb996d42adde52e2e86b6ea4a35277' },
+    apply(parts, composer) {
+      if (composer.fontStyle !== 'fangsong') return parts
+      const middle = parts.findIndex(p => p.origin === 'glyph 工')
+      const below = parts.length - middle - 1
+      if (middle < 1 || middle > 2 || below < 1 || below > 2) return parts
+      if (parts.every(p => p.fixed)) return parts
+      const gong = composer.glyph('工')
+      if (!(gong.contours[0]?.width?.[1] > 0) || parts.some(p => !p.part?.contours?.length)) return parts
+      const frame = union(parts.map(p => p.target))
+      // Each 吅 can be one host cut or two separately drawn mouths.
+      const rows = [parts.slice(0, middle), [parts[middle]], parts.slice(middle + 1)]
+      const bands = [[0.10, 0.67, 0.90, 1], [0, 0.37, 1, 0.64], [0.10, 0, 0.90, 0.33]]
+      const fitted = rows.flatMap((row, index) => {
+        const band = mapped(bands[index], [0, 0, 1, 1], frame)
+        const bounds = union(row.map(p => p.target))
+        return row.map(p => ({ ...p, target: mapped(p.target, bounds, band) }))
+      })
+      // Use the heaviest mouth horizontal as the weight of the two long bars.
+      const mouths = fitted.filter((_, i) => i !== middle)
+      const widths = mouths.map(p => (p.part.contours[0]?.width?.[1] ?? gong.contours[0].width[1]) * scaleOf(p)[1])
+      fitted[middle] = shortenGong(fitted[middle], gong, Math.max(...widths))
+      const original = parts.map(p => ({ ...p }))
+      // Measure both layouts at their final weights without changing a sibling enclosure's stroke.
+      const stroke = composer.stroke
+      try {
+        for (const group of [original, fitted]) {
+          if (!composer.partial && composer.weighted) composer.balance(group)
+          else if (!composer.partial && composer.staticFace) composer.staticBalance(group)
+        }
+      } finally {
+        composer.stroke = stroke
+      }
+      const rowRings = [fitted.slice(0, middle), [fitted[middle]], fitted.slice(middle + 1)].map(g => groupRings(g, 24))
+      const after = union(rowRings.flat().map(pointsBox))
+      const topGap = verticalGap(rowRings[0], rowRings[1], after)
+      const bottomGap = verticalGap(rowRings[1], rowRings[2], after)
+      if (topGap && bottomGap && topGap.min > 0 && bottomGap.min > 0) {
+        const gongBox = union(rowRings[1].map(pointsBox))
+        const lo = Math.max(after[1] - gongBox[1], -bottomGap.min / 2)
+        const hi = Math.min(after[3] - gongBox[3], topGap.min / 2)
+        const shift = Math.max(lo, Math.min(hi, (topGap.median - bottomGap.median) / 2))
+        const t = fitted[middle].target
+        fitted[middle] = { ...fitted[middle], target: [t[0], t[1] + shift, t[2], t[3] + shift] }
+      }
+      const before = union(groupRings(original, 24).map(pointsBox))
+      return fitted.map(p => ({ ...p, fixed: true, target: mapped(p.target, after, before) }))
     },
   },
   // As in 堇's lower body, 口 crosses the stem above both of 土's horizontal bars.
