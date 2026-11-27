@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="zh-Hans">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>率 · 字形对照</title>
+<script>try{const t=localStorage.getItem('rate-gallery-theme');if(t)document.documentElement.dataset.theme=t}catch{}</script>
+<link rel="stylesheet" href="gallery.css">
+<body>
+<header class="bar">
+  <h1>率 · 字形对照</h1>
+  <nav>
+    <button id="about" class="btn small" type="button" aria-haspopup="dialog">字形来源</button>
+    <button id="theme" class="btn icon-btn" type="button"></button>
+  </nav>
+</header>
+<div class="tools" role="search">
+  <label class="field wide">查字<input id="query" type="search" placeholder="率、摔、U+2032D…" autocomplete="off"></label>
+  <fieldset class="field" id="faces"><legend>字体</legend><div class="segments"></div></fieldset>
+  <button id="matrix-only" class="switch" type="button" role="switch" aria-checked="false"><span class="track" aria-hidden="true"></span>仅看矩阵</button>
+  <div class="pager">
+    <span id="total" class="count" aria-live="polite"></span>
+    <button id="share" class="btn small" type="button">复制链接</button>
+  </div>
+</div>
+<noscript><p>浏览字形需要启用 JavaScript。</p></noscript>
+<main id="grid" class="cards"></main>
+<p id="status" class="toast" role="status" aria-live="polite"></p>
+<dialog id="sources" aria-labelledby="sources-title">
+  <h2 id="sources-title">字形来源</h2>
+  <dl id="source-list"></dl>
+  <form method="dialog"><button class="btn small">关闭</button></form>
+</dialog>
+<script src="app.js"></script>
