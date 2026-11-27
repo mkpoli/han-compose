@@ -34,22 +34,27 @@ function dotComposer() {
 }
 
 describe('a stroke correction', () => {
-  it('joins the exposed stem of 幸 to the final ink edge of 龹', () => {
-    const rectangle = (x0, y0, x1, y1) => {
-      const points = Float64Array.of(x0, y0, x1, y0, x1, y1, x0, y1)
-      return { ops: commands('MLLL'), light: points, heavy: points }
+  it('enlarges 幸 without distorting its contours until it meets 龹’s splayed legs', () => {
+    const rectOps = [['M', 1], ['L', 1], ['L', 1], ['L', 1]]
+    const juan = part('龹', [0, 500, 1000, 1000], [0, 500, 1000, 1000], [
+      [150, 720, 850, 770], [80, 500, 220, 740], [780, 500, 920, 740],
+    ])
+    const xingPart = part('glyph 幸', [0, 0, 1000, 1000], [0, 0, 1000, 500], [
+      [460, 0, 540, 1000], [100, 800, 900, 880],
+    ])
+    for (const p of [juan, xingPart]) for (const c of p.part.contours) c.ops = rectOps
+    const composer = {
+      fontStyle: 'serif', excluded: () => false, glyph: ch => ch === '幸' ? xingPart.part : null, ink: () => 1000,
     }
-    const face = [0, 0, 1000, 1000]
-    const upper = makePart([rectangle(50, 600, 950, 645)])
-    const lower = makePart([rectangle(470, 100, 530, 470), rectangle(80, 365, 920, 395)])
-    const top = placed(upper, face, face, 0, '龹')
-    const base = placed(lower, face, face, 0, '幸')
-    for (const flips of [[], [{ x: true, y: true, about: [500, 500] }]]) {
-      const joined = joinXingStem({ ...top, flips }, { ...base, flips })
-      const [stem, bar] = drawnContours(joined).map(pointsBox)
-      expect(flips.length ? stem[1] : stem[3]).toBe(flips.length ? 400 : 600)
-      expect(bar).toEqual(pointsBox(drawnContours({ ...base, flips })[1]))
-    }
+    const [upper, lower] = COMPONENT_FIXES['⿱龹幸'].apply([juan, xingPart], composer)
+    // Contours stay unstretched (same part object, no stem elongation).
+    expect(lower.part).toBe(xingPart.part)
+    expect(lower.target[1]).toBe(0)
+    expect(lower.target[3]).toBeGreaterThan(560)
+    expect(lower.target[3]).toBeLessThan(720)
+    expect(upper.target[3]).toBe(1000)
+    // Excluded 幸 leaves both parts unchanged.
+    expect(COMPONENT_FIXES['⿱龹幸'].apply([juan, xingPart], { ...composer, excluded: () => true })).toEqual([juan, xingPart])
   })
 
   it('cuts a contour off at a height in the box it is drawn into', () => {
