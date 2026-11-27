@@ -218,6 +218,10 @@
       "types": "./types/variation-expression.d.ts",
       "default": "./src/variation-expression.js"
     },
+    "./variation-branches": {
+      "types": "./types/variation-branches.d.ts",
+      "default": "./src/variation-branches.js"
+    },
     "./variation-product": {
       "types": "./types/variation-product.d.ts",
       "default": "./src/variation-product.js"
