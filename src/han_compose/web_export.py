@@ -200,10 +200,12 @@ def _version(root: Path) -> tuple[str, bool]:
 
 LICENCE_URLS = {C.OFL: "https://openfontlicense.org/open-font-license-official-text/",
                 "CC0 1.0": "https://creativecommons.org/publicdomain/zero/1.0/",
-                C.OGL: "https://data.gov.tw/license"}
-#: The licence texts an export carries, by licence, from `data/licences/`.
+                C.OGL: "https://data.gov.tw/license",
+                C.MIT: "https://opensource.org/licenses/MIT"}
+#: The licence texts an export carries, by licence, from `data/licences/`. The MIT text is Nôm Na
+#: Tống's licence file, with its copyright line.
 LICENCE_TEXTS = {C.OFL: ("OFL.txt", "OFL-1.1.txt"), "CC0 1.0": ("CC0.txt", "CC0-1.0.txt"),
-                 C.OGL: ("OGL.txt", "OGL-1.0.txt")}
+                 C.OGL: ("OGL.txt", "OGL-1.0.txt"), C.MIT: ("MIT.txt", "MIT-NomNaTong.txt")}
 
 
 def _font_notice(path: Path, licence: str) -> dict:
@@ -221,7 +223,7 @@ def constants(composer: C.Composer) -> dict:
     and 一 across y."""
     out = {}
     for name in dir(C):
-        if not name.isupper() or name.startswith("_") or name.endswith(("_URL", "_SHA256", "_FILE")) or name in ("STYLES", "DEFAULT_STYLE", "OFL", "OGL"):
+        if not name.isupper() or name.startswith("_") or name.endswith(("_URL", "_SHA256", "_FILE")) or name in ("STYLES", "DEFAULT_STYLE", "OFL", "OGL", "MIT"):
             continue
         value = getattr(C, name)
         if isinstance(value, (frozenset, set)):
@@ -1035,6 +1037,7 @@ PATHS = {
 OUTLINE_NOTES = {
     "sans": "Glyph outlines (G in g/ records) and the pieces host-list entries name by their contours' indices (c.k, or c.p where a piece holds its own outlines) are the fonts' outline data. Noto Sans CJK JP's and Plangothic's are under the SIL Open Font License 1.1, whose full text with each font's copyright line is OFL.txt; Noto Sans CJK JP reserves the font name 'Source' and Plangothic declares no Reserved Font Name. Jigmo's (a fallback for code points neither covers) are dedicated to the public domain under CC0 1.0 (CC0.txt), drawn from GlyphWiki by its contributors.",
     "serif": "Glyph outlines (G in g/ records) and the pieces host-list entries name by their contours' indices (c.k, or c.p where a piece holds its own outlines) are the fonts' outline data. Noto Serif CJK JP's and WenJin Mincho's are under the SIL Open Font License 1.1, whose full text with each font's copyright line is OFL.txt; Noto Serif CJK JP's copyright line names no Reserved Font Name and WenJin Mincho reserves 'WenJin Mincho', '文津宋体', '文津宋體', '文津明朝', '문진(文津) 명조' (carrying upstream Source Han Serif 'Source' notices). Jigmo's are dedicated to the public domain under CC0 1.0 (CC0.txt), drawn from GlyphWiki by its contributors.",
+    "woodblock": "Glyph outlines (G in g/ records) and the pieces host-list entries name by their contours' indices (c.k, or c.p where a piece holds its own outlines) are the fonts' outline data. Nôm Na Tống's are under the MIT License, whose full text with its copyright lines is MIT.txt.",
     "fangsong": "Glyph outlines (G in g/ records) and the pieces host-list entries name by their contours' indices (c.k, or c.p where a piece holds its own outlines) are the fonts' outline data. Zhuque Fangsong's, whose Latin, Cyrillic and Greek glyphs are Alegreya's, are under the SIL Open Font License 1.1, whose full text with both copyright lines is OFL.txt; neither names a Reserved Font Name. Jigmo's (a record's G with v 0) are dedicated to the public domain under CC0 1.0 (CC0.txt), drawn from GlyphWiki by its contributors.",
     "regular": "Glyph outlines (G in g/ records) and the pieces host-list entries name by their contours' indices (c.k, or c.p where a piece holds its own outlines) are the fonts' outline data. TW-Kai's, from 數位發展部's CNS11643中文標準交換碼全字庫 (fonts version 11510.1, https://www.cns11643.gov.tw), are under the Open Government Data License 1.0, whose full text is OGL.txt.",
     "pen-writing": "Glyph outlines (G in g/ records) and the pieces host-list entries name by their contours' indices (c.k, or c.p where a piece holds its own outlines) are the fonts' outline data. Kureedo Full's, including the LXGW WenKai Light outlines it carries for code points Klee One lacks, and GenZui Sans's are under the SIL Open Font License 1.1, whose full text with each font's copyright line and reserved names is OFL.txt. GenZui Sans declares no Reserved Font Name.",
@@ -1091,7 +1094,7 @@ def _export(composer: C.Composer, out: Path, joyo: list[str] | None = None, pari
         for folder in (WORK, "g", "p"):
             if (out / folder).exists():
                 shutil.rmtree(out / folder)
-        for name in ("manifest.json", "layout.json", IDENTITY, KIN, "parity.json", "parity-held-out.json", "OFL.txt", "CC0.txt", "MIT-hfhchan-ids.txt"):
+        for name in ("manifest.json", "layout.json", IDENTITY, KIN, "parity.json", "parity-held-out.json", *(name for name, _ in LICENCE_TEXTS.values()), "MIT-hfhchan-ids.txt"):
             (out / name).unlink(missing_ok=True)
     for name, wanted in (("parity.json", parity), ("parity-held-out.json", held_out)):
         if not wanted:

@@ -16,6 +16,7 @@ import { hasJurchen, jurchenSource } from './jurchen.js'
 import { hasPaletteGlyph, paletteSource } from './palette.js'
 import { CUSTOM_FORMS, customFormsSource, hasCustomComponent } from './custom-forms.js'
 import { HOST_OUTLINES, hasEntity, hostSource } from './host.js'
+import { hasPlainVariants, hasVariationSelector, plainVariantSource } from './plain-variants.js'
 import { isEmpty, isNode, parseDescription as parse, splitDescription, tonesOf } from './tree.js'
 
 /**
@@ -79,6 +80,8 @@ export function sourceFor(sequence, { base, fontStyle = 'sans', separate = false
   }
   // A bundled sequence needs no export: a failing one is not asked for at all.
   let source = local ? null : exported ?? exportSource(base, { loaders, fetch: get, read })
+  // A sequence the face's font draws with its plain glyph has no record of its own in the export.
+  if (source && hasPlainVariants(fontStyle) && hasVariationSelector(sequence ?? '')) source = plainVariantSource({ fallback: source, style: fontStyle })
   // Bundled alone, a leaf may be one only the Unicode outlines hold; they load only what is asked for.
   if (local && (traits.loose || bundled)) source = overlay(unicodeSource, source, UNICODE)
   if (traits.tangut) source = overlay(tangutSource, source, 'sources/tangut/outlines.json.gz')
