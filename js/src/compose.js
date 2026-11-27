@@ -1025,7 +1025,7 @@ export class Composer {
    *  the export records nothing. */
   formRecord = key => {
     if (key === SI_CHAIN) {
-      this.siForm ??= siChainForm(this)
+      this.siForm ??= siChainForm(this) ?? false
       if (this.siForm) return this.siForm
     }
     return isNativeForm(key, this.fontStyle) ? null : componentRecord(key, this.fontStyle)
