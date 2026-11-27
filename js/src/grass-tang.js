@@ -16,7 +16,7 @@ function contoursIn(part, room) {
   return part.part.contours.map((c, i) => ({ ...c, light: light[i], heavy: heavy[i] }))
 }
 
-export function penGrassTang(parts, composer, key, balanced = false) {
+export function penGrassTang(parts, composer, key) {
   if (composer.fontStyle !== 'pen-writing' || composer.partial || !isGrassTang(key) ||
       !parts.length || parts.length > 2 || ['艹', '塘', '䕋', '蓎', '⿱艹塘'].some(c => composer.excluded(c))) return parts
   const records = outlines.map(([c]) => composer.glyphRecord(c))
@@ -33,24 +33,35 @@ export function penGrassTang(parts, composer, key, balanced = false) {
   const lower = derived(source, [...source.contours.slice(0, 6), ...contoursIn(dot, [546, 497, 596, 565])])
   const split = parts.length === 2 || (key === '⿱艹塘' && composer.separate)
   const glyphs = split ? [grass, lower] : [derived(source, [...lower.contours, ...grass.contours])]
-  const previous = parts.map(p => ({ ...p })), stroke = composer.stroke
-  try {
-    if (composer.staticFace && !balanced) composer.staticBalance(previous)
-  } finally {
-    composer.stroke = stroke
-  }
-  const frame = bounds(previous), model = bounds(glyphs.map(native))
+  const frame = bounds(parts.map(p => ({ ...p, flips: undefined }))), model = bounds(glyphs.map(native))
   return glyphs.map((glyph, i) => ({
     ...parts[Math.min(i, parts.length - 1)], part: glyph, source: glyph.box, target: mapped(glyph.box, model, frame),
     origin: split ? ['艹 from 蓎', '塘 from 䕋 and 蓎'][i] : '䕋 with 唐 dot from 蓎', weight: [0, 0], fixed: true,
   }))
 }
 
-// Some side-by-side placements seat the complete native glyph directly. Only
-// replace the identical decoded glyph. A donor cut may share its origin label.
-export function finishGrassTang(part, composer) {
-  if (part.origin !== 'glyph 䕋' || part.cut || part.part !== composer.glyph('䕋')) return
-  const raw = { ...part, flips: undefined }
-  const [drawing] = penGrassTang([raw], composer, '䕋', true)
-  if (drawing !== raw) Object.assign(part, drawing, { flips: part.flips })
+// Keep the normal placement and weight through the parent layout. A group token
+// survives copies of placed parts and distinguishes repeated occurrences.
+export function markGrassTang(parts, key) {
+  const group = { key, count: parts.length }
+  for (const part of parts) part.grassTang = group
+  return parts
+}
+
+export function finishGrassTang(parts, composer) {
+  const groups = new Map()
+  for (const part of parts) {
+    let group = part.grassTang
+    // Side-by-side layouts may seat a full native glyph without visiting its
+    // node. A cut can share the same origin label, so verify object identity.
+    if (!group && part.origin === 'glyph 䕋' && part.part === composer.glyph('䕋')) group = { key: '䕋', count: 1 }
+    if (!group) continue
+    if (!groups.has(group)) groups.set(group, [])
+    groups.get(group).push(part)
+  }
+  for (const [group, original] of groups) {
+    if (original.length !== group.count || original.some(p => p.cut)) continue
+    const replacement = penGrassTang(original, composer, group.key)
+    if (replacement.length === original.length) original.forEach((p, i) => Object.assign(p, replacement[i]))
+  }
 }

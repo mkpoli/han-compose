@@ -1,6 +1,6 @@
 import { expect, it } from 'bun:test'
 import { cutContours, fill, groupRings, partOf, placed, pointsBox, union } from '../src/geometry.js'
-import { finishGrassTang, penGrassTang } from '../src/grass-tang.js'
+import { finishGrassTang, markGrassTang, penGrassTang } from '../src/grass-tang.js'
 import records from './fixtures/grass-tang.json'
 
 const glyph = c => partOf(records[c])
@@ -24,15 +24,29 @@ it('attaches the dot to 塘, clears 艹, and preserves the four placed edges', (
 
 it('changes a complete placed glyph while respecting other faces, exclusions, and partial donor cuts', () => {
   const part = whole()
-  finishGrassTang(part, face)
+  finishGrassTang([part], face)
   expect(part.origin).toBe('䕋 with 唐 dot from 蓎')
   for (const override of [{ fontStyle: 'serif' }, { excluded: c => c === '蓎' }, { partial: true },
     { glyphRecord: c => ({ ...records[c], v: 0 }) }]) {
     const part = whole()
-    finishGrassTang(part, { ...face, ...override })
+    finishGrassTang([part], { ...face, ...override })
     expect(part.part).toBe(source)
   }
   const cut = { ...whole(), part: cutContours(source, [0]) }
-  finishGrassTang(cut, face)
+  finishGrassTang([cut], face)
   expect(cut.part.contours).toHaveLength(1)
+})
+
+it('uses the final nested positions and weight of both original parts', () => {
+  const head = whole(), body = whole()
+  markGrassTang([head, body], '⿱艹塘')
+  head.target = [100, 400, 790, 750]
+  body.target = [90, 20, 910, 440]
+  head.weight = [0.35, 0.28]
+  body.weight = [0.6, 0.4]
+  const prior = bounds(groupRings([head, body], 24))
+  finishGrassTang([head, body], face)
+  expect(head.origin).toBe('艹 from 蓎')
+  expect(body.origin).toBe('塘 from 䕋 and 蓎')
+  bounds(groupRings([head, body], 24)).forEach((edge, i) => expect(edge).toBeCloseTo(prior[i], 6))
 })
