@@ -419,13 +419,26 @@ it('keeps 𡯙 as a whole and uses the 尪 enclosure when its operands are separ
 it('seats 玉 beside the 夌 of 菱 in the Misato shrine character', async () => {
   const sequence = '⿱艹⿺夌玉'
   const src = source({ 菱: { G: shrineDonor, ink: 5000 }, 夌: records.木, 玉: records.口, 艹: records.口 })
+  const nativeLing = await compose(src, '菱', { fontStyle: 'fangsong' })
+  const rightTipY = d => {
+    const rings = pathRings(d, 24)
+    let maxX = -Infinity
+    for (const r of rings) for (let i = 0; i < r.length; i += 2) if (r[i] > maxX) maxX = r[i]
+    const ys = []
+    for (const r of rings) for (let i = 0; i < r.length; i += 2) if (r[i] >= maxX - 15) ys.push(r[i + 1])
+    return ys.reduce((a, b) => a + b, 0) / ys.length
+  }
+  const nativeTipY = rightTipY(nativeLing.d)
   for (const layout of ['composed', 'cells']) {
     const { parts } = await compose(src, sequence, { layout, separate: true, fontStyle: 'fangsong' })
     expect(parts.map(p => p.origin)).toEqual(['grass from 菱', 'enclosing 夌 from 菱', 'glyph 玉'])
     const [, body, jade] = parts
     expect(jade.box[2]).toBeGreaterThan(body.box[2] * 0.43)
-    // The plaque aligns 玉 with the end of the enclosing sweep.
+    // Align 玉 with the end of the enclosing sweep while keeping the sweep at its native downward height.
     expect(Math.abs(right(jade) - right(body))).toBeLessThan(body.box[2] * 0.035)
+    if (layout === 'composed') {
+      expect(Math.abs(rightTipY(body.d) - nativeTipY)).toBeLessThan(15)
+    }
   }
   const fallback = await compose(src, sequence, { exclude: ['菱'], fontStyle: 'fangsong' })
   expect(fallback.origins).not.toContain('enclosing 夌 from 菱')
@@ -450,4 +463,30 @@ it('draws the complete native 意 inside the Fangsong metric 克', async () => {
     expect(parts[1].origin).toBe('glyph 意')
     expect(parts[1].d.match(/M/g)).toHaveLength(records.口.G.p.length)
   }
+})
+
+describe('a turned stroke swept round another part', () => {
+  // 乙 as one outline: a bar, a stroke falling from its right end to the lower left, and a foot
+  // with a hook rising from its end.
+  const outline = [100, 800, 900, 800, 320, 100, 800, 100, 800, 250, 900, 250, 900, 0, 100, 0, 100, 120, 680, 700, 100, 700]
+  const int16 = (/** @type {number[]} */ values) => Buffer.from(Int16Array.from(values).buffer).toString('base64')
+  const glyph = partOf({ v: 1, b: [100, 0, 900, 800], p: [['M' + 'L'.repeat(outline.length / 2 - 1), int16(outline.map(v => v * 4)), int16(outline.map(() => 0))]] })
+  const whole = placed(glyph, glyph.box, glyph.box.slice(), 3200, 'glyph 乙')
+
+  it('presses the head to the edge and leaves the foot and its hook', () => {
+    const swept = sweptPart(whole, 500, constants)
+    expect(swept).toHaveLength(1)
+    if (!swept) return
+    expect(swept[0].origin).toBe('swept glyph 乙')
+    const [contour] = swept[0].part.contours, [before] = glyph.contours
+    const xs = (/** @type {(y: number) => boolean} */ keep) => [...contour.light].filter((_, i) => i % 2 === 0 && keep(contour.light[i + 1]))
+    // The head is read on sampled rows, so it lands within a few units of the edge.
+    expect(Math.abs(Math.max(...xs(y => y >= 700)) - 500)).toBeLessThan(8)
+    // The foot, and the hook at its end, stand where the glyph draws them.
+    for (let i = 0; i < before.light.length; i += 2)
+      if (before.light[i + 1] <= 100 || before.light[i] >= 800 && before.light[i + 1] <= 250) expect(contour.light[i]).toBeCloseTo(before.light[i], 5)
+  })
+  it('leaves a head already left of the edge', () => {
+    expect(sweptPart(whole, 950, constants)).toBeNull()
+  })
 })
