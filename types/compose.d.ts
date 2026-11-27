@@ -47,6 +47,7 @@ export declare class Composer {
     data: any;
     C: any;
     exclude: Set<any>;
+    footlessCuts: Map<any, any>;
     _forced: Map<any, any>;
     spelled: Set<any>;
     AXIS: any;
@@ -159,10 +160,16 @@ export declare class Composer {
      *  and the form placed where they were. The rest of the glyph keeps its own design and weight. */
     replaceGlyph(native: any, char: any, tree?: null): any[];
     glyph(ch: any): any;
+    /** An ideograph of `FOOTLESS` cut from the face's own character, or null where the face draws
+     *  the ideograph itself, lacks the character, or the character's foot cannot be found. */
+    footless(ch: any): any;
     /** The glyph a whole character is drawn with: a body the font drew as another shape is replaced
      *  by `BODY_FORMS` where the export carries the glyph that cut was made for. A cut of the glyph
      *  (`pieceOf`) keeps the font's own contours. */
     drawnGlyph(ch: any, contain?: boolean): any;
+    /** The outline another face's font drew for a character this face lacks, which `glyphRecord`
+     *  withholds: what draws the character when its sequence, hosts and designed cut all fail. */
+    borrowedGlyph(ch: any, contain?: boolean): any;
     /** A piece drawn for `key`, a glyph or a host cut, with the bar rule of `CONTAINED_MIDDLE_BARS`
      *  applied. */
     pieceFor(key: any, piece: any): any;
@@ -174,6 +181,8 @@ export declare class Composer {
     renderKey(node: any): any;
     /** The encoded glyph supported by the description's normalization evidence. */
     bySequence(key: any): any;
+    /** A character's sequence: the export's, else the bundled one of an Extension J ideograph, which
+     *  the exports' source table does not reach. */
     sequenceOf(ch: any): any;
     atomic(ch: any): boolean;
     /** Outline length: a glyph's, or for an excluded or glyphless character its sequence's operands'. */
@@ -233,6 +242,11 @@ export declare class Composer {
      *  part goes into the cell of the chain its operator names. Null for any other enclosure. */
     chainEnclosure(node: any, region: any): any;
     /** The parts drawing `sequence`, weighted, and the loose `marks` its text carries after it. */
+    /** `node` with each Extension J ideograph the face does not draw written out as its bundled
+     *  sequence, so its parts are laid out as the same sequence written by hand is. */
+    writtenOut(node: any, seen?: Set<any>): any;
+    /** What one drawing gathers as it goes, emptied before it starts. */
+    resetDrawing(): void;
     compose(sequence: any, marks?: string): any;
     /** Whether `tree` is drawn in cells (`compose`'s `layout: 'auto'`): no character spells it as a
      *  whole, it has at least `CELL_LEAVES` leaves, every leaf is a glyph or an empty slot, and every
@@ -533,6 +547,8 @@ export declare class Composer {
     /** Seat the inner group where the designed character sets its own: ⿺爪口's 口 in 巴's place in
      *  爬, so the inner part keeps clear of the sweep. */
     seatInDesignedFrame(op: any, children: any, groups: any): void;
+    /** Whether the face draws `ch` as one turned stroke `turnedSweep` presses round another part. */
+    turned(ch: any): boolean;
     /** The designed tail of `node`'s pressed enclosure, or null where the face draws none. */
     tailForm(node: any): {
         contours: any[];
