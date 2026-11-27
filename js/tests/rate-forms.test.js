@@ -2,7 +2,8 @@ import { expect, test } from 'bun:test'
 import { rateFormsFor, rateHosts } from '../src/rate-forms.js'
 import { rateDrawing } from '../src/rate-drawing.js'
 import { Composer } from '../src/compose.js'
-import { svgPath } from '../src/geometry.js'
+import { commands, svgPath } from '../src/geometry.js'
+import regular from '../data/rate-forms/regular.json' with { type: 'json' }
 import { onlyBundled } from '../src/local.js'
 import { constants, records } from './fixtures/small-export.js'
 
@@ -52,5 +53,12 @@ test('every spelling owns one editable subtree and leaves its sibling in place',
       }
       expect(boxes).toEqual(Array(4).fill(boxes[0]))
     }
+  }
+})
+
+test('each 正楷 contour consumes all of its control points', () => {
+  for (const [ops, coordinates] of regular.contours) {
+    const points = commands(ops).reduce((sum, [, count]) => sum + count, 0)
+    expect(coordinates.split(' ').length).toBe(2 * points)
   }
 })

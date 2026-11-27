@@ -1,10 +1,15 @@
 // @ts-nocheck: a port of han-compose's Python, kept line for line; its types are the arrays it reads.
+import { fangsongDottedHe, fitDottedHe, isDottedHe, markDottedHe } from './dotted-bopomofo.js'
+import { columnClearance, settleColumns } from './column-spacing.js'
+import { finishGrassTang, isGrassTang, markGrassTang } from './grass-tang.js'
 import { ratePart, rateParts } from './rate-drawing.js'
 import { containsRateForm, exactRateForm, rateFormsFor } from './rate-forms.js'
+import { checkedHook, clearHookContacts, markHook } from './directional-enclosures.js'
 import { hookFloor } from './hook-floor.js'
 import { fitHookDonor, lowerHookSeat, openHookCounters } from './hook-seat.js'
 import { stackedHookPart } from './stacked-hook.js'
 import fangsongZhi from './fangsong-zhi.json' with { type: 'json' }
+import extensionJ from './extension-j-ids.json' with { type: 'json' }
 import haNine from './ha-nine.json' with { type: 'json' }
 import { yiCrossDonor, yiCrossParts } from './yi-cross.js'
 import { isQiFamily, qiFamilyDonors, qiFamilyParts } from './qi-family.js'
@@ -32,10 +37,10 @@ import { grassShape } from './variants.js'
 // before drawing again). A store that holds the export's identity table also answers
 // `data.identity(key)`: the key's sequence and the character it describes, without its record; one
 // over an export with a kin table answers `data.kin()` with it (`kin`, `kinOuter`).
-import { EM_BOX, area, centre, count, cutContours, derived, drawnBox, drawnContours, fill, fitted, grown, groupRings, makePart, mapped, partInk, partOf,
+import { EM_BOX, area, centre, contourSections, count, cutContours, derived, drawnBox, drawnContours, fill, fitted, grown, groupRings, makePart, mapped, partInk, partOf,
   placed, pointsBox, pyRound, raster, rings, scaleOf, shrunk, square, stretchOf, targetFor, union, windingOf, within } from './geometry.js'
 import { grassPairs, connectedGrass, contextualGrass } from './grass-forms.js'
-import { ownFormsOnly, componentParts, componentPosition, componentPositionBox, componentRecord, containsComponentForm, hasForcedForms, containsForcedForm, isComponentForm, isForcedCharacter, isGroupedForm, isNativeForm } from './component-forms.js'
+import { ownFormsOnly, componentParts, componentPosition, componentPositionBox, componentRecord, containsComponentForm, hasForcedForms, containsForcedForm, isComponentForm, isForcedCharacter, isAtomicForm, isGroupedForm, isNativeForm } from './component-forms.js'
 import { features, forward } from './layout.js'
 import { CONSTRUCTS, BODY_FORMS, IVD_FORMS, SURROUND_CONSTRUCTS, bodyForm, constructBody, constructHosts, constructParts, ivdParts } from './constructs.js'
 import { pyramidCells, pyramidOnBaseLayout } from './pyramid.js'
@@ -43,26 +48,33 @@ import { pyramidRows, pyramidOnBase } from './pyramid-rows.js'
 import { hangulClusterAt, jamoClass } from './hangul.js'
 import { hangulLetters } from './hangul-ids.js'
 import { toConjoiningJamo } from './hangul.js'
-import { componentFix } from './component-fixes.js'
+import { tileHost } from './fangsong-tile.js'
+import { brushSweepRoom, brushSweepParts } from './brush-sweep-rooms.js'
+import { componentFix, enclosedZeroTarget, INCOME_IDS, incomeBoxes } from './component-fixes.js'
 import { isOutbound, markFace, markParts } from './marks.js'
+import { SI_CHAIN, siChainForm, siBendDonor } from './si-chain.js'
 import { youChainDonors, youChainParts } from './you-chain.js'
-import { chainHost, hostChainParts } from './host-chain.js'
+import { chainHost, hostChainParts, standaloneHostParts, fitNestedHostChains } from './host-chain.js'
 import { birdChainParts } from './bird-chain.js'
 import { birdOutlineDonors, birdOutlineParts } from './bird-outline.js'
 import { fitRecordedInk } from './chain-ink.js'
 import { correctedChain, drawingChain } from './chain-corrections.js'
 import { historicalNativeChar } from './historical-chains.js'
 import { guideChainParts, guideChainDonor } from './guide-chain-cuts.js'
-import { rccParts, rccDonors, rccLeafBoxes, numberRccLeaves } from './rcc-forms.js'
+import { booklet, bookletParts } from './rcc-booklet.js'
+import { rccParts, rccDonors, rccLeafBoxes, numberRccLeaves, editableRccParts } from './rcc-forms.js'
 import { recordedNativeGlyph } from './recorded-native.js'
 import { recordedArcParts, recordedArcDonors } from './recorded-arcs.js'
 import { recordedChainNative } from './recorded-chains.js'
+import { excludedShiContext } from './shi-context.js'
 import { nativeStroke, reconstructStroke, strokeDonor } from './stroke-donors.js'
 import { chainForm, chainRoom, isChain, parseChain } from './stroke-chain.js'
 import { STROKE_CHAINS, customAt, splitToneMarks, toneMarksAt } from './tree.js'
+import { fullFormOf } from './full-forms.js'
 import { hexOf } from './sha256.js'
 import componentConstants from './constants.json' with { type: 'json' }
 import numberedFiveContext from '../data/numbered-five-context.json' with { type: 'json' }
+import fangsongZero from './fangsong-zero.json' with { type: 'json' }
 import wheatFaceCuts from '../data/wheat-face-cuts.json' with { type: 'json' }
 import alternateNe from './genzui-alternate-ne.json' with { type: 'json' }
 import pyramidCatalog from './pyramid-glyphs.json' with { type: 'json' }
@@ -824,8 +836,16 @@ function recordedDonor(key) {
 export const designedSources = (tree, style = 'sans') => {
   const out = new Set()
   const visit = node => {
+    if (node === SI_CHAIN) {
+      out.add('巳')
+      const bend = siBendDonor(style)
+      if (bend) out.add(bend)
+    }
     const key = keyOf(node)
+    if (key === '⿰舟苗' && style === 'regular') out.add('舳')
+    if (key === '⿰車ト' && style === 'regular') { out.add('軋'); out.add('卜') }
     if (key === '⿰水行' && (style === 'regular' || style === 'pen-writing')) out.add('沀')
+    if (key === '⿱艹堀' && style === 'pen-writing') { out.add('䕋'); out.add('䓛') }
     for (const char of rccDonors(key, style)) out.add(char)
     if (key.includes('#(')) {
       const reference = recordedDonor(key)
@@ -837,6 +857,7 @@ export const designedSources = (tree, style = 'sans') => {
         }
       }
     }
+    if (style === 'pen-writing' && isGrassTang(key)) { out.add('䕋'); out.add('蓎') }
     const bird = birdOutlineDonors(key, style)
     if (bird.length) {
       bird.forEach(char => out.add(char))
@@ -855,6 +876,10 @@ export const designedSources = (tree, style = 'sans') => {
     const [op, ...children] = node
     if (op === '⿳' && ['fangsong', 'regular', 'pen-writing'].includes(style) && keyOf(node) === '⿳龷由⿳八⿻王丷⿱田⿵冂山') {
       for (const char of '龷由八王丷田冂山共半') out.add(char)
+    }
+    if (brushSweepRoom(node, style)) {
+      children.forEach(ch => out.add(ch))
+      if (style === 'fangsong') out.add(node[1] === '瓦' ? tileHost(node[2]) : '尅')
     }
     if (op === '⿺' && children[1] === '首') out.add('馗')
     if (op === '⿺' && children[0] === '𡕚') { out.add('夂'); out.add('見') }
@@ -887,6 +912,18 @@ export const designedSources = (tree, style = 'sans') => {
 }
 
 // Left components the export carries no host cuts for, taken from a designed character's glyph.
+/** Extension J ideographs drawn from a character every face draws, without its bottom stroke: 𲎰
+ *  is 五 above its lower 一. 𲐬 is 巫 above its, with a second 人 under each 人 beside the stem
+ *  (`doubled`), as the code chart draws its 𠈌. No sequence says so; the cut is made in the face's
+ *  own glyph. */
+/** The most a stroke running along a row or a stack may be thick, as a share of its length. */
+const ACROSS_THICK = 0.3
+/** How many of a character's cuts for a place are tried for a foot to cut away. */
+const FOOTLESS_HOSTS = 6
+const FOOTLESS = { '𲎰': { host: '五' }, '𲐬': { host: '巫', doubled: true } }
+/** The sequences of the CJK Extension J ideographs whose parts a face can cut from its own
+ *  characters (`scripts/build_extension_j_ids.py`). */
+const EXTENSION_J = /** @type {Record<string, string>} */ (extensionJ.sequences)
 const DESIGNED_CUTS = {
   氵: ['𭰲', {
     '345749510c894ac303898cacbbd71bc35880cb6179990632d00b1ffe463f2d71': [0, 1, 2],
@@ -928,6 +965,8 @@ export class Composer {
     const m = data.manifest, c = m.constants
     this.C = c
     this.exclude = new Set(exclude)
+    this.footlessCuts = new Map()
+    this.footlessPieces = new WeakMap()
     this._forced = new Map()
     this.spelled = new Set(m.spelled)
     this.AXIS = c.AXIS
@@ -967,6 +1006,8 @@ export class Composer {
     // Each stroke chain's drawing.
     this.chains = new Map()
     // Stacked operand pairs, settled against their ink once the drawing is weighted.
+    this.columns = []
+    this.spaced = []
     this.joints = []
     // Swept glyphs with the part each holds over its foot, refitted once the drawing is weighted.
     this.sweeps = []
@@ -992,7 +1033,15 @@ export class Composer {
     return containsRateForm(sequence) ? this.rateLeaves(tree) : tree
   }
   // A key holding an empty slot has no record and no hosts: nothing is asked for it.
-  rec = key => key.includes(EMPTY) ? null : this.formRecord(key) ?? this.variantRecord(key) ?? this.data.rec(key) ?? componentRecord(key, this.fontStyle)
+  rec = key => key.includes(EMPTY) ? null : this.formRecord(key) ?? this.variantRecord(key) ?? this.fullRecord(key) ?? this.data.rec(key) ?? componentRecord(key, this.fontStyle)
+  /** The record of a component written in full (`&HC-u91d1-full;`): its character's outline and
+   *  layout, without the sequence, the forms and the places that would draw it as a positional form. */
+  fullRecord(key) {
+    const base = fullFormOf(key)
+    if (!base) return null
+    const { s: _sequence, e: _described, a: _forms, P: _places, ...record } = this.rec(base) ?? {}
+    return record.G ? record : null
+  }
   /**
    * The record of a character under a variation selector: its own outline, laid out as its base is.
    * The export records a variation sequence's outline alone, so what the layout reads of it (its
@@ -1009,7 +1058,13 @@ export class Composer {
   }
   /** A component form's record, which stands in for the export's; a native form's does only where
    *  the export records nothing. */
-  formRecord = key => isNativeForm(key, this.fontStyle) ? null : componentRecord(key, this.fontStyle)
+  formRecord = key => {
+    if (key === SI_CHAIN) {
+      this.siForm ??= siChainForm(this) ?? false
+      if (this.siForm) return this.siForm
+    }
+    return isNativeForm(key, this.fontStyle) ? null : componentRecord(key, this.fontStyle)
+  }
   /** What a description's identity is found by: a key's sequence (`s`) and the character it
    *  describes (`e`). A store with an identity table answers from it; without one, and for a
    *  component form, the key's record does. */
@@ -1104,14 +1159,23 @@ export class Composer {
 
   glyphRecord(ch) {
     const record = this.rec(ch), glyph = record?.G
+    // Exports that selected Unicode letters omit U+3007 (Letter Number). Use Zhuque's own 〇
+    // when the source has no native record, including sources with a bundled fallback.
+    if (ch === '〇' && this.fontStyle === 'fangsong' && !glyph?.v) return fangsongZero
     // 盾 supplies the joined cliff, cross and eye of 貭; 貝 supplies its two feet.
     if (ch === '貭' && this.fontStyle === 'fangsong' && glyph?.v !== 1 &&
         !['貭', '盾', '貝'].some(donor => this.excluded(donor))) return fangsongZhi
     if (ch === '𛂦' && !this.excluded(ch) && glyph?.v !== 1 && Object.hasOwn(haNine, this.fontStyle))
       return haNine[this.fontStyle]
-    // A Fangsong drawing takes no outline another face drew: a record its own font lacks (v 0)
-    // stays missing rather than standing in as a Mincho.
-    if (glyph && this.fontStyle === 'fangsong' && glyph.v === 0) return null
+    // A Fangsong drawing takes no outline another face drew where its own font can draw the
+    // character from a sequence, a host or a designed cut: the record its font lacks (v 0) stays
+    // missing rather than standing in as a Mincho. A character nothing else draws keeps it (an
+    // Extension J character only Jigmo draws).
+    if (glyph && this.fontStyle === 'fangsong' && glyph.v === 0 &&
+        (record.s || record.P?.length || Object.hasOwn(DESIGNED_CUTS, ch))) return null
+    // An Extension J ideograph only a fallback font draws (Jigmo's Mincho, in every face) is
+    // likewise drawn from its bundled sequence, its parts cut from the face's own characters.
+    if (glyph && glyph.v === 0 && !record.s && (Object.hasOwn(EXTENSION_J, ch) || Object.hasOwn(FOOTLESS, ch))) return null
     if (glyph && record.sg && !glyph.sg) glyph.sg = record.sg
     // The offline Unicode shard carries the connected radical at U+2EBE.
     return glyph ?? (ch === '艹' && !this.excluded('⺾') ? this.glyphRecord('⺾') : null)
@@ -1161,19 +1225,53 @@ export class Composer {
     if (!keep.length) return forms
     return [{ ...native, part: derived(glyph, keep, glyph.box), fixed: true, origin: `glyph ${char} kept` }, ...forms]
   }
-  glyph(ch) { const g = this.glyphRecord(ch); return g ? partOf(g) : null }
+  glyph(ch) {
+    if (ch === SI_CHAIN) {
+      const part = this.formRecord(ch)?.part
+      if (part) return part
+    }
+    const g = this.glyphRecord(ch)
+    return g ? partOf(g) : this.footless(ch)
+  }
+  /** An ideograph of `FOOTLESS` cut from the face's own character, or null where the face draws
+   *  the ideograph itself, lacks the character, or the character's foot cannot be found. */
+  footless(ch) {
+    const form = Object.hasOwn(FOOTLESS, ch) ? FOOTLESS[ch] : null
+    if (!form || this.excluded(form.host) || this.glyphRecord(ch)) return null
+    const record = this.glyphRecord(form.host)
+    if (record?.v !== 1) return null
+    if (!this.footlessCuts.has(ch)) {
+      const cut = withoutFoot(partOf(record))
+      this.footlessCuts.set(ch, cut && form.doubled ? doubledFlanks(cut) : cut)
+    }
+    return this.footlessCuts.get(ch)
+  }
   /** The glyph a whole character is drawn with: a body the font drew as another shape is replaced
    *  by `BODY_FORMS` where the export carries the glyph that cut was made for. A cut of the glyph
    *  (`pieceOf`) keeps the font's own contours. */
   drawnGlyph(ch, contain = false) {
+    if (ch === SI_CHAIN) {
+      const glyph = this.formRecord(ch)?.part
+      if (glyph) return glyph
+    }
     const record = this.glyphRecord(ch)
     if (!record) {
+      const cut = this.footless(ch)
+      if (cut) return cut
       const donor = strokeDonor(ch, this.fontStyle)
       if (!donor || this.excluded(ch) || this.excluded(donor)) return null
       return nativeStroke(ch, this.fontStyle, key => this.glyphRecord(key))
     }
     const form = BODY_FORMS[ch]
     const piece = (form ? bodyForm(record, this.glyphRecord(form.host), form) : null) ?? partOf(record)
+    return contain ? this.pieceFor(ch, piece) : piece
+  }
+  /** The outline another face's font drew for a character this face lacks, which `glyphRecord`
+   *  withholds: what draws the character when its sequence, hosts and designed cut all fail. */
+  borrowedGlyph(ch, contain = false) {
+    const record = this.rec(ch)?.G
+    if (!record || record.v !== 0 || this.excluded(ch) || this.glyphRecord(ch)) return null
+    const piece = partOf(record)
     return contain ? this.pieceFor(ch, piece) : piece
   }
   /** A piece drawn for `key`, a glyph or a host cut, with the bar rule of `CONTAINED_MIDDLE_BARS`
@@ -1200,7 +1298,9 @@ export class Composer {
   bySequence(key) {
     try { return this.resolution(this.parse(key)).encoded } catch { return null }
   }
-  sequenceOf(ch) { return this.rec(ch)?.s ?? null }
+  /** A character's sequence: the export's, else the bundled one of an Extension J ideograph, which
+   *  the exports' source table does not reach. */
+  sequenceOf(ch) { return this.rec(ch)?.s ?? (Object.hasOwn(EXTENSION_J, ch) ? EXTENSION_J[ch] : null) }
   atomic(ch) { return this.rec(ch)?.at === 1 }
 
   /** Outline length: a glyph's, or for an excluded or glyphless character its sequence's operands'. */
@@ -1332,11 +1432,16 @@ export class Composer {
     return native ?? reconstructStroke(ch, this.fontStyle, key => this.chainStroke(key)) ?? (record ? partOf(record) : null)
   }
 
-  recordedParts(node, region, key) {
+  recordedParts(node, region, key, atRoot) {
     const char = recordedDonor(key)
     if (!char || this.excluded(char) || (this.separate && Array.isArray(node))) return null
-    if (this.exclude.size && (this.excluded(key) || leafTexts(node).some(leaf =>
+    if (this.exclude.size && (this.excluded(key) || (char === '氏' && excludedShiContext(this, key)) || leafTexts(node).some(leaf =>
       this.excluded(leaf) || (isChain(leaf) && parseChain(leaf)?.strokes.some(s => this.excluded(s.char)))))) return null
+    // A component can close a counter that its freestanding character leaves open, as in Kai 官.
+    if (this.fontStyle === 'regular' && char === '㠯' && isChain(node)) {
+      const cut = hostChainParts(this, drawingChain(node), region, atRoot, node)
+      if (cut) return cut
+    }
     const record = this.glyphRecord(char)
     const piece = record?.v === 1 ? partOf(record) : recordedNativeGlyph(this.fontStyle, char) ??
       (isChain(node) && STROKE_CHAINS[drawingChain(node).slice(2, -1)] === char ? this.chainStroke(char) : null)
@@ -1345,7 +1450,7 @@ export class Composer {
   }
 
   chain(node) {
-    if (!isChain(node) || isComponentForm(node, this.fontStyle)) return null
+    if (!isChain(node) || isComponentForm(node, this.fontStyle) || (node === SI_CHAIN && this.formRecord(node)?.part)) return null
     if (!this.chains.has(node)) {
       const missed = this.data.missing?.size ?? 0
       const form = chainForm(node, ch => this.chainStroke(ch))
@@ -1354,6 +1459,18 @@ export class Composer {
       this.chains.set(node, form)
     }
     return this.chains.get(node)
+  }
+  /** A registered native cut takes precedence over the bundled form at every placement. */
+  declaredParts(key, region, atRoot = false, allowBundled = true) {
+    if (!isComponentForm(key, this.fontStyle)) return null
+    if (isChain(key)) {
+      const canonical = drawingChain(key)
+      if (this.excluded(key) || this.excluded(canonical) ||
+          (this.exclude.size && parseChain(canonical)?.strokes.some(stroke => this.excluded(stroke.char)))) return null
+      const own = hostChainParts(this, canonical, region, atRoot, key)
+      if (own) return own
+    }
+    return allowBundled ? componentParts(key, region, this.fontStyle, atRoot, this.exclude) : null
   }
   chainParts(node, region, atRoot = false) {
     if (!isChain(node) || this.excluded(node)) return null
@@ -1392,16 +1509,52 @@ export class Composer {
       const w = region[2] - region[0], h = region[3] - region[1]
       room = [region[0] + x0 * w, region[1] + y0 * h, region[0] + x1 * w, region[1] + y1 * h]
     }
-    return { form: held.form, taken: cell ? [...held.taken, cell] : held.taken, parts: [...held.parts, ...this.node(inner, room)] }
+    const inside = this.node(inner, room)
+    if (this.separate && form && !this.expanding.size) {
+      const scalar = typeof inner === 'string' && !isEmpty(inner)
+      const first = inside[0]
+      const partitioned = Array.isArray(inner) && inside.length === 1 && first?.leafParts &&
+        first.rccGroup?.key === keyOf(inner) && first.rccLeaf === 0 && first.rccLeafCount === leafTexts(inner).length
+      if (scalar || partitioned) {
+        const group = { key: keyOf(node) }
+        for (const part of held.parts) Object.assign(part, { rccGroup: group, rccLeaf: 0 })
+        for (const part of inside) {
+          // A scalar owns its complete rebuilt glyph. An explicit IDS keeps its final-weight
+          // partition, starting at the leaf after the outer frame.
+          if (scalar) {
+            delete part.leafParts
+            delete part.rccLeafCount
+          }
+          Object.assign(part, { rccGroup: group, rccLeaf: 1 })
+        }
+      }
+    }
+    return { form: held.form, taken: cell ? [...held.taken, cell] : held.taken, parts: [...held.parts, ...inside] }
   }
 
   /** The parts drawing `sequence`, weighted, and the loose `marks` its text carries after it. */
-  compose(sequence, marks = '') {
+  /** `node` with each Extension J ideograph the face does not draw written out as its bundled
+   *  sequence, so its parts are laid out as the same sequence written by hand is. */
+  writtenOut(node, seen = new Set()) {
+    if (Array.isArray(node)) return mapOperands(node, operand => this.writtenOut(operand, seen))
+    if (typeof node !== 'string' || !Object.hasOwn(EXTENSION_J, node) || seen.has(node)) return node
+    if (this.rec(node)?.s || this.glyphRecord(node)) return node
+    return this.writtenOut(this.parse(EXTENSION_J[node]), new Set([...seen, node]))
+  }
+
+  /** What one drawing gathers as it goes, emptied before it starts. */
+  resetDrawing() {
     this.approximate.clear()
     this.nativeEnclosures.clear()
+    this.columns.length = 0
+    this.spaced.length = 0
     this.joints.length = 0
     this.sweeps.length = 0
     this.carried = 1
+  }
+
+  compose(sequence, marks = '') {
+    this.resetDrawing()
     let slots = 0
     const number = node => node === EMPTY ? `${EMPTY}${slots++}` : Array.isArray(node) ? mapOperands(node, number) : node
     const tree = this.normalizeYan(number(this.cancelTransforms(this.parse(sequence))))
@@ -1412,7 +1565,23 @@ export class Composer {
     const face = this.faceBeside(marks)
     const previous = this.face
     try {
-      let out = this.node(this.standaloneExpandedOverlay(rendered) ?? this.standalonePyramid(rendered) ?? this.standaloneRepeatedGrid(rendered) ?? this.normalizeRepeatedGrids(rendered), this.face.slice(), true)
+      const draw = drawn => this.node(this.standaloneExpandedOverlay(drawn) ?? this.standalonePyramid(drawn) ?? this.standaloneRepeatedGrid(drawn) ?? this.normalizeRepeatedGrids(drawn), this.face.slice(), true)
+      // An Extension J ideograph is drawn written out. Where that cannot be drawn, or leaves an
+      // enclosing part as its bare glyph around a small inside (⿺乙母), the sequence is drawn as
+      // written, and each such ideograph settles for itself.
+      const written = this.writtenOut(rendered)
+      let out = null
+      if (written !== rendered && keyOf(written) !== keyOf(rendered)) {
+        const missing = new Set(this.missingGlyphs)
+        try { out = draw(written) } catch (error) { if (!(error instanceof LookupError)) throw error }
+        if (out?.some(part => part.origin?.startsWith('enclosing '))) out = null
+        if (!out) {
+          this.resetDrawing()
+          this.missingGlyphs.clear()
+          for (const key of missing) this.missingGlyphs.add(key)
+        }
+      }
+      out ??= draw(rendered)
       // The character is laid out in the whole face and carried into what its marks leave: whatever
       // placed its parts (a glyph, hosts, the learned layout's em-unit boxes), it shrinks as one.
       if (face.some((edge, at) => edge !== frame[at])) {
@@ -1424,8 +1593,7 @@ export class Composer {
         this.face = face
         this.carried = (face[2] - face[0]) / (frame[2] - frame[0])
       }
-      // Separated drawings retain reading order. Only publish ownership when every
-      // rendered leaf produced exactly one piece (including empty placeholders).
+      // Separated drawings retain the written leaf order, including empty placeholders.
       const ownership = this.separate ? this.leafOwners(tree) : null
       // A toned syllable draws more parts than leaves, so its drawing needs the owners even where
       // the tree was not split.
@@ -1437,18 +1605,24 @@ export class Composer {
         let owner = 0, current = null
         for (const part of out) {
           if (part.origin?.startsWith('mark ')) part.leaf = current
-          else part.leaf = current = ownership.owners[owner++]
+          else {
+            part.leaf = ownership.owners[owner]
+            // A native host may still hold several leaves while the whole glyph is weighted.
+            owner += part.rccLeafCount ?? 1
+            current = ownership.owners[owner - 1]
+          }
         }
-        // The walk only answers for a drawing of one part per leaf; another keeps the leaves it
-        // was drawn with.
+        // Keep existing assignments if the drawing covers a different number of leaves.
         if (owner !== ownership.owners.length) out.forEach((part, i) => {
           if (before[i] === undefined) delete part.leaf
           else part.leaf = before[i]
         })
       }
       if (this.separate) numberRccLeaves(tree, out, keyOf, leafTexts)
+      fitNestedHostChains(out)
       if (!this.partial && this.weighted) {
         this.balance(out)
+        this.clear(out)
         this.settleSweeps()
       }
       if (!this.partial && this.staticFace) this.staticBalance(out)
@@ -1472,12 +1646,16 @@ export class Composer {
         part.target = [cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2]
       }
       this.fitMetricKeInterior(out, tree)
-      for (const part of out) if (part.finishOutline) Object.assign(part, part.finishOutline(part))
+      for (const part of out) if (part.finishOutline) Object.assign(part, part.finishOutline(part, out))
       fitClawInterior(out, tree, this.fontStyle)
       // Loose marks annotate the whole drawing; they take no part in its layout or weight.
+      if (!subtracts(tree)) settleColumns(this.columns, out, this.fontStyle)
       if (!marks) fitRecordedInk(this, sequence, out)
       if (marks) out.push(...markParts(this, marks, frame, face))
-      return out
+      clearHookContacts(this, out)
+      if (this.fontStyle === 'pen-writing') this.finishPenParts(out)
+      if (out.some(p => p.dottedHe)) fitDottedHe(out, this.fontStyle)
+      return this.separate ? editableRccParts(out) : out
     } finally { this.face = previous }
   }
 
@@ -1491,6 +1669,7 @@ export class Composer {
     if (this.pyramid(tree) || this.pyramidWithBase(tree)) return false
     const key = keyOf(tree)
     if (['fangsong', 'regular', 'pen-writing'].includes(this.fontStyle) && key.includes('⿳龷由⿳八⿻王丷⿱田⿵冂山')) return false
+    if (key.includes(INCOME_IDS)) return false
     if (containsRateForm(key) || this.bySequence(key) || this.spelled.has(key)) return false
     if (isGroupedForm(key, this.fontStyle) || isComponentForm(key, this.fontStyle)) return false
     let leaves = 0, supported = true
@@ -1551,7 +1730,8 @@ export class Composer {
       })
     }
     const emitCell = (part, key) => {
-      const parts = this.forced(key) ? this.replaceGlyph(part, key) : [part]
+      const parts = this.forced(key) ? this.replaceGlyph(part, key) :
+        (this.fontStyle === 'pen-writing' && key === '䕋' ? markGrassTang([part], key) : [part])
       if (leafIndices) {
         for (const drawn of parts) drawn.leaf = leaf
         leaf++
@@ -1559,6 +1739,19 @@ export class Composer {
       out.push(...parts)
     }
     const walk = (node, box, depth) => {
+      const start = out.length
+      const dotted = isDottedHe(node)
+      const pair = dotted && fangsongDottedHe(this, target(box), depth === 0)
+      if (pair) {
+        for (const p of pair) {
+          if (leafIndices) p.leaf = leaf++
+          out.push(p)
+        }
+      } else place(node, box, depth)
+      if (dotted) markDottedHe(out.slice(start), this)
+      if (checkedHook(node)) markHook(this, node, out.slice(start))
+    }
+    const place = (node, box, depth) => {
       const rate = this.rateMetric(keyOf(node)) && rateParts(keyOf(node), this.fontStyle, target(box), depth === 0)
       if (rate) {
         if (leafIndices) rate[0].leaf = leaf++
@@ -1591,7 +1784,8 @@ export class Composer {
           return
         }
         if (isChain(node)) {
-          const group = this.node(node, inset(target(box)))
+          const single = leafIndices && depth === 0 ? standaloneHostParts(this, node, target(box)) : null
+          const group = single ?? this.node(node, inset(target(box)))
           for (const part of group) {
             part.origin = `cells ${node} (${part.origin})`
             if (leafIndices) part.leaf = leaf
@@ -1600,7 +1794,7 @@ export class Composer {
           out.push(...group)
           return
         }
-        if (node === '艹' || node === '⺿' || node === '⻀') {
+        if (node === '艹' || node === '⺿' || node === '⻀' || isAtomicForm(node, this.fontStyle)) {
           const form = componentParts(node, undefined, this.fontStyle)?.[0]
           if (form) {
             form.target = fitted(form.source, inset(target(box)), Math.max(this.C.STRETCH, CELL_STRETCH))
@@ -1609,7 +1803,7 @@ export class Composer {
             return
           }
         }
-        const glyph = this.glyph(node)
+        const glyph = this.glyph(node) ?? this.borrowedGlyph(node)
         if (!glyph) throw new LookupError(`No glyph draws ${node}.`)
         // A cell allows a little more stretch than a composed part, so the glyph fills it; a
         // narrow cell still keeps the glyph's proportions instead of turning it into a sliver.
@@ -1619,7 +1813,11 @@ export class Composer {
         return
       }
       const cell = target(box)
-      const parts = this.doubleTurnParts(node, cell) ?? this.thornRowParts(node, cell) ?? yiCrossParts(this, node, cell) ?? ghostParts(this, node, cell) ?? this.qiParts(node, cell)
+      const water = ((node[0] === '⿺' && node[1] === '水' && node[2] === '巜') ||
+        (node[0] === '⿲' && node[1] === '㇇' && node[2] === '丨' && node[3] === '𰛅')) && !node.note
+        ? componentParts(keyOf(node), cell, this.fontStyle, depth === 0, this.exclude) : null
+      const recorded = keyOf(node) === booklet ? bookletParts(this, cell) : null
+      const parts = water ?? recorded ?? this.doubleTurnParts(node, cell) ?? brushSweepParts(this, node, cell, depth > 0) ?? this.thornRowParts(node, cell) ?? yiCrossParts(this, node, cell) ?? ghostParts(this, node, cell) ?? this.qiParts(node, cell)
       if (parts) {
         for (const part of parts) {
           if (leafIndices) part.leaf = leaf++
@@ -1661,7 +1859,11 @@ export class Composer {
           b[0] += w * CELL_MIDDLE_INSET
           b[2] -= w * CELL_MIDDLE_INSET
         }
+        const first = out.length
         kids.forEach((kid, i) => walk(kid, boxes[i], depth + 1))
+        if (this.fontStyle === 'pen-writing' && isGrassTang(keyOf(node))) {
+          markGrassTang(out.slice(first), keyOf(node))
+        }
         return
       }
       if (op in this.ENCLOSE) {
@@ -1696,6 +1898,10 @@ export class Composer {
             }
             walk(kids[1], [(room[0] - f[0]) / width, 1 - (room[3] - f[1]) / height,
               (room[2] - f[0]) / width, 1 - (room[1] - f[1]) / height], depth + 1)
+            if (op === '⿴' && kids[0] === '囗' && kids[1] === '〇') {
+              const zero = out.at(-1)
+              zero.target = enclosedZeroTarget(zero, room)
+            }
             return
           }
         }
@@ -1719,10 +1925,15 @@ export class Composer {
       throw new LookupError(`${op} is not laid out.`)
     }
     walk(numbered, [0, 0, 1, 1], 0)
+    // Internal cell groups use leafIndices: false. Their outer layout fits the final slot.
+    if (leafIndices) fitNestedHostChains(out)
     if (!this.partial && this.weighted) this.balance(out)
     else if (!this.partial && this.staticFace) this.staticBalance(out)
     this.fitMetricKeInterior(out, tree)
     fitClawInterior(out, tree, this.fontStyle, true)
+    clearHookContacts(this, out)
+    if (this.fontStyle === 'pen-writing') this.finishPenParts(out)
+    if (out.some(p => p.dottedHe)) fitDottedHe(out, this.fontStyle)
     return out
   }
 
@@ -1738,6 +1949,18 @@ export class Composer {
     const frame = this.face.slice(), face = this.faceBeside(marks)
     const leaves = this.sketched(sequence)
     if (face.some((edge, at) => edge !== frame[at])) for (const leaf of leaves) leaf.box = mapped(leaf.box, frame, face)
+    if (/⿹勹[白百首]/u.test(sequence)) {
+      const editable = Object.create(this)
+      editable.separate = true
+      try {
+        const drawn = editable.compose(sequence, marks).filter(p => !p.origin?.startsWith('mark '))
+        if (drawn.length === leaves.length && drawn.every((p, i) => !p.cut && (p.leaf === undefined || p.leaf === i))) {
+          for (const [i, p] of drawn.entries()) if (p.clearedHook) leaves[i].box = drawnBox(p)
+        }
+      } catch (error) {
+        if (!(error instanceof LookupError)) throw error
+      }
+    }
     return leaves
   }
 
@@ -1760,6 +1983,13 @@ export class Composer {
     if (partitioned) return partitioned
     const out = []
     const walk = (node, region, atRoot) => {
+      if (Array.isArray(node) && node[0] === '⿱') {
+        const boxes = incomeBoxes(keyOf(node), this.fontStyle, region, this.face)
+        if (boxes) {
+          for (const box of boxes) out.push({ index: out.length, box, empty: false })
+          return
+        }
+      }
       const yuan = this.yuanParts(node, region)
       if (yuan) {
         for (const part of yuan) out.push({ index: out.length, box: part.target, empty: false })
@@ -1778,8 +2008,8 @@ export class Composer {
         walk(stacked.base, base, false)
         return
       }
-      const repeated = isGroupedForm(keyOf(node), this.fontStyle) ? componentParts(keyOf(node), region, this.fontStyle, atRoot) : null
-      const designed = repeated ?? rccParts(editable, keyOf(node), region) ?? birdOutlineParts(this, keyOf(node), region) ?? this.doubleTurnParts(node, region) ?? this.thornRowParts(node, region) ?? yiCrossParts(this, node, region) ?? this.qiParts(node, region) ?? ghostParts(this, node, region) ?? this.goldInscription(node, region) ?? this.muKoParts(node, region) ?? this.wheatFaceParts(node, region)
+      const repeated = isGroupedForm(keyOf(node), this.fontStyle) ? componentParts(keyOf(node), region, this.fontStyle, atRoot, this.exclude) : null
+      const designed = repeated ?? rccParts(editable, keyOf(node), region) ?? birdOutlineParts(this, keyOf(node), region) ?? this.doubleTurnParts(node, region) ?? brushSweepParts(this, node, region, !atRoot) ?? this.thornRowParts(node, region) ?? yiCrossParts(this, node, region) ?? this.qiParts(node, region) ?? ghostParts(this, node, region) ?? this.goldInscription(node, region) ?? this.muKoParts(node, region) ?? this.wheatFaceParts(node, region)
       if (designed) {
         const boxes = designed[0]?.rccGroup && rccLeafBoxes(designed, leafTexts(node).length)
         for (const box of boxes || designed.map(part => part.target)) out.push({ index: out.length, box, empty: false })
@@ -1928,11 +2158,23 @@ export class Composer {
       const glyph = this.glyph(h.h)
       if (!glyph) return makePart([], h.b.slice())
       piece = cutContours(glyph, h.k, h.b.slice())
+      // Kureedo's fourth 魚 dot touches 辶 in 鰱, so its whole-contour fish cut loses the dot.
+      if (this.fontStyle === 'pen-writing' && h.h === '鰱' && h.k.join(',') === '0,3,6,7,8,10,4,9,12'
+        && hexOf(JSON.stringify(this.glyphRecord('鰱').p)) === 'c6e852294435a77ddb8457275669637d93d0bbcc527032a0d6d9638af98d58c8') {
+        const dot = contourSections(glyph.contours, [2, 69, 81])
+        piece.withFishDot = { ...piece, contours: [...piece.contours, dot] }
+      }
       Object.defineProperty(h, '_piece', { value: piece, enumerable: false })
     }
     // A piece cut along KanjiVG's groups, which a drawing using it credits.
     if (h.kv && !piece.kv) Object.defineProperty(piece, 'kv', { value: true, enumerable: false })
     return piece
+  }
+
+  finishPenParts(parts) {
+    finishGrassTang(parts, this)
+    // Restore the shared stroke after spacing and weight have used the original host metrics.
+    for (const p of parts) if (p.part.withFishDot) p.part = p.part.withFishDot
   }
 
   /** A ranked host as the callers take it: the entry, and its piece read when first asked for. */
@@ -1946,7 +2188,13 @@ export class Composer {
   node(node, region, atRoot = false, sideBySide = false) {
     const rate = rateParts(keyOf(node), this.fontStyle, region, atRoot)
     if (rate && !this.excluded(exactRateForm(keyOf(node)).host)) return rate
-    return this.constructed(node, region, atRoot) ?? componentFix(keyOf(node), this.drawNode(node, region, atRoot, sideBySide), this, region)
+    const dotted = isDottedHe(node)
+    const pair = dotted ? fangsongDottedHe(this, region, atRoot) : null
+    const parts = pair ?? this.constructed(node, region, atRoot) ?? componentFix(keyOf(node), this.drawNode(node, region, atRoot, sideBySide), this, region)
+    if (dotted) markDottedHe(parts, this)
+    if (this.fontStyle === 'pen-writing' && isGrassTang(keyOf(node))) return markGrassTang(parts, keyOf(node))
+    if (checkedHook(node)) markHook(this, node, parts)
+    return parts
   }
 
   /** The parts a nested construct draws `node` with in `region`: null for a description that is no
@@ -2142,7 +2390,7 @@ export class Composer {
     const explicit = Array.isArray(outer)
     if (explicit && (outer.note || outer[0] !== '⿱')) return null
     if (!explicit && (this.excluded(outer) || this.forced(outer) || lowerLeftFrames.has(outer) ||
-        outer === '几' || outer === '木' || outer === '爪' || ENCLOSURE_TAILS[outer] || enclosureEntry('⿺', outer, this.fontStyle))) return null
+        outer === '几' || outer === '乙' || outer === '木' || outer === '爪' || ENCLOSURE_TAILS[outer] || enclosureEntry('⿺', outer, this.fontStyle))) return null
     if (this.bySequence(keyOf(node))) return null
     let glyph = explicit ? null : this.glyph(outer)
     let topCount = 0
@@ -2281,19 +2529,28 @@ export class Composer {
   }
 
   goldInscription(node, region) {
+    // 黃金萬兩: UHK 港生活, 2015-02-12 (https://hk.ulifestyle.com.hk/topic/detail/200474/).
     if (!Array.isArray(node) || node[0] !== '⿳' || !['fangsong', 'regular', 'pen-writing'].includes(this.fontStyle) || keyOf(node) !== '⿳龷由⿳八⿻王丷⿱田⿵冂山') return null
     const cells = [
-      ['龷', [0.19,0.77,0.81,0.985]], ['由', [0.32,0.595,0.68,0.765]], ['八', [0.03,0.38,0.97,0.625]],
-      ['王', [0.31,0.385,0.69,0.59]], ['丷', [0.37,0.412,0.63,0.478]], ['田', [0.29,0.195,0.71,0.365]],
-      ['冂', [0.23,0.015,0.77,0.18]], ['山', [0.32,0.031,0.68,0.13]],
+      ['龷', [0.19, 0.77, 0.81, 0.985]], ['由', [0.32, 0.595, 0.68, 0.765]], ['八', [0.03, 0.38, 0.97, 0.625]],
+      ['王', [0.31, 0.385, 0.69, 0.59]], ['丷', [0.37, 0.412, 0.63, 0.478]], ['田', [0.29, 0.195, 0.71, 0.365]],
+      ['冂', [0.23, 0.015, 0.77, 0.18]], ['山', [0.32, 0.031, 0.68, 0.13]],
     ]
     if (cells.some(([ch]) => this.excluded(ch))) return null
+    let frame = region
+    if (this.face) {
+      const fw = this.face[2] - this.face[0], fh = this.face[3] - this.face[1]
+      const rw = region[2] - region[0], rh = region[3] - region[1]
+      const leftInset = region[0] > this.face[0] + 0.02 * fw ? 0.04 * rw : 0
+      const topInset = region[3] < this.face[3] - 0.02 * fh ? 0.05 * rh : 0
+      if (leftInset || topInset) frame = [region[0] + leftInset, region[1], region[2], region[3] - topInset]
+    }
     const parts = []
     for (const [ch, box] of cells) {
-      let glyph = this.glyph(ch), origin = `glyph ${ch}`
-      if (!glyph && this.fontStyle === 'fangsong') {
+      let glyph = null, origin = `glyph ${ch}`
+      if (this.fontStyle === 'fangsong' && !this.own(ch)) {
         // 共 carries the upper lattice and 半 carries two separate dots in Zhuque.
-        const cut = ch === '龷' ? ['共', [0,3], '3883c79f19f181226a6c5eb1a6a4118bf6bab849ba50428f02457c2c0660a0a5'] : ch === '丷' ? ['半', [1,2], '6afa742d24faf14d90417e7fcab34a3bc6f11f1894ba6d23c456ce1751870612'] : null
+        const cut = ch === '龷' ? ['共', [0, 3], '3883c79f19f181226a6c5eb1a6a4118bf6bab849ba50428f02457c2c0660a0a5'] : ch === '丷' ? ['半', [1, 2], '6afa742d24faf14d90417e7fcab34a3bc6f11f1894ba6d23c456ce1751870612'] : null
         const record = cut && !this.excluded(cut[0]) && this.glyphRecord(cut[0])
         if (record && hexOf(JSON.stringify(record.p)) === cut[2]) {
           const donor = partOf(record)
@@ -2301,8 +2558,9 @@ export class Composer {
           origin = `host ${cut[0]}`
         }
       }
+      if (!glyph) glyph = this.glyph(ch)
       if (!glyph) return null
-      parts.push({ ...placed(glyph, glyph.box, mapped(box, [0,0,1,1], region), partInk(glyph), origin), fixed: true })
+      parts.push({ ...placed(glyph, glyph.box, mapped(box, [0, 0, 1, 1], frame), partInk(glyph), origin), fixed: true })
     }
     return parts
   }
@@ -2414,6 +2672,8 @@ export class Composer {
   drawNode(node, region, atRoot = false, sideBySide = false) {
     const inscription = this.goldInscription(node, region)
     if (inscription) return inscription
+    const sweep = brushSweepParts(this, node, region, !atRoot)
+    if (sweep) return sweep
     const yuan = this.yuanParts(node, region)
     if (yuan) return yuan
     if (Array.isArray(node) && node[0] === '⿱') {
@@ -2469,7 +2729,7 @@ export class Composer {
     if (interlocked) return interlocked
     const designed = this.variantParts(node, region)
     if (designed) return designed
-    const recorded = hasChain && this.recordedParts(node, region, key)
+    const recorded = hasChain && this.recordedParts(node, region, key, atRoot)
     if (recorded) return recorded
     const nativeSource = yanGlyphs.get(key) ?? yanSources.get(key)
     // A description the font draws as a variation sequence keeps that outline, where the export
@@ -2481,14 +2741,8 @@ export class Composer {
       const variant = ivdParts(ivd, key, ivdRecord, this.fontStyle, region, atRoot)
       if (variant) return variant
     }
-    // A bundled Plangothic cut remains available when the current face lacks
-    // the exact attested native outline. Check that outline before the fallback.
-    if (isChain(node) && !this.excluded(node) && isComponentForm(key, this.fontStyle)) {
-      const own = hostChainParts(this, drawingChain(node), region, atRoot, node)
-      if (own) return own
-    }
-    const repeated = (!nativeSource || !this.excluded(nativeSource)) && (!this.separate || isGroupedForm(key, this.fontStyle)) && !ivdRecord
-      ? componentParts(key, region, this.fontStyle, atRoot) : null
+    const allowBundled = (!nativeSource || !this.excluded(nativeSource)) && (!this.separate || isGroupedForm(key, this.fontStyle) || isAtomicForm(key, this.fontStyle)) && !ivdRecord
+    const repeated = this.declaredParts(key, region, atRoot, allowBundled)
     if (repeated) return repeated
     const hasRepetition = containsComponentForm(key, this.fontStyle)
     const C = this.C
@@ -2516,7 +2770,7 @@ export class Composer {
       let tree = typeof node !== 'string' ? node : null
       if (!tree && this.sequenceOf(encoded) && !this.excluded(encoded)) {
         try { tree = this.parse(this.sequenceOf(encoded)) } catch (error) {
-          if (!glyph) throw new LookupError(`${encoded} has no glyph, and its sequence is malformed.`)
+          if (!glyph && !this.borrowedGlyph(encoded)) throw new LookupError(`${encoded} has no glyph, and its sequence is malformed.`)
         }
         if (typeof tree === 'string') tree = null
       }
@@ -2541,17 +2795,34 @@ export class Composer {
         // A character the face does not draw may still be a designed cut of one it does.
         const designed = this.designedCut(encoded)
         if (designed) return [this.place(designed.piece, region, this.ink(encoded), `designed ${designed.record.h}`)]
+        const borrowed = this.borrowedGlyph(encoded, !atRoot)
+        if (borrowed) return [this.place(borrowed, region, this.ink(encoded), `glyph ${encoded}`)]
         throw new LookupError(`No glyph or sequence draws ${encoded}.`)
       }
       if (!glyph) this.missingGlyphs.add(encoded)
       this.expanding.add(encoded)
-      try { return this.node(tree, region, atRoot) } catch (error) {
-        if (!glyph || !(error instanceof LookupError)) throw error
-        return [this.place(glyph, region, this.ink(encoded), `glyph ${encoded}`)]
+      try {
+        const parts = this.node(tree, region, atRoot)
+        // An enclosing part no character of the face holds is its bare glyph around a small
+        // inside (⿺乙母): the whole glyph stays.
+        const whole = !glyph && parts.some(part => part.origin?.startsWith('enclosing ')) ? this.borrowedGlyph(encoded, !atRoot) : null
+        if (!whole) return parts
+        this.missingGlyphs.delete(encoded)
+        return [this.place(whole, region, this.ink(encoded), `glyph ${encoded}`)]
+      } catch (error) {
+        if (!(error instanceof LookupError)) throw error
+        const designed = glyph ? null : this.designedCut(encoded)
+        if (designed) return [this.place(designed.piece, region, this.ink(encoded), `designed ${designed.record.h}`)]
+        const whole = glyph ?? this.borrowedGlyph(encoded, !atRoot)
+        // A bundled sequence is not what was written: the failure names the character itself.
+        if (!whole && typeof node === 'string' && !this.rec(encoded)?.s) throw new LookupError(`No glyph or sequence draws ${encoded}.`)
+        if (!whole) throw error
+        this.missingGlyphs.delete(encoded)
+        return [this.place(whole, region, this.ink(encoded), `glyph ${encoded}`)]
       } finally { this.expanding.delete(encoded) }
     }
     if (typeof node === 'string') {
-      const glyph = this.drawnGlyph(node, !atRoot)
+      const glyph = this.drawnGlyph(node, !atRoot) ?? this.borrowedGlyph(node, !atRoot)
       if (!glyph) throw new LookupError(`No glyph or sequence draws ${node}.`)
       return [this.place(glyph, region, this.ink(node), `glyph ${node}`)]
     }
@@ -2593,6 +2864,8 @@ export class Composer {
       const adopted = this.enclosureRow(op, children, region)
       if (adopted) return adopted
     }
+    const quadrant = this.quadrantSurround(op, children, region)
+    if (quadrant) return quadrant
     const stroke = op === '⿸' && this.strokeEnclosure(children, region)
     if (stroke) return stroke
     const legs = !this.separate && op === '⿸' && this.legEnclosure(children, region)
@@ -2620,7 +2893,7 @@ export class Composer {
     // what it holds, so the part fills the room the form's own ink leaves, as a surround construct's does.
     const cutFrame = this.separate || !(op in this.ENCLOSE) || typeof children[0] !== 'string' ? null
       : isComponentForm(children[0], this.fontStyle) && !this.data.rec(children[0])?.G
-        ? componentParts(children[0], region, this.fontStyle, false) : null
+        ? this.declaredParts(children[0], region) : null
     if (cutFrame) {
       const [x0, y0, x1, y1] = this.INSIDE[op]
       const w = region[2] - region[0], h = region[3] - region[1]
@@ -3050,6 +3323,15 @@ export class Composer {
         ...flip, about: mapped([...flip.about, ...flip.about], box, seat).slice(0, 2),
       }))
     }
+  }
+
+  /** Whether the face draws `ch` as one turned stroke `turnedSweep` presses round another part. */
+  turned(ch) {
+    const glyph = this.own(ch) && !this.excluded(ch) ? this.glyph(ch) : null
+    if (!glyph) return false
+    const part = placed(glyph, glyph.box, glyph.box, this.ink(ch), `glyph ${ch}`)
+    const contours = drawnContours(part), box = union(contours.map(pointsBox))
+    return turnedSweep(part, contours, box, Infinity, this.C) !== undefined
   }
 
   /** The designed tail of `node`'s pressed enclosure, or null where the face draws none. */
@@ -3650,6 +3932,23 @@ export class Composer {
     // A forced operand is drawn from its own IDS, not replaced by a host's cut. A direct 艹 is
     // exempt: its form is placed by the caller, or the face's own cut is the connected component.
     if (!(typeof node === 'string' && node === '艹') && this.forced(node)) return null
+    // An ideograph of `FOOTLESS` is cut from the form its character takes in this place, which the
+    // face draws at the width and weight of the place, before its whole glyph is squeezed into it.
+    if (typeof node === 'string' && Object.hasOwn(FOOTLESS, node) && !this.glyphRecord(node)) {
+      const form = FOOTLESS[node]
+      if (this.excluded(form.host) || this.excluded(node)) return null
+      // The closest cut whose foot can be found: a cut joined to its neighbour's ink has none.
+      for (const [, found] of this.ranked(op, index, form.host, siblings, box, isPlaced).slice(0, FOOTLESS_HOSTS)) {
+        if (found.record.v !== 1) continue
+        if (!this.footlessPieces.has(found.piece)) {
+          const cut = withoutFoot(found.piece)
+          this.footlessPieces.set(found.piece, cut && form.doubled ? doubledFlanks(cut) : cut)
+        }
+        const piece = this.footlessPieces.get(found.piece)
+        if (piece) return { record: found.record, piece }
+      }
+      return null
+    }
     // The 齒-family cuts filed as 丛 put 一 above 从. Use the native 丛
     // in this stack so its baseline stays below both people.
     if (op === '⿱' && index === 1 && node === '丛' && siblings[0] === '一'
@@ -3764,6 +4063,10 @@ export class Composer {
       let found = weighed(candidates, written)
       const facing = C.FACING_PLACES[place]
       if (facing && found.length && !found.some(r => r[2].v === 1)) {
+        // Strokes that all run along the row (二 beside 爲) or the stack have no stroke of their
+        // own to set how far apart they stand: on the facing side they are spread to the
+        // neighbour there (二 in 仁), so the face's own glyph is drawn at its own spacing instead.
+        if (this.strokesAlong(written, PLACE_AXIS[place])) return []
         found = found.concat(weighed(this.hostsOf(written, facing, true).filter(h => h.v === 1).slice(0, C.KIN_HOSTS).map(h => [h, true]), written, true))
         const local = found.filter(r => r[2].v === 1 && r[2].j === 1)
         if (local.length) found = local
@@ -3775,6 +4078,18 @@ export class Composer {
       }
     }
     return []
+  }
+
+  /** Whether the face's own glyph of `ch` is strokes that all run along the axis its place shares
+   *  (level strokes in a row, upright ones in a stack), each no thicker than `ACROSS_THICK` of its
+   *  length. */
+  strokesAlong(ch, axis) {
+    if (typeof ch !== 'string' || axis === undefined || !this.own(ch) || this.excluded(ch)) return false
+    const glyph = this.glyph(ch)
+    return Boolean(glyph?.contours.length) && glyph.contours.every(contour => {
+      const box = pointsBox(contour.light), along = box[2 + axis] - box[axis], thick = box[3 - axis] - box[1 - axis]
+      return along > 0 && thick <= ACROSS_THICK * along
+    })
   }
 
   /** A fallback cut with a detached bar the native cuts lack is left out (`_native_shapes`). */
@@ -3895,7 +4210,8 @@ export class Composer {
     }
     // 𭰲 (⿰氵⿵冂并) keeps about a fifth of a stem between the water and the frame; a described
     // ⿰氵⿵冂… tends to close it to nothing.
-    if (op === '⿰' && children[0] === '氵' && Array.isArray(children[1]) && children[1][0] === '⿵') {
+    const waterFrame = op === '⿰' && children[0] === '氵' && Array.isArray(children[1]) && children[1][0] === '⿵'
+    if (waterFrame) {
       const gap = 0.02 * (this.face[2] - this.face[0]), b = boxes[1]
       if (b[2] - b[0] > gap * 4) { b[0] = b[0] + gap; b[2] = Math.min(b[2] + gap, this.face[2]) }
     }
@@ -3930,7 +4246,7 @@ export class Composer {
       }
       // A component with a form of its own is drawn from it wherever it stands, before any host cut.
       const declared = typeof child === 'string'
-        ? componentParts(child, box, this.fontStyle, false)
+        ? this.declaredParts(child, box)
         : null
       if (declared) { groups.push(declared); continue }
       if (typeof child === 'string' && child !== '艹' && this.forced(child)) { groups.push(this.node(child, box)); continue }
@@ -3955,6 +4271,9 @@ export class Composer {
       }
       // Inside a variation sequence, which is drawn from its glyph, a part is set into the opening.
       let part = i === 1 && op in this.ENCLOSE && this.variantRecord(keyOf(children[0])) ? null : this.host(op, i, child, [...children.slice(0, i), ...children.slice(i + 1)], box, region === null)
+      // A turned stroke cut from beside another part (乙 in 鳦) has no foot drawn out to hold one:
+      // the face's own glyph is pressed instead.
+      if (part && op === '⿺' && i === 0 && part.record.op !== op && typeof child === 'string' && this.turned(child)) part = null
       if (op in this.ENCLOSE && i === 0 && (!part || (typeof child === 'string' && this.own(child)
         && stretchOf(part.piece.box, box) > C.ENCLOSING_STRETCH))) {
         // An enclosing part no host draws in its place, or every host squeezes, is drawn as its kin's.
@@ -4056,7 +4375,13 @@ export class Composer {
             const cut = [Math.max(opening[0], box[0]), Math.max(opening[1], box[1]), Math.min(opening[2], box[2]), Math.min(opening[3], box[3])]
             if (cut[0] < cut[2] && cut[1] < cut[3]) box = cut
           }
-        } else return this.node(['⿰', ...children], frameOf)
+        } else {
+          // This row places the foot of an enclosure. Its clearance belongs to the enclosure.
+          const count = this.columns.length
+          const pair = this.node(['⿰', ...children], frameOf)
+          this.columns.length = count
+          return pair
+        }
       }
       if (op in this.ENCLOSE && i === 1 && groups[0].every(p => p.origin.startsWith('glyph'))) {
         groups.push([placed(source, source.box, fitted(source.box, box, C.STRETCH), this.ink(drawn.h), `learned ${drawn.h}`)])
@@ -4102,7 +4427,7 @@ export class Composer {
     this.joinUnderCover(op, children, groups)
     // 𭰲 (⿰氵⿵冂并) sets the water at 5–31% and the frame at 33–93% of the face; a described
     // row stretched the frame wider. Keep the reference's shares and the gap between them.
-    if (op === '⿰' && children[0] === '氵' && Array.isArray(children[1]) && children[1][0] === '⿵') {
+    if (waterFrame) {
       const a = union(groups[0].map(p => p.target)), b = union(groups[1].map(p => p.target))
       const want = 0.02 * (this.face[2] - this.face[0]), gap = b[0] - a[2]
       if (gap < want) {
@@ -4125,6 +4450,7 @@ export class Composer {
     }
     this.seatInDesignedFrame(op, children, groups)
     this.recordJoints(op, groups)
+    if (!this.partial && this.AXIS[op] === 0 && columnClearance[this.fontStyle] && !waterFrame) this.columns.push(groups)
     return this.flatten(groups)
   }
 
@@ -4412,7 +4738,7 @@ export class Composer {
       // ⿲彳⿱山一攵), leaving the rest empty for the column beside it to fill.
       const top = op === '⿲' && axis === 0 ? this.shortStackBox(child, box) : null
       const target = top ?? box
-      const declared = typeof child === 'string' ? componentParts(child, target, this.fontStyle, false) : null
+      const declared = typeof child === 'string' ? this.declaredParts(child, target) : null
       if (declared) { groups.push(declared); return }
       const part = contextualFive ? null : this.host(op, i, child, [...children.slice(0, i), ...children.slice(i + 1)], target)
       // A cut of 丑 carries the font's bar out past its right vertical, as its own glyph does; and a
@@ -4450,7 +4776,8 @@ export class Composer {
     this.joinUnderCover(op, children, groups)
     // 𭰲 (⿰氵⿵冂并) sets the water at 5–31% and the frame at 33–93% of the face; a described
     // row stretched the frame wider. Keep the reference's shares and the gap between them.
-    if (op === '⿰' && children[0] === '氵' && Array.isArray(children[1]) && children[1][0] === '⿵') {
+    const waterFrame = op === '⿰' && children[0] === '氵' && Array.isArray(children[1]) && children[1][0] === '⿵'
+    if (waterFrame) {
       const a = union(groups[0].map(p => p.target)), b = union(groups[1].map(p => p.target))
       const want = 0.02 * (this.face[2] - this.face[0]), gap = b[0] - a[2]
       if (gap < want) {
@@ -4473,6 +4800,7 @@ export class Composer {
     }
     this.seatInDesignedFrame(op, children, groups)
     this.recordJoints(op, groups)
+    if (!this.partial && this.AXIS[op] === 0 && columnClearance[this.fontStyle] && !waterFrame && !compactYan) this.columns.push(groups)
     return this.flatten(groups)
   }
 
@@ -4482,7 +4810,7 @@ export class Composer {
     const designed = typeof child === 'string' ? this.designedCut(child) : null
     if (designed) return [placed(designed.piece, designed.piece.box, fitted(designed.piece.box, box, this.C.STRETCH), this.ink(designed.record.h), `host ${designed.record.h}`)]
     const group = this.node(child, box, false, sideBySide)
-    return narrow ? this.fillCell(child, group, box, pair) : group
+    return narrow ? this.fillCell(child, group, box, pair, sideBySide) : group
   }
 
   /** Whether the cells of the aligned operands `children` are as narrow as a row of three's: three
@@ -4495,8 +4823,12 @@ export class Composer {
    *  the cell would squeeze its glyph; in a pair beside another part, when those parts cover under
    *  `CELL_FILLED` of the cell (辶 under 周 in a quarter column, 曲 and 辰 apart in theirs), the glyph
    *  fills it after all, so one column of the row is not smaller than the next. */
-  fillCell(child, group, box, pair = false) {
-    if (group.length === 1 && !group[0].nativeAspect && group[0].origin.startsWith('glyph ')) group[0].target = fitted(group[0].source, box, this.C.ROW_STRETCH)
+  fillCell(child, group, box, pair = false, sideBySide = true) {
+    // A band of a stack of three is wide and low: a character flattened into it as far as a column
+    // narrows one closes its counters (the 人 of 囚 in ⿳⺈囚儿), so it keeps to `CELL_STRETCH` there.
+    const banded = !sideBySide && !pair && typeof child === 'string'
+    const stretch = banded ? Math.min(this.C.ROW_STRETCH, Math.max(this.C.STRETCH, this.C.CELL_STRETCH)) : this.C.ROW_STRETCH
+    if (group.length === 1 && !group[0].nativeAspect && group[0].origin.startsWith('glyph ')) group[0].target = fitted(group[0].source, box, stretch)
     else if (group.length > 1 && group[0].balanceBox && group.every(p => p.balanceBox === group[0].balanceBox)) {
       const frame = group[0].balanceBox, target = fitted(frame, box, this.C.ROW_STRETCH)
       for (const part of group) part.target = mapped(part.source, frame, target)
@@ -4889,6 +5221,46 @@ export class Composer {
   fit(outer, inner, region, stem, C, options) { return this.partial ? false : fitInside(outer, inner, region, stem, C, options) }
   collide(outer, inner, region, size) { return this.partial ? 0 : collision(outer, inner, region, size) }
 
+  /** A cross or T keeps its full glyph while the operand fits proportionally in its open quadrant.
+   * Enclosure teachers and swept feet describe frames; two crossing bars use their actual opening.
+   */
+  quadrantSurround(op, children, region) {
+    if (!['⿸', '⿹', '⿺', '⿽'].includes(op) || typeof children[0] !== 'string') return null
+    if (this.excluded(children[0]) || this.enclosureForm(op, children[0]) || this.forced(children[0])) return null
+    const glyph = this.drawnGlyph(children[0])
+    if (!glyph || this.partial) return null
+    const outer = [this.place(glyph, region, this.ink(children[0]), `glyph ${children[0]}`)]
+    const size = 64, ink = fill(groupRings(outer), size, drawnBox(outer[0]))
+    const rows = [], cols = []
+    for (let i = 0; i < size; i++) {
+      let row = 0, col = 0
+      for (let j = 0; j < size; j++) { row += ink[i * size + j]; col += ink[j * size + i] }
+      if (row >= 0.65 * size) rows.push(i)
+      if (col >= 0.65 * size) cols.push(i)
+    }
+    if (!rows.length || !cols.length) return null
+    const r0 = rows[0], r1 = rows[rows.length - 1], c0 = cols[0], c1 = cols[cols.length - 1]
+    if (r1 - r0 >= 16 || c1 - c0 >= 16) return null
+    // A junction on both edges is an ordinary corner, such as 厂 or 广.
+    if (![(r0 + r1) / 2, (c0 + c1) / 2].some(mid => mid >= 16 && mid <= 48)) return null
+    let total = 0, rest = 0
+    for (let r = 0; r < size; r++) for (let c = 0; c < size; c++) {
+      total += ink[r * size + c]
+      // Allow the lean and terminals of brush and serif bars.
+      if ((r < r0 - 4 || r > r1 + 4) && (c < c0 - 4 || c > c1 + 4)) rest += ink[r * size + c]
+    }
+    if (rest > 0.12 * total) return null
+    const opening = this.room(op, outer, region)
+    if (!opening) return null
+    const room = shrunk(opening, this.C.OPENING_SHARE)
+    const own = typeof children[1] === 'string' && !this.excluded(children[1]) ? this.drawnGlyph(children[1]) : null
+    const inner = this.node(children[1], own ? own.box : this.face)
+    const source = bounds(inner), target = fitted(source, room, 1)
+    for (const part of inner) part.target = targetFor(part, mapped(drawnBox(part), source, target))
+    for (const part of [...outer, ...inner]) part.fixed = true
+    return [...outer, ...inner]
+  }
+
   /** The largest empty box inside `region` the placed enclosing part closes on its closed sides,
    *  `ROOM_MARGIN` stroke widths clear of its ink (`_room`). On an open side the box stops at the
    *  part's own ink, so an enclosed part sits between the arms (凵, 門) rather than over their tips. */
@@ -5052,13 +5424,25 @@ export class Composer {
       if (axis === 1 && a?.length && b?.length && this.closed(b, a, nested ? CLOSED_NESTED : 1)) continue
       const gaps = facing(a, b, axis)
       if (!gaps) continue
+      this.spaced.push([axis, a, b])
       const gap = gaps.min <= 0 ? gaps.min : gaps.median
       if (gap >= C.FACING[axis]) continue
-      const half = (C.FACING[axis] - gap) / 2
-      const [first, second] = axis === 0 ? [a, b] : [b, a]
-      const limit = group => C.SQUEEZE * (Math.max(...group.map(p => p.target[axis + 2])) - Math.min(...group.map(p => p.target[axis])))
-      squeeze(first, axis, 0, -Math.min(half, limit(first)))
-      squeeze(second, axis, Math.min(half, limit(second)), 0)
+      apart(a, b, axis, C.FACING[axis] - gap, C.SQUEEZE)
+    }
+  }
+
+  /** The style's least gap kept between neighbouring parts once they carry their weights (`_clear`):
+   *  `space` measures them as laid out, and a part weighted afterwards grows into the gap. */
+  clear(out) {
+    const least = this.C.FACING_LEAST
+    if (!least) return
+    const drawn = new Set(out)
+    for (const [axis, a, b] of this.spaced) {
+      const parts = [...a, ...b]
+      if (!parts.every(p => drawn.has(p) && !p.fixed && !p.cut)) continue
+      if (!parts.some(p => p.weight?.some(Boolean))) continue
+      const gaps = facing(a, b, axis)
+      if (gaps && least[axis] > gaps.min) apart(a, b, axis, least[axis] - gaps.min, this.C.SQUEEZE)
     }
   }
 
@@ -5502,29 +5886,79 @@ export class Composer {
   balance(group) {
     const C = this.C, stem = this.stem0
     const curve = (density, axis) => C.STEM_CURVE[axis][0] + C.STEM_CURVE[axis][1] * density / 1000
-    const density = group.reduce((s, p) => { const [sx, sy] = scaleOf(p); return s + (p.inkLength ?? partInk(p.part)) * (sx + sy) / 2 }, 0)
+    const density = group.reduce((s, p) => { const [sx, sy] = scaleOf(p); return s + (p.inkLength ?? p.part.inkLength ?? partInk(p.part)) * (sx + sy) / 2 }, 0)
     const ratio = [0, 1].map(axis => stem[axis][1] / stem[axis][0] - 1)
     // The stroke widths the whole drawing is brought to, which a placeholder's outline follows.
     this.stroke = [curve(density, 0), curve(density, 1)]
+    // The powers of a part's scale its stroke width follows in the font's own characters.
+    const powers = C.PART_STEMS
+    // Per axis, each weighted part with the stroke width it is drawn at before weighting and how
+    // far a weight of 1 widens it.
+    const drawn = [[], []]
     for (const p of group) {
       if (p.empty !== undefined || p.fixed) continue
       const weight = [], target = p.target.slice(), scale = scaleOf(p)
+      const first = p.part.contours[0], baked = first?.scaled ?? [1, 1]
+      // A static face's own outline is grown by one amount whatever the stroke, so its weight is
+      // counted against its glyph's stem. A fallback's is grown in proportion to its stem.
+      const flat = Boolean(powers && C.STATIC && first?.width && !first.kindred && !first.foreign)
       for (const axis of [0, 1]) {
         const box = p.balanceBox ?? p.source
         const extent = box[axis + 2] - box[axis]
         if (extent <= 2 * stem[axis][0]) {
-          const width = extent * curve(density, axis) / curve(p.native, axis), middle = (target[axis] + target[axis + 2]) / 2
+          const width = powers ? extent / baked[axis] * Math.max(scale[1 - axis] * baked[1 - axis], C.PART_SCALE_LEAST) ** powers[axis]
+            : extent * curve(density, axis) / curve(p.native, axis)
+          const middle = (target[axis] + target[axis + 2]) / 2
           target[axis] = middle - width / 2
           target[axis + 2] = middle + width / 2
           weight.push(0)
           continue
         }
-        const measured = p.part.contours[0]?.width
+        const measured = first?.width
+        if (powers) {
+          // The stem the font gives a part at this scale, over the stem plain scaling leaves. A
+          // glyph of another design starts from the stem the font draws at its density. A glyph
+          // of the variable font states no width unless a sweep set one on it.
+          const stated = measured && (C.STATIC || first.kindred || first.foreign) ? measured[axis] / baked[axis] : null
+          const lift = stated !== null && first.foreign ? curve(p.native, axis) / stated : 1
+          let grownBy = ratio[axis]
+          if (flat) grownBy = (stem[axis][1] - stem[axis][0]) / stated
+          // Horizontals grown synthetically grow by one amount too.
+          else if (axis === 1 && stated === null && C.GROW_Y) grownBy = (stem[1][1] - stem[1][0]) / curve(p.native, 1)
+          const at = Math.max(scale[axis] * baked[axis], C.PART_SCALE_LEAST)
+          weight.push(Math.min(p.weightLimit?.[axis] ?? C.WEIGHT_GROWTH, Math.max(-0.6, (lift * at ** (powers[axis] - 1) - 1) / grownBy)))
+          const base = (stated !== null ? measured[axis] : curve(p.native, axis) * baked[axis]) * scale[axis]
+          drawn[axis].push([p, base, grownBy])
+          continue
+        }
         const own = measured ? measured[axis] : curve(p.native, axis)
         weight.push(Math.min(p.weightLimit?.[axis] ?? 1, Math.max(-0.6, (curve(density, axis) / (scale[axis] * own) - 1) / ratio[axis])))
       }
       p.target = target
       p.weight = weight
+    }
+    if (C.PART_SPREAD) this.even(drawn, C.PART_SPREAD)
+  }
+
+  /** Parts of one character held within the font's own spread of a common stroke width
+   *  (`Composer._even`): the common width is the mean of the parts' widths by their ink, and a part
+   *  outside the spread about it is weighted to its edge. */
+  even(drawn, spread) {
+    for (const axis of [0, 1]) {
+      const parts = drawn[axis]
+      if (parts.length < 2) continue
+      const widths = parts.map(([p, base, grown]) => base * (1 + p.weight[axis] * grown))
+      const inks = parts.map(([p]) => { const [sx, sy] = scaleOf(p); return (p.inkLength ?? partInk(p.part)) * (sx + sy) / 2 })
+      const total = inks.reduce((a, b) => a + b, 0)
+      if (widths.some(w => !(w > 0)) || !(total > 0)) continue
+      const common = Math.exp(widths.reduce((sum, w, i) => sum + inks[i] * Math.log(w), 0) / total)
+      // Two parts each within the root of the spread of the common width are within the spread.
+      const edge = Math.sqrt(spread[axis])
+      parts.forEach(([p, base, grown], i) => {
+        const held = Math.min(common * edge, Math.max(common / edge, widths[i]))
+        if (held === widths[i]) return
+        p.weight[axis] = Math.min(p.weightLimit?.[axis] ?? this.C.WEIGHT_GROWTH, Math.max(-0.6, (held / base - 1) / grown))
+      })
     }
   }
 }
@@ -5894,6 +6328,16 @@ function centredIn(group, region) {
 }
 
 /** A group moved in from its low and high edges along `axis`, together. */
+/** Two neighbouring groups moved `short` apart, each giving up half on its facing side, and none
+ *  more than `most` of its length (`_apart`). `a` is the left or upper group. */
+function apart(a, b, axis, short, most) {
+  const half = short / 2
+  const [first, second] = axis === 0 ? [a, b] : [b, a]
+  const limit = group => most * (Math.max(...group.map(p => p.target[axis + 2])) - Math.min(...group.map(p => p.target[axis])))
+  squeeze(first, axis, 0, -Math.min(half, limit(first)))
+  squeeze(second, axis, Math.min(half, limit(second)), 0)
+}
+
 function squeeze(group, axis, low, high) {
   const lo = Math.min(...group.map(p => p.target[axis])), hi = Math.max(...group.map(p => p.target[axis + 2]))
   const newLo = lo + low, newHi = hi + high, scale = (newHi - newLo) / Math.max(hi - lo, 1)
@@ -6016,6 +6460,8 @@ export function sweptPart(p, edge, C, tail = null) {
   const boxes = contours.map(pointsBox)
   const x0 = Math.min(...boxes.map(b => b[0])), y0 = Math.min(...boxes.map(b => b[1]))
   const x1 = Math.max(...boxes.map(b => b[2])), y1 = Math.max(...boxes.map(b => b[3]))
+  const turned = turnedSweep(p, contours, [x0, y0, x1, y1], edge, C)
+  if (turned !== undefined) return turned
   const [reach, foot] = C.SWEEP_REACH
   const sweeps = boxes.map((b, k) => [b, k]).filter(([b]) => b[2] >= x1 - reach * (x1 - x0) && b[1] <= y0 + foot * (y1 - y0)
     && b[3] - b[1] >= C.SWEEP_RISE * (y1 - y0)).map(([, k]) => k)
@@ -6052,7 +6498,9 @@ export function sweptPart(p, edge, C, tail = null) {
     // scaled ones: `balance` reads them against a scale of one. A glyph stating none takes the
     // width its ink calls for, as `balance` would.
     const own = c.width ?? [0, 1].map(axis => C.STEM_CURVE[axis][0] + C.STEM_CURVE[axis][1] * p.native / 1000)
-    return { ops: c.ops, light: map(c.light), heavy: map(c.heavy), width: [own[0] * sx, own[1] * sy] }
+    const baked = c.scaled ?? [1, 1]
+    return { ops: c.ops, light: map(c.light), heavy: map(c.heavy), width: [own[0] * sx, own[1] * sy],
+      scaled: [baked[0] * sx, baked[1] * sy], foreign: c.foreign, kindred: c.kindred }
   }
   const strokes = derived(p.part, p.part.contours.filter((_, k) => k !== sweep).map(c => at(c, q => q)))
   const box = strokes.box
@@ -6060,6 +6508,86 @@ export function sweptPart(p, edge, C, tail = null) {
   const drawn = derived(p.part, [at(p.part.contours[sweep], drawnOut)])
   return [placed(strokes, strokes.box, pressedBox, p.native, `swept ${p.origin}`, p.weight),
     placed(drawn, drawn.box, drawn.box.slice(), p.native, `swept ${p.origin}`, p.weight)]
+}
+
+/** The rows sampled for a turned stroke's shape, the share of the width a foot or a head spans, the
+ *  share a stem may take and the least it leans across, where a rising hook begins across and ends up the glyph, and the share of
+ *  the height over which the pressing eases in above the foot. */
+const TURNED = { rows: 24, wide: 0.6, stem: 0.3, lean: 0.2, hook: [0.6, 0.5], ease: 0.1 }
+
+/**
+ * 乙 round the lower left of another part: one stroke turning at the upper right, falling to the
+ * lower left and running out along the foot. Its head is pressed left of `edge` and the falling
+ * stroke leans after it, each row moved as a whole so the stroke keeps its width, while the foot and
+ * its hook stay. Undefined where the glyph is no such stroke, null where it needs no pressing.
+ */
+function turnedSweep(p, contours, [x0, y0, x1, y1], edge, C) {
+  const w = x1 - x0, h = y1 - y0
+  if (!(w > 0 && h > 0)) return undefined
+  const polys = rings(p.part.contours, contours, 12).map(ring => {
+    const out = []
+    for (let i = 0; i + 1 < ring.length; i += 2) out.push([ring[i], ring[i + 1]])
+    return out
+  })
+  // The ink along a row, overlapping outlines joined, without the hook rising from the foot's end.
+  const runs = y => {
+    const spans = polys.flatMap(poly => spansAt(poly, y)).sort((a, b) => a[0] - b[0])
+    const out = []
+    for (const span of spans) {
+      if (out.length && span[0] <= out.at(-1)[1]) out.at(-1)[1] = Math.max(out.at(-1)[1], span[1])
+      else out.push(span.slice())
+    }
+    return out.filter(run => !(run[0] >= x0 + TURNED.hook[0] * w && y < y0 + TURNED.hook[1] * h))
+  }
+  const rowY = k => y0 + (k + 0.5) * h / TURNED.rows
+  const rows = Array.from({ length: TURNED.rows }, (_, k) => runs(rowY(k)))
+  let footRow = -1
+  for (let k = 0; k < TURNED.rows * 0.4; k++) if (rows[k].some(run => run[1] - run[0] >= TURNED.wide * w)) footRow = k
+  if (footRow < 0) return undefined
+  // Above the foot a single stem climbs to the right, and the head reaches across the glyph.
+  const stems = [], body = rows.slice(footRow + 2, Math.round(TURNED.rows * 0.75))
+  for (const row of body) {
+    if (row.length !== 1 || row[0][1] - row[0][0] > TURNED.stem * w) return undefined
+    if (stems.length && row[0][1] < stems.at(-1)[1] - 0.02 * w) return undefined
+    stems.push(row[0])
+  }
+  if (stems.length < 4 || stems[0][1] > x0 + 0.5 * w || stems.at(-1)[1] - stems[0][1] < TURNED.lean * w) return undefined
+  // The turn is the lowest row whose ink reaches the head's right end: every row from there up
+  // is pressed from that end, so a head that rises or thins keeps its two edges together.
+  let head = -Infinity, turn = y1
+  for (let k = 4 * TURNED.rows - 1; k >= 2 * TURNED.rows; k--) {
+    const y = y0 + (k + 0.5) * h / (4 * TURNED.rows), right = runs(y).at(-1)?.[1] ?? -Infinity
+    if (right > head) head = right
+    if (right >= head - 0.01 * w) turn = y
+  }
+  if (!(head >= x0 + TURNED.wide * w)) return undefined
+  if (head <= edge) return null
+  edge = Math.max(edge, x0 + C.SWEEP_PRESSED * (head - x0))
+  const widths = stems.map(run => run[1] - run[0]).sort((a, b) => a - b), stem = widths[widths.length >> 1]
+  // The turn moves as a whole, a stem's width in from the head's end, and lands on the edge.
+  const press = (head - edge) / Math.max(head - stem - x0, 1)
+  const footTop = y0 + (footRow + 1) * h / TURNED.rows
+  const moved = contours.map(pts => pts.map((x, i) => {
+    if (i % 2) return 0
+    const y = Math.min(Math.max(pts[i + 1], y0 + 1), y1 - 1)
+    const ease = Math.min(1, (y - footTop) / (TURNED.ease * h))
+    if (!(ease > 0)) return 0
+    const right = y >= turn ? head : runs(y).at(-1)?.[1]
+    if (right === undefined || (x >= x0 + TURNED.hook[0] * w && y < y0 + TURNED.hook[1] * h)) return 0
+    const from = Math.max(x0, Math.min(x, right - stem))
+    return -press * (from - x0) * ease
+  }))
+  const [sx, sy] = scaleOf(p)
+  const cx = (p.source[0] + p.source[2]) / 2, cy = (p.source[1] + p.source[3]) / 2
+  const gx = (p.target[0] + p.target[2]) / 2, gy = (p.target[1] + p.target[3]) / 2
+  const drawn = derived(p.part, p.part.contours.map((c, k) => {
+    const map = src => { const out = new Float64Array(src.length); for (let i = 0; i < src.length; i += 2) { out[i] = (src[i] - cx) * sx + gx + moved[k][i]; out[i + 1] = (src[i + 1] - cy) * sy + gy } return out }
+    const own = c.width ?? [0, 1].map(axis => C.STEM_CURVE[axis][0] + C.STEM_CURVE[axis][1] * p.native / 1000)
+    const baked = c.scaled ?? [1, 1]
+    return { ops: c.ops, light: map(c.light), heavy: map(c.heavy), width: [own[0] * sx, own[1] * sy],
+      scaled: [baked[0] * sx, baked[1] * sy], foreign: c.foreign, kindred: c.kindred }
+  }))
+  return [placed(drawn, drawn.box, drawn.box.slice(), p.native, `swept ${p.origin}`, p.weight)]
 }
 
 /**
@@ -6088,7 +6616,7 @@ export function pressedEnclosure(p, sweep, share = ENCLOSURE_SHARE, tail = null)
     }
     return out
   }
-  const mapped = p.part.contours.map(c => ({ ops: c.ops, light: mapX(c.light), heavy: mapX(c.heavy), width: c.width }))
+  const mapped = p.part.contours.map(c => ({ ...c, light: mapX(c.light), heavy: mapX(c.heavy) }))
   if (tail) {
     const grafted = graftTail(mapped, sweep, x0, width, tail)
     if (grafted) return placed(makePart(grafted, p.part.box.slice()), p.source, p.target, p.native, `enclosure ${p.origin}`, p.weight)
@@ -6313,6 +6841,161 @@ function cutAt(poly, cut, above) {
     if (ring.length >= 3) out.push(ring)
   }
   return out
+}
+
+/** A glyph's bottom stroke: the columns sampled across it, how far from the usual thickness a
+ *  column of the stroke alone may be, the least share of the columns that must show it, how far
+ *  above its upper edge the cut is made (a share of the glyph's height), and the largest piece, as
+ *  a share of the glyph's box, that is the stroke's own end standing above that edge. */
+const FOOT_COLUMNS = 80, FOOT_THICK = 1.4, FOOT_SHOWN = 0.3, FOOT_CLEAR = 0.012, FOOT_END = 0.008
+/** The room left between the two parts of a doubled flank, as a share of the height they stand in. */
+const FLANK_GAP = 0.06
+/**
+ * A glyph whose parts on either side of its stem are each drawn twice, one above the other: the 人
+ * pair of 巫 without its foot becomes the four of 𲐬. The two copies share the height from the
+ * stem's foot to the part's top and keep the part's width. Null where no part stands clear of the
+ * stem on both sides.
+ */
+function doubledFlanks(glyph) {
+  const boxes = glyph.contours.map(c => pointsBox(c.light))
+  const [x0, y0, x1, y1] = union(boxes)
+  const middle = (x0 + x1) / 2, level = y0 + 0.3 * (y1 - y0)
+  const stem = glyph.contours.flatMap(c => spansAt(flattenRing(c), level))
+    .reduce((best, run) => !best || Math.abs((run[0] + run[1]) / 2 - middle) < Math.abs((best[0] + best[1]) / 2 - middle) ? run : best, null)
+  if (!stem) return null
+  const centre = (stem[0] + stem[1]) / 2
+  const sides = [boxes.map((b, k) => b[2] <= centre ? k : -1), boxes.map((b, k) => b[0] >= centre ? k : -1)].map(side => side.filter(k => k >= 0))
+  if (sides.some(side => !side.length)) return null
+  const flanks = new Set(sides.flat())
+  const out = glyph.contours.filter((_, k) => !flanks.has(k))
+  if (!out.length) return null
+  for (const side of sides) {
+    const box = union(side.map(k => boxes[k])), height = box[3] - y0
+    const each = (height - FLANK_GAP * height) / 2, scale = Math.min(1, each / (box[3] - box[1]))
+    for (const base of [y0, box[3] - scale * (box[3] - box[1])]) {
+      const set = points => points.map((v, i) => i % 2 ? base + (v - box[1]) * scale : v)
+      for (const k of side) out.push({ ...glyph.contours[k], light: set(glyph.contours[k].light), heavy: set(glyph.contours[k].heavy) })
+    }
+  }
+  return derived(glyph, out)
+}
+
+/**
+ * A glyph without its bottom stroke. The stroke's upper edge is read where nothing stands on it:
+ * in each column the lowest run of ink, kept where that run is no thicker than the stroke. A line
+ * fitted to those tops follows a brush stroke's rise, every outline is cut along it, and what is
+ * above stays. A small piece left on the line is the stroke's own serif or pressed end. Each
+ * master finds its own line, since a heavier stroke is thicker. Null where the foot holds no such
+ * stroke or the masters fall into different pieces.
+ */
+function withoutFoot(glyph) {
+  // One master's outlines, sheared so the line along its bottom stroke's upper edge lies level.
+  const levelled = master => {
+    const polys = glyph.contours.map(contour => flattenRing(contour, master))
+    const points = polys.flat()
+    const low = Math.min(...points.map(p => p[1])), high = Math.max(...points.map(p => p[1]))
+    const left = Math.min(...points.map(p => p[0])), right = Math.max(...points.map(p => p[0]))
+    const turned = polys.map(poly => poly.map(([x, y]) => [y, x]))
+    // The lowest run of ink in each column, as [x, its top, its thickness].
+    const runs = []
+    for (let k = 0; k < FOOT_COLUMNS; k++) {
+      const x = left + (right - left) * (k + 0.5) / FOOT_COLUMNS
+      const ys = turned.flatMap(poly => spansAt(poly, x)).flat().sort((p, q) => p - q)
+      if (ys.length >= 2 && ys[0] < low + (high - low) / 3) runs.push([x, ys[1], ys[1] - ys[0]])
+    }
+    if (!runs.length) return null
+    // The stroke spans the glyph, so its thickness is the usual one; a column through a stroke
+    // standing on it is thicker, and one through the stroke's tapering end thinner.
+    const usual = runs.map(run => run[2]).sort((p, q) => p - q)[runs.length >> 1]
+    const edge = runs.filter(run => run[2] <= FOOT_THICK * usual && run[2] >= usual / FOOT_THICK)
+    if (edge.length < FOOT_SHOWN * FOOT_COLUMNS) return null
+    const mx = edge.reduce((sum, run) => sum + run[0], 0) / edge.length, my = edge.reduce((sum, run) => sum + run[1], 0) / edge.length
+    const slope = edge.reduce((sum, run) => sum + (run[0] - mx) * (run[1] - my), 0) / Math.max(edge.reduce((sum, run) => sum + (run[0] - mx) ** 2, 0), 1)
+    return {
+      polys: polys.map(poly => poly.map(([x, y]) => [x, y - slope * (x - mx)])),
+      level: my + FOOT_CLEAR * (high - low), least: FOOT_END * (right - left) * (high - low),
+      back: ([x, y]) => [x, y + slope * (x - mx)],
+    }
+  }
+  const light = levelled('light'), heavy = levelled('heavy')
+  if (!light || !heavy) return null
+  const cut = cutAbove(light.polys, light.level)
+  if (!cut) return null
+  // The heavy master is cut at the same places along its outlines, each crossing where that edge
+  // meets its own line, so the two masters' points stay paired.
+  const twin = ({ poly, i, t }) => {
+    const ring = heavy.polys[poly], a = ring[i]
+    if (t === null) return a
+    const b = ring[(i + 1) % ring.length]
+    const at = b[1] !== a[1] && (a[1] > heavy.level) !== (b[1] > heavy.level) ? (heavy.level - a[1]) / (b[1] - a[1]) : t
+    return [a[0] + (b[0] - a[0]) * at, a[1] + (b[1] - a[1]) * at]
+  }
+  const contours = [
+    ...cut.whole.map(i => glyph.contours[i]),
+    // A small piece left on the line is the stroke's own serif or pressed end.
+    ...cut.pieces.map(piece => [piece.map(v => v.point), piece.map(twin)])
+      .filter(([ring]) => Math.abs(ringArea(ring)) > light.least)
+      .map(([ring, other]) => ringContour(ring.map(light.back), other.map(heavy.back), ringArea(ring) < 0)),
+  ]
+  if (!contours.length) return null
+  return derived(glyph, contours, pointsBox(contours.flatMap(contour => Array.from(contour.light))))
+}
+
+/**
+ * The outlines of one shape cut by the horizontal line y = `cut`, keeping what is above: the
+ * indices of the outlines wholly above (`whole`), and the pieces the crossed ones fall into
+ * (`pieces`). The crossings of every outline are paired along the line as a scanline fills them, so
+ * a counter the line opens joins the outline around it: two legs come out as two pieces, with no
+ * counter left between them. A piece is its points in order, each a vertex `i` of outline `poly`
+ * or a place `t` along the edge leaving it. Null where the outlines do not pair up.
+ */
+function cutAbove(polys, cut) {
+  const whole = [], chains = [], crossings = []
+  for (const [index, poly] of polys.entries()) {
+    const above = poly.map(p => p[1] > cut)
+    if (above.every(Boolean)) { whole.push(index); continue }
+    if (!above.some(Boolean)) continue
+    const walk = []
+    for (let i = 0; i < poly.length; i++) {
+      const a = poly[i], b = poly[(i + 1) % poly.length]
+      if (above[i]) walk.push({ point: a, poly: index, i, t: null })
+      if (above[i] === above[(i + 1) % poly.length]) continue
+      const t = (cut - a[1]) / (b[1] - a[1])
+      const crossing = { point: [a[0] + (b[0] - a[0]) * t, cut], poly: index, i, t, id: crossings.length, enters: !above[i] }
+      crossings.push(crossing)
+      walk.push(crossing)
+    }
+    const start = walk.findIndex(v => v.enters)
+    let chain = null
+    for (let k = 0; k < walk.length; k++) {
+      const v = walk[(start + k) % walk.length]
+      if (v.enters) { chain = [v]; chains.push(chain) } else chain?.push(v)
+      if (v.id !== undefined && !v.enters) chain = null
+    }
+  }
+  if (crossings.length % 2) return null
+  const order = crossings.slice().sort((a, b) => a.point[0] - b.point[0])
+  const mate = new Map()
+  for (let i = 0; i + 1 < order.length; i += 2) {
+    mate.set(order[i].id, order[i + 1])
+    mate.set(order[i + 1].id, order[i])
+  }
+  const byStart = new Map(chains.map(chain => [chain[0].id, chain]))
+  const pieces = [], used = new Set()
+  for (const first of chains) {
+    if (used.has(first[0].id)) continue
+    const ring = []
+    let at = first
+    while (at && !used.has(at[0].id)) {
+      used.add(at[0].id)
+      for (const v of at) ring.push(v)
+      const next = mate.get(at.at(-1).id)
+      if (!next?.enters) return null
+      at = byStart.get(next.id)
+    }
+    if (ring.length >= 3) pieces.push(ring)
+  }
+  return { whole, pieces }
 }
 
 /** A contour flattened into a polygon of [x, y] points, its curve chains sampled in `steps`. */
