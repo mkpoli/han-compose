@@ -820,10 +820,11 @@ function trimStub(body, width, ring, clear) {
  * @param {boolean} within whether a chord runs inside the ring (through its ink or its counter) or outside it (across a bay)
  * @param {boolean} cap bow the smaller piece's cut end outward, so it overlaps what it left
  * @param {number[][][]} [clear] rings no chord may touch
- * @param {boolean} [anchored] prefer a chord that ends at notches of the outline, where a stroke leaves the ink it ran into, over a narrower one across a stroke's run
+ * @param {'neck' | 'notch' | 'fit'} [prefer] which chord to take: the narrowest neck; one that ends at notches of the outline, where a stroke leaves the ink it ran into; or, of the cheapest few, the one whose pieces lie closest to their targets point for point
+ * @param {number[][][]} [open] counters of the ring that none of the targets has: strokes that close a loop in this face and stand apart in the others. Each is joined to the outline along a seam, so that cuts can run through it
  * @returns {number[][][] | null} per target, a closed ring */
-function cutRing(ring, targets, within, cap, clear = [], anchored = false) {
-  const points = dense(ring, 3)
+function cutRing(ring, targets, within, cap, clear = [], prefer = 'neck', open = []) {
+  let points = dense(ring, 3)
   const marks = targets.map((target) => dense(target.ring, 3))
   const tangents = (/** @type {number[][]} */ pts) => {
     const n = pts.length
@@ -839,7 +840,7 @@ function cutRing(ring, targets, within, cap, clear = [], anchored = false) {
   const pTan = within ? null : tangents(points)
   const mTan = within ? null : marks.map(tangents)
   const ringSign = turning(ring) > 0 ? 1 : -1
-  const labels = points.map((p, pi) => {
+  const labelAt = (/** @type {number[]} */ p, /** @type {number} */ pi) => {
     const [tx, ty] = pTan ? pTan[pi] : [0, 0]
     let best = 0,
       least = Infinity
@@ -880,7 +881,43 @@ function cutRing(ring, targets, within, cap, clear = [], anchored = false) {
       }
     })
     return best
-  })
+  }
+  let labels = points.map(labelAt)
+  // A counter the targets lack is joined to the outline along a seam: the shortest line
+  // through the ink from the outline to the counter, at a point of each where one
+  // target's outline gives way to another's. The outline then runs down the seam, round
+  // the counter and back, and a cut can end on the counter.
+  /** The two ends of each seam. @type {Set<number[]>} */
+  const seams = new Set()
+  if (within)
+    for (const hole of open) {
+      const around = dense(hole, 3)
+      if (turning(hole) > 0 === turning(ring) > 0) around.reverse()
+      const theirs = around.map((p) => labelAt(p, 0))
+      const turns = (/** @type {number[]} */ list, /** @type {number} */ at) =>
+        [-2, -1, 1, 2].some((step) => list[(at + step + list.length) % list.length] !== list[at])
+      /** @type {{ i: number, k: number, cost: number } | null} */
+      let seam = null
+      for (let i = 0; i < points.length; i++)
+        for (let k = 0; k < around.length; k++) {
+          const a = points[i],
+            b = around[k]
+          const width = Math.hypot(b[0] - a[0], b[1] - a[1])
+          if (width > 56) continue
+          const cost = width + (turns(labels, i) ? 0 : 8) + (turns(theirs, k) ? 0 : 8)
+          if (seam && cost >= seam.cost) continue
+          const inked = [1, 2, 3].every((t) => {
+            const p = [a[0] + ((b[0] - a[0]) * t) / 4, a[1] + ((b[1] - a[1]) * t) / 4]
+            return inside(p, ring) && ![...clear, ...open].some((other) => inside(p, other))
+          })
+          if (inked) seam = { i, k, cost }
+        }
+      if (!seam) return null
+      const { i, k } = seam
+      seams.add(points[i]).add(around[k])
+      points = [...points.slice(0, i + 1), ...around.slice(k), ...around.slice(0, k + 1), ...points.slice(i)]
+      labels = [...labels.slice(0, i + 1), ...theirs.slice(k), ...theirs.slice(0, k + 1), ...labels.slice(i)]
+    }
   /** @type {(number[][] | undefined)[]} */
   const out = targets.map(() => undefined)
   /** @type {{ points: number[][], labels: number[] }[]} */
@@ -905,7 +942,7 @@ function cutRing(ring, targets, within, cap, clear = [], anchored = false) {
     // Points at or beside a notch: a sharp turn against the way the piece's outline runs.
     /** @type {boolean[] | null} */
     let notched = null
-    if (anchored) {
+    if (prefer === 'notch') {
       const sign = turning(piece.points) > 0 ? 1 : -1
       const notch = piece.points.map((p, k) => {
         const a = piece.points[(k + size - 2) % size],
@@ -926,6 +963,8 @@ function cutRing(ring, targets, within, cap, clear = [], anchored = false) {
         if (dx > 56 || dx < -56 || dy > 56 || dy < -56) continue
         const width = Math.hypot(dx, dy)
         if (width > 56) continue
+        // A seam is no cut: its two sides are one line.
+        if (seams.size && seams.has(piece.points[i]) && seams.has(piece.points[j])) continue
         // Points i..j-1 on one side, the rest on the other; penalize both a target
         // losing points across the cut (recall) and a piece absorbing points from
         // another target (contamination), so a small stroke cannot steal half a bar.
@@ -960,7 +999,7 @@ function cutRing(ring, targets, within, cap, clear = [], anchored = false) {
         })
       }
     chords.sort((a, b) => a.cost - b.cost)
-    const chord = chords.find(({ i, j }) => {
+    const sound = (/** @type {{ i: number, j: number }} */ { i, j }) => {
       const a = piece.points[i],
         b = piece.points[j]
       const side = (/** @type {number[]} */ p, /** @type {number[]} */ q, /** @type {number[]} */ r) =>
@@ -977,7 +1016,11 @@ function cutRing(ring, targets, within, cap, clear = [], anchored = false) {
       return (
         [1, 2, 3].every((t) => {
           const p = [a[0] + ((b[0] - a[0]) * t) / 4, a[1] + ((b[1] - a[1]) * t) / 4]
-          return inside(p, ring) === within && !clear.some((other) => inside(p, other))
+          return (
+            inside(p, ring) === within &&
+            !clear.some((other) => inside(p, other)) &&
+            !(seams.size && open.some((other) => inside(p, other)))
+          )
         }) &&
         piece.points.every((p, k) => {
           const next = (k + 1) % size
@@ -985,8 +1028,45 @@ function cutRing(ring, targets, within, cap, clear = [], anchored = false) {
         }) &&
         clear.every((other) => other.every((p, k) => !k || apart(other[k - 1], p)))
       )
-    })
+    }
+    let chord = chords.find(sound)
     if (!chord) return null
+    // The labels come from the nearest outline, which misleads where the faces draw a
+    // stroke in different places. Between two targets, the cheapest few cuts are tried
+    // and the one whose pieces lie closest to their targets point for point is kept.
+    if (prefer === 'fit' && held.length === 2) {
+      const travel = (/** @type {{ i: number, j: number }} */ { i, j }) => {
+        const sides = [
+          piece.points.slice(i, j + 1),
+          [...piece.points.slice(j), ...piece.points.slice(0, i + 1)]
+        ]
+        const inner = 2 * (before[0][j] - before[0][i]) > before[0][size] ? 0 : 1
+        let sum = 0
+        for (const [n, side] of sides.entries()) {
+          const target = targets[held[n ? 1 - inner : inner]].ring
+          const pair = alignRings([[...side, side[0]], target])
+          if (!pair) return Infinity
+          sum +=
+            pair[0].reduce((s, p, k) => s + Math.hypot(p[0] - pair[1][k][0], p[1] - pair[1][k][1]), 0) /
+            pair[0].length
+        }
+        return sum
+      }
+      /** @type {typeof chords} */
+      const tried = []
+      for (const candidate of chords) {
+        if (tried.length >= 5 || candidate.cost > 2.5 * chord.cost + 15) break
+        const near = (/** @type {number} */ a, /** @type {number} */ b) =>
+          Math.min(Math.abs(a - b), size - Math.abs(a - b)) <= 4
+        if (tried.some((t) => near(t.i, candidate.i) && near(t.j, candidate.j))) continue
+        if (sound(candidate)) tried.push(candidate)
+      }
+      if (tried.length > 1) {
+        const costs = tried.map(travel)
+        const least = Math.min(...costs)
+        if (least < Infinity && least < 0.85 * costs[0]) chord = tried[costs.indexOf(least)]
+      }
+    }
     let { i, j } = chord
     // When cutting an open counter across the gap between a bar tip and a stem wall,
     // center the chord on the bar tip's midpoint and its perpendicular stem projection
@@ -1166,14 +1246,29 @@ function cutRing(ring, targets, within, cap, clear = [], anchored = false) {
   return out.every(Boolean) ? /** @type {number[][][]} */ (out) : null
 }
 
+/** The counters of an island that answer to no counter of the islands it is cut to:
+ * strokes that close a loop in this face and stand apart in the others.
+ * @param {number[][][]} island @param {number[][][][]} others */
+function strayCounters(island, others) {
+  const mid = (/** @type {number[][]} */ ring) => {
+    const [x, y, right, bottom] = ringBox(ring)
+    return [(x + right) / 2, (y + bottom) / 2]
+  }
+  const theirs = others.flatMap((other) => other.slice(1))
+  return island
+    .slice(1)
+    .filter((hole) => !theirs.some((other) => inside(mid(other), hole) || inside(mid(hole), other)))
+}
+
 /** Faces that draw as one island what another draws as several (a stroke that runs
  * into its neighbour in one face and stands clear in another) get the same islands: the
  * fused island is cut at the junction, so each stroke blends with its own counterpart.
  * Null when the faces split the ink in ways that are not one a coarser form of the other.
  * @param {number[][][][][]} polygons each face's islands
- * @param {boolean} [anchored] cut at the notches of a fused island in preference to its narrowest neck
+ * @param {'neck' | 'notch' | 'fit'} [prefer] where a fused island is cut: at its narrowest neck, at its notches, or where the pieces fit the finer face best
+ * @param {boolean} [through] cut through the counters of a fused island that the finer islands lack
  * @returns {number[][][][][][] | null} per island, each face's one island */
-export function splitIslands(polygons, anchored = false) {
+export function splitIslands(polygons, prefer = 'neck', through = false) {
   const finest = polygons.reduce((best, islands, f) => (islands.length > polygons[best].length ? f : best), 0)
   const fine = polygons[finest]
   if (!fine.length || polygons.some((islands) => !islands.length)) return null
@@ -1232,18 +1327,26 @@ export function splitIslands(polygons, anchored = false) {
         out[mine[0]] = island
         continue
       }
+      const stray = through
+        ? strayCounters(
+            island,
+            mine.map((j) => fine[j])
+          )
+        : []
+      const kept = island.slice(1).filter((hole) => !stray.includes(hole))
       const pieces = cutRing(
         island[0],
         mine.map((j) => ({ ring: fine[j][0], solid: true })),
         true,
         true,
-        island.slice(1),
-        anchored
+        kept,
+        prefer,
+        stray
       )
       if (!pieces) return null
       mine.forEach((j, k) => (out[j] = [pieces[k]]))
-      // No cut touches a counter, so each lies whole in one piece.
-      for (const hole of island.slice(1)) {
+      // No cut touches a counter that is kept, so each lies whole in one piece.
+      for (const hole of kept) {
         const k = pieces.findIndex((piece) => inside(hole[0], piece))
         if (k < 0) return null
         out[mine[k]].push(hole)
@@ -1253,6 +1356,168 @@ export function splitIslands(polygons, anchored = false) {
   })
   if (faces.some((face) => !face)) return null
   return fine.map((_, j) => faces.map((face) => [/** @type {number[][][][]} */ (face)[j]]))
+}
+
+/** Two faces can each run together strokes the other keeps apart, so that neither is a
+ * coarser form of the other and an island of one lies over parts of several islands of
+ * the other. Each such island is cut by the islands it lies over, in either face, until
+ * every piece lies over one piece of the other face, and those are paired.
+ * Null when nothing needed cutting or the pieces do not pair off.
+ * @param {number[][][][][]} polygons two faces' islands
+ * @param {boolean} [through] cut through the counters of an island that the islands it lies over lack
+ * @returns {{ region: number[][][][][], cut: boolean }[] | null} per pair, each face's one island */
+export function sharedIslands(polygons, through = false) {
+  if (polygons.length !== 2 || polygons.some((islands) => !islands.length)) return null
+  /** @type {{ island: number[][][], cut: boolean, stuck?: boolean }[][]} */
+  const faces = polygons.map((islands) => islands.map((island) => ({ island, cut: false })))
+  // Points just inside an island's outline, which say what ink of the other face it lies over.
+  const probes = (/** @type {number[][][]} */ island) => {
+    const points = dense(island[0], 3),
+      n = points.length,
+      sign = turning(island[0]) > 0 ? 1 : -1
+    return points
+      .map((p, i) => {
+        const a = points[(i + n - 1) % n],
+          b = points[(i + 1) % n],
+          length = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1
+        return [p[0] - (sign * 2 * (b[1] - a[1])) / length, p[1] + (sign * 2 * (b[0] - a[0])) / length]
+      })
+      .filter((q) => inside(q, island[0]) && !island.slice(1).some((hole) => inside(q, hole)))
+  }
+  const holds = (/** @type {number[][][]} */ island, /** @type {number[]} */ q) =>
+    inside(q, island[0]) && !island.slice(1).some((hole) => inside(q, hole))
+  /** An island's probes, outline and box, worked out once.
+   * @type {WeakMap<object, { island: number[][][], probes: number[][], outline: number[][], box: number[] }>} */
+  const seen = new WeakMap()
+  const known = (/** @type {number[][][]} */ island) => {
+    let entry = seen.get(island)
+    if (!entry) {
+      entry = { island, probes: probes(island), outline: dense(island[0], 3), box: ringBox(island[0]) }
+      seen.set(island, entry)
+    }
+    return entry
+  }
+  /** How far a point lies outside a box; zero inside it. */
+  const apart = (/** @type {number[]} */ box, /** @type {number[]} */ q) =>
+    Math.hypot(Math.max(box[0] - q[0], 0, q[0] - box[2]), Math.max(box[1] - q[1], 0, q[1] - box[3]))
+  /** How many of an island's probes lie over, or nearest to, each island of the other face.
+   * @param {number} f @param {number[][][]} island */
+  const leans = (f, island) => {
+    const points = known(island).probes
+    const others = faces[1 - f].map(({ island: other }) => known(other))
+    const counts = others.map(() => 0)
+    for (const q of points) {
+      let best = others.findIndex(({ island: other, box }) => !apart(box, q) && holds(other, q))
+      // Otherwise the nearest outline within reach; an island whose box lies further is passed over.
+      if (best < 0) {
+        let least = 24
+        for (const [j, { outline, box }] of others.entries()) {
+          if (apart(box, q) >= least) continue
+          for (const p of outline) {
+            const d = Math.hypot(p[0] - q[0], p[1] - q[1])
+            if (d < least) {
+              least = d
+              best = j
+            }
+          }
+        }
+      }
+      if (best >= 0) counts[best]++
+    }
+    return { counts, least: Math.max(6, 0.15 * points.length) }
+  }
+  /** Per face and island, the other face's islands it shares ink with: each leans on the
+   * other with a good part of its outline. A stroke's tip that strays over a neighbour
+   * leans on it, but the neighbour does not lean back.
+   * @returns {{ j: number, count: number }[][][]} */
+  const partners = () => {
+    const all = faces.map((islands, f) => islands.map(({ island }) => leans(f, island)))
+    return all.map((islands, f) =>
+      islands.map(({ counts, least }, x) =>
+        counts
+          .flatMap((count, j) =>
+            count >= least && all[1 - f][j].counts[x] >= all[1 - f][j].least ? [{ j, count }] : []
+          )
+          .sort((a, b) => b.count - a.count)
+      )
+    )
+  }
+  let any = false
+  for (let round = 0; round < 12; round++) {
+    /** @type {{ f: number, x: number, over: { j: number, count: number }[] } | null} */
+    let next = null
+    const shared = partners()
+    for (const f of [0, 1])
+      for (const [x, entry] of faces[f].entries()) {
+        if (entry.stuck) continue
+        const over = shared[f][x]
+        if (over.length > 1 && (!next || over[1].count > next.over[1].count)) next = { f, x, over }
+      }
+    if (!next) break
+    const { f, x, over } = next
+    const { island } = faces[f][x]
+    const stray = through
+      ? strayCounters(
+          island,
+          over.map(({ j }) => faces[1 - f][j].island)
+        )
+      : []
+    const kept = island.slice(1).filter((hole) => !stray.includes(hole))
+    const pieces = cutRing(
+      island[0],
+      over.map(({ j }) => ({ ring: faces[1 - f][j].island[0], solid: true })),
+      true,
+      true,
+      kept,
+      'neck',
+      stray
+    )
+    const cut = pieces?.map((piece) => ({ island: [piece], cut: true }))
+    if (!cut || kept.some((hole) => !cut.some((piece) => inside(hole[0], piece.island[0])))) {
+      faces[f][x].stuck = true
+      continue
+    }
+    for (const hole of kept)
+      /** @type {{ island: number[][][] }} */ (
+        cut.find((piece) => inside(hole[0], piece.island[0]))
+      ).island.push(hole)
+    faces[f].splice(x, 1, ...cut)
+    any = true
+  }
+  if (!any) return null
+  // Pieces that lie over each other and nothing else pair off; the rest pair by position.
+  const over = partners()
+  /** @type {{ region: number[][][][][], cut: boolean }[]} */
+  const out = []
+  const used = faces.map(() => new Set())
+  for (const [i, mine] of over[0].entries()) {
+    if (mine.length !== 1) continue
+    const j = mine[0].j
+    if (used[1].has(j) || over[1][j].length !== 1 || over[1][j][0].j !== i) continue
+    used[0].add(i)
+    used[1].add(j)
+    out.push({
+      region: [[faces[0][i].island], [faces[1][j].island]],
+      cut: faces[0][i].cut || faces[1][j].cut
+    })
+  }
+  const rest = faces.map((islands, f) => islands.filter((_, i) => !used[f].has(i)))
+  if (rest[0].length !== rest[1].length) return null
+  if (rest[0].length) {
+    const matched = matchRegions(
+      rest.map((islands) => islands.map(({ island }) => island)),
+      (p) => p[0]
+    )
+    if (!matched) return null
+    for (const [k, island] of matched[0].entries()) {
+      const pair = [island, matched[1][k]]
+      out.push({
+        region: pair.map((p) => [p]),
+        cut: pair.some((p, f) => rest[f].find((entry) => entry.island === p)?.cut)
+      })
+    }
+  }
+  return out
 }
 
 /** Map one ring from a source bounding box into a destination bounding box.
@@ -1745,6 +2010,46 @@ export function prepareCorrespondence(polygons, cut = false) {
    * @param {number[][][]} rings */
   const held = (rings) =>
     Math.abs(rings.slice(1).reduce((sum, ring) => sum - Math.abs(turning(ring)), Math.abs(turning(rings[0]))))
+  /** How often an outline turns one way and straight back within a short run: the bumps
+   * and kinks of points matched to the wrong place. A corner or a stroke's end turns one
+   * way only and does not count.
+   * @param {number[][][]} rings open */
+  const wiggles = (rings) => {
+    let count = 0
+    for (const ring of rings) {
+      const pts = dense([...ring, ring[0]], 1.5),
+        n = pts.length
+      if (n < 16) continue
+      const turns = pts.map((p, i) => {
+        const a = pts[(i + n - 1) % n],
+          b = pts[(i + 1) % n]
+        const ux = p[0] - a[0],
+          uy = p[1] - a[1],
+          vx = b[0] - p[0],
+          vy = b[1] - p[1]
+        return Math.atan2(ux * vy - uy * vx, ux * vx + uy * vy)
+      })
+      // Every window of the ring is tried, and windows that hit within a span of each
+      // other are one wiggle, so the count does not depend on where the ring starts.
+      const span = 8
+      const hit = turns.map((_, i) => {
+        let net = 0,
+          gross = 0
+        for (let k = 0; k < span; k++) {
+          net += turns[(i + k) % n]
+          gross += Math.abs(turns[(i + k) % n])
+        }
+        return gross - Math.abs(net) > 1.2
+      })
+      const near = hit.map((_, i) => {
+        for (let k = 0; k < span; k++) if (hit[(i - k + n) % n]) return true
+        return false
+      })
+      const runs = near.filter((on, i) => on && !near[(i - 1 + n) % n]).length
+      count += runs || (near[0] ? 1 : 0)
+    }
+    return count
+  }
   const winding = (/** @type {number[][][]} */ rings) =>
     rings.reduce(
       (sum, ring) =>
@@ -1774,7 +2079,7 @@ export function prepareCorrespondence(polygons, cut = false) {
       ordered[0].map((_, j) => alignRings(ordered.map((rings) => rings[j])))
     )
     if (sampled.some((ring) => !ring)) return null
-    if (!check) return { sampled, crossed: false, ink: 0, wander: 0 }
+    if (!check) return { sampled, crossed: false, ink: 0, wander: 0, kinks: 0 }
     const blendAt = (/** @type {number[]} */ shares) =>
       sampled.map((ring) =>
         ring[0].map((_, i) =>
@@ -1852,7 +2157,15 @@ export function prepareCorrespondence(polygons, cut = false) {
       sampled,
       crossed,
       ink: eachArea ? Math.abs((cutTo ? signedInk(settledEven) : held(even)) - eachArea) / eachArea : 1,
-      wander: winding(even) / mean(winding) - 1
+      wander: winding(even) / mean(winding) - 1,
+      // A mismatch can lie flat at the even mix and kink to either side of it.
+      kinks:
+        Math.max(
+          wiggles(even),
+          ...faces.map((_, f) =>
+            wiggles(blendAt(faces.map((__, k) => (k === f ? 0.7 : 0.3 / (faces.length - 1)))))
+          )
+        ) - Math.max(...each.map(wiggles))
     }
   }
   const rings = polygons.map((p) => p[0])
@@ -1863,7 +2176,9 @@ export function prepareCorrespondence(polygons, cut = false) {
   let match = null
   if (alike) {
     match = matchOf(rings, false, cut)
-    if (match && cut && (match.crossed || match.wander > 0.05)) return null
+    // A cut piece turns more than its faces at the cut itself. That alone is no fault; a
+    // mismatch shows as kinks neither face has.
+    if (match && cut && (match.crossed || (match.wander > 0.05 && match.kinks > 0))) return null
   } else {
     for (const candidate of mergeCounterCandidates(rings)) {
       const m = matchOf(candidate, true, true)
@@ -1880,10 +2195,11 @@ export function prepareCorrespondence(polygons, cut = false) {
   }
   if (!match) return null
   const { sampled } = match
+  const strain = Math.max(0, match.wander) + match.ink + Math.max(0, match.kinks)
   const faces = polygons
   /** @type {number[][][][] | undefined} */
   let vectors
-  return (/** @type {number[]} */ shares, /** @type {number} */ weight) => {
+  const blend = (/** @type {number[]} */ shares, /** @type {number} */ weight) => {
     const dw = weight - 1
     if (dw && !vectors)
       vectors = faces.map((_, f) => weightVectors(sampled.map((ring) => [...ring[f], ring[f][0]])))
@@ -1909,6 +2225,8 @@ export function prepareCorrespondence(polygons, cut = false) {
     // Counters cut from one another meet along the cut, and a lighter weight laps them.
     return alike ? rings : settledRings(rings)
   }
+  // How far the even mix strays from its faces in turning, ink and kinks, where that was measured.
+  return Object.assign(blend, { strain })
 }
 
 /** @param {number[][][]} rings */
