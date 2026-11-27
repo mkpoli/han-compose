@@ -874,6 +874,9 @@ export const designedSources = (tree, style = 'sans') => {
     }
     if (!Array.isArray(node)) return
     const [op, ...children] = node
+    if (op === '⿳' && keyOf(node) === '⿳士⿲女口意祥') {
+      for (const char of '士女口意祥') out.add(char)
+    }
     if (brushSweepRoom(node, style)) {
       children.forEach(ch => out.add(ch))
       if (style === 'fangsong') out.add(node[1] === '瓦' ? tileHost(node[2]) : '尅')
@@ -1665,7 +1668,7 @@ export class Composer {
     // Cell scaffolds already have a complete layout; searching every repeated subtree adds no evidence.
     if (this.pyramid(tree) || this.pyramidWithBase(tree)) return false
     const key = keyOf(tree)
-    if (key.includes(INCOME_IDS)) return false
+    if (key.includes(INCOME_IDS) || key.includes('⿳士⿲女口意祥')) return false
     if (containsRateForm(key) || this.bySequence(key) || this.spelled.has(key)) return false
     if (isGroupedForm(key, this.fontStyle) || isComponentForm(key, this.fontStyle)) return false
     let leaves = 0, supported = true
@@ -2005,7 +2008,7 @@ export class Composer {
         return
       }
       const repeated = isGroupedForm(keyOf(node), this.fontStyle) ? componentParts(keyOf(node), region, this.fontStyle, atRoot, this.exclude) : null
-      const designed = repeated ?? rccParts(editable, keyOf(node), region) ?? birdOutlineParts(this, keyOf(node), region) ?? this.doubleTurnParts(node, region) ?? brushSweepParts(this, node, region, !atRoot) ?? this.thornRowParts(node, region) ?? yiCrossParts(this, node, region) ?? this.qiParts(node, region) ?? ghostParts(this, node, region) ?? this.muKoParts(node, region) ?? this.wheatFaceParts(node, region)
+      const designed = repeated ?? rccParts(editable, keyOf(node), region) ?? birdOutlineParts(this, keyOf(node), region) ?? this.doubleTurnParts(node, region) ?? brushSweepParts(this, node, region, !atRoot) ?? this.thornRowParts(node, region) ?? yiCrossParts(this, node, region) ?? this.qiParts(node, region) ?? ghostParts(this, node, region) ?? this.auspiciousInscription(node, region) ?? this.muKoParts(node, region) ?? this.wheatFaceParts(node, region)
       if (designed) {
         const boxes = designed[0]?.rccGroup && rccLeafBoxes(designed, leafTexts(node).length)
         for (const box of boxes || designed.map(part => part.target)) out.push({ index: out.length, box, empty: false })
@@ -2524,6 +2527,38 @@ export class Composer {
     return parts.length ? parts : null
   }
 
+  /** 吉祥如意: 陈坚, 2011-01-12 (https://news.fznews.com.cn/kjww/2011-1-12/2011112ql7wk9qCih23027.shtml).
+   *  Sets 士 directly over the shared 口 (forming 吉) beside 女 (forming 如), with 意 on the right
+   *  and 祥 cleanly below across all five faces. */
+  auspiciousInscription(node, region) {
+    if (!Array.isArray(node) || node[0] !== '⿳' || keyOf(node) !== '⿳士⿲女口意祥') return null
+    const cells = [
+      ['士', [0.27, 0.72, 0.61, 0.98]],
+      ['女', [0.02, 0.36, 0.31, 0.70]],
+      ['口', [0.33, 0.43, 0.55, 0.67]],
+      ['意', [0.59, 0.35, 0.98, 0.73]],
+      ['祥', [0.12, 0.01, 0.88, 0.32]],
+    ]
+    if (cells.some(([ch]) => this.excluded(ch))) return null
+    let frame = region
+    if (this.face) {
+      const fw = this.face[2] - this.face[0], fh = this.face[3] - this.face[1]
+      const rw = region[2] - region[0], rh = region[3] - region[1]
+      const leftInset = region[0] > this.face[0] + 0.02 * fw ? 0.05 * rw : 0
+      const topInset = region[3] < this.face[3] - 0.02 * fh ? 0.05 * rh : 0
+      if (leftInset || topInset) frame = [region[0] + leftInset, region[1], region[2], region[3] - topInset]
+    }
+    const fixed = !['sans', 'serif'].includes(this.fontStyle)
+    const parts = []
+    for (const [ch, box] of cells) {
+      const glyph = this.glyph(ch)
+      if (!glyph) return null
+      const p = placed(glyph, glyph.box, mapped(box, [0, 0, 1, 1], frame), partInk(glyph), `glyph ${ch}`)
+      parts.push(fixed ? { ...p, fixed: true } : p)
+    }
+    return parts
+  }
+
   /** R+06D8, 出土文獻與古文字教程 p. 15. The two sides of 棘 flank a shorter 企. */
   thornRowParts(node, region) {
     if (!isThornRow(node) || ['棘', '企', '朿'].some(ch => this.excluded(ch))) return null
@@ -2629,6 +2664,8 @@ export class Composer {
   }
 
   drawNode(node, region, atRoot = false, sideBySide = false) {
+    const inscription = this.auspiciousInscription(node, region)
+    if (inscription) return inscription
     const sweep = brushSweepParts(this, node, region, !atRoot)
     if (sweep) return sweep
     const yuan = this.yuanParts(node, region)
