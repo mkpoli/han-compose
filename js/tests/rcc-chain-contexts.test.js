@@ -4,7 +4,7 @@ import { documentSource } from '../src/document-source.js'
 import { files, shards } from './fixtures/small-export.js'
 import { partOf, pathMask, svgPath } from '../src/geometry.js'
 import { rccChainContextParts, rccChainDonors } from '../src/rcc-chain-contexts.js'
-// The format-7 Noto Sans CJK and TW-Kai records retain the primary faces' own strokes.
+// Format-7 glyph records from Noto Sans CJK, TW-Kai and Zhuque FangSong.
 import donors from './fixtures/rcc-early-strokes.json' with { type: 'json' }
 
 const water = '⿰氵⿱亠⿶#(𠃍-𠃊一)凵'
