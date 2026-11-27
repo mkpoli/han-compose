@@ -90,7 +90,7 @@ export class UnavailableError extends Error { name = 'UnavailableError' }
  * drawing's `emoji`, with `restored` and `cut` saying what ㇯ does to it.
  *
  * `preferExport` draws from the export even where the bundled outlines would cover the sequence.
- * @param {{ base: string, separate?: boolean, fontStyle?: 'sans' | 'serif' | 'regular' | 'fangsong' | 'pen-writing',
+ * @param {{ base: string, separate?: boolean, fontStyle?: 'sans' | 'serif' | 'woodblock' | 'regular' | 'fangsong' | 'pen-writing',
  *   faceBases?: Partial<Record<import('./font-mix.js').FontStyle, string>>, preferExport?: boolean, worker?: () => WorkerLike, loaders?: Record<string, string>, timeout?: number }} options
  * @returns {((sequence: string, options?: PreviewOptions) => Promise<Drawing>) & { warm: () => void }}
  */
@@ -206,7 +206,7 @@ export function composerPreview({ base, faceBases = {}, separate = false, fontSt
 /**
  * A sequence drawn from the bundled outlines alone, in the page, answered as a drawer answers.
  * @param {string} sequence
- * @param {{ separate?: boolean, fontStyle?: 'sans' | 'serif' | 'regular' | 'fangsong' | 'pen-writing', preferExport?: boolean, loaders?: Record<string, string>, carSlots?: number[] }} options
+ * @param {{ separate?: boolean, fontStyle?: 'sans' | 'serif' | 'woodblock' | 'regular' | 'fangsong' | 'pen-writing', preferExport?: boolean, loaders?: Record<string, string>, carSlots?: number[] }} options
  * @param {(leaves: SketchLeaf[]) => void} heard
  * @returns {Promise<import('./client.js').Answer>}
  */

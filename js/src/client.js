@@ -74,7 +74,7 @@ export function createDrawer(makeWorker, base, config = {}) {
   /**
    * @param {string} sequence
    * @param {((leaves: SketchLeaf[]) => void) | null} [onSketch]
-   * @param {{ separate?: boolean, fontStyle?: 'sans' | 'serif' | 'regular' | 'fangsong' | 'pen-writing', preferExport?: boolean, faces?: { style:string, base:string, share:number }[], weight?:number, loaders?: Loaders, carSlots?: number[] }} [options]
+   * @param {{ separate?: boolean, fontStyle?: 'sans' | 'serif' | 'woodblock' | 'regular' | 'fangsong' | 'pen-writing', preferExport?: boolean, faces?: { style:string, base:string, share:number }[], weight?:number, loaders?: Loaders, carSlots?: number[] }} [options]
    * @returns {Promise<Answer>}
    */
   function draw(sequence, onSketch = null, { separate = false, fontStyle = 'sans', preferExport = false, faces, weight = 1, carSlots = [], loaders = config.loaders } = {}) {
