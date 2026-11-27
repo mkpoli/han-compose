@@ -59,6 +59,9 @@ test('preserves the host contours and native placement of its frame', () => {
   const [root] = hostChainParts(composer, horse, region, true)
   const glyph = partOf(record)
   expect(root.part.contours).toEqual([glyph.contours[2], glyph.contours[3], glyph.contours[9]])
+  // The requested face may serve the exact Noto fallback outline.
+  const [fallback] = hostChainParts({ ...composer, fontStyle: 'regular' }, horse, region, true)
+  expect(fallback.part.contours).toEqual(root.part.contours)
   expect(root.target).toEqual(root.source)
   const slot = [100, 100, 400, 500]
   const [custom] = hostChainParts({ ...composer, face: slot }, horse, slot, true)
@@ -123,6 +126,7 @@ test('widens the space between 亞 uprights only in the saved standalone frame',
   }
 })
 
+// Native 島 paths from TW-Kai, Zhuque FangSong and Kureedo in the deployed format-7 exports.
 test('closes the upper counter of the 島 frame in the three brush faces', () => {
   for (const [fontStyle, record] of Object.entries(islandRecords)) {
     expect(chainHost(horse, fontStyle)).toBe('馬')
@@ -134,7 +138,7 @@ test('closes the upper counter of the 島 frame in the three brush faces', () =>
     // A column near either end crosses the top, middle and hooked lower bars.
     const size = 100
     const mask = fill(groupRings([frame], 24), size, region)
-    for (const x of [23, 60]) {
+    for (const x of [23, 45]) {
       let bands = 0
       for (let y = 0; y < size; y++) {
         if (mask[y * size + x] && (y === 0 || !mask[(y - 1) * size + x])) bands++

@@ -9,7 +9,7 @@ import { parseChain } from './stroke-chain.js'
 // Yi Bai, ids_lv2.txt, 2597437b. 馬 is ⿹⿷#(-一丨b𠃌)𰀁灬 and
 // 島 is ⿱丿⿹⿷⿴#(一-𠃍丨b𠃌)一一山.
 // https://github.com/yi-bai/ids/blob/2597437b/ids_lv2.txt
-const standardHosts = new Set(['#(-一丨b𠃌)', '#(一-𠃍丨b𠃌)'])
+const notoFallbackFrames = new Set(['#(-一丨b𠃌)', '#(一-𠃍丨b𠃌)'])
 
 // Yi Bai, ids_lv0.txt at 2597437b, identifies the two sides of 亞, the
 // frame of 臼, the triangle in 㐃, unhooked 了(s), the lower part of 之, and the two 辶
@@ -38,7 +38,6 @@ function widenUprightGap(piece, [left, right], box) {
     ({ ...c, light: spread(c.light), heavy: spread(c.heavy) })))
 }
 
-// Both the standalone frame and the partitioned 馬 in R+07B4 use this outline.
 /** @param {any} record @param {[string, string | string[], (number | number[][])[]] | undefined} cut
  * @param {string} digest */
 function matchingPiece(record, cut, digest) {
@@ -48,7 +47,8 @@ function matchingPiece(record, cut, digest) {
     ? glyph.contours[index] : reconnectStroke(glyph.contours, index)))
 }
 
-/** @param {any} record @param {string} style */
+/** The 馬 outline used for both the standalone chain and the outer operand of R+07B4.
+ * @param {any} record @param {string} style */
 export function horseFrame(record, style) {
   if (record?.v !== 1) return null
   return matchingPiece(record, nativeCuts['#(-一丨b𠃌)'].faces[style], hexOf(JSON.stringify(record.p)))
@@ -60,7 +60,7 @@ export function horseFrame(record, style) {
 export function hostChainParts(composer, node, region, atRoot, written = node) {
   const source = nativeCuts[node]
   const cut = source?.faces[composer.fontStyle]
-  const char = cut?.[0] ?? (standardHosts.has(node) ? source.host : undefined)
+  const char = cut?.[0] ?? (notoFallbackFrames.has(node) ? source.host : undefined)
   if (!char || composer.excluded(node) || composer.excluded(char) || (source && composer.excluded(source.host))) return null
   const chain = parseChain(node)
   if (!chain || chain.strokes.some(({ char }) => composer.excluded(char))) return null
@@ -69,8 +69,9 @@ export function hostChainParts(composer, node, region, atRoot, written = node) {
   if (!record) return null
   const digest = hexOf(JSON.stringify(record.p))
   let native = matchingPiece(record, cut, digest)
-  // The original two Noto cuts were selected by their outline digest alone.
-  if (!native && standardHosts.has(node)) {
+  // A brush export can serve a fallback Noto glyph. For 馬 and 島 the
+  // verified Noto cut applies whenever those exact contours are returned.
+  if (!native && notoFallbackFrames.has(node)) {
     native = matchingPiece(record, source.faces.sans, digest) ?? matchingPiece(record, source.faces.serif, digest)
   }
   if (!native) return null
