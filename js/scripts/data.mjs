@@ -42,6 +42,10 @@ for (const name of readdirSync(join(source, 'unicode', 'outlines'))) {
 for (const name of ['wan-shan.json', 'numbered-forms.json', 'numbered-sans-outlines.json.gz', 'custom-forms.json.gz']) {
   copy(join(source, name), join(into, name))
 }
+const rateDir = join(root, '..', 'src', 'han_compose', 'rate_forms')
+for (const file of readdirSync(rateDir).filter(name => name.endsWith('.json') || name === 'NOTICE.txt')) {
+  copy(join(rateDir, file), join(into, 'rate-forms', file))
+}
 // The wheat enclosure cuts ship with the Python module and the browser package.
 copy(join(root, '..', 'src', 'han_compose', 'wheat-face-cuts.json'), join(into, 'wheat-face-cuts.json'))
 // The contextual five's native cut, drawn from 葭.
