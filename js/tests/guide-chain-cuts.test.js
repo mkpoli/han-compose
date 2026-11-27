@@ -1,6 +1,8 @@
 import { expect, it } from 'bun:test'
-import { guideChainDonor, guideChainParts } from '../src/guide-chain-cuts.js'
-import { fill, partOf, rings } from '../src/geometry.js'
+import { angContextDonors, angContextParts, guideChainDonor, guideChainParts } from '../src/guide-chain-cuts.js'
+import { compose, createSource, sketch } from '../src/loader.js'
+import { files, shards } from './fixtures/small-export.js'
+import { fill, partOf, pathMask, rings } from '../src/geometry.js'
 // Noto Sans CJK JP 2.004 and Kureedo Full 0.5.0 (both SIL OFL 1.1).
 import records from './fixtures/guide-chain-cuts.json' with { type: 'json' }
 
@@ -49,4 +51,42 @@ it('respects exclusions and refuses unverified donor contours', () => {
   const changed = { ...composer('sans'), glyphRecord: () => ({ ...donor, p: donor.p.slice(1) }) }
   expect(guideChainParts(changed, frame, face)).toBeNull()
   expect(guideChainParts(composer('sans'), '#(一丨)', face)).toBeNull()
+})
+
+it('draws and edits both Yi Bai spellings of 卬 in their native 仰 positions', async () => {
+  for (const fontStyle of ['sans', 'pen-writing']) {
+    const entries = Object.entries(records[fontStyle]).map(([ch, G]) => [ch, { G }])
+    const input = { ...files, ...shards('g', entries) }
+    const source = createSource(async name => input[name] ? Uint8Array.from(Buffer.from(input[name])).buffer : null)
+    const samples = [['⿰亻卬', '仰', ['亻', '卬']]]
+    for (const left of ['#(丿𠃊)', '#(丿𠄌)', '#(丿𠃊>)', '#(丿𠄌>)']) {
+      const pair = `⿰${left}卩`
+      samples.push([pair, '卬', [left, '卩']], ['⿰亻' + pair, '仰', ['亻', left, '卩']])
+    }
+    for (const [ids, host, leaves] of samples) {
+      const normal = await compose(source, ids, { fontStyle })
+      const separate = await compose(source, ids, { fontStyle, separate: true })
+      const layout = await sketch(source, ids, { fontStyle })
+      const native = await compose(source, host, { fontStyle })
+      expect(normal.d).toBe(native.d)
+      expect(separate.parts.map(p => p.origin)).toEqual(leaves.map(leaf => `${leaf} from ${host}`))
+      expect(separate.parts.map(p => p.leaf)).toEqual(layout.map(box => box.index))
+      expect(pathMask(separate.d, 180)).toEqual(pathMask(native.d, 180))
+    }
+  }
+})
+
+it('honors exclusions throughout the attested 卬 spelling and requires the identified native host', () => {
+  const modern = '⿰#(丿𠃊)卩', historic = '⿰#(丿𠃊>)卩', full = '⿰亻' + historic
+  expect(angContextDonors('⿰#(丿𠃊)木')).toEqual([])
+  expect(angContextDonors('#(丿𠃊)')).toEqual([])
+  for (const blocked of ['仰', '卬', '亻', '卩', '丿', '𠃊', '#(丿𠃊)', '#(丿𠃊>)', modern, historic,
+    '⿰亻卬', '⿰亻' + modern, full]) {
+    expect(angContextParts(composer('sans', [blocked]), full, face)).toBeNull()
+  }
+  for (const blocked of ['仰', '亻', '卬', '⿰亻卬']) {
+    expect(angContextParts(composer('sans', [blocked]), '⿰亻卬', face)).toBeNull()
+  }
+  const changed = { ...composer('sans'), glyphRecord: () => ({ ...records.sans.卬, p: [] }) }
+  expect(angContextParts(changed, modern, face)).toBeNull()
 })

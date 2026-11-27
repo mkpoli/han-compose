@@ -21,9 +21,19 @@ jobs:
       - uses: oven-sh/setup-bun@v2
       # The two secrets a maintainer has to add once: CLOUDFLARE_API_TOKEN to deploy, and a
       # fine-grained GITHUB_TOKEN for the Worker to file with. Both are needed before anything is
-      # published, since a deploy without the token answers `502` to every report.
+      # published, since a deploy without the token answers `502` to every report. A missing one
+      # fails the run, so an intake left undeployed shows as a red run.
+      - name: Check the secrets
+        run: |
+          missing=''
+          [ -n "$CLOUDFLARE_API_TOKEN" ] || missing="$missing CLOUDFLARE_API_TOKEN"
+          [ -n "$CLOUDFLARE_ACCOUNT_ID" ] || missing="$missing CLOUDFLARE_ACCOUNT_ID"
+          [ -n "$REPORTS_GITHUB_TOKEN" ] || missing="$missing REPORTS_GITHUB_TOKEN"
+          if [ -n "$missing" ]; then
+            echo "::error::Repository secrets missing:$missing. The report intake was not deployed."
+            exit 1
+          fi
       - name: Deploy the report intake
-        if: env.CLOUDFLARE_API_TOKEN != '' && env.REPORTS_GITHUB_TOKEN != ''
         working-directory: workers/reports
         run: |
           printf '%s' "$REPORTS_GITHUB_TOKEN" | bunx wrangler@4.158.0 secret put GITHUB_TOKEN

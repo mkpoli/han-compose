@@ -346,8 +346,8 @@ def test_a_ring_holds_exactly_the_samples_of_its_segments() -> None:
 
 def test_a_ring_refuses_outlines_it_cannot_read() -> None:
     points = np.zeros((3, 2))
-    with pytest.raises(ValueError, match="curveTo outlines are not read"):
-        compose._rings([compose.Contour([("curveTo", 3, False)], points, points)], [points])
+    with pytest.raises(ValueError, match="arcTo outlines are not read"):
+        compose._rings([compose.Contour([("arcTo", 3, False)], points, points)], [points])
 
 
 def test_a_description_under_a_cover_is_no_instance(composer: compose.Composer) -> None:
@@ -384,3 +384,34 @@ def test_a_row_of_the_same_part_is_no_instance(composer: compose.Composer) -> No
     finally:
         composer.exclude = saved
     assert not any(origin.startswith("instance") for origin in origins)
+
+
+def test_an_entity_is_one_component_kept_as_written() -> None:
+    assert compose.parse("⿰&HC-u91d1-full;皮") == ("⿰", "&HC-u91d1-full;", "皮")
+    assert compose.full_form("&HC-u91d1-full;") == "金"
+    assert compose.full_form("&CDP-8BD0;") is None and compose.full_form("金") is None
+    # An ampersand that opens no entity is a component of its own.
+    assert compose.parse("⿰&皮") == ("⿰", "&", "皮")
+
+
+def test_a_component_written_in_full_is_its_own_glyph_where_the_plain_one_takes_its_positional_form(composer: compose.Composer) -> None:
+    plain = composer.compose("⿰金皮")
+    full = composer.compose("⿰&HC-u91d1-full;皮")
+    assert not plain[0].origin.startswith("glyph")
+    assert full[0].origin == "glyph &HC-u91d1-full;"
+    assert full[0].part.contours == composer.font.glyph("金").contours
+
+
+def test_a_spelled_out_operand_holds_its_characters_ink(composer: compose.Composer) -> None:
+    # 媽 holds less outline than 女 and 馬 standing alone: the description is measured as the character.
+    assert composer.ink(compose.parse("⿰女馬")) == composer.ink("媽")
+    assert composer.ink(compose.parse("⿰女馬")) < composer.ink("女") + composer.ink("馬")
+
+
+def test_the_export_lists_the_room_of_each_enclosing_part(composer: compose.Composer) -> None:
+    from han_compose import web_export
+
+    listed = web_export.rooms(composer)
+    assert listed and all(len(key.split("\t")) == 2 and len(share) == 4 for key, share in listed.items())
+    op, outer = next(iter(listed)).split("\t")
+    assert listed[f"{op}\t{outer}"] == [round(v, 4) for v in composer._enclosed_share(op, outer)]
