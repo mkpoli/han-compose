@@ -1,0 +1,108 @@
+"""Extract only stroke-chain claims and image citations from the RCC public JSON export.
+
+Save https://rare.glyphatlas.org/api/export?format=json as a local JSON file.
+For revision counts, supply the JSON audit slices obtained from the public
+history cursor. Original image bytes are neither downloaded nor included.
+"""
+from __future__ import annotations
+
+import argparse
+from hashlib import sha256
+import json
+import re
+from pathlib import Path
+from urllib.parse import urlsplit, urlunsplit
+
+RCC = "https://rare.glyphatlas.org"
+CHAIN = re.compile(r"#\([^()\s]+\)")
+
+
+def source_url(url):
+    if not url:
+        return None
+    parts = urlsplit(url)
+    return urlunsplit((parts.scheme, parts.netloc, parts.path, "", ""))
+
+
+def evidence(sighting, entry_url):
+    return {
+        "url": f"{entry_url}#sighting-{sighting['id']}",
+        "title": sighting.get("title"),
+        "author": sighting.get("author"),
+        "date": sighting.get("original_date") or sighting.get("report_date"),
+        "publisher": sighting.get("publisher"),
+        "page": sighting.get("page"),
+        "source": source_url(sighting.get("url")),
+        "images": [{
+            "url": f"{RCC}/media/v2/{image['image_key']}",
+            "mark": json.loads(image["box"] or "[]"),
+        } for image in sighting.get("media", [])],
+    }
+
+
+def catalogue(original, history):
+    export = json.loads(original)
+    rows = []
+    matches = [row for audit in history for row in audit["matching"]]
+    by_entry = {}
+    for change in sorted(matches, key=lambda row: row["revision"]):
+        values = [claim["value"] for claim in change["claims"]]
+        if change["snapshot_ids"]:
+            values.append(change["snapshot_ids"])
+        for value in values:
+            if CHAIN.search(value):
+                by_entry.setdefault(change["entry"], {}).setdefault(value, []).append(change["revision"])
+    entries = {entry["id"]: entry for entry in export["entries"]}
+    for entry_id in dict.fromkeys([*entries, *by_entry]):
+        entry = entries.get(entry_id, {})
+        claims = [claim for claim in entry.get("claims", []) if claim["kind"] in ("ids", "composition")
+                  and CHAIN.search(claim["value"])]
+        previous = by_entry.get(entry_id, {})
+        if not claims and not previous:
+            continue
+        url = f"{RCC}/en/entry/{entry_id}"
+        rows.append({
+            "code": entry.get("code", f"R+{entry_id:04X}"),
+            "url": url,
+            "created": entry.get("created_at"),
+            "credited_to": entry.get("created_by_name"),
+            "history": f"{url}/history",
+            "historical_revisions": sorted({rev for revisions in previous.values() for rev in revisions}),
+            "primary_ids": entry.get("ids"),
+            "claims": [{"ids": claim["value"], "chains": CHAIN.findall(claim["value"]),
+                        "layout": (claim["data"] or {}).get("layout")} for claim in claims],
+            "historical_claims": [{"ids": ids, "chains": CHAIN.findall(ids), "revisions": sorted(set(revs))}
+                                  for ids, revs in previous.items()],
+            "sightings": [evidence(sighting, url) for sighting in entry.get("evidence", [])],
+        })
+    revision = export["dataset"]["revision"]
+    audit = {
+        "url": f"{RCC}/en/history",
+        "through": revision,
+        "pages": sum(len(part["pages"]) for part in history),
+        "public_rows": sum(page["public_rows"] for part in history for page in part["pages"]),
+        "matching_rows": len(matches),
+    } if history else None
+    return {
+        "source": {
+            **export["dataset"],
+            "url": f"{RCC}/api/export?format=json",
+            "sha256": sha256(original).hexdigest(),
+        },
+        "history": audit,
+        "records": rows,
+    }
+
+
+def main():
+    cli = argparse.ArgumentParser(description=__doc__)
+    cli.add_argument("export", type=Path)
+    cli.add_argument("--history", type=Path, nargs="*", default=[])
+    cli.add_argument("--output", type=Path, default=Path("data/rcc-chain-evidence.json"))
+    args = cli.parse_args()
+    data = catalogue(args.export.read_bytes(), [json.loads(path.read_bytes()) for path in args.history])
+    args.output.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf8")
+
+
+if __name__ == "__main__":
+    main()
