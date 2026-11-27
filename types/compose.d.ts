@@ -693,6 +693,10 @@ export declare class Composer {
     /** Whether the export carries the left column's 身, cut from 射, 躬 or 躭. */
     hasLeftBody(node: any, place?: string): boolean;
     ranked(op: any, index: any, node: any, siblings: any, box: any, isPlaced?: boolean): any;
+    /** Whether the face's own glyph of `ch` is strokes that all run along the axis its place shares
+     *  (level strokes in a row, upright ones in a stack), each no thicker than `ACROSS_THICK` of its
+     *  length. */
+    strokesAlong(ch: any, axis: any): any;
     /** A fallback cut with a detached bar the native cuts lack is left out (`_native_shapes`). */
     nativeShapes(ranked: any): any;
     /** Both operands' boxes in the em, as the learned layout sets them. A construct that is drawn has

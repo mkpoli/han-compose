@@ -911,6 +911,8 @@ export const designedSources = (tree, style = 'sans') => {
  *  is 五 above its lower 一. 𲐬 is 巫 above its, with a second 人 under each 人 beside the stem
  *  (`doubled`), as the code chart draws its 𠈌. No sequence says so; the cut is made in the face's
  *  own glyph. */
+/** The most a stroke running along a row or a stack may be thick, as a share of its length. */
+const ACROSS_THICK = 0.3
 /** How many of a character's cuts for a place are tried for a foot to cut away. */
 const FOOTLESS_HOSTS = 6
 const FOOTLESS = { '𲎰': { host: '五' }, '𲐬': { host: '巫', doubled: true } }
@@ -3990,6 +3992,10 @@ export class Composer {
       let found = weighed(candidates, written)
       const facing = C.FACING_PLACES[place]
       if (facing && found.length && !found.some(r => r[2].v === 1)) {
+        // Strokes that all run along the row (二 beside 爲) or the stack have no stroke of their
+        // own to set how far apart they stand: on the facing side they are spread to the
+        // neighbour there (二 in 仁), so the face's own glyph is drawn at its own spacing instead.
+        if (this.strokesAlong(written, PLACE_AXIS[place])) return []
         found = found.concat(weighed(this.hostsOf(written, facing, true).filter(h => h.v === 1).slice(0, C.KIN_HOSTS).map(h => [h, true]), written, true))
         const local = found.filter(r => r[2].v === 1 && r[2].j === 1)
         if (local.length) found = local
@@ -4001,6 +4007,18 @@ export class Composer {
       }
     }
     return []
+  }
+
+  /** Whether the face's own glyph of `ch` is strokes that all run along the axis its place shares
+   *  (level strokes in a row, upright ones in a stack), each no thicker than `ACROSS_THICK` of its
+   *  length. */
+  strokesAlong(ch, axis) {
+    if (typeof ch !== 'string' || axis === undefined || !this.own(ch) || this.excluded(ch)) return false
+    const glyph = this.glyph(ch)
+    return Boolean(glyph?.contours.length) && glyph.contours.every(contour => {
+      const box = pointsBox(contour.light), along = box[2 + axis] - box[axis], thick = box[3 - axis] - box[1 - axis]
+      return along > 0 && thick <= ACROSS_THICK * along
+    })
   }
 
   /** A fallback cut with a detached bar the native cuts lack is left out (`_native_shapes`). */
