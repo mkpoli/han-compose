@@ -4,6 +4,8 @@
 // stroke's glyph onto that grid, its bars moved rigidly and the room between them stretched.
 // Notation: NightFurySL2001, （白式）IDS 延展语法导论, <https://nightfurySl2001.github.io/bai-ids/>, §5.
 import { derived, fill, partInk, rings, union } from './geometry.js'
+import { fitChainJoins } from './stroke-joins.js'
+import { risingSweepMap, sweepMap } from './chain-stroke-width.js'
 import { guideLoopTurns } from './guide-loop.js'
 import { drawingChain } from './chain-corrections.js'
 import { historicalChainGraph } from './historical-chains.js'
@@ -17,7 +19,7 @@ import { STROKE_CHAINS, customAt } from './tree.js'
  */
 const SEGMENTS = {
   一: 'H', 丨: 'S', 丿: 'P', 乀: 'N', 丶: 'N', '㇀': 'T', '㇂': 'N', '㇄': 'SH', '㇅': 'HSH', '㇇': 'HP',
-  '㇈': 'HSH', '㇉': 'SHS', '㇊': 'HST', '㇌': 'HPN', '㇘': 'SL', '㇢': 'P', '㇁': 'N', '㇋': 'HPHP', '㇍': 'HSH', '㇎': 'HSHS', '㇝': 'PN', 乁: 'HN', 乙: 'HPH', 乚: 'SH',
+  '㇈': 'HSH', '㇉': 'SHS', '㇊': 'HST', '㇌': 'HPN', '㇘': 'SL', '㇢': 'P', '㇁': 'N', '㇋': 'HPHP', '㇍': 'HSH', '㇎': 'HSHS', '㇝': 'N', 乁: 'HN', 乙: 'HPH', 乚: 'SH',
   乛: 'H', 亅: 'S', 𠃊: 'SH', 𠃋: 'PH', 𠃌: 'HS', 𠃍: 'HS', 𠃑: 'SHS', 𠄌: 'ST', 𠄎: 'HSHS', '⺄': 'HN',
   '◝': 'a', '◞': 'b', '◟': 'c', '◜': 'd',
 }
@@ -332,7 +334,7 @@ function linesOf(part, d, bars) {
     return [lo + a * unit, lo + (b + 1) * unit]
   }
   const n = bars.length
-  return bars.map((isBar, i) => {
+  const lines = bars.map((isBar, i) => {
     const at = n === 1 ? 0.5 : i / (n - 1)
     if (!isBar) return [lo + (hi - lo) * at, lo + (hi - lo) * at]
     if (n === 1) return bar(0, RASTER)
@@ -342,6 +344,49 @@ function linesOf(part, d, bars) {
     const mid = Math.round(RASTER * at), reach = Math.round(RASTER / n)
     return bar(Math.max(0, mid - reach), Math.min(RASTER, mid + reach))
   })
+  if (lines.every((line, i) => !i || line[0] >= lines[i - 1][1])) return lines
+
+  // Overlapping search windows can pick the same strong stem twice. In ㇎
+  // that stretches one edge of the right stem across an entire counter.
+  // Partition the projection at the valleys between distinct native stems.
+  const peaks = []
+  for (let i = 0; i < RASTER;) {
+    let end = i
+    while (end + 1 < RASTER && runs[end + 1] === runs[i]) end++
+    if (runs[i] > (runs[i - 1] ?? 0) && runs[i] > (runs[end + 1] ?? 0)) peaks.push(Math.floor((i + end) / 2))
+    i = end + 1
+  }
+  const options = peaks.map(peak => {
+    let a = peak, b = peak
+    while (a > 0 && runs[a - 1] > runs[peak] * 0.55) a--
+    while (b < RASTER - 1 && runs[b + 1] > runs[peak] * 0.55) b++
+    return { bounds: [lo + a * unit, lo + (b + 1) * unit], strength: runs[peak] / RASTER }
+  })
+  // Keep the best ordered, disjoint assignment. There are normally only two
+  // or three bars; the tip of a hook and its serifs can also produce peaks.
+  let previous = [{ edge: -Infinity, score: 0, choice: /** @type {number[][]} */ ([]) }]
+  for (let i = 0; i < n; i++) {
+    const candidates = bars[i] ? options : [{ bounds: lines[i], strength: 0 }]
+    const next = []
+    for (const { bounds, strength } of candidates) {
+      let best = null
+      for (const state of previous) {
+        if (state.edge > bounds[0] || (best && best.score >= state.score)) continue
+        best = state
+      }
+      if (best) {
+        const relative = ((bounds[0] + bounds[1]) / 2 - lo) / (hi - lo)
+        next.push({ edge: bounds[1], score: best.score + strength - 0.15 * Math.abs(relative - i / (n - 1)),
+          choice: [...best.choice, bounds] })
+      }
+    }
+    previous = next
+  }
+  if (previous.length) return previous.reduce((a, b) => a.score >= b.score ? a : b).choice
+  // A fused stroke can lack an independent peak. Disjoint windows still give
+  // a monotone map; their edges fall halfway between neighboring stations.
+  return lines.map((line, i) => bars[i] ? bar(Math.max(0, Math.round((i - 0.5) * RASTER / (n - 1))),
+    Math.min(RASTER, Math.round((i + 0.5) * RASTER / (n - 1)))) : line)
 }
 
 /** A coordinate carried through matching anchors, straight between them. @param {number[][]} anchors */
@@ -374,37 +419,56 @@ export function chainForm(text, glyphOf) {
       const axis = d ? solved.ys : solved.xs, place = d ? solved.y : solved.x
       const at = (/** @type {number} */ id) => (d ? 1 - (place.get(id) ?? 0) : place.get(id) ?? 0)
       const ids = [...new Set(stroke.at.map(v => axis.find(v)))].sort((a, b) => at(a) - at(b))
-      const bars = ids.map(id => own.some(s => STEP[s.kind][d] === 0 && axis.find(s.from) === id))
-      return { ids, bars, lines: linesOf(glyphs[i], /** @type {0 | 1} */ (d), bars), at }
+      // Independent grid lines can coincide in the selected solution, e.g.
+      // both left turns of 乙. Give them one station in the donor outline.
+      const stations = [...new Set(ids.map(at))].map(position => ids.filter(id => at(id) === position))
+      const bars = stations.map(station => own.some(s => STEP[s.kind][d] === 0 && station.includes(axis.find(s.from))))
+      return { stations, bars, lines: linesOf(glyphs[i], /** @type {0 | 1} */ (d), bars), at }
     })
   })
   const half = [new Map(), new Map()]
-  for (const axes of strokes) axes.forEach(({ ids, bars, lines }, d) => ids.forEach((id, k) => {
-    if (bars[k]) half[d].set(id, Math.max(half[d].get(id) ?? 0, (lines[k][1] - lines[k][0]) / 2))
+  for (const axes of strokes) axes.forEach(({ stations, bars, lines }, d) => stations.forEach((ids, k) => {
+    if (bars[k]) for (const id of ids) half[d].set(id, Math.max(half[d].get(id) ?? 0, (lines[k][1] - lines[k][0]) / 2))
   }))
-  const parts = strokes.map((axes, i) => {
-    const maps = axes.map(({ ids, bars, lines, at }, d) => {
-      const anchors = ids.flatMap((id, k) => {
-        const centre = BOX[d] + (BOX[d + 2] - BOX[d]) * at(id), [lo, hi] = lines[k]
+  const placed = strokes.map((axes, i) => {
+    const maps = axes.map(({ stations, bars, lines, at }, d) => {
+      const anchors = stations.flatMap((ids, k) => {
+        const centre = BOX[d] + (BOX[d + 2] - BOX[d]) * at(ids[0]), [lo, hi] = lines[k]
         if (bars[k]) return [[lo, centre - (hi - lo) / 2], [hi, centre + (hi - lo) / 2]]
         // A loose end meets the far edge of the bar it joins, so the corner is whole.
-        const edge = half[d].get(id) ?? 0
-        return [[lo, centre + (ids.length === 1 ? 0 : k === 0 ? -edge : k === ids.length - 1 ? edge : 0)]]
+        const edge = Math.max(...ids.map(id => half[d].get(id) ?? 0))
+        return [[lo, centre + (stations.length === 1 ? 0 : k === 0 ? -edge : k === stations.length - 1 ? edge : 0)]]
       })
       // Two bars too close to stretch between keep their order.
       for (let k = 1; k < anchors.length; k++) anchors[k][1] = Math.max(anchors[k][1], anchors[k - 1][1] + 1)
       return through(anchors)
     })
+    const char = solved.strokes[i].char
+    // ㇝ begins with a short 提 before its main 捺. Keep that entry from
+    // the donor, including the shallow sweep cut from FangSong 辶.
+    const vertex = (/** @type {number} */ v) => [
+      BOX[0] + (BOX[2] - BOX[0]) * (solved.x.get(solved.xs.find(v)) ?? 0),
+      BOX[3] - (BOX[3] - BOX[1]) * (solved.y.get(solved.ys.find(v)) ?? 0),
+    ]
+    const ends = solved.strokes[i].at
+    const sweep = char === '㇝' ? risingSweepMap(glyphs[i], vertex(ends[0]), vertex(ends[ends.length - 1]))
+      : char === '丶' && sweepMap(glyphs[i], maps, -1)
     const contours = glyphs[i].contours.map((/** @type {any} */ c) => {
       const light = new Float64Array(c.light.length), heavy = new Float64Array(c.light.length)
-      for (let k = 0; k < light.length; k++) {
-        light[k] = maps[k % 2](c.light[k])
-        heavy[k] = light[k] + c.heavy[k] - c.light[k]
+      for (let k = 0; k < light.length; k += 2) {
+        const x = c.light[k], y = c.light[k + 1]
+        const point = sweep ? sweep(x, y) : [maps[0](x), maps[1](y)]
+        light[k] = point[0]
+        light[k + 1] = point[1]
+        const weighted = sweep ? sweep(c.heavy[k], c.heavy[k + 1]) : [light[k] + c.heavy[k] - x, light[k + 1] + c.heavy[k + 1] - y]
+        heavy[k] = weighted[0]
+        heavy[k + 1] = weighted[1]
       }
       return { ...c, light, heavy }
     })
     return derived(glyphs[i], contours)
   })
+  const parts = fitChainJoins(placed, solved, BOX)
   return { parts, frame: union(parts.map(p => p.box)), ink: parts.reduce((n, p) => n + partInk(p), 0), solved }
 }
 

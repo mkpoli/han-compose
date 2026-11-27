@@ -500,6 +500,43 @@ it('cuts a fused island clear of its counter', () => {
   expect(regions.find((region) => region !== windowed)[0][0]).toHaveLength(1)
 })
 
+it('pairs a small island with its counterpart when it overlaps a neighbour', () => {
+  // One face fuses a dot onto a bar. The other face's small island sits over the block's
+  // edge, so by overlap it would go to the block and leave the first face's small island unpaired.
+  const fused = [
+    [box(20, 20, 100, 200)],
+    [box(130, 60, 16, 40)],
+    [
+      [
+        [170, 20],
+        [190, 20],
+        [190, 60],
+        [220, 60],
+        [220, 74],
+        [190, 74],
+        [190, 220],
+        [170, 220],
+        [170, 20]
+      ]
+    ]
+  ]
+  const apart = [
+    [box(20, 20, 100, 200)],
+    [box(104, 60, 16, 40)],
+    [box(170, 20, 20, 200)],
+    [box(196, 60, 24, 14)]
+  ]
+  const regions = splitIslands([fused, apart])
+  expect(regions).toHaveLength(4)
+  const width = (/** @type {number[][]} */ ring) =>
+    Math.max(...ring.map((p) => p[0])) - Math.min(...ring.map((p) => p[0]))
+  // The two small islands go together, and the block stays whole.
+  const small = regions.find((region) => Math.abs(width(region[1][0][0]) - 16) < 1)
+  expect(width(small[0][0][0])).toBeCloseTo(16, 0)
+  const block = regions.find((region) => width(region[1][0][0]) > 90)
+  expect(width(block[0][0][0])).toBeCloseTo(100, 0)
+})
+
 it('drops negligible dust holes while keeping intentional small detached islands', () => {
   // Two kissing strokes leaving a 0.5x0.5 sliver hole, plus a genuine small detached dot.
   const frame = [20, 20, 220, 20, 220, 220, 20, 220]
@@ -796,4 +833,249 @@ it('keeps an open bar at full thickness with a clean open gap halfway and open a
   expect(colInk(42)).toBe(0)
   expect(colInk(55)).toBeGreaterThanOrEqual(14)
   expect(colInk(100)).toBeGreaterThanOrEqual(14)
+})
+
+it('falls back to whole-island blending when a labelled stroke fuses a perpendicular bar in one face', () => {
+  // Narrow 口-like component (x=100..618, y=120..880) whose unit centres stay within 0.3 * side:
+  // Face A splits it into left stem | (contour 1) and top+right+bottom コ (contour 0).
+  // Face B splits it into left+top ┌ (contour 0), bottom _ (contour 1), and right | (contour 2).
+  // Same stroke IDs [0, 1, 2], but unit 0 is >3x wider in face B, so per-unit blending cracks the top bar.
+  const dA =
+    'M142 120L618 120L618 880L142 880L142 800L562 800L562 200L142 200Z' + 'M100 120L156 120L156 880L100 880Z'
+  const dB =
+    'M100 120L618 120L618 200L156 200L156 880L100 880Z' +
+    'M142 800L618 800L618 880L142 880Z' +
+    'M562 120L618 120L618 880L562 880Z'
+  const faceA = {
+    d: dA,
+    parts: [
+      {
+        leaf: 0,
+        origin: 'fixture',
+        box: [100, 120, 518, 760],
+        d: dA,
+        strokes: [
+          [0, [1]],
+          [1, [0]],
+          [2, [0]]
+        ]
+      }
+    ]
+  }
+  const faceB = {
+    d: dB,
+    parts: [
+      {
+        leaf: 0,
+        origin: 'fixture',
+        box: [100, 120, 518, 760],
+        d: dB,
+        strokes: [
+          [0, [0]],
+          [1, [2]],
+          [2, [1]]
+        ]
+      }
+    ]
+  }
+  const mixed = mixDrawings([faceA, faceB], [0.5, 0.5], 1)
+  const mask = pathMask(mixed.d, 200)
+  // Top bar stays solid and unbroken across its full width (cols 45..100, rows 20..44).
+  for (const col of [45, 60, 75, 85, 100]) {
+    let ink = 0
+    for (let row = 20; row <= 44; row++) ink += mask[row * 200 + col]
+    expect(ink).toBeGreaterThanOrEqual(14)
+  }
+})
+
+it('cuts a fused top dot at its horizontal neck without stealing the right half of the roof', () => {
+  // 广-like fused island: roof bar (height 16, y=48..64) with a wider vertical dot (width 22, x=122..144) on top.
+  const fused = [
+    [
+      [
+        [16, 48],
+        [122, 48],
+        [122, 16],
+        [144, 16],
+        [144, 48],
+        [234, 48],
+        [234, 64],
+        [36, 64],
+        [36, 240],
+        [16, 240],
+        [16, 48]
+      ]
+    ]
+  ]
+  // Strictly disjoint two-island face (roof y=53..65, slanted dot y=16..51) whose dot spans wider across the roof top.
+  const apart = [
+    [
+      [
+        [16, 53],
+        [234, 53],
+        [234, 65],
+        [36, 65],
+        [36, 240],
+        [16, 240],
+        [16, 53]
+      ]
+    ],
+    [
+      [
+        [108, 16],
+        [136, 16],
+        [164, 51],
+        [132, 51],
+        [108, 16]
+      ]
+    ]
+  ]
+  const regions = splitIslands([fused, apart])
+  expect(regions).toHaveLength(2)
+  // Identify roof vs dot by target maxY, and verify the cut keeps the full roof intact and cuts the dot horizontally.
+  const roof = regions.find((r) => Math.max(...r[1][0][0].map((p) => p[1])) > 150)
+  const dot = regions.find((r) => r !== roof)
+  expect(Math.max(...roof[0][0][0].map((p) => p[0]))).toBeGreaterThan(220)
+  expect(Math.max(...dot[0][0][0].map((p) => p[0]))).toBeLessThan(155)
+  expect(Math.max(...dot[0][0][0].map((p) => p[1]))).toBeLessThan(55)
+  // Three-target fused roof with two dots still splits cleanly into all three regions.
+  const rect = (a, b, c, d) => [a, b, c, b, c, d, a, d]
+  const roofPoly = (y, b) => [16, y, 240, y, 240, b, 37, b, 37, 214, 16, 214]
+  const fused3 = inkPolygons([roofPoly(47, 56), rect(56, 16, 79, 48), rect(115, 21, 158, 48)])
+  const apart3 = inkPolygons([roofPoly(52, 60), rect(56, 16, 77, 46), [100, 33, 118, 33, 97, 43, 80, 43]])
+  expect(splitIslands([fused3, apart3])).toHaveLength(3)
+})
+
+it('cuts a stroke at the notches where it leaves a stem when asked to', () => {
+  // An arm leaves a stem's right wall, 16 thick at its root and 12 at a waist further out;
+  // the other face draws only the outer end of it as a separate island.
+  const fused = [
+    [
+      [
+        [40, 20],
+        [60, 20],
+        [60, 100],
+        [85, 102],
+        [130, 100],
+        [130, 116],
+        [85, 114],
+        [60, 116],
+        [60, 230],
+        [40, 230],
+        [40, 20]
+      ]
+    ]
+  ]
+  const apart = [[box(40, 20, 20, 210)], [box(100, 100, 30, 16)]]
+  const reach = (/** @type {boolean} */ anchored) => {
+    const regions = splitIslands([fused, apart], anchored)
+    expect(regions).toHaveLength(2)
+    const stem = regions.find((region) => Math.min(...region[1][0][0].map((p) => p[0])) < 50)
+    return Math.max(...stem[0][0][0].map((p) => p[0]))
+  }
+  // The narrowest cut leaves the root of the arm on the stem; the anchored one takes it off by the wall.
+  expect(reach(false)).toBeGreaterThan(75)
+  expect(reach(true)).toBeLessThan(67)
+})
+
+it('does not pair distant leftover corners at opposite ends of a long stem wall', () => {
+  // Two 口-like outer contours where face A has an extra sharp bottom-left corner at (16, 240)
+  // and face B has a gentle extra corner near the top-left at (16, 42) — both turn the same way
+  // between the top-left and bottom-foot anchors, so an unguarded leftover-corner match collapses
+  // the entire left vertical wall onto (16, 42).
+  const ringA = [
+    [16, 18],
+    [16, 240],
+    [40, 234],
+    [40, 207],
+    [140, 207],
+    [140, 236],
+    [164, 230],
+    [164, 39],
+    [181, 34],
+    [150, 16],
+    [136, 28],
+    [16, 18]
+  ]
+  const ringB = [
+    [20, 36],
+    [16, 42],
+    [51, 240],
+    [58, 224],
+    [154, 212],
+    [160, 206],
+    [166, 98],
+    [180, 52],
+    [140, 20],
+    [44, 42],
+    [20, 36]
+  ]
+  const aligned = alignRings([ringA, ringB])
+  expect(aligned).not.toBeNull()
+  const [a, b] = aligned
+  // Every point along face A's lower-left wall (x < 22, y > 180) must pair with the lower half of face B,
+  // never jumping up to the top-left corner at y=42.
+  const lowerLeft = a.map((p, i) => [p, b[i]]).filter(([p]) => p[0] < 22 && p[1] > 180)
+  expect(lowerLeft.length).toBeGreaterThan(0)
+  for (const [, pb] of lowerLeft) expect(pb[1]).toBeGreaterThan(140)
+  // Uniformly scaled rings still pair every leftover corner cleanly and reach their exact midpoint extent.
+  const lShape = [
+    [0, 0],
+    [110, 0],
+    [100, 12],
+    [20, 12],
+    [10, 100],
+    [0, 110],
+    [0, 0]
+  ]
+  const scaled = alignRings([lShape, lShape.map(([x, y]) => [1.5 * x, 1.5 * y])])
+  expect(scaled).not.toBeNull()
+  const [sa, sb] = scaled
+  const maxX = Math.max(...sa.map((p, i) => (p[0] + sb[i][0]) / 2))
+  const maxY = Math.max(...sa.map((p, i) => (p[1] + sb[i][1]) / 2))
+  expect(maxX).toBeCloseTo(137.5, 1)
+  expect(maxY).toBeCloseTo(137.5, 1)
+})
+
+it('leaves no stub on a stem where a slanted dot was cut from it', () => {
+  // A dot lands on a stem's right wall at a slant; it is narrowest just short of its foot,
+  // which runs on down the wall for a few units.
+  const fused = [
+    [
+      [
+        [40, 20],
+        [52, 20],
+        [52, 110],
+        [78, 50],
+        [92, 56],
+        [56, 112],
+        [56, 116],
+        [52, 119],
+        [52, 230],
+        [40, 230],
+        [40, 20]
+      ]
+    ]
+  ]
+  const apart = [
+    [box(40, 20, 12, 210)],
+    [
+      [
+        [84, 50],
+        [98, 56],
+        [72, 112],
+        [66, 108],
+        [84, 50]
+      ]
+    ]
+  ]
+  const regions = splitIslands([fused, apart])
+  expect(regions).toHaveLength(2)
+  const height = (/** @type {number[][]} */ ring) =>
+    Math.max(...ring.map((p) => p[1])) - Math.min(...ring.map((p) => p[1]))
+  const stem = regions.find((region) => height(region[1][0][0]) > 150)
+  const dot = regions.find((region) => region !== stem)
+  // The stem's wall runs straight past the join, and the dot still reaches down to it.
+  expect(Math.max(...stem[0][0][0].map((p) => p[0]))).toBeLessThan(52.5)
+  expect(Math.max(...dot[0][0][0].map((p) => p[1]))).toBeGreaterThan(108)
 })

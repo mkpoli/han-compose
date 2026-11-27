@@ -442,5 +442,51 @@ def calibrate(sample: int = 1500, seed: int = 7, style: str = STYLE) -> None:
     print(json.dumps({"style": style, "characters": len(data), "stem_curve": [[round(b, 2), round(a, 3)] for a, b in fits]}))
 
 
+@app.command("calibrate-parts")
+def calibrate_parts(sample: int = 700, seed: int = 11, style: str = STYLE) -> None:
+    """Fit the powers of a part's scale its stroke width follows in the font's own characters, for a
+    static style's `part_stems`: each part of a character cut cleanly in two against its own glyph."""
+    composer = _composer(style)
+
+    def stem(part: compose.Part) -> tuple[float, float] | None:
+        widths = compose.stems(compose.raster([compose.Placed(part, part.box, part.box)], 400), compose.EM / 400)
+        return widths if all(np.isfinite(widths)) else None
+
+    rows = []
+    for ops, places in ((tuple(compose.ENCLOSE), (1,)), (("⿰", "⿱"), (0, 1))):
+        chars = sorted(ch for ch, s in composer.sequences.items() if s[0] in ops and composer.font.own(ch))
+        random.Random(seed).shuffle(chars)
+        cut = 0
+        for char in chars:
+            if cut >= sample:
+                break
+            try:
+                tree = compose.parse(composer.sequences[char])
+                host = composer._host_node(char, tree, ())
+            except (ValueError, LookupError):
+                continue
+            if host is None or len(host.pieces) != 2:
+                continue
+            cut += 1
+            for place in places:
+                piece, operand = host.pieces[place], tree[1 + place]
+                if not isinstance(operand, str) or not composer.font.own(operand):
+                    continue
+                own = composer.font.glyph(operand)
+                widths, natural = stem(piece), stem(own)
+                if widths is None or natural is None:
+                    continue
+                rows.append([((piece.box[axis + 2] - piece.box[axis]) / max(own.box[axis + 2] - own.box[axis], 1),
+                              widths[axis] / natural[axis]) for axis in (0, 1)])
+    powers = []
+    for axis in (0, 1):
+        data = np.array([row[axis] for row in rows])
+        data = data[(data[:, 0] > 0.2) & (data[:, 0] < 1.2) & (data[:, 1] > 0)]
+        x, y = np.log(data[:, 0]), np.log(data[:, 1])
+        # Through the origin: a part at its glyph's size keeps its glyph's stem.
+        powers.append(round(float((x * y).sum() / (x * x).sum()), 3))
+    print(json.dumps({"style": style, "parts": len(rows), "part_stems": powers}))
+
+
 if __name__ == "__main__":
     app()

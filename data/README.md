@@ -64,24 +64,39 @@ python3 js/scripts/recorded-chains.py --ids /path/to/ids --guide /path/to/bai-id
   --output data/recorded-chains.json.gz --runtime js/src/recorded-chains.json
 ```
 
-Audit the 436 spellings and five RCC contexts with local format-7 exports.
+Audit 444 standalone spellings with local format-7 exports. These comprise 436
+Bai IDS spellings and eight additional RCC spellings. The 29 distinct current
+and historical RCC strings include 27 complete descriptions and two fragments
+of the current R+0C34 entry, both reported as `invalid-source`.
 Run `node js/scripts/data.mjs` in each renderer checkout first to populate its
 bundled data, then pass one `style=path` argument per export.
 
 ```sh
 node js/scripts/audit-recorded-chains.mjs --out /path/to/audit --prefix revised \
-  sans=/path/to/sans-export serif=/path/to/serif-export
+  sans=/path/to/sans-export serif=/path/to/serif-export \
+  regular=/path/to/regular-export fangsong=/path/to/fangsong-export pen-writing=/path/to/pen-export
 node js/scripts/audit-recorded-chains.mjs --out /path/to/audit --prefix main \
   --renderer /path/to/main-checkout sans=/path/to/sans-export serif=/path/to/serif-export \
   regular=/path/to/regular-export fangsong=/path/to/fangsong-export pen-writing=/path/to/pen-export
 node js/scripts/recorded-chain-metrics.mjs /path/to/audit > js/src/chain-ink-metrics.json
 ```
 
-Use all five faces when regenerating the checked-in metrics. The audit reads
+After recording all five faces, compare the number of ink components and
+enclosed counters against each spelling's declared connections. The 32px
+reading-size raster samples an antialiased mask. The 192px raster retains fine
+details.
+
+```sh
+node js/scripts/chain-shape-audit.mjs /path/to/audit revised /path/to/revised-metrics.json
+```
+
+The audit reads
 only local files and writes one result file per face and corpus.
 
 The standalone ink metrics use the five shipped format-7 exports and the renderer
-at `b3b6b921`. They apply only to a previously drawable spelling in its matching
+at `b1893d86`. The 16 source-drawn RCC forms use the ink bounds of each
+complete spelling on `dff29daa`. R+0C30’s current spelling uses the bounds
+from `1cc982ba`. They apply only to a previously drawable spelling in its matching
 export. For 33 chains, the interior proportions come from zi.tools’ drawing on
 2026-11-25. The measurement matches each directed segment and its endpoints and
 rejects ambiguous mappings and duplicate drawing programs. To regenerate, save
@@ -95,10 +110,14 @@ The illustrated loop under 𠆭 follows the guide font’s U+E00B.
 
 ## `recorded-arcs.json`
 
-Centerlines for 14 stroke chains cut from their recorded hosts' GlyphWiki KAGE
+Centerlines for 34 stroke chains cut from their recorded hosts' GlyphWiki KAGE
 programs. The selection lists the host, regional variant when specified, component
 record and zero-based source stroke indices. The composer draws these centerlines
-at the selected face's stem weights. The reference for the 𠆭 G form is the guide
+at the selected face's stem weights. Straight frame segments can use the face's
+own 一 and 丨, and polygon corners use the intersections of the source lines.
+The native cuts in `js/src/host-chain-cuts.json` identify the attested host,
+the drawing glyph for each face, the digest of its encoded contours and the
+whole contours or endpoint runs to retain. The reference for the 𠆭 G form is the guide
 font's U+E00B instead.
 
 The data keeps the [GlyphWiki glyph data license](licences/GlyphWiki.txt).
@@ -113,8 +132,9 @@ python3 js/scripts/recorded-arcs.py --dump /path/to/dump_newest_only.txt \
 
 ## `recorded-native.json`
 
-Whole glyphs for attested stroke-chain descriptions missing from the format-7
-exports. The shapes come from the selected primary face, including TW-Kai's
+Whole glyphs for attested stroke-chain descriptions, including the regional walking
+radicals ⻌ and ⻎, Suzhou numerals 〤, 〥, 〧, and the symbols △ and ？ missing
+from format 7. The shapes come from the selected primary face, including TW-Kai's
 Extension B font for its supplementary characters. The asset records each
 source font's checksum, copyright and release.
 
@@ -125,6 +145,18 @@ project's Python environment and its cache of pinned fonts.
 ```sh
 uv run python js/scripts/recorded-native.py --cache /path/to/cache \
   --output js/src/recorded-native.json
+```
+
+## `plain-variants.json`
+
+The variation sequences Noto Sans CJK JP 2.004 and Noto Serif CJK JP 2.003 register with the base
+character's own glyph, per face and selector: 13,319 in each, such as 丑 U+E0100. An export records
+only the sequences a font draws with a glyph of its own, so the engine draws these as the base
+character. The file lists code points alone, read from the fonts' format 14 `cmap` subtables.
+
+```sh
+uv run --with fonttools python scripts/build_plain_variants.py /path/to/fonts \
+  js/src/plain-variants.json
 ```
 
 ## `babelstone-ids.tsv.gz`

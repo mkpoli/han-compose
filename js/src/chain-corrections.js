@@ -9,6 +9,10 @@ import { canonicalHistoricalChain } from './historical-chains.js'
 // corresponding regional glyphs as well:
 // https://glyphwiki.org/wiki/u20137-t  https://glyphwiki.org/wiki/u200c9-i
 const corrections = new Map([
+  // 𢏽(T), same left operand and enclosed 一 in both revisions of its IDS.
+  ['#(𠄌一𠃑v^)', '#(𠃑-一𠄌)'],
+  // The two lozenges between 吕 in 𤕈(T), precedent 629d0b74.
+  ['#(丿丿乀乀^>v,0>3)', '#(-乀-丿乀丿z)'],
   ['#(乀丿乀丿>^>,0v3)', '#(-乀-丿乀丿z)'],
   ['#(丨𠃍一丨一一乚𠃍^v>>,0>5,3v7,5>6)', '#(𠃍-𠃊一-𠃍𠃊乚)'], // 黽(jwb), enclosing 一 and 𰀄
   ['#(Qc,Qd,Qa,Qb>>>,0>3)', '#(◟◜◝◞z)'], // 〇

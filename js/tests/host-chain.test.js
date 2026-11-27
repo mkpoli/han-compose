@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
-import { mapped, partOf } from '../src/geometry.js'
-import { hostChainParts } from '../src/host-chain.js'
+import { mapped, partOf, pointsBox } from '../src/geometry.js'
+import { chainHost, hostChainParts } from '../src/host-chain.js'
 
 const horse = '#(-一丨b𠃌)'
 const island = '#(一-𠃍丨b𠃌)'
@@ -64,4 +64,60 @@ test('preserves the host contours and native placement of its frame', () => {
   expect(custom.target).toEqual(mapped(root.source, region, slot))
   const [nested] = hostChainParts(composer, horse, slot, false)
   expect(nested.target).toEqual(slot)
+})
+
+test('uses the corresponding angular or bent walking base in each native face', () => {
+  expect(['sans', 'serif', 'regular', 'fangsong', 'pen-writing'].map(style => chainHost('#(㇋乀)', style)))
+    .toEqual(['⻎', '⻎', '辶', '辶', '辶'])
+  expect(chainHost('#(𠃍乀)', 'regular')).toBe('⻌')
+  expect(chainHost('#(𠃍乀)', 'pen-writing')).toBeUndefined()
+  for (const excluded of ['辶', '⻎', '㇋']) {
+    expect(hostChainParts({
+      fontStyle: 'sans', excluded: char => char === excluded,
+      glyphRecord() { throw Error('Excluded reference was requested') },
+    }, '#(㇋乀)', region, true)).toBeNull()
+  }
+})
+
+// Kureedo 之 from the Pen Writing export (SIL OFL 1.1).
+test('cuts the attached dot of 之 while preserving the pen-written sweep', () => {
+  const record = {"v": 1, "b": [65.0, -53.0, 954.0, 746.0], "p": [["MLQ4Q2Q4Q3Q4Q3Q3LLLQ3Q2Q2Q2LLQ3Q3Q3Q2Q2Q3Q3LQ3Q3Q5Q3Q2Q3Q2Q3", "JA4s/zwOLP9sDiz/uA6M/+gO8P/oDvT/6A4QAKwOEADkDBwAYAm4ABwGqAGwBDACoAQ4AngERAJkBEgCwAX8AogIxAQ0C8QGWAzQB2gM3AeMDAwIjAwsCIwMYAgcDMQIzAvECKALxAgICHgICAhECwgIcAuAB6gLPAeoCwAHqAsAB5ALAAeICwgHeAswBzQLMAcECzgHaAiwAxwInAMcCHADGAhYAxgIOAMYCPACIAjQAigIzAIoCMQCLAi8AiwIqAIsCKgCGAioAgwIrAIECNgCjAc4A1gHYANYB3gDWAe8A2AH7ANkB2ALBAjUCawGvAXEA1wDhAI4A4gC8AKMAswCjAKsAowCGAKEAngBaAIEATACBAEAAgQB0AE4AYQBZAGEAXABhAGIAYwB2AGsAYgCzAHkAswBsAPMAaAEcAG4BpwApAto/yQOLP8=", "BABQAAAAUADZ/1AAvP8rALD/EgCw/wAAsP+w////sP/4/7D/7v+y/+f/tP/g/7f/4v+1/+3/sv8e/+D/2P9FANL/QgDN/z4Azf8+AMf/OQCw/xsAsP8AALD/3P/h/7D/AACw/wMAsP+w/6n/sP8AALD/yv/w/7D/AACw/1AAsP9QAAAAUAATAEYAJgBQABYAUAAAAFEAt/8DALD/BACw/wQAsP8AALD//P+w//L/sf/2/7D/7f+w/+3/sP8AALD/UACw/1AAAABQABMASgAgAEEAOAAUAFAAAABQAPv/UAD4/1AA+f9QANMAWQAyAMH/KgC8/xAArv/5/7D//v+w/wAAsP8CALD/CQCw/xkAs/9QAM7/UAAAAFAAGQAqAFAAAABQAPP/UADk/0sA6v9NAPn/UAAAAFAADwBQAB0ASwAYAEwADQBPAAQAUAA="]]}
+  const composer = { fontStyle: 'pen-writing', excluded: () => false, glyphRecord: () => record, C: { face: region } }
+  const [cut] = hostChainParts(composer, '#(㇇乀)', region, true)
+  const original = partOf(record)
+  expect(cut.part.contours).toHaveLength(1)
+  expect(cut.part.box.slice(0, 3).map(Math.round)).toEqual(original.box.slice(0, 3).map(Math.round))
+  expect(cut.part.box[3]).toBeLessThan(570)
+  expect(original.box[3]).toBeGreaterThan(740)
+  expect(hostChainParts({ ...composer, fontStyle: 'regular' }, '#(㇇乀)', region, true)).toBeNull()
+})
+
+test('loads the native regional walking base when format 7 omits the radical', () => {
+  for (const fontStyle of ['sans', 'serif', 'regular']) {
+    const key = fontStyle === 'regular' ? '#(𠃍乀)' : '#(㇋乀)'
+    const composer = { fontStyle, excluded: () => false, glyphRecord: () => null, C: { face: region } }
+    const [part] = hostChainParts(composer, key, region, true)
+    expect(part.origin).toContain(chainHost(key, fontStyle))
+    expect(part.part.box[3]).toBeLessThan(650)
+  }
+})
+
+// Noto Sans CJK JP 2.004 亞 (SIL OFL 1.1).
+test('widens the space between 亞 uprights only in the saved standalone frame', () => {
+  const record = {"b": [51.98, -35.48, 949.02, 776.28], "p": [["MLLL", "OAEhDHcOIQx3DgwLOAEMCw==", "nP9/AF0AfwBdAIj/nP+I/w=="], ["MLLL", "0ACFANQOhQDUDnL/0ABy/w==", "1P+rACwAqwAsALL/1P+y/w=="], ["MLLLLL", "ngJtBJcGbQSXBvD/eAXw/3gFZAOeAmQD", "YgCXAIkAlwCJACAAfP8gAHz/tP9iALT/"], ["MLLLLL", "7AGkCJYGpAiWBp8HEwOfBxMDwwLsAcMC", "vP9kAI4AZACOAIH/zQCB/80A2f+8/9n/"], ["MLLL", "lgagC5YGIQh1BSEIdQWgCw==", "jgAUAI4A+/9///v/f/8UAA=="], ["MLLL", "7gicCxAKnAsQChwI7ggcCA==", "bv8AAHwAAAB8AOj/bv/o/w=="], ["MLLLLL", "7gipCK8NqQivDd0CgAzdAoAMpAfuCKQH", "bv9fAEkAXwBJANv/LP/b/yz/fP9u/3z/"], ["MLLLLL", "7ghtBB8NbQQfDWQDEApkAxAK6v/uCOr/", "bv+XAMH/lwDB/7T/fAC0/3wAFgBu/xYA"]], "v": 1}
+  const composer = {
+    fontStyle: 'sans', excluded: () => false, glyphRecord: () => record, C: { face: region },
+    data: { manifest: { composer: { commit: 'a83fc941166b' } } },
+  }
+  const metrics = (contour, master) => { const [x0, , x1] = pointsBox(contour[master]); return x1 - x0 }
+  for (const [key, upright] of [['#(丨-一𠃑)', 2], ['#(𠃑-一丨)', 0]]) {
+    const [nested] = hostChainParts(composer, key, region, false)
+    const [root] = hostChainParts(composer, key, region, true)
+    const width = piece => piece.box[2] - piece.box[0]
+    expect(width(root.part)).toBeGreaterThan(2 * width(nested.part))
+    for (const master of ['light', 'heavy']) {
+      expect(metrics(root.part.contours[upright], master)).toBeCloseTo(metrics(nested.part.contours[upright], master), 6)
+    }
+    expect(nested.target).toEqual(region)
+  }
 })
