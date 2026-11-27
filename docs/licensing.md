@@ -2,6 +2,13 @@
 
 The code is MIT (`LICENSE`). What it reads and what it draws carry their own terms.
 
+## 率 drawings and reference gallery
+
+The five sets of reviewed outlines carry their [font notices](../src/han_compose/rate_forms/NOTICE.txt).
+The gallery names the source of each whole-glyph reference. Its Plangothic outlines come from
+[P1 and P2 release 2.9.5795](https://github.com/Fitzgerald-Porthmouth-Koenigsegg/Plangothic-Project)
+and carry the [Plangothic font licence](../data/licences/OFL-Plangothic.txt).
+
 ## Fonts
 
 Each style (`compose.STYLES`) reads one main font and, where it names any, static fonts for what
@@ -50,6 +57,9 @@ committed.
   Greek glyphs are Alegreya's (Copyright 2011 The Alegreya Project Authors, SIL OFL 1.1). Its README asks
   that versions modified by others not be widely distributed before the official release; that
   request is not a licence term.
+  The U+00B7 contour in `js/src/dotted-bopomofo.js` comes from this release’s
+  `periodcentered` glyph. Its placement in ⿸ㄏ· follows the x row on
+  [PDF page 23 of 《注音新疆回文常用字表》](https://commons.wikimedia.org/wiki/File:NLC416-13jh006298-75095_注音新疆回文常用字表.pdf?page=23).
 - **Jigmo** (CC0 1.0), static. It draws the ideographs Zhuque lacks; its strokes keep their own weight.
 
 `serif`:
