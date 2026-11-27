@@ -286,12 +286,13 @@ function keysOf(tree, out = [], separate = false, fontStyle = 'sans', root = tru
   return out
 }
 
-// The operators `sequence` writes with a zi.tools modifier, which the layout does not apply. ㇯'s
-// index is applied: the composer says itself where its subtraction is approximate.
-const MODIFIER = /([\u2FF4-\u2FF7\u2FFB\u2FFC])\[[0-9:,._xabcdlr|-]+\]/gu
-/** @param {string} sequence */
-function modifiedOperators(sequence) {
-  return [...sequence.matchAll(MODIFIER)].map(match => match[1])
+// A verified native drawing can realize a modifier exactly. A subtraction reports
+// its own approximation when the composer cannot apply its contour index.
+/** @param {any} tree @param {Set<string>} [realized] @returns {string[]} */
+function modifiedOperators(tree, realized) {
+  if (!Array.isArray(tree)) return []
+  const current = tree.note && tree[0] !== '㇯' && !realized?.has(keyOf(tree)) ? [tree[0]] : []
+  return current.concat(...tree.slice(1).map(child => modifiedOperators(child, realized)))
 }
 
 // A dedicated form consumes its internal operators, including the mirrored spelling.
@@ -386,11 +387,12 @@ export async function compose(source, sequence, { exclude = [], face = null, sep
   }
   const { base, marks } = splitDescription(sequence)
   if (layout === 'cells' && marks) throw new LookupError('Cells layout does not draw loose marks.')
-  if (layout === 'cells' && modifiedOperators(sequence).length) throw new LookupError('Cells layout does not draw modified operators.')
   // A Hangul syllable described letter by letter draws as the syllable: ⿰ㄱㅏ is 가.
   const syllable = hangulOfIds(base)
   const description = normaliseHangul(syllable ?? base, arity)
   const tree = parseTree(description, arity, true)
+  const modified = modifiedOperators(tree)
+  if (layout === 'cells' && modified.length) throw new LookupError('Cells layout does not draw modified operators.')
   if (tooLarge(tree)) throw new LookupError(`${sequence} is larger than a preview draws.`)
   // A mark's outline loads like a component's. The identity table and the layout load beside the
   // first records of a description that reads them.
@@ -400,7 +402,7 @@ export async function compose(source, sequence, { exclude = [], face = null, sep
     let drawn = null, failure = null, composer = null, cells = false
     try {
       composer = new Composer(store, { exclude, face, separate, fontStyle, keepBars })
-      cells = !marks && !modifiedOperators(sequence).length
+      cells = !marks && !modified.length
         && (layout === 'cells' || (layout === 'auto' && composer.cellsFor(tree, marks)))
       drawn = cells ? composer.cellLayout(tree) : composer.compose(description, marks)
     } catch (error) {
@@ -423,7 +425,7 @@ export async function compose(source, sequence, { exclude = [], face = null, sep
       stroke: composer.stroke ?? null,
       parts: ink.map(p => ({ ...(p.leaf === undefined ? {} : { leaf: p.leaf }), ...(p.operandOnly ? { operandOnly: true } : {}), origin: p.origin, box: svgBox(drawnBox(p)), d: svgPath([p]), cut: Boolean(p.cut), ...(p.part.strokes ? { strokes: p.part.strokes.map(([id, contours]) => [id, [...contours]]) } : {}) })), origins: ink.map(p => p.origin),
       kanjivg: Boolean(composer.handForms) || drawn.some(p => p.part.kv),
-      approximate: [...new Set([...extraOperators(composer.cancelTransforms(tree), composer), ...composer.approximate, ...modifiedOperators(sequence)])],
+      approximate: [...new Set([...extraOperators(composer.cancelTransforms(tree), composer), ...composer.approximate, ...(composer.nativeEnclosures.size ? modifiedOperators(tree, composer.nativeEnclosures) : modified)])],
       ...(cells ? { cells: true } : {}) }
   }
   throw new LookupError(`${sequence} needs more data than ${ROUNDS} rounds load.`)

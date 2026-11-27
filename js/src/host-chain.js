@@ -44,12 +44,14 @@ export function standaloneHostParts(composer, written, region) {
 /** Place the complete native glyph so its bearings and weight survive layout.
  * Editable leaves take the final contours and transform of that same placement.
  * @param {import('./compose.js').Composer} composer @param {any} glyph @param {number[]} region
- * @param {string} host @param {string[]} leaves @param {number[][]} groups */
+ * @param {string} host @param {string[]} leaves @param {number[][] | ((glyph: any) => any[])} groups */
 export function partitionChainHost(composer, glyph, region, host, leaves, groups) {
   const whole = composer.place(glyph, region, composer.ink(host), `glyph ${host}`)
   if (!composer.separate) return [whole]
-  const leafParts = (/** @type {any} */ final) => groups.map((indices, i) =>
-    [cutContours(final, indices), `${leaves[i]} from ${host}`])
+  const leafParts = (/** @type {any} */ final) => {
+    const pieces = typeof groups === 'function' ? groups(final) : groups.map(indices => cutContours(final, indices))
+    return pieces.map((piece, i) => [piece, `${leaves[i]} from ${host}`])
+  }
   return [{ ...whole, rccLeaf: 0, rccLeafCount: leaves.length, leafParts }]
 }
 
@@ -192,6 +194,17 @@ export function horseFrameCut(record, style, allowNoto) {
   if (record?.v !== 1) return null
   const node = '#(-一丨b𠃌)', face = cutFace(node, style, hexOf(JSON.stringify(record.p)), allowNoto)
   return face ? { face, frame: (/** @type {any} */ glyph) => cutPiece(glyph, nativeCuts[node].faces[face][2]) } : null
+}
+
+/** The same flat foot serves as its own component and as the second operand in 乐.
+ * @param {any} record */
+export function leFrameCut(record) {
+  if (record?.v !== 1) return null
+  const digest = hexOf(JSON.stringify(record.p))
+  for (const [face, [host, hash, indices]] of Object.entries(nativeCuts['#(丿𠃊)'].faces)) {
+    if (host === '乐' && hash === digest) return { face, indices }
+  }
+  return null
 }
 
 /** Place a leaf drawn from an attested host whose frame has its own contours.
