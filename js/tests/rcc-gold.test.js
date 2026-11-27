@@ -31,6 +31,11 @@ for (const [fontStyle, glyphs] of Object.entries(records)) {
       }
       expect(runs).toBe(3) // Left wall, diagonal and right wall, with space between them.
     }
+    if (fontStyle === 'sans') {
+      for (const excluded of [ids, '⿳冖丷⿸⿻[1:]丿口乚', '⿸⿻[1:]丿口乚', '⿻[1:]丿口']) {
+        expect((await compose(source, ids, { fontStyle, exclude: [excluded] })).origins).not.toContain('R+07DF 金')
+      }
+    }
     expect(cold).toHaveLength(6)
     expect(await sketch(source, ids, { fontStyle })).toEqual(cold)
   })

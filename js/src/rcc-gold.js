@@ -3,8 +3,12 @@ import { hexOf } from './sha256.js'
 
 // 行均《龍龕手鑑》, Southern Song Zhejiang edition, National Palace Museum collection.
 // The six boxes follow the specimen reproduced at https://rare.glyphatlas.org/zh-Hans/entry/2015.
-const sequence = '⿰金⿳冖丷⿸⿻[1:]丿口乚'
+const crossed = '⿻[1:]丿口'
+const lower = '⿸' + crossed + '乚'
+const right = '⿳冖丷' + lower
+const sequence = '⿰金' + right
 const leaves = [...'金冖丷丿口乚']
+const components = [sequence, right, lower, crossed, ...leaves, '針']
 const slots = [[0, .035, .480, 1], [.480, .635, .940, .985], [.590, .655, .790, .848],
   [.470, .075, .738, .816], [.512, .410, .873, .714], [.748, 0, 1, .486]]
 
@@ -27,7 +31,7 @@ export function goldDonors(key, style) {
 
 /** @param {import('./compose.js').Composer} composer @param {string} key @param {number[]} region */
 export function goldParts(composer, key, region) {
-  if (key !== sequence || leaves.some(ch => composer.excluded(ch)) || composer.excluded('針')) return null
+  if (key !== sequence || components.some(ch => composer.excluded(ch))) return null
   const face = faces[composer.fontStyle], needle = composer.glyphRecord('針')
   if (!face || !needle || hexOf(JSON.stringify(needle.p)) !== face[0]) return null
   const metal = partOf(needle)
