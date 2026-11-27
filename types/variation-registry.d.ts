@@ -14,6 +14,7 @@ export type VariationAxis = {
 export type VariationForm = {
     id: string;
     text: string;
+    aliases?: string[];
     traits?: Record<string, string>;
 };
 export type VariationFamily = {

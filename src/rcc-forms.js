@@ -5,13 +5,11 @@ import { k5Donors, k5Parts } from './k5h00030.js'
 import { angContextDonors, angContextParts } from './guide-chain-cuts.js'
 import { hostContextDonors, hostContextParts } from './host-chain.js'
 import { leContextDonors, leContextParts } from './le-context.js'
-import { shiContextDonors, shiContextParts } from './shi-context.js'
 import { mapped, union } from './geometry.js'
 
 /** @param {string} key @param {string} style */
 export const rccDonors = (key, style) => [
-  ...hostContextDonors(key, style), ...angContextDonors(key), ...leContextDonors(key), ...shiContextDonors(key),
-  ...rccChainDonors(key, style),
+  ...hostContextDonors(key, style), ...angContextDonors(key), ...leContextDonors(key), ...rccChainDonors(key, style),
   ...numeralDonors(key, style), ...overlayContextDonors(key, style), ...k5Donors(key),
 ]
 
@@ -19,7 +17,7 @@ export const rccDonors = (key, style) => [
 export function rccParts(composer, key, region) {
   /** @type {any[] | null} */
   const parts = hostContextParts(composer, key, region) ?? angContextParts(composer, key, region) ?? leContextParts(composer, key, region) ??
-    shiContextParts(composer, key, region) ?? rccChainContextParts(composer, key, region) ?? numeralParts(composer, key, region) ??
+    rccChainContextParts(composer, key, region) ?? numeralParts(composer, key, region) ??
     overlayContextParts(composer, key, region) ?? k5Parts(composer, key, region)
   if (parts && composer.separate && parts.every(p => Number.isInteger(p.rccLeaf))) {
     // Equal spellings can occur several times in one IDS. Each occurrence
@@ -37,9 +35,8 @@ export function editableRccParts(parts) {
   return parts.flatMap(p => {
     if (!p.leafParts) return [p]
     const { leafParts, rccLeafCount: _groupSize, ...finished } = p
-    const hostPlacement = { source: p.source, target: p.target }
     return leafParts(p.part).map((/** @type {any[]} */ [part, origin], /** @type {number} */ index) => ({
-      ...finished, part, origin, hostPlacement, source: part.box, target: mapped(part.box, p.source, p.target),
+      ...finished, part, origin, source: part.box, target: mapped(part.box, p.source, p.target),
       rccLeaf: p.rccLeaf + index, leaf: p.leaf === undefined ? undefined : p.leaf + index,
     }))
   })

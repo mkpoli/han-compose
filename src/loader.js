@@ -1,7 +1,9 @@
 // @ts-nocheck: a port of han-compose's Python, kept line for line; its types are the arrays it reads.
+import { resolveYaoForm } from './yao-forms.js'
 // The composer in the browser: han-compose's export (manifest, layout and the drawing data of each
 // key) loaded as a sequence needs it, and the sequence drawn from it as an SVG path. A file is
 // fetched once a page; a gzipped one (the export writes them so) is unpacked with DecompressionStream.
+import { u26201Choice } from './u26201-forms.js'
 import { exactRateForm } from './rate-forms.js'
 import { APPROXIMATE, Composer, EMPTY, LookupError, designedSources, keyOf, leafCutChar, wheatFaceHosts, mapOperands, parseTree } from './compose.js'
 import { rccDonors } from './rcc-forms.js'
@@ -14,7 +16,7 @@ import { withoutMarks } from './tree.js'
 import { ASCENT } from './geometry.js'
 import { drawnBox, svgPath } from './geometry.js'
 import { readLayout } from './layout.js'
-import { isComponentForm, isAtomicForm, isGroupedForm } from './component-forms.js'
+import { isComponentForm, isGroupedForm } from './component-forms.js'
 import { hexOf } from './sha256.js'
 import { pyramidOnBase, pyramidRows } from './pyramid-rows.js'
 import { birdChainChar } from './bird-chain.js'
@@ -274,7 +276,8 @@ function keysOf(tree, out = [], separate = false, fontStyle = 'sans', root = tru
       return out
     }
   }
-  if (isAtomicForm(keyOf(tree), fontStyle) || exactRateForm(keyOf(tree)) || (separate ? isGroupedForm : isComponentForm)(keyOf(tree), fontStyle)) return out
+  if (keyOf(tree) !== '幺󠄀' && resolveYaoForm(keyOf(tree))) return out
+  if ((keyOf(tree) !== '𦈁' && u26201Choice(keyOf(tree))) || exactRateForm(keyOf(tree)) || (separate ? isGroupedForm : isComponentForm)(keyOf(tree), fontStyle)) return out
   if (!keyOf(tree).includes(EMPTY)) out.push(keyOf(tree))
   const designed = leafCutChar(keyOf(tree))
   if (designed) out.push(designed)
@@ -299,7 +302,7 @@ function modifiedOperators(tree, realized) {
 function extraOperators(tree, { fontStyle, separate, nativeEnclosures }) {
   if (typeof tree === 'string') return []
   const key = keyOf(tree)
-  if (isAtomicForm(key, fontStyle) || (separate ? isGroupedForm : isComponentForm)(key, fontStyle)) return []
+  if ((separate ? isGroupedForm : isComponentForm)(key, fontStyle)) return []
   const op = nativeEnclosures.has(key) ? [] : [tree[0]]
   // A subtraction is approximate only where the composer says so: drawn from a character's own
   // outlines or from what is left of its description, it is not.
