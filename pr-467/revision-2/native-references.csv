@@ -1,0 +1,90 @@
+character,ids,regions,frame,role,source
+問,⿵門口,GHTJKPV,⿵門,reference,data/vocab/han-ids.tsv · BabelStone IDS 2025-06-27
+間,⿵門日,GHTJKPV,⿵門,seat donor,data/vocab/han-ids.tsv · BabelStone IDS 2025-06-27
+閒,⿵門月,GTKPV,⿵門,reference,data/vocab/han-ids.tsv · BabelStone IDS 2025-06-27
+聞,⿵門耳,GHTJKPV,⿵門,reference,data/vocab/han-ids.tsv · BabelStone IDS 2025-06-27
+閏,⿵門王,GHTJKPV,⿵門,reference,data/vocab/han-ids.tsv · BabelStone IDS 2025-06-27
+閘,⿵門甲,GHTJKP,⿵門,reference,data/vocab/han-ids.tsv · BabelStone IDS 2025-06-27
+閣,⿵門各,GHTJKPV,⿵門,reference,data/vocab/han-ids.tsv · BabelStone IDS 2025-06-27
+閭,⿵門吕,G,⿵門,reference,data/vocab/han-ids.tsv · BabelStone IDS 2025-06-27
+閑,⿵門木,GHTJKPV,⿵門,reference,data/vocab/han-ids.tsv · BabelStone IDS 2025-06-27
+閨,⿵門圭,GHTJKPV,⿵門,reference,data/vocab/han-ids.tsv · BabelStone IDS 2025-06-27
+閻,⿵門臽,GHTJKPV,⿵門,reference,data/vocab/han-ids.tsv · BabelStone IDS 2025-06-27
+闇,⿵門音,GHTJKP,⿵門,reference,data/vocab/han-ids.tsv · BabelStone IDS 2025-06-27
+閃,⿵門人,GHTJKP,⿵門,reference,data/vocab/han-ids.tsv · BabelStone IDS 2025-06-27
+閔,⿵門文,GHTJKP,⿵門,reference,data/vocab/han-ids.tsv · BabelStone IDS 2025-06-27
+閤,⿵門合,GHTJKP,⿵門,reference,data/vocab/han-ids.tsv · BabelStone IDS 2025-06-27
+句,⿹勹口,GHTJKPV,⿹勹,reference,data/vocab/han-ids.tsv · BabelStone IDS 2025-06-27
+旬,⿹勹日,GHTJKPV,⿹勹,seat donor,data/vocab/han-ids.tsv · BabelStone IDS 2025-06-27
+甸,⿹勹田,GHTJKP,⿹勹,seat donor,data/vocab/han-ids.tsv · BabelStone IDS 2025-06-27
+匈,⿹勹凶,GHTJKPV,⿹勹,seat donor,data/vocab/han-ids.tsv · BabelStone IDS 2025-06-27
+匍,⿹勹甫,GHTJKPV,⿹勹,reference,data/vocab/han-ids.tsv · BabelStone IDS 2025-06-27
+匐,⿹勹畐,GHTJKPV,⿹勹,reference,data/vocab/han-ids.tsv · BabelStone IDS 2025-06-27
+訇,⿹勹言,GHTJKP,⿹勹,reference,data/vocab/han-ids.tsv · BabelStone IDS 2025-06-27
+勻,⿹勹二,GHTJKP,⿹勹,reference,data/vocab/han-ids.tsv · BabelStone IDS 2025-06-27
+勾,⿹勹厶,GHTJKPV,⿹勹,reference,data/vocab/han-ids.tsv · BabelStone IDS 2025-06-27
+包,⿹勹巳,GHTKPV,⿹勹,reference,data/vocab/han-ids.tsv · BabelStone IDS 2025-06-27
+勺,⿹勹丶,GHTJPV,⿹勹,reference,data/vocab/han-ids.tsv · BabelStone IDS 2025-06-27
+勿,⿹勹⿰丿丿,GHTJKPV,⿹勹,reference,data/vocab/han-ids.tsv · BabelStone IDS 2025-06-27
+匂,⿹勹匕,GJK,⿹勹,reference,data/vocab/han-ids.tsv · BabelStone IDS 2025-06-27
+匀,⿹勹冫,GTJK,⿹勹,reference,data/vocab/han-ids.tsv · BabelStone IDS 2025-06-27
+庙,⿸广由,GHTPV,⿸广,seat donor,data/vocab/han-ids.tsv · BabelStone IDS 2025-06-27
+店,⿸广占,GHTJKPV,⿸广,reference,data/vocab/han-ids.tsv · BabelStone IDS 2025-06-27
+廟,⿸广朝,GHTKPV,⿸广,reference,data/vocab/han-ids.tsv · BabelStone IDS 2025-06-27
+庫,⿸广車,GHTJKPV,⿸广,reference,data/vocab/han-ids.tsv · BabelStone IDS 2025-06-27
+唐,⿸广⿱肀口,GHTJKPV,⿸广,reference,data/vocab/han-ids.tsv · BabelStone IDS 2025-06-27
+座,⿸广坐,GHTJKPV,⿸广,reference,data/vocab/han-ids.tsv · BabelStone IDS 2025-06-27
+府,⿸广付,GHTJKPV,⿸广,reference,data/vocab/han-ids.tsv · BabelStone IDS 2025-06-27
+庠,⿸广羊,GHTJKPV,⿸广,reference,data/vocab/han-ids.tsv · BabelStone IDS 2025-06-27
+庵,⿸广奄,GHTJKPV,⿸广,reference,data/vocab/han-ids.tsv · BabelStone IDS 2025-06-27
+庖,⿸广包,GHTKP,⿸广,reference,data/vocab/han-ids.tsv · BabelStone IDS 2025-06-27
+床,⿸广木,GHTJKPV,⿸广,reference,data/vocab/han-ids.tsv · BabelStone IDS 2025-06-27
+廚,⿸广尌,GHTJKPV,⿸广,reference,data/vocab/han-ids.tsv · BabelStone IDS 2025-06-27
+庶,⿸广⿱廿灬,GHTJKPV,⿸广,reference,data/vocab/han-ids.tsv · BabelStone IDS 2025-06-27
+康,⿸广隶,GHTJKPV,⿸广,reference,data/vocab/han-ids.tsv · BabelStone IDS 2025-06-27
+庚,⿸广⿻{43}人,GHTJKPV,⿸广,reference,data/vocab/han-ids.tsv · BabelStone IDS 2025-06-27
+届,⿸尸由,GHTJKP,⿸尸,seat donor,data/vocab/han-ids.tsv · BabelStone IDS 2025-06-27
+屆,⿸尸凷,GHTP,⿸尸,reference,data/vocab/han-ids.tsv · BabelStone IDS 2025-06-27
+居,⿸尸古,GHTJKPV,⿸尸,reference,data/vocab/han-ids.tsv · BabelStone IDS 2025-06-27
+層,⿸尸曾,GHTKPV,⿸尸,reference,data/vocab/han-ids.tsv · BabelStone IDS 2025-06-27
+屠,⿸尸者,GHTKPV[B],⿸尸,reference,data/vocab/han-ids.tsv · BabelStone IDS 2025-06-27
+屑,⿸尸肖,GHTJKP,⿸尸,reference,data/vocab/han-ids.tsv · BabelStone IDS 2025-06-27
+屋,⿸尸至,GHTJKPV,⿸尸,reference,data/vocab/han-ids.tsv · BabelStone IDS 2025-06-27
+屎,⿸尸米,GHTJKP,⿸尸,reference,data/vocab/han-ids.tsv · BabelStone IDS 2025-06-27
+尾,⿸尸毛,GHTJKPV,⿸尸,reference,data/vocab/han-ids.tsv · BabelStone IDS 2025-06-27
+局,⿸尸⿹𠃌口,GHTJKPV,⿸尸,reference,data/vocab/han-ids.tsv · BabelStone IDS 2025-06-27
+尼,⿸尸匕,GHTJKPV,⿸尸,reference,data/vocab/han-ids.tsv · BabelStone IDS 2025-06-27
+尿,⿸尸水,GHTJKP,⿸尸,reference,data/vocab/han-ids.tsv · BabelStone IDS 2025-06-27
+屁,⿸尸比,GHTJKP,⿸尸,reference,data/vocab/han-ids.tsv · BabelStone IDS 2025-06-27
+屐,⿸尸𫹍,GHTJKP,⿸尸,reference,data/vocab/han-ids.tsv · BabelStone IDS 2025-06-27
+屈,⿸尸出,GHTJKPV,⿸尸,reference,data/vocab/han-ids.tsv · BabelStone IDS 2025-06-27
+回,⿴囗口,GHTJKPV,⿴囗,seat donor,data/vocab/han-ids.tsv · BabelStone IDS 2025-06-27
+固,⿴囗古,GHTJKPV,⿴囗,seat donor,data/vocab/han-ids.tsv · BabelStone IDS 2025-06-27
+囿,⿴囗有,GHTJKP,⿴囗,reference,data/vocab/han-ids.tsv · BabelStone IDS 2025-06-27
+圃,⿴囗甫,GHTJKPV,⿴囗,reference,data/vocab/han-ids.tsv · BabelStone IDS 2025-06-27
+圄,⿴囗吾,GHTJKP,⿴囗,reference,data/vocab/han-ids.tsv · BabelStone IDS 2025-06-27
+圓,⿴囗員,GHTJKPV,⿴囗,reference,data/vocab/han-ids.tsv · BabelStone IDS 2025-06-27
+囹,⿴囗令,GHTJKP,⿴囗,reference,data/vocab/han-ids.tsv · BabelStone IDS 2025-06-27
+困,⿴囗木,GHTJKPV,⿴囗,reference,data/vocab/han-ids.tsv · BabelStone IDS 2025-06-27
+因,⿴囗大,GHTJKPV,⿴囗,reference,data/vocab/han-ids.tsv · BabelStone IDS 2025-06-27
+囚,⿴囗人,GHTJKPV,⿴囗,reference,data/vocab/han-ids.tsv · BabelStone IDS 2025-06-27
+囤,⿴囗屯,GHTJKP,⿴囗,reference,data/vocab/han-ids.tsv · BabelStone IDS 2025-06-27
+國,⿴囗或,GHTJKPV,⿴囗,reference,data/vocab/han-ids.tsv · BabelStone IDS 2025-06-27
+圈,⿴囗卷,GHTJKPV,⿴囗,reference,data/vocab/han-ids.tsv · BabelStone IDS 2025-06-27
+圖,⿴囗啚,GTJKPV,⿴囗,reference,data/vocab/han-ids.tsv · BabelStone IDS 2025-06-27
+園,⿴囗袁,GHTJKPV,⿴囗,reference,data/vocab/han-ids.tsv · BabelStone IDS 2025-06-27
+匣,⿷匚甲,GHTJKPV,⿷匚,seat donor,data/vocab/han-ids.tsv · BabelStone IDS 2025-06-27
+匪,⿷匚非,GHTJKPV,⿷匚,reference,data/vocab/han-ids.tsv · BabelStone IDS 2025-06-27
+匾,⿷匚扁,GKP,⿷匚,reference,data/vocab/han-ids.tsv · BabelStone IDS 2025-06-27
+區,⿷匚品,GJKPV,⿷匚,reference,data/vocab/han-ids.tsv · BabelStone IDS 2025-06-27
+匡,⿷匚王,GHTJKPV,⿷匚,reference,data/vocab/han-ids.tsv · BabelStone IDS 2025-06-27
+匝,⿷匚巾,GHTJKPV,⿷匚,reference,data/vocab/han-ids.tsv · BabelStone IDS 2025-06-27
+匠,⿷匚斤,GHTJKP,⿷匚,reference,data/vocab/han-ids.tsv · BabelStone IDS 2025-06-27
+匿,⿷匚若,GJKPV,⿷匚,reference,data/vocab/han-ids.tsv · BabelStone IDS 2025-06-27
+匱,⿷匚貴,GHTJKPV,⿷匚,reference,data/vocab/han-ids.tsv · BabelStone IDS 2025-06-27
+匯,⿷匚淮,GHTJKP,⿷匚,reference,data/vocab/han-ids.tsv · BabelStone IDS 2025-06-27
+匜,⿷匚也,GHTJKP,⿷匚,reference,data/vocab/han-ids.tsv · BabelStone IDS 2025-06-27
+匼,⿷匚合,GKPV,⿷匚,reference,data/vocab/han-ids.tsv · BabelStone IDS 2025-06-27
+匮,⿷匚贵,G,⿷匚,reference,data/vocab/han-ids.tsv · BabelStone IDS 2025-06-27
+匭,⿷匚軌,GHTJKP,⿷匚,reference,data/vocab/han-ids.tsv · BabelStone IDS 2025-06-27
+医,⿷匚矢,GJKP,⿷匚,reference,data/vocab/han-ids.tsv · BabelStone IDS 2025-06-27
