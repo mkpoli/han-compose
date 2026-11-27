@@ -4,7 +4,8 @@ The code is MIT (`LICENSE`). What it reads and what it draws carry their own ter
 
 ## Fonts
 
-Each style (`compose.STYLES`) reads one variable font and static fonts for what it lacks. All are
+Each style (`compose.STYLES`) reads one main font and, where it names any, static fonts for what
+that font lacks. All are
 downloaded and pinned by SHA-256 (`compose.font_file`, `compose.fallback_files`); nothing of them is
 committed.
 
@@ -19,8 +20,8 @@ committed.
 
 `regular`:
 
-- **TW-Kai** (數位發展部 (Ministry of Digital Affairs), CNS11643中文標準交換碼全字庫, fonts version
-  11510.1), static, 1,024 units to the em, brought to 1,000, read at its one weight. Its BMP face
+- **TW-Kai** (數位發展部 (Ministry of Digital Affairs), CNS11643中文標準交換碼全字庫, BMP version
+  11510.1, Extension B version 11510.2), static, 1,024 units to the em, brought to 1,000, read at its one weight. Its BMP face
   and its Extension B and G faces draw the ideographs. The data set offers either the **Open
   Government Data License 1.0** (the licence taken here, whose Exhibit asks for the provider, the
   release and its version) or the SIL OFL 1.1.
@@ -32,6 +33,15 @@ committed.
   read at its one weight. LXGW reserves the font names '霞鹜', '霞鶩', '落霞孤鹜', '落霞孤鶩' and 'LXGW'.
 - **GenZui Sans 0.105** (SIL OFL 1.1), static. It draws the ideographs Kureedo Full lacks; its strokes
   keep their own weight.
+
+`woodblock`:
+
+- **Nôm Na Tống 5.20** (Nôm Na Group, Vietnamese Nôm Preservation Foundation; copyright line
+  "© 2011–2026 The Vietnamese Nom Preservation Foundation — Nom Na Group", **MIT License**), static,
+  read at its one weight. Its source repository's licence file, kept as
+  `data/licences/MIT-NomNaTong.txt`, reads "Copyright (c) 2019 nomfoundation"; the export's
+  `MIT.txt` carries both lines. No other font
+  fills in what it lacks.
 
 `fangsong`:
 
@@ -146,7 +156,7 @@ ships the licence texts beside it.
   contour indices (`c.k`), is outline data of the style's fonts. A `sans` export's are Noto Sans CJK
   JP's (© 2014-2021 Adobe (http://www.adobe.com/), with Reserved Font Name 'Source') or Plangothic P1
   and P2's (Copyright (c) 2024 by Fitzgerald P. Köeingsegg; no Reserved Font Name), under the
-  **SIL OFL 1.1**. A `regular` export's are TW-Kai's, under the **Open Government Data License 1.0**, whose full text is `OGL.txt`. A `pen-writing` export's are Kureedo Full's and GenZui Sans's, under the **SIL OFL 1.1**. A `fangsong` export's are Zhuque Fangsong's, under the **SIL OFL 1.1**, or Jigmo's, under **CC0 1.0**. A `serif` export's are Noto Serif CJK JP's (© 2017-2024 Adobe (http://www.adobe.com/); no
+  **SIL OFL 1.1**. A `regular` export's are TW-Kai's, under the **Open Government Data License 1.0**, whose full text is `OGL.txt`. A `pen-writing` export's are Kureedo Full's and GenZui Sans's, under the **SIL OFL 1.1**. A `fangsong` export's are Zhuque Fangsong's, under the **SIL OFL 1.1**, or Jigmo's, under **CC0 1.0**. A `woodblock` export's are Nôm Na Tống's, under the **MIT License**, whose full text is `MIT.txt`. A `serif` export's are Noto Serif CJK JP's (© 2017-2024 Adobe (http://www.adobe.com/); no
   Reserved Font Name), under the **SIL OFL 1.1**, or Jigmo's, under **CC0 1.0**. `OFL.txt` holds the
   OFL's full text after each OFL font's copyright line, read from the font's `name` table (the text
   is `data/licences/OFL-1.1.txt`, as Noto CJK ships it); a serif export also ships `CC0.txt`
@@ -168,6 +178,7 @@ ships the licence texts beside it.
 
 Publishing a glyph drawn with KanjiVG-assisted cuts publishes a CC BY-SA derivative of KanjiVG's
 component data. Glyphs drawn without those cuts carry only the terms of the fonts they come from:
-the SIL OFL 1.1 for Noto Sans CJK, Noto Serif CJK and Plangothic outlines; none for Jigmo's (CC0).
+the SIL OFL 1.1 for Noto Sans CJK, Noto Serif CJK and Plangothic outlines; the MIT License for Nôm Na Tống's, whose copyright and
+permission notice go with them; none for Jigmo's (CC0).
 
 The Serif drawing of ⿶む子 uses the outline of U+1B127 𛄧 from GenZui Serif Bold 0.118 for its inner operand. The outline in `js/src/genzui-alternate-ne.json` is in the font’s original coordinates. [GenZui Serif 0.118](https://github.com/mkpoli/GenZui/releases/tag/v0.118) · [SIL Open Font License 1.1 and copyright notices](../data/licences/OFL-GenZuiSerif.txt)
