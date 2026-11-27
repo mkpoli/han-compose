@@ -64,6 +64,6 @@ it('matches the middle left gap of the five encoded FangSong tile measures', asy
       if (wall >= 0) gaps.push((left - wall - 1) / size)
     }
     gaps.sort((a, b) => a - b)
-    expect(Math.abs(gaps[Math.floor(gaps.length / 2)] - reference)).toBeLessThan(0.035)
+    expect(Math.abs(gaps[Math.floor(gaps.length / 2)] - reference), inner).toBeLessThan(0.018)
   }
 })

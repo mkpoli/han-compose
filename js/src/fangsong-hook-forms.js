@@ -6,6 +6,7 @@ import { hexOf } from './sha256.js'
 // Zhuque lacks 𠀧, 𥪞 and 兛. For 巴 and 竜, retain the native head and
 // join its upright to the low stroke and upturned tip from 尅.
 const KE_DONOR = '59500d3d2cfd9d7852b3ae0ae80801610a2c76d676c333efed708021f9443979'
+// ZhongYi FangSong 兛 and the cross-style Jigmo 𥪞 guide the inner placements.
 const forms = {
   巴: { inner: '三', room: [515, 186, 882, 650],
     digest: '7b094ea2c516dd35dda099e75a0ccc9c4f28fc06323157702835d524abc018b9',

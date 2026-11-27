@@ -36,7 +36,8 @@ function framePart(glyph, form) {
       // Shorten the exposed roof and bring the inner upright toward the filling.
       // The two ends of the low sweep blend back into the stationary hook tip.
       if (contour === 0 && i >= 2 * 27 && i <= 2 * 45) {
-        result[i] -= form.roof * Math.max(0, (x - 504) / (891 - 504))
+        // Translate the terminal at its original width; shorten the shaft before it.
+        result[i] -= form.roof * Math.max(0, Math.min(1, (x - 504) / (777 - 504)))
       }
       if (contour === 0 && i >= 2 * 58 && i <= 2 * 118) {
         const shoulder = Math.max(0, Math.min(1, (x - 395) / (568 - 395)))
