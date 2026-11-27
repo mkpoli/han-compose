@@ -25,12 +25,27 @@ export declare function groupRegions<T>(faces: T[][], ringOf: (item: T) => numbe
  * fused island is cut at the junction, so each stroke blends with its own counterpart.
  * Null when the faces split the ink in ways that are not one a coarser form of the other.
  * @param {number[][][][][]} polygons each face's islands
- * @param {boolean} [anchored] cut at the notches of a fused island in preference to its narrowest neck
+ * @param {'neck' | 'notch' | 'fit'} [prefer] where a fused island is cut: at its narrowest neck, at its notches, or where the pieces fit the finer face best
+ * @param {boolean} [through] cut through the counters of a fused island that the finer islands lack
  * @returns {number[][][][][][] | null} per island, each face's one island */
-export declare function splitIslands(polygons: number[][][][][], anchored?: boolean): number[][][][][][] | null;
+export declare function splitIslands(polygons: number[][][][][], prefer?: 'neck' | 'notch' | 'fit', through?: boolean): number[][][][][][] | null;
+/** Two faces can each run together strokes the other keeps apart, so that neither is a
+ * coarser form of the other and an island of one lies over parts of several islands of
+ * the other. Each such island is cut by the islands it lies over, in either face, until
+ * every piece lies over one piece of the other face, and those are paired.
+ * Null when nothing needed cutting or the pieces do not pair off.
+ * @param {number[][][][][]} polygons two faces' islands
+ * @param {boolean} [through] cut through the counters of an island that the islands it lies over lack
+ * @returns {{ region: number[][][][][], cut: boolean }[] | null} per pair, each face's one island */
+export declare function sharedIslands(polygons: number[][][][][], through?: boolean): {
+    region: number[][][][][];
+    cut: boolean;
+}[] | null;
 /** Compute correspondences and local stroke widths once, independently of the controls.
  * @param {number[][][][][]} polygons each face's one island
  * @param {boolean} [cut] the islands were cut from larger ones */
-export declare function prepareCorrespondence(polygons: number[][][][][], cut?: boolean): ((shares: number[], weight: number) => number[][][]) | null;
+export declare function prepareCorrespondence(polygons: number[][][][][], cut?: boolean): (((shares: number[], weight: number) => number[][][]) & {
+    strain: number;
+}) | null;
 /** @param {number[][][]} rings */
 export declare function prepareWeight(rings: number[][][]): (/** @type {number} */ weight: number) => number[][][];
