@@ -4,7 +4,7 @@
 // description it corrects, the SHA-256 outlines of the glyphs it was read against, and the parts it
 // changes; an export drawing other outlines keeps the font's cut. The parts are plain placed pieces,
 // so the corrections work wherever the description is drawn, at any depth.
-import { contourSections, derived, fitted, groupRings, makePart, mapped, partOf, placed, pointsBox, union } from './geometry.js'
+import { contourSections, cutContours, derived, fitted, groupRings, makePart, mapped, partOf, placed, pointsBox, union } from './geometry.js'
 import { hexOf } from './sha256.js'
 
 // Interpolation factors for the hosted 口 outlines when fitted beside 乎.
@@ -472,6 +472,30 @@ export const COMPONENT_FIXES = {
   // 𠷃 (BabelStone: ⿰口⿳穴𠆢又) has a broad, shallow 又. Its component's
   // proportions also occur in 𥔉. Keep both inner parts within 穴's outer span.
 
+  '⿰車ト': {
+    glyphs: { ト: 'ab453d8c58c4b817de9f562aaec9f1a600d347b59257584f93ff451e3d087c93' },
+    apply(parts, composer) {
+      if (composer.fontStyle !== 'regular' || !composer.staticFace || composer.partial || parts.length !== 2) return parts
+      const [car, kana] = parts
+      if (car.fixed || kana.fixed || car.origin !== 'learned 䡎' || kana.origin !== 'glyph ト' || composer.excluded('軋')) return parts
+      const record = composer.glyphRecord('軋')
+      if (record?.v !== 1 || hexOf(JSON.stringify(record.p)) !== '2bc1ae0f90e8ec4da0e920154e1b30487cd0a3f157fe252070b673a885244c1d') return parts
+      // 軋 places 車 beside a single stroke. Its last contour is the right-hand hook.
+      const column = cutContours(partOf(record), [0, 1, 2, 3, 4])
+      const ink = p => union(groupRings([p], 24).map(pointsBox))
+      const fit = (revised, original) => {
+        if (original.fixed || original.cut) return {}
+        // Refit in local coordinates. The enclosing transform then acts on both outlines alike.
+        const before = ink({ ...original, flips: undefined })
+        return { ...revised, target: mapped(revised.target, ink({ ...revised, flips: undefined }), before) }
+      }
+      return [
+        { ...car, finishOutline: p => fit(placed(column, column.box, p.target, p.native, '車 from 軋'), p) },
+        // Retain kana ト's own outline. The native right strokes in 朴 and 訃 supply the weight reference.
+        { ...kana, finishOutline: p => fit({ ...p, weight: [-0.8, -0.6] }, p) },
+      ]
+    },
+  },
   '⿰生意': {
     glyphs: {},
     apply(parts, composer) {
