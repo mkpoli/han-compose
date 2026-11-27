@@ -6407,6 +6407,38 @@ export function fitInside(outer, inner, region, stem, C, { size = 64, room = nul
   return false
 }
 
+/** A foot joined to the strokes above it in one outline: the height the foot itself takes, how near
+ *  the glyph's left edge the outline starts, each as a share of the glyph, and the heights tried
+ *  for where the foot's stroke leaves the strokes above it. */
+const SWEEP_JOINED = [0.2, 0.1, 32]
+/** Each point's move across for a foot joined to the strokes above it (`sweptPart`), or null where
+ *  the outline holds no stroke past `edge` above its foot. */
+function joinedSweep(pts, ring, [x0, y0, x1, y1], edge, pressed, end) {
+  const w = x1 - x0, h = y1 - y0, footTop = y0 + SWEEP_JOINED[0] * h
+  let left = Infinity
+  for (let i = 0; i < pts.length; i += 2) left = Math.min(left, pts[i])
+  if (left > x0 + SWEEP_JOINED[1] * w) return null
+  const poly = []
+  for (let i = 0; i + 1 < ring.length; i += 2) poly.push([ring[i], ring[i + 1]])
+  // The waist: the height at which the outline reaches least far across, between the foot and the
+  // strokes above it.
+  let level = null, reach = Infinity, past = false
+  for (let k = 0; k < SWEEP_JOINED[2]; k++) {
+    const y = footTop + (k + 0.5) * (y1 - footTop) / SWEEP_JOINED[2], right = spansAt(poly, y).at(-1)?.[1]
+    if (right === undefined) continue
+    if (right < reach) { level = y; reach = right; past = false }
+    else if (right > edge && right > reach + SWEEP_JOINED[1] * w) past = true
+  }
+  if (level === null || !past || !(end > reach)) return null
+  const press = x => (x - x0) * (pressed - 1)
+  return pts.map((x, i) => {
+    if (i % 2) return 0
+    if (pts[i + 1] >= level || x <= reach) return press(x)
+    return x <= end ? reach + press(reach) + (x - reach) * (end - reach - press(reach)) / (end - reach) - x : 0
+  })
+}
+/** The share of `SWEEP_RISE` a foot drawn as a stroke of its own must rise. */
+const SWEEP_RISE_ALONE = 0.85
 /**
  * A glyph drawn round the lower left of another part as a designer draws it there (`_swept`): its
  * strokes pressed left of `edge`, the stroke sweeping along its foot drawn out under the other part.
@@ -6419,8 +6451,12 @@ export function sweptPart(p, edge, C, tail = null) {
   const turned = turnedSweep(p, contours, [x0, y0, x1, y1], edge, C)
   if (turned !== undefined) return turned
   const [reach, foot] = C.SWEEP_REACH
-  const sweeps = boxes.map((b, k) => [b, k]).filter(([b]) => b[2] >= x1 - reach * (x1 - x0) && b[1] <= y0 + foot * (y1 - y0)
-    && b[3] - b[1] >= C.SWEEP_RISE * (y1 - y0)).map(([, k]) => k)
+  const rising = rise => boxes.map((b, k) => [b, k]).filter(([b]) => b[2] >= x1 - reach * (x1 - x0) && b[1] <= y0 + foot * (y1 - y0)
+    && b[3] - b[1] >= rise * (y1 - y0)).map(([, k]) => k)
+  // A face that draws the foot as a stroke of its own (the ㇏ of a Mincho 是) has it a little lower
+  // than one that joins it to the stroke falling into it.
+  let sweeps = rising(C.SWEEP_RISE)
+  if (!sweeps.length) sweeps = rising(SWEEP_RISE_ALONE * C.SWEEP_RISE)
   if (sweeps.length !== 1 || contours.length < 2) return null
   const sweep = sweeps[0], pts = contours[sweep]
   // A glyph drawn as one outline with its counters (Klee One's 电) has no separate stroke to sweep:
@@ -6443,7 +6479,11 @@ export function sweptPart(p, edge, C, tail = null) {
   // Each point's displacement is read from the stroke as drawn and added to both masters, so the
   // stem and the hook keep their own width in each: the inner edges of the heavy ones lie between
   // `turn` and `end`, where the foot is drawn out.
-  const dx = pts.map((x, i) => i % 2 ? 0 : x <= turn ? shift : x <= end ? start + (x - turn) * (end - start) / (end - turn) - x : 0)
+  const along = pts.map((x, i) => i % 2 ? 0 : x <= turn ? shift : x <= end ? start + (x - turn) * (end - start) / (end - turn) - x : 0)
+  // A brush face joins the foot to strokes above it in one outline (the bar of 疋 in 是). Above the
+  // outline's waist it is pressed with the other strokes; below, it is pressed as far across as
+  // the waist reaches and drawn out from there, so the stroke is whole where the two meet.
+  const dx = joinedSweep(pts, sweepRing, [x0, y0, x1, y1], edge, pressed, end) ?? along
   const drawnOut = points => points.map((value, i) => value + dx[i])
   const [sx, sy] = scaleOf(p)
   const cx = (p.source[0] + p.source[2]) / 2, cy = (p.source[1] + p.source[3]) / 2
