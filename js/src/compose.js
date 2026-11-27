@@ -50,7 +50,7 @@ import { hangulLetters } from './hangul-ids.js'
 import { toConjoiningJamo } from './hangul.js'
 import { tileHost } from './fangsong-tile.js'
 import { brushSweepRoom, brushSweepParts } from './brush-sweep-rooms.js'
-import { componentFix, INCOME_IDS, incomeBoxes } from './component-fixes.js'
+import { componentFix, enclosedZeroTarget, INCOME_IDS, incomeBoxes } from './component-fixes.js'
 import { isOutbound, markFace, markParts } from './marks.js'
 import { SI_CHAIN, siChainForm, siBendDonor } from './si-chain.js'
 import { youChainDonors, youChainParts } from './you-chain.js'
@@ -70,9 +70,11 @@ import { excludedShiContext } from './shi-context.js'
 import { nativeStroke, reconstructStroke, strokeDonor } from './stroke-donors.js'
 import { chainForm, chainRoom, isChain, parseChain } from './stroke-chain.js'
 import { STROKE_CHAINS, customAt, splitToneMarks, toneMarksAt } from './tree.js'
+import { fullFormOf } from './full-forms.js'
 import { hexOf } from './sha256.js'
 import componentConstants from './constants.json' with { type: 'json' }
 import numberedFiveContext from '../data/numbered-five-context.json' with { type: 'json' }
+import fangsongZero from './fangsong-zero.json' with { type: 'json' }
 import wheatFaceCuts from '../data/wheat-face-cuts.json' with { type: 'json' }
 import alternateNe from './genzui-alternate-ne.json' with { type: 'json' }
 import pyramidCatalog from './pyramid-glyphs.json' with { type: 'json' }
@@ -1028,7 +1030,15 @@ export class Composer {
     return containsRateForm(sequence) ? this.rateLeaves(tree) : tree
   }
   // A key holding an empty slot has no record and no hosts: nothing is asked for it.
-  rec = key => key.includes(EMPTY) ? null : this.formRecord(key) ?? this.variantRecord(key) ?? this.data.rec(key) ?? componentRecord(key, this.fontStyle)
+  rec = key => key.includes(EMPTY) ? null : this.formRecord(key) ?? this.variantRecord(key) ?? this.fullRecord(key) ?? this.data.rec(key) ?? componentRecord(key, this.fontStyle)
+  /** The record of a component written in full (`&HC-u91d1-full;`): its character's outline and
+   *  layout, without the sequence, the forms and the places that would draw it as a positional form. */
+  fullRecord(key) {
+    const base = fullFormOf(key)
+    if (!base) return null
+    const { s: _sequence, e: _described, a: _forms, P: _places, ...record } = this.rec(base) ?? {}
+    return record.G ? record : null
+  }
   /**
    * The record of a character under a variation selector: its own outline, laid out as its base is.
    * The export records a variation sequence's outline alone, so what the layout reads of it (its
@@ -1146,6 +1156,9 @@ export class Composer {
 
   glyphRecord(ch) {
     const record = this.rec(ch), glyph = record?.G
+    // Exports that selected Unicode letters omit U+3007 (Letter Number). Use Zhuque's own 〇
+    // when the source has no native record, including sources with a bundled fallback.
+    if (ch === '〇' && this.fontStyle === 'fangsong' && !glyph?.v) return fangsongZero
     // 盾 supplies the joined cliff, cross and eye of 貭; 貝 supplies its two feet.
     if (ch === '貭' && this.fontStyle === 'fangsong' && glyph?.v !== 1 &&
         !['貭', '盾', '貝'].some(donor => this.excluded(donor))) return fangsongZhi
@@ -1454,7 +1467,7 @@ export class Composer {
       const own = hostChainParts(this, canonical, region, atRoot, key)
       if (own) return own
     }
-    return allowBundled ? componentParts(key, region, this.fontStyle, atRoot) : null
+    return allowBundled ? componentParts(key, region, this.fontStyle, atRoot, this.exclude) : null
   }
   chainParts(node, region, atRoot = false) {
     if (!isChain(node) || this.excluded(node)) return null
@@ -1796,8 +1809,11 @@ export class Composer {
         return
       }
       const cell = target(box)
+      const water = ((node[0] === '⿺' && node[1] === '水' && node[2] === '巜') ||
+        (node[0] === '⿲' && node[1] === '㇇' && node[2] === '丨' && node[3] === '𰛅')) && !node.note
+        ? componentParts(keyOf(node), cell, this.fontStyle, depth === 0, this.exclude) : null
       const recorded = keyOf(node) === booklet ? bookletParts(this, cell) : null
-      const parts = recorded ?? this.doubleTurnParts(node, cell) ?? brushSweepParts(this, node, cell, depth > 0) ?? this.thornRowParts(node, cell) ?? yiCrossParts(this, node, cell) ?? ghostParts(this, node, cell) ?? this.qiParts(node, cell)
+      const parts = water ?? recorded ?? this.doubleTurnParts(node, cell) ?? brushSweepParts(this, node, cell, depth > 0) ?? this.thornRowParts(node, cell) ?? yiCrossParts(this, node, cell) ?? ghostParts(this, node, cell) ?? this.qiParts(node, cell)
       if (parts) {
         for (const part of parts) {
           if (leafIndices) part.leaf = leaf++
@@ -1878,6 +1894,10 @@ export class Composer {
             }
             walk(kids[1], [(room[0] - f[0]) / width, 1 - (room[3] - f[1]) / height,
               (room[2] - f[0]) / width, 1 - (room[1] - f[1]) / height], depth + 1)
+            if (op === '⿴' && kids[0] === '囗' && kids[1] === '〇') {
+              const zero = out.at(-1)
+              zero.target = enclosedZeroTarget(zero, room)
+            }
             return
           }
         }
@@ -1984,7 +2004,7 @@ export class Composer {
         walk(stacked.base, base, false)
         return
       }
-      const repeated = isGroupedForm(keyOf(node), this.fontStyle) ? componentParts(keyOf(node), region, this.fontStyle, atRoot) : null
+      const repeated = isGroupedForm(keyOf(node), this.fontStyle) ? componentParts(keyOf(node), region, this.fontStyle, atRoot, this.exclude) : null
       const designed = repeated ?? rccParts(editable, keyOf(node), region) ?? birdOutlineParts(this, keyOf(node), region) ?? this.doubleTurnParts(node, region) ?? brushSweepParts(this, node, region, !atRoot) ?? this.thornRowParts(node, region) ?? yiCrossParts(this, node, region) ?? this.qiParts(node, region) ?? ghostParts(this, node, region) ?? this.muKoParts(node, region) ?? this.wheatFaceParts(node, region)
       if (designed) {
         const boxes = designed[0]?.rccGroup && rccLeafBoxes(designed, leafTexts(node).length)
@@ -4747,7 +4767,7 @@ export class Composer {
     const designed = typeof child === 'string' ? this.designedCut(child) : null
     if (designed) return [placed(designed.piece, designed.piece.box, fitted(designed.piece.box, box, this.C.STRETCH), this.ink(designed.record.h), `host ${designed.record.h}`)]
     const group = this.node(child, box, false, sideBySide)
-    return narrow ? this.fillCell(child, group, box, pair) : group
+    return narrow ? this.fillCell(child, group, box, pair, sideBySide) : group
   }
 
   /** Whether the cells of the aligned operands `children` are as narrow as a row of three's: three
@@ -4760,8 +4780,12 @@ export class Composer {
    *  the cell would squeeze its glyph; in a pair beside another part, when those parts cover under
    *  `CELL_FILLED` of the cell (辶 under 周 in a quarter column, 曲 and 辰 apart in theirs), the glyph
    *  fills it after all, so one column of the row is not smaller than the next. */
-  fillCell(child, group, box, pair = false) {
-    if (group.length === 1 && !group[0].nativeAspect && group[0].origin.startsWith('glyph ')) group[0].target = fitted(group[0].source, box, this.C.ROW_STRETCH)
+  fillCell(child, group, box, pair = false, sideBySide = true) {
+    // A band of a stack of three is wide and low: a character flattened into it as far as a column
+    // narrows one closes its counters (the 人 of 囚 in ⿳⺈囚儿), so it keeps to `CELL_STRETCH` there.
+    const banded = !sideBySide && !pair && typeof child === 'string'
+    const stretch = banded ? Math.min(this.C.ROW_STRETCH, Math.max(this.C.STRETCH, this.C.CELL_STRETCH)) : this.C.ROW_STRETCH
+    if (group.length === 1 && !group[0].nativeAspect && group[0].origin.startsWith('glyph ')) group[0].target = fitted(group[0].source, box, stretch)
     else if (group.length > 1 && group[0].balanceBox && group.every(p => p.balanceBox === group[0].balanceBox)) {
       const frame = group[0].balanceBox, target = fitted(frame, box, this.C.ROW_STRETCH)
       for (const part of group) part.target = mapped(part.source, frame, target)

@@ -4,7 +4,7 @@
 // description it corrects, the SHA-256 outlines of the glyphs it was read against, and the parts it
 // changes; an export drawing other outlines keeps the font's cut. The parts are plain placed pieces,
 // so the corrections work wherever the description is drawn, at any depth.
-import { contourSections, cutContours, derived, fitted, groupRings, makePart, mapped, partOf, placed, pointsBox, union } from './geometry.js'
+import { contourSections, cutContours, derived, drawnBox, fill, fitted, groupRings, makePart, mapped, partOf, placed, pointsBox, targetFor, union } from './geometry.js'
 import { hexOf } from './sha256.js'
 import { penGrassKu } from './grass-ku.js'
 
@@ -68,20 +68,50 @@ function barsOf(part) {
     .sort((a, b) => a.box[1] - b.box[1])
 }
 
-/** The lowest ink on the vertical line through `xTarget`: under a roof's legs, its bar's underside. */
-function inkBottomAt(part, xTarget) {
-  const [sx, sy] = scaleOf(part), x = part.source[0] + (xTarget - part.target[0]) / sx
-  let low = Infinity
-  for (const contour of part.part.contours) {
-    const light = contour.light, n = light.length / 2
-    for (let i = 0; i < n; i++) {
-      const j = (i + 1) % n, x1 = light[i * 2], y1 = light[i * 2 + 1], x2 = light[j * 2], y2 = light[j * 2 + 1]
-      if (x1 === x2 || (x1 - x) * (x2 - x) > 0) continue
-      const y = y1 + (y2 - y1) * (x - x1) / (x2 - x1)
-      if (y < low) low = y
+/** The median and minimum vertical gap between an upper and a lower group's rings inside `box`. */
+function verticalGap(upper, lower, box, size = 200) {
+  const a = fill(upper, size, box), b = fill(lower, size, box), gaps = []
+  for (let col = 0; col < size; col++) {
+    let lastA = -1, firstB = -1
+    for (let row = 0; row < size; row++) {
+      const i = row * size + col
+      if (a[i]) lastA = row
+      if (b[i] && firstB < 0) firstB = row
     }
+    if (lastA >= 0 && firstB >= 0) gaps.push(firstB - lastA)
   }
-  return low === Infinity ? boxOf(part)[1] : part.target[1] + (low - part.source[1]) * sy
+  if (!gaps.length) return null
+  gaps.sort((x, y) => x - y)
+  const n = gaps.length, mid = n >> 1, scale = (box[3] - box[1]) / size
+  const median = n % 2 ? gaps[mid] : (gaps[mid - 1] + gaps[mid]) / 2
+  return { median: median * scale, min: gaps[0] * scale }
+}
+
+/** Fit 工 into a shallow row by shortening its stem between the two brush strokes. */
+function shortenGong(placedGong, gong, mouthWidth) {
+  const { target } = placedGong
+  const box = gong.box, fullHeight = heightOf(box)
+  const sx = widthOf(target) / widthOf(box)
+  const sy = Math.min(sx, mouthWidth / gong.contours[0].width[1])
+  const height = Math.min(fullHeight, heightOf(target) / sy)
+  if (!(height > 0 && height < fullHeight)) return { ...placedGong, part: gong, source: box, target }
+  // Each crossbar, including its brush tip, occupies the outer 18% of the native outline.
+  const end = Math.min(fullHeight * 0.18, height * 0.45)
+  // The lower bar rises about 1 in 20. Scale its thickness about that incline.
+  const shear = 0.05 * (sx / sy - 1)
+  const cx = centreX(box)
+  const contours = gong.contours.map(contour => {
+    const light = contour.light.slice(), heavy = contour.heavy.slice()
+    for (let i = 1; i < light.length; i += 2) {
+      const alongStem = (light[i] - box[1] - end) / (fullHeight - 2 * end)
+      const shift = (fullHeight - height) * Math.max(0, Math.min(1, alongStem))
+      light[i] += shear * (light[i - 1] - cx) - shift
+      heavy[i] += shear * (heavy[i - 1] - cx) - shift
+    }
+    return { ...contour, light, heavy }
+  })
+  const source = [box[0], box[1], box[2], box[1] + height]
+  return { ...placedGong, part: { ...gong, contours, box: source }, source, target }
 }
 
 /** The lowest edge of a part's wide ink: its lowest bar, under any thin stroke that runs past it. */
@@ -350,6 +380,10 @@ export function incomeBoxes(key, style, region, face = null) {
     if (leftInset || topInset) frame = [region[0] + leftInset, region[1], region[2], region[3] - topInset]
   }
   return table.map(box => inIncome(box, frame))
+}
+
+export function enclosedZeroTarget(zero, opening) {
+  return targetFor(zero, mapped([0.16, 0.14, 0.84, 0.86], [0, 0, 1, 1], opening))
 }
 
 // The standalone 门 in the Pen export has a central vertical in place of the dot.
@@ -672,6 +706,56 @@ export const COMPONENT_FIXES = {
       const frame = union(parts.map(part => part.target))
       return [{ ...sheng, target: mapped([0, .035, .43, .965], [0, 0, 1, 1], frame) },
         { ...yi, target: mapped([.438, 0, 1, 1], [0, 0, 1, 1], frame) }]
+    },
+  },
+  '⿳吅工吅': {
+    glyphs: { '工': '681e3af08c44f984ad14700a49907b9839eb996d42adde52e2e86b6ea4a35277' },
+    apply(parts, composer) {
+      if (composer.fontStyle !== 'fangsong') return parts
+      const middle = parts.findIndex(p => p.origin === 'glyph 工')
+      const below = parts.length - middle - 1
+      if (middle < 1 || middle > 2 || below < 1 || below > 2) return parts
+      if (parts.every(p => p.fixed)) return parts
+      const gong = composer.glyph('工')
+      if (!(gong.contours[0]?.width?.[1] > 0) || parts.some(p => !p.part?.contours?.length)) return parts
+      const frame = union(parts.map(p => p.target))
+      // Each 吅 can be one host cut or two separately drawn mouths.
+      const rows = [parts.slice(0, middle), [parts[middle]], parts.slice(middle + 1)]
+      const bands = [[0.10, 0.67, 0.90, 1], [0, 0.37, 1, 0.64], [0.10, 0, 0.90, 0.33]]
+      const fitted = rows.flatMap((row, index) => {
+        const band = mapped(bands[index], [0, 0, 1, 1], frame)
+        const bounds = union(row.map(p => p.target))
+        return row.map(p => ({ ...p, target: mapped(p.target, bounds, band) }))
+      })
+      // Use the heaviest mouth horizontal as the weight of the two long bars.
+      const mouths = fitted.filter((_, i) => i !== middle)
+      const widths = mouths.map(p => (p.part.contours[0]?.width?.[1] ?? gong.contours[0].width[1]) * scaleOf(p)[1])
+      fitted[middle] = shortenGong(fitted[middle], gong, Math.max(...widths))
+      const original = parts.map(p => ({ ...p }))
+      // Measure both layouts at their final weights without changing a sibling enclosure's stroke.
+      const stroke = composer.stroke
+      try {
+        for (const group of [original, fitted]) {
+          if (!composer.partial && composer.weighted) composer.balance(group)
+          else if (!composer.partial && composer.staticFace) composer.staticBalance(group)
+        }
+      } finally {
+        composer.stroke = stroke
+      }
+      const rowRings = [fitted.slice(0, middle), [fitted[middle]], fitted.slice(middle + 1)].map(g => groupRings(g, 24))
+      const after = union(rowRings.flat().map(pointsBox))
+      const topGap = verticalGap(rowRings[0], rowRings[1], after)
+      const bottomGap = verticalGap(rowRings[1], rowRings[2], after)
+      if (topGap && bottomGap && topGap.min > 0 && bottomGap.min > 0) {
+        const gongBox = union(rowRings[1].map(pointsBox))
+        const lo = Math.max(after[1] - gongBox[1], -bottomGap.min / 2)
+        const hi = Math.min(after[3] - gongBox[3], topGap.min / 2)
+        const shift = Math.max(lo, Math.min(hi, (topGap.median - bottomGap.median) / 2))
+        const t = fitted[middle].target
+        fitted[middle] = { ...fitted[middle], target: [t[0], t[1] + shift, t[2], t[3] + shift] }
+      }
+      const before = union(groupRings(original, 24).map(pointsBox))
+      return fitted.map(p => ({ ...p, fixed: true, target: mapped(p.target, after, before) }))
     },
   },
   // As in 堇's lower body, 口 crosses the stem above both of 土's horizontal bars.
@@ -1060,6 +1144,17 @@ export const COMPONENT_FIXES = {
       const upper = { ...revised(top, contours), target: [top.target[0], lower.target[3] - 0.03 * height,
         top.target[2], top.target[3]] }
       return parts.map(part => part === mouth ? lower : part === top ? upper : part)
+    },
+  },
+  // 布依方塊古文字 shows a slightly upright oval with room on all four sides.
+  '⿴囗〇': {
+    glyphs: {},
+    apply(parts, composer) {
+      if (parts.length !== 2) return parts
+      const [frame, zero] = parts
+      const opening = composer.roomFromInk('⿴', [frame], drawnBox(frame))
+      if (!opening) return parts
+      return [frame, { ...zero, target: enclosedZeroTarget(zero, opening) }]
     },
   },
   // ⿵冂丨: the 丨 is laid in the frame's lower middle with its top short of the bar. In 㒳 and

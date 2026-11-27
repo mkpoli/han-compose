@@ -162,9 +162,19 @@ first description is kept, without its region note. A description with a stroke 
 component, an overlay (⿻) or a CJK Strokes character is left out, and its ideograph stays a whole glyph.
 Yi Bai's descriptions follow that project's own analysis and are not checked here against the code charts.
 
+Yi Bai writes 金, 言 and 牛 in full on the left, where BabelStone writes 釒, 訁 and 牜 and never the
+full character. Those 141 rows are written BabelStone's way, so a part has one name in both tables: a
+component at the left, right, top or foot of a row or column that `han-ids.tsv` never writes there is
+replaced by the positional form `han-component-forms.tsv` gives it for that place.
+
 `uv run python scripts/build_extension_j_ids.py` rebuilds it with `js/src/extension-j-ids.json`, the
 copy the browser composer bundles. The composers draw an Extension J ideograph from this sequence, in
 the face's own parts, where only a fallback font of another design (Jigmo) draws its glyph.
+
+`uv run python scripts/build_positional_forms.py` writes `js/src/positional-forms.json` from
+`vocab/han-component-forms.tsv`: each positional row of the CJKVI radical variants as `[place, component,
+form]`, which the browser composer's full-form families are built from
+([variation registry](../docs/design/variation-registry.md)).
 
 Licence: MIT, Copyright (c) 2021 Yi Bai; see `data/licences/yi-bai-ids-MIT.txt`.
 
