@@ -124,7 +124,7 @@ describe('⿱呼乙', () => {
   })
 })
 
-it('fits the native left 車 from 軋 and the kana ト into their final Regular ink bounds', () => {
+it('fits the native left 車 from 軋 and native 卜 into the final Regular ink bounds of ⿰車ト', () => {
   const car = part('learned 䡎', [0, 0, 160, 300], [40, 60, 200, 360], [[10, 20, 150, 280]])
   car.part.contours[0].ops = [['M', 1], ['L', 1], ['L', 1], ['L', 1]]
   const glyph = partOf(kuruma.ト)
@@ -143,8 +143,15 @@ it('fits the native left 車 from 軋 and the kana ト into their final Regular 
   })
   expect(left.origin).toBe('車 from 軋')
   expect(left.part.contours).toEqual(partOf(kuruma.軋).contours.slice(0, 5))
-  expect(right.part).toBe(glyph)
-  expect(right.weight).toEqual([-0.8, -0.6])
+  expect(right.part).toBe(partOf(kuruma.卜))
+  expect(right.origin).toBe('glyph 卜')
+  for (const override of [{ excluded: ch => ch === '卜' }, { glyphRecord: ch => ch === '卜' ? null : kuruma[ch] },
+    { glyphRecord: ch => ch === '卜' ? { ...kuruma.卜, v: 0 } : kuruma[ch] }]) {
+    const fallback = componentFix('⿰車ト', pair, { ...face, ...override })
+    expect(fallback[0].finishOutline(fallback[0]).origin).toBe('車 from 軋')
+    expect(fallback[1].finishOutline(fallback[1]).part).toBe(glyph)
+    expect(fallback[1].finishOutline(fallback[1]).weight).toEqual([-0.8, -0.6])
+  }
   for (const override of [{ partial: true }, { fontStyle: 'pen-writing' }, { excluded: ch => ch === '軋' },
     { glyphRecord: ch => ch === '軋' ? null : kuruma[ch] }]) {
     expect(componentFix('⿰車ト', pair, { ...face, ...override })).toBe(pair)
