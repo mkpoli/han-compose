@@ -5,6 +5,7 @@ import {
   groupRegions,
   matchRegions,
   prepareCorrespondence,
+  sharedIslands,
   splitIslands,
   tangled,
   prepareWeight
@@ -136,7 +137,7 @@ function prepareInk(paths, strokes) {
   /** Faces that split the ink into different numbers of islands still match the
    * islands they share; only the groups that differ fall back to distance fields.
    * @param {number[][][][][]} polygons */
-  const regionsOf = (polygons) => {
+  const pairedRegions = (polygons) => {
     const matched = matchRegions(polygons, (p) => p[0])
     if (matched?.[0].length) return matched[0].map((_, i) => matched.map((p) => [p[i]]))
     let split = matched ? null : splitIslands(polygons)
@@ -170,6 +171,47 @@ function prepareInk(paths, strokes) {
     }
     const grouped = matched ? [] : groupRegions(polygons, (p) => p[0], 0.06 * side)
     return grouped.length ? grouped : [polygons]
+  }
+  /** Each face can also run together strokes the other keeps apart, and its islands then
+   * pair with islands that hold other strokes. Cutting both faces to the pieces they share
+   * is kept where more of the ink then blends outline to outline, or blends with less strain.
+   * @param {number[][][][][]} polygons */
+  const regionsOf = (polygons) => {
+    const paired = pairedRegions(polygons)
+    const shared = sharedIslands(polygons)
+    if (!shared) return paired
+    const area = (/** @type {number[][][][][]} */ region) =>
+      region[0].reduce(
+        (sum, island) =>
+          sum +
+          Math.abs(
+            island[0].reduce((twice, p, i, ring) => {
+              const q = ring[(i + 1) % ring.length]
+              return twice + p[0] * q[1] - q[0] * p[1]
+            }, 0)
+          ) /
+            2,
+        0
+      )
+    /** Ink left to the distance field, and the strain of the rest.
+     * @param {number[][][][][][]} regions */
+    const judged = (regions) => {
+      let lost = 0,
+        strain = 0
+      for (const region of regions) {
+        const blend = cuts.has(region) ? blendOf(region) : prepareCorrespondence(region, true)
+        if (blend) strain += blend.strain
+        else lost += area(region)
+      }
+      return { lost, strain }
+    }
+    const regions = shared.map(({ region }) => region)
+    for (const { region, cut } of shared) if (cut) cuts.add(region)
+    const was = judged(paired),
+      now = judged(regions)
+    const total = paired.reduce((sum, region) => sum + area(region), 0) || 1
+    const gained = (was.lost - now.lost) / total
+    return gained > 0.02 || (gained > -0.02 && now.strain < was.strain - 0.05) ? regions : paired
   }
   // Blend stroke by stroke where the faces label their strokes alike. A stroke is a
   // simple shape whose corners match reliably; the union of several is not.

@@ -5,6 +5,7 @@ import {
   alignRings,
   groupRegions,
   prepareCorrespondence,
+  sharedIslands,
   splitIslands,
   tangled
 } from '../src/mix-contours.js'
@@ -993,6 +994,21 @@ it('cuts a fused island where its pieces fit the other face when asked to', asyn
   const fitted = left('fit')
   expect(fitted.left).toBeLessThan(25)
   for (const region of fitted.regions) expect(prepareCorrespondence(region, true)).not.toBeNull()
+})
+
+it('cuts both faces to the pieces they share where each runs different strokes together', async () => {
+  // 淼 in a Song face and a Fangsong face. In the lower right 水 the Song face joins the
+  // left stroke to the stem; the Fangsong face joins that stroke to the 水 on its left.
+  const faces = await Bun.file(new URL('./fixtures/crossed-fusions.json', import.meta.url)).json()
+  // Cutting only the coarser face pairs a piece with ink that holds other strokes.
+  const oneWay = splitIslands(faces)
+  expect(oneWay.some((region) => !prepareCorrespondence(region, true))).toBe(true)
+  const shared = sharedIslands(faces)
+  expect(shared).toHaveLength(6)
+  for (const { region, cut } of shared) expect(prepareCorrespondence(region, cut)).not.toBeNull()
+  // Faces whose islands already stand one to one need no cutting.
+  const apart = [[box(20, 20, 40, 200)], [box(120, 20, 40, 200)]]
+  expect(sharedIslands([apart, apart])).toBeNull()
 })
 
 it('does not pair distant leftover corners at opposite ends of a long stem wall', () => {
