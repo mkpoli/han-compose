@@ -14,7 +14,7 @@ const operands = [walkingYou, '#(㇋乀)', '㇋', '乀', '由']
 const cuts = {
   regular: {
     yan: '1ccb6a08140282e5618bc5995684e35a89ce32a52df2289ba5d87637abfac21b',
-    contour: 0, runs: [[0, 0, 96], [0, 113, 130]], inside: [.322, .359, .987, 1],
+    contour: 0, runs: [[0, 0, 96], [0, 113, 130]], inside: [.371, .260, .987, 1],
     inner: '廸', digest: '8a70c838e829ec6b5227d60619f140cfa0606d8e4b31b296c1b113920a8438de', body: [1, 2, 3, 4, 5],
   },
   fangsong: {

@@ -1,6 +1,7 @@
 import { expect, it } from 'bun:test'
 import { EM_BOX, fill, groupRings, grown, partOf, rings, segments } from '../src/geometry.js'
 import { overlayContextDonors, overlayContextParts } from '../src/rcc-overlays.js'
+import metrics from '../src/chain-ink-metrics.json' with { type: 'json' }
 import records from './fixtures/rcc-walking-you.json' with { type: 'json' }
 
 const key = '⿺#(㇋乀)由', em = [0, 0, 1000, 1000]
@@ -111,6 +112,25 @@ for (const [style, cut] of Object.entries(cuts)) {
     }
   })
 }
+
+it('fits Kai 由 to its native proportions and clearance above the sweep', () => {
+  const [frame, body] = overlayContextParts(composer('regular'), key, metrics.c14ee5e08798[key])
+  const aspect = ([left, bottom, right, top]) => (right - left) / (top - bottom)
+  expect(Math.abs(aspect(body.target) - aspect(body.part.box))).toBeLessThan(.02)
+
+  // In native Kai 廸 and 迪 the underside of 由 clears the sweep by about
+  // 0.14 em, measured on the vertical through the middle of the body.
+  const size = 250
+  const column = Math.floor((body.target[0] + body.target[2]) / 2 * size / 1000)
+  const [sweep, inside] = [frame, body].map(part => {
+    const mask = fill(groupRings([part], 24), size, EM_BOX)
+    return Array.from({ length: size }, (_, row) => Boolean(mask[row * size + column]))
+  })
+  const floor = inside.lastIndexOf(true), foot = sweep.indexOf(true, floor + 1)
+  expect(floor).toBeGreaterThanOrEqual(0)
+  expect(foot).toBeGreaterThan(floor)
+  expect(Math.abs((foot - floor - 1) / size - .14)).toBeLessThan(.015)
+})
 
 it('uses the existing outlines for Sans, Serif and other spellings', () => {
   for (const style of ['sans', 'serif']) {
