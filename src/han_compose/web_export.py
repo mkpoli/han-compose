@@ -245,6 +245,8 @@ def constants(composer: C.Composer) -> dict:
     out["HEAVY"] = style.heavy
     if style.part_stems is not None:
         out["PART_STEMS"] = list(style.part_stems)
+    if style.part_spread is not None:
+        out["PART_SPREAD"] = list(style.part_spread)
     out["STATIC"] = bool(composer.font.static)
     out["GROW_Y"] = round(composer.font.grow_y, 3)
     out["stem"] = [_r(s, 3) for s in composer.font.stem]

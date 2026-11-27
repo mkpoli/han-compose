@@ -114,6 +114,11 @@ class Style:
     #: weighted glyph hold the ink of the font's own part. None weights by density alone
     #: (`stem_curve`).
     part_stems: tuple[float, float] | None = None
+    #: How far the stroke widths of two parts of one character differ in the font's own characters,
+    #: the wider over the narrower across x and across y, in four of five of them
+    #: (`calibrate-parts`). Parts drawn from hosts of unlike weight are held within it. None leaves
+    #: each part at the width `part_stems` gives it.
+    part_spread: tuple[float, float] | None = None
 
 
 OFL = "SIL OFL 1.1"
@@ -162,6 +167,7 @@ STYLES = {
                 "681933370adfe0fc7253f77735275a82fea09fe4f8adba907bdeb46c110daf8f", OFL)),
         ((85.34, -1.324), (86.93, -1.914)),
         part_stems=(0.348, 0.448),
+        part_spread=(1.13, 1.24),
     ),
     # Noto Serif CJK JP 2.003 (Source Han Serif's design), whose horizontals stay about 30 units at
     # every weight from 200 to 900 while its verticals grow from 45 to 145.
@@ -177,6 +183,7 @@ STYLES = {
         synthetic_y=True,
         kindred=False,
         part_stems=(0.147, 0.013),
+        part_spread=(1.09, 1.09),
     ),
     # Nôm Na Tống 5.20 (Nôm Na Group, Vietnamese Nôm Preservation Foundation): a static Song face cut
     # after woodblock printing, the reference font for Hán-Nôm encoding. No other font fills in
@@ -196,6 +203,7 @@ STYLES = {
         # (`STATIC_GROW`) toward the stem the font gives such a part, as far as its ink matches the
         # ink of the font's own parts (`calibrate-parts`, on 1,983 parts).
         part_stems=(0.370, 0.295),
+        part_spread=(1.13, 1.26),
         # Its full ideographs span -151 to 848 of the em, Noto Serif's -78 to 837: the lift centres
         # them where Noto Serif's stand. They fill the em's whole height, so a stroke at the top
         # or the foot can pass its edge by a few units.
@@ -217,6 +225,7 @@ STYLES = {
         heavy=400,
         kindred=False,
         part_stems=(0.364, 0.315),
+        part_spread=(1.11, 1.17),
         own_hosts=True,
     ),
     # TW-Kai (CNS 11643 Kai, fonts version 11510.1): a static brush face whose Extension B and G
@@ -230,6 +239,7 @@ STYLES = {
         heavy=400,
         kindred=True,
         part_stems=(0.417, 0.407),
+        part_spread=(1.29, 1.46),
         own_hosts=True,
         # TW-Kai's typographic ascent is 820 on its 1024-unit em: 880 - 820 * 1000 / 1024.
         y_shift=79.2,
@@ -252,6 +262,7 @@ STYLES = {
         heavy=400,
         kindred=False,
         part_stems=(0.328, 0.368),
+        part_spread=(1.16, 1.26),
         own_hosts=True,
     ),
 
@@ -3205,6 +3216,10 @@ class Composer:
         density = sum(self.ink("", p.part) * (p.scale[0] + p.scale[1]) / 2 for p in placed)
         ratio = [self.font.stem[axis][1] / self.font.stem[axis][0] - 1 for axis in (0, 1)]
         powers = getattr(getattr(self.font, "style", None), "part_stems", None)
+        spread = getattr(getattr(self.font, "style", None), "part_spread", None)
+        # Per axis, each weighted part with the stroke width it is drawn at before weighting and
+        # how far a weight of 1 widens it.
+        drawn: tuple[list, list] = ([], [])
         for p in placed:
             if p.fixed:
                 continue
@@ -3242,11 +3257,39 @@ class Composer:
                         grown = (self.font.stem[1][1] - self.font.stem[1][0]) / self.font.width(p.native, 1)
                     at = max(s * first.scaled[axis], PART_SCALE_LEAST)
                     weight.append(float(np.clip((lift * at ** (powers[axis] - 1) - 1) / grown, -0.6, WEIGHT_GROWTH)))
+                    stated = measured[axis] if measured is not None else self.font.width(p.native, axis) * first.scaled[axis]
+                    drawn[axis].append((p, stated * s, grown))
                     continue
                 own = measured[axis] if measured is not None else self.font.width(p.native, axis)
                 weight.append(float(np.clip((self.font.width(density, axis) / (s * own) - 1) / ratio[axis], -0.6, WEIGHT_GROWTH)))
             p.target = tuple(target)
             p.weight = (weight[0], weight[1])
+        if spread is not None:
+            self._even(drawn, spread)
+
+    def _even(self, drawn: tuple[list, list], spread: tuple[float, float]) -> None:
+        """Parts of one character held within the font's own spread of a common stroke width. A
+        character's parts are drawn with one stroke width in the font, whatever their sizes; parts
+        cut from hosts of unlike weight (雲 from 霻, 龍龍 from the crowded 龘) come out further
+        apart than any two parts of the font's own characters. The common width is the mean of the
+        parts' widths by their ink, and a part outside the spread about it is weighted to its edge."""
+        for axis in (0, 1):
+            parts = drawn[axis]
+            if len(parts) < 2:
+                continue
+            widths = np.array([base * (1 + p.weight[axis] * grown) for p, base, grown in parts])
+            inks = np.array([self.ink("", p.part) * (p.scale[0] + p.scale[1]) / 2 for p, _, _ in parts])
+            if (widths <= 0).any() or inks.sum() <= 0:
+                continue
+            common = float(np.exp((inks * np.log(widths)).sum() / inks.sum()))
+            # Two parts each within the root of the spread of the common width are within the spread.
+            edge = math.sqrt(spread[axis])
+            for (p, base, grown), width in zip(parts, widths):
+                held = float(np.clip(width, common / edge, common * edge))
+                if held != width:
+                    weight = list(p.weight)
+                    weight[axis] = float(np.clip((held / base - 1) / grown, -0.6, WEIGHT_GROWTH))
+                    p.weight = (weight[0], weight[1])
 
     def _wheat_face(self, region: Box) -> list[Placed]:
         """The checked 榛, sweep and 麺 cuts for the described enclosure in Zhuque and TW-Kai."""

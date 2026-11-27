@@ -95,3 +95,19 @@ it('weights a part by the measured powers of its scale, against its own stem', a
   composer.balance([whole, borrowed])
   expect(borrowed.weight[0]).toBeCloseTo((0.5 ** -0.75 - 1) / (100 / 60 - 1), 6)
 })
+
+it('holds parts of one character within the font\'s spread of a common stroke width', async () => {
+  const input = lawFiles([0.25, 0.25])
+  const manifest = JSON.parse(input['manifest.json'])
+  manifest.constants.PART_SPREAD = [1.21, 1.21]
+  const all = { ...input, 'manifest.json': JSON.stringify(manifest) }
+  const loaded = createSource(async name => all[name] === undefined ? null : new Blob([all[name]]).arrayBuffer())
+  await loaded.ready()
+  const composer = new Composer(loaded.store(), { fontStyle: 'fangsong' })
+  const thick = frame(60, [200, 200, 700, 700]), thin = frame(30, [200, 200, 700, 700])
+  composer.balance([thick, thin])
+  const widths = [60 * (1 + thick.weight[0] * 40 / 60), 30 * (1 + thin.weight[0] * 40 / 30)]
+  expect(widths[0] / widths[1]).toBeCloseTo(1.21, 6)
+  expect(widths[1]).toBeGreaterThan(30)
+  expect(widths[0]).toBeLessThan(60)
+})

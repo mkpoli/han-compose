@@ -478,3 +478,33 @@ def test_a_static_face_counts_a_parts_weight_against_its_own_stem_and_holds_the_
     borrowed = compose.Placed(kin, kin.box, (200.0, 200.0, 450.0, 450.0))
     composer._balance([whole, borrowed])
     assert borrowed.weight == pytest.approx(((0.5 ** -0.75 - 1) / (100 / 60 - 1), (0.5 ** -0.5 - 1) / (80 / 40 - 1)))
+
+
+def test_parts_of_one_character_are_held_within_the_fonts_spread_of_a_common_stroke_width() -> None:
+    from types import SimpleNamespace
+
+    def frame(stroke: float) -> compose.Part:
+        outer = np.array([[200, 200], [200, 700], [700, 700], [700, 200]], dtype=float)
+        a, b = 200 + stroke, 700 - stroke
+        inner = np.array([[a, a], [b, a], [b, b], [a, b]], dtype=float)
+        ops = [("moveTo", 1, False)] + [("lineTo", 1, False)] * 3
+        return compose.Part([compose.Contour(ops, outer, outer.copy(), (stroke, stroke)), compose.Contour(ops, inner, inner.copy(), (stroke, stroke))])
+
+    def font(spread):
+        return SimpleNamespace(style=SimpleNamespace(part_stems=(0.25, 0.25), part_spread=spread), stem=((60.0, 100.0), (60.0, 100.0)),
+                               static=True, glyph=lambda _: None, has=lambda _: False, width=lambda density, axis: 60.0)
+
+    def drawn(spread):
+        composer = compose.Composer(font(spread), {})
+        thick, thin = frame(60.0), frame(30.0)
+        parts = [compose.Placed(thick, thick.box, thick.box), compose.Placed(thin, thin.box, thin.box)]
+        composer._balance(parts)
+        return [60 * (1 + parts[0].weight[0] * 40 / 60), 30 * (1 + parts[1].weight[0] * 40 / 30)]
+
+    # Two parts, one cut from a host with strokes twice as wide: left apart without a spread.
+    assert drawn(None) == pytest.approx([60.0, 30.0])
+    thick, thin = drawn((1.21, 1.21))
+    assert thick / thin == pytest.approx(1.21)
+    assert 30.0 < thin < thick < 60.0
+    # Parts already within the spread keep their weights.
+    assert drawn((2.5, 2.5)) == pytest.approx([60.0, 30.0])

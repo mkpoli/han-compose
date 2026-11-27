@@ -446,6 +446,9 @@ def calibrate_parts(sample: int = 700, seed: int = 11, style: str = STYLE) -> No
     """Fit the powers of a part's scale its stroke width follows in the font's own characters, for the
     style's `part_stems`: each part of a character cut cleanly in two against its own glyph.
 
+    The stroke widths of a character's two parts, side by side or stacked, give the style's
+    `part_spread`: how far apart they are in four of five characters.
+
     The stroke widths give the two powers. Growing an outline also thickens its dots, ends and
     diagonals, so the glyph set into the part's box and weighted by those powers holds more ink than
     the part: the powers are then brought toward 1 (plain scaling) by the strength at which the ink
@@ -462,7 +465,7 @@ def calibrate_parts(sample: int = 700, seed: int = 11, style: str = STYLE) -> No
     def ink(placed: compose.Placed) -> float:
         return float(compose.raster([placed], 200).sum())
 
-    rows, pairs = [], []
+    rows, pairs, apart = [], [], []
     for ops, places in ((tuple(compose.ENCLOSE), (1,)), (("⿰", "⿱"), (0, 1))):
         chars = sorted(ch for ch, s in composer.sequences.items() if s[0] in ops and composer.font.own(ch))
         random.Random(seed).shuffle(chars)
@@ -478,6 +481,10 @@ def calibrate_parts(sample: int = 700, seed: int = 11, style: str = STYLE) -> No
             if host is None or len(host.pieces) != 2:
                 continue
             cut += 1
+            if len(places) == 2:
+                both = [stem(piece) for piece in host.pieces]
+                if all(both):
+                    apart.append([max(both[0][axis], both[1][axis]) / min(both[0][axis], both[1][axis]) for axis in (0, 1)])
             for place in places:
                 piece, operand = host.pieces[place], tree[1 + place]
                 if not isinstance(operand, str) or not composer.font.own(operand):
@@ -518,7 +525,10 @@ def calibrate_parts(sample: int = 700, seed: int = 11, style: str = STYLE) -> No
     error, strength, powers, median = best
     print(json.dumps({"style": style, "parts": len(rows), "stem_powers": [round(power, 3) for power in fitted],
                       "strength": round(strength, 2), "part_stems": [round(power, 3) for power in powers],
-                      "ink_error": round(error, 3), "ink_median": round(median, 3)}))
+                      "ink_error": round(error, 3), "ink_median": round(median, 3),
+                      # The wider stroke width of a character's two parts over the narrower, in four of five.
+                      "part_spread": [round(float(np.quantile([row[axis] for row in apart], 0.8)), 2) for axis in (0, 1)],
+                      "characters_cut_in_two": len(apart)}))
 
 
 if __name__ == "__main__":
