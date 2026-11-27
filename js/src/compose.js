@@ -974,6 +974,7 @@ export class Composer {
     this.chains = new Map()
     // Stacked operand pairs, settled against their ink once the drawing is weighted.
     this.columns = []
+    this.spaced = []
     this.joints = []
     // Swept glyphs with the part each holds over its foot, refitted once the drawing is weighted.
     this.sweeps = []
@@ -1444,6 +1445,7 @@ export class Composer {
     this.approximate.clear()
     this.nativeEnclosures.clear()
     this.columns.length = 0
+    this.spaced.length = 0
     this.joints.length = 0
     this.sweeps.length = 0
     this.carried = 1
@@ -1498,6 +1500,7 @@ export class Composer {
       fitNestedHostChains(out)
       if (!this.partial && this.weighted) {
         this.balance(out)
+        this.clear(out)
         this.settleSweeps()
       }
       if (!this.partial && this.staticFace) this.staticBalance(out)
@@ -5176,13 +5179,25 @@ export class Composer {
       if (axis === 1 && a?.length && b?.length && this.closed(b, a, nested ? CLOSED_NESTED : 1)) continue
       const gaps = facing(a, b, axis)
       if (!gaps) continue
+      this.spaced.push([axis, a, b])
       const gap = gaps.min <= 0 ? gaps.min : gaps.median
       if (gap >= C.FACING[axis]) continue
-      const half = (C.FACING[axis] - gap) / 2
-      const [first, second] = axis === 0 ? [a, b] : [b, a]
-      const limit = group => C.SQUEEZE * (Math.max(...group.map(p => p.target[axis + 2])) - Math.min(...group.map(p => p.target[axis])))
-      squeeze(first, axis, 0, -Math.min(half, limit(first)))
-      squeeze(second, axis, Math.min(half, limit(second)), 0)
+      apart(a, b, axis, C.FACING[axis] - gap, C.SQUEEZE)
+    }
+  }
+
+  /** The style's least gap kept between neighbouring parts once they carry their weights (`_clear`):
+   *  `space` measures them as laid out, and a part weighted afterwards grows into the gap. */
+  clear(out) {
+    const least = this.C.FACING_LEAST
+    if (!least) return
+    const drawn = new Set(out)
+    for (const [axis, a, b] of this.spaced) {
+      const parts = [...a, ...b]
+      if (!parts.every(p => drawn.has(p) && !p.fixed && !p.cut)) continue
+      if (!parts.some(p => p.weight?.some(Boolean))) continue
+      const gaps = facing(a, b, axis)
+      if (gaps && least[axis] > gaps.min) apart(a, b, axis, least[axis] - gaps.min, this.C.SQUEEZE)
     }
   }
 
@@ -6068,6 +6083,16 @@ function centredIn(group, region) {
 }
 
 /** A group moved in from its low and high edges along `axis`, together. */
+/** Two neighbouring groups moved `short` apart, each giving up half on its facing side, and none
+ *  more than `most` of its length (`_apart`). `a` is the left or upper group. */
+function apart(a, b, axis, short, most) {
+  const half = short / 2
+  const [first, second] = axis === 0 ? [a, b] : [b, a]
+  const limit = group => most * (Math.max(...group.map(p => p.target[axis + 2])) - Math.min(...group.map(p => p.target[axis])))
+  squeeze(first, axis, 0, -Math.min(half, limit(first)))
+  squeeze(second, axis, Math.min(half, limit(second)), 0)
+}
+
 function squeeze(group, axis, low, high) {
   const lo = Math.min(...group.map(p => p.target[axis])), hi = Math.max(...group.map(p => p.target[axis + 2]))
   const newLo = lo + low, newHi = hi + high, scale = (newHi - newLo) / Math.max(hi - lo, 1)
