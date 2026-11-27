@@ -70,7 +70,7 @@ def fake_composer(placed):
         _cancel_transforms = _normalize_repeated_grids = _standalone_repeated_grid = lambda self, tree: tree
         _standalone_pyramid = _standalone_expanded_overlay = lambda self, tree: tree
         face=(0,0,100,100);by_sequence={'⿷匚斤':'匠'};reuse=True;exclude={'匠'}  # noqa: RUF012 - read-only fixtures on a stand-in class
-        standalone=True;hosted=True;weighted=True;guide=None;rerank=False;_beside=None
+        standalone=True;hosted=True;weighted=True;guide=None;rerank=False;_beside=None;_columns=[]  # noqa: RUF012 - cleared by compose, never shared between tests
         font=NS(own=lambda ch:True)
         def _respelled(self,t):return t
         def _node(self,*a,**kw):return placed
