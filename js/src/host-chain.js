@@ -1,4 +1,4 @@
-import { derived, mapped, partInk, partOf, placed } from './geometry.js'
+import { cutContours, derived, mapped, partInk, partOf, placed } from './geometry.js'
 import { exportInkBox, recordedInkBox } from './chain-ink.js'
 import cuts from './host-chain-cuts.json' with { type: 'json' }
 import { recordedNativeRecord } from './recorded-native.js'
@@ -30,6 +30,18 @@ const nativeCuts = /** @type {Record<string, {host: string, uprightGap?: Record<
 /** @param {any} node @param {string} style */
 export function chainHost(node, style) {
   return nativeCuts[node]?.faces[style]?.[0]
+}
+
+/** Place the complete native glyph so its bearings and weight survive layout.
+ * Editable leaves take the final contours and transform of that same placement.
+ * @param {import('./compose.js').Composer} composer @param {any} glyph @param {number[]} region
+ * @param {string} host @param {string[]} leaves @param {number[][]} groups */
+export function partitionChainHost(composer, glyph, region, host, leaves, groups) {
+  const whole = composer.place(glyph, region, composer.ink(host), `glyph ${host}`)
+  if (!composer.separate) return [whole]
+  const leafParts = (/** @type {any} */ final) => groups.map((indices, i) =>
+    [cutContours(final, indices), `${leaves[i]} from ${host}`])
+  return [{ ...whole, rccLeaf: 0, rccLeafCount: leaves.length, leafParts }]
 }
 
 /** The two 亞 cuts have an upright on each side of a clear vertical strip.
