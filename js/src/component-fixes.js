@@ -5,6 +5,7 @@
 // changes; an export drawing other outlines keeps the font's cut. The parts are plain placed pieces,
 // so the corrections work wherever the description is drawn, at any depth.
 import { contourSections, derived, fitted, groupRings, makePart, mapped, partOf, placed, pointsBox, union } from './geometry.js'
+import { penGrassKu } from './grass-ku.js'
 import { hexOf } from './sha256.js'
 
 // Interpolation factors for the hosted 口 outlines when fitted beside 乎.
@@ -394,26 +395,12 @@ export const COMPONENT_FIXES = {
     },
   },
   '⿱艹堀': {
-    glyphs: { 堀: 'f43243bd31c0029a0b42e359bec3243f319aa4d4d8c8500f62e67fb1f5a69542' },
-    apply(parts, composer) {
-      if (composer.fontStyle !== 'pen-writing' || !composer.staticFace || composer.partial || parts.length !== 2) return parts
-      const [head, body] = parts
-      if (head.origin !== 'learned 蔎' || body.origin !== 'glyph 堀') return parts
-      const [light, heavy] = composer.stem0[0]
-      if (!(heavy > light && light > 0)) return parts
-      const finishOutline = part => {
-        const [wx, wy] = part.weight
-        if (!wx || part.fixed || part.cut || part.flips?.length) return part
-        // In native 䓛, 艹 and the long downstroke of 尸 have similar widths.
-        // The static balancer's applied lift sets H/L. Taking the geometric mean
-        // of the native and balanced widths uses 1 / (1 + sqrt(H/L)) of its lift.
-        const ratio = 1 + Math.abs(wx) * (heavy / light - 1)
-        const revised = { ...part, weight: [wx / (1 + Math.sqrt(ratio)), wy] }
-        const ink = p => union(groupRings([p], 24).map(pointsBox))
-        return { weight: revised.weight, target: mapped(part.target, ink(revised), ink(part)) }
-      }
-      return [head, { ...body, finishOutline }]
+    glyphs: {
+      堀: 'f43243bd31c0029a0b42e359bec3243f319aa4d4d8c8500f62e67fb1f5a69542',
+      '䕋': '41fe0e171f99af334c530521fd232c29532c4f566d3435eb8f064f148ce2f740',
+      '䓛': '24db65003a6ef60f8a9efcece91167f5bb035ea042a02da399a8babbf48e11e8',
     },
+    apply: penGrassKu,
   },
   '⿰身花': {
     glyphs: {},

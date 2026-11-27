@@ -146,33 +146,6 @@ describe('⿱一心', () => {
   })
 })
 
-it('keeps 艹 native and adjusts the final downstroke lift of Pen 堀 within its ink edges', () => {
-  const head = part('learned 蔎', [0, 0, 1000, 100], [0, 800, 1000, 900], [[20, 20, 950, 90]])
-  const body = part('glyph 堀', [0, 0, 800, 800], [40, 0, 840, 700], [[40, 20, 700, 780]])
-  const contour = body.part.contours[0]
-  contour.ops = [['M', 1], ['L', 1], ['L', 1], ['L', 1]]
-  // Pen's synthetic heavy master contracts inward along x for this cut.
-  contour.heavy = Float64Array.from([60, 40, 680, 40, 680, 760, 60, 760])
-  const pieces = [head, body]
-  const face = { fontStyle: 'pen-writing', staticFace: true, stem0: [[50, 90], [45, 85]] }
-  const fix = COMPONENT_FIXES['⿱艹堀'].apply
-  const [grass, lower] = fix(pieces, face)
-  expect(grass).toBe(head)
-  expect(lower.finishOutline(lower)).toBe(lower)
-  const final = { ...lower, weight: [-0.2, -0.3], target: [120, 180, 580, 670] }
-  const adjusted = lower.finishOutline(final)
-  expect(adjusted.weight[0]).toBeCloseTo(-0.2 / (1 + Math.sqrt(1.16)))
-  expect(adjusted.weight[1]).toBe(-0.3)
-  const box = pointsBox(drawnContours(final)[0])
-  for (const [i, edge] of pointsBox(drawnContours({ ...final, ...adjusted })[0]).entries())
-    expect(edge).toBeCloseTo(box[i])
-  const fixed = { ...final, fixed: true }
-  expect(lower.finishOutline(fixed)).toBe(fixed)
-  expect(fix(pieces, { ...face, fontStyle: 'regular' })).toBe(pieces)
-  expect(fix(pieces, { ...face, partial: true })).toBe(pieces)
-  expect(componentFix('⿱艹堀', pieces, { ...face, glyphRecord: () => null })).toBe(pieces)
-})
-
 it('balances Regular 身 and 化 at their placed scale and preserves their ink bounds', () => {
   const body = part('learned 躭', [0, 0, 400, 800], [0, 0, 400, 800], [[10, 20, 390, 780]])
   const flower = part('glyph 花 kept', [0, 0, 800, 800], [420, 0, 820, 800], [[30, 10, 780, 620]])

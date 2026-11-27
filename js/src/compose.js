@@ -828,6 +828,7 @@ export const designedSources = (tree, style = 'sans') => {
   const visit = node => {
     const key = keyOf(node)
     if (key === '⿰水行' && (style === 'regular' || style === 'pen-writing')) out.add('沀')
+    if (key === '⿱艹堀' && style === 'pen-writing') { out.add('䕋'); out.add('䓛') }
     for (const char of rccDonors(key, style)) out.add(char)
     if (key.includes('#(')) {
       const reference = recordedDonor(key)
@@ -1476,7 +1477,7 @@ export class Composer {
         part.target = [cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2]
       }
       this.fitMetricKeInterior(out, tree)
-      for (const part of out) if (part.finishOutline) Object.assign(part, part.finishOutline(part))
+      for (const part of out) if (part.finishOutline) Object.assign(part, part.finishOutline(part, out))
       fitClawInterior(out, tree, this.fontStyle)
       // Loose marks annotate the whole drawing; they take no part in its layout or weight.
       if (!subtracts(tree)) settleColumns(this.columns, out, this.fontStyle)
