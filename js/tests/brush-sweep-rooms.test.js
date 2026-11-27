@@ -1,6 +1,7 @@
 import { expect, it } from 'bun:test'
 import { compose, createSource, sketch } from '../src/loader.js'
-import { fill, pathRings, pointsBox, union } from '../src/geometry.js'
+import { fill, pathRings, pointsBox, svgPath, union } from '../src/geometry.js'
+import { hexOf } from '../src/sha256.js'
 import { brushSweepParts } from '../src/brush-sweep-rooms.js'
 import { files, shards } from './fixtures/small-export.js'
 // Zhuque Fangsong 0.212, TrionesType, SIL OFL 1.1.
@@ -85,5 +86,21 @@ it('places inner ink at the horizontal centers of encoded reference glyphs', asy
     }
     const innerCenter = (boxes[1][0] + boxes[1][2]) / 2
     expect(Math.abs((innerCenter - left) / (right - left) - center), pair).toBeLessThan(0.012)
+  }
+})
+
+it('preserves the five Fangsong 瓦 frames when fitting their contents', () => {
+  // Canonical 1000-em frame outlines from 57b3a902.
+  const frames = {
+    千: 'd68524d1f69a4f88c6aea97bc52c0dcd9f75d2357ad9d47bf69e4b280a0391cf',
+    厘: '97f0586d91f416cb174975d3a35963ca3c20df437ab420eb2f7dccbcc22aeb51',
+    十: 'e0b99435f3aa7fd7b0043f58e081769d9ca3f556c20fe1f0fc6869789fe69b26',
+    屯: '2ba83efd9e6724d6935ed1da4a6a61a9ba133092c192fd39aa79296c261a228b',
+    百: 'c5d52a838419808f8e2d05b5b92a72f855fd7097d224f8556afdbb5df040b428',
+  }
+  const composer = { fontStyle: 'fangsong', excluded: () => false, glyphRecord: ch => donors[ch].G }
+  for (const [inner, digest] of Object.entries(frames)) {
+    const [frame] = brushSweepParts(composer, ['⿺', '瓦', inner], [0, -120, 1000, 880])
+    expect(hexOf(svgPath([frame])), inner).toBe(digest)
   }
 })
