@@ -839,6 +839,10 @@ export declare class Composer {
     get partial(): boolean;
     fit(outer: any, inner: any, region: any, stem: any, C: any, options: any): boolean;
     collide(outer: any, inner: any, region: any, size: any): number;
+    /** A cross or T keeps its full glyph while the operand fits proportionally in its open quadrant.
+     * Enclosure teachers and swept feet describe frames; two crossing bars use their actual opening.
+     */
+    quadrantSurround(op: any, children: any, region: any): any;
     /** The largest empty box inside `region` the placed enclosing part closes on its closed sides,
      *  `ROOM_MARGIN` stroke widths clear of its ink (`_room`). On an open side the box stops at the
      *  part's own ink, so an enclosed part sits between the arms (凵, 門) rather than over their tips. */
