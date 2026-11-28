@@ -994,6 +994,8 @@ export class Composer {
     // The pairs written as operands of a row along their own axis, by their node and by their
     // operand list (`narrowRow`).
     this.beside = new WeakSet()
+    /** For a pair `respelled` puts under a lower-left enclosure, the part the enclosure first held. */
+    this.heldFirst = new WeakMap()
     this.approximate = new Set()
     this.coverCache = new Map()
     // Characters whose glyph the export lacks and whose sequence stands in for it.
@@ -3830,7 +3832,13 @@ export class Composer {
     if (typeof outer === 'string') { try { outer = this.parse(this.sequenceOf(outer) ?? '') } catch { return node } }
     else if (node[0] === '⿸') return node
     if (Array.isArray(outer) && outer[0] === node[0] && outer.length === 3 && !outer.note
-      && !(typeof outer[1] === 'string' && (this.sequenceOf(outer[1]) ?? '').startsWith(node[0]))) return [node[0], outer[1], [held, outer[2], node[2]]]
+      && !(typeof outer[1] === 'string' && (this.sequenceOf(outer[1]) ?? '').startsWith(node[0]))) {
+      const pair = [held, outer[2], node[2]]
+      // The part already held keeps the place the font gives it there, and both parts fill their
+      // cells, as a pair beside another part does.
+      if (node[0] === '⿺') { this.heldFirst.set(pair, outer[2]); this.beside.add(pair) }
+      return [node[0], outer[1], pair]
+    }
     return node
   }
 
@@ -3885,6 +3893,10 @@ export class Composer {
 
   /** The drawn part closest to what `node` needs at `index` of `op` inside `box`, as [record, piece]. */
   host(op, index, node, siblings, box, isPlaced = false) {
+    // An enclosing part round a pair `respelled` wrote into it is cut as it stands round the part
+    // it first held (走 from 越 round 戉 for ⿺越事), whose opening that part already fills.
+    const first = op === '⿺' && index === 0 && siblings.length === 1 ? this.heldFirst.get(siblings[0]) : undefined
+    if (first !== undefined) siblings = [first]
     // A forced operand is drawn from its own IDS, not replaced by a host's cut. A direct 艹 is
     // exempt: its form is placed by the caller, or the face's own cut is the connected component.
     if (!(typeof node === 'string' && node === '艹') && this.forced(node)) return null
@@ -4071,6 +4083,14 @@ export class Composer {
   /** Both operands' boxes in the em, as the learned layout sets them. A construct that is drawn has
    *  no character of its own, and is read as the character it is a shape of (`like`). */
   predict(op, children) {
+    // A pair written into a lower-left enclosure stands where the part it first held stands (犀
+    // under 辶 in 遲), out to the right of the enclosure's foot.
+    const first = op === '⿺' && children.length === 2 ? this.heldFirst.get(children[1]) : undefined
+    if (first !== undefined) {
+      const boxes = this.predict(op, [children[0], first])
+      const right = Math.max(boxes[0][2], boxes[1][2])
+      return [boxes[0], [boxes[1][0], boxes[1][1], right, boxes[1][3]]]
+    }
     const keys = children.map(child => (this.constructed(child, this.face) && CONSTRUCTS[keyOf(child)].like) || this.renderKey(child))
     return forward(this.layout, features(this.layout, op, keys.map(k => this.rec(k === '⺿' || k === '⻀' ? '艹' : k)), [this.slot(op, 0), this.slot(op, 1)]))
   }
@@ -4282,7 +4302,10 @@ export class Composer {
       if (!part) {
         // A part with no host cut (a description, an empty slot) is set over a swept foot by
         // `shares`: where it will sweep the outer glyph, answer nothing and `node` hands it the pair.
-        if (op === '⿺' && i === 1 && !kinned && this.sweptUnder(children, this.enclosing(op, children, frameOf), frameOf)) return null
+        // An enclosing part cut from a character the font draws round another part (是 from 題) is
+        // already drawn round it, and holds this part as that part.
+        const designed = Boolean(groups[0]?.some(part => !part.origin.startsWith('glyph')))
+        if (op === '⿺' && i === 1 && !kinned && !designed && this.sweptUnder(children, this.enclosing(op, children, frameOf), frameOf)) return null
         if (op in this.ENCLOSE && i === 1) {
           // An inner the opening cannot hold is drawn into the opening itself, so it cannot
           // overflow the frame. A grid drawn whole can still have one row smaller than the other

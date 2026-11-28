@@ -200,6 +200,12 @@ it('holds a part written into a lower-left enclosure beside the part already hel
   expect(composer.respelled(['⿸', '乙', '口'])).toEqual(['⿸', '厃', ['⿱', '木', '口']])
   // A lower-left enclosure round an upper-left one is no such pair.
   expect(composer.respelled(['⿺', '乙', '口'])).toEqual(['⿺', '乙', '口'])
+  // The pair stands where 木 stands in 甲, out to the right of the enclosure, and fills its cells.
+  const [, outer, pair] = composer.respelled(['⿺', '甲', '口'])
+  const first = composer.predict('⿺', [outer, '木'])
+  const [, box] = composer.predict('⿺', [outer, pair])
+  expect(box).toEqual([first[1][0], first[1][1], Math.max(first[0][2], first[1][2]), first[1][3]])
+  expect(composer.beside.has(pair)).toBe(true)
 })
 
 it('keeps the outline of another face when the sequence of its character cannot be drawn', async () => {
