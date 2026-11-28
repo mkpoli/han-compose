@@ -1,4 +1,5 @@
 // @ts-nocheck: a port of han-compose's Python, kept line for line; its types are the arrays it reads.
+import cuanForms from './cuan-forms.json' with { type: 'json' }
 import { fangsongDottedHe, fitDottedHe, isDottedHe, markDottedHe } from './dotted-bopomofo.js'
 import { columnClearance, settleColumns } from './column-spacing.js'
 import { finishGrassTang, isGrassTang, markGrassTang } from './grass-tang.js'
@@ -886,6 +887,7 @@ export const designedSources = (tree, style = 'sans') => {
       }
     }
     if (!Array.isArray(node)) return
+    if (Object.hasOwn(cuanForms, style) && keyOf(node) === '⿱⿱⿴𦥑同冖𤍾') out.add('爨')
     const [op, ...children] = node
     if (brushSweepRoom(node, style)) {
       children.forEach(ch => out.add(ch))
@@ -2045,7 +2047,7 @@ export class Composer {
         return
       }
       const repeated = isGroupedForm(keyOf(node), this.fontStyle) ? componentParts(keyOf(node), region, this.fontStyle, atRoot, this.exclude) : null
-      const designed = repeated ?? rccParts(editable, keyOf(node), region) ?? birdOutlineParts(this, keyOf(node), region) ?? this.doubleTurnParts(node, region) ?? brushSweepParts(this, node, region, !atRoot) ?? this.thornRowParts(node, region) ?? yiCrossParts(this, node, region) ?? this.qiParts(node, region) ?? ghostParts(this, node, region) ?? this.muKoParts(node, region) ?? this.wheatFaceParts(node, region)
+      const designed = repeated ?? rccParts(editable, keyOf(node), region) ?? birdOutlineParts(this, keyOf(node), region) ?? this.doubleTurnParts(node, region) ?? brushSweepParts(this, node, region, !atRoot) ?? this.thornRowParts(node, region) ?? yiCrossParts(this, node, region) ?? this.qiParts(node, region) ?? ghostParts(this, node, region) ?? this.cuanParts(node, region, atRoot) ?? this.muKoParts(node, region) ?? this.wheatFaceParts(node, region)
       if (designed) {
         const boxes = designed[0]?.rccGroup && rccLeafBoxes(designed, leafTexts(node).length)
         for (const box of boxes || designed.map(part => part.target)) out.push({ index: out.length, box, empty: false })
@@ -2564,6 +2566,28 @@ export class Composer {
     return parts.length ? parts : null
   }
 
+  /** The two hands, 同, the cover and the lower body as drawn in the face's own 爨. */
+  cuanParts(node, region, atRoot) {
+    if (!Array.isArray(node) || node[0] !== '⿱' || node[2] !== '𤍾' ||
+        keyOf(node[1]) !== '⿱⿴𦥑同冖' || !Object.hasOwn(cuanForms, this.fontStyle) ||
+        ['爨', '𦥑', '同', '冖', '𤍾'].some(ch => this.excluded(ch))) return null
+    const form = cuanForms[this.fontStyle], record = this.glyphRecord('爨')
+    if (record) {
+      if (hexOf(JSON.stringify(record.p)) !== form.digest) return null
+    } else {
+      // The sparse Pen export omits 爨 but identifies the font that supplied these cuts.
+      const fonts = this.data.manifest?.composer?.font_sha256
+      if (this.fontStyle !== 'pen-writing' || fonts?.['KureedoFull-Regular.ttf'] !==
+          '737f04de3b2b222664b5386628b0a15b009c7dd69086a1050dac0e507117c5d6') return null
+    }
+    const frame = atRoot ? this.C.face : record?.b ?? union(form.groups.map(group => group.b))
+    return form.groups.map((g, i) => {
+      const part = partOf(g)
+      return { ...placed(part, part.box, mapped(part.box, frame, region), partInk(part),
+        '爨 ' + ['𦥑', '同', '冖', '𤍾'][i]), fixed: true }
+    })
+  }
+
   dragonCuts() {
     if (this.excluded('龍')) return null
     if (this._dragonCuts !== undefined) return this._dragonCuts
@@ -2696,6 +2720,8 @@ export class Composer {
   }
 
   drawNode(node, region, atRoot = false, sideBySide = false, regroup = true) {
+    const cuan = this.cuanParts(node, region, atRoot)
+    if (cuan) return cuan
     const dragon = this.dragonParts(node, region, atRoot)
     if (dragon) return dragon
     const sweep = brushSweepParts(this, node, region, !atRoot)
