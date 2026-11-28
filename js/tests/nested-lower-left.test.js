@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 import { Composer, designedSources, near, sweptPart } from '../src/compose.js'
-import { partOf, placed, pathRings, pointsBox } from '../src/geometry.js'
+import { partOf, pathMask, placed, pathRings, pointsBox } from '../src/geometry.js'
 import { compose, createSource, sketch } from '../src/loader.js'
 import { constants, files, layout, records, shards } from './fixtures/small-export.js'
 // Noto Sans CJK JP 2.004, SIL OFL 1.1. The enclosing 克 and its 口 counter come from 尅.
@@ -18,6 +18,9 @@ import rulerFrames from './fixtures/ruler-frames.json' with { type: 'json' }
 import maoDonor from './fixtures/sans-fur-frame.json' with { type: 'json' }
 // 尪 from Noto Sans CJK JP, SIL OFL 1.1.
 import wangDonor from './fixtures/sans-limp-frame.json' with { type: 'json' }
+// 夌/菱, 麵/处, 玉, 艹 across Noto Sans/Serif CJK JP, Zhuque Fangsong, Kureedo (SIL OFL 1.1),
+// and TW-Kai (CNS11643, Open Government Data License 1.0).
+import shrineDonors from './fixtures/shrine-jade-donors.json' with { type: 'json' }
 import parts from './fixtures/sans-lower-left.json' with { type: 'json' }
 
 // 几 and 力 as the Sans export draws them (Noto Sans CJK, SIL OFL 1.1); 口 is the small export's
@@ -412,6 +415,58 @@ it('keeps 𡯙 as a whole and uses the 尪 enclosure when its operands are separ
   }
   const excluded = await compose(src, description, { layout: 'composed', separate: true, exclude: ['尪'] })
   expect(excluded.parts.some(p => p.origin === 'host 尪')).toBe(false)
+})
+
+it('assembles the Misato shrine character from standard 艹, 夌/菱 top, and enclosing 夂 donors across five CJK faces', async () => {
+  const sequence = '⿱艹⿺夌玉'
+  for (const [fontStyle, faceDonors] of Object.entries(shrineDonors)) {
+    const topHost = fontStyle === 'fangsong' ? '菱' : '夌'
+    const footHost = fontStyle === 'fangsong' ? '处' : '麵'
+    const expectedCap = fontStyle === 'regular' ? 'TW-Kai: 艹' : 'glyph 艹'
+    const expectedBody = `enclosing 夌 from ${topHost}+${footHost}`
+    const baseDonors = fontStyle === 'fangsong' ? { ...faceDonors, 夌: records.木 } : faceDonors
+    const src = source(baseDonors)
+    for (const layout of ['composed', 'cells']) {
+      const { parts } = await compose(src, sequence, { layout, separate: true, fontStyle })
+      expect(parts.map(p => p.origin), `${fontStyle}/${layout}`).toEqual([expectedCap, expectedBody, 'glyph 玉'])
+      if (layout === 'cells') expect(parts.map(p => p.leaf), `${fontStyle}/cells leaves`).toEqual([0, 1, 2])
+      const [, body, jade] = parts
+      expect(jade.box[2], `${fontStyle}/${layout}`).toBeGreaterThan(body.box[2] * 0.40)
+      expect(right(jade), `${fontStyle}/${layout}`).toBeLessThanOrEqual(right(body))
+      const masks = parts.map(p => pathMask(p.d, 256))
+      expect(masks[0].some((ink, i) => ink && masks[1][i]), `${fontStyle}/${layout} cap-body`).toBe(false)
+      expect(masks[0].some((ink, i) => ink && masks[2][i]), `${fontStyle}/${layout} cap-jade`).toBe(false)
+      expect(masks[1].some((ink, i) => ink && masks[2][i]), `${fontStyle}/${layout} body-jade`).toBe(false)
+    }
+    const rawParts = new Composer(src.store(), { fontStyle, separate: true }).compose(sequence)
+    expect(Boolean(rawParts[2].fixed), `${fontStyle} jade fixed`).toBe(fontStyle !== 'sans' && fontStyle !== 'serif')
+    for (const [nestedSeq, sliceStart] of /** @type {const} */ ([[`⿰口${sequence}`, 1], [`⿱${sequence}口`, 0]])) {
+      for (const layout of ['composed', 'cells']) {
+        const nested = await compose(src, nestedSeq, { layout, separate: true, fontStyle })
+        const shrineParts = nested.parts.slice(sliceStart, sliceStart + 3)
+        expect(shrineParts.map(p => p.origin), `${fontStyle} ${nestedSeq}/${layout}`).toEqual([expectedCap, expectedBody, 'glyph 玉'])
+        const masks = shrineParts.map(p => pathMask(p.d, 256))
+        expect(masks[0].some((ink, i) => ink && masks[1][i]), `${fontStyle} ${nestedSeq}/${layout} cap-body`).toBe(false)
+        expect(masks[0].some((ink, i) => ink && masks[2][i]), `${fontStyle} ${nestedSeq}/${layout} cap-jade`).toBe(false)
+        expect(masks[1].some((ink, i) => ink && masks[2][i]), `${fontStyle} ${nestedSeq}/${layout} body-jade`).toBe(false)
+        if (sliceStart === 1) {
+          expect(Math.min(...shrineParts.map(p => p.box[0])), `${fontStyle} ${nestedSeq}/${layout}`).toBeGreaterThan(nested.parts[0].box[0])
+        } else {
+          expect(Math.max(...shrineParts.map(p => p.box[1] + p.box[3])), `${fontStyle} ${nestedSeq}/${layout}`).toBeLessThan(nested.parts[3].box[1] + nested.parts[3].box[3])
+        }
+      }
+    }
+    for (const excluded of new Set([topHost, footHost, '艹', '夌', '玉'])) {
+      const fallback = await compose(src, sequence, { exclude: [excluded], fontStyle })
+      expect(fallback.origins, `${fontStyle} exclude ${excluded}`).not.toContain(expectedBody)
+    }
+    const foreignJade = { ...faceDonors.玉, G: { ...faceDonors.玉.G, f: 1 } }
+    const foreignRes = await compose(source({ ...baseDonors, 玉: foreignJade }), sequence, { fontStyle })
+    expect(foreignRes.origins, `${fontStyle} foreign jade`).not.toContain(expectedBody)
+    const alteredFoot = { ...faceDonors[footHost], G: { ...faceDonors[footHost].G, p: [...faceDonors[footHost].G.p].reverse() } }
+    const altered = await compose(source({ ...baseDonors, [footHost]: alteredFoot }), sequence, { fontStyle })
+    expect(altered.origins, `${fontStyle} altered foot`).not.toContain(expectedBody)
+  }
 })
 
 it('gives both tiers of the source 393 metric unit their full height above 克', async () => {

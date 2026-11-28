@@ -55,6 +55,7 @@ import { hangulLetters } from './hangul-ids.js'
 import { toConjoiningJamo } from './hangul.js'
 import { tileHost } from './fangsong-tile.js'
 import { brushSweepRoom, brushSweepParts } from './brush-sweep-rooms.js'
+import { isShrineJade, shrineJadeSources, shrineJadeParts } from './shrine-jade.js'
 import { componentFix, enclosedZeroTarget, INCOME_IDS, incomeBoxes, WEALTH_IDS, wealthBoxes } from './component-fixes.js'
 import { isOutbound, markFace, markParts } from './marks.js'
 import { SI_CHAIN, siChainForm, siBendDonor } from './si-chain.js'
@@ -897,6 +898,7 @@ export const designedSources = (tree, style = 'sans') => {
     if (!Array.isArray(node)) return
     if (Object.hasOwn(cuanForms, style) && keyOf(node) === '⿱⿱⿴𦥑同冖𤍾') out.add('爨')
     const [op, ...children] = node
+    if (isShrineJade(node)) shrineJadeSources(style).forEach(ch => out.add(ch))
     if (brushSweepRoom(node, style)) {
       children.forEach(ch => out.add(ch))
       if (style === 'fangsong') out.add(node[1] === '瓦' ? tileHost(node[2]) : '尅')
@@ -1925,7 +1927,7 @@ export class Composer {
         (node[0] === '⿲' && node[1] === '㇇' && node[2] === '丨' && node[3] === '𰛅')) && !node.note
         ? componentParts(keyOf(node), cell, this.fontStyle, depth === 0, this.exclude) : null
       const recorded = keyOf(node) === booklet ? bookletParts(this, cell) : null
-      const parts = water ?? recorded ?? this.doubleTurnParts(node, cell) ?? brushSweepParts(this, node, cell, depth > 0) ?? this.thornRowParts(node, cell) ?? yiCrossParts(this, node, cell) ?? ghostParts(this, node, cell) ?? this.qiParts(node, cell)
+      const parts = water ?? recorded ?? shrineJadeParts(this, node, cell) ?? this.doubleTurnParts(node, cell) ?? brushSweepParts(this, node, cell, depth > 0) ?? this.thornRowParts(node, cell) ?? yiCrossParts(this, node, cell) ?? ghostParts(this, node, cell) ?? this.qiParts(node, cell)
       if (parts) {
         for (const part of parts) {
           if (leafIndices) part.leaf = leaf++
@@ -2118,7 +2120,7 @@ export class Composer {
         return
       }
       const repeated = isGroupedForm(keyOf(node), this.fontStyle) ? componentParts(keyOf(node), region, this.fontStyle, atRoot, this.exclude) : null
-      const designed = repeated ?? rccParts(editable, keyOf(node), region) ?? birdOutlineParts(this, keyOf(node), region) ?? this.doubleTurnParts(node, region) ?? brushSweepParts(this, node, region, !atRoot) ?? this.thornRowParts(node, region) ?? yiCrossParts(this, node, region) ?? this.qiParts(node, region) ?? ghostParts(this, node, region) ?? this.cuanParts(node, region, atRoot) ?? this.muKoParts(node, region) ?? this.wheatFaceParts(node, region)
+      const designed = repeated ?? rccParts(editable, keyOf(node), region) ?? birdOutlineParts(this, keyOf(node), region) ?? shrineJadeParts(this, node, region) ?? this.doubleTurnParts(node, region) ?? brushSweepParts(this, node, region, !atRoot) ?? this.thornRowParts(node, region) ?? yiCrossParts(this, node, region) ?? this.qiParts(node, region) ?? ghostParts(this, node, region) ?? this.cuanParts(node, region, atRoot) ?? this.muKoParts(node, region) ?? this.wheatFaceParts(node, region)
       if (designed) {
         const boxes = designed[0]?.rccGroup && rccLeafBoxes(designed, leafTexts(node).length)
         for (const box of boxes || designed.map(part => part.target)) out.push({ index: out.length, box, empty: false })
@@ -2791,6 +2793,8 @@ export class Composer {
   }
 
   drawNode(node, region, atRoot = false, sideBySide = false, regroup = true) {
+    const shrine = shrineJadeParts(this, node, region)
+    if (shrine) return shrine
     const cuan = this.cuanParts(node, region, atRoot)
     if (cuan) return cuan
     const dragon = this.dragonParts(node, region, atRoot)
