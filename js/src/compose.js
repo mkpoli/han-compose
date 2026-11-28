@@ -2638,7 +2638,26 @@ export class Composer {
     const triple = row[0] === '⿲' && child === '子'
     if (!(pair || triple) || !row.slice(1).every(part => part === child) ||
         this.excluded(child) || !this.glyph(child)) return null
-    const parts = this.cellLayout(['⿱', row, row], region, { leafIndices: false })
+    let parts = null
+    if (triple) {
+      // Use Pen's narrow side-host cuts for ⿲子子子 when available so the six 子 match
+      // native 𡦪 weight and proportions instead of squeezing six standalone glyphs.
+      const rowBands = [[0.02, 0.53, 0.98, 0.99], [0.02, 0.00, 0.98, 0.50]]
+      const colBoxes = [[0.00, 0, 0.31, 1], [0.345, 0, 0.655, 1], [0.69, 0, 1.00, 1]]
+      const colWeights = [[-0.22, -0.20], [-0.45, -0.25], [-0.35, -0.22]]
+      const probe = this.drawNode(row, mapped(rowBands[0], [0, 0, 1, 1], region), false)
+      if (probe.length === 3 && probe.some(part => part.origin !== 'glyph 子')) {
+        parts = rowBands.flatMap((band, r) => {
+          const rowRegion = mapped(band, [0, 0, 1, 1], region)
+          const drawn = r === 0 ? probe : this.drawNode(row, rowRegion, false)
+          return drawn.map((part, i) => ({
+            ...part, target: mapped(colBoxes[i], [0, 0, 1, 1], rowRegion),
+            weight: colWeights[i], fixed: true,
+          }))
+        })
+      }
+    }
+    if (!parts) parts = this.cellLayout(['⿱', row, row], region, { leafIndices: false })
     if (atRoot && this.separate) {
       const width = row.length - 1, firstLeaves = upper === '𡥦' ? 1 : width
       parts.forEach((part, i) => {

@@ -404,36 +404,100 @@ function penDoor(char) {
   }
 }
 
+/** Shear a part's contours vertically about its horizontal midpoint by `slope` (dy / dx). */
+function sheared(part, slope) {
+  if (!slope) return part
+  const cx = centreX(part.source)
+  const contours = part.part.contours.map(c => {
+    const move = pts => {
+      const out = Float64Array.from(pts)
+      for (let i = 0; i < out.length; i += 2) out[i + 1] += slope * (out[i] - cx)
+      return out
+    }
+    return { ...c, light: move(c.light), heavy: move(c.heavy ?? c.light) }
+  })
+  const box = union(contours.map(c => pointsBox(c.light)))
+  return { ...revised(part, contours, box), source: box }
+}
+
+const REGULAR_GONG_KOU_HASH = '9743c349b221ae181ba8d8f1d34800ed70f2863d8f84dcf602a3505b1f4c9af4'
+
+/** Match the horizontal bar slant of 工 and 口 in FangSong and Regular 𢀛 / ⿱工口. */
+const gongKouFix = {
+  glyphs: {},
+  apply(parts, composer, region) {
+    if (composer.fontStyle === 'regular' && parts.length === 1 && parts[0].origin === 'glyph 𢀛' &&
+        parts[0].part.contours.length === 3) {
+      const rec = composer.glyphRecord('𢀛')
+      if (!rec || hexOf(JSON.stringify(rec.p)) !== REGULAR_GONG_KOU_HASH) return parts
+      const base = parts[0]
+      const gBox = pointsBox(base.part.contours[0].light)
+      const kBox = union([pointsBox(base.part.contours[1].light), pointsBox(base.part.contours[2].light)])
+      const gcx = centreX(gBox), kcx = centreX(kBox)
+      // Align TW-Kai's steeper 口 top bar with 工's bottom bar so both share a gentle rise.
+      const contours = base.part.contours.map((c, idx) => {
+        const slope = idx === 0 ? -0.03 : -0.06, cx = idx === 0 ? gcx : kcx
+        const move = pts => {
+          const out = Float64Array.from(pts)
+          for (let i = 0; i < out.length; i += 2) out[i + 1] += slope * (out[i] - cx)
+          return out
+        }
+        return { ...c, light: move(c.light), heavy: move(c.heavy ?? c.light) }
+      })
+      const box = union(contours.map(c => pointsBox(c.light)))
+      return [{ ...revised(base, contours, box), source: box, target: region ?? base.target }]
+    }
+    if (parts.length !== 2 || !['fangsong', 'regular'].includes(composer.fontStyle)) return parts
+    const frame = region ?? union(parts.map(p => p.target))
+    const [gong, mouth] = parts
+    if (composer.fontStyle === 'fangsong') {
+      const nativeMouth = !composer.excluded?.('口') && composer.glyph?.('口')
+      const lower = nativeMouth
+        ? { ...placed(nativeMouth, nativeMouth.box, mouth.target, composer.ink('口'), 'glyph 口'), ...(mouth.leaf !== undefined ? { leaf: mouth.leaf } : {}) }
+        : mouth
+      return [
+        { ...gong, target: mapped([0.02, 0.50, 0.98, 0.93], [0, 0, 1, 1], frame) },
+        sheared({ ...lower, target: mapped([0.21, 0.02, 0.79, 0.44], [0, 0, 1, 1], frame) }, nativeMouth ? -0.04 : -0.055),
+      ]
+    }
+    return [
+      sheared({ ...gong, target: mapped([0.02, 0.50, 0.98, 0.93], [0, 0, 1, 1], frame) }, -0.02),
+      sheared({ ...mouth, target: mapped([0.20, 0.02, 0.80, 0.43], [0, 0, 1, 1], frame) }, -0.05),
+    ]
+  },
+}
+
+/** Tuck 火 up to meet 大's splayed legs on both sides in FangSong and Pen 𤍾. */
+const linDaHuoFix = {
+  glyphs: {},
+  apply(parts, composer, region) {
+    if (parts.length !== 3 || !['fangsong', 'pen-writing'].includes(composer.fontStyle)) return parts
+    const frame = region ?? union(parts.map(p => p.target))
+    const boxes = composer.fontStyle === 'fangsong'
+      ? [[0.02, 0.60, 0.98, 1.00], [0.00, 0.25, 1.00, 0.62], [0.04, 0.00, 0.96, 0.39]]
+      : [[0.02, 0.59, 0.98, 1.00], [0.00, 0.26, 1.00, 0.60], [0.04, 0.00, 0.96, 0.42]]
+    return parts.map((part, i) => ({ ...part, target: mapped(boxes[i], [0, 0, 1, 1], frame) }))
+  },
+}
+
 /**
  * The corrections, by description. `glyphs` ties each to the outlines it was read against.
  * A correction that cannot find the parts it names leaves the drawing as it is.
  */
 export const COMPONENT_FIXES = {
-  '⿱林𤆍': {
-    glyphs: {},
-    apply(parts, composer, region) {
-      if (composer.fontStyle !== 'fangsong' || parts.length !== 3) return parts
-      // In 𤍾 the arms of 大 extend beneath both 木, with 火 tucked under the legs.
-      const boxes = [[0.0262, 0.5987, 0.9933, 1.0076], [0.0262, 0.2869, 0.9933, 0.6191], [0.1042, -0.0045, 0.9153, 0.292]]
-      return parts.map((part, i) => ({ ...part, target: mapped(boxes[i], [0, 0, 1, 1], region) }))
-    },
-  },
-  '⿱工口': {
-    glyphs: {},
-    apply(parts, composer, region) {
-      if (composer.fontStyle !== 'fangsong' || parts.length !== 2) return parts
-      const boxes = [[0.0076, 0.5098, 0.9749, 0.9639], [0.1088, 0.0002, 0.8736, 0.4391]]
-      return parts.map((part, i) => ({ ...part, target: mapped(boxes[i], [0, 0, 1, 1], region) }))
-    },
-  },
+  '⿱林𤆍': linDaHuoFix,
+  '⿱林⿱大火': linDaHuoFix,
+  '⿱工口': gongKouFix,
+  '𢀛': gongKouFix,
   '⿴口丶': {
     glyphs: {},
     apply(parts, composer) {
-      if (composer.fontStyle !== 'pen-writing' || parts.length !== 2) return parts
+      if (!['fangsong', 'pen-writing'].includes(composer.fontStyle) || parts.length !== 2) return parts
       const [mouth, dot] = parts, room = composer.roomFromInk('⿴', [mouth], mouth.target)
       if (!room) return parts
-      const dy = centreY(room) - centreY(boxOf(dot))
-      return [mouth, { ...dot, target: dot.target.map((v, i) => i % 2 ? v + dy : v) }]
+      const dotBox = boxOf(dot)
+      const dx = centreX(room) - centreX(dotBox), dy = centreY(room) - centreY(dotBox)
+      return [mouth, { ...dot, target: dot.target.map((v, i) => v + (i % 2 ? dy : dx)) }]
     },
   },
   '⿲𠂤日千': {
