@@ -1,10 +1,15 @@
 // @ts-nocheck: a port of han-compose's Python, kept line for line; its types are the arrays it reads.
 import fangsongFoot from './fangsong-foot.json' with { type: 'json' }
+import { resolveYaoForm } from './yao-forms.js'
+import { alignedYaoGroups, collapseYaoHost, containsYaoVariant, matchedYaoForTarget, replaceYaoInPart } from './yao-surgical.js'
+import cuanForms from './cuan-forms.json' with { type: 'json' }
 import { fangsongDottedHe, fitDottedHe, isDottedHe, markDottedHe } from './dotted-bopomofo.js'
 import { columnClearance, settleColumns } from './column-spacing.js'
 import { finishGrassTang, isGrassTang, markGrassTang } from './grass-tang.js'
+import { containsU26201, u26201Choice } from './u26201-forms.js'
+import { u26201Part, yaoPart } from './u26201-part.js'
 import { ratePart, rateParts } from './rate-drawing.js'
-import { containsRateForm, exactRateForm, rateFormsFor } from './rate-forms.js'
+import { containsRateForm, rateRenderChoice, rateFormsFor } from './rate-forms.js'
 import { checkedHook, clearHookContacts, markHook } from './directional-enclosures.js'
 import { hookFloor } from './hook-floor.js'
 import { fitHookDonor, lowerHookSeat, openHookCounters } from './hook-seat.js'
@@ -51,7 +56,7 @@ import { hangulLetters } from './hangul-ids.js'
 import { toConjoiningJamo } from './hangul.js'
 import { tileHost } from './fangsong-tile.js'
 import { brushSweepRoom, brushSweepParts } from './brush-sweep-rooms.js'
-import { componentFix, enclosedZeroTarget, INCOME_IDS, incomeBoxes } from './component-fixes.js'
+import { componentFix, enclosedZeroTarget, growthDirection, INCOME_IDS, incomeBoxes, WEALTH_IDS, wealthBoxes } from './component-fixes.js'
 import { isOutbound, markFace, markParts } from './marks.js'
 import { SI_CHAIN, siChainForm, siBendDonor } from './si-chain.js'
 import { youChainDonors, youChainParts } from './you-chain.js'
@@ -331,6 +336,10 @@ export const CLOSED_NESTED = 0.45
 /** How much of the gap between two stacked operands a donor's overlap has to cover before the pair
  *  is closed: an overlap the designer drew somewhere else (八 under 宀) is no seam to weld shut. */
 const CLOSED_SHARE = 0.15
+/** The widest top span a lower operand may have before `closed` treats it as bar-topped rather than
+ *  peaked: a flaring left leg (月 in woodblock) narrows the top bar's share of the box below
+ *  `COVER_SPAN`, while peaked feet (𧘇) stay narrower still. */
+const CLOSED_SPAN = 0.6
 /** The least share of a three-band stack's height an enclosed middle band takes: a 口 or 日
  *  compressed to a sliver reads as a gap between two bars. */
 const MIDDLE_BAND = 0.4
@@ -887,6 +896,7 @@ export const designedSources = (tree, style = 'sans') => {
       }
     }
     if (!Array.isArray(node)) return
+    if (Object.hasOwn(cuanForms, style) && keyOf(node) === '⿱⿱⿴𦥑同冖𤍾') out.add('爨')
     const [op, ...children] = node
     if (op === '⿳' && keyOf(node) === '⿳五⿲矢口隹龰') {
       for (const char of '五矢口隹龰足') out.add(char)
@@ -923,6 +933,16 @@ export const designedSources = (tree, style = 'sans') => {
   }
   visit(tree)
   return [...out]
+}
+
+// The left side of 龍 comprises the contours of 立 and 月. Its remaining contours draw 𳑳.
+// The five digests identify the verified cuts in Sans, Serif, FangSong, Regular and Pen.
+const DRAGON_LEFT = {
+  'f0d92e1589da3f6a476744119ca0ef131b59b5d45b11fa57d508f5c799419b5b': [0, 1, 2, 3, 4, 5, 6, 7, 8],
+  '2fad145903368fef4ae356280e508df73f5e6b8aca6c19b6efb4bd102c7884fa': [0, 1, 5, 6, 7, 8, 15, 16, 17],
+  '71c4fd45303ecbd3f4e38ba82935062cdbf5a9a627463ccfe629bf0088630bdd': [1, 2, 3, 4],
+  '6f08214b8280953ed5c94fd3b311a46de764bfd026dfbfbd069d6e68afd2f26f': [1, 2, 3, 4],
+  '140d6ac99f178cbc4b1e1c425a65fb73c721b0c3bb788b36794242c75959829c': [1, 2, 3, 4, 5, 6],
 }
 
 // Left components the export carries no host cuts for, taken from a designed character's glyph.
@@ -1033,23 +1053,83 @@ export class Composer {
 
   arity = ch => this.arities.get(ch) ?? 0
   // Each reviewed spelling owns one glyph, even when its portable IDS has several operands.
-  rateLeaves(node) {
+  reviewedLeaves(node) {
     if (!Array.isArray(node)) return node
     const text = keyOf(node)
-    if (this.rateMetric(text)) return text
-    return mapOperands(node, child => this.rateLeaves(child))
+    if (this.reviewedMetric(text)) return text
+    return mapOperands(node, child => this.reviewedLeaves(child))
   }
-  rateMetric(text) {
-    const choice = exactRateForm(text)
-    if (!choice || this.excluded(choice.host)) return null
-    return ratePart(rateFormsFor(text)[0].text, this.fontStyle)
+  standaloneYao(text) {
+    const form = resolveYaoForm(text)
+    if (!form || this.excluded(text) || this.excluded('幺')) return null
+    return text === '幺󠄀' && this.data.rec(text)?.G ? null : form
+  }
+  surgicalYao(text) {
+    if (!containsYaoVariant(text) || this.yaoChoice(text) || rateRenderChoice(text)) return null
+    const collapsed = collapseYaoHost(text, k => this.bySequence(k))
+    if (!collapsed || collapsed.host === '幺' || this.excluded(collapsed.host)) return null
+    const glyph = this.drawnGlyph(collapsed.host)
+    if (!glyph || !alignedYaoGroups(glyph, collapsed.host, collapsed.paths.length)) return null
+    return { ...collapsed, glyph }
+  }
+  reviewedMetric(text) {
+    const form = this.standaloneYao(text)
+    if (form) return this.drawnGlyph('幺') ?? yaoPart('folded')
+    const pair = this.yaoChoice(text)
+    if (pair) return u26201Part({})
+    const choice = rateRenderChoice(text)
+    if (choice && !this.excluded(choice.host)) return ratePart(rateFormsFor(choice.host)[0].text, this.fontStyle)
+    const surgical = this.surgicalYao(text)
+    return surgical ? surgical.glyph : null
+  }
+  // An export may supply a native 𦈁 in its own face. An explicit component choice
+  // draws the selected design even when that export also has the base character.
+  yaoChoice(text) {
+    const pair = u26201Choice(text)
+    if (!pair || this.excluded('𦈁') || this.excluded(text)) return null
+    return text === '𦈁' && this.data.rec(text)?.G ? null : pair
+  }
+  hasYaoChoice(node) {
+    return this.yaoChoice(keyOf(node)) || (Array.isArray(node) && node.slice(1).some(child => this.hasYaoChoice(child)))
+  }
+  reviewedParts(text, region, atRoot) {
+    const pair = this.yaoChoice(text)
+    const form = this.standaloneYao(text)
+    if (pair || form) {
+      let part = form ? yaoPart(form.id) : u26201Part(pair)
+      if (form && !atRoot) {
+        const nativeYao = this.drawnGlyph('幺')
+        if (nativeYao) part = matchedYaoForTarget(form.id, nativeYao, region)
+      }
+      const target = atRoot ? mapped(part.box, componentConstants.face, region) : region
+      const origin = form ? 'Noto Serif CJK · 幺（重繪）' : '文津宋體 · 𦈁'
+      return [{ ...placed(part, part.box, target, partInk(part), origin), fixed: true }]
+    }
+    const rate = rateRenderChoice(text)
+    if (rate && !this.excluded(rate.host)) return rateParts(text, this.fontStyle, region, atRoot)
+    const surgical = this.surgicalYao(text)
+    if (surgical) {
+      const glyph = atRoot ? surgical.glyph : (this.drawnGlyph(surgical.host, true) ?? surgical.glyph)
+      const isPrimary = this.glyphRecord(surgical.host)?.v === 1
+      return replaceYaoInPart(glyph, surgical.host, surgical.paths, surgical.edits, region, atRoot, {
+        fontStyle: this.fontStyle,
+        isPrimary,
+        nativeInk: this.ink(surgical.host),
+      })
+    }
+    return null
   }
   parse = sequence => {
     const tree = parseTree(sequence, this.arity, true)
-    return containsRateForm(sequence) ? this.rateLeaves(tree) : tree
+    return containsRateForm(sequence) || containsU26201(sequence) || containsYaoVariant(sequence) ? this.reviewedLeaves(tree) : tree
+  }
+  yaoHostRecord(key) {
+    if (this.standaloneYao(key)) return this.data.rec('幺')
+    const surgical = this.surgicalYao(key)
+    return surgical ? this.data.rec(surgical.host) : null
   }
   // A key holding an empty slot has no record and no hosts: nothing is asked for it.
-  rec = key => key.includes(EMPTY) ? null : this.formRecord(key) ?? this.variantRecord(key) ?? this.fullRecord(key) ?? this.data.rec(key) ?? componentRecord(key, this.fontStyle)
+  rec = key => key.includes(EMPTY) ? null : this.formRecord(key) ?? this.variantRecord(key) ?? this.fullRecord(key) ?? this.yaoHostRecord(key) ?? this.data.rec(key) ?? componentRecord(key, this.fontStyle)
   /** The record of a component written in full (`&HC-u91d1-full;`): its character's outline and
    *  layout, without the sequence, the forms and the places that would draw it as a positional form. */
   fullRecord(key) {
@@ -1175,6 +1255,10 @@ export class Composer {
 
   glyphRecord(ch) {
     const record = this.rec(ch), glyph = record?.G
+    if ((ch === '𦚏' || ch === '𳑳') && glyph?.v !== 1 && !this.excluded(ch)) {
+      const cut = this.dragonCuts()?.[ch]
+      if (cut) return cut
+    }
     // Exports that selected Unicode letters omit U+3007 (Letter Number). Use Zhuque's own 〇
     // when the source has no native record, including sources with a bundled fallback.
     if (ch === '〇' && this.fontStyle === 'fangsong' && !glyph?.v) return fangsongZero
@@ -1332,8 +1416,8 @@ export class Composer {
 
   /** Outline length: a glyph's, or for an excluded or glyphless character its sequence's operands'. */
   ink(node, seen = new Set()) {
-    const rate = this.rateMetric(keyOf(node))
-    if (rate) return partInk(rate)
+    const reviewed = this.reviewedMetric(keyOf(node))
+    if (reviewed) return partInk(reviewed)
     const form = this.formRecord(keyOf(node))
     if (form) return form.ink
     if (Array.isArray(node) && node[0] === '⿸' && this.yanStackedDays(node[1], node[2]))
@@ -1353,8 +1437,8 @@ export class Composer {
 
   /** Permitted outline count; zero when an operand is unknown. */
   outlines(node, seen = new Set()) {
-    const rate = this.rateMetric(keyOf(node))
-    if (rate) return rate.contours.length
+    const reviewed = this.reviewedMetric(keyOf(node))
+    if (reviewed) return reviewed.contours.length
     const form = this.formRecord(keyOf(node))
     if (form) return form.o
     if (typeof node === 'string') {
@@ -1375,7 +1459,7 @@ export class Composer {
   unknown(node) {
     if (!Array.isArray(node)) return false
     // A prepared form is readable even where no encoded character names it.
-    if (this.rateMetric(keyOf(node)) || this.formRecord(keyOf(node))) return false
+    if (this.reviewedMetric(keyOf(node)) || this.formRecord(keyOf(node))) return false
     const encoded = this.bySequence(keyOf(node))
     return !encoded || this.excluded(encoded) || !this.glyph(encoded)
   }
@@ -1391,10 +1475,10 @@ export class Composer {
    *  operands' along that axis, and takes the most of operands side by side across it; an enclosed
    *  or overlaid part adds to its enclosing one. Unknown analyses count as 永. */
   crossings(node, axis, seen = new Set()) {
-    const text = keyOf(node), rate = this.rateMetric(text)
-    if (rate) {
-      const key = rateFormsFor(text)[0].text + '|' + axis
-      if (!this.crossingCache.has(key)) this.crossingCache.set(key, strokeCrossings(rate, axis))
+    const text = keyOf(node), reviewed = this.reviewedMetric(text)
+    if (reviewed) {
+      const key = (resolveYaoForm(text) ? '&VR-5E7A-02;' : u26201Choice(text) ? '𦈁' : rateRenderChoice(text)?.host ?? collapseYaoHost(text, k => this.bySequence(k))?.host ?? text) + '|' + axis
+      if (!this.crossingCache.has(key)) this.crossingCache.set(key, strokeCrossings(reviewed, axis))
       return this.crossingCache.get(key)
     }
     if (Array.isArray(node)) {
@@ -1696,8 +1780,9 @@ export class Composer {
     if (this.pyramid(tree) || this.pyramidWithBase(tree)) return false
     const key = keyOf(tree)
     if (key.includes('⿳五⿲矢口隹龰')) return false
+    if (key.includes(WEALTH_IDS)) return false
     if (key.includes(INCOME_IDS)) return false
-    if (containsRateForm(key) || this.bySequence(key) || this.spelled.has(key)) return false
+    if (containsRateForm(key) || (containsU26201(key) && this.hasYaoChoice(tree)) || this.bySequence(key) || this.spelled.has(key)) return false
     if (isGroupedForm(key, this.fontStyle) || isComponentForm(key, this.fontStyle)) return false
     let leaves = 0, supported = true
     const walk = node => {
@@ -1724,7 +1809,8 @@ export class Composer {
   cellLayout(tree, region = this.face, { leafIndices = true } = {}) {
     let slots = 0
     const number = node => node === EMPTY ? `${EMPTY}${slots++}` : Array.isArray(node) ? mapOperands(node, number) : node
-    const numbered = number(containsRateForm(keyOf(tree)) ? this.rateLeaves(tree) : tree)
+    const key = keyOf(tree)
+    const numbered = number(containsRateForm(key) || containsU26201(key) || containsYaoVariant(key) ? this.reviewedLeaves(tree) : tree)
     const out = []
     let leaf = 0
     const f = region, width = f[2] - f[0], height = f[3] - f[1]
@@ -1779,10 +1865,10 @@ export class Composer {
       if (checkedHook(node)) markHook(this, node, out.slice(start))
     }
     const place = (node, box, depth) => {
-      const rate = this.rateMetric(keyOf(node)) && rateParts(keyOf(node), this.fontStyle, target(box), depth === 0)
-      if (rate) {
-        if (leafIndices) rate[0].leaf = leaf++
-        out.push(rate[0])
+      const reviewed = this.reviewedParts(keyOf(node), target(box), depth === 0)
+      if (reviewed) {
+        if (leafIndices) reviewed[0].leaf = leaf++
+        out.push(reviewed[0])
         return
       }
       const yuan = this.yuanParts(node, target(box))
@@ -2010,8 +2096,9 @@ export class Composer {
     if (partitioned) return partitioned
     const out = []
     const walk = (node, region, atRoot) => {
-      if (Array.isArray(node) && node[0] === '⿱') {
-        const boxes = incomeBoxes(keyOf(node), this.fontStyle, region, this.face)
+      if (Array.isArray(node) && (node[0] === '⿺' || node[0] === '⿱')) {
+        const boxes = wealthBoxes(keyOf(node), this.fontStyle, region, this.face)
+          ?? incomeBoxes(keyOf(node), this.fontStyle, region, this.face)
         if (boxes) {
           for (const box of boxes) out.push({ index: out.length, box, empty: false })
           return
@@ -2036,7 +2123,7 @@ export class Composer {
         return
       }
       const repeated = isGroupedForm(keyOf(node), this.fontStyle) ? componentParts(keyOf(node), region, this.fontStyle, atRoot, this.exclude) : null
-      const designed = repeated ?? rccParts(editable, keyOf(node), region) ?? birdOutlineParts(this, keyOf(node), region) ?? this.doubleTurnParts(node, region) ?? brushSweepParts(this, node, region, !atRoot) ?? this.thornRowParts(node, region) ?? yiCrossParts(this, node, region) ?? this.qiParts(node, region) ?? ghostParts(this, node, region) ?? this.sharedMouthInscription(node, region) ?? this.muKoParts(node, region) ?? this.wheatFaceParts(node, region)
+      const designed = repeated ?? rccParts(editable, keyOf(node), region) ?? birdOutlineParts(this, keyOf(node), region) ?? this.doubleTurnParts(node, region) ?? brushSweepParts(this, node, region, !atRoot) ?? this.thornRowParts(node, region) ?? yiCrossParts(this, node, region) ?? this.qiParts(node, region) ?? ghostParts(this, node, region) ?? this.sharedMouthInscription(node, region) ?? this.cuanParts(node, region, atRoot) ?? this.muKoParts(node, region) ?? this.wheatFaceParts(node, region)
       if (designed) {
         const boxes = designed[0]?.rccGroup && rccLeafBoxes(designed, leafTexts(node).length)
         for (const box of boxes || designed.map(part => part.target)) out.push({ index: out.length, box, empty: false })
@@ -2213,8 +2300,8 @@ export class Composer {
   /** The parts drawing `node` in `region`, with the correction its description carries, where the
    *  component is one the font cuts wrong (`COMPONENT_FIXES`). */
   node(node, region, atRoot = false, sideBySide = false) {
-    const rate = rateParts(keyOf(node), this.fontStyle, region, atRoot)
-    if (rate && !this.excluded(exactRateForm(keyOf(node)).host)) return rate
+    const reviewed = this.reviewedParts(keyOf(node), region, atRoot)
+    if (reviewed) return reviewed
     const dotted = isDottedHe(node)
     const pair = dotted ? fangsongDottedHe(this, region, atRoot) : null
     const parts = pair ?? this.constructed(node, region, atRoot) ?? componentFix(keyOf(node), this.drawNode(node, region, atRoot, sideBySide), this, region)
@@ -2557,34 +2644,147 @@ export class Composer {
 
   sharedMouthInscription(node, region) {
     // 唯吾知足: UHK 港生活, 2015-02-12 (https://hk.ulifestyle.com.hk/topic/detail/200474/).
-    // Five components arranged in a cross around the shared central 口.
+    // Five components arranged in a cross around the shared central 口: 五 caps 口 (吾),
+    // left-radical 矢 and tall 隹 flank 口 (知, 唯), and 龰 centers directly under 口 (足).
     if (!Array.isArray(node) || node[0] !== '⿳' || keyOf(node) !== '⿳五⿲矢口隹龰') return null
-    const cells = [
-      ['五', [0.33, 0.71, 0.69, 0.98]],
-      ['矢', [0.02, 0.35, 0.34, 0.73]],
-      ['口', [0.37, 0.42, 0.64, 0.68]],
-      ['隹', [0.66, 0.37, 0.985, 0.72]],
-      ['龰', [0.21, 0.015, 0.95, 0.395]],
-    ]
-    if (cells.some(([ch]) => this.excluded(ch))) return null
+    const chars = ['五', '矢', '口', '隹', '龰']
+    if (chars.some(ch => this.excluded(ch))) return null
+    const specs = {
+      sans: {
+        frame: [0.00, 0.00, 1.00, 1.00],
+        boxes: [
+          [0.285, 0.715, 0.715, 0.995],
+          [0.015, 0.335, 0.345, 0.72],
+          [0.378, 0.43, 0.622, 0.665],
+          [0.655, 0.315, 0.985, 0.72],
+          [0.125, 0.005, 0.895, 0.39],
+        ],
+        embolden: [[0.42, 0.52], [0.45, 0.45], [0.65, 0.65], [0.42, 0.35], [-0.14, -0.10]],
+      },
+      serif: {
+        frame: [0.00, 0.00, 1.00, 1.00],
+        boxes: [
+          [0.285, 0.715, 0.715, 0.995],
+          [0.015, 0.335, 0.345, 0.72],
+          [0.378, 0.43, 0.622, 0.665],
+          [0.655, 0.315, 0.985, 0.72],
+          [0.125, 0.005, 0.895, 0.39],
+        ],
+        embolden: [[0.50, 0.60], [0.55, 0.55], [0.70, 0.70], [0.48, 0.52], [-0.08, 0.02]],
+      },
+      fangsong: {
+        frame: [-0.01, -0.01, 1.02, 0.99],
+        boxes: [
+          [0.275, 0.70, 0.725, 1.00],
+          [0.015, 0.325, 0.35, 0.72],
+          [0.378, 0.425, 0.622, 0.665],
+          [0.65, 0.31, 0.99, 0.72],
+          [0.12, 0.00, 0.90, 0.388],
+        ],
+        embolden: [[0.72, 0.72], [0.65, 0.62], [0.75, 0.75], [0.72, 0.68], [-0.18, -0.22]],
+      },
+      regular: {
+        frame: [-0.04, -0.03, 1.04, 1.02],
+        boxes: [
+          [0.275, 0.70, 0.725, 1.00],
+          [0.015, 0.325, 0.35, 0.72],
+          [0.378, 0.43, 0.622, 0.672],
+          [0.65, 0.31, 0.99, 0.72],
+          [0.12, 0.00, 0.90, 0.40],
+        ],
+        embolden: [[0.72, 0.72], [0.65, 0.60], [0.65, 0.65], [0.72, 0.68], [-0.12, -0.15]],
+      },
+      'pen-writing': {
+        frame: [-0.02, -0.01, 1.02, 1.00],
+        boxes: [
+          [0.275, 0.70, 0.725, 1.00],
+          [0.015, 0.325, 0.35, 0.72],
+          [0.378, 0.43, 0.622, 0.668],
+          [0.65, 0.31, 0.99, 0.72],
+          [0.12, 0.00, 0.90, 0.392],
+        ],
+        embolden: [[0.75, 0.75], [0.72, 0.68], [0.75, 0.75], [0.80, 0.72], [-0.15, -0.20]],
+      },
+    }
+    const spec = specs[this.fontStyle] ?? specs.sans
+    const atRoot = !this.face || region.every((v, i) => Math.abs(v - this.face[i]) < 1)
     let frame = region
-    if (this.face) {
+    if (!atRoot && this.face) {
       const fw = this.face[2] - this.face[0], fh = this.face[3] - this.face[1]
       const rw = region[2] - region[0], rh = region[3] - region[1]
       const leftInset = region[0] > this.face[0] + 0.02 * fw ? 0.04 * rw : 0
       const topInset = region[3] < this.face[3] - 0.02 * fh ? 0.05 * rh : 0
       if (leftInset || topInset) frame = [region[0] + leftInset, region[1], region[2], region[3] - topInset]
     }
-    const fixed = !['sans', 'serif'].includes(this.fontStyle)
+    const inkFrame = atRoot ? mapped(spec.frame, [0, 0, 1, 1], frame) : frame
     const parts = []
-    for (const [ch, box] of cells) {
+    for (let i = 0; i < chars.length; i++) {
+      const ch = chars[i]
+      const target = mapped(spec.boxes[i], [0, 0, 1, 1], inkFrame)
       const useFoot = ch === '龰' && this.fontStyle === 'fangsong' && !this.own('龰') && !this.excluded('足')
-      const glyph = useFoot ? partOf(fangsongFoot) : this.glyph(ch)
-      if (!glyph) return null
-      const p = placed(glyph, glyph.box, mapped(box, [0, 0, 1, 1], frame), partInk(glyph), useFoot ? 'host 足' : `glyph ${ch}`)
-      parts.push(fixed ? { ...p, fixed: true } : p)
+      const arrowCut = ch === '矢' && (this.data || this._customHost) ? this.host('⿰', 0, '矢', ['口'], target) : null
+      let base
+      if (arrowCut) {
+        base = placed(arrowCut.piece, arrowCut.piece.box, target, partInk(arrowCut.piece), `host ${arrowCut.record.h}`)
+      } else {
+        const glyph = useFoot ? partOf(fangsongFoot) : this.glyph(ch)
+        if (!glyph) return null
+        base = placed(glyph, glyph.box, target, partInk(glyph), useFoot ? 'host 足' : `glyph ${ch}`)
+      }
+      const dir = growthDirection(base)
+      const [ex, ey] = spec.embolden[i]
+      parts.push({ ...base, weight: [dir * ex, dir * ey], fixed: true })
     }
     return parts
+  }
+
+  /** The two hands, 同, the cover and the lower body as drawn in the face's own 爨. */
+  cuanParts(node, region, atRoot) {
+    if (!Array.isArray(node) || node[0] !== '⿱' || node[2] !== '𤍾' ||
+        keyOf(node[1]) !== '⿱⿴𦥑同冖' || !Object.hasOwn(cuanForms, this.fontStyle) ||
+        ['爨', '𦥑', '同', '冖', '𤍾'].some(ch => this.excluded(ch))) return null
+    const form = cuanForms[this.fontStyle], record = this.glyphRecord('爨')
+    if (record) {
+      if (hexOf(JSON.stringify(record.p)) !== form.digest) return null
+    } else {
+      // The sparse Pen export omits 爨 but identifies the font that supplied these cuts.
+      const fonts = this.data.manifest?.composer?.font_sha256
+      if (this.fontStyle !== 'pen-writing' || fonts?.['KureedoFull-Regular.ttf'] !==
+          '737f04de3b2b222664b5386628b0a15b009c7dd69086a1050dac0e507117c5d6') return null
+    }
+    const frame = atRoot ? this.C.face : record?.b ?? union(form.groups.map(group => group.b))
+    return form.groups.map((g, i) => {
+      const part = partOf(g)
+      return { ...placed(part, part.box, mapped(part.box, frame, region), partInk(part),
+        '爨 ' + ['𦥑', '同', '冖', '𤍾'][i]), fixed: true }
+    })
+  }
+
+  dragonCuts() {
+    if (this.excluded('龍')) return null
+    if (this._dragonCuts !== undefined) return this._dragonCuts
+    const record = this.glyphRecord('龍')
+    const left = record && DRAGON_LEFT[hexOf(JSON.stringify(record.p))]
+    if (!left) return this._dragonCuts = null
+    const glyph = partOf(record)
+    const cut = indices => ({
+      b: derived(glyph, indices.map(i => glyph.contours[i])).box, w: record.w, v: record.v,
+      p: indices.map(i => record.p[i]),
+    })
+    const right = glyph.contours.map((_, i) => i).filter(i => !left.includes(i))
+    return this._dragonCuts = { box: glyph.box, '𦚏': cut(left), '𳑳': cut(right) }
+  }
+
+  dragonParts(node, region, atRoot) {
+    if (!Array.isArray(node) || node[0] !== '⿰' || node[1] !== '𦚏' || node[2] !== '𳑳' ||
+        this.excluded('𳑳') || this.excluded('𦚏')) return null
+    const cuts = this.dragonCuts()
+    if (!cuts) return null
+    return node.slice(1).map(ch => {
+      const part = partOf(cuts[ch])
+      return { ...placed(part, part.box, mapped(part.box, atRoot ? this.C.face : cuts.box, region),
+        partInk(part), `龍 ${ch}`), fixed: true }
+    })
   }
 
   /** R+06D8, 出土文獻與古文字教程 p. 15. The two sides of 棘 flank a shorter 企. */
@@ -2694,6 +2894,10 @@ export class Composer {
   drawNode(node, region, atRoot = false, sideBySide = false, regroup = true) {
     const inscription = this.sharedMouthInscription(node, region)
     if (inscription) return inscription
+    const cuan = this.cuanParts(node, region, atRoot)
+    if (cuan) return cuan
+    const dragon = this.dragonParts(node, region, atRoot)
+    if (dragon) return dragon
     const sweep = brushSweepParts(this, node, region, !atRoot)
     if (sweep) return sweep
     const yuan = this.yuanParts(node, region)
@@ -4162,8 +4366,18 @@ export class Composer {
   /** Both operands' boxes in the em, as the learned layout sets them. A construct that is drawn has
    *  no character of its own, and is read as the character it is a shape of (`like`). */
   predict(op, children) {
-    const keys = children.map(child => (this.constructed(child, this.face) && CONSTRUCTS[keyOf(child)].like) || this.renderKey(child))
-    return forward(this.layout, features(this.layout, op, keys.map(k => this.rec(k === '⺿' || k === '⻀' ? '艹' : k)), [this.slot(op, 0), this.slot(op, 1)]))
+    const places = [this.slot(op, 0), this.slot(op, 1)]
+    const keys = children.map((child, i) => {
+      const place = places[i], raw = keyOf(child)
+      const like = this.constructed(child, this.face) && CONSTRUCTS[raw].like
+      const resolved = like || this.renderKey(child)
+      const normalized = resolved === '⺿' || resolved === '⻀' ? '艹' : resolved
+      // Match Python's lookup order: literal key first (unless a construct maps it via `like`),
+      // then its normalized/spelled character, then that character's positional forms in `place`.
+      const candidates = [...(like ? [] : [raw]), normalized, ...(this.rec(normalized)?.a?.[place] ?? []), ...(like ? [] : this.rec(raw)?.a?.[place] ?? [])]
+      return candidates.find(alt => this.rec(alt)?.u?.[place]) ?? normalized
+    })
+    return forward(this.layout, features(this.layout, op, keys.map(k => this.rec(k)), places))
   }
 
   /**
@@ -4805,6 +5019,17 @@ export class Composer {
         groups.push(stack)
       }
     })
+    // When every operand of a linear node is cut from the character the node itself spells (雲 for
+    // ⿱雨云, 龖 for ⿰龍龍), keep that character's own piece layout in `region` instead of raw ink shares.
+    const sameHost = !compactYan && groups.length >= 2 && groups.every(g => g.length === 1 && g[0].origin.startsWith('host ') && g[0].origin === groups[0][0].origin)
+      ? groups[0][0].origin.slice(5) : null
+    if (sameHost && this.bySequence(keyOf([op, ...children])) === sameHost) {
+      const sources = groups.map(g => g[0].source), frame = union(sources)
+      const distinct = new Set(sources.map(b => b.join(','))).size === sources.length
+      if (distinct && frame[2] > frame[0] && frame[3] > frame[1]) {
+        for (const [part] of groups) part.target = mapped(part.source, frame, region)
+      }
+    }
     if (compactYan && !this.partial) {
       // Restore just enough room when a whole-glyph outline protrudes toward 朱.
       const size = 512, mask = grown(fill(groupRings(groups[0]), size, region), size, 1)
@@ -5476,7 +5701,8 @@ export class Composer {
    *  and the gap below the 一 of ⿱一𧘇. The gap the donor itself drew says which stacks the designer
    *  closed, and the pair is settled one way or the other, never squeezed apart and then drawn back.
    *  A median gap can look clear while one stroke reaches into the other (𠂊's hook into 巾's bar);
-   *  where the nearest ink overlaps, the pair is settled by that overlap instead. */
+   *  the closest strokes keep the style's least gap as well, and an export without one settles
+   *  overlapping ink by the overlap. */
   space(axis, groups, nested = false) {
     if (this.partial) return
     const C = this.C
@@ -5486,9 +5712,11 @@ export class Composer {
       const gaps = facing(a, b, axis)
       if (!gaps) continue
       this.spaced.push([axis, a, b])
-      const gap = gaps.min <= 0 ? gaps.min : gaps.median
-      if (gap >= C.FACING[axis]) continue
-      apart(a, b, axis, C.FACING[axis] - gap, C.SQUEEZE)
+      const least = C.FACING_LEAST?.[axis]
+      const short = least === undefined ? C.FACING[axis] - (gaps.min <= 0 ? gaps.min : gaps.median)
+        : Math.max(C.FACING[axis] - gaps.median, least - gaps.min)
+      if (short <= 0) continue
+      apart(a, b, axis, short, C.SQUEEZE)
     }
   }
 
@@ -5801,7 +6029,7 @@ export class Composer {
   closed(below, above, share = 1) {
     if (below.length !== 1 || !(below[0].gap < 0)) return false
     const box = bounds(below), aboveBottom = bounds(above)[1]
-    if (box[3] <= box[1] || flatTopped(below, box)) return false
+    if (box[3] <= box[1] || topSpan(below, box) >= CLOSED_SPAN) return false
     // The overlap is measured in the donor's units, so it scales with the cut: the peak of ⿱一𧘇
     // reaches the 一's band but leaves a seam under the bar, which the 衣's own overlap closes.
     const reach = -below[0].gap * scaleOf(below[0])[1] * share
@@ -6183,7 +6411,7 @@ function joinedPair(bands, boxes) {
   const foot = bands[k + 1], footBox = boxes[k + 1], aboveBox = boxes[k]
   if (!foot.length || !bands[k].length || !foot.some(part => part.gap < 0)) return -1
   if (!(footBox[3] > footBox[1]) || aboveBox[1] <= footBox[3]) return -1
-  if (flatTopped(foot, footBox)) return -1
+  if (topSpan(foot, footBox) >= CLOSED_SPAN) return -1
   return aboveBox[3] - aboveBox[1] <= COVER_BARRED * (footBox[3] - footBox[1]) ? k : -1
 }
 

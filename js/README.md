@@ -290,6 +290,8 @@ For ⿺木 followed by another operand, the same enclosing 木 holds the operand
 
 The FangSong 龰 in the 唯吾知足 ligature follows the lower stroke of 足 in Zhuque Fangsong 0.212 (© 2023 JadeFoci, SIL OFL 1.1). [Font licensing](../docs/licensing.md)
 
+For the IDS of 爨, the four groups in `src/cuan-forms.json` follow the parent glyph’s own outlines in Zhuque Fangsong 0.212, TW-Kai and Kureedo Full. They retain the left and right hands as one editable operand. [Font sources and licenses](../docs/licensing.md)
+
 The FangSong form of 貭 uses the joined upper body of 盾 and the feet of 貝 from Zhuque Fangsong 0.212, © 2023 JadeFoci, SIL OFL 1.1. [Font source and license](../docs/licensing.md)
 
 Noto Serif Hentaigana supplies 𛂦 (hentaigana HA-9) for the FangSong and Regular pairings when the selected font lacks it. The two columns of ⿰𛂦方 follow the encoded form 𭤪. [Noto Serif Hentaigana](https://github.com/notofonts/hentaigana) · [SIL Open Font License 1.1](../data/licences/OFL-NotoSerifHentaigana.txt)
