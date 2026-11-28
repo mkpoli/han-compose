@@ -4,7 +4,7 @@ import { pointAt, vertices, weightsAt } from './pentagon.js'
 export function mixPad(container, styles, names, change) {
   const ns = 'http://www.w3.org/2000/svg'
   const svg = document.createElementNS(ns, 'svg')
-  svg.setAttribute('viewBox', '-150 -112 300 214')
+  svg.setAttribute('viewBox', '-150 -114 300 228')
   svg.setAttribute('role', 'img')
   svg.setAttribute('aria-label', `${styles.length}-face mix position`)
   function element(tag, attrs) {
@@ -43,8 +43,8 @@ export function mixPad(container, styles, names, change) {
     })
     const label = element('text', {
       x: x * 1.12,
-      y: y * 1.12 + (y < -80 ? -4 : y > 0 ? 14 : 4),
-      'text-anchor': Math.abs(x) < 1 || y > 0 ? 'middle' : x > 0 ? 'start' : 'end',
+      y: y * 1.12 + (y < -80 ? -4 : y > 80 ? 14 : 4),
+      'text-anchor': Math.abs(x) < 1 || y > 80 ? 'middle' : x > 0 ? 'start' : 'end',
       fill: 'currentColor',
       'font-size': 11
     })
