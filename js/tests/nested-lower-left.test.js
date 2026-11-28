@@ -437,10 +437,23 @@ it('assembles the Misato shrine character from standard 艹, 菱 土八, and enc
       expect(masks[1].some((ink, i) => ink && masks[2][i]), `${fontStyle}/${layout} body-jade`).toBe(false)
     }
     const rawParts = new Composer(src.store(), { fontStyle, separate: true }).compose(sequence)
-    expect(Boolean(rawParts[2].fixed), `${fontStyle} jade fixed`).toBe(fontStyle === 'pen-writing')
-    const nested = await compose(src, `⿰口${sequence}`, { layout: 'cells', separate: true, fontStyle })
-    const leftEdge = Math.min(...nested.parts.slice(1).map(p => p.box[0]))
-    expect(leftEdge, `${fontStyle} nested`).toBeGreaterThan(nested.parts[0].box[0])
+    expect(Boolean(rawParts[2].fixed), `${fontStyle} jade fixed`).toBe(fontStyle !== 'sans' && fontStyle !== 'serif')
+    for (const [nestedSeq, sliceStart] of /** @type {const} */ ([[`⿰口${sequence}`, 1], [`⿱${sequence}口`, 0]])) {
+      for (const layout of ['composed', 'cells']) {
+        const nested = await compose(src, nestedSeq, { layout, separate: true, fontStyle })
+        const shrineParts = nested.parts.slice(sliceStart, sliceStart + 3)
+        expect(shrineParts.map(p => p.origin), `${fontStyle} ${nestedSeq}/${layout}`).toEqual([expectedCap, expectedBody, 'glyph 玉'])
+        const masks = shrineParts.map(p => pathMask(p.d, 256))
+        expect(masks[0].some((ink, i) => ink && masks[1][i]), `${fontStyle} ${nestedSeq}/${layout} cap-body`).toBe(false)
+        expect(masks[0].some((ink, i) => ink && masks[2][i]), `${fontStyle} ${nestedSeq}/${layout} cap-jade`).toBe(false)
+        expect(masks[1].some((ink, i) => ink && masks[2][i]), `${fontStyle} ${nestedSeq}/${layout} body-jade`).toBe(false)
+        if (sliceStart === 1) {
+          expect(Math.min(...shrineParts.map(p => p.box[0])), `${fontStyle} ${nestedSeq}/${layout}`).toBeGreaterThan(nested.parts[0].box[0])
+        } else {
+          expect(Math.max(...shrineParts.map(p => p.box[1] + p.box[3])), `${fontStyle} ${nestedSeq}/${layout}`).toBeLessThan(nested.parts[3].box[1] + nested.parts[3].box[3])
+        }
+      }
+    }
     for (const excluded of ['菱', footHost, '艹', '夌', '玉']) {
       const fallback = await compose(src, sequence, { exclude: [excluded], fontStyle })
       expect(fallback.origins, `${fontStyle} exclude ${excluded}`).not.toContain(expectedBody)

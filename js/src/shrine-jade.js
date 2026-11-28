@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { cutContours, derived, mapped, partInk, partOf, placed, union } from './geometry.js'
+import { cutContours, derived, fitted, mapped, partInk, partOf, placed, union } from './geometry.js'
 import { hexOf } from './sha256.js'
 
 // R+07AB (https://rare.glyphatlas.org/ja/entry/1963), Mika-jinja (Misato, Saitama)
@@ -12,9 +12,9 @@ import { hexOf } from './sha256.js'
 const faces = {
   sans: {
     grass: [62, 637, 941, 840],
-    top: { host: '菱', contours: [1, 2, 5, 6, 10], digest: '43439cecaec205e6cff69f7b1a448b5e8e14a10cbcb159a8c73331ed10253e99', box: [38, 360, 512, 616], weight: [0.85, 0.55] },
+    top: { host: '菱', contours: [1, 2, 5, 6, 10], digest: '43439cecaec205e6cff69f7b1a448b5e8e14a10cbcb159a8c73331ed10253e99', box: [38, 360, 512, 610], weight: [0.85, 0.55] },
     foot: { host: '麩', contours: [1, 2, 4, 5], digest: '8464a5a2fc2961cb055948720a383d8133f8d370d4fef13517b5eb9270f3c5af' },
-    jade: [534, 64, 956, 618],
+    jade: [534, 64, 956, 610],
   },
   serif: {
     grass: [44, 638, 957, 837],
@@ -27,12 +27,14 @@ const faces = {
     top: { host: '菱', contours: [1, 2], digest: 'ffa4c57a60cd3e2b446539cfc7e5f6241f4a8555b76c93803b8600f8efbf9dd3', box: [52, 344, 522, 582] },
     foot: { host: '处', contours: [0, 2], digest: '9f0a3965c175b4ecde5b44b6626b47f2f9241831bc1fbf350e15ba8ce2a3cdd9', box: [42, -92, 955, 368] },
     jade: [536, 68, 944, 588],
+    fixedWeight: true,
   },
   regular: {
     grass: [183, 602, 807, 816],
     top: { host: '菱', contours: [0], digest: 'b209240f1a7606d8d99c5704c5dcf0731813587cf51aa5de843eb248a8f6c9e2', box: [76, 326, 510, 588] },
     foot: { host: '麩', contours: [2, 3], digest: 'ca020e2bccaf46e5af2703ab49491ce821a4d70a2ec639eb8d023cc5a2bf8aa4' },
     jade: [526, 96, 940, 592],
+    fixedWeight: true,
   },
   'pen-writing': {
     grass: [108, 594, 890, 824],
@@ -83,21 +85,18 @@ function fitContours(part, target, weight = null) {
     }
     return out
   }
-  return part.contours.map(c => {
-    const blended = weight ? mapPoints(c.light, c.heavy) : null
-    return {
-      ...c,
-      width: c.width && [c.width[0] * kx, c.width[1] * ky],
-      light: blended ?? mapPoints(c.light, c.light),
-      heavy: blended ?? mapPoints(c.heavy, c.heavy),
-    }
-  })
+  return part.contours.map(c => ({
+    ...c,
+    width: c.width && [c.width[0] * kx, c.width[1] * ky],
+    light: weight ? mapPoints(c.light, c.heavy) : mapPoints(c.light, c.light),
+    heavy: mapPoints(c.heavy, c.heavy),
+  }))
 }
 
-function grassCap(composer, node, capRegion) {
+function grassCap(composer, node, grassBox, capRegion) {
   const declared = composer.declaredParts('艹', capRegion, false)
   if (declared?.length) return declared
-  const cut = composer.host('⿱', 0, '艹', [node[2]], capRegion, true)
+  const cut = composer.host('⿱', 0, '艹', [node[2]], grassBox, true)
   if (cut) return [placed(cut.piece, cut.piece.box, capRegion, composer.ink(cut.record.h), `host ${cut.record.h}`)]
   return composer.node('艹', capRegion)
 }
@@ -122,15 +121,16 @@ export function shrineJadeParts(composer, node, region) {
   ]
   if (strokes.length) body.strokes = strokes
   const bounds = union([spec.grass, body.box, spec.jade])
-  const capRegion = mapped(spec.grass, bounds, region)
-  const capParts = grassCap(composer, node, capRegion)
-  if (!capParts?.length) return null
-  if (spec.fixedWeight) for (const p of capParts) p.fixed = true
-  const bodyPart = {
-    ...placed(body, body.box, mapped(body.box, bounds, region), partInk(body), `enclosing 夌 from ${spec.top.host}+${spec.foot.host}`),
-    fixed: true,
-  }
-  const jadePart = placed(jade, jade.box, mapped(spec.jade, bounds, region), composer.ink('玉'), 'glyph 玉')
+  const frame = fitted(bounds, region, composer.C.STRETCH)
+  const capRegion = mapped(spec.grass, bounds, frame)
+  const capParts = grassCap(composer, node, spec.grass, capRegion)
+  if (capParts?.length !== 1) return null
+  if (spec.fixedWeight) capParts[0].fixed = true
+  const fullScale = frame[2] - frame[0] >= 0.85 * (composer.face[2] - composer.face[0]) &&
+    frame[3] - frame[1] >= 0.85 * (composer.face[3] - composer.face[1])
+  const bodyPart = placed(body, body.box, mapped(body.box, bounds, frame), partInk(body), `enclosing 夌 from ${spec.top.host}+${spec.foot.host}`)
+  if (spec.fixedWeight || fullScale) bodyPart.fixed = true
+  const jadePart = placed(jade, jade.box, mapped(spec.jade, bounds, frame), composer.ink('玉'), 'glyph 玉')
   if (spec.fixedWeight) jadePart.fixed = true
   return [...capParts, bodyPart, jadePart]
 }
