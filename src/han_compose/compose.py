@@ -4072,6 +4072,11 @@ class Composer:
                 except ValueError:
                     pass
             return 0
+        name = None if key(node) in self.spelled else self.by_sequence.get(key(self._joined(node)))
+        if name is not None and name not in seen and name not in self.exclude:
+            glyph = self.font.glyph(name)
+            if glyph is not None:
+                return len(glyph.contours)
         counts = [self._outlines(n, seen) for n in node[1:]]
         return sum(counts) if all(counts) else 0
 

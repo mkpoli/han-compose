@@ -2230,10 +2230,11 @@ export class Composer {
     return { ...placed(makePart([], region.slice()), region.slice(), region.slice(), 0, 'empty'), empty: Number(node.slice(1)) }
   }
 
-  /** Preferred host keys depend on rendering identity, independently of the input spelling. */
+  /** Preferred host keys: try a spelled-out sequence's literal key before its contracted
+   *  character (matching Python's `alternatives`: 𬞑 indexes ⿰口南 under ⿰口南). */
   alternatives(node, place) {
-    const key = this.renderKey(node)
-    const out = [key]
+    const key = this.renderKey(node), raw = Array.isArray(node) ? keyOf(node) : key
+    const out = raw !== key ? [raw, key] : [key]
     for (const form of this.rec(key)?.a?.[place] ?? []) if (!out.includes(form)) out.push(form)
     return out
   }
