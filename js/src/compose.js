@@ -4259,14 +4259,14 @@ export class Composer {
   predict(op, children) {
     const places = [this.slot(op, 0), this.slot(op, 1)]
     const keys = children.map((child, i) => {
-      const key = (this.constructed(child, this.face) && CONSTRUCTS[keyOf(child)].like) || this.renderKey(child)
-      const normalized = key === '⺿' || key === '⻀' ? '艹' : key
-      if (this.rec(normalized)?.u?.[places[i]]) return normalized
-      // A bare radical (金, 言) has no usual box in a place where characters write its positional
-      // form (釒, 訁); fall back to the form with table entries in that place, or to the input
-      // character when `renderKey` mapped it away from a place it is written in (`言` on the right).
-      const candidates = [...this.alternatives(child, places[i]), ...(typeof child === 'string' ? [child] : [])]
-      return candidates.find(alt => this.rec(alt)?.u?.[places[i]]) ?? normalized
+      const place = places[i], raw = keyOf(child)
+      const like = this.constructed(child, this.face) && CONSTRUCTS[raw].like
+      const resolved = like || this.renderKey(child)
+      const normalized = resolved === '⺿' || resolved === '⻀' ? '艹' : resolved
+      // Match Python's lookup order: literal key first (unless a construct maps it via `like`),
+      // then its normalized/spelled character, then that character's positional forms in `place`.
+      const candidates = [...(like ? [] : [raw]), normalized, ...(this.rec(normalized)?.a?.[place] ?? []), ...(like ? [] : this.rec(raw)?.a?.[place] ?? [])]
+      return candidates.find(alt => this.rec(alt)?.u?.[place]) ?? normalized
     })
     return forward(this.layout, features(this.layout, op, keys.map(k => this.rec(k)), places))
   }
