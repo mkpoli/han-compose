@@ -8,6 +8,7 @@ import { drawnContours, fill, groupRings, makePart, mapped, partOf, placed, poin
 import zhou from './fixtures/zhou-miao.json' with { type: 'json' }
 import gongRecord from './fixtures/fangsong-gong.json' with { type: 'json' }
 import kuruma from './fixtures/kuruma-to.json' with { type: 'json' }
+import regularBirdHost from './fixtures/regular-bird-host.json' with { type: 'json' }
 import { hexOf } from 'han-compose/sha256'
 
 /** A placed part of rectangular contours: `boxes` in font units, drawn from `source` into `target`. */
@@ -1013,5 +1014,32 @@ describe('招財進寶 ⿺辶⿱宀⿱⿰王尔⿲隹貝招', () => {
     expect(out[2].weight[0]).toBeLessThan(0)
     // Outward-winding host 鉨 emboldens with positive weight.
     expect(out[3].weight[0]).toBeGreaterThan(0)
+  })
+
+  it('drops the stray 鳥 dot contour from Regular’s 䳡 cut of 隹 only when the 䳡 digest matches', () => {
+    const face = [89, -56, 915, 800]
+    const bird = part('host 䳡', [58, 45, 547, 776], face, [
+      [58, 45, 493, 777], [220, 163, 332, 274], [222, 299, 331, 391], [226, 418, 330, 515], [476, 52, 547, 210],
+    ])
+    const parts = ['glyph 辶', 'glyph 宀', 'glyph 王', 'glyph 尔', 'host 䳡', 'glyph 貝', 'glyph 招']
+      .map((origin, i) => i === 4 ? bird : sample(origin))
+    const cleaned = COMPONENT_FIXES[WEALTH_IDS].apply(parts, {
+      fontStyle: 'regular', face, glyphRecord: ch => ch === '䳡' ? regularBirdHost : null,
+    }, face)
+    expect(cleaned[4].part.contours).toHaveLength(4)
+    expect(cleaned[4].source[2]).toBe(493)
+    expect(cleaned[4].fixed).toBe(true)
+    expect(cleaned[4].weight).toEqual([0.68, 0.55])
+
+    const untouched = COMPONENT_FIXES[WEALTH_IDS].apply(parts, {
+      fontStyle: 'regular', face, glyphRecord: () => ({ p: [] }),
+    }, face)
+    expect(untouched[4].part.contours).toHaveLength(5)
+    expect(untouched[4].source[2]).toBe(547)
+
+    const otherStyle = COMPONENT_FIXES[WEALTH_IDS].apply(parts, {
+      fontStyle: 'fangsong', face, glyphRecord: ch => ch === '䳡' ? regularBirdHost : null,
+    }, face)
+    expect(otherStyle[4].part.contours).toHaveLength(5)
   })
 })

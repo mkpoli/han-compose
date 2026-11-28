@@ -514,6 +514,20 @@ function penDoor(char) {
   }
 }
 
+// Regular's host cut of 隹 from 䳡 (⿰隹鳥) carries contour 4 ([476, 52, 547, 210]),
+// the leftmost 灬 dot of 鳥. Drop it when drawing 䳡's 隹 in 招財進寶.
+const REGULAR_BIRD_HOST_HASH = '0465b12c59d76ca4e931e099bca1a37dbd292a2205c10af8d020f74439a9ed58'
+
+function cleanRegularBird(part, composer, target) {
+  if (composer.fontStyle !== 'regular' || !/^(?:host|learned) 䳡$/.test(part.origin) || part.part.contours.length !== 5) {
+    return { ...part, target }
+  }
+  const record = composer.glyphRecord?.('䳡')
+  if (!record || hexOf(JSON.stringify(record.p)) !== REGULAR_BIRD_HOST_HASH) return { ...part, target }
+  const clean = derived(part.part, part.part.contours.slice(0, 4))
+  return placed(clean, clean.box, target, part.native, part.origin)
+}
+
 /**
  * The corrections, by description. `glyphs` ties each to the outlines it was read against.
  * A correction that cannot find the parts it names leaves the drawing as it is.
@@ -526,9 +540,10 @@ export const COMPONENT_FIXES = {
       const spec = wealthLayout[composer.fontStyle]
       if (!boxes || !spec || parts.length !== boxes.length) return parts
       return parts.map((part, i) => {
-        const dir = growthDirection(part)
+        const base = i === 4 ? cleanRegularBird(part, composer, boxes[i]) : { ...part, target: boxes[i] }
+        const dir = growthDirection(base)
         const [ex, ey] = spec.embolden[i]
-        return { ...part, target: boxes[i], weight: [dir * ex, dir * ey], fixed: true }
+        return { ...base, weight: [dir * ex, dir * ey], fixed: true }
       })
     },
   },
