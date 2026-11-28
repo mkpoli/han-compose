@@ -953,6 +953,62 @@ describe('日進斗金 ⿱⿰日斗⿺辶⿰隹金', () => {
   })
 })
 
+describe('唯吾知足 ⿳五⿲矢口隹龰', () => {
+  const frame = [0, 0, 1000, 1000]
+  const sample = origin => part(origin, frame, frame, [[100, 100, 900, 900]])
+  const tree = ['⿳', '五', ['⿲', '矢', '口', '隹'], '龰']
+  const makeComposer = (fontStyle, hasFoot = true) => {
+    const face = [50, -80, 950, 840]
+    const composer = Object.create(Composer.prototype)
+    composer.fontStyle = fontStyle
+    composer.face = face
+    composer.excluded = () => false
+    composer.own = ch => ch !== '龰' || hasFoot
+    composer.glyph = ch => (ch === '龰' && !hasFoot ? null : sample(`glyph ${ch}`).part)
+    return { composer, face }
+  }
+
+  it('arranges all five leaves around the central 口 with balanced weights across all five faces and nested regions', () => {
+    for (const fontStyle of ['sans', 'serif', 'fangsong', 'regular', 'pen-writing']) {
+      const { composer, face } = makeComposer(fontStyle, fontStyle !== 'fangsong')
+      const out = composer.sharedMouthInscription(tree, face)
+      expect(out).toHaveLength(5)
+      expect(out.every(p => p.fixed && Array.isArray(p.weight) && p.weight.length === 2)).toBe(true)
+      const [five, arrow, mouth, bird, foot] = out.map(p => p.target)
+      // 五 caps 口 from above and overhangs both sides (吾).
+      expect(five[1]).toBeGreaterThan(mouth[3])
+      expect(five[0]).toBeLessThan(mouth[0])
+      expect(five[2]).toBeGreaterThan(mouth[2])
+      // 矢 and 隹 flank 口 and stand taller than 口 (知, 唯).
+      expect(arrow[2]).toBeLessThan(mouth[0])
+      expect(mouth[2]).toBeLessThan(bird[0])
+      expect(bird[3] - bird[1]).toBeGreaterThan(mouth[3] - mouth[1])
+      // 龰 sits below 口 with its center aligned under 口 (足).
+      expect(foot[3]).toBeLessThan(mouth[1])
+      const mouthMid = (mouth[0] + mouth[2]) / 2
+      const footMid = (foot[0] + foot[2]) / 2
+      expect(Math.abs(footMid - mouthMid)).toBeLessThan(0.03 * (face[2] - face[0]))
+      expect(out[4].origin).toBe(fontStyle === 'fangsong' ? 'host 足' : 'glyph 龰')
+
+      const nested = composer.sharedMouthInscription(tree, [450, -80, 950, 560])
+      expect(nested[1].target[0]).toBeGreaterThan(450 + 0.04 * 500)
+      expect(nested[0].target[3]).toBeLessThanOrEqual(560 - 0.05 * 640 + 1e-6)
+    }
+  })
+
+  it('prefers the left-radical host cut of 矢 when host data is available and respects exclusions', () => {
+    const { composer, face } = makeComposer('sans')
+    composer._customHost = true
+    composer.host = (op, idx, ch) => op === '⿰' && idx === 0 && ch === '矢'
+      ? { record: { h: '知' }, piece: sample('host 知').part } : null
+    const out = composer.sharedMouthInscription(tree, face)
+    expect(out[1].origin).toBe('host 知')
+
+    composer.excluded = ch => ch === '口'
+    expect(composer.sharedMouthInscription(tree, face)).toBeNull()
+  })
+})
+
 describe('招財進寶 ⿺辶⿱宀⿱⿰王尔⿲隹貝招', () => {
   const frame = [0, 0, 1000, 1000]
   const sample = origin => part(origin, frame, frame, [[100, 100, 900, 900]])

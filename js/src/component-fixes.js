@@ -432,7 +432,7 @@ const wealthLayout = {
 }
 
 /** Whether a positive weight widens (+1) or thins (-1) `part`'s contours. */
-function growthDirection(part) {
+export function growthDirection(part) {
   if (!part.part?.contours?.some(c => Array.isArray(c.ops?.[0]))) return 1
   const ink = w => {
     const candidate = { ...part, weight: [w, w] }

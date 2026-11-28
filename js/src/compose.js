@@ -1,4 +1,5 @@
 // @ts-nocheck: a port of han-compose's Python, kept line for line; its types are the arrays it reads.
+import fangsongFoot from './fangsong-foot.json' with { type: 'json' }
 import { resolveYaoForm } from './yao-forms.js'
 import { alignedYaoGroups, collapseYaoHost, containsYaoVariant, matchedYaoForTarget, replaceYaoInPart } from './yao-surgical.js'
 import cuanForms from './cuan-forms.json' with { type: 'json' }
@@ -55,7 +56,7 @@ import { hangulLetters } from './hangul-ids.js'
 import { toConjoiningJamo } from './hangul.js'
 import { tileHost } from './fangsong-tile.js'
 import { brushSweepRoom, brushSweepParts } from './brush-sweep-rooms.js'
-import { componentFix, enclosedZeroTarget, INCOME_IDS, incomeBoxes, WEALTH_IDS, wealthBoxes } from './component-fixes.js'
+import { componentFix, enclosedZeroTarget, growthDirection, INCOME_IDS, incomeBoxes, WEALTH_IDS, wealthBoxes } from './component-fixes.js'
 import { isOutbound, markFace, markParts } from './marks.js'
 import { SI_CHAIN, siChainForm, siBendDonor } from './si-chain.js'
 import { youChainDonors, youChainParts } from './you-chain.js'
@@ -897,6 +898,9 @@ export const designedSources = (tree, style = 'sans') => {
     if (!Array.isArray(node)) return
     if (Object.hasOwn(cuanForms, style) && keyOf(node) === '⿱⿱⿴𦥑同冖𤍾') out.add('爨')
     const [op, ...children] = node
+    if (op === '⿳' && keyOf(node) === '⿳五⿲矢口隹龰') {
+      for (const char of '五矢口隹龰足') out.add(char)
+    }
     if (brushSweepRoom(node, style)) {
       children.forEach(ch => out.add(ch))
       if (style === 'fangsong') out.add(node[1] === '瓦' ? tileHost(node[2]) : '尅')
@@ -1775,6 +1779,7 @@ export class Composer {
     // Cell scaffolds already have a complete layout; searching every repeated subtree adds no evidence.
     if (this.pyramid(tree) || this.pyramidWithBase(tree)) return false
     const key = keyOf(tree)
+    if (key.includes('⿳五⿲矢口隹龰')) return false
     if (key.includes(WEALTH_IDS)) return false
     if (key.includes(INCOME_IDS)) return false
     if (containsRateForm(key) || (containsU26201(key) && this.hasYaoChoice(tree)) || this.bySequence(key) || this.spelled.has(key)) return false
@@ -2118,7 +2123,7 @@ export class Composer {
         return
       }
       const repeated = isGroupedForm(keyOf(node), this.fontStyle) ? componentParts(keyOf(node), region, this.fontStyle, atRoot, this.exclude) : null
-      const designed = repeated ?? rccParts(editable, keyOf(node), region) ?? birdOutlineParts(this, keyOf(node), region) ?? this.doubleTurnParts(node, region) ?? brushSweepParts(this, node, region, !atRoot) ?? this.thornRowParts(node, region) ?? yiCrossParts(this, node, region) ?? this.qiParts(node, region) ?? ghostParts(this, node, region) ?? this.cuanParts(node, region, atRoot) ?? this.muKoParts(node, region) ?? this.wheatFaceParts(node, region)
+      const designed = repeated ?? rccParts(editable, keyOf(node), region) ?? birdOutlineParts(this, keyOf(node), region) ?? this.doubleTurnParts(node, region) ?? brushSweepParts(this, node, region, !atRoot) ?? this.thornRowParts(node, region) ?? yiCrossParts(this, node, region) ?? this.qiParts(node, region) ?? ghostParts(this, node, region) ?? this.sharedMouthInscription(node, region) ?? this.cuanParts(node, region, atRoot) ?? this.muKoParts(node, region) ?? this.wheatFaceParts(node, region)
       if (designed) {
         const boxes = designed[0]?.rccGroup && rccLeafBoxes(designed, leafTexts(node).length)
         for (const box of boxes || designed.map(part => part.target)) out.push({ index: out.length, box, empty: false })
@@ -2637,6 +2642,102 @@ export class Composer {
     return parts.length ? parts : null
   }
 
+  sharedMouthInscription(node, region) {
+    // 唯吾知足: UHK 港生活, 2015-02-12 (https://hk.ulifestyle.com.hk/topic/detail/200474/).
+    // Five components arranged in a cross around the shared central 口: 五 caps 口 (吾),
+    // left-radical 矢 and tall 隹 flank 口 (知, 唯), and 龰 centers directly under 口 (足).
+    if (!Array.isArray(node) || node[0] !== '⿳' || keyOf(node) !== '⿳五⿲矢口隹龰') return null
+    const chars = ['五', '矢', '口', '隹', '龰']
+    if (chars.some(ch => this.excluded(ch))) return null
+    const specs = {
+      sans: {
+        frame: [0.00, 0.00, 1.00, 1.00],
+        boxes: [
+          [0.285, 0.715, 0.715, 0.995],
+          [0.015, 0.335, 0.345, 0.72],
+          [0.378, 0.43, 0.622, 0.665],
+          [0.655, 0.315, 0.985, 0.72],
+          [0.125, 0.005, 0.895, 0.39],
+        ],
+        embolden: [[0.42, 0.52], [0.45, 0.45], [0.65, 0.65], [0.42, 0.35], [-0.14, -0.10]],
+      },
+      serif: {
+        frame: [0.00, 0.00, 1.00, 1.00],
+        boxes: [
+          [0.285, 0.715, 0.715, 0.995],
+          [0.015, 0.335, 0.345, 0.72],
+          [0.378, 0.43, 0.622, 0.665],
+          [0.655, 0.315, 0.985, 0.72],
+          [0.125, 0.005, 0.895, 0.39],
+        ],
+        embolden: [[0.50, 0.60], [0.55, 0.55], [0.70, 0.70], [0.48, 0.52], [-0.08, 0.02]],
+      },
+      fangsong: {
+        frame: [-0.01, -0.01, 1.02, 0.99],
+        boxes: [
+          [0.275, 0.70, 0.725, 1.00],
+          [0.015, 0.325, 0.35, 0.72],
+          [0.378, 0.425, 0.622, 0.665],
+          [0.65, 0.31, 0.99, 0.72],
+          [0.12, 0.00, 0.90, 0.388],
+        ],
+        embolden: [[0.72, 0.72], [0.65, 0.62], [0.75, 0.75], [0.72, 0.68], [-0.18, -0.22]],
+      },
+      regular: {
+        frame: [-0.04, -0.03, 1.04, 1.02],
+        boxes: [
+          [0.275, 0.70, 0.725, 1.00],
+          [0.015, 0.325, 0.35, 0.72],
+          [0.378, 0.43, 0.622, 0.672],
+          [0.65, 0.31, 0.99, 0.72],
+          [0.12, 0.00, 0.90, 0.40],
+        ],
+        embolden: [[0.72, 0.72], [0.65, 0.60], [0.65, 0.65], [0.72, 0.68], [-0.12, -0.15]],
+      },
+      'pen-writing': {
+        frame: [-0.02, -0.01, 1.02, 1.00],
+        boxes: [
+          [0.275, 0.70, 0.725, 1.00],
+          [0.015, 0.325, 0.35, 0.72],
+          [0.378, 0.43, 0.622, 0.668],
+          [0.65, 0.31, 0.99, 0.72],
+          [0.12, 0.00, 0.90, 0.392],
+        ],
+        embolden: [[0.75, 0.75], [0.72, 0.68], [0.75, 0.75], [0.80, 0.72], [-0.15, -0.20]],
+      },
+    }
+    const spec = specs[this.fontStyle] ?? specs.sans
+    const atRoot = !this.face || region.every((v, i) => Math.abs(v - this.face[i]) < 1)
+    let frame = region
+    if (!atRoot && this.face) {
+      const fw = this.face[2] - this.face[0], fh = this.face[3] - this.face[1]
+      const rw = region[2] - region[0], rh = region[3] - region[1]
+      const leftInset = region[0] > this.face[0] + 0.02 * fw ? 0.04 * rw : 0
+      const topInset = region[3] < this.face[3] - 0.02 * fh ? 0.05 * rh : 0
+      if (leftInset || topInset) frame = [region[0] + leftInset, region[1], region[2], region[3] - topInset]
+    }
+    const inkFrame = atRoot ? mapped(spec.frame, [0, 0, 1, 1], frame) : frame
+    const parts = []
+    for (let i = 0; i < chars.length; i++) {
+      const ch = chars[i]
+      const target = mapped(spec.boxes[i], [0, 0, 1, 1], inkFrame)
+      const useFoot = ch === '龰' && this.fontStyle === 'fangsong' && !this.own('龰') && !this.excluded('足')
+      const arrowCut = ch === '矢' && (this.data || this._customHost) ? this.host('⿰', 0, '矢', ['口'], target) : null
+      let base
+      if (arrowCut) {
+        base = placed(arrowCut.piece, arrowCut.piece.box, target, partInk(arrowCut.piece), `host ${arrowCut.record.h}`)
+      } else {
+        const glyph = useFoot ? partOf(fangsongFoot) : this.glyph(ch)
+        if (!glyph) return null
+        base = placed(glyph, glyph.box, target, partInk(glyph), useFoot ? 'host 足' : `glyph ${ch}`)
+      }
+      const dir = growthDirection(base)
+      const [ex, ey] = spec.embolden[i]
+      parts.push({ ...base, weight: [dir * ex, dir * ey], fixed: true })
+    }
+    return parts
+  }
+
   /** The two hands, 同, the cover and the lower body as drawn in the face's own 爨. */
   cuanParts(node, region, atRoot) {
     if (!Array.isArray(node) || node[0] !== '⿱' || node[2] !== '𤍾' ||
@@ -2791,6 +2892,8 @@ export class Composer {
   }
 
   drawNode(node, region, atRoot = false, sideBySide = false, regroup = true) {
+    const inscription = this.sharedMouthInscription(node, region)
+    if (inscription) return inscription
     const cuan = this.cuanParts(node, region, atRoot)
     if (cuan) return cuan
     const dragon = this.dragonParts(node, region, atRoot)
