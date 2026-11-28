@@ -3,8 +3,9 @@ import { mapped } from './geometry.js'
 
 // Brush-face operand bounds, in a 1000-unit em with an 880-unit ascent.
 // 亽 has a short, centered dot below its open roof (TW-Kai U+4EBD).
-/** @typedef {{char: string, digest: string, indices?: number[], box: number[], variant?: 'jian-birang', dots?: {char: string, digest: string}}} DonorCut */
-/** @type {Record<string, Record<string, { encoded: string, donors?: Record<string, DonorCut>, cells: [string, number[], [number, number]?][] }>>} */
+/** @typedef {{char: string, digest: string, indices: number[], box?: number[]}} DonorPiece */
+/** @typedef {{char: string, digest: string, indices?: number[], box: number[], variant?: 'jian-birang', dots?: {char: string, digest: string}} | {parts: DonorPiece[], box?: number[]}} DonorCut */
+/** @type {Record<string, Record<string, { encoded: string, donors?: Record<string, DonorCut>, cells: [string, number[], [number, number]?, string?][] }>>} */
 const layouts = {
   "pen-writing": {
     '⿳宀𭕄木': {
@@ -52,6 +53,24 @@ const layouts = {
     '⿱宀西': { encoded: '', cells: [['宀', [42, 525, 958, 845]], ['西', [145, -80, 855, 588], [0.10, 0]]] },
   },
   fangsong: {
+    '⿲水水水': {
+      encoded: '㴇',
+      donors: {
+        '水:L': {
+          parts: [
+            { char: '水', digest: '7e2cec0cc9ccd5a99e9a737ac01dd7d53c0bb4e7bc3f1c788993d9be90a3d123', indices: [1], box: [70, 20, 456, 515] },
+            { char: '氺', digest: '379a300f1ea750985f9e1db833bcfb2e5f398a441523dfc6ff84cde3422f2008', indices: [0], box: [313, -109, 559, 812] },
+            { char: '氺', digest: '379a300f1ea750985f9e1db833bcfb2e5f398a441523dfc6ff84cde3422f2008', indices: [4], box: [492, 355, 760, 625] },
+            { char: '氺', digest: '379a300f1ea750985f9e1db833bcfb2e5f398a441523dfc6ff84cde3422f2008', indices: [3], box: [498, 125, 775, 365] },
+          ],
+        },
+      },
+      cells: [
+        ['水', [48, -96, 352, 816], [0.75, 0], '水:L'],
+        ['水', [316, -96, 620, 816], [0.75, 0], '水:L'],
+        ['水', [584, -104, 948, 822], [0.75, 0]],
+      ],
+    },
     '⿰入鳥': {
       encoded: '鳰',
       donors: {
@@ -152,7 +171,7 @@ export function referenceLayout(node, style) {
   return layouts[style][node.join('')] ?? null
 }
 
-/** @param {[string, number[], [number, number]?][]} cells @param {number[]} region */
+/** @param {[string, number[], [number, number]?, string?][]} cells @param {number[]} region */
 export function referenceBoxes(cells, region) {
   return cells.map(([, box]) => mapped(box, [0, -120, 1000, 880], region))
 }

@@ -897,8 +897,11 @@ export const designedSources = (tree, style = 'sans') => {
         for (const [source] of referenceSources(char, style) ?? []) out.add(source)
       }
       for (const donor of Object.values(entry.donors ?? {})) {
-        out.add(donor.char)
-        if (donor.dots) out.add(donor.dots.char)
+        if (donor.parts) for (const piece of donor.parts) out.add(piece.char)
+        else {
+          out.add(donor.char)
+          if (donor.dots) out.add(donor.dots.char)
+        }
       }
     }
     if (brushSweepRoom(node, style)) {
@@ -2569,9 +2572,42 @@ export class Composer {
     const entry = referenceLayout(node, this.fontStyle)
     if (!entry || (entry.encoded && this.own(entry.encoded)) || node.slice(1).some(child => typeof child === 'string' && this.excluded(child))) return null
     const { cells, donors } = entry
-    const cuts = donors && cells.map(([source]) => {
-      const donor = donors[source]
-      if (!donor || this.excluded(donor.char)) return null
+    const cuts = donors && cells.map(([source, , , donorKey]) => {
+      const donor = donors[donorKey ?? source]
+      if (!donor) return donorKey ? null : undefined
+      if (donor.parts) {
+        const contours = []
+        let reverse = false
+        for (const piece of donor.parts) {
+          if (this.excluded(piece.char)) return null
+          const record = this.glyphRecord(piece.char)
+          if (record?.v !== 1 || hexOf(JSON.stringify(record.p)) !== piece.digest) return null
+          const parent = partOf(record)
+          if (!contours.length) reverse = parent.reverse
+          const selected = derived(parent, piece.indices.map(k => parent.contours[k]))
+          const from = selected.box, to = piece.box ?? from
+          const sx = (to[2] - to[0]) / (from[2] - from[0]) || 1
+          const sy = (to[3] - to[1]) / (from[3] - from[1]) || 1
+          const fit = pts => {
+            const out = new Float64Array(pts.length)
+            for (let j = 0; j < pts.length; j += 2) {
+              out[j] = to[0] + (pts[j] - from[0]) * sx
+              out[j + 1] = to[1] + (pts[j + 1] - from[1]) * sy
+            }
+            return out
+          }
+          for (const c of selected.contours) contours.push({ ...c, light: fit(c.light), heavy: fit(c.heavy) })
+        }
+        const glyph = makePart(contours)
+        glyph.reverse = reverse
+        const chars = [...new Set(donor.parts.map(p => p.char))].join('')
+        return {
+          glyph,
+          box: donor.box ? mapped(donor.box, EM_BOX, region) : null,
+          origin: `${source} from ${chars}`,
+        }
+      }
+      if (this.excluded(donor.char)) return null
       const record = this.glyphRecord(donor.char)
       if (record?.v !== 1 || hexOf(JSON.stringify(record.p)) !== donor.digest) return null
       const parent = partOf(record)
@@ -2592,8 +2628,8 @@ export class Composer {
         origin: `${source} from ${donor.char}`,
       }
     })
-    // The two contextual cuts share a placement. Standalone forms have their own pair of boxes.
-    const useCuts = cuts?.every(Boolean)
+    // The contextual cuts share a placement. Standalone forms have their own boxes.
+    const useCuts = cuts && cuts.some(Boolean) && cuts.every(cut => cut !== null)
     const boxes = referenceBoxes(cells, region)
     const parts = []
     for (const [i, [source, , weight]] of cells.entries()) {
