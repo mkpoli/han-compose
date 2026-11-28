@@ -47,8 +47,11 @@ export declare class Composer {
     data: any;
     C: any;
     exclude: Set<any>;
+    footlessCuts: Map<any, any>;
+    footlessPieces: WeakMap<WeakKey, any>;
     _forced: Map<any, any>;
     spelled: Set<any>;
+    rooms: any;
     AXIS: any;
     ENCLOSE: any;
     INSIDE: any;
@@ -77,10 +80,12 @@ export declare class Composer {
     resolutions: Map<any, any>;
     chains: Map<any, any>;
     columns: any[];
+    spaced: any[];
     joints: any[];
     sweeps: any[];
     /** How much smaller than it was laid out the character is drawn, beside marks that take a margin. */
     carried: number;
+    _dragonCuts: any;
     handForms: boolean | undefined;
     stroke: any[] | undefined;
     /**
@@ -123,6 +128,9 @@ export declare class Composer {
     parse: (sequence: any) => any;
     yaoHostRecord(key: any): any;
     rec: (key: any) => any;
+    /** The record of a component written in full (`&HC-u91d1-full;`): its character's outline and
+     *  layout, without the sequence, the forms and the places that would draw it as a positional form. */
+    fullRecord(key: any): any;
     /**
      * The record of a character under a variation selector: its own outline, laid out as its base is.
      * The export records a variation sequence's outline alone, so what the layout reads of it (its
@@ -177,10 +185,16 @@ export declare class Composer {
      *  and the form placed where they were. The rest of the glyph keeps its own design and weight. */
     replaceGlyph(native: any, char: any, tree?: null): any[];
     glyph(ch: any): any;
+    /** An ideograph of `FOOTLESS` cut from the face's own character, or null where the face draws
+     *  the ideograph itself, lacks the character, or the character's foot cannot be found. */
+    footless(ch: any): any;
     /** The glyph a whole character is drawn with: a body the font drew as another shape is replaced
      *  by `BODY_FORMS` where the export carries the glyph that cut was made for. A cut of the glyph
      *  (`pieceOf`) keeps the font's own contours. */
     drawnGlyph(ch: any, contain?: boolean): any;
+    /** The outline another face's font drew for a character this face lacks, which `glyphRecord`
+     *  withholds: what draws the character when its sequence, hosts and designed cut all fail. */
+    borrowedGlyph(ch: any, contain?: boolean): any;
     /** A piece drawn for `key`, a glyph or a host cut, with the bar rule of `CONTAINED_MIDDLE_BARS`
      *  applied. */
     pieceFor(key: any, piece: any): any;
@@ -191,7 +205,12 @@ export declare class Composer {
     /** Shared lookup key and metrics for descriptions that name the same form. */
     renderKey(node: any): any;
     /** The encoded glyph supported by the description's normalization evidence. */
+    /** `node` with each operand that spells a drawn character replaced by that character, from the
+     *  innermost out: ⿱艹⿰口南 as ⿱艹喃 (`_joined`). */
+    joined(node: any): any;
     bySequence(key: any): any;
+    /** A character's sequence: the export's, else the bundled one of an Extension J ideograph, which
+     *  the exports' source table does not reach. */
     sequenceOf(ch: any): any;
     atomic(ch: any): boolean;
     /** Outline length: a glyph's, or for an excluded or glyphless character its sequence's operands'. */
@@ -251,6 +270,11 @@ export declare class Composer {
      *  part goes into the cell of the chain its operator names. Null for any other enclosure. */
     chainEnclosure(node: any, region: any): any;
     /** The parts drawing `sequence`, weighted, and the loose `marks` its text carries after it. */
+    /** `node` with each Extension J ideograph the face does not draw written out as its bundled
+     *  sequence, so its parts are laid out as the same sequence written by hand is. */
+    writtenOut(node: any, seen?: Set<any>): any;
+    /** What one drawing gathers as it goes, emptied before it starts. */
+    resetDrawing(): void;
     compose(sequence: any, marks?: string): any;
     /** Whether `tree` is drawn in cells (`compose`'s `layout: 'auto'`): no character spells it as a
      *  whole, it has at least `CELL_LEAVES` leaves, every leaf is a glyph or an empty slot, and every
@@ -307,6 +331,7 @@ export declare class Composer {
     /** A host entry's piece: its own outlines, or the contours it keeps of its host's glyph, read from
      *  the host's record when the piece is chosen. */
     pieceOf(h: any): any;
+    finishPenParts(parts: any): void;
     /** A ranked host as the callers take it: the entry, and its piece read when first asked for. */
     chosen(h: any): {
         record: any;
@@ -428,6 +453,18 @@ export declare class Composer {
     /** Three native cuts for the described wheat enclosure. 麺 supplies the frame and right-hand 面,
      *  榛 the narrow 𡗗. The sweep is 处’s in Zhuque and 麵’s in TW-Kai. */
     wheatFaceParts(node: any, region: any): any[] | null;
+    /** The two hands, 同, the cover and the lower body as drawn in the face's own 爨. */
+    cuanParts(node: any, region: any, atRoot: any): any;
+    dragonCuts(): any;
+    dragonParts(node: any, region: any, atRoot: any): {
+        part: any;
+        source: any;
+        target: any;
+        weight: number[];
+        native: any;
+        origin: any;
+        fixed: boolean;
+    }[] | null;
     /** R+06D8, 出土文獻與古文字教程 p. 15. The two sides of 棘 flank a shorter 企. */
     thornRowParts(node: any, region: any): {
         part: any;
@@ -478,12 +515,12 @@ export declare class Composer {
         origin: any;
         fixed: boolean;
     }[] | null;
-    drawNode(node: any, region: any, atRoot?: boolean, sideBySide?: boolean): any;
+    drawNode(node: any, region: any, atRoot?: boolean, sideBySide?: boolean, regroup?: boolean): any;
     /** The letters of one Bopomofo syllable stacked in the block, centered and separated by a small
      *  gap. The letters come from the bundled Bopomofo outlines; without this a three-letter spelling
      *  shares by ink and the ㄙ, ㄨ and ㄥ fill the cell unevenly.
      *  @param {(string | any[])[]} children @param {number[]} region */
-    bopomofoBlock(children: (string | any[])[], region: number[]): any;
+    bopomofoBlock(children: (string | any[])[], region: number[]): any[];
     /** Two syllables in one block, set at the split the manuscript's blocks keep: the upper takes
      *  the top 54%, the lower the rest, and the lower reaches a little into the upper's band so the
      *  pair closes up rather than standing apart as two characters. @param {(string | any[])[]} children @param {number[]} region */
@@ -536,7 +573,7 @@ export declare class Composer {
     /** An enclosing part drawn as its kin's (`_kin_outer`): 足 round 羽 in 䟳 as 走's sweep, cut from a
      *  host, under 口 in 土's place; ⿱𡗗夂 round 面 as 麥's sweep, under 𡗗 in 來's place. Null when
      *  no host cuts. */
-    kinOuter(op: any, outer: any, kin: any, inner: any, box: any, innerBox: any): any;
+    kinOuter(op: any, outer: any, kin: any, inner: any, box: any, innerBox: any): any[] | null;
     /** An upper part drawn into a kin's upper room, its foot lowered as far as it stands short of the
      *  lower part where the kin's own upper part stands (`_settled`): 𡗗's 人 ends above 夊 where 來's
      *  legs reach into it in 麥. Each part's own gap counts, so a part ending lower than its
@@ -550,6 +587,8 @@ export declare class Composer {
     /** Seat the inner group where the designed character sets its own: ⿺爪口's 口 in 巴's place in
      *  爬, so the inner part keeps clear of the sweep. */
     seatInDesignedFrame(op: any, children: any, groups: any): void;
+    /** Whether the face draws `ch` as one turned stroke `turnedSweep` presses round another part. */
+    turned(ch: any): boolean;
     /** The designed tail of `node`'s pressed enclosure, or null where the face draws none. */
     tailForm(node: any): {
         contours: any[];
@@ -570,7 +609,7 @@ export declare class Composer {
     /** Place an arbitrary inner operand in the room designed for these native enclosures. */
     yanStackedDays(outer: any, contents: any): "" | boolean | undefined;
     /** Any ⿸ whose contents begin ⿱儿: the native legs join the enclosing bar. */
-    legEnclosure(children: any, region: any): any;
+    legEnclosure(children: any, region: any): any[] | null;
     /**
      * ⿸ whose upper-left operand is a bare stroke no character is described with there (丿, 丶, 丨).
      * Such a stroke's glyph runs across the whole face and encloses nothing, so the layout a real
@@ -595,7 +634,7 @@ export declare class Composer {
         contours: any[];
         box: number[];
     })[] | null;
-    yanEnclosure(children: any, region: any): any;
+    yanEnclosure(children: any, region: any): any[] | null;
     leafOwners(tree: any): {
         owners: any;
         split: boolean;
@@ -692,6 +731,10 @@ export declare class Composer {
     /** Whether the export carries the left column's 身, cut from 射, 躬 or 躭. */
     hasLeftBody(node: any, place?: string): boolean;
     ranked(op: any, index: any, node: any, siblings: any, box: any, isPlaced?: boolean): any;
+    /** Whether the face's own glyph of `ch` is strokes that all run along the axis its place shares
+     *  (level strokes in a row, upright ones in a stack), each no thicker than `ACROSS_THICK` of its
+     *  length. */
+    strokesAlong(ch: any, axis: any): any;
     /** A fallback cut with a detached bar the native cuts lack is left out (`_native_shapes`). */
     nativeShapes(ranked: any): any;
     /** Both operands' boxes in the em, as the learned layout sets them. A construct that is drawn has
@@ -713,7 +756,7 @@ export declare class Composer {
     frameHalves(glyph: any, char: string, region: number[]): any[] | null;
     /** A frame drawn as two halves with its inner part between them (𦥑 in ⿴𦥑囟 reads as ⿲), or
      *  null for any other enclosure. */
-    splitFrame(op: any, children: any, region: any): any;
+    splitFrame(op: any, children: any, region: any): any[] | null;
     /** Whether `op` over `children` is a frame `splitFrame` draws as two halves. */
     splitsFrame(op: any, children: any): boolean;
     /** The boxes the learned layout gives a node's operands (`_learned_boxes`), carried into `region`
@@ -757,10 +800,14 @@ export declare class Composer {
      *  the cell would squeeze its glyph; in a pair beside another part, when those parts cover under
      *  `CELL_FILLED` of the cell (辶 under 周 in a quarter column, 曲 and 辰 apart in theirs), the glyph
      *  fills it after all, so one column of the row is not smaller than the next. */
-    fillCell(child: any, group: any, box: any, pair?: boolean): any;
+    fillCell(child: any, group: any, box: any, pair?: boolean, sideBySide?: boolean): any;
     /** A whole glyph a stack's middle band cannot compress: bars and covers (一, 冖, 丷) lie flat
      *  enough to be one, a full character such as 六 or 水 does not. */
     middleWhole(child: any): boolean;
+    /** `box` brought inside the room the characters written `op` round `outer` give what they enclose,
+     *  under an enclosing part cut from a host (`_enclosed_room`); null where the export gives that
+     *  part no room or the part is drawn another way. */
+    keptRoom(op: any, outer: any, drawn: any, box: any): number[] | null;
     /** A sequence drawn whole somewhere in the font, in any place but the left or the top (`_instance`). */
     instance(node: any, region: any): {
         part: any;
@@ -799,7 +846,7 @@ export declare class Composer {
      *  (`overlayGroup`), else where characters overlaying like operands put them. */
     overlay(children: any, region: any): any;
     /** A side-by-side pair in the two cells a stroke down the middle of an opening makes (山's in 幽). */
-    cells(op: any, outer: any, region: any, inner: any): any;
+    cells(op: any, outer: any, region: any, inner: any): any[] | null;
     /** ⿾ its operand mirrored left to right, ⿿ turned half round, about the region's centre. */
     flipped(op: any, child: any, region: any, atRoot: any): any;
     /** ㇯ a character less a component or a stroke KanjiVG names in it (鹿 less 比, 兵 less 丶): its
@@ -836,7 +883,7 @@ export declare class Composer {
     /** ㇯ the first operand less the second: its own outlines where the export cut them, else the
      *  glyph without what KanjiVG names so (`less`, which knows no index), else what is left of its
      *  description, else the second operand cut out of it. */
-    subtracted(node: any, region: any, atRoot: any): any;
+    subtracted(node: any, region: any, atRoot: any): any[];
     /**
      * What is left of a character when parts are taken out of it (㇯馬灬, ㇯㇯卿𠂎卩, ㇯[1]王一), drawn from the
      * character's own outlines: each part that stays is the cut the export made of it in that
@@ -869,7 +916,7 @@ export declare class Composer {
     /** A cross or T keeps its full glyph while the operand fits proportionally in its open quadrant.
      * Enclosure teachers and swept feet describe frames; two crossing bars use their actual opening.
      */
-    quadrantSurround(op: any, children: any, region: any): any;
+    quadrantSurround(op: any, children: any, region: any): any[] | null;
     /** The largest empty box inside `region` the placed enclosing part closes on its closed sides,
      *  `ROOM_MARGIN` stroke widths clear of its ink (`_room`). On an open side the box stops at the
      *  part's own ink, so an enclosed part sits between the arms (凵, 門) rather than over their tips. */
@@ -907,6 +954,9 @@ export declare class Composer {
      *  A median gap can look clear while one stroke reaches into the other (𠂊's hook into 巾's bar);
      *  where the nearest ink overlaps, the pair is settled by that overlap instead. */
     space(axis: any, groups: any, nested?: boolean): void;
+    /** The style's least gap kept between neighbouring parts once they carry their weights (`_clear`):
+     *  `space` measures them as laid out, and a part weighted afterwards grows into the gap. */
+    clear(out: any): void;
     /** The shallow 𦉪十 under 羔口. In the single-outline faces the frame's two legs
      *  share the lintel and the 十 occupies the full opening below. */
     gaoMouthFoot(box: any, style: any): any;

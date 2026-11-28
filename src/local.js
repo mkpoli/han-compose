@@ -1,7 +1,7 @@
 // @ts-check
 import { resolveYaoForm } from './yao-forms.js'
 import { isNode, parseDescription as parse, splitDescription, tonesOf, withoutMarks, writeDescription as write } from './tree.js'
-import { isComponentForm, isGroupedForm, isNumberedReference } from './component-forms.js'
+import { isComponentForm, isAtomicForm, isGroupedForm, isNumberedReference } from './component-forms.js'
 import { u26201Choice } from './u26201-forms.js'
 import { rateRenderChoice } from './rate-forms.js'
 import { hasPaletteGlyph } from './palette.js'
@@ -35,7 +35,7 @@ export function onlyBundled(sequence, separate = false, unicode = false, fontSty
     if ((key === '𦈁' || key === '幺󠄀') && preferNativeHosts) return false
     if (rateRenderChoice(key) || u26201Choice(key) || resolveYaoForm(key)) { filled = true; return true }
     if (preferNativeHosts && typeof node === 'string' && key.startsWith('#(') && chainHost(drawingChain(key), fontStyle)) return false
-    if (isNumberedReference(key, fontStyle) || (separate ? isGroupedForm : isComponentForm)(key, fontStyle)) { filled = true; return true }
+    if (isAtomicForm(key, fontStyle) || isNumberedReference(key, fontStyle) || (separate ? isGroupedForm : isComponentForm)(key, fontStyle)) { filled = true; return true }
     // What ㇯ leaves of a character is read from the character's description and cuts, which only
     // the export holds: its outlines alone do not draw it.
     if (isNode(node) && node.op === '㇯') return false

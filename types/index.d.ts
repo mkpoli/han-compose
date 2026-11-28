@@ -176,14 +176,14 @@ export type FontStyle = import('./font-mix.js').FontStyle;
  * drawing's `emoji`, with `restored` and `cut` saying what ㇯ does to it.
  *
  * `preferExport` draws from the export even where the bundled outlines would cover the sequence.
- * @param {{ base: string, separate?: boolean, fontStyle?: 'sans' | 'serif' | 'regular' | 'fangsong' | 'pen-writing',
+ * @param {{ base: string, separate?: boolean, fontStyle?: 'sans' | 'serif' | 'woodblock' | 'regular' | 'fangsong' | 'pen-writing',
  *   faceBases?: Partial<Record<import('./font-mix.js').FontStyle, string>>, preferExport?: boolean, worker?: () => WorkerLike, loaders?: Record<string, string>, timeout?: number }} options
  * @returns {((sequence: string, options?: PreviewOptions) => Promise<Drawing>) & { warm: () => void }}
  */
 export declare function composerPreview({ base, faceBases, separate, fontStyle, preferExport, loaders, timeout, worker }: {
     base: string;
     separate?: boolean;
-    fontStyle?: 'sans' | 'serif' | 'regular' | 'fangsong' | 'pen-writing';
+    fontStyle?: 'sans' | 'serif' | 'woodblock' | 'regular' | 'fangsong' | 'pen-writing';
     faceBases?: Partial<Record<import('./font-mix.js').FontStyle, string>>;
     preferExport?: boolean;
     worker?: () => WorkerLike;

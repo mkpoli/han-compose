@@ -1,7 +1,10 @@
 export declare const isNumberedReference: (text: any, style: any) => boolean;
+/** Faces drawn with a brush or a pen, whose strokes the brush-specific seats and cuts are measured on. @param {string} style */
+export declare const brushFace: (style: string) => style is "fangsong" | "pen-writing" | "regular";
 /** Faces whose bundled forms come only from their own font: Noto's must not stand in for them. @param {string} style */
-export declare const ownFormsOnly: (style: string) => style is "fangsong" | "pen-writing" | "regular";
+export declare const ownFormsOnly: (style: string) => style is "fangsong" | "pen-writing" | "regular" | "woodblock";
 export declare const containsComponentForm: (text: any, style?: string) => boolean;
+export declare const isAtomicForm: (text: any, style: any) => boolean;
 export declare const isGroupedForm: (text: any, style?: string) => boolean;
 export declare const isComponentForm: (text: any, style?: string) => boolean;
 /** Whether `text` has a native form in `style`: one that keeps what the export knows of it. */
@@ -26,7 +29,7 @@ export declare function addCutForms(data: {
         record?: object;
     }>>;
 }): void;
-export declare function componentParts(text: any, region?: number[], style?: string, atRoot?: boolean): {
+export declare function componentParts(text: any, region?: number[], style?: string, atRoot?: boolean, exclude?: undefined): {
     part: any;
     source: any;
     target: any;
