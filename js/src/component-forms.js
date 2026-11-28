@@ -7,6 +7,7 @@ import inwardGrass from './inward-grass-forms.json' with { type: 'json' }
 import splitGrass from './split-grass-forms.json' with { type: 'json' }
 import dotForms from './ucv-dot-forms.json' with { type: 'json' }
 import muNet from './mu-net-forms.json' with { type: 'json' }
+import yaoNumbered from './yao-numbered.json' with { type: 'json' }
 import waterStrokeRow from './water-stroke-row.json' with { type: 'json' }
 import numbered from '../data/numbered-forms.json' with { type: 'json' }
 import { joinedComponentForm } from './constructs.js'
@@ -83,6 +84,24 @@ const numberedStyles = Object.fromEntries(Object.entries(numbered.forms).map(([s
 // 潮語十五音: a short 丨 stands between the bend and hooked body cut from the same 水.
 for (const [style, groups] of Object.entries(waterStrokeRow)) styles[style].set('⿲㇇丨𰛅', { ...formOf(groups), donors: ['水', '丨'] })
 const numberedDrawing = (text, style) => numberedStyles[style]?.get(text) ?? null
+const numberedRefs = new Set()
+export const isNumberedReference = (text, style) => numberedRefs.has(text) && isComponentForm(text, style)
+// An expanded 幺 ancestor may expose a numbered sibling (notably {86} in 糹).
+// Keep the saved IDS spelling and draw the numbered component as one operand.
+for (const [text, {pua, contours}] of Object.entries(yaoNumbered.forms)) {
+  const fallback = formOf([contours])
+  const alias = '&X-' + text.slice(1, -1).padStart(5, '0') + ';'
+  numberedRefs.add(text)
+  numberedRefs.add(alias)
+  for (const [style, entries] of Object.entries(styles)) {
+    const own = numberedDrawing(pua, style)
+    if (!own && style !== 'serif' && style !== 'sans') continue
+    const form = own ? { ...own, origin: style + ': ' + text } :
+      { ...fallback, origin: yaoNumbered.source.font + ': ' + text }
+    entries.set(text, form)
+    entries.set(alias, form)
+  }
+}
 const positions = Object.fromEntries(Object.entries(data.positions ?? {}).map(([style, entries]) => [style,
   new Map(Object.entries(entries).map(([name, group]) => [name,
     wound(makePart(group.map(([ops, points]) => ({ ops: commands(ops), light: points, heavy: points }))))]))]))
