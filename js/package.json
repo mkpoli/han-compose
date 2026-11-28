@@ -38,6 +38,14 @@
       "types": "./types/font-mix.d.ts",
       "default": "./src/font-mix.js"
     },
+    "./rate-drawing": {
+      "types": "./types/rate-drawing.d.ts",
+      "default": "./src/rate-drawing.js"
+    },
+    "./rate-forms": {
+      "types": "./types/rate-forms.d.ts",
+      "default": "./src/rate-forms.js"
+    },
     "./compose": {
       "types": "./types/compose.d.ts",
       "default": "./src/compose.js"
@@ -193,7 +201,47 @@
       "types": "./types/variants.d.ts",
       "default": "./src/variants.js"
     },
-    "./constants.json": "./src/constants.json"
+    "./full-forms": {
+      "types": "./types/full-forms.d.ts",
+      "default": "./src/full-forms.js"
+    },
+    "./constants.json": "./src/constants.json",
+    "./variation-syntax": {
+      "types": "./types/variation-syntax.d.ts",
+      "default": "./src/variation-syntax.js"
+    },
+    "./yao-occurrences": {
+      "types": "./types/yao-occurrences.d.ts",
+      "default": "./src/yao-occurrences.js"
+    },
+    "./yao-catalogue": {
+      "types": "./types/yao-catalogue.d.ts",
+      "default": "./src/yao-catalogue.js"
+    },
+    "./variation-registry": {
+      "types": "./types/variation-registry.d.ts",
+      "default": "./src/variation-registry.js"
+    },
+    "./variation-outline": {
+      "types": "./types/variation-outline.d.ts",
+      "default": "./src/variation-outline.js"
+    },
+    "./variation-expression": {
+      "types": "./types/variation-expression.d.ts",
+      "default": "./src/variation-expression.js"
+    },
+    "./variation-archive": {
+      "types": "./types/variation-archive.d.ts",
+      "default": "./src/variation-archive.js"
+    },
+    "./variation-branches": {
+      "types": "./types/variation-branches.d.ts",
+      "default": "./src/variation-branches.js"
+    },
+    "./variation-product": {
+      "types": "./types/variation-product.d.ts",
+      "default": "./src/variation-product.js"
+    }
   },
   "files": [
     "src",
