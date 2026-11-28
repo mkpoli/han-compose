@@ -31,42 +31,75 @@ export function specimenFor(node, style, keyOf) {
 }
 
 // Per-face layout for JYN00001 (⿹⿺㇉一卄): use native 与's upper hook+bar (dropping its lower 一)
-// paired with native 卄 (or Zhuque Fangsong's native 艹 where 卄 is a Mincho fallback).
+// paired with native 艹 (shortening the two vertical 丨 tips where tall so 艹 stays compact under ⿺㇉一).
 const JYU_HOOK_SPECS = {
   sans: {
     hookContours: [0, 3, 4], barContours: [1],
     yuBox: [220, -80, 910, 835],
-    grass: '卄', grassBox: [55, -20, 625, 398], grassWeight: [0.44, 0.44],
+    grass: '艹', grassBox: [55, 48, 625, 338], grassWeight: [0.10, 0.12], stemScale: 0.78,
   },
   serif: {
     hookContours: [0, 2, 4], barContours: [3],
     yuBox: [220, -80, 920, 835],
-    grass: '卄', grassBox: [50, -22, 635, 412], grassWeight: [0.36, 0.30],
+    grass: '艹', grassBox: [50, 48, 635, 344], grassWeight: [0.28, 0.24], stemScale: 0.78,
   },
   fangsong: {
     hookContours: [0],
     yuBox: [235, -95, 915, 830],
-    grass: '艹', grassBox: [50, 5, 625, 405], grassWeight: [0.36, 0.36],
+    grass: '艹', grassBox: [50, 62, 625, 342], grassWeight: [0.32, 0.32], stemScale: 0.64,
   },
   regular: {
     hookContours: [0],
     yuBox: [245, -75, 910, 815],
-    grass: '卄', grassBox: [65, -15, 625, 405], grassWeight: [0.34, 0.34],
+    grass: '艹', grassBox: [55, 58, 635, 344], grassWeight: [0.28, 0.28], stemScale: 1,
   },
   'pen-writing': {
     useStrokes: true,
     hookBox: [275, -80, 915, 805],
     barBox: [358, 592, 785, 690],
-    grass: '卄', grassBox: [55, -18, 625, 408], grassWeight: [0.42, 0.42],
+    grass: '艹', grassBox: [55, 58, 625, 342], grassWeight: [-0.30, -0.32], stemScale: 0.70,
   },
+}
+
+/** Shorten the vertical 丨 extensions of 艹 outside its crossbar band without thinning the bar. */
+function shortenGrassStems(part, scale) {
+  if (!scale || scale >= 0.999) return part
+  const [l, b, r, t] = part.box
+  const w = r - l
+  // Find y range occupied by the wide horizontal crossbar (> 60% of glyph width).
+  const bins = new Map()
+  for (const c of part.contours) {
+    const pts = c.light
+    for (let i = 0; i < pts.length; i += 2) {
+      const yb = Math.round(pts[i + 1] / 12) * 12
+      const cur = bins.get(yb) ?? [Infinity, -Infinity]
+      if (pts[i] < cur[0]) cur[0] = pts[i]
+      if (pts[i] > cur[1]) cur[1] = pts[i]
+      bins.set(yb, cur)
+    }
+  }
+  const wide = [...bins.entries()].filter(([, [lo, hi]]) => (hi - lo) > w * 0.6).map(([y]) => y).sort((a, z) => a - z)
+  if (!wide.length) return part
+  const barBot = wide[0] - 12, barTop = wide[wide.length - 1] + 12
+  const squeeze = pts => {
+    const out = Float64Array.from(pts)
+    for (let i = 1; i < out.length; i += 2) {
+      if (out[i] > barTop) out[i] = barTop + (out[i] - barTop) * scale
+      else if (out[i] < barBot) out[i] = barBot - (barBot - out[i]) * scale
+    }
+    return out
+  }
+  return derived(part, part.contours.map(c => ({ ...c, light: squeeze(c.light), heavy: squeeze(c.heavy ?? c.light) })))
 }
 
 function jyuHookParts(composer, region) {
   const spec = JYU_HOOK_SPECS[composer.fontStyle]
   if (!spec) return null
   const toRegion = box => mapped(box, [0, -120, 1000, 880], region)
-  const grass = !composer.excluded(spec.grass) && composer.glyph(spec.grass)
-  if (!grass) return null
+  const rawGrass = (!composer.excluded(spec.grass) && composer.glyph(spec.grass)) ||
+    (!composer.excluded('卄') && composer.glyph('卄'))
+  if (!rawGrass) return null
+  const grass = shortenGrassStems(rawGrass, spec.stemScale)
   const grassPart = {
     ...placed(grass, grass.box, toRegion(spec.grassBox), partInk(grass), `glyph ${spec.grass}`, spec.grassWeight),
     fixed: true,
