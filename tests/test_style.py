@@ -338,7 +338,7 @@ def test_a_composite_glyph_is_read_through_its_components() -> None:
 def test_fangsong_keeps_its_hosts_in_zhuque_and_takes_the_rest_from_jigmo() -> None:
     style = compose.STYLES["fangsong"]
     assert style.heavy == 400 and style.own_hosts and not style.kindred
-    assert style.fallbacks == compose.STYLES["serif"].fallbacks
+    assert style.fallbacks == (compose._JUJAK_BATANG, *compose.STYLES["serif"].fallbacks)
     assert compose_layout.layout_file("fangsong") == "compose-layout-v4-fangsong.npz"
     assert "fangsong" in web_export.OUTLINE_NOTES
     assert "Alegreya Project Authors" in style.font.also

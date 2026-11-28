@@ -79,6 +79,8 @@ class Source:
     licence: str
     member: str | None = None
     archive_sha256: str | None = None
+    #: Path relative to the repository root for a font bundled directly in `data/sources/`.
+    bundled: str | None = None
     #: A copyright the font's outlines carry that its `name` table does not state.
     also: str = ""
 
@@ -144,6 +146,15 @@ _JIGMO = tuple(Source(f"Jigmo-20250912-{name}", JIGMO_URL, sha, "CC0 1.0", membe
               for name, sha in (("Jigmo2.ttf", "5da3582efe77e22073b86b3b86b556d7111148a76b957cfb53318a91da2efff0"),
                                 ("Jigmo3.ttf", "815b18c1c670103723fe743090559208fdea47dc587ecb057a5a4721ee8dfeff"),
                                 ("Jigmo.ttf", "c8f295b9bd8f9f117a76b3a454aaaa1bb5b4babc18e254978c6deb88464e40cf")))
+#: Jujak Batang: Hangul companion for Zhuque Fangsong, carrying the 25 upstream Zhuque Hangul
+#: drafts plus Fangsong-styled Hangul syllables in the same 1000-unit em box.
+_JUJAK_BATANG = Source(
+    "JujakBatang-Regular.otf",
+    "",
+    "fac62d0fe3fa7c71b87f175b3d426754e901a2d11e3dbf4a0eb179557943f47f",
+    OFL,
+    bundled="data/sources/jujak-batang/JujakBatang-Regular.otf",
+)
 #: TW-Kai, the CNS 11643 Kai: the BMP face and the Extension B and G faces that draw what it lacks.
 #: The open data set offers either Taiwan's Open Government Data License 1.0 or the OFL 1.1; the
 #: export takes the OGL, and its Exhibit's release line joins the copyright the name table carries.
@@ -227,7 +238,7 @@ STYLES = {
                member="ZhuqueFangsong-Regular.ttf",
                archive_sha256="bb8b661a7643d2296a72d9d10530a00949419c4e527fb61783f73c2ba1a8c062",
                also="Its Latin, Cyrillic and Greek glyphs: Copyright 2011 The Alegreya Project Authors (https://github.com/huertatipografica/Alegreya)"),
-        _JIGMO,
+        (_JUJAK_BATANG, *_JIGMO),
         # Fitted on 1,500 of its ideographs (`calibrate`).
         ((57.51, 0.271), (39.61, -1.297)),
         heavy=400,
@@ -393,6 +404,12 @@ def _fetched(source: Source, cache: Path | None) -> Path:
     import httpx
 
     from .vocab import cache_root
+
+    if source.bundled is not None:
+        bundled = ROOT / source.bundled
+        if hashlib.sha256(bundled.read_bytes()).hexdigest() != source.sha256:
+            raise ValueError(f"{bundled} does not match its pinned SHA-256.")
+        return bundled
 
     path = (cache or cache_root()) / "fonts" / source.file
     if not path.exists():
