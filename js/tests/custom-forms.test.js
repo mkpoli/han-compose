@@ -5,7 +5,9 @@ import { addCutForms, componentDrawing, isComponentForm } from '../src/component
 import { hasCustomComponent } from '../src/custom-forms.js'
 import { compose, createSource } from '../src/loader.js'
 import { sourceFor, traitsOf } from '../src/source.js'
-import { files } from './fixtures/small-export.js'
+import componentDonors from './fixtures/chain-component-donors.json' with { type: 'json' }
+import sansChains from './fixtures/sans-chain-turns.json' with { type: 'json' }
+import { files, records, shards } from './fixtures/small-export.js'
 
 const data = JSON.parse(gunzipSync(readFileSync(new URL('../data/custom-forms.json.gz', import.meta.url))).toString('utf8'))
 // &CDP-8958; is 冐 without ⺜ in both faces; #(-𠃍㇉) has a form written by hand.
@@ -14,8 +16,8 @@ const ENTITY = '&CDP-8958;'
 it('names the sequences that call for the cut forms', () => {
   for (const text of ['⿰木&CDP-8958;', '⿱#(丿𠃊)卩']) expect(hasCustomComponent(text)).toBe(true)
   // A numbered component has its own forms, a chain the grammar names is a character, and an entity
-  // spelled another way is no CHISE reference: none of them asks for the file.
-  for (const text of ['⿰木口', '木', '⿱丿乚', '⿰亻{53}', '⿰亻#(H)', '⿰亻&#x4E00;']) expect(hasCustomComponent(text)).toBe(false)
+  // spelled another way or answered by the bundled variant forms is no CHISE cut: none of them asks for the file.
+  for (const text of ['⿰木口', '木', '⿱丿乚', '⿰亻{53}', '⿰亻&X-00011;', '⿰亻&VR-5E7A-03;', '⿰亻&GW-u5e7a-g;', '⿰亻#(H)', '⿰亻&#x4E00;']) expect(hasCustomComponent(text)).toBe(false)
   expect(traitsOf('⿰木&CDP-8958;').custom).toBe(true)
   expect(traitsOf('⿰木口').custom).toBe(false)
 })
@@ -81,4 +83,31 @@ it('draws a description that names one through the source a page asks for', asyn
   const { customFormsSource } = await import('../src/custom-forms.js')
   expect(customFormsSource({ load: async () => data }).modelFiles()).toEqual([])
   expect(customFormsSource({ load: async () => data, fallback: { modelFiles: () => ['identity'] } }).modelFiles()).toEqual(['identity'])
+})
+
+it('prefers the selected face’s 之 over a cached Plangothic cut on the public source path', async () => {
+  const key = '#(㇇乀)'
+  const options = { fontStyle: 'sans', read: async () => data }
+  const fallback = await compose(sourceFor(key, options), key)
+  expect(fallback.origins).toEqual(['Plangothic P2: #(㇇乀), cut from 𱦍'])
+
+  // Noto Sans CJK JP 2.004 (SIL OFL 1.1), as encoded by format 7.
+  const fixture = { ...files, ...shards('g', Object.entries({ ...records, 之: { G: sansChains.之 } })) }
+  const exported = createSource(async name => fixture[name] === undefined ? null : new Uint8Array(Buffer.from(fixture[name])).buffer)
+  const native = await compose(sourceFor(key, { ...options, exported }), key)
+  expect(native.origins).toEqual(['chain #(㇇乀), cut from 之'])
+  expect(native.d).not.toBe(fallback.d)
+})
+
+it('prefers the native flat turn of 乐 inside a printed row or enclosure', async () => {
+  const turn = '#(丿𠃊)', origin = 'chain #(丿𠃊), cut from 乐'
+  const fixture = { ...files, ...shards('g', Object.entries({ ...records, 乐: { G: componentDonors.sans.乐 } })) }
+  const exported = createSource(async name => fixture[name] === undefined ? null : new Uint8Array(Buffer.from(fixture[name])).buffer)
+  for (const ids of ['⿰' + turn + '木', '⿸' + turn + '木']) {
+    const source = sourceFor(ids, { fontStyle: 'sans', read: async () => data, exported })
+    const drawn = await compose(source, ids)
+    expect(drawn.origins).toContain(origin)
+    const fallback = await compose(source, ids, { exclude: ['乐'] })
+    expect(fallback.origins).toContain('Noto Sans CJK JP: #(丿𠃊), cut from 卬')
+  }
 })

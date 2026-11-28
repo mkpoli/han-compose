@@ -1,8 +1,15 @@
 // @ts-nocheck: a port of han-compose's Python, kept line for line; its types are the arrays it reads.
+import { resolveYaoForm } from './yao-forms.js'
+import { collectYaoHosts } from './yao-surgical.js'
 // The composer in the browser: han-compose's export (manifest, layout and the drawing data of each
 // key) loaded as a sequence needs it, and the sequence drawn from it as an SVG path. A file is
 // fetched once a page; a gzipped one (the export writes them so) is unpacked with DecompressionStream.
+import { u26201Choice } from './u26201-forms.js'
+import { rateRenderChoice } from './rate-forms.js'
 import { APPROXIMATE, Composer, EMPTY, LookupError, designedSources, keyOf, leafCutChar, wheatFaceHosts, mapOperands, parseTree } from './compose.js'
+import { rccDonors } from './rcc-forms.js'
+import { yuanReference } from './yuan-pyramid.js'
+import { qiReference } from './qi-family.js'
 import { splitDescription } from './tree.js'
 import { hangulOfIds } from './hangul-ids.js'
 import { composeJamo } from './hangul.js'
@@ -10,9 +17,11 @@ import { withoutMarks } from './tree.js'
 import { ASCENT } from './geometry.js'
 import { drawnBox, svgPath } from './geometry.js'
 import { readLayout } from './layout.js'
-import { isComponentForm, isGroupedForm } from './component-forms.js'
+import { isComponentForm, isAtomicForm, isGroupedForm } from './component-forms.js'
 import { hexOf } from './sha256.js'
 import { pyramidOnBase, pyramidRows } from './pyramid-rows.js'
+import { birdChainChar } from './bird-chain.js'
+import { isChain, parseChain } from './stroke-chain.js'
 import { unicodeSource } from './unicode.js'
 import { download } from './retry.js'
 
@@ -268,27 +277,36 @@ function keysOf(tree, out = [], separate = false, fontStyle = 'sans', root = tru
       return out
     }
   }
-  if ((separate ? isGroupedForm : isComponentForm)(keyOf(tree), fontStyle)) return out
+  if (root) {
+    for (const host of collectYaoHosts(keyOf(tree))) out.push(host)
+  }
+  if (keyOf(tree) !== '幺󠄀' && resolveYaoForm(keyOf(tree))) { out.push('幺'); return out }
+  if (isAtomicForm(keyOf(tree), fontStyle) || (keyOf(tree) !== '𦈁' && u26201Choice(keyOf(tree))) || rateRenderChoice(keyOf(tree)) || (separate ? isGroupedForm : isComponentForm)(keyOf(tree), fontStyle)) return out
   if (!keyOf(tree).includes(EMPTY)) out.push(keyOf(tree))
   const designed = leafCutChar(keyOf(tree))
   if (designed) out.push(designed)
+  const bird = !separate && birdChainChar(tree)
+  if (bird) out.push(bird)
+  // A stroke chain is drawn from its strokes' glyphs.
+  if (isChain(tree)) out.push(...(parseChain(tree)?.strokes ?? []).map(stroke => stroke.char))
   if (Array.isArray(tree)) tree.slice(1).forEach(n => keysOf(n, out, separate, fontStyle, false))
   return out
 }
 
-// The operators `sequence` writes with a zi.tools modifier, which the layout does not apply. ㇯'s
-// index is applied: the composer says itself where its subtraction is approximate.
-const MODIFIER = /([\u2FF4-\u2FF7\u2FFB\u2FFC])\[[0-9:,._xabcdlr|-]+\]/gu
-/** @param {string} sequence */
-function modifiedOperators(sequence) {
-  return [...sequence.matchAll(MODIFIER)].map(match => match[1])
+// A verified native drawing can realize a modifier exactly. A subtraction reports
+// its own approximation when the composer cannot apply its contour index.
+/** @param {any} tree @param {Set<string>} [realized] @returns {string[]} */
+function modifiedOperators(tree, realized) {
+  if (!Array.isArray(tree)) return []
+  const current = tree.note && tree[0] !== '㇯' && !realized?.has(keyOf(tree)) ? [tree[0]] : []
+  return current.concat(...tree.slice(1).map(child => modifiedOperators(child, realized)))
 }
 
 // A dedicated form consumes its internal operators, including the mirrored spelling.
 function extraOperators(tree, { fontStyle, separate, nativeEnclosures }) {
   if (typeof tree === 'string') return []
   const key = keyOf(tree)
-  if ((separate ? isGroupedForm : isComponentForm)(key, fontStyle)) return []
+  if (isAtomicForm(key, fontStyle) || (separate ? isGroupedForm : isComponentForm)(key, fontStyle)) return []
   const op = nativeEnclosures.has(key) ? [] : [tree[0]]
   // A subtraction is approximate only where the composer says so: drawn from a character's own
   // outlines or from what is left of its description, it is not.
@@ -334,14 +352,21 @@ export async function sketch(source, sequence, { fontStyle = 'sans' } = {}) {
   const tree = parseTree(description, arity, true)
   const donors = [...wheatFaceHosts(description), ...designedSources(tree, fontStyle)]
   await source.load([...modelOf(source, tree), ...(donors.length ? source.filesOf(donors) : [])])
-  // A description that asked for the layout or the table after all is sketched again with them.
-  for (let again = false; ; again = true) {
+  // These layouts read actual ink, including contextual glyphs discovered in later shards.
+  const recorded = node => Array.isArray(node) && (rccDonors(keyOf(node), fontStyle).length > 0 || node.slice(1).some(recorded))
+  const measured = recorded(tree) || donors.includes(qiReference) || donors.includes(yuanReference) || description.includes('⿺') || /⿹勹[白百首]/u.test(description)
+  for (let round = 0; round < ROUNDS; round++) {
     const store = source.store()
-    const leaves = new Composer(store, { fontStyle }).sketch(description, marks)
-    const model = source.modelFiles().filter(name => store.missing.has(name))
-    if (again || !model.length) return leaves.map(leaf => ({ ...leaf, box: svgBox(leaf.box) }))
-    await source.load(model)
+    let leaves
+    try { leaves = new Composer(store, { fontStyle }).sketch(description, marks) }
+    catch (error) {
+      if (!(error instanceof LookupError) || !measured || !store.missing.size) throw error
+    }
+    const missing = measured ? [...store.missing] : source.modelFiles().filter(name => store.missing.has(name))
+    if (!missing.length || (!measured && round > 0)) return leaves.map(leaf => ({ ...leaf, box: svgBox(leaf.box) }))
+    await source.load(missing)
   }
+  throw new LookupError(`${sequence} needs more data than ${ROUNDS} rounds load.`)
 }
 
 /**
@@ -369,11 +394,12 @@ export async function compose(source, sequence, { exclude = [], face = null, sep
   }
   const { base, marks } = splitDescription(sequence)
   if (layout === 'cells' && marks) throw new LookupError('Cells layout does not draw loose marks.')
-  if (layout === 'cells' && modifiedOperators(sequence).length) throw new LookupError('Cells layout does not draw modified operators.')
   // A Hangul syllable described letter by letter draws as the syllable: ⿰ㄱㅏ is 가.
   const syllable = hangulOfIds(base)
   const description = normaliseHangul(syllable ?? base, arity)
   const tree = parseTree(description, arity, true)
+  const modified = modifiedOperators(tree)
+  if (layout === 'cells' && modified.length) throw new LookupError('Cells layout does not draw modified operators.')
   if (tooLarge(tree)) throw new LookupError(`${sequence} is larger than a preview draws.`)
   // A mark's outline loads like a component's. The identity table and the layout load beside the
   // first records of a description that reads them.
@@ -383,7 +409,7 @@ export async function compose(source, sequence, { exclude = [], face = null, sep
     let drawn = null, failure = null, composer = null, cells = false
     try {
       composer = new Composer(store, { exclude, face, separate, fontStyle, keepBars })
-      cells = !marks && !modifiedOperators(sequence).length
+      cells = !marks && !modified.length
         && (layout === 'cells' || (layout === 'auto' && composer.cellsFor(tree, marks)))
       drawn = cells ? composer.cellLayout(tree) : composer.compose(description, marks)
     } catch (error) {
@@ -398,14 +424,15 @@ export async function compose(source, sequence, { exclude = [], face = null, sep
     if (store.missing.size) { await source.load(store.missing); continue }
     if (failure) throw failure
     const ink = drawn.filter(p => p.empty === undefined)
-    return { d: svgPath(ink.filter(p => !p.cut)), cut: svgPath(ink.filter(p => p.cut)),
+    const visible = ink.filter(p => !p.operandOnly)
+    return { d: svgPath(visible.filter(p => !p.cut)), cut: svgPath(visible.filter(p => p.cut)),
       slots: drawn.filter(p => p.empty !== undefined).map(p => ({ index: p.empty, box: svgBox(drawnBox(p)) })),
       missing: [...(composer.missingGlyphs ?? [])],
       normalization: { capped: [...composer.resolutions.values()].some(plan => plan.capped) },
       stroke: composer.stroke ?? null,
-      parts: ink.map(p => ({ ...(p.leaf === undefined ? {} : { leaf: p.leaf }), origin: p.origin, box: svgBox(drawnBox(p)), d: svgPath([p]), cut: Boolean(p.cut), ...(p.part.strokes ? { strokes: p.part.strokes.map(([id, contours]) => [id, [...contours]]) } : {}) })), origins: ink.map(p => p.origin),
+      parts: ink.map(p => ({ ...(p.leaf === undefined ? {} : { leaf: p.leaf }), ...(p.operandOnly ? { operandOnly: true } : {}), origin: p.origin, box: svgBox(drawnBox(p)), d: svgPath([p]), cut: Boolean(p.cut), ...(p.part.strokes ? { strokes: p.part.strokes.map(([id, contours]) => [id, [...contours]]) } : {}) })), origins: ink.map(p => p.origin),
       kanjivg: Boolean(composer.handForms) || drawn.some(p => p.part.kv),
-      approximate: [...new Set([...extraOperators(composer.cancelTransforms(tree), composer), ...composer.approximate, ...modifiedOperators(sequence)])],
+      approximate: [...new Set([...extraOperators(composer.cancelTransforms(tree), composer), ...composer.approximate, ...(composer.nativeEnclosures.size ? modifiedOperators(tree, composer.nativeEnclosures) : modified)])],
       ...(cells ? { cells: true } : {}) }
   }
   throw new LookupError(`${sequence} needs more data than ${ROUNDS} rounds load.`)
