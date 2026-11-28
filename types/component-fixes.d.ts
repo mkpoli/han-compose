@@ -23,6 +23,17 @@ export declare function dotIn(composer: any, band: any): {
     native: any;
     origin: any;
 } | null;
+export declare const WEALTH_IDS = "\u2FFA\u8FB6\u2FF1\u5B80\u2FF1\u2FF0\u738B\u5C14\u2FF2\u96B9\u8C9D\u62DB";
+/**
+ * The seven leaf boxes of `⿺辶⿱宀⿱⿰王尔⿲隹貝招` across all five faces, with
+ * clearance on interior edges when nested inside a larger `face`.
+ * @param {string} key
+ * @param {string} style
+ * @param {number[]} region
+ * @param {number[] | null} [face]
+ * @returns {number[][] | null}
+ */
+export declare function wealthBoxes(key: string, style: string, region: number[], face?: number[] | null): number[][] | null;
 export declare const INCOME_IDS = "\u2FF1\u2FF0\u65E5\u6597\u2FFA\u8FB6\u2FF0\u96B9\u91D1";
 /**
  * The five leaf boxes of `⿱⿰日斗⿺辶⿰隹金` mapped into `region` for `style`, with clearance on
@@ -40,6 +51,10 @@ export declare function enclosedZeroTarget(zero: any, opening: any): any[];
  * A correction that cannot find the parts it names leaves the drawing as it is.
  */
 export declare const COMPONENT_FIXES: {
+    "\u2FFA\u8FB6\u2FF1\u5B80\u2FF1\u2FF0\u738B\u5C14\u2FF2\u96B9\u8C9D\u62DB": {
+        glyphs: {};
+        apply(parts: any, composer: any, region: any): any;
+    };
     '\u2FF0\uD874\uDCC2\u5C24': {
         glyphs: {
             那: string;
