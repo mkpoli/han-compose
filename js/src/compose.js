@@ -2778,12 +2778,13 @@ export class Composer {
       // native 𡦪 weight and proportions instead of squeezing six standalone glyphs.
       const rowBands = [[0.02, 0.53, 0.98, 0.99], [0.02, 0.00, 0.98, 0.50]]
       const colBoxes = [[0.00, 0, 0.31, 1], [0.345, 0, 0.655, 1], [0.69, 0, 1.00, 1]]
-      const colWeights = [[-0.22, -0.20], [-0.45, -0.25], [-0.35, -0.22]]
-      const probe = this.drawNode(row, mapped(rowBands[0], [0, 0, 1, 1], region), false)
+      const colWeights = [[-0.22, -0.20], [-0.22, -0.20], [-0.35, -0.22]]
+      const firstRegion = mapped(rowBands[0], [0, 0, 1, 1], region)
+      const probe = componentFix(keyOf(row), this.drawNode(row, firstRegion, false), this, firstRegion)
       if (probe.length === 3 && probe.some(part => part.origin !== 'glyph 子')) {
         parts = rowBands.flatMap((band, r) => {
           const rowRegion = mapped(band, [0, 0, 1, 1], region)
-          const drawn = r === 0 ? probe : this.drawNode(row, rowRegion, false)
+          const drawn = r === 0 ? probe : componentFix(keyOf(row), this.drawNode(row, rowRegion, false), this, rowRegion)
           return drawn.map((part, i) => ({
             ...part, target: mapped(colBoxes[i], [0, 0, 1, 1], rowRegion),
             weight: colWeights[i], fixed: true,

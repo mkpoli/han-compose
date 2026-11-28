@@ -532,6 +532,21 @@ function regularHuPart(hu, qi) {
  * A correction that cannot find the parts it names leaves the drawing as it is.
  */
 export const COMPONENT_FIXES = {
+  '⿲子子子': {
+    glyphs: {},
+    apply(parts, composer) {
+      if (!['fangsong', 'pen-writing'].includes(composer.fontStyle) || parts.length !== 3) return parts
+      const [left, middle, right] = parts
+      if (left.origin === 'glyph 子' || middle.origin !== 'glyph 子') return parts
+      // Give the middle 子 the same rising-stroke (提) side cut as the left column, matching Sans, Serif and Regular 𡦪.
+      return [
+        left,
+        { ...middle, part: left.part, source: left.source, native: left.native, origin: left.origin,
+          target: [middle.target[0], left.target[1], middle.target[2], left.target[3]] },
+        right,
+      ]
+    },
+  },
   '⿱林𤆍': linDaHuoFix,
   '⿱林⿱大火': linDaHuoFix,
   '⿱工口': gongKouFix,
