@@ -206,9 +206,41 @@
       "default": "./src/full-forms.js"
     },
     "./constants.json": "./src/constants.json",
+    "./variation-syntax": {
+      "types": "./types/variation-syntax.d.ts",
+      "default": "./src/variation-syntax.js"
+    },
+    "./yao-occurrences": {
+      "types": "./types/yao-occurrences.d.ts",
+      "default": "./src/yao-occurrences.js"
+    },
+    "./yao-catalogue": {
+      "types": "./types/yao-catalogue.d.ts",
+      "default": "./src/yao-catalogue.js"
+    },
     "./variation-registry": {
       "types": "./types/variation-registry.d.ts",
       "default": "./src/variation-registry.js"
+    },
+    "./variation-outline": {
+      "types": "./types/variation-outline.d.ts",
+      "default": "./src/variation-outline.js"
+    },
+    "./variation-expression": {
+      "types": "./types/variation-expression.d.ts",
+      "default": "./src/variation-expression.js"
+    },
+    "./variation-archive": {
+      "types": "./types/variation-archive.d.ts",
+      "default": "./src/variation-archive.js"
+    },
+    "./variation-branches": {
+      "types": "./types/variation-branches.d.ts",
+      "default": "./src/variation-branches.js"
+    },
+    "./variation-product": {
+      "types": "./types/variation-product.d.ts",
+      "default": "./src/variation-product.js"
     }
   },
   "files": [
@@ -224,5 +256,5 @@
     "clipper-lib": "6.4.2",
     "d3-contour": "4.0.2"
   },
-  "gitHead": "11e9cc1139f7f6b2f46f5d281fe23fd067129882"
+  "gitHead": "5f88950ba3a2dadb46799d5238aeb0ec2704e6dc"
 }

@@ -103,12 +103,30 @@ export declare class Composer {
         separate?: boolean | undefined;
     });
     arity: (ch: any) => any;
-    rateLeaves(node: any): any;
-    rateMetric(text: any): {
-        contours: any[];
-        box: number[];
+    reviewedLeaves(node: any): any;
+    standaloneYao(text: any): {
+        id: string;
+        text: string;
+        witnesses: string[];
+        aliases: string[];
     } | null;
+    surgicalYao(text: any): any;
+    reviewedMetric(text: any): any;
+    yaoChoice(text: any): {
+        left?: string;
+        right?: string;
+    } | null;
+    hasYaoChoice(node: any): any;
+    reviewedParts(text: any, region: any, atRoot: any): {
+        part: any;
+        source: any;
+        target: any;
+        weight: number[];
+        native: any;
+        origin: any;
+    }[] | null;
     parse: (sequence: any) => any;
+    yaoHostRecord(key: any): any;
     rec: (key: any) => any;
     /** The record of a component written in full (`&HC-u91d1-full;`): its character's outline and
      *  layout, without the sequence, the forms and the places that would draw it as a positional form. */
