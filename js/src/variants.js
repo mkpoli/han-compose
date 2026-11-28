@@ -43,3 +43,26 @@ const grassShapes = new Map([
 
 /** Contextual drawing key for a single grass radical token. @param {string} text */
 export const grassShape = text => grassShapes.get(text)
+
+/** Attested spellings of the grass radical, grouped by the contextual shape used by the
+ * composer. The literal drawings are feature values. Look up each exact sequence in the
+ * IVD catalogue for its collection-specific glyph identifiers. */
+export const grassFamily = {
+  id: 'grass/8279',
+  subjects: [...grassShapes.keys()],
+  reference: '艹',
+  axes: [
+    { id: 'crossbar', property: 'continuity', locus: [{ path: [] }], values: ['joined', 'divided'] },
+    { id: 'shape', property: 'outline', locus: [{ path: [] }], values: ['艹', '⺿', '⻀'] },
+  ],
+  forms: [...grassShapes].filter(([text]) => text !== '艹').map(([text, shape]) => {
+    const [base, selector] = [...text]
+    const id = (selector ?? base).codePointAt(0)?.toString(16).toUpperCase() ?? ''
+    const kind = !selector ? 'character' : id.startsWith('E01') ? 'ivs' : 'svs'
+    return { id, text, kind, traits: { crossbar: shape === '艹' ? 'joined' : 'divided', shape } }
+  }),
+  sources: [
+    'https://www.unicode.org/ivd/data/2026-08-03/IVD_Sequences.txt',
+    'https://www.unicode.org/Public/16.0.0/ucd/StandardizedVariants.txt',
+  ],
+}
