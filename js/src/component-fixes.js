@@ -316,24 +316,154 @@ export function dotIn(composer, band) {
   return placed(glyph, glyph.box, target, composer.ink('丶'), 'dot 丶')
 }
 
+/** Shorten a glyph vertically across `[lo, hi]` of its source height, preserving outer bars. */
+function shortenBand(part, targetHeight, lo, hi) {
+  const [x0, y0, x1, y1] = part.box, full = y1 - y0
+  if (targetHeight >= full) return part
+  const shrink = full - targetHeight, yLo = y0 + lo * full, band = (hi - lo) * full
+  const contours = part.contours.map(contour => {
+    const light = Float64Array.from(contour.light), heavy = Float64Array.from(contour.heavy ?? contour.light)
+    for (const points of [light, heavy]) {
+      for (let i = 1; i < points.length; i += 2) {
+        const t = Math.max(0, Math.min(1, (points[i] - yLo) / band))
+        points[i] -= shrink * t
+      }
+    }
+    return { ...contour, light, heavy }
+  })
+  return derived(part, contours, [x0, y0, x1, y0 + targetHeight])
+}
+
+/** Shorten 可 above a final 乙: take most of the trim from the lower stem so 口 stays open. */
+function shortenKe(part, targetHeight) {
+  const [x0, y0, x1, y1] = part.box, full = y1 - y0
+  if (targetHeight >= full) return part
+  const shrink = full - targetHeight, s1 = shrink * 0.55, s2 = shrink * 0.45
+  const a0 = y0 + 0.14 * full, a1 = y0 + 0.36 * full, b1 = y0 + 0.78 * full
+  const contours = part.contours.map(contour => {
+    const light = Float64Array.from(contour.light), heavy = Float64Array.from(contour.heavy ?? contour.light)
+    for (const points of [light, heavy]) {
+      for (let i = 1; i < points.length; i += 2) {
+        const y = points[i]
+        const t1 = Math.max(0, Math.min(1, (y - a0) / (a1 - a0)))
+        const t2 = Math.max(0, Math.min(1, (y - a1) / (b1 - a1)))
+        points[i] = y - s1 * t1 - s2 * t2
+      }
+    }
+    return { ...contour, light, heavy }
+  })
+  return derived(part, contours, [x0, y0, x1, y0 + targetHeight])
+}
+
+/** Extend the upper-right shoulder of standalone 乙 so its top bar cradles the component above it. */
+function widenEulTop(part, dx) {
+  const [x0, y0, x1, y1] = part.box, width = x1 - x0, height = y1 - y0
+  const xMid = x0 + 0.35 * width, yMid = y0 + 0.45 * height
+  const contours = part.contours.map(contour => {
+    const light = Float64Array.from(contour.light), heavy = Float64Array.from(contour.heavy ?? contour.light)
+    for (const points of [light, heavy]) {
+      for (let i = 0; i < points.length; i += 2) {
+        const ty = Math.max(0, Math.min(1, (points[i + 1] - yMid) / (y1 - yMid)))
+        const tx = Math.max(0, Math.min(1, (points[i] - xMid) / (x1 - xMid)))
+        points[i] += dx * ty * tx
+      }
+    }
+    return { ...contour, light, heavy }
+  })
+  return derived(part, contours)
+}
+
+const recordMatches = (composer, char, digest) => {
+  const record = composer.glyphRecord(char)
+  return Boolean(record && hexOf(JSON.stringify(record.p)) === digest)
+}
+
 // Korean characters written with a final 乙, as in 㐓, 㐙, 㐒 and 𰀽.
-// The final has a full lead-in and a level baseline. A contextual cut from 吃 or 迄
-// shortens the lead-in and can put it across the bottom stroke of the upper glyph.
-function eulFinal(top, style, topBox, finalBox) {
+// Contextual cuts from 吃, 迄, 乞 or 㐎 leave a pinched, right-shifted 乙 that does not cradle the
+// upper component, and in Pen the learned 䙲 outline distorts under positive static weighting.
+const FANGSONG_EUL_HASH = 'f0a9ac729f594434ee1b3f9d5b3f3885c1f8cbd7ba337c8020884837f97127ed'
+const REGULAR_EUL_HASH = '642f76a2f1f2528af32c657d28f2a253a823a52b5dcd86d34a53ad895e9e1e28'
+
+function fangsongEul(top, topHash, shapeTop, topBox, topWeight, finalBox) {
   return {
-    glyphs: { 乞: style === 'regular' ? '770aa8f222d1a00066f768727bf68b930a5a69a53894fcb0eef25ed1b636fe31' : 'f4ab3bc78a1f8fd2a713b1a676e5703e19240453ac5da6642246d3dbc5df00f7' },
+    glyphs: { [top]: topHash, 乙: FANGSONG_EUL_HASH },
     apply(parts, composer, region) {
-      if (composer.fontStyle !== style || parts.length !== 2 ||
+      if (composer.fontStyle !== 'fangsong' || parts.length !== 2 ||
           composer.excluded(top) || composer.excluded('乙')) return parts
-      const upper = composer.glyph(top), donor = !composer.excluded('乞') && composer.glyph('乞')
-      if (!donor) return parts
-      const final = derived(donor, [donor.contours[style === 'regular' ? 1 : 0]])
-      if (!upper || !final) return parts
-      const place = (glyph, char, box) => placed(glyph, glyph.box, mapped(box, [0, 0, 1, 1], region),
-        composer.ink(char), `glyph ${char}`)
-      return [place(upper, top, topBox), { ...place(final, '乙', finalBox), origin: '乙 from 乞', fixed: true }]
+      const rawTop = composer.glyph(top), rawEul = composer.glyph('乙')
+      if (!rawTop || !rawEul) return parts
+      const upper = shapeTop(rawTop), final = widenEulTop(rawEul, 120)
+      const put = (glyph, char, box, weight, origin) => ({
+        ...placed(glyph, glyph.box, mapped(box, [0, 0, 1, 1], region), composer.ink(char), origin, weight),
+        fixed: true,
+      })
+      return [
+        put(upper, top, topBox, topWeight, `glyph ${top}`),
+        put(final, '乙', finalBox, [-0.12, 0.36], 'glyph 乙'),
+      ]
     },
   }
+}
+
+const YA_EUL_HASHES = {
+  fangsong: {
+    票: 'dcf0f309529651aa5b71483bcfffee074620f3cdc99843abf1e1d54ee91bcde6',
+    乙: FANGSONG_EUL_HASH,
+  },
+  regular: {
+    覀: '61f768411a5dbeabba5f8f956263ab4ab58990ede1755b357a1c6c7e7a64a306',
+    乙: REGULAR_EUL_HASH,
+  },
+  'pen-writing': {
+    覀: 'ce42765d46ea92d21f22aec3e815eae45a51635898e3c7ead85f10d24bc70a61',
+    㐓: 'dbef4e9acb37f4f130b36823d1f8e5b8133e40bd99b1cb498bc3f985a0843c8c',
+  },
+}
+
+const YA_EUL_FIX = {
+  glyphs: {},
+  matches(composer) {
+    const expected = YA_EUL_HASHES[composer.fontStyle]
+    return Boolean(expected && Object.entries(expected).every(([ch, digest]) => recordMatches(composer, ch, digest)))
+  },
+  apply(parts, composer, region) {
+    if (parts.length !== 2 || composer.excluded('覀') || composer.excluded('乙')) return parts
+    const put = (glyph, char, box, weight, origin) => ({
+      ...placed(glyph, glyph.box, mapped(box, [0, 0, 1, 1], region), composer.ink(char), origin, weight),
+      fixed: true,
+    })
+    if (composer.fontStyle === 'fangsong') {
+      if (composer.excluded('票')) return parts
+      const host = composer.glyph('票'), rawEul = composer.glyph('乙')
+      if (!host || !rawEul || host.contours.length < 9) return parts
+      const upper = derived(host, [0, 5, 6, 7, 8].map(i => host.contours[i]))
+      const final = widenEulTop(rawEul, 120)
+      return [
+        put(upper, '票', [0.05, 0.46, 0.95, 0.99], [0.04, 0.04], '覀 from 票'),
+        put(final, '乙', [0.04, 0.0, 0.96, 0.41], [-0.12, 0.36], 'glyph 乙'),
+      ]
+    }
+    if (composer.fontStyle === 'regular') {
+      const upper = composer.glyph('覀'), rawEul = composer.glyph('乙')
+      if (!upper || !rawEul) return parts
+      const final = widenEulTop(rawEul, 105)
+      return [
+        put(upper, '覀', [0.09, 0.48, 0.91, 0.99], [0, 0], 'glyph 覀'),
+        put(final, '乙', [0.04, 0.0, 0.96, 0.43], [-0.12, 0], 'glyph 乙'),
+      ]
+    }
+    if (composer.fontStyle === 'pen-writing') {
+      if (composer.excluded('㐓')) return parts
+      const upper = composer.glyph('覀'), host = composer.glyph('㐓')
+      if (!upper || !host || !host.contours.length) return parts
+      const final = derived(host, [host.contours[0]])
+      return [
+        put(upper, '覀', [0.08, 0.47, 0.92, 0.98], [0, 0], 'glyph 覀'),
+        put(final, '乙', [0.06, 0.0, 0.96, 0.42], [0, 0], '乙 from 㐓'),
+      ]
+    }
+    return parts
+  },
 }
 
 // The second inscription in UHK 港生活's photograph of four red fai chun (日進斗金, 2015-02-12,
@@ -429,10 +559,13 @@ function penDoor(char) {
  * A correction that cannot find the parts it names leaves the drawing as it is.
  */
 export const COMPONENT_FIXES = {
-  '⿱可乙': eulFinal('可', 'fangsong', [-0.0026, 0.4521, 0.9857, 0.9481], [0.0423, 0.0229, 0.952, 0.4235]),
-  '⿱豆乙': eulFinal('豆', 'fangsong', [-0.0234, 0.4829, 1.0082, 0.9601], [0.023, 0.0344, 0.9735, 0.4543]),
-  '⿱召乙': eulFinal('召', 'fangsong', [0.0101, 0.4474, 0.9319, 0.9669], [0.073, 0.0337, 0.9215, 0.4186]),
-  '⿱覀乙': eulFinal('覀', 'regular', [0.097, 0.4957, 0.9077, 0.9997], [0.1421, 0.0411, 0.8717, 0.4562]),
+  '⿱可乙': fangsongEul('可', '1b236dbe1708e746b40fb9b00b00ab909a55e920ca2edd36613f5ccb7bbfd265',
+    g => shortenKe(g, 560), [0.03, 0.435, 0.96, 0.995], [0, 0.14], [0.04, 0.0, 0.95, 0.395]),
+  '⿱豆乙': fangsongEul('豆', 'ee425c6f679c87e7c719d56534404a810d3133f40c5399ffecda6d15005230ce',
+    g => shortenBand(g, 580, 0.18, 0.80), [0.01, 0.45, 0.98, 0.995], [0, 0.16], [0.04, 0.0, 0.96, 0.40]),
+  '⿱召乙': fangsongEul('召', '998b56129bb03f48197aab19d3c87d74e1387411a30eaa63a40b317bd07b1dd2',
+    g => shortenBand(g, 600, 0.22, 0.78), [0.04, 0.445, 0.94, 0.995], [0, 0.16], [0.05, 0.0, 0.95, 0.405]),
+  '⿱覀乙': YA_EUL_FIX,
   '⿲𠂤日千': {
     glyphs: {},
     apply(parts, composer) {
@@ -1319,7 +1452,7 @@ export const COMPONENT_FIXES = {
 
 /** Whether `composer`'s glyphs are the outlines a correction was read against. */
 function matches(fix, composer) {
-  return Object.entries(fix.glyphs).every(([ch, digests]) => {
+  return (!fix.matches || fix.matches(composer)) && Object.entries(fix.glyphs).every(([ch, digests]) => {
     const record = composer.glyphRecord(ch)
     return record && [digests].flat().includes(hexOf(JSON.stringify(record.p)))
   })

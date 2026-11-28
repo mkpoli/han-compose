@@ -3,7 +3,7 @@
 // the shapes it was written for, and the guard that leaves another export's drawing alone.
 import { describe, expect, it } from 'bun:test'
 import { COMPONENT_FIXES, INCOME_IDS, clippedAbove, componentFix, dotIn, incomeBoxes, respanned, withoutContours } from 'han-compose/component-fixes'
-import { Composer } from 'han-compose/compose'
+import { Composer, designedSources } from 'han-compose/compose'
 import { drawnContours, fill, groupRings, makePart, mapped, partOf, placed, pointsBox, union } from 'han-compose/geometry'
 import zhou from './fixtures/zhou-miao.json' with { type: 'json' }
 import gongRecord from './fixtures/fangsong-gong.json' with { type: 'json' }
@@ -923,5 +923,94 @@ describe('日進斗金 ⿱⿰日斗⿺辶⿰隹金', () => {
     const unrelated = ['glyph 日', 'glyph 辶', 'learned 䳡', 'learned 唫'].map(sample)
     expect(COMPONENT_FIXES[INCOME_IDS].apply(unrelated, { fontStyle: 'regular' }, region)).toBe(unrelated)
     expect(incomeBoxes('⿰⿱日斗⿱進金', 'regular', region)).toBeNull()
+  })
+})
+
+describe('Korean final 乙 placement', () => {
+  const region = [50, -100, 950, 800]
+  const samplePart = (origin, boxes) => {
+    const bounds = union(boxes)
+    return part(origin, bounds, bounds, boxes)
+  }
+  const makeEul = () => samplePart('glyph 乙', [[150, -50, 900, 700]]).part
+
+  it('shortens upper components and widens 乙 top shoulder cleanly in FangSong for 可乙, 豆乙 and 召乙', () => {
+    const glyphs = {
+      可: samplePart('glyph 可', [[65, -108, 921, 718], [223, 137, 560, 514], [298, 266, 468, 440]]).part,
+      豆: samplePart('glyph 豆', [[58, -37, 933, 265], [259, 50, 771, 545], [342, 301, 669, 469], [113, 600, 885, 720]]).part,
+      召: samplePart('glyph 召', [[44, 215, 867, 751], [292, -100, 816, 311], [376, 30, 714, 232]]).part,
+      乙: makeEul(),
+    }
+    const input = [samplePart('a', [[0, 400, 1000, 900]]), samplePart('b', [[0, 0, 1000, 400]])]
+    for (const [seq, top] of [['⿱可乙', '可'], ['⿱豆乙', '豆'], ['⿱召乙', '召']]) {
+      const composer = { fontStyle: 'fangsong', excluded: () => false, glyph: ch => glyphs[ch] ?? null, ink: () => 1000 }
+      const [upper, lower] = COMPONENT_FIXES[seq].apply(input, composer, region)
+      expect(upper.fixed).toBe(true)
+      expect(lower.fixed).toBe(true)
+      expect(upper.origin).toBe(`glyph ${top}`)
+      expect(lower.origin).toBe('glyph 乙')
+      // Shortened source height keeps upper shape open while leaving positive clearance above 乙.
+      expect(upper.source[3] - upper.source[1]).toBeLessThan(glyphs[top].box[3] - glyphs[top].box[1])
+      expect(upper.target[1] - lower.target[3]).toBeGreaterThan(25)
+      // Widened 乙 top-right corner extends beyond its original right extent.
+      expect(lower.part.box[2]).toBeGreaterThan(glyphs['乙'].box[2])
+      // Guards: non-fangsong, excluded component, or mismatched hashes leave parts unchanged.
+      expect(COMPONENT_FIXES[seq].apply(input, { ...composer, fontStyle: 'regular' }, region)).toBe(input)
+      expect(COMPONENT_FIXES[seq].apply(input, { ...composer, excluded: ch => ch === top }, region)).toBe(input)
+      expect(componentFix(seq, input, { ...composer, glyphRecord: () => null }, region)).toBe(input)
+    }
+  })
+
+  it('cradles 覀 cleanly across FangSong, Regular and Pen without positive Pen distortion', () => {
+    const input = [samplePart('a', [[100, 400, 900, 800]]), samplePart('b', [[200, 0, 850, 380]])]
+    const piaoBoxes = [
+      [132, 348, 859, 772], [77, -106, 915, 251], [169, -58, 332, 149], [590, -49, 807, 132], [218, 263, 747, 350],
+      [280, 424, 389, 538], [439, 432, 553, 548], [407, 580, 554, 691], [599, 432, 730, 556],
+    ]
+    const glyphs = {
+      票: samplePart('glyph 票', piaoBoxes).part,
+      覀: samplePart('glyph 覀', [[160, 200, 840, 640]]).part,
+      㐓: samplePart('glyph 㐓', [[154, -62, 915, 341], [131, 340, 921, 777]]).part,
+      乙: makeEul(),
+    }
+
+    // FangSong: 票 contours [0, 5, 6, 7, 8] + widened 乙.
+    const fsComp = { fontStyle: 'fangsong', excluded: () => false, glyph: ch => glyphs[ch] ?? null, ink: () => 1000 }
+    const [fsTop, fsBot] = COMPONENT_FIXES['⿱覀乙'].apply(input, fsComp, region)
+    expect(fsTop.origin).toBe('覀 from 票')
+    expect(fsTop.part.contours).toHaveLength(5)
+    expect(fsBot.origin).toBe('glyph 乙')
+    expect(fsTop.fixed && fsBot.fixed).toBe(true)
+    expect(fsTop.target[1] - fsBot.target[3]).toBeGreaterThan(35)
+    expect(fsBot.part.box[2]).toBeGreaterThan(glyphs['乙'].box[2])
+    expect(COMPONENT_FIXES['⿱覀乙'].apply(input, { ...fsComp, excluded: ch => ch === '票' }, region)).toBe(input)
+
+    // Regular: glyph 覀 + widened 乙.
+    const regComp = { fontStyle: 'regular', excluded: () => false, glyph: ch => glyphs[ch] ?? null, ink: () => 1000 }
+    const [regTop, regBot] = COMPONENT_FIXES['⿱覀乙'].apply(input, regComp, region)
+    expect(regTop.origin).toBe('glyph 覀')
+    expect(regBot.origin).toBe('glyph 乙')
+    expect(regTop.fixed && regBot.fixed).toBe(true)
+    expect(regTop.target[1] - regBot.target[3]).toBeGreaterThan(35)
+    expect(regBot.part.box[2]).toBeGreaterThan(glyphs['乙'].box[2])
+
+    // Pen: glyph 覀 + 㐓 bottom 乙 at zero static weight with clean gap.
+    const penComp = { fontStyle: 'pen-writing', excluded: () => false, glyph: ch => glyphs[ch] ?? null, ink: () => 1000 }
+    const [penTop, penBot] = COMPONENT_FIXES['⿱覀乙'].apply(input, penComp, region)
+    expect(penTop.origin).toBe('glyph 覀')
+    expect(penBot.origin).toBe('乙 from 㐓')
+    expect(penBot.part.contours).toHaveLength(1)
+    expect(penTop.weight).toEqual([0, 0])
+    expect(penBot.weight).toEqual([0, 0])
+    expect(penTop.fixed && penBot.fixed).toBe(true)
+    expect(penTop.target[1] - penBot.target[3]).toBeGreaterThan(35)
+    expect(COMPONENT_FIXES['⿱覀乙'].apply(input, { ...penComp, excluded: ch => ch === '㐓' }, region)).toBe(input)
+
+    // Hash guard leaves mismatched exports untouched, and loader preloads donor glyphs.
+    for (const fontStyle of ['fangsong', 'regular', 'pen-writing', 'sans']) {
+      expect(componentFix('⿱覀乙', input, { fontStyle, glyphRecord: () => null }, region)).toBe(input)
+    }
+    expect(designedSources(['⿱', '覀', '乙'], 'fangsong')).toContain('票')
+    expect(designedSources(['⿱', '覀', '乙'], 'pen-writing')).toContain('㐓')
   })
 })
