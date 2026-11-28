@@ -563,8 +563,11 @@ describe('a glyph drawn as one outline', () => {
     expect(swept).toHaveLength(2)
     if (!swept) return
     const [left, , right] = swept[0].target
-    // Centered over [100..380] and wider than the naive (360 * 280 / 580 ≈ 174) sliver.
-    expect((left + right) / 2).toBeCloseTo(240, 0)
+    // Centered over the pressed lower body and wider than the naive (360 * 280 / 580 ≈ 174) sliver.
+    const bodyPts = swept[1].part.contours[0].light
+    let bodyRight = 380
+    for (let i = 0; i < bodyPts.length; i += 2) if (bodyPts[i + 1] > 200) bodyRight = Math.max(bodyRight, bodyPts[i])
+    expect((left + right) / 2).toBeCloseTo((100 + bodyRight) / 2, 0)
     expect(right - left).toBeGreaterThan(200)
   })
 })

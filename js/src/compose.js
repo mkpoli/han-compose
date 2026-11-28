@@ -916,7 +916,7 @@ export const designedSources = (tree, style = 'sans') => {
 /** The most a stroke running along a row or a stack may be thick, as a share of its length. */
 const ACROSS_THICK = 0.3
 /** The least share of the width a pair written into a lower-left enclosure takes. */
-const HELD_PAIR = 0.68
+const HELD_PAIR = 0.62
 /** How the part an enclosure already holds and a second part written into it stand together:
  *  stacked under an upper-left enclosure, side by side over a lower-left one. */
 const HELD_TOGETHER = { '⿸': '⿱', '⿺': '⿰' }
@@ -4317,7 +4317,7 @@ export class Composer {
           // An enclosing part cut from another character is pressed left of a pair written into it,
           // as its own glyph is, so the pair stands against it.
           if (op === '⿺' && this.heldFirst.has(child) && groups[0].length === 1) {
-            const clearance = Math.min(C.FACING[0], C.ROOM_MARGIN * stem)
+            const clearance = Math.min(C.FACING[0], 0.4 * C.ROOM_MARGIN * stem)
             const swept = sweptPart(groups[0][0], box[0] - clearance, C, this.tailForm(keyOf(children[0])))
             if (swept) groups[0] = swept
           }
@@ -4338,8 +4338,24 @@ export class Composer {
           // the sides the enclosure closes.
           const anchor = heldPair ? centre(inner)
             : opening && (tight || area(opening) > area(box)) ? centre(this.held(opening, op, frameOf)) : centre(inner)
-          groups.push(grid ? this.cellLayout(grid, inner, { leafIndices: false }) : this.node(child, inner))
-          this.fit(groups[0], groups[1], frameOf, stem, C, { room: inner, anchor })
+          const pair = grid ? this.cellLayout(grid, inner, { leafIndices: false }) : this.node(child, inner)
+          if (heldPair) {
+            const leftSide = pair.filter(p => p.branch?.[0] === 0), rightSide = pair.filter(p => p.branch?.[0] === 1)
+            if (leftSide.length && rightSide.length) {
+              const lb = bounds(leftSide), rb = bounds(rightSide), gap = rb[0] - lb[2], want = 12
+              if (gap > want) {
+                const spare = (gap - want) / 2
+                const widen = (list, b, dx0, dx1) => {
+                  const to = [b[0] + dx0, b[1], b[2] + dx1, b[3]]
+                  for (const p of list) p.target = mapped(p.target, b, to)
+                }
+                widen(leftSide, lb, 0, spare)
+                widen(rightSide, rb, -spare, 0)
+              }
+            }
+          }
+          groups.push(pair)
+          this.fit(groups[0], groups[1], frameOf, heldPair ? stem * 0.5 : stem, C, { room: inner, anchor })
         } else {
           const cell = even ? even[i] : box, group = this.node(child, cell)
           groups.push(narrow ? this.fillCell(child, group, cell, this.beside.has(children)) : group)
@@ -6668,17 +6684,20 @@ export function sweptPart(p, edge, C, tail = null) {
       scaled: [baked[0] * sx, baked[1] * sy], foreign: c.foreign, kindred: c.kindred }
   }
   const strokes = derived(p.part, p.part.contours.filter((_, k) => k !== sweep).map(c => at(c, q => q)))
+  const drawn = derived(p.part, [at(p.part.contours[sweep], drawnOut)])
   const box = strokes.box
   // A separate upper part centered over a joined lower body (the 日 of a brush 是) keeps its
-  // width within the pressed head instead of shrinking into a sliver beside empty space.
+  // width within the pressed lower body instead of shrinking into a sliver beside empty space.
   let pressedBox = [x0 + (box[0] - x0) * pressed, box[1], x0 + (box[2] - x0) * pressed, box[3]]
   if (box[1] >= y0 + 0.35 * (y1 - y0) && box[0] > x0 + 0.1 * (x1 - x0)) {
-    const inset = Math.min(box[0] - x0, 0.12 * (edge - x0))
-    const width = Math.min(box[2] - box[0], Math.max(0, edge - x0 - 2 * inset))
-    const mid = (x0 + edge) / 2
+    const bodyPts = drawn.contours[0].light
+    let bodyRight = edge
+    for (let i = 0; i < bodyPts.length; i += 2) if (bodyPts[i + 1] > y0 + 0.25 * (y1 - y0)) bodyRight = Math.max(bodyRight, bodyPts[i])
+    const inset = Math.min(box[0] - x0, 0.12 * (bodyRight - x0))
+    const width = Math.min(box[2] - box[0], Math.max(0, bodyRight - x0 - 2 * inset))
+    const mid = (x0 + bodyRight) / 2
     if (width > pressedBox[2] - pressedBox[0]) pressedBox = [mid - width / 2, box[1], mid + width / 2, box[3]]
   }
-  const drawn = derived(p.part, [at(p.part.contours[sweep], drawnOut)])
   return [placed(strokes, strokes.box, pressedBox, p.native, `swept ${p.origin}`, p.weight),
     placed(drawn, drawn.box, drawn.box.slice(), p.native, `swept ${p.origin}`, p.weight)]
 }
