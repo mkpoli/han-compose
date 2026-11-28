@@ -41,7 +41,7 @@ test('closed leaves a bar-topped body with a flaring leg alone and closes a peak
   const poly = pts => ({ ops: commands('M' + 'L'.repeat(pts.length / 2 - 1)), light: Float64Array.from(pts), heavy: Float64Array.from(pts) })
   const above = [placed(makePart([poly([100, 500, 900, 500, 900, 800, 100, 800])]), [100, 500, 900, 800], [100, 500, 900, 800], 0, 'above')]
   // A body whose top bar spans 65% of its box (as 月's flaring left leg narrows its top share).
-  const body = [{ ...placed(makePart([poly([100, 0, 300, 480, 900, 480, 900, 0])]), [100, 0, 900, 480], [100, 0, 900, 480], 0, 'body'), gap: -120 }]
+  const body = [{ ...placed(makePart([poly([100, 0, 380, 480, 900, 480, 900, 0])]), [100, 0, 900, 480], [100, 0, 900, 480], 0, 'body'), gap: -120 }]
   expect(composer.closed(body, above, 0.45)).toBe(false)
   expect(body[0].target[3]).toBe(480)
   // A peaked foot whose top spans 20% of its box still closes up to meet the bar above it.

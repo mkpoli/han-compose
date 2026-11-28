@@ -6285,7 +6285,7 @@ function joinedPair(bands, boxes) {
   const foot = bands[k + 1], footBox = boxes[k + 1], aboveBox = boxes[k]
   if (!foot.length || !bands[k].length || !foot.some(part => part.gap < 0)) return -1
   if (!(footBox[3] > footBox[1]) || aboveBox[1] <= footBox[3]) return -1
-  if (flatTopped(foot, footBox)) return -1
+  if (topSpan(foot, footBox) >= CLOSED_SPAN) return -1
   return aboveBox[3] - aboveBox[1] <= COVER_BARRED * (footBox[3] - footBox[1]) ? k : -1
 }
 
