@@ -958,10 +958,10 @@ describe('招財進寶 ⿺辶⿱宀⿱⿰王尔⿲隹貝招', () => {
   const sample = origin => part(origin, frame, frame, [[100, 100, 900, 900]])
   const seven = () => ['glyph 辶', 'glyph 宀', 'glyph 王', 'glyph 尔', 'glyph 隹', 'glyph 貝', 'glyph 招'].map(sample)
 
-  it('places all seven leaves at full height with balanced weights and nested clearance for FangSong, Regular, and Pen', () => {
+  it('places all seven leaves at full height with 王尔 tucked under 宀 and balanced weights across all five faces', () => {
     const face = [53, -110, 950, 800]
     const faceH = face[3] - face[1]
-    for (const fontStyle of ['fangsong', 'regular', 'pen-writing']) {
+    for (const fontStyle of ['sans', 'serif', 'fangsong', 'regular', 'pen-writing']) {
       const boxes = wealthBoxes(WEALTH_IDS, fontStyle, face, face)
       expect(boxes).toHaveLength(7)
       const out = COMPONENT_FIXES[WEALTH_IDS].apply(seven(), { fontStyle, face }, face)
@@ -969,8 +969,16 @@ describe('招財進寶 ⿺辶⿱宀⿱⿰王尔⿲隹貝招', () => {
       expect(out.every(p => p.fixed && Array.isArray(p.weight) && p.weight.length === 2)).toBe(true)
       const [walk, roof, king, er, bird, shell, beckon] = out.map(p => p.target)
       expect(roof[3] - walk[1]).toBeGreaterThan(0.95 * faceH)
-      expect(roof[1]).toBeGreaterThan(king[3])
+      // 王 and 尔 sit horizontally inside 宀's eaves and tuck upward into its roof cavity.
+      expect(roof[0]).toBeLessThan(king[0])
+      expect(er[2]).toBeLessThan(roof[2])
+      expect(king[3]).toBeGreaterThan(roof[1])
+      expect(er[3]).toBeGreaterThan(roof[1])
+      expect(king[3]).toBeLessThan(roof[3])
       expect(king[2]).toBeLessThan(er[0])
+      // 隹貝招 stands below 王尔 and taller than the upper pair.
+      expect(king[1]).toBeGreaterThan(bird[3])
+      expect(bird[3] - bird[1]).toBeGreaterThan(king[3] - king[1])
       expect(bird[2]).toBeLessThan(shell[0])
       expect(shell[2]).toBeLessThan(beckon[0])
       expect(walk[0]).toBeLessThan(bird[0])
@@ -981,8 +989,23 @@ describe('招財進寶 ⿺辶⿱宀⿱⿰王尔⿲隹貝招', () => {
       expect(nested[0][0]).toBeGreaterThan(unnested[0][0])
       expect(nested[1][3]).toBeLessThan(unnested[1][3])
     }
-    expect(wealthBoxes(WEALTH_IDS, 'sans', face, face)).toBeNull()
-    expect(wealthBoxes(WEALTH_IDS, 'serif', face, face)).toBeNull()
+    expect(wealthBoxes(WEALTH_IDS, 'woodblock', face, face)).toBeNull()
+  })
+
+  it('uses standalone 貝 in Sans unless 貝 is excluded', () => {
+    const face = [38, -81, 967, 840]
+    const bei = makePart(part('glyph 貝', frame, frame, [[120, 80, 880, 920]]).part.contours, frame)
+    const parts = seven()
+    parts[5] = part('host 贏', frame, frame, [[200, 100, 800, 600]])
+    const out = COMPONENT_FIXES[WEALTH_IDS].apply(parts, {
+      fontStyle: 'sans', face, excluded: () => false, glyph: ch => ch === '貝' ? bei : null, ink: () => 50,
+    }, face)
+    expect(out[5].origin).toBe('glyph 貝')
+
+    const kept = COMPONENT_FIXES[WEALTH_IDS].apply(parts, {
+      fontStyle: 'sans', face, excluded: ch => ch === '貝', glyph: ch => ch === '貝' ? bei : null, ink: () => 50,
+    }, face)
+    expect(kept[5].origin).toBe('host 贏')
   })
 
   it('flips weight sign for inward-winding contours so inner parts always embolden', () => {
@@ -1033,7 +1056,7 @@ describe('招財進寶 ⿺辶⿱宀⿱⿰王尔⿲隹貝招', () => {
     expect(cleaned[4].part.contours).toHaveLength(4)
     expect(cleaned[4].source[2]).toBe(493)
     expect(cleaned[4].fixed).toBe(true)
-    expect(cleaned[4].weight).toEqual([0.68, 0.55])
+    expect(cleaned[4].weight).toEqual([0.64, 0.52])
 
     const untouched = COMPONENT_FIXES[WEALTH_IDS].apply(parts, {
       fontStyle: 'regular', face, glyphRecord: () => ({ p: [] }),

@@ -317,72 +317,116 @@ export function dotIn(composer, band) {
 }
 
 export const WEALTH_IDS = '⿺辶⿱宀⿱⿰王尔⿲隹貝招'
-// Normalized face coordinates and stroke weight adjustments for FangSong, Regular, and Pen,
+// Normalized face coordinates and stroke weight adjustments across all five faces,
 // in reading order of the seven leaves of ⿺辶⿱宀⿱⿰王尔⿲隹貝招: 辶, 宀, 王, 尔, 隹, 貝, 招.
+// 王 and 尔 tuck up inside 宀's cavity (between its left drop and right hook, directly beneath its
+// horizontal beam), while 隹, 貝, and 招 stand taller below, close above 辶's sweeping foot.
 // Positive embolden values add ink; negative values thin strokes (sign is flipped automatically
 // per part for exports whose contours wind inward, such as Pen/WenKai).
 const wealthLayout = {
+  sans: {
+    frame: [0.00, 0.00, 1.00, 1.00],
+    boxes: [
+      [0.00, 0.00, 1.00, 0.96],
+      [0.285, 0.72, 1.00, 1.00],
+      [0.355, 0.545, 0.625, 0.795],
+      [0.65, 0.545, 0.92, 0.795],
+      [0.295, 0.145, 0.515, 0.51],
+      [0.54, 0.14, 0.745, 0.51],
+      [0.765, 0.14, 0.995, 0.51],
+    ],
+    embolden: [
+      [-0.08, -0.08],
+      [0.10, 0.12],
+      [0.50, 0.65],
+      [0.50, 0.65],
+      [0.50, 0.70],
+      [0.65, 0.72],
+      [0.70, 0.75],
+    ],
+  },
+  serif: {
+    frame: [0.00, 0.00, 1.00, 1.00],
+    boxes: [
+      [0.00, 0.00, 1.00, 0.96],
+      [0.265, 0.68, 1.00, 1.00],
+      [0.37, 0.54, 0.618, 0.792],
+      [0.64, 0.54, 0.87, 0.792],
+      [0.29, 0.145, 0.515, 0.508],
+      [0.535, 0.14, 0.745, 0.508],
+      [0.765, 0.14, 0.995, 0.508],
+    ],
+    embolden: [
+      [-0.04, -0.02],
+      [0.12, 0.18],
+      [0.20, 0.70],
+      [0.50, 0.70],
+      [0.50, 0.75],
+      [0.80, 0.85],
+      [0.85, 0.85],
+    ],
+  },
   fangsong: {
     frame: [-0.01, -0.01, 1.02, 0.99],
     boxes: [
-      [0.00, 0.00, 1.00, 0.95],
-      [0.295, 0.785, 0.995, 0.99],
-      [0.31, 0.515, 0.625, 0.755],
-      [0.655, 0.51, 0.98, 0.76],
-      [0.325, 0.195, 0.535, 0.48],
-      [0.555, 0.185, 0.755, 0.48],
-      [0.775, 0.185, 0.995, 0.48],
+      [0.00, 0.00, 1.00, 0.94],
+      [0.275, 0.665, 1.015, 1.00],
+      [0.37, 0.525, 0.615, 0.768],
+      [0.635, 0.525, 0.875, 0.782],
+      [0.325, 0.19, 0.535, 0.492],
+      [0.555, 0.155, 0.755, 0.492],
+      [0.775, 0.148, 0.995, 0.492],
     ],
     embolden: [
-      [-0.20, -0.26],
-      [0.05, 0.10],
-      [0.50, 0.50],
-      [0.95, 0.88],
-      [0.65, 0.50],
-      [0.95, 0.80],
-      [1.00, 0.85],
+      [-0.22, -0.28],
+      [0.00, 0.05],
+      [0.48, 0.48],
+      [0.92, 0.85],
+      [0.60, 0.48],
+      [0.90, 0.76],
+      [0.95, 0.82],
     ],
   },
   regular: {
     frame: [-0.04, -0.03, 1.04, 1.02],
     boxes: [
-      [0.00, 0.00, 1.00, 0.95],
-      [0.29, 0.785, 0.995, 0.99],
-      [0.305, 0.515, 0.625, 0.755],
-      [0.655, 0.51, 0.98, 0.76],
-      [0.33, 0.215, 0.535, 0.485],
-      [0.555, 0.205, 0.755, 0.485],
-      [0.775, 0.205, 0.995, 0.485],
+      [0.00, 0.00, 1.00, 0.94],
+      [0.255, 0.67, 1.015, 1.00],
+      [0.365, 0.53, 0.615, 0.765],
+      [0.64, 0.53, 0.875, 0.78],
+      [0.335, 0.205, 0.535, 0.495],
+      [0.555, 0.175, 0.755, 0.495],
+      [0.775, 0.165, 0.995, 0.495],
     ],
     embolden: [
-      [-0.22, -0.32],
-      [-0.06, 0.00],
-      [0.34, 0.38],
-      [0.95, 0.88],
-      [0.68, 0.55],
-      [0.84, 0.74],
-      [0.98, 0.88],
+      [-0.24, -0.34],
+      [-0.08, -0.02],
+      [0.32, 0.36],
+      [0.92, 0.85],
+      [0.64, 0.52],
+      [0.80, 0.70],
+      [0.94, 0.84],
     ],
   },
   'pen-writing': {
     frame: [-0.02, -0.01, 1.02, 1.00],
     boxes: [
-      [0.00, 0.00, 1.00, 0.95],
-      [0.30, 0.785, 0.995, 0.99],
-      [0.305, 0.515, 0.625, 0.755],
-      [0.655, 0.51, 0.98, 0.76],
-      [0.31, 0.19, 0.525, 0.48],
-      [0.545, 0.18, 0.755, 0.48],
-      [0.775, 0.18, 0.995, 0.48],
+      [0.00, 0.00, 1.00, 0.94],
+      [0.28, 0.68, 1.01, 1.00],
+      [0.37, 0.535, 0.618, 0.782],
+      [0.64, 0.535, 0.87, 0.782],
+      [0.305, 0.155, 0.52, 0.498],
+      [0.545, 0.14, 0.755, 0.498],
+      [0.775, 0.135, 0.995, 0.498],
     ],
     embolden: [
-      [-0.18, -0.22],
-      [0.02, 0.05],
-      [0.52, 0.52],
-      [0.82, 0.78],
-      [0.55, 0.45],
-      [0.82, 0.72],
-      [0.92, 0.82],
+      [-0.20, -0.24],
+      [0.00, 0.02],
+      [0.48, 0.48],
+      [0.80, 0.75],
+      [0.52, 0.42],
+      [0.78, 0.68],
+      [0.88, 0.78],
     ],
   },
 }
@@ -402,7 +446,7 @@ function growthDirection(part) {
 }
 
 /**
- * The seven leaf boxes of `⿺辶⿱宀⿱⿰王尔⿲隹貝招` for FangSong, Regular, and Pen, with
+ * The seven leaf boxes of `⿺辶⿱宀⿱⿰王尔⿲隹貝招` across all five faces, with
  * clearance on interior edges when nested inside a larger `face`.
  * @param {string} key
  * @param {string} style
@@ -587,7 +631,11 @@ export const COMPONENT_FIXES = {
       const spec = wealthLayout[composer.fontStyle]
       if (!boxes || !spec || parts.length !== boxes.length) return parts
       return parts.map((part, i) => {
-        const base = i === 4 ? cleanRegularBird(part, composer, boxes[i]) : { ...part, target: boxes[i] }
+        let base = i === 4 ? cleanRegularBird(part, composer, boxes[i]) : { ...part, target: boxes[i] }
+        if (i === 5 && composer.fontStyle === 'sans' && !composer.excluded?.('貝')) {
+          const bei = composer.glyph?.('貝')
+          if (bei) base = placed(bei, bei.box, boxes[i], composer.ink('貝'), 'glyph 貝')
+        }
         const dir = growthDirection(base)
         const [ex, ey] = spec.embolden[i]
         return { ...base, weight: [dir * ex, dir * ey], fixed: true }

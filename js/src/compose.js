@@ -1771,7 +1771,7 @@ export class Composer {
     // Cell scaffolds already have a complete layout; searching every repeated subtree adds no evidence.
     if (this.pyramid(tree) || this.pyramidWithBase(tree)) return false
     const key = keyOf(tree)
-    if (['fangsong', 'regular', 'pen-writing'].includes(this.fontStyle) && key.includes(WEALTH_IDS)) return false
+    if (key.includes(WEALTH_IDS)) return false
     if (key.includes(INCOME_IDS)) return false
     if (containsRateForm(key) || (containsU26201(key) && this.hasYaoChoice(tree)) || this.bySequence(key) || this.spelled.has(key)) return false
     if (isGroupedForm(key, this.fontStyle) || isComponentForm(key, this.fontStyle)) return false
