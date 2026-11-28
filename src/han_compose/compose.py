@@ -2305,9 +2305,13 @@ class Composer:
                 # else (one stroke of 鬼 taken for 厶); a positional form keeps most of them (忄, 氵).
                 if any(isinstance(n, str) and 2 * len(p.contours) < self._outlines(n) for p, n in ((outer, node[1]), (inner, node[2]))):
                     continue
-                if node[0] == "⿺" and outer.box[2] < (inner.box[0] + inner.box[2]) / 2:
-                    # The part round the lower left sweeps under the other, past its middle; a cut of
-                    # interlocking outlines can give that stroke away to it (尢's in 尮).
+                if node[0] == "⿺" and (
+                    outer.box[2] < (inner.box[0] + inner.box[2]) / 2
+                    or (inner.box[0] + inner.box[2]) <= (outer.box[0] + outer.box[2])
+                ):
+                    # The part round the lower left sweeps under the other, past its middle, and the
+                    # enclosed part sits in the upper-right bay rather than on the left (e.g. 風's
+                    # own 虫 mistaken for 叟 in 颼).
                     continue
                 # The guided cut's enclosing part is measured against the enclosing form it was cut
                 # by: an operand's own glyph (走's short sweep) is far from that form.
@@ -2660,6 +2664,11 @@ class Composer:
         masks = [mask for _, mask in self._memo(self._typical, (place, operand), cut)]
         if len(masks) >= TYPICAL_FEW:
             return masks, True
+        if place == "⿺0":
+            # A lower-left enclosing form reshapes its glyph to sweep under the inner part
+            # (e.g. ⿺風 in 颺 shifts 虫 left and extends its tail), so comparing against the
+            # standalone glyph rejects valid hosts when fewer than `TYPICAL_FEW` cut.
+            return None
         glyph = self.font.glyph(operand) if operand not in self.exclude and self.font.own(operand) else None
         return ([_square(glyph)], False) if glyph is not None else None
 
@@ -2887,14 +2896,16 @@ class Composer:
             # weighs the font's own against them.
             ordered = sorted(scored, key=lambda r: r[:4])
             limit = 32 if placed else 16
-            own = [r for r in ordered if self.font.own(r[4])][:limit]
-            foreign = [r for r in ordered if not self.font.own(r[4])][:limit]
-            for exact, alien, ratio, depth, char, tree, path, i in sorted(own + foreign, key=lambda r: r[:4]):
+            own_all = [r for r in ordered if self.font.own(r[4])]
+            foreign_all = [r for r in ordered if not self.font.own(r[4])]
+
+            def score_candidate(row):
+                exact, alien, ratio, depth, char, tree, path, i = row
                 found = self._host_node(char, tree, path)
                 if found is None:
-                    continue
+                    return None
                 if alien and len(found.pieces[i].contours) != self._outlines(node):
-                    continue
+                    return None
                 piece = found.pieces[i].box
                 shape = abs(math.log(((piece[2] - piece[0]) / max(piece[3] - piece[1], 1)) / aspect))
                 size = abs(math.log(max(piece[2] - piece[0], 1) * max(piece[3] - piece[1], 1)
@@ -2904,9 +2915,25 @@ class Composer:
                     # A piece from the facing side stands across the em from its box wherever it is drawn.
                     near = (float(np.mean(np.abs(np.array(piece) - np.array(box)))) / PLACED_UNITS if found.whole and not facing
                             else PLACED_NESTED)
-                found_all.append(((exact, ratio + shape + 0.5 * size + 0.1 * depth + near + KIN_COST * alien
-                                  + FOREIGN_COST * (not self.font.own(found.char))
-                                  + UNJAPANESE_COST * (found.char not in self.japanese)), found, i))
+                return ((exact, ratio + shape + 0.5 * size + 0.1 * depth + near + KIN_COST * alien
+                         + FOREIGN_COST * (not self.font.own(found.char))
+                         + UNJAPANESE_COST * (found.char not in self.japanese)), found, i)
+
+            for row in sorted(own_all[:limit] + foreign_all[:limit], key=lambda r: r[:4]):
+                entry = score_candidate(row)
+                if entry is not None:
+                    found_all.append(entry)
+            # When the top `limit` own hosts all fail to cut (e.g. heavy-sibling ⿺風 hosts),
+            # continue scanning remaining own hosts until we recover valid native cuts.
+            if len(own_all) > limit and not any(self.font.own(f.char) for _, f, _ in found_all):
+                extra_own = 0
+                for row in own_all[limit:]:
+                    entry = score_candidate(row)
+                    if entry is not None:
+                        found_all.append(entry)
+                        extra_own += 1
+                        if extra_own >= 4:
+                            break
             return found_all
 
         for written in self.alternatives(node, slot(op, index)):
