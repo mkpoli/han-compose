@@ -433,6 +433,29 @@ export const COMPONENT_FIXES = {
   '⿱豆乙': eulFinal('豆', 'fangsong', [-0.0234, 0.4829, 1.0082, 0.9601], [0.023, 0.0344, 0.9735, 0.4543]),
   '⿱召乙': eulFinal('召', 'fangsong', [0.0101, 0.4474, 0.9319, 0.9669], [0.073, 0.0337, 0.9215, 0.4186]),
   '⿱覀乙': eulFinal('覀', 'regular', [0.097, 0.4957, 0.9077, 0.9997], [0.1421, 0.0411, 0.8717, 0.4562]),
+  '⿲𠂤日千': {
+    glyphs: {},
+    apply(parts, composer) {
+      if (parts.length !== 3) return parts
+      const frame = union(parts.map(part => part.target))
+      if (composer.fontStyle === 'fangsong' || composer.fontStyle === 'regular') {
+        // In 𧗧 the central 日 spans about three quarters of the full ink height.
+        const [left, sun, right] = parts
+        const inset = composer.fontStyle === 'regular' ? .12 : .135
+        const height = heightOf(frame)
+        // Shortening 日 changes stroke balancing. Extend the flanks to restore the original ink bounds.
+        const limits = composer.fontStyle === 'regular' ? [0, -.0066, 1, 1.0066] : [0, -.0084, 1, 1.0097]
+        const outer = mapped(limits, [0, 0, 1, 1], frame)
+        return [{ ...left, target: mapped(left.target, frame, outer) }, { ...sun, target: [sun.target[0], frame[1] + inset * height,
+          sun.target[2], frame[3] - inset * height] }, { ...right, target: mapped(right.target, frame, outer) }]
+      }
+      if (composer.fontStyle !== 'pen-writing') return parts
+      // 日 is the short middle column. Give 千 room for its crossbar beside it.
+      const boxes = [[0, .0233, .3438, .9767], [.3837, .1588, .6478, .8412], [.6797, -.0018, .9966, 1.0018]]
+      return parts.map((part, i) => ({ ...part, target: mapped(boxes[i], [0, 0, 1, 1], frame),
+        weight: i === 0 ? [0, -.10] : i === 1 ? [-.68, -.20] : [-.60, -.12], fixed: true }))
+    },
+  },
   '⿰舟邊': {
     glyphs: {},
     apply(parts, composer, region) {
