@@ -1,7 +1,7 @@
 // @ts-check
 import { compose, sketch } from './loader.js'
 
-export const FONT_STYLES = /** @type {const} */ (['sans', 'serif', 'fangsong', 'regular', 'pen-writing'])
+export const FONT_STYLES = /** @type {const} */ (['sans', 'serif', 'woodblock', 'fangsong', 'regular', 'pen-writing'])
 /** @typedef {typeof FONT_STYLES[number]} FontStyle */
 /** @typedef {{ shares: Partial<Record<FontStyle, number>>, weight?: number }} FontMix */
 
