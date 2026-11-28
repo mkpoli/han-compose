@@ -316,6 +316,160 @@ export function dotIn(composer, band) {
   return placed(glyph, glyph.box, target, composer.ink('丶'), 'dot 丶')
 }
 
+export const WEALTH_IDS = '⿺辶⿱宀⿱⿰王尔⿲隹貝招'
+// Normalized face coordinates and stroke weight adjustments across all five faces,
+// in reading order of the seven leaves of ⿺辶⿱宀⿱⿰王尔⿲隹貝招: 辶, 宀, 王, 尔, 隹, 貝, 招.
+// 王 and 尔 tuck up inside 宀's cavity (between its left drop and right hook, directly beneath its
+// horizontal beam), while 隹, 貝, and 招 stand taller below, close above 辶's sweeping foot.
+// Positive embolden values add ink; negative values thin strokes (sign is flipped automatically
+// per part for exports whose contours wind inward, such as Pen/WenKai).
+const wealthLayout = {
+  sans: {
+    frame: [0.00, 0.00, 1.00, 1.00],
+    boxes: [
+      [0.00, 0.00, 1.00, 0.96],
+      [0.285, 0.725, 1.00, 1.00],
+      [0.355, 0.545, 0.625, 0.803],
+      [0.65, 0.545, 0.92, 0.803],
+      [0.295, 0.145, 0.515, 0.51],
+      [0.54, 0.14, 0.745, 0.51],
+      [0.765, 0.14, 0.995, 0.51],
+    ],
+    embolden: [
+      [-0.08, -0.08],
+      [-0.28, -0.40],
+      [0.50, 0.65],
+      [0.50, 0.65],
+      [0.50, 0.70],
+      [0.65, 0.72],
+      [0.70, 0.75],
+    ],
+  },
+  serif: {
+    frame: [0.00, 0.00, 1.00, 1.00],
+    boxes: [
+      [0.00, 0.00, 1.00, 0.96],
+      [0.265, 0.68, 1.00, 1.00],
+      [0.37, 0.54, 0.618, 0.792],
+      [0.64, 0.54, 0.87, 0.792],
+      [0.29, 0.145, 0.515, 0.508],
+      [0.535, 0.14, 0.745, 0.508],
+      [0.765, 0.14, 0.995, 0.508],
+    ],
+    embolden: [
+      [-0.04, -0.02],
+      [0.12, 0.18],
+      [0.20, 0.70],
+      [0.50, 0.70],
+      [0.50, 0.75],
+      [0.80, 0.85],
+      [0.85, 0.85],
+    ],
+  },
+  fangsong: {
+    frame: [-0.01, -0.01, 1.02, 0.99],
+    boxes: [
+      [0.00, 0.00, 1.00, 0.94],
+      [0.275, 0.665, 1.015, 1.00],
+      [0.37, 0.525, 0.615, 0.768],
+      [0.635, 0.525, 0.875, 0.782],
+      [0.325, 0.19, 0.535, 0.492],
+      [0.555, 0.155, 0.755, 0.492],
+      [0.775, 0.148, 0.995, 0.492],
+    ],
+    embolden: [
+      [-0.22, -0.28],
+      [0.00, 0.05],
+      [0.48, 0.48],
+      [0.92, 0.85],
+      [0.60, 0.48],
+      [0.90, 0.76],
+      [0.95, 0.82],
+    ],
+  },
+  regular: {
+    frame: [-0.04, -0.03, 1.04, 1.02],
+    boxes: [
+      [0.00, 0.00, 1.00, 0.94],
+      [0.255, 0.67, 1.015, 1.00],
+      [0.365, 0.53, 0.615, 0.765],
+      [0.64, 0.53, 0.875, 0.78],
+      [0.335, 0.205, 0.535, 0.495],
+      [0.555, 0.175, 0.755, 0.495],
+      [0.775, 0.165, 0.995, 0.495],
+    ],
+    embolden: [
+      [-0.24, -0.34],
+      [-0.08, -0.02],
+      [0.32, 0.36],
+      [0.92, 0.85],
+      [0.64, 0.52],
+      [0.80, 0.70],
+      [0.94, 0.84],
+    ],
+  },
+  'pen-writing': {
+    frame: [-0.02, -0.01, 1.02, 1.00],
+    boxes: [
+      [0.00, 0.00, 1.00, 0.94],
+      [0.28, 0.68, 1.01, 1.00],
+      [0.37, 0.535, 0.618, 0.782],
+      [0.64, 0.535, 0.87, 0.782],
+      [0.305, 0.155, 0.52, 0.498],
+      [0.545, 0.14, 0.755, 0.498],
+      [0.775, 0.135, 0.995, 0.498],
+    ],
+    embolden: [
+      [-0.20, -0.24],
+      [0.00, 0.02],
+      [0.48, 0.48],
+      [0.80, 0.75],
+      [0.52, 0.42],
+      [0.78, 0.68],
+      [0.88, 0.78],
+    ],
+  },
+}
+
+/** Whether a positive weight widens (+1) or thins (-1) `part`'s contours. */
+function growthDirection(part) {
+  if (!part.part?.contours?.some(c => Array.isArray(c.ops?.[0]))) return 1
+  const ink = w => {
+    const candidate = { ...part, weight: [w, w] }
+    const box = drawnBox(candidate)
+    const mask = fill(groupRings([candidate], 12), 48, box)
+    let count = 0
+    for (let k = 0; k < mask.length; k++) if (mask[k]) count++
+    return count
+  }
+  return ink(0.5) >= ink(0) ? 1 : -1
+}
+
+/**
+ * The seven leaf boxes of `⿺辶⿱宀⿱⿰王尔⿲隹貝招` across all five faces, with
+ * clearance on interior edges when nested inside a larger `face`.
+ * @param {string} key
+ * @param {string} style
+ * @param {number[]} region
+ * @param {number[] | null} [face]
+ * @returns {number[][] | null}
+ */
+export function wealthBoxes(key, style, region, face = null) {
+  const spec = key === WEALTH_IDS ? wealthLayout[style] : null
+  if (!spec) return null
+  const atRoot = !face || region.every((v, i) => Math.abs(v - face[i]) < 1)
+  let frame = region
+  if (!atRoot && face) {
+    const fw = face[2] - face[0], fh = face[3] - face[1]
+    const rw = region[2] - region[0], rh = region[3] - region[1]
+    const leftInset = region[0] > face[0] + 0.02 * fw ? 0.05 * rw : 0
+    const topInset = region[3] < face[3] - 0.02 * fh ? 0.05 * rh : 0
+    if (leftInset || topInset) frame = [region[0] + leftInset, region[1], region[2], region[3] - topInset]
+  }
+  const inkFrame = atRoot ? mapped(spec.frame, [0, 0, 1, 1], frame) : frame
+  return spec.boxes.map(box => mapped(box, [0, 0, 1, 1], inkFrame))
+}
+
 // The second inscription in UHK 港生活's photograph of four red fai chun (日進斗金, 2015-02-12,
 // https://hk.ulifestyle.com.hk/topic/detail/200474/). Bounds are in reading order of the five
 // leaves of ⿱⿰日斗⿺辶⿰隹金: 日, 斗, 辶, 隹, 金.
@@ -480,6 +634,20 @@ const linDaHuoFix = {
   },
 }
 
+// Regular's host cut of 隹 from 䳡 (⿰隹鳥) carries contour 4 ([476, 52, 547, 210]),
+// the leftmost 灬 dot of 鳥. Drop it when drawing 䳡's 隹 in 招財進寶.
+const REGULAR_BIRD_HOST_HASH = '0465b12c59d76ca4e931e099bca1a37dbd292a2205c10af8d020f74439a9ed58'
+
+function cleanRegularBird(part, composer, target) {
+  if (composer.fontStyle !== 'regular' || !/^(?:host|learned) 䳡$/.test(part.origin) || part.part.contours.length !== 5) {
+    return { ...part, target }
+  }
+  const record = composer.glyphRecord?.('䳡')
+  if (!record || hexOf(JSON.stringify(record.p)) !== REGULAR_BIRD_HOST_HASH) return { ...part, target }
+  const clean = derived(part.part, part.part.contours.slice(0, 4))
+  return placed(clean, clean.box, target, part.native, part.origin)
+}
+
 // TW-Kai's standalone 虍 draws a compact radical 七 high under the hood, leaving the lower half empty.
 // Pair 虍's outer hood with a full-body 七 (its bar gently tucked inside the sweep) and 劇's 刂.
 const REGULAR_HU_KNIFE_GLYPHS = {
@@ -560,6 +728,24 @@ export const COMPONENT_FIXES = {
       const dotBox = boxOf(dot)
       const dx = centreX(room) - centreX(dotBox), dy = centreY(room) - centreY(dotBox)
       return [mouth, { ...dot, target: dot.target.map((v, i) => v + (i % 2 ? dy : dx)) }]
+    },
+  },
+  [WEALTH_IDS]: {
+    glyphs: {},
+    apply(parts, composer, region) {
+      const boxes = wealthBoxes(WEALTH_IDS, composer.fontStyle, region, composer.face)
+      const spec = wealthLayout[composer.fontStyle]
+      if (!boxes || !spec || parts.length !== boxes.length) return parts
+      return parts.map((part, i) => {
+        let base = i === 4 ? cleanRegularBird(part, composer, boxes[i]) : { ...part, target: boxes[i] }
+        if (i === 5 && composer.fontStyle === 'sans' && !composer.excluded?.('貝')) {
+          const bei = composer.glyph?.('貝')
+          if (bei) base = placed(bei, bei.box, boxes[i], composer.ink('貝'), 'glyph 貝')
+        }
+        const dir = growthDirection(base)
+        const [ex, ey] = spec.embolden[i]
+        return { ...base, weight: [dir * ex, dir * ey], fixed: true }
+      })
     },
   },
   '⿰𭃂尤': {
