@@ -40,6 +40,10 @@ export declare function enclosedZeroTarget(zero: any, opening: any): any[];
  * A correction that cannot find the parts it names leaves the drawing as it is.
  */
 export declare const COMPONENT_FIXES: {
+    '\u2FF0\u864D\u5202': {
+        glyphs: {};
+        apply(parts: any, composer: any, region: any): any;
+    };
     '\u2FF2\uD840\uDCA4\u65E5\u5343': {
         glyphs: {};
         apply(parts: any, composer: any): any;
