@@ -40,6 +40,30 @@ const layouts = {
     '⿰设正': { encoded: '', cells: [['设', [9, -87, 518, 856], [0.71, -0.09]], ['正', [551, -68, 984, 816], [0.88, -0.12]]] },
   },
   fangsong: {
+    '⿵門水': {
+      encoded: '閖',
+      donors: {
+        門: { char: '閑', digest: 'c480c2c69be38eae1aa7e369ed6d61bbfa3e7fbdeb5c787cb5aac589562d7be0', indices: [0, 1, 3], box: [74.8, -131.7, 933.8, 854.8] },
+        水: { char: '水', digest: '7e2cec0cc9ccd5a99e9a737ac01dd7d53c0bb4e7bc3f1c788993d9be90a3d123', indices: [0, 1], box: [252.0, -15.0, 730.0, 440.0] },
+      },
+      cells: [['門', [74.8, -131.7, 933.8, 854.8]], ['水', [252.0, -15.0, 730.0, 440.0], [0.92, 0.85]]],
+    },
+    '⿵門玉': {
+      encoded: '閠',
+      donors: {
+        門: { char: '閑', digest: 'c480c2c69be38eae1aa7e369ed6d61bbfa3e7fbdeb5c787cb5aac589562d7be0', indices: [0, 1, 3], box: [78.8, -128.5, 935.5, 854.6] },
+        玉: { char: '玉', digest: '9dcae33543c4eb2e95a8994ebe6c97e1472eb592b5e662f5b1d6bff2e0e0800a', indices: [0, 1], box: [260.0, 12.0, 722.0, 425.0] },
+      },
+      cells: [['門', [78.8, -128.5, 935.5, 854.6]], ['玉', [260.0, 12.0, 722.0, 425.0], [0.85, 0.78]]],
+    },
+    '⿵門山': {
+      encoded: '閊',
+      donors: {
+        門: { char: '閑', digest: 'c480c2c69be38eae1aa7e369ed6d61bbfa3e7fbdeb5c787cb5aac589562d7be0', indices: [0, 1, 3], box: [73.6, -127.8, 941.9, 853.2] },
+        山: { char: '山', digest: '188470c3286072f1bdf3e44efccfaad19e3387b174aa685ea3deaab19b1efd1a', indices: [0], box: [275.0, 25.0, 710.0, 420.0] },
+      },
+      cells: [['門', [73.6, -127.8, 941.9, 853.2]], ['山', [275.0, 25.0, 710.0, 420.0], [0.80, 0.95]]],
+    },
     '⿰弓哥': {
       encoded: '彁',
       donors: {
