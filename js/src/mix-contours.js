@@ -1250,14 +1250,25 @@ function cutRing(ring, targets, within, cap, clear = [], prefer = 'neck', open =
  * strokes that close a loop in this face and stand apart in the others.
  * @param {number[][][]} island @param {number[][][][]} others */
 function strayCounters(island, others) {
-  const mid = (/** @type {number[][]} */ ring) => {
-    const [x, y, right, bottom] = ringBox(ring)
-    return [(x + right) / 2, (y + bottom) / 2]
-  }
-  const theirs = others.flatMap((other) => other.slice(1))
-  return island
-    .slice(1)
-    .filter((hole) => !theirs.some((other) => inside(mid(other), hole) || inside(mid(hole), other)))
+  // Points just inside a counter, all round it: the middle of its box can lie outside it.
+  const within = (/** @type {number[][]} */ ring) =>
+    ring.slice(0, -1).flatMap((p, i) => {
+      const q = ring[i + 1],
+        length = Math.hypot(q[0] - p[0], q[1] - p[1]) || 1
+      const mid = [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2],
+        across = [(-(q[1] - p[1]) / length) * 0.5, ((q[0] - p[0]) / length) * 0.5]
+      return [
+        [mid[0] + across[0], mid[1] + across[1]],
+        [mid[0] - across[0], mid[1] - across[1]]
+      ].filter((point) => inside(point, ring))
+    })
+  const theirs = others.flatMap((other) => other.slice(1)).map((ring) => ({ ring, points: within(ring) }))
+  return island.slice(1).filter((hole) => {
+    const points = within(hole)
+    return !theirs.some(
+      (other) => other.points.some((p) => inside(p, hole)) || points.some((p) => inside(p, other.ring))
+    )
+  })
 }
 
 /** Faces that draw as one island what another draws as several (a stroke that runs

@@ -8,13 +8,19 @@ import { ASCENT, pathRings } from './geometry.js'
 export function inkPolygons(rings) {
   const paths = rings.map((r) => {
     const pts = []
-    for (let i = 0; i < r.length; i += 2) pts.push({ X: Math.round(r[i] * 4096), Y: Math.round(r[i + 1] * 4096) })
+    for (let i = 0; i < r.length; i += 2)
+      pts.push({ X: Math.round(r[i] * 4096), Y: Math.round(r[i + 1] * 4096) })
     return pts
   })
   const engine = new clipper.Clipper()
   engine.AddPaths(paths, clipper.PolyType.ptSubject, true)
   const tree = new clipper.PolyTree()
-  engine.Execute(clipper.ClipType.ctUnion, tree, clipper.PolyFillType.pftNonZero, clipper.PolyFillType.pftNonZero)
+  engine.Execute(
+    clipper.ClipType.ctUnion,
+    tree,
+    clipper.PolyFillType.pftNonZero,
+    clipper.PolyFillType.pftNonZero
+  )
   const areaOf = (/** @type {number[][]} */ ring) => {
     let twice = 0
     for (let i = 0; i + 1 < ring.length; i++)
@@ -59,6 +65,114 @@ export function settledRings(rings) {
   return out.map((path) => {
     // Clipper turns its frames forward; keep the way the rings came.
     const ring = (forward ? path : path.slice().reverse()).map((p) => [p.X / 4096, p.Y / 4096])
+    return [...ring, ring[0]]
+  })
+}
+
+/** Pieces cut from one island and blended apart leave hairlines between them partway
+ * through a mix: the gap that separates them in one face, at a fraction of its width. Gaps
+ * narrower than twice `reach` between two such pieces are filled, so the pieces stay joined
+ * until the gap is wide enough to read as one. Ink elsewhere is left as it is, and where
+ * nothing is filled the rings come back as they were.
+ * @param {number[][][][]} pieces each piece's closed rings, counters turning against their frames
+ * @param {boolean[]} cut which pieces were cut from a larger island
+ * @param {number} reach
+ * @returns {number[][][]} closed rings */
+export function weldedRings(pieces, cut, reach) {
+  const all = pieces.flat()
+  if (!(reach > 0) || cut.filter(Boolean).length < 2) return all
+  const unit = 4096
+  const { Clipper, ClipperOffset, ClipType, PolyType, PolyFillType, JoinType, EndType } = clipper
+  /** @typedef {{ X: number, Y: number }[][]} Paths */
+  // The rings come sampled far more finely than they are drawn; thinned to a tenth of a
+  // unit they clip many times faster and draw the same.
+  const pathsOf = (/** @type {number[][][]} */ rings) =>
+    rings.map((ring) =>
+      simplify(ring, 0.1).map(([x, y]) => ({ X: Math.round(x * unit), Y: Math.round(y * unit) }))
+    )
+  const clip = (
+    /** @type {number} */ type,
+    /** @type {Paths} */ subject,
+    /** @type {Paths} */ other = []
+  ) => {
+    const engine = new Clipper()
+    engine.AddPaths(subject, PolyType.ptSubject, true)
+    if (other.length) engine.AddPaths(other, PolyType.ptClip, true)
+    /** @type {Paths} */
+    const out = []
+    engine.Execute(type, out, PolyFillType.pftNonZero, PolyFillType.pftNonZero)
+    return out
+  }
+  const grown = (/** @type {Paths} */ paths, /** @type {number} */ by) => {
+    const offset = new ClipperOffset(8, unit / 16)
+    offset.AddPaths(paths, JoinType.jtMiter, EndType.etClosedPolygon)
+    /** @type {Paths} */
+    const out = []
+    offset.Execute(out, by * unit)
+    return out
+  }
+  const boxOf = (/** @type {Paths} */ paths) => {
+    const box = [Infinity, Infinity, -Infinity, -Infinity]
+    for (const path of paths)
+      for (const p of path) {
+        box[0] = Math.min(box[0], p.X)
+        box[1] = Math.min(box[1], p.Y)
+        box[2] = Math.max(box[2], p.X)
+        box[3] = Math.max(box[3], p.Y)
+      }
+    return box
+  }
+  const whole = clip(ClipType.ctUnion, pathsOf(all))
+  const sealed = grown(grown(whole, reach), -reach)
+  // What sealing adds, one patch at a time. A patch that touches two cut pieces lies in the
+  // gap between them; one that touches a single piece fills a crotch of its own outline.
+  const engine = new Clipper()
+  engine.AddPaths(sealed, PolyType.ptSubject, true)
+  engine.AddPaths(whole, PolyType.ptClip, true)
+  const tree = new clipper.PolyTree()
+  engine.Execute(ClipType.ctDifference, tree, PolyFillType.pftNonZero, PolyFillType.pftNonZero)
+  /** Each patch with the holes it has, so that a ring-shaped patch does not fill what it rings.
+   * @type {Paths[]} */
+  const patches = clipper.JS.PolyTreeToExPolygons(tree).map((p) => [p.outer, ...p.holes])
+  const near = 0.3 * unit
+  const parts = pieces.flatMap((rings, k) => {
+    if (!cut[k]) return []
+    const paths = pathsOf(rings)
+    const box = boxOf(paths)
+    return [{ paths, box: [box[0] - near, box[1] - near, box[2] + near, box[3] + near] }]
+  })
+  /** Whether a point lies on a part's outline, within a little. */
+  const on = (/** @type {{ X: number, Y: number }} */ p, /** @type {Paths} */ paths) =>
+    paths.some((path) =>
+      path.some((a, i) => {
+        const b = path[(i + 1) % path.length]
+        const dx = b.X - a.X,
+          dy = b.Y - a.Y,
+          length = dx * dx + dy * dy
+        const t = length ? Math.min(1, Math.max(0, ((p.X - a.X) * dx + (p.Y - a.Y) * dy) / length)) : 0
+        return Math.hypot(a.X + t * dx - p.X, a.Y + t * dy - p.Y) <= near
+      })
+    )
+  const kept = patches.filter((patch) => {
+    const box = boxOf(patch)
+    let touched = 0
+    for (const part of parts) {
+      if (part.box[0] > box[2] || part.box[2] < box[0] || part.box[1] > box[3] || part.box[3] < box[1])
+        continue
+      if (patch.some((path) => path.some((p) => on(p, part.paths))) && ++touched > 1) return true
+    }
+    return false
+  })
+  if (!kept.length) return all
+  const out = clip(ClipType.ctUnion, [...whole, ...kept.flatMap((patch) => grown(patch, 0.05))])
+  // Clipper turns its frames forward; keep the way the rings came, which other parts share.
+  const forward =
+    all[0].reduce((sum, p, i) => {
+      const q = all[0][(i + 1) % all[0].length]
+      return sum + p[0] * q[1] - q[0] * p[1]
+    }, 0) > 0
+  return out.map((path) => {
+    const ring = (forward ? path : path.slice().reverse()).map((p) => [p.X / unit, p.Y / unit])
     return [...ring, ring[0]]
   })
 }
@@ -263,7 +377,10 @@ export function limitDisplacement(drawing, boundary, radius) {
         r
           .map(
             ({ X, Y }, i) =>
-              (i ? 'L' : 'M') + Math.round((X / scale) * 100) / 100 + ' ' + Math.round((Y / scale) * 100) / 100
+              (i ? 'L' : 'M') +
+              Math.round((X / scale) * 100) / 100 +
+              ' ' +
+              Math.round((Y / scale) * 100) / 100
           )
           .join('') + 'Z'
     )

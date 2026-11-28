@@ -10,7 +10,7 @@ import {
   tangled,
   prepareWeight
 } from './mix-contours.js'
-import { inkPolygons, outlinePath, limitDisplacement } from './mix-outline.js'
+import { inkPolygons, outlinePath, limitDisplacement, weldedRings } from './mix-outline.js'
 import { STROKE } from './slot-placeholder.js'
 import { ASCENT, fill, pathRings, pointsBox, union } from './geometry.js'
 import { groupParts } from './group-parts.js'
@@ -101,6 +101,9 @@ function strokeUnits(labels, counts) {
   const all = [...units.values()]
   return all.length > 1 && all.every((unit) => unit.every((contours) => contours.length)) ? all : null
 }
+
+/** Half the widest gap between cut pieces that an even mix fills, in em units. */
+const WELD = 8
 
 /** @param {string[]} paths @param {([number, number[]][] | undefined)[]} [strokes] */
 function prepareInk(paths, strokes) {
@@ -275,7 +278,10 @@ function prepareInk(paths, strokes) {
   const matched = regions.map(blendOf)
   /** @type {((shares: number[], weight: number) => number[][][])[]} */
   const blenders = matched.flatMap((blend) => blend ?? [])
+  /** Which blenders draw a piece cut from a larger island. */
+  const welded = regions.flatMap((region, i) => (matched[i] ? [cuts.has(region)] : []))
   const rest = regions.filter((_, i) => !matched[i])
+  if (rest.length) welded.push(false)
   if (rest.length)
     blenders.push(
       prepareFields(
@@ -283,7 +289,11 @@ function prepareInk(paths, strokes) {
         side
       )
     )
+  // The last outline drawn, kept for a redraw at the same shares and weight.
+  let last = { key: '', d: '' }
   return (/** @type {number[]} */ shares, /** @type {number} */ weight) => {
+    const key = shares.join(',') + '|' + weight
+    if (last.key === key) return last.d
     const total = present.reduce((n, i) => n + shares[i], 0)
     const proportion = present.map((i) => shares[i] / total)
     const b = mixBox(bounds, proportion)
@@ -295,8 +305,16 @@ function prepareInk(paths, strokes) {
     box[1] += (box[3] * (1 - size)) / 2
     box[2] *= size
     box[3] *= size
-    const rings = blenders.flatMap((blend) => blend(proportion, weight))
-    return rings.map((r) => outlinePath(r, box, box[2] / spanX, box[3] / spanY, pad)).join('')
+    // Cut pieces stay joined until the gap between them is wide enough to read as a gap:
+    // less so as one face takes over, so that a face alone is drawn as it is.
+    const mixed = Math.min(1, 4 * (1 - Math.max(...proportion)))
+    const rings = weldedRings(
+      blenders.map((blend) => blend(proportion, weight)),
+      welded,
+      WELD * scale * mixed
+    )
+    last = { key, d: rings.map((r) => outlinePath(r, box, box[2] / spanX, box[3] / spanY, pad)).join('') }
+    return last.d
   }
 }
 
