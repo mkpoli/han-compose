@@ -133,3 +133,22 @@ it('keeps the least gap between neighbouring parts once they are weighted', asyn
   // Unweighted parts stay where the layout spaced them.
   expect(edges(0)).toEqual([400, 420])
 })
+
+it('keeps the least gap at the closest strokes where the median gap looks clear', async () => {
+  const loaded = source()
+  await loaded.ready()
+  const rect = (x0, y0, x1, y1) => ({ ops: commands('MLLL'), light: Float64Array.from([x0, y0, x0, y1, x1, y1, x1, y0]),
+    heavy: Float64Array.from([x0, y0, x0, y1, x1, y1, x1, y0]), width: [60, 45] })
+  const spaced = least => {
+    const composer = new Composer(loaded.store(), { fontStyle: 'fangsong' })
+    composer.C.FACING_LEAST = least
+    // A block with one spur reaching across most of the gap, as the foot of 艹 reaches the head of 南.
+    const left = placed(makePart([rect(100, 0, 400, 800), rect(400, 380, 520, 420)]), [100, 0, 520, 800], [100, 0, 520, 800], 0, 'test')
+    const right = part([560, 0, 860, 800], [560, 0, 860, 800], [60, 45])
+    composer.space(0, [[left], [right]])
+    return right.target[0] - left.target[2]
+  }
+  // The median gap clears the facing gap, so only the least gap at the spur moves the parts apart.
+  expect(spaced(undefined)).toBe(40)
+  expect(spaced([60, 60])).toBeGreaterThanOrEqual(56)
+})

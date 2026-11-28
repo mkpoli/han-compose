@@ -4,10 +4,14 @@
 import { describe, expect, it } from 'bun:test'
 import { COMPONENT_FIXES, INCOME_IDS, clippedAbove, componentFix, dotIn, incomeBoxes, respanned, withoutContours } from 'han-compose/component-fixes'
 import { Composer } from 'han-compose/compose'
+import { compose } from 'han-compose/loader'
 import { drawnContours, fill, groupRings, makePart, mapped, partOf, placed, pointsBox, union } from 'han-compose/geometry'
+import { constants as smallConstants, layout as smallLayout, shards } from './fixtures/small-export.js'
+import { sourceOver } from './support.js'
 import zhou from './fixtures/zhou-miao.json' with { type: 'json' }
 import gongRecord from './fixtures/fangsong-gong.json' with { type: 'json' }
 import kuruma from './fixtures/kuruma-to.json' with { type: 'json' }
+import huKnife from './fixtures/regular-hu-knife.json' with { type: 'json' }
 import { hexOf } from 'han-compose/sha256'
 
 /** A placed part of rectangular contours: `boxes` in font units, drawn from `source` into `target`. */
@@ -988,5 +992,97 @@ describe('FangSong ⿰𭃂尤', () => {
     const untouched = [learnedYou]
     expect(COMPONENT_FIXES['⿰𭃂尤'].apply(untouched, makeComposer('sans'), region)).toBe(untouched)
     expect(COMPONENT_FIXES['⿰𭃂尤'].apply(untouched, makeComposer('fangsong', new Set(['那'])), region)).toBe(untouched)
+  })
+})
+
+describe('Regular ⿰虍刂', () => {
+  const face = [89.36, -56.05, 914.55, 799.9]
+  const fallback = [
+    part('glyph 虍', [132, -53, 876, 808], [115, -43, 617, 790], [[132, -53, 876, 808]]),
+    part('learned 刹', [635, -43, 889, 782], [642, -43, 889, 782], [[635, -43, 889, 782]]),
+  ]
+  const records = Object.fromEntries(Object.entries(huKnife).map(([ch, rec]) => [ch, partOf(rec)]))
+  const mockComposer = (overrides = {}) => ({
+    fontStyle: 'regular',
+    face,
+    excluded: () => false,
+    glyphRecord: ch => huKnife[ch] ?? null,
+    glyph: ch => records[ch] ?? null,
+    ink: () => 1000,
+    ...overrides,
+  })
+
+  it('builds a full-body TW-Kai 虍 with 七 beside full-height 劇 刂 at root and nested regions', () => {
+    const [left, right] = componentFix('⿰虍刂', fallback, mockComposer(), face)
+    expect(left.origin).toBe('虍 with 七')
+    expect(right.origin).toBe('劇 刂')
+    expect(left.part.contours).toHaveLength(2)
+    expect(right.part.contours).toHaveLength(2)
+    expect(left.fixed).toBe(true)
+    expect(right.fixed).toBe(true)
+
+    const [hoodRings, qiRings] = left.part.contours.map(c => groupRings([{ ...left, part: { ...left.part, contours: [c] } }], 24))
+    const hoodBox = union(hoodRings.map(pointsBox))
+    const qiBox = union(qiRings.map(pointsBox))
+    const knifeBox = union(groupRings([right], 24).map(pointsBox))
+    const fullBox = union([hoodBox, qiBox, knifeBox])
+
+    // Full-body 七 fills the lower half of 虍 while staying clear of 刂.
+    expect(qiBox[1]).toBeLessThan(0)
+    expect(qiBox[3]).toBeLessThan(520)
+    expect(hoodBox[2]).toBeLessThan(knifeBox[0])
+    expect(qiBox[2]).toBeLessThan(knifeBox[0])
+    expect(fullBox[0]).toBeLessThan(95)
+    expect(fullBox[1]).toBeLessThan(-60)
+    expect(fullBox[2]).toBeGreaterThan(895)
+    expect(fullBox[3]).toBeGreaterThan(795)
+
+    // Nested placement maps into the allocated region without fixing weights.
+    const nested = [320, 20, 900, 740]
+    const [nLeft, nRight] = componentFix('⿰虍刂', fallback, mockComposer(), nested)
+    expect(nLeft.fixed).toBeUndefined()
+    expect(nRight.fixed).toBeUndefined()
+    expect(nLeft.target[0]).toBeCloseTo(nested[0], 6)
+    expect(nLeft.target[2]).toBeLessThan(nRight.target[0])
+    expect(nRight.target[2]).toBeLessThanOrEqual(nested[2])
+  })
+
+  it('matches normal and separated compose() output and honors style, exclusion, and digest guards', async () => {
+    const manifest = {
+      format: 7,
+      files: { layout: { path: 'layout.json' }, identity: { path: 'identity.json' } },
+      constants: { ...smallConstants, face, STATIC: true },
+      spelled: [],
+    }
+    const knife = { v: 1, b: [360, -53, 653, 810], p: huKnife.劇.p.slice(2, 4) }
+    const entries = [
+      ...Object.entries(huKnife).map(([ch, G]) => [ch, { G, ink: 1000, nl: G.p.length, o: G.p.length }]),
+      ['刂', { G: knife, ink: 1000, nl: 2, o: 2 }],
+    ]
+    const source = sourceOver({
+      'manifest.json': JSON.stringify(manifest),
+      'layout.json': JSON.stringify(smallLayout),
+      ...shards('g', entries),
+    })
+    const normal = await compose(source, '⿰虍刂', { fontStyle: 'regular' })
+    const separated = await compose(source, '⿰虍刂', { fontStyle: 'regular', separate: true })
+    expect(normal.origins).toEqual(['虍 with 七', '劇 刂'])
+    expect(separated.origins).toEqual(['虍 with 七', '劇 刂'])
+    expect(normal.d).toBe(separated.d)
+
+    for (const fontStyle of ['sans', 'serif', 'fangsong', 'pen-writing']) {
+      expect(componentFix('⿰虍刂', fallback, mockComposer({ fontStyle }), face)).toBe(fallback)
+    }
+    for (const ch of ['劇', '虍', '七', '刂']) {
+      expect(componentFix('⿰虍刂', fallback, mockComposer({ excluded: x => x === ch }), face)).toBe(fallback)
+    }
+    for (const bad of [
+      { glyphRecord: () => null },
+      { glyphRecord: ch => ch === '七' ? { ...huKnife.七, p: [] } : huKnife[ch] },
+      { glyphRecord: ch => ch === '劇' ? { ...huKnife.劇, p: [] } : huKnife[ch] },
+      { glyphRecord: ch => ch === '虍' ? { ...huKnife.虍, p: [] } : huKnife[ch] },
+    ]) {
+      expect(componentFix('⿰虍刂', fallback, mockComposer(bad), face)).toBe(fallback)
+    }
   })
 })
