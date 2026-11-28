@@ -944,6 +944,9 @@ const DRAGON_LEFT = {
  *  own glyph. */
 /** The most a stroke running along a row or a stack may be thick, as a share of its length. */
 const ACROSS_THICK = 0.3
+/** How the part an enclosure already holds and a second part written into it stand together:
+ *  stacked under an upper-left enclosure, side by side over a lower-left one. */
+const HELD_TOGETHER = { '⿸': '⿱', '⿺': '⿰' }
 /** How many of a character's cuts for a place are tried for a foot to cut away. */
 const FOOTLESS_HOSTS = 6
 const FOOTLESS = { '𲎰': { host: '五' }, '𲐬': { host: '巫', doubled: true } }
@@ -1022,6 +1025,8 @@ export class Composer {
     // The pairs written as operands of a row along their own axis, by their node and by their
     // operand list (`narrowRow`).
     this.beside = new WeakSet()
+    /** For a pair `respelled` puts under a lower-left enclosure, the part the enclosure first held. */
+    this.heldFirst = new WeakMap()
     this.approximate = new Set()
     this.coverCache = new Map()
     // Characters whose glyph the export lacks and whose sequence stands in for it.
@@ -4012,11 +4017,21 @@ export class Composer {
     if (grid) return grid.tree
     const enclosure = this.splitEnclosure(node)
     if (enclosure) return enclosure.tree
-    if (node[0] !== '⿸' || node.length !== 3 || typeof node[1] !== 'string') return node
-    let outer
-    try { outer = this.parse(this.sequenceOf(node[1]) ?? '') } catch { return node }
-    if (Array.isArray(outer) && outer[0] === '⿸' && outer.length === 3
-      && !(typeof outer[1] === 'string' && (this.sequenceOf(outer[1]) ?? '').startsWith('⿸'))) return ['⿸', outer[1], ['⿱', outer[2], node[2]]]
+    // An enclosure round a second part holds both: 疒 of 病 hangs over 丙 and what is written
+    // under it, and 辶 of 遲 runs under 犀 and what is written beside it.
+    const held = Object.hasOwn(HELD_TOGETHER, node[0]) ? HELD_TOGETHER[node[0]] : null
+    if (!held || node.length !== 3) return node
+    let outer = node[1]
+    if (typeof outer === 'string') { try { outer = this.parse(this.sequenceOf(outer) ?? '') } catch { return node } }
+    else if (node[0] === '⿸') return node
+    if (Array.isArray(outer) && outer[0] === node[0] && outer.length === 3 && !outer.note
+      && !(typeof outer[1] === 'string' && (this.sequenceOf(outer[1]) ?? '').startsWith(node[0]))) {
+      const pair = [held, outer[2], node[2]]
+      // The part already held keeps the place the font gives it there, and both parts fill their
+      // cells, as a pair beside another part does.
+      if (node[0] === '⿺') { this.heldFirst.set(pair, outer[2]); this.beside.add(pair) }
+      return [node[0], outer[1], pair]
+    }
     return node
   }
 
@@ -4071,6 +4086,10 @@ export class Composer {
 
   /** The drawn part closest to what `node` needs at `index` of `op` inside `box`, as [record, piece]. */
   host(op, index, node, siblings, box, isPlaced = false) {
+    // An enclosing part round a pair `respelled` wrote into it is cut as it stands round the part
+    // it first held (走 from 越 round 戉 for ⿺越事), whose opening that part already fills.
+    const first = op === '⿺' && index === 0 && siblings.length === 1 ? this.heldFirst.get(siblings[0]) : undefined
+    if (first !== undefined) siblings = [first]
     // A forced operand is drawn from its own IDS, not replaced by a host's cut. A direct 艹 is
     // exempt: its form is placed by the caller, or the face's own cut is the connected component.
     if (!(typeof node === 'string' && node === '艹') && this.forced(node)) return null
@@ -4257,6 +4276,14 @@ export class Composer {
   /** Both operands' boxes in the em, as the learned layout sets them. A construct that is drawn has
    *  no character of its own, and is read as the character it is a shape of (`like`). */
   predict(op, children) {
+    // A pair written into a lower-left enclosure stands where the part it first held stands (犀
+    // under 辶 in 遲), out to the right of the enclosure's foot.
+    const first = op === '⿺' && children.length === 2 ? this.heldFirst.get(children[1]) : undefined
+    if (first !== undefined) {
+      const boxes = this.predict(op, [children[0], first])
+      const right = Math.max(boxes[0][2], boxes[1][2])
+      return [boxes[0], [boxes[1][0], boxes[1][1], right, boxes[1][3]]]
+    }
     const keys = children.map(child => (this.constructed(child, this.face) && CONSTRUCTS[keyOf(child)].like) || this.renderKey(child))
     return forward(this.layout, features(this.layout, op, keys.map(k => this.rec(k === '⺿' || k === '⻀' ? '艹' : k)), [this.slot(op, 0), this.slot(op, 1)]))
   }
@@ -4469,7 +4496,10 @@ export class Composer {
       if (!part) {
         // A part with no host cut (a description, an empty slot) is set over a swept foot by
         // `shares`: where it will sweep the outer glyph, answer nothing and `node` hands it the pair.
-        if (op === '⿺' && i === 1 && !kinned && this.sweptUnder(children, this.enclosing(op, children, frameOf), frameOf)) return null
+        // An enclosing part cut from a character the font draws round another part (是 from 題) is
+        // already drawn round it, and holds this part as that part.
+        const designed = Boolean(groups[0]?.some(part => !part.origin.startsWith('glyph')))
+        if (op === '⿺' && i === 1 && !kinned && !designed && this.sweptUnder(children, this.enclosing(op, children, frameOf), frameOf)) return null
         if (op in this.ENCLOSE && i === 1) {
           // An inner the opening cannot hold is drawn into the opening itself, so it cannot
           // overflow the frame. A grid drawn whole can still have one row smaller than the other
@@ -6622,6 +6652,46 @@ export function fitInside(outer, inner, region, stem, C, { size = 64, room = nul
   return false
 }
 
+/** A foot joined to the strokes above it in one outline: the height the foot itself takes, how near
+ *  the glyph's left edge the outline starts, each as a share of the glyph, the heights tried for
+ *  where the foot's stroke leaves the strokes above it, and the widest run, in stroke spans, that
+ *  is a stroke crossing the row rather than one along it. */
+const SWEEP_JOINED = [0.2, 0.1, 32, 1.6]
+/** Each point's move across for a foot joined to the strokes above it (`sweptPart`), or null where
+ *  the outline holds no stroke past `edge` above its foot. */
+function joinedSweep(pts, ring, [x0, y0, x1, y1], edge, pressed, end, stem) {
+  const w = x1 - x0, h = y1 - y0, footTop = y0 + SWEEP_JOINED[0] * h
+  let left = Infinity
+  for (let i = 0; i < pts.length; i += 2) left = Math.min(left, pts[i])
+  if (left > x0 + SWEEP_JOINED[1] * w) return null
+  const poly = []
+  for (let i = 0; i + 1 < ring.length; i += 2) poly.push([ring[i], ring[i + 1]])
+  // The waist: the height at which the outline reaches least far across, between the foot and the
+  // strokes above it.
+  let level = null, reach = Infinity, past = false
+  for (let k = 0; k < SWEEP_JOINED[2]; k++) {
+    const y = footTop + (k + 0.5) * (y1 - footTop) / SWEEP_JOINED[2], right = spansAt(poly, y).at(-1)?.[1]
+    if (right === undefined) continue
+    if (right < reach) { level = y; reach = right; past = false }
+    else if (right > edge && right > reach + SWEEP_JOINED[1] * w) past = true
+  }
+  if (level === null || !past || !(end > reach)) return null
+  // A stroke the row crosses narrowly (an upright, a falling stroke) moves as a whole, so it keeps
+  // its width; a long run along the row (a bar) is pressed along its length.
+  const press = x => (x - x0) * (pressed - 1)
+  const moved = (x, y) => {
+    const run = spansAt(poly, y).find(([a, b]) => x >= a - 1 && x <= b + 1)
+    return run && run[1] - run[0] <= SWEEP_JOINED[3] * stem ? press((run[0] + run[1]) / 2) : press(x)
+  }
+  const waist = moved(reach, level)
+  return pts.map((x, i) => {
+    if (i % 2) return 0
+    if (pts[i + 1] >= level || x <= reach) return moved(x, pts[i + 1])
+    return x <= end ? reach + waist + (x - reach) * (end - reach - waist) / (end - reach) - x : 0
+  })
+}
+/** The share of `SWEEP_RISE` a foot drawn as a stroke of its own must rise. */
+const SWEEP_RISE_ALONE = 0.85
 /**
  * A glyph drawn round the lower left of another part as a designer draws it there (`_swept`): its
  * strokes pressed left of `edge`, the stroke sweeping along its foot drawn out under the other part.
@@ -6634,8 +6704,12 @@ export function sweptPart(p, edge, C, tail = null) {
   const turned = turnedSweep(p, contours, [x0, y0, x1, y1], edge, C)
   if (turned !== undefined) return turned
   const [reach, foot] = C.SWEEP_REACH
-  const sweeps = boxes.map((b, k) => [b, k]).filter(([b]) => b[2] >= x1 - reach * (x1 - x0) && b[1] <= y0 + foot * (y1 - y0)
-    && b[3] - b[1] >= C.SWEEP_RISE * (y1 - y0)).map(([, k]) => k)
+  const rising = rise => boxes.map((b, k) => [b, k]).filter(([b]) => b[2] >= x1 - reach * (x1 - x0) && b[1] <= y0 + foot * (y1 - y0)
+    && b[3] - b[1] >= rise * (y1 - y0)).map(([, k]) => k)
+  // A face that draws the foot as a stroke of its own (the ㇏ of a Mincho 是) has it a little lower
+  // than one that joins it to the stroke falling into it.
+  let sweeps = rising(C.SWEEP_RISE), alone = false
+  if (!sweeps.length) { sweeps = rising(SWEEP_RISE_ALONE * C.SWEEP_RISE); alone = true }
   if (sweeps.length !== 1 || contours.length < 2) return null
   const sweep = sweeps[0], pts = contours[sweep]
   // A glyph drawn as one outline with its counters (Klee One's 电) has no separate stroke to sweep:
@@ -6658,7 +6732,16 @@ export function sweptPart(p, edge, C, tail = null) {
   // Each point's displacement is read from the stroke as drawn and added to both masters, so the
   // stem and the hook keep their own width in each: the inner edges of the heavy ones lie between
   // `turn` and `end`, where the foot is drawn out.
-  const dx = pts.map((x, i) => i % 2 ? 0 : x <= turn ? shift : x <= end ? start + (x - turn) * (end - start) / (end - turn) - x : 0)
+  // A foot drawn as a stroke of its own starts under an upright of another outline (the 疋 of a
+  // Mincho 是), which is pressed: its start is pressed with it, so the upright does not stand out
+  // below the foot. A foot of the sweeping stroke itself keeps its upright's width.
+  const lead = x => alone ? (x - x0) * (pressed - 1) : shift
+  const startAt = alone ? x0 + (turn - x0) * pressed : start
+  const along = pts.map((x, i) => i % 2 ? 0 : x <= turn ? lead(x) : x <= end ? startAt + (x - turn) * (end - startAt) / (end - turn) - x : 0)
+  // A brush face joins the foot to strokes above it in one outline (the bar of 疋 in 是). Above the
+  // outline's waist it is pressed with the other strokes; below, it is pressed as far across as
+  // the waist reaches and drawn out from there, so the stroke is whole where the two meet.
+  const dx = joinedSweep(pts, sweepRing, [x0, y0, x1, y1], edge, pressed, end, C.STEM_SPAN) ?? along
   const drawnOut = points => points.map((value, i) => value + dx[i])
   const [sx, sy] = scaleOf(p)
   const cx = (p.source[0] + p.source[2]) / 2, cy = (p.source[1] + p.source[3]) / 2
