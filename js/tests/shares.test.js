@@ -85,6 +85,115 @@ it('cuts a component the face does not draw from the same axis of another place'
   expect(out.origins).not.toContain('glyph 䒑')
 })
 
+// 𲎰 is Extension J: Jigmo alone draws it, no sequence describes it and no host holds a cut of it.
+it('draws a character only another face draws, with no sequence, in every style', async () => {
+  const foreign = character('𲎰', [[100, 0, 300, 800]])
+  foreign.G.v = 0
+  const input = { ...files, 'identity.json': identityOf(Object.entries({ ...records, '𲎰': foreign })), ...shards('g', [['𲎰', foreign]]) }
+  for (const fontStyle of ['sans', 'serif', 'fangsong', 'regular', 'pen-writing']) {
+    const out = await compose(sourceOf(input), '⿰𲎰口', { separate: true, fontStyle })
+    expect(out.origins).toContain('glyph 𲎰')
+    const cells = await compose(sourceOf(input), '⿰𲎰口', { separate: true, fontStyle, layout: 'cells' })
+    expect(cells.origins).toContain('cells 𲎰')
+  }
+})
+
+// 𲖀 is ⿰口推 in the bundled Extension J sequences; the export holds Jigmo's outline alone.
+it('draws an Extension J character from its sequence, in the parts of the face', async () => {
+  const foreign = character('𲖀', [[100, 0, 900, 800]])
+  foreign.G.v = 0
+  const push = character('推', [[400, 0, 900, 800]])
+  const entries = { '𲖀': foreign, 推: push }
+  const input = { ...files, 'identity.json': identityOf(Object.entries({ ...records, ...entries })), ...shards('g', Object.entries(entries)) }
+  for (const fontStyle of ['sans', 'serif', 'fangsong', 'regular', 'pen-writing']) {
+    for (const sequence of ['𲖀', '⿱木𲖀', '⿰木𲖀']) {
+      const out = await compose(sourceOf(input), sequence, { separate: true, fontStyle })
+      expect(out.origins).toContain('glyph 推')
+      expect(out.origins).not.toContain('glyph 𲖀')
+    }
+  }
+  // Without 推 the sequence cannot be drawn, and the outline stays.
+  const alone = { ...files, 'identity.json': identityOf(Object.entries({ ...records, '𲖀': foreign })), ...shards('g', [['𲖀', foreign]]) }
+  expect((await compose(sourceOf(alone), '⿰木𲖀', { separate: true })).origins).toContain('glyph 𲖀')
+})
+// 𲎰 is 五 without its bottom stroke; no sequence spells that, so the face's own 五 is cut.
+it('cuts an Extension J character from the character of the face it is a part of', async () => {
+  const foreign = character('𲎰', [[100, 0, 900, 800]])
+  foreign.G.v = 0
+  const five = character('五', [[100, 0, 900, 80], [200, 80, 280, 700], [600, 80, 680, 700], [100, 700, 900, 780]])
+  const entries = { '𲎰': foreign, 五: five }
+  const input = { ...files, 'identity.json': identityOf(Object.entries({ ...records, ...entries })), ...shards('g', Object.entries(entries)) }
+  for (const fontStyle of ['sans', 'serif', 'fangsong', 'regular', 'pen-writing']) {
+    for (const sequence of ['𲎰', '⿰𲎰口']) {
+      const out = await compose(sourceOf(input), sequence, { separate: true, fontStyle })
+      // The upper bar and the two legs, without the bar they stood on.
+      expect(out.parts[0].d.match(/M/g)).toHaveLength(3)
+    }
+  }
+  // Without 五 the outline of the other face stays.
+  const alone = { ...files, 'identity.json': identityOf(Object.entries({ ...records, '𲎰': foreign })), ...shards('g', [['𲎰', foreign]]) }
+  expect((await compose(sourceOf(alone), '𲎰', { separate: true })).parts[0].d.match(/M/g)).toHaveLength(1)
+})
+
+// 𲐬 is 巫 without its bottom stroke and with four 人: the 人 on each side of the stem is doubled.
+it('draws 𲐬 from the 巫 of the face with a second 人 under each 人', async () => {
+  const foreign = character('𲐬', [[100, 0, 900, 800]])
+  foreign.G.v = 0
+  const shaman = character('巫', [[100, 0, 900, 80], [460, 80, 540, 720], [100, 720, 900, 800], [200, 200, 350, 600], [650, 200, 800, 600]])
+  const entries = { '𲐬': foreign, 巫: shaman }
+  const input = { ...files, 'identity.json': identityOf(Object.entries({ ...records, ...entries })), ...shards('g', Object.entries(entries)) }
+  for (const fontStyle of ['sans', 'serif', 'fangsong', 'regular', 'pen-writing']) {
+    const out = await compose(sourceOf(input), '𲐬', { separate: true, fontStyle })
+    // The bar, the stem and two 人 on each side of it.
+    expect(out.parts[0].d.match(/M/g)).toHaveLength(6)
+  }
+})
+
+// Beside another part the face draws 五 narrow, as in 伍: 𲎰 there is cut from that narrow 五.
+it('cuts 𲎰 from the form 五 takes in the place it stands in', async () => {
+  const foreign = character('𲎰', [[100, 0, 900, 800]])
+  foreign.G.v = 0
+  const five = character('五', [[100, 0, 900, 80], [200, 80, 280, 700], [600, 80, 680, 700], [100, 700, 900, 780]])
+  const host = character('伍', [[600, 0, 900, 80], [640, 80, 680, 700], [820, 80, 860, 700], [600, 700, 900, 780], [100, 0, 400, 800]])
+  const entries = { '𲎰': foreign, 五: five, 伍: host }
+  const cut = { h: '伍', i: 1, op: '⿰', ok: ['亻'], v: 1, c: { k: [0, 1, 2, 3], b: [600, 0, 900, 780], fr: [0, 0, 1000, 1000] } }
+  const input = { ...files, 'identity.json': identityOf(Object.entries({ ...records, ...entries })), ...shards('g', Object.entries(entries)), ...shards('p', [['R\t五', [cut]]]) }
+  const out = await compose(sourceOf(input), '⿰口𲎰', { fontStyle: 'sans' })
+  expect(out.origins.some(origin => origin.endsWith(' 伍'))).toBe(true)
+  expect(out.origins).not.toContain('glyph 𲎰')
+})
+
+// 二 on the left has a cut in another face's font alone; the face's own cut is on the right, in
+// 仁, where its bars are spread to the height of 亻.
+it('draws bars beside another part from their own glyph, not a cut spread on the facing side', async () => {
+  const two = character('二', [[250, 550, 750, 620], [100, 200, 900, 270]])
+  const other = character('𠚧', [[100, 100, 400, 170], [100, 700, 400, 770], [600, 0, 900, 800]])
+  other.G.v = 0
+  const benevolent = character('仁', [[100, 0, 300, 800], [500, 650, 900, 720], [450, 50, 950, 120]])
+  const entries = { 二: two, '𠚧': other, 仁: benevolent }
+  const left = { h: '𠚧', i: 0, op: '⿰', ok: ['刂'], v: 0, c: { k: [0, 1], b: [100, 100, 400, 770], fr: [0, 0, 1000, 1000] } }
+  const right = { h: '仁', i: 1, op: '⿰', ok: ['亻'], v: 1, c: { k: [1, 2], b: [450, 50, 950, 720], fr: [0, 0, 1000, 1000] } }
+  const input = { ...files, 'identity.json': identityOf(Object.entries({ ...records, ...entries })), ...shards('g', Object.entries(entries)), ...shards('p', [['L\t二', [left]], ['R\t二', [right]]]) }
+  const out = await compose(sourceOf(input), '⿰二口', { fontStyle: 'sans' })
+  expect(out.origins).toContain('glyph 二')
+  // 木 has an upright, so its facing cut is still taken.
+  const wood = { h: '休', i: 1, op: '⿰', ok: ['亻'], v: 1, c: { k: [1, 2], b: [450, 0, 950, 800], fr: [0, 0, 1000, 1000] } }
+  const foreign = { h: '𠚧', i: 0, op: '⿰', ok: ['刂'], v: 0, c: { k: [0, 1], b: [100, 100, 400, 770], fr: [0, 0, 1000, 1000] } }
+  const rest = character('休', [[100, 0, 300, 800], [450, 500, 950, 570], [670, 0, 730, 800]])
+  const more = { ...entries, 休: rest }
+  const trees = { ...files, 'identity.json': identityOf(Object.entries({ ...records, ...more })), ...shards('g', Object.entries(more)), ...shards('p', [['L\t木', [foreign]], ['R\t木', [wood]]]) }
+  expect((await compose(sourceOf(trees), '⿰木口', { fontStyle: 'sans' })).origins.some(origin => origin.endsWith(' 休'))).toBe(true)
+})
+
+it('keeps the outline of another face when the sequence of its character cannot be drawn', async () => {
+  const foreign = { ...character('𲎰', [[100, 0, 300, 800]]), s: '⿰木牙' }
+  foreign.G.v = 0
+  const input = { ...files, 'identity.json': identityOf(Object.entries({ ...records, '𲎰': foreign })), ...shards('g', [['𲎰', foreign]]) }
+  const out = await compose(sourceOf(input), '⿰𲎰口', { separate: true, fontStyle: 'fangsong' })
+  expect(out.origins).toContain('glyph 𲎰')
+  expect(out.missing ?? []).not.toContain('𲎰')
+})
+
 it('keeps the baseline of 丛 when a dental host offers a bar above 从', async () => {
   const people = [[200, 180, 270, 680], [600, 180, 670, 680]]
   const bar = [120, 0, 820, 80]
