@@ -212,6 +212,7 @@ export declare class Composer {
     /** A character's sequence: the export's, else the bundled one of an Extension J ideograph, which
      *  the exports' source table does not reach. */
     sequenceOf(ch: any): any;
+    missingDescription(ch: any): string | null;
     atomic(ch: any): boolean;
     /** Outline length: a glyph's, or for an excluded or glyphless character its sequence's operands'. */
     ink(node: any, seen?: Set<any>): any;
@@ -495,7 +496,7 @@ export declare class Composer {
         fixed: boolean;
     }[] | null;
     /** Keep each copy of a repeated glyph at the same size across both rows. */
-    penGrid(node: any, region: any, atRoot: any): any[] | null;
+    penGrid(node: any, region: any, atRoot: any): any;
     /** Preserve the weight of the encoded pyramid when extracting its six editable leaves. */
     yuanParts(node: any, region: any): {
         part: any;
