@@ -35,7 +35,7 @@ function components(mask, size) {
   return count
 }
 
-for (const fontStyle of ['sans', 'serif', 'pen-writing']) {
+for (const fontStyle of ['sans', 'serif', 'fangsong', 'regular', 'pen-writing']) {
   it(`draws JYN00003 and its connected body offline in ${fontStyle}`, async () => {
     for (const [text, leaves] of [[full, 7], [binary, 7], [body, 6]]) {
       expect(onlyBundled(text, false, false, fontStyle)).toBe(true)
@@ -180,5 +180,5 @@ it('seats the Kaisho feet inside the hook bar and keeps native dot scale', () =>
 })
 
 it('uses distinct font-derived faces', async () => {
-  expect(new Set(['sans', 'serif', 'pen-writing'].map(style => componentDrawing(full, style).d)).size).toBe(3)
+  expect(new Set(['sans', 'serif', 'fangsong', 'regular', 'pen-writing'].map(style => componentDrawing(full, style).d)).size).toBe(5)
 })

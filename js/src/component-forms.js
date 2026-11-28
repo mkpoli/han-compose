@@ -15,16 +15,22 @@ import waterEnclosure from './water-enclosure.json' with { type: 'json' }
 import constants from './constants.json' with { type: 'json' }
 import { WINDING, commands, derived, makePart, mapped, partInk, placed, svgPath, union, windingOf, wound } from './geometry.js'
 
+const mergeByStyle = (a = {}, b = {}) => Object.fromEntries(
+  [...new Set([...Object.keys(a), ...Object.keys(b)])].map(style => [style,
+    Array.isArray(a[style]) || Array.isArray(b[style])
+      ? [...(a[style] ?? []), ...(b[style] ?? [])]
+      : { ...a[style], ...b[style] }]))
+
 // Forms cut by hand from TW-Kai and the components every face draws from them, outside the
 // generated Noto and brush forms.
 const data = {
   ...generated,
-  forms: { ...generated.forms, ...overrides.forms },
-  native: { ...generated.native, ...overrides.native },
+  forms: mergeByStyle(generated.forms, overrides.forms),
+  native: mergeByStyle(generated.native, overrides.native),
   sources: { ...generated.sources, ...overrides.sources },
-  donors: { ...generated.donors, ...overrides.donors },
-  force: { ...generated.force, ...overrides.force },
-  replace: { ...generated.replace, ...overrides.replace },
+  donors: mergeByStyle(generated.donors, overrides.donors),
+  force: mergeByStyle(generated.force, overrides.force),
+  replace: mergeByStyle(generated.replace, overrides.replace),
 }
 const formOf = groups => {
   const parts = groups.map(group => makePart(group.map(([ops, points]) => ({ ops: commands(ops), light: points, heavy: points }))))
@@ -37,7 +43,11 @@ const formOf = groups => {
 // A `native` form gives a description its parts and nothing else: an encoded character that holds it
 // keeps its own glyph, and the layout reads what the export records of the description.
 const styles = Object.fromEntries(Object.entries(data.forms).map(([style, forms]) => [style,
-  new Map(Object.entries(forms).map(([text, groups]) => [text, { ...formOf(groups), native: data.native?.[style]?.includes(text) ?? false }]))]))
+  new Map(Object.entries(forms).map(([text, groups]) => {
+    const raw = data.donors?.[style]?.[text]
+    const donors = Array.isArray(raw) ? raw : typeof raw === 'string' ? [raw] : undefined
+    return [text, { ...formOf(groups), native: data.native?.[style]?.includes(text) ?? false, ...(donors ? { donors } : {}) }]
+  }))]))
 for (const [style, groups] of Object.entries(splitGrass)) styles[style].set('⺿', formOf(groups))
 for (const [style, groups] of Object.entries(inwardGrass)) styles[style].set('⻀', formOf(groups))
 // Adobe-Japan1 and Hanyo-Denshi register each of the two dot orientations.
