@@ -952,7 +952,8 @@ export declare class Composer {
      *  and the gap below the 一 of ⿱一𧘇. The gap the donor itself drew says which stacks the designer
      *  closed, and the pair is settled one way or the other, never squeezed apart and then drawn back.
      *  A median gap can look clear while one stroke reaches into the other (𠂊's hook into 巾's bar);
-     *  where the nearest ink overlaps, the pair is settled by that overlap instead. */
+     *  the closest strokes keep the style's least gap as well, and an export without one settles
+     *  overlapping ink by the overlap. */
     space(axis: any, groups: any, nested?: boolean): void;
     /** The style's least gap kept between neighbouring parts once they carry their weights (`_clear`):
      *  `space` measures them as laid out, and a part weighted afterwards grows into the gap. */

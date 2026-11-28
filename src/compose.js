@@ -5571,7 +5571,8 @@ export class Composer {
    *  and the gap below the 一 of ⿱一𧘇. The gap the donor itself drew says which stacks the designer
    *  closed, and the pair is settled one way or the other, never squeezed apart and then drawn back.
    *  A median gap can look clear while one stroke reaches into the other (𠂊's hook into 巾's bar);
-   *  where the nearest ink overlaps, the pair is settled by that overlap instead. */
+   *  the closest strokes keep the style's least gap as well, and an export without one settles
+   *  overlapping ink by the overlap. */
   space(axis, groups, nested = false) {
     if (this.partial) return
     const C = this.C
@@ -5581,9 +5582,11 @@ export class Composer {
       const gaps = facing(a, b, axis)
       if (!gaps) continue
       this.spaced.push([axis, a, b])
-      const gap = gaps.min <= 0 ? gaps.min : gaps.median
-      if (gap >= C.FACING[axis]) continue
-      apart(a, b, axis, C.FACING[axis] - gap, C.SQUEEZE)
+      const least = C.FACING_LEAST?.[axis]
+      const short = least === undefined ? C.FACING[axis] - (gaps.min <= 0 ? gaps.min : gaps.median)
+        : Math.max(C.FACING[axis] - gaps.median, least - gaps.min)
+      if (short <= 0) continue
+      apart(a, b, axis, short, C.SQUEEZE)
     }
   }
 
