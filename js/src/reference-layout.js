@@ -3,7 +3,7 @@ import { mapped } from './geometry.js'
 
 // Brush-face operand bounds, in a 1000-unit em with an 880-unit ascent.
 // 亽 has a short, centered dot below its open roof (TW-Kai U+4EBD).
-/** @typedef {{char: string, digest: string, indices: number[], box: number[]}} DonorCut */
+/** @typedef {{char: string, digest: string, indices?: number[], box: number[], variant?: 'jian-birang', dots?: {char: string, digest: string}}} DonorCut */
 /** @type {Record<string, Record<string, { encoded: string, donors?: Record<string, DonorCut>, cells: [string, number[], [number, number]?][] }>>} */
 const layouts = {
   "pen-writing": {
@@ -52,6 +52,28 @@ const layouts = {
     '⿱宀西': { encoded: '', cells: [['宀', [42, 525, 958, 845]], ['西', [145, -80, 855, 588], [0.10, 0]]] },
   },
   fangsong: {
+    '⿰入鳥': {
+      encoded: '鳰',
+      donors: {
+        入: { char: '入', digest: '3ffad9ebabdc91bdfc8ab954fb7db5970b1c312a876ba8b4ed2c3f1bc3a4dd7c', indices: [0], box: [-15.0, 110.0, 408.0, 695.0] },
+        鳥: { char: '鴿', digest: '76b14836e79e268e8943e0abd4a96f80ab83bf0627890fdb5c9a22fa378b85fa', indices: [0, 3, 5, 6, 7], box: [401.6, -140.4, 991.4, 923.7] },
+      },
+      cells: [['入', [-15.0, 110.0, 408.0, 695.0], [1.05, 0.50]], ['鳥', [401.6, -140.4, 991.4, 923.7]]],
+    },
+    '⿰柬鳥': {
+      encoded: '鶫',
+      donors: {
+        柬: {
+          char: '鶇',
+          digest: '843307dd43c824aa21a731ddef6bf2673012d125583e785fd21fdeb40a568a02',
+          variant: 'jian-birang',
+          dots: { char: '柬', digest: '32b26040644b9f2710fb2ae79f000c3ac591fa29678fe786ee733d1a09c1f6f9' },
+          box: [0.0, -97.8, 512.9, 868.4],
+        },
+        鳥: { char: '鶇', digest: '843307dd43c824aa21a731ddef6bf2673012d125583e785fd21fdeb40a568a02', indices: [1, 5, 7, 8, 9, 10], box: [453.8, -120.0, 1000.0, 880.0] },
+      },
+      cells: [['柬', [0.0, -97.8, 455.0, 868.4]], ['鳥', [465.0, -120.0, 1000.0, 880.0]]],
+    },
     '⿼叉丶': { encoded: '㕚', cells: [['叉', [-15.5, -127.5, 1000.0, 887.5]], ['丶', [92, 206, 284, 436], [0.35, 0.35]]] },
     '⿲意情意': { encoded: '', cells: [['意', [0, -110, 304, 870], [0.55, 0]], ['情', [336, -110, 664, 870], [0.50, 0]], ['意', [696, -110, 1000, 870], [0.55, 0]]] },
     '⿵門水': {
