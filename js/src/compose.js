@@ -49,6 +49,7 @@ import { hangulClusterAt, jamoClass } from './hangul.js'
 import { hangulLetters } from './hangul-ids.js'
 import { toConjoiningJamo } from './hangul.js'
 import { referenceLayout, referenceBoxes, referenceSources } from './reference-layout.js'
+import { fangsongJianBirang } from './fangsong-jian-birang.js'
 import { tileHost } from './fangsong-tile.js'
 import { brushSweepRoom, brushSweepParts } from './brush-sweep-rooms.js'
 import { componentFix, enclosedZeroTarget, INCOME_IDS, incomeBoxes } from './component-fixes.js'
@@ -897,7 +898,10 @@ export const designedSources = (tree, style = 'sans') => {
       }
       for (const donor of Object.values(entry.donors ?? {})) {
         if (donor.parts) for (const piece of donor.parts) out.add(piece.char)
-        else out.add(donor.char)
+        else {
+          out.add(donor.char)
+          if (donor.dots) out.add(donor.dots.char)
+        }
       }
     }
     if (brushSweepRoom(node, style)) {
@@ -2607,6 +2611,17 @@ export class Composer {
       const record = this.glyphRecord(donor.char)
       if (record?.v !== 1 || hexOf(JSON.stringify(record.p)) !== donor.digest) return null
       const parent = partOf(record)
+      if (donor.variant === 'jian-birang') {
+        const dots = donor.dots
+        if (!dots || this.excluded(dots.char)) return null
+        const dotsRecord = this.glyphRecord(dots.char)
+        if (dotsRecord?.v !== 1 || hexOf(JSON.stringify(dotsRecord.p)) !== dots.digest) return null
+        return {
+          glyph: fangsongJianBirang(parent, partOf(dotsRecord)),
+          box: mapped(donor.box, EM_BOX, region),
+          origin: `${source} from ${donor.char}+${dots.char}`,
+        }
+      }
       return {
         glyph: derived(parent, donor.indices.map(k => parent.contours[k])),
         box: mapped(donor.box, EM_BOX, region),
