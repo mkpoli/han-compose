@@ -115,7 +115,11 @@ export function yuanParts(composer, key, region, measure) {
   // The upper 小 occupies the notch between the two lower 白 heads, as in 𤿁.
   const cells = [[.17, .505, .855, 1], [0, 0, .476, .48], [.524, .005, 1, .485]]
   const pairs = cells.map(box => fit(pair, mapped(box, unit, body), '白小'))
-  if (composer.staticFace && !composer.partial) composer.staticBalance(enclosed ? [outer, ...pairs] : pairs)
+  if (!composer.partial) {
+    const group = enclosed ? [outer, ...pairs] : pairs
+    if (composer.staticFace) composer.staticBalance(group)
+    else if (composer.weighted && composer.C.PART_STEMS && composer.C.STATIC) composer.balance(group)
+  }
   const inside = pairs.flatMap(p => [white, small].map((part, i) => ({
     ...fit(part, mapped(part.box, pair.box, p.target), i === 0 ? '白' : '小'), weight: p.weight, fixed: true,
   })))
