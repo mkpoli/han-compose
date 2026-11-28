@@ -864,6 +864,7 @@ export const designedSources = (tree, style = 'sans') => {
       if (bend) out.add(bend)
     }
     const key = keyOf(node)
+    if (key === '⿱一丛' && (style === 'sans' || style === 'serif')) out.add('巫')
     if (key === '⿰舟苗' && style === 'regular') out.add('舳')
     if (key === '⿰車ト' && style === 'regular') { out.add('軋'); out.add('卜') }
     if (key === '⿰水行' && (style === 'regular' || style === 'pen-writing')) out.add('沀')

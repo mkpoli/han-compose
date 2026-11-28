@@ -998,7 +998,26 @@ export const COMPONENT_FIXES = {
         ? 0 : bottomInset * (t - b) - 0.14 * (y - b))
       const source = union(inset.part.contours.map(c => pointsBox(c.light)))
       inset.part.box = source
-      return [bar, { ...inset, source, target: mapped(source, lower.source, lower.target) }]
+      const original = [bar, { ...inset, source, target: mapped(source, lower.source, lower.target) }]
+      const donor = composer.glyphRecord('巫')
+      const sans = composer.fontStyle === 'sans'
+      const outline = sans ? '446cd85f56d84217e8df6ee071b3a1db92f0c21066036c1fda07e45b951911a5'
+        : '14d7484e1699b32f02385ca26e8228fbf95d371736f28c2366e5dc976ee54189'
+      if (donor?.v !== 1 || composer.excluded('巫') || hexOf(JSON.stringify(donor.p)) !== outline) return original
+
+      // The photographed R+0610 has the two people and bars of 巫, with its middle upright omitted.
+      if (!composer.partial) {
+        if (composer.weighted) composer.balance(original)
+        else if (composer.staticFace) composer.staticBalance(original)
+      }
+      const room = union(groupRings(original, 24).map(pointsBox)), host = partOf(donor)
+      const top = sans ? 0 : 3, upright = sans ? 2 : 1
+      const groups = [derived(host, [host.contours[top]]),
+        derived(host, host.contours.filter((_, i) => i !== top && i !== upright))]
+      const piece = (part, index) => placed(part, part.box, part.box, composer.ink('巫'), index ? '丛 from 巫' : '一 from 巫')
+      const native = groups.map(piece)
+      const ink = union(groupRings(native, 24).map(pointsBox))
+      return native.map(p => ({ ...p, target: mapped(p.target, ink, room), fixed: true }))
     },
   },
   '⿰未⿱成公': {
