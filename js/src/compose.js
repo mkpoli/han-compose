@@ -335,6 +335,10 @@ export const CLOSED_NESTED = 0.45
 /** How much of the gap between two stacked operands a donor's overlap has to cover before the pair
  *  is closed: an overlap the designer drew somewhere else (八 under 宀) is no seam to weld shut. */
 const CLOSED_SHARE = 0.15
+/** The widest top span a lower operand may have before `closed` treats it as bar-topped rather than
+ *  peaked: a flaring left leg (月 in woodblock) narrows the top bar's share of the box below
+ *  `COVER_SPAN`, while peaked feet (𧘇) stay narrower still. */
+const CLOSED_SPAN = 0.6
 /** The least share of a three-band stack's height an enclosed middle band takes: a 口 or 日
  *  compressed to a sliver reads as a gap between two bars. */
 const MIDDLE_BAND = 0.4
@@ -4259,8 +4263,18 @@ export class Composer {
   /** Both operands' boxes in the em, as the learned layout sets them. A construct that is drawn has
    *  no character of its own, and is read as the character it is a shape of (`like`). */
   predict(op, children) {
-    const keys = children.map(child => (this.constructed(child, this.face) && CONSTRUCTS[keyOf(child)].like) || this.renderKey(child))
-    return forward(this.layout, features(this.layout, op, keys.map(k => this.rec(k === '⺿' || k === '⻀' ? '艹' : k)), [this.slot(op, 0), this.slot(op, 1)]))
+    const places = [this.slot(op, 0), this.slot(op, 1)]
+    const keys = children.map((child, i) => {
+      const place = places[i], raw = keyOf(child)
+      const like = this.constructed(child, this.face) && CONSTRUCTS[raw].like
+      const resolved = like || this.renderKey(child)
+      const normalized = resolved === '⺿' || resolved === '⻀' ? '艹' : resolved
+      // Match Python's lookup order: literal key first (unless a construct maps it via `like`),
+      // then its normalized/spelled character, then that character's positional forms in `place`.
+      const candidates = [...(like ? [] : [raw]), normalized, ...(this.rec(normalized)?.a?.[place] ?? []), ...(like ? [] : this.rec(raw)?.a?.[place] ?? [])]
+      return candidates.find(alt => this.rec(alt)?.u?.[place]) ?? normalized
+    })
+    return forward(this.layout, features(this.layout, op, keys.map(k => this.rec(k)), places))
   }
 
   /**
@@ -4902,6 +4916,17 @@ export class Composer {
         groups.push(stack)
       }
     })
+    // When every operand of a linear node is cut from the character the node itself spells (雲 for
+    // ⿱雨云, 龖 for ⿰龍龍), keep that character's own piece layout in `region` instead of raw ink shares.
+    const sameHost = !compactYan && groups.length >= 2 && groups.every(g => g.length === 1 && g[0].origin.startsWith('host ') && g[0].origin === groups[0][0].origin)
+      ? groups[0][0].origin.slice(5) : null
+    if (sameHost && this.bySequence(keyOf([op, ...children])) === sameHost) {
+      const sources = groups.map(g => g[0].source), frame = union(sources)
+      const distinct = new Set(sources.map(b => b.join(','))).size === sources.length
+      if (distinct && frame[2] > frame[0] && frame[3] > frame[1]) {
+        for (const [part] of groups) part.target = mapped(part.source, frame, region)
+      }
+    }
     if (compactYan && !this.partial) {
       // Restore just enough room when a whole-glyph outline protrudes toward 朱.
       const size = 512, mask = grown(fill(groupRings(groups[0]), size, region), size, 1)
@@ -5901,7 +5926,7 @@ export class Composer {
   closed(below, above, share = 1) {
     if (below.length !== 1 || !(below[0].gap < 0)) return false
     const box = bounds(below), aboveBottom = bounds(above)[1]
-    if (box[3] <= box[1] || flatTopped(below, box)) return false
+    if (box[3] <= box[1] || topSpan(below, box) >= CLOSED_SPAN) return false
     // The overlap is measured in the donor's units, so it scales with the cut: the peak of ⿱一𧘇
     // reaches the 一's band but leaves a seam under the bar, which the 衣's own overlap closes.
     const reach = -below[0].gap * scaleOf(below[0])[1] * share
@@ -6283,7 +6308,7 @@ function joinedPair(bands, boxes) {
   const foot = bands[k + 1], footBox = boxes[k + 1], aboveBox = boxes[k]
   if (!foot.length || !bands[k].length || !foot.some(part => part.gap < 0)) return -1
   if (!(footBox[3] > footBox[1]) || aboveBox[1] <= footBox[3]) return -1
-  if (flatTopped(foot, footBox)) return -1
+  if (topSpan(foot, footBox) >= CLOSED_SPAN) return -1
   return aboveBox[3] - aboveBox[1] <= COVER_BARRED * (footBox[3] - footBox[1]) ? k : -1
 }
 
