@@ -406,6 +406,9 @@ def test_a_spelled_out_operand_holds_its_characters_ink(composer: compose.Compos
     # 媽 holds less outline than 女 and 馬 standing alone: the description is measured as the character.
     assert composer.ink(compose.parse("⿰女馬")) == composer.ink("媽")
     assert composer.ink(compose.parse("⿰女馬")) < composer.ink("女") + composer.ink("馬")
+    # 亗 fuses contours that 山 and 二 keep apart, so _outlines must count the contracted glyph.
+    assert composer._outlines(compose.parse("⿱山二")) == composer._outlines("亗")
+    assert composer._outlines(compose.parse("⿱山二")) != composer._outlines("山") + composer._outlines("二")
 
 
 def test_the_export_lists_the_room_of_each_enclosing_part(composer: compose.Composer) -> None:

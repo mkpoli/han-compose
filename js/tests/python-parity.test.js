@@ -100,3 +100,8 @@ test('shares keeps a character’s own piece proportions when every operand come
   const [rain2, cloud2] = c2.shares('⿱', ['雨', '云'], [100, 0, 900, 400], false)
   expect(rain2.target[3] - rain2.target[1]).toBeGreaterThan(cloud2.target[3] - cloud2.target[1])
 })
+
+test('alternatives keeps a spelled-out sequence key ahead of its contracted character', () => {
+  expect(composer.alternatives(['⿰', '口', '南'], 'B')).toEqual(['⿰口南', '喃'])
+  expect(composer.alternatives('喃', 'B')).toEqual(['喃'])
+})
