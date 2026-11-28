@@ -4,7 +4,7 @@
 // description it corrects, the SHA-256 outlines of the glyphs it was read against, and the parts it
 // changes; an export drawing other outlines keeps the font's cut. The parts are plain placed pieces,
 // so the corrections work wherever the description is drawn, at any depth.
-import { contourSections, cutContours, derived, drawnBox, fill, fitted, groupRings, makePart, mapped, partOf, placed, pointsBox, targetFor, union } from './geometry.js'
+import { contourSections, cutContours, derived, drawnBox, fill, fitted, groupRings, makePart, mapped, partInk, partOf, placed, pointsBox, targetFor, union } from './geometry.js'
 import { hexOf } from './sha256.js'
 import { penGrassKu } from './grass-ku.js'
 
@@ -648,76 +648,66 @@ export const COMPONENT_FIXES = {
   '⿳丷冖兀': {
     glyphs: {},
     apply(parts, composer, region) {
-      // Compress the top horizontal bar of 兀 smoothly toward its center so it tucks cleanly
-      // inside 冖's walls, while leaving 儿's splayed legs wide below.
-      const narrowTopBar = (contour, box, factor, yStart = 0.62, yFull = 0.78) => {
-        const cx = (box[0] + box[2]) / 2, y0 = box[1], h = box[3] - box[1]
-        if (!(h > 0)) return contour
-        const warp = pts => {
-          const out = Float64Array.from(pts)
-          for (let i = 0; i < out.length; i += 2) {
-            const rel = (out[i + 1] - y0) / h
-            if (rel <= yStart) continue
-            const t = Math.min(1, (rel - yStart) / (yFull - yStart))
-            const s = 1 - (1 - factor) * t * t * (3 - 2 * t)
-            out[i] = cx + (out[i] - cx) * s
-          }
-          return out
-        }
-        return { ...contour, light: warp(contour.light), ...(contour.heavy ? { heavy: warp(contour.heavy) } : {}) }
-      }
-      const scaleContourX = (contour, cx, factor) => {
-        const warp = pts => {
-          const out = Float64Array.from(pts)
-          for (let i = 0; i < out.length; i += 2) out[i] = cx + (out[i] - cx) * factor
-          return out
-        }
-        return { ...contour, light: warp(contour.light), ...(contour.heavy ? { heavy: warp(contour.heavy) } : {}) }
+      if (['一', '儿', '兀'].some(ch => composer.excluded(ch))) return parts
+      const style = composer.fontStyle
+      const cell = box => mapped(box, [0, 0, 1, 1], region)
+      const [dots] = parts
+      if (!dots) return parts
+
+      // Keep 冖 and 儿 (丿 + 乚) completely untransformed: break 兀 into 一 + 儿 and shorten ONLY 一
+      // so the top horizontal bar tucks cleanly inside 冖's walls across all five faces.
+      if (parts.length === 2 && ['sans', 'serif'].includes(style)) {
+        const lower = parts[1], wu = composer.glyph('兀')
+        if (lower.part.contours.length !== 2 || !wu || wu.contours.length !== 3) return parts
+        const boxes = lower.part.contours.map(c => pointsBox(c.light))
+        const coverIdx = boxes[0][1] > boxes[1][1] ? 0 : 1
+        const coverContour = lower.part.contours[coverIdx]
+        const coverPart = derived(lower.part, [coverContour])
+        const cover = placed(coverPart, coverPart.box, cell([0.04, 0.50, 0.96, 0.72]), partInk(coverPart), lower.origin)
+        const wuBox = cell(style === 'sans' ? [0.06, 0.00, 0.94, 0.54] : [0.04, 0.00, 0.96, 0.54])
+        const wuPlaced = placed(wu, wu.box, wuBox, composer.ink('兀'), 'glyph 兀')
+        // Contour 2 in Noto Sans / Serif 兀 is the standalone 一 bar; contours 0 & 1 are untouched 丿 and 乚.
+        const barSpan = cell(style === 'sans' ? [0.19, 0, 0.81, 0] : [0.18, 0, 0.82, 0])
+        const wuShort = respanned(wuPlaced, 2, barSpan[0], barSpan[2])
+        return [dots, cover, wuShort]
       }
 
-      const style = composer.fontStyle
-      if (parts.length === 2 && ['sans', 'serif', 'regular'].includes(style)) {
-        const [dots, lower] = parts
+      const yi = composer.glyph('一'), er = composer.glyph('儿')
+      if (!yi || !er) return parts
+
+      if (style === 'regular' && parts.length === 2) {
+        const lower = parts[1]
         if (lower.part.contours.length !== 2) return parts
         const boxes = lower.part.contours.map(c => pointsBox(c.light))
-        // The upper contour is 冖; the lower contour is 兀.
         const coverIdx = boxes[0][1] > boxes[1][1] ? 0 : 1
-        const feetIdx = 1 - coverIdx
-        const coverBox = boxes[coverIdx], feetBox = boxes[feetIdx]
-        const coverCx = (coverBox[0] + coverBox[2]) / 2
-        const coverStretch = style === 'sans' ? 1.12 : style === 'regular' ? 1.10 : 1.04
-        const barFactor = style === 'sans' ? 0.66 : style === 'regular' ? 0.68 : 0.70
-        const contours = lower.part.contours.map((c, idx) =>
-          idx === coverIdx ? scaleContourX(c, coverCx, coverStretch)
-            : narrowTopBar(c, feetBox, barFactor, 0.66, 0.80))
-        const nextPart = derived(lower.part, contours)
-        return [dots, { ...lower, part: nextPart, source: nextPart.box }]
+        const coverPart = derived(lower.part, [lower.part.contours[coverIdx]])
+        const cover = { ...placed(coverPart, coverPart.box, cell([0.06, 0.49, 0.94, 0.71]), partInk(coverPart), lower.origin), fixed: true }
+        const bar = { ...placed(yi, yi.box, cell([0.21, 0.38, 0.79, 0.49]), composer.ink('一'), 'glyph 一', [0.14, 0.14]), fixed: true }
+        const legs = { ...placed(er, er.box, cell([0.11, 0.00, 0.89, 0.45]), composer.ink('儿'), 'glyph 儿', [0, 0]), fixed: true }
+        return [dots, cover, bar, legs]
       }
 
       if (parts.length !== 3) return parts
-      const [dots, cover, feet] = parts
-      const narrowFeet = (part, factor) => {
-        const contours = part.part.contours.map(c => narrowTopBar(c, part.source, factor, 0.62, 0.78))
-        const nextPart = derived(part.part, contours)
-        return { ...part, part: nextPart, source: nextPart.box }
-      }
-      if (style === 'pen-writing') {
-        const cell = box => mapped(box, [0, 0, 1, 1], region)
-        const tucked = narrowFeet(feet, 0.66)
-        return [
-          dots,
-          { ...cover, target: cell([0.02, 0.50, 0.98, 0.73]) },
-          { ...tucked, target: cell([0.06, 0.00, 0.94, 0.59]) },
-        ]
-      }
+      const [, cover] = parts
       if (style === 'fangsong') {
-        const cell = box => mapped(box, [0, 0, 1, 1], region)
         const dotsBox = fitted(dots.source, cell([0.20, 0.72, 0.80, 0.98]), 1.35)
-        const tucked = narrowFeet(feet, 0.66)
+        const bar = { ...placed(yi, yi.box, cell([0.21, 0.39, 0.79, 0.50]), composer.ink('一'), 'glyph 一', [0.18, 0.18]), fixed: true }
+        const legs = { ...placed(er, er.box, cell([0.10, 0.00, 0.90, 0.45]), composer.ink('儿'), 'glyph 儿', [0, 0]), fixed: true }
         return [
           { ...dots, target: dotsBox },
           { ...cover, target: cell([0.03, 0.49, 0.97, 0.72]) },
-          { ...tucked, target: cell([0.06, 0.00, 0.94, 0.58]) },
+          bar,
+          legs,
+        ]
+      }
+      if (style === 'pen-writing') {
+        const bar = { ...placed(yi, yi.box, cell([0.21, 0.40, 0.79, 0.50]), composer.ink('一'), 'glyph 一', [0, 0]), fixed: true }
+        const legs = { ...placed(er, er.box, cell([0.08, 0.00, 0.92, 0.46]), composer.ink('儿'), 'glyph 儿', [0, 0]), fixed: true }
+        return [
+          dots,
+          { ...cover, target: cell([0.03, 0.50, 0.97, 0.73]) },
+          bar,
+          legs,
         ]
       }
       return parts
