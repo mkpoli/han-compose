@@ -5,22 +5,23 @@ import { hexOf } from './sha256.js'
 // R+07AB (https://rare.glyphatlas.org/ja/entry/1963), Mika-jinja (Misato, Saitama)
 // hanging plaque (Taisuke.Kasuya, CC BY-SA 4.0,
 // https://commons.wikimedia.org/wiki/File:Mika-jinja(Misato,Saitama)_Hengaku.jpg).
-// Assembles ⿱艹⿺夌玉 using each face's standard 艹, the upper 土八 of 菱,
-// the native enclosing 夂 from 麩 (or 处 in Zhuque Fangsong), and weight-balanced 玉.
+// Assembles ⿱艹⿺夌玉 using each face's standard 艹, the upper ⿱土儿 of 夌
+// (or 土八 of 菱 in Zhuque Fangsong), the native enclosing 夂 from 麩 (or 处
+// in Zhuque Fangsong), and weight-balanced 玉.
 // Related encoded forms 𦼆 (⿱艹⿺麦玉) and 𭐨 (⿺夌主) show the same enclosing structure.
 
 const faces = {
   sans: {
     grass: [62, 637, 941, 840],
-    top: { host: '菱', contours: [1, 2, 5, 6, 10], digest: '43439cecaec205e6cff69f7b1a448b5e8e14a10cbcb159a8c73331ed10253e99', box: [38, 360, 512, 610], weight: [0.85, 0.55] },
+    top: { host: '夌', contours: [0, 1, 2, 7, 8], digest: '2af35d6a2656cd6734dd76098369a88f1b5668a597c8fa22f452db9f39c4e424', box: [42, 344, 502, 610], weight: [0.75, 0.65] },
     foot: { host: '麩', contours: [1, 2, 4, 5], digest: '8464a5a2fc2961cb055948720a383d8133f8d370d4fef13517b5eb9270f3c5af' },
-    jade: [534, 64, 956, 610],
+    jade: [530, 64, 954, 610],
   },
   serif: {
     grass: [44, 638, 957, 837],
-    top: { host: '菱', contours: [4, 5, 6, 7, 9], digest: '5f2a0f14140808d1139b74cca6efe70b6a24f3372efe72f97a31b40419228ff0', box: [38, 362, 508, 618], weight: [0.73, 0.45] },
+    top: { host: '夌', contours: [0, 1, 2, 3, 8], digest: '7aaa7594c18c9954eebb712bd3978c012a5f27170b943747394b6011b8c282fc', box: [42, 346, 500, 616], weight: [0.68, 0.58] },
     foot: { host: '麩', contours: [0, 2, 3, 4], digest: '72b60f366601a89859ea72d8db3f8e8eede58145a2d1d4c451ec1b167dd13ee6' },
-    jade: [530, 66, 954, 620],
+    jade: [528, 66, 954, 618],
   },
   fangsong: {
     grass: [91, 584, 904, 828],
@@ -31,14 +32,14 @@ const faces = {
   },
   regular: {
     grass: [183, 602, 807, 816],
-    top: { host: '菱', contours: [0], digest: 'b209240f1a7606d8d99c5704c5dcf0731813587cf51aa5de843eb248a8f6c9e2', box: [76, 326, 510, 588] },
+    top: { host: '夌', contours: [2], digest: '7f629b89013b0cd88c04391d2094c0a8d89fdb2ab49bc76a2c7692c3e8a8dda8', box: [82, 320, 496, 588] },
     foot: { host: '麩', contours: [2, 3], digest: 'ca020e2bccaf46e5af2703ab49491ce821a4d70a2ec639eb8d023cc5a2bf8aa4' },
     jade: [526, 96, 940, 592],
     fixedWeight: true,
   },
   'pen-writing': {
     grass: [108, 594, 890, 824],
-    top: { host: '菱', contours: [1], digest: '943627947ecafb8f5fad026ef1040565ee8e943d08072f11e6465e2bde0ea173', box: [68, 318, 524, 582] },
+    top: { host: '夌', contours: [0], digest: '1f6225db987f9a178fc4d8979c113c9bde1850d3360a70b5d84388e6abe98272', box: [70, 314, 504, 582] },
     foot: { host: '麩', contours: [4, 5], digest: 'e40d346a612d9fc4b2f765d53aaef201eaa0f95edfa4e159b5534aec6132ca1f' },
     jade: [528, 82, 944, 582],
     fixedWeight: true,
