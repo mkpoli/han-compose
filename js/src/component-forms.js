@@ -72,7 +72,7 @@ for (const [style, groups] of Object.entries(waterEnclosure)) styles[style].set(
 const numberedStyles = Object.fromEntries(Object.entries(numbered.forms).map(([style, entries]) => [style,
   new Map(Object.entries(entries).map(([text, groups]) => [text, formOf(groups)]))]))
 // 潮語十五音: a short 丨 stands between the bend and hooked body cut from the same 水.
-for (const [style, groups] of Object.entries(waterStrokeRow)) styles[style].set('⿲㇇丨𰛅', { ...formOf(groups), donors: ['水', '丨'] })
+for (const [style, groups] of Object.entries(waterStrokeRow)) (styles[style] ??= new Map()).set('⿲㇇丨𰛅', { ...formOf(groups), donors: ['水', '丨'] })
 const numberedDrawing = (text, style) => numberedStyles[style]?.get(text) ?? null
 const numberedRefs = new Set()
 export const isNumberedReference = (text, style) => numberedRefs.has(text) && isComponentForm(text, style)

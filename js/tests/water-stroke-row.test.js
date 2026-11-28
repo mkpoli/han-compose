@@ -3,7 +3,7 @@ import { componentParts } from '../src/component-forms.js'
 import { fill, groupRings } from '../src/geometry.js'
 
 it('preserves the 3 leaves of ⿲㇇丨𰛅, centres 丨 cleanly, and honours donor exclusions', () => {
-  for (const style of ['sans', 'serif', 'fangsong', 'regular', 'pen-writing']) {
+  for (const style of ['sans', 'serif', 'fangsong', 'regular', 'pen-writing', 'woodblock']) {
     const parts = componentParts('⿲㇇丨𰛅', undefined, style)
     expect(parts).toHaveLength(3)
     for (const donor of ['水', '丨']) {
@@ -14,7 +14,7 @@ it('preserves the 3 leaves of ⿲㇇丨𰛅, centres 丨 cleanly, and honours do
     const masks = parts.map(p => fill(groupRings([p], 16), size, box))
     // No overlap between 丨 and either neighbouring part.
     expect(masks[1].some((v, i) => v && (masks[0][i] || masks[2][i]))).toBe(false)
-    if (style === 'fangsong' || style === 'regular' || style === 'pen-writing') {
+    if (style === 'fangsong' || style === 'regular' || style === 'pen-writing' || style === 'woodblock') {
       const mb = parts[1].target, ulg = [], urg = []
       let minL = Infinity, minR = Infinity
       for (let row = 0; row < size; row++) {
