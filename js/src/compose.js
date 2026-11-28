@@ -900,6 +900,7 @@ export const designedSources = (tree, style = 'sans') => {
     if (Object.hasOwn(cuanForms, style) && keyOf(node) === '⿱⿱⿴𦥑同冖𤍾') out.add('爨')
     const [op, ...children] = node
     for (const cell of specimenFor(node, style, keyOf) ?? []) for (const [ch] of cell) out.add(ch)
+    if (op === '⿴' && keyOf(node) === '⿴𰀪⺀' && ['fangsong', 'regular'].includes(style)) out.add('彡')
     if (brushSweepRoom(node, style)) {
       children.forEach(ch => out.add(ch))
       if (style === 'fangsong') out.add(node[1] === '瓦' ? tileHost(node[2]) : '尅')
