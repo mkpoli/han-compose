@@ -50,3 +50,105 @@ it('takes an inset heavy master the other way, as Kureedo\'s contours need', asy
   expect(thin.weight[0]).toBeLessThan(0)
   expect(thin.weight[0]).toBeGreaterThanOrEqual(-0.375)
 })
+
+const lawFiles = stems => ({
+  ...files,
+  'manifest.json': JSON.stringify({
+    ...JSON.parse(files['manifest.json']),
+    weighted: true,
+    heavy: 400,
+    constants: { ...constants, stem: [[60, 100], [40, 80]], PART_STEMS: stems, STATIC: true, PART_SCALE_LEAST: 0.2, WEIGHT_GROWTH: 3 },
+  }),
+})
+
+/** A square frame of `stroke`-wide strokes, drawn from the em's middle into `target`. */
+const frame = (stroke, target) => {
+  const ring = (a, b) => ({ ops: commands('MLLL'), light: Float64Array.from([a, a, a, b, b, b, b, a]),
+    heavy: Float64Array.from([a, a, a, b, b, b, b, a]), width: [stroke, stroke] })
+  const inner = ring(200 + stroke, 700 - stroke)
+  inner.light = Float64Array.from([200 + stroke, 200 + stroke, 700 - stroke, 200 + stroke, 700 - stroke, 700 - stroke, 200 + stroke, 700 - stroke])
+  inner.heavy = inner.light.slice()
+  return placed(makePart([ring(200, 700), inner]), [200, 200, 700, 700], target, 0, 'test')
+}
+
+it('weights a part by the measured powers of its scale, against its own stem', async () => {
+  const loaded = createSource(async name => {
+    const file = lawFiles([0.25, 0.5])[name]
+    return file === undefined ? null : new Blob([file]).arrayBuffer()
+  })
+  await loaded.ready()
+  const composer = new Composer(loaded.store(), { fontStyle: 'fangsong' })
+  expect(composer.staticFace).toBe(false)
+  const whole = frame(50, [200, 200, 700, 700]), half = frame(50, [200, 200, 450, 450])
+  composer.balance([whole, half])
+  expect(whole.weight).toEqual([0, 0])
+  // The frame's strokes are 50 wide and the heavy master 40 wider: grown by 40 / 50 at weight 1.
+  expect(half.weight[0]).toBeCloseTo((0.5 ** -0.75 - 1) / (40 / 50), 6)
+  expect(half.weight[1]).toBeCloseTo((0.5 ** -0.5 - 1) / (40 / 50), 6)
+  // Below the smallest measured scale a part is weighted as one at that scale.
+  const tiny = frame(50, [200, 200, 250, 250])
+  composer.balance([whole, tiny])
+  expect(tiny.weight[0]).toBeCloseTo((0.2 ** -0.75 - 1) / (40 / 50), 6)
+  // A fallback's outline is grown in proportion to its stem: counted by the font's ratio.
+  const borrowed = frame(50, [200, 200, 450, 450])
+  for (const c of borrowed.part.contours) c.kindred = true
+  composer.balance([whole, borrowed])
+  expect(borrowed.weight[0]).toBeCloseTo((0.5 ** -0.75 - 1) / (100 / 60 - 1), 6)
+})
+
+it('holds parts of one character within the font\'s spread of a common stroke width', async () => {
+  const input = lawFiles([0.25, 0.25])
+  const manifest = JSON.parse(input['manifest.json'])
+  manifest.constants.PART_SPREAD = [1.21, 1.21]
+  const all = { ...input, 'manifest.json': JSON.stringify(manifest) }
+  const loaded = createSource(async name => all[name] === undefined ? null : new Blob([all[name]]).arrayBuffer())
+  await loaded.ready()
+  const composer = new Composer(loaded.store(), { fontStyle: 'fangsong' })
+  const thick = frame(60, [200, 200, 700, 700]), thin = frame(30, [200, 200, 700, 700])
+  composer.balance([thick, thin])
+  const widths = [60 * (1 + thick.weight[0] * 40 / 60), 30 * (1 + thin.weight[0] * 40 / 30)]
+  expect(widths[0] / widths[1]).toBeCloseTo(1.21, 6)
+  expect(widths[1]).toBeGreaterThan(30)
+  expect(widths[0]).toBeLessThan(60)
+})
+
+it('keeps the least gap between neighbouring parts once they are weighted', async () => {
+  const loaded = source()
+  await loaded.ready()
+  const edges = weight => {
+    const composer = new Composer(loaded.store(), { fontStyle: 'fangsong' })
+    composer.C.FACING_LEAST = [24, 24]
+    const left = part([100, 0, 400, 800], [100, 0, 400, 800], [60, 45])
+    const right = part([420, 0, 700, 800], [420, 0, 700, 800], [60, 45])
+    left.weight = right.weight = [weight, 0]
+    composer.spaced.push([0, [left], [right]])
+    composer.clear([left, right])
+    return [left.target[2], right.target[0]]
+  }
+  // Twenty units apart as laid out; at half weight each grows ten into the gap and they touch.
+  const [end, start] = edges(0.5)
+  expect(end).toBeLessThan(400)
+  expect(start).toBeGreaterThan(420)
+  expect(start - end - 20).toBeGreaterThanOrEqual(20)
+  // Unweighted parts stay where the layout spaced them.
+  expect(edges(0)).toEqual([400, 420])
+})
+
+it('keeps the least gap at the closest strokes where the median gap looks clear', async () => {
+  const loaded = source()
+  await loaded.ready()
+  const rect = (x0, y0, x1, y1) => ({ ops: commands('MLLL'), light: Float64Array.from([x0, y0, x0, y1, x1, y1, x1, y0]),
+    heavy: Float64Array.from([x0, y0, x0, y1, x1, y1, x1, y0]), width: [60, 45] })
+  const spaced = least => {
+    const composer = new Composer(loaded.store(), { fontStyle: 'fangsong' })
+    composer.C.FACING_LEAST = least
+    // A block with one spur reaching across most of the gap, as the foot of 艹 reaches the head of 南.
+    const left = placed(makePart([rect(100, 0, 400, 800), rect(400, 380, 520, 420)]), [100, 0, 520, 800], [100, 0, 520, 800], 0, 'test')
+    const right = part([560, 0, 860, 800], [560, 0, 860, 800], [60, 45])
+    composer.space(0, [[left], [right]])
+    return right.target[0] - left.target[2]
+  }
+  // The median gap clears the facing gap, so only the least gap at the spur moves the parts apart.
+  expect(spaced(undefined)).toBe(40)
+  expect(spaced([60, 60])).toBeGreaterThanOrEqual(56)
+})

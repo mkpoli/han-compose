@@ -3,6 +3,7 @@
 //
 //   bun scripts/draw.js --export DIR ⿰亻哥 [⿰木口 …] > out.svg
 //   bun scripts/draw.js --export DIR --json ⿰亻哥         # what the engine answers, as JSON
+//   bun scripts/draw.js --export DIR --style woodblock ⿰亻哥   # the export's style, sans unless given
 //
 // The export is read from disk as a static host would serve it; the package's own `data/` supplies
 // the bundled outlines. No page and no Worker: the engine draws in this process.
@@ -13,10 +14,11 @@ import { fromUrl } from '../src/loader.js'
 const args = process.argv.slice(2)
 const flag = name => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : undefined }
 const exportDir = flag('--export')
+const fontStyle = flag('--style') ?? 'sans'
 const json = args.includes('--json')
-const sequences = args.filter((arg, i) => !arg.startsWith('--') && args[i - 1] !== '--export')
+const sequences = args.filter((arg, i) => !arg.startsWith('--') && args[i - 1] !== '--export' && args[i - 1] !== '--style')
 if (!exportDir || !sequences.length) {
-  console.error('usage: bun scripts/draw.js --export DIR [--json] SEQUENCE…')
+  console.error('usage: bun scripts/draw.js --export DIR [--style STYLE] [--json] SEQUENCE…')
   process.exit(2)
 }
 const root = resolve(exportDir)
@@ -40,7 +42,7 @@ await source.ready()
 /** Every drawing, or the reason it has none. */
 const drawings = []
 for (const sequence of sequences) {
-  try { drawings.push({ sequence, drawn: await compose(source, sequence) }) } catch (error) {
+  try { drawings.push({ sequence, drawn: await compose(source, sequence, { fontStyle }) }) } catch (error) {
     console.error(`${sequence}: ${/** @type {Error} */ (error).message}`)
     process.exitCode = 1
   }

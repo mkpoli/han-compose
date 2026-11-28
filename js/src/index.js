@@ -43,7 +43,7 @@ export { partScript } from './part-script.js'
  * @property {number[] | null} [stroke] The stroke widths the drawing is weighted to, across x and y.
  * @property {string[]} [approximate] Operators drawn by rooms and turns of this port's own choosing.
  * @property {boolean} [kanjivg] Whether a part was cut along KanjiVG's groups, so the drawing is shared alike (CC BY-SA 3.0).
- * @property {{ leaf: number, origin: string, box: number[], d: string, cut?: boolean, strokes?: [number, number[]][] }[]} [parts] Each drawn part: the leaf it stands under, where it came from, its box and its path, and the source stroke groups it was cut along.
+ * @property {{ leaf: number, origin: string, box: number[], d: string, cut?: boolean, operandOnly?: boolean, strokes?: [number, number[]][] }[]} [parts] Each drawn part: the leaf it stands under, where it came from, its box and its path, and the source stroke groups it was cut along. An operandOnly piece belongs to an editable subtraction and is already accounted for in the visible path.
  * @property {string[]} [origins] Where each drawn part came from, in reading order.
  * @property {{ capped: boolean }} [normalization] Whether operand normalization hit its limit.
  * @property {boolean} [cells] Whether the composition uses cell layout.
@@ -90,7 +90,7 @@ export class UnavailableError extends Error { name = 'UnavailableError' }
  * drawing's `emoji`, with `restored` and `cut` saying what ㇯ does to it.
  *
  * `preferExport` draws from the export even where the bundled outlines would cover the sequence.
- * @param {{ base: string, separate?: boolean, fontStyle?: 'sans' | 'serif' | 'regular' | 'fangsong' | 'pen-writing',
+ * @param {{ base: string, separate?: boolean, fontStyle?: 'sans' | 'serif' | 'woodblock' | 'regular' | 'fangsong' | 'pen-writing',
  *   faceBases?: Partial<Record<import('./font-mix.js').FontStyle, string>>, preferExport?: boolean, worker?: () => WorkerLike, loaders?: Record<string, string>, timeout?: number }} options
  * @returns {((sequence: string, options?: PreviewOptions) => Promise<Drawing>) & { warm: () => void }}
  */
@@ -205,7 +205,7 @@ export function composerPreview({ base, faceBases = {}, separate = false, fontSt
 /**
  * A sequence drawn from the bundled outlines alone, in the page, answered as a drawer answers.
  * @param {string} sequence
- * @param {{ separate?: boolean, fontStyle?: 'sans' | 'serif' | 'regular' | 'fangsong' | 'pen-writing', preferExport?: boolean, loaders?: Record<string, string> }} options
+ * @param {{ separate?: boolean, fontStyle?: 'sans' | 'serif' | 'woodblock' | 'regular' | 'fangsong' | 'pen-writing', preferExport?: boolean, loaders?: Record<string, string> }} options
  * @param {(leaves: SketchLeaf[]) => void} heard
  * @returns {Promise<import('./client.js').Answer>}
  */

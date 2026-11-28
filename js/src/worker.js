@@ -66,7 +66,7 @@ async function drawFace({ sequence, base, separate, fontStyle, warm, preferExpor
   const traits = !warm ? traitsOf(sequence) : null
   // Whether the sequence draws from bundled outlines is part of the key: `onlyBundled` reads the
   // sequence, which the traits alone do not cover.
-  const local = !warm && !preferExport && (traits.empty || onlyBundled(sequence, separate, false, fontStyle))
+  const local = !warm && !preferExport && (traits.empty || onlyBundled(sequence, separate, false, fontStyle, Boolean(base)))
   // Where the bundled files are read from is part of the key: a later `loaders` must reach its source.
   const key = `${JSON.stringify(loaders ?? {})}:${base}:${warm ? 'warm' : `${local ? 'local' : 'remote'}:${traitKey(traits)}`}:${separate}:${fontStyle}:${preferExport ? 'export' : 'any'}`
   if (!sources.has(key)) {
