@@ -35,3 +35,22 @@ test('an enclosed part stays in the room of an enclosing part cut from a host', 
   expect(composer.keptRoom('⿹', '勹', [{ origin: 'glyph 勹', target: [0, 0, 1000, 1000] }], [300, -100, 700, 300])).toBe(null)
   expect(composer.keptRoom('⿴', '囗', cut, [300, -100, 700, 300])).toBe(null)
 })
+
+test('shares keeps a character’s own piece proportions when every operand comes from that character', () => {
+  const host = {
+    '雨\tT': [{ h: '雲', op: '⿱', ok: ['云'], d: 0, si: 100, v: 1, j: 1, wh: 1, b: [100, 600, 900, 900], fr: [100, 100, 900, 900], k: [0] }],
+    '云\tB': [{ h: '雲', op: '⿱', ok: ['雨'], d: 0, si: 900, v: 1, j: 1, wh: 1, b: [100, 100, 900, 560], fr: [100, 100, 900, 900], k: [1] }],
+  }
+  const recs = {
+    雨: { ...character('雨', [[100, 600, 900, 900]]), ink: 900 },
+    云: { ...character('云', [[100, 100, 900, 560]]), ink: 100 },
+    雲: { ...character('雲', [[100, 600, 900, 900], [100, 100, 900, 560]]), s: '⿱雨云' },
+    '⿱雨云': { e: '雲' },
+  }
+  const c = new Composer({ manifest: { constants, spelled: [] }, layout: null,
+    rec: key => recs[key] ?? null, hosts: (w, p) => host[`${w}\t${p}`] ?? [], places: () => [] })
+  // Rain has 9x the ink of cloud, yet 雲 draws cloud taller (460 vs 300). Mapping into a 400-tall
+  // region keeps cloud taller than rain instead of inverting them by ink share.
+  const [rain, cloud] = c.shares('⿱', ['雨', '云'], [100, 0, 900, 400], false)
+  expect(cloud.target[3] - cloud.target[1]).toBeGreaterThan(rain.target[3] - rain.target[1])
+})
