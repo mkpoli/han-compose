@@ -4905,8 +4905,11 @@ export class Composer {
     const sameHost = !compactYan && groups.length >= 2 && groups.every(g => g.length === 1 && g[0].origin.startsWith('host ') && g[0].origin === groups[0][0].origin)
       ? groups[0][0].origin.slice(5) : null
     if (sameHost && this.bySequence(keyOf([op, ...children])) === sameHost) {
-      const frame = union(groups.map(g => g[0].source))
-      for (const [part] of groups) part.target = mapped(part.source, frame, region)
+      const sources = groups.map(g => g[0].source), frame = union(sources)
+      const distinct = new Set(sources.map(b => b.join(','))).size === sources.length
+      if (distinct && frame[2] > frame[0] && frame[3] > frame[1]) {
+        for (const [part] of groups) part.target = mapped(part.source, frame, region)
+      }
     }
     if (compactYan && !this.partial) {
       // Restore just enough room when a whole-glyph outline protrudes toward 朱.

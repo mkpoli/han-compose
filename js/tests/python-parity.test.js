@@ -53,4 +53,10 @@ test('shares keeps a character’s own piece proportions when every operand come
   // region keeps cloud taller than rain instead of inverting them by ink share.
   const [rain, cloud] = c.shares('⿱', ['雨', '云'], [100, 0, 900, 400], false)
   expect(cloud.target[3] - cloud.target[1]).toBeGreaterThan(rain.target[3] - rain.target[1])
+  // Unrelated sequences that happen to borrow from another host keep ink-share allocation.
+  const other = { ...recs, '⿱雨云': { e: '零' } }
+  const c2 = new Composer({ manifest: { constants, spelled: [] }, layout: null,
+    rec: key => other[key] ?? null, hosts: (w, p) => host[`${w}\t${p}`] ?? [], places: () => [] })
+  const [rain2, cloud2] = c2.shares('⿱', ['雨', '云'], [100, 0, 900, 400], false)
+  expect(rain2.target[3] - rain2.target[1]).toBeGreaterThan(cloud2.target[3] - cloud2.target[1])
 })
