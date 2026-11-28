@@ -511,3 +511,25 @@ describe('a foot drawn as a stroke of its own', () => {
     expect(drawn.light[2]).toBeCloseTo(900, 5)
   })
 })
+
+describe('a glyph drawn as one outline', () => {
+  // An upright between a bar above and a foot below, all one outline, as a Kai 走 is drawn.
+  const int16 = (/** @type {number[]} */ values) => Buffer.from(Int16Array.from(values).buffer).toString('base64')
+  const outline = [100, 0, 900, 0, 900, 80, 360, 80, 360, 700, 900, 700, 900, 760, 100, 760, 100, 700, 300, 700, 300, 80, 100, 80]
+  const glyph = partOf({ v: 1, b: [100, 0, 900, 760], p: [['M' + 'L'.repeat(outline.length / 2 - 1), int16(outline.map(v => v * 4)), int16(outline.map(() => 0))]] })
+  const whole = placed(glyph, glyph.box, glyph.box.slice(), 3200, 'glyph 走')
+
+  it('is pressed above its foot, the upright keeping its width', () => {
+    const swept = sweptPart(whole, 500, constants)
+    expect(swept).toHaveLength(1)
+    if (!swept) return
+    const [drawn] = swept[0].part.contours
+    const x = (/** @type {number} */ i) => drawn.light[2 * i]
+    // The bar is pressed to the edge; the upright, points 8 to 10 of the outline, keeps 60 units.
+    expect(x(5)).toBeCloseTo(500, 0)
+    // Read in columns, it keeps its width to within one column.
+    expect(Math.abs(x(4) - x(9) - 60)).toBeLessThan(800 / 96)
+    // The foot still ends where the glyph ends it.
+    expect(x(1)).toBeCloseTo(900, 5)
+  })
+})

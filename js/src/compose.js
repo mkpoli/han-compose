@@ -915,6 +915,8 @@ export const designedSources = (tree, style = 'sans') => {
  *  own glyph. */
 /** The most a stroke running along a row or a stack may be thick, as a share of its length. */
 const ACROSS_THICK = 0.3
+/** The least share of the width a pair written into a lower-left enclosure takes. */
+const HELD_PAIR = 0.66
 /** How the part an enclosure already holds and a second part written into it stand together:
  *  stacked under an upper-left enclosure, side by side over a lower-left one. */
 const HELD_TOGETHER = { '⿸': '⿱', '⿺': '⿰' }
@@ -4088,8 +4090,10 @@ export class Composer {
     const first = op === '⿺' && children.length === 2 ? this.heldFirst.get(children[1]) : undefined
     if (first !== undefined) {
       const boxes = this.predict(op, [children[0], first])
-      const right = Math.max(boxes[0][2], boxes[1][2])
-      return [boxes[0], [boxes[1][0], boxes[1][1], right, boxes[1][3]]]
+      const left = Math.min(boxes[0][0], boxes[1][0]), right = Math.max(boxes[0][2], boxes[1][2])
+      // Two parts take more of the width than one: the enclosing part gives up what they need.
+      const from = Math.min(boxes[1][0], left + (1 - HELD_PAIR) * (right - left))
+      return [boxes[0], [from, boxes[1][1], right, boxes[1][3]]]
     }
     const keys = children.map(child => (this.constructed(child, this.face) && CONSTRUCTS[keyOf(child)].like) || this.renderKey(child))
     return forward(this.layout, features(this.layout, op, keys.map(k => this.rec(k === '⺿' || k === '⻀' ? '艹' : k)), [this.slot(op, 0), this.slot(op, 1)]))
@@ -4310,6 +4314,12 @@ export class Composer {
           // An inner the opening cannot hold is drawn into the opening itself, so it cannot
           // overflow the frame. A grid drawn whole can still have one row smaller than the other
           // (㸚 in 冂); its description gives every row its own equal cell.
+          // An enclosing part cut from another character is pressed left of a pair written into it,
+          // as its own glyph is, so the pair stands against it.
+          if (op === '⿺' && this.heldFirst.has(child) && groups[0].length === 1) {
+            const swept = sweptPart(groups[0][0], box[0] - C.FACING[0], C, this.tailForm(keyOf(children[0])))
+            if (swept) groups[0] = swept
+          }
           const opening = this.room(op, groups[0], frameOf)
           // An opening that overlaps little of the layout's box is a pocket beside the part. 𦉪's
           // own hook splits off a small box below it; 丅 belongs in the frame's wide opening under
@@ -6435,6 +6445,26 @@ export function fitInside(outer, inner, region, stem, C, { size = 64, room = nul
  *  where the foot's stroke leaves the strokes above it, and the widest run, in stroke spans, that
  *  is a stroke crossing the row rather than one along it. */
 const SWEEP_JOINED = [0.2, 0.1, 32, 1.6]
+/** The waist of an outline whose foot is joined to strokes above it: the height above the foot at
+ *  which the outline reaches least far across (the lowest of equals), of those with a stroke above them reaching past
+ *  both `edge` and that reach by `SWEEP_JOINED[1]` of the width, with how far it reaches and the
+ *  farthest any row above it reaches. Null where there is none. */
+function waistOf(poly, [x0, y0, x1, y1], edge) {
+  const footTop = y0 + SWEEP_JOINED[0] * (y1 - y0), rows = []
+  for (let k = 0; k < SWEEP_JOINED[2]; k++) {
+    const y = footTop + (k + 0.5) * (y1 - footTop) / SWEEP_JOINED[2], right = spansAt(poly, y).at(-1)?.[1]
+    if (right !== undefined) rows.push([y, right])
+  }
+  let best = null, above = -Infinity
+  for (let k = rows.length - 1; k >= 0; k--) {
+    const [y, right] = rows[k]
+    if (above > edge && above > right + SWEEP_JOINED[1] * (x1 - x0) && (!best || right <= best.reach)) best = { level: y, reach: right }
+    above = Math.max(above, right)
+  }
+  if (!best) return null
+  best.head = Math.max(...rows.filter(([y]) => y > best.level).map(([, right]) => right))
+  return best
+}
 /** Each point's move across for a foot joined to the strokes above it (`sweptPart`), or null where
  *  the outline holds no stroke past `edge` above its foot. */
 function joinedSweep(pts, ring, [x0, y0, x1, y1], edge, pressed, end, stem) {
@@ -6444,30 +6474,88 @@ function joinedSweep(pts, ring, [x0, y0, x1, y1], edge, pressed, end, stem) {
   if (left > x0 + SWEEP_JOINED[1] * w) return null
   const poly = []
   for (let i = 0; i + 1 < ring.length; i += 2) poly.push([ring[i], ring[i + 1]])
-  // The waist: the height at which the outline reaches least far across, between the foot and the
-  // strokes above it.
-  let level = null, reach = Infinity, past = false
-  for (let k = 0; k < SWEEP_JOINED[2]; k++) {
-    const y = footTop + (k + 0.5) * (y1 - footTop) / SWEEP_JOINED[2], right = spansAt(poly, y).at(-1)?.[1]
-    if (right === undefined) continue
-    if (right < reach) { level = y; reach = right; past = false }
-    else if (right > edge && right > reach + SWEEP_JOINED[1] * w) past = true
-  }
-  if (level === null || !past || !(end > reach)) return null
-  // A stroke the row crosses narrowly (an upright, a falling stroke) moves as a whole, so it keeps
-  // its width; a long run along the row (a bar) is pressed along its length.
-  const press = x => (x - x0) * (pressed - 1)
-  const moved = (x, y) => {
-    const run = spansAt(poly, y).find(([a, b]) => x >= a - 1 && x <= b + 1)
-    return run && run[1] - run[0] <= SWEEP_JOINED[3] * stem ? press((run[0] + run[1]) / 2) : press(x)
-  }
-  const waist = moved(reach, level)
+  const waist = waistOf(poly, [x0, y0, x1, y1], edge)
+  if (!waist || !(end > waist.reach)) return null
+  const { level, reach } = waist
+  // One map across, the same at every height, so no stroke tears: the columns uprights stand in
+  // keep their width, and the bars and the room between them take up the pressing.
+  const map = pressedColumns(poly, [x0, level, x1, y1], pressed, stem)
+  const atWaist = map(reach) - reach
   return pts.map((x, i) => {
     if (i % 2) return 0
-    if (pts[i + 1] >= level || x <= reach) return moved(x, pts[i + 1])
-    return x <= end ? reach + waist + (x - reach) * (end - reach - waist) / (end - reach) - x : 0
+    if (pts[i + 1] >= level || x <= reach) return map(x) - x
+    return x <= end ? reach + atWaist + (x - reach) * (end - reach - atWaist) / (end - reach) - x : 0
   })
 }
+
+/**
+ * A map across `box` pressing an outline's ink there to `pressed` of its width from the box's left
+ * edge, monotone and the same at every height. A column the ink covers on at least
+ * `SWEEP_COLUMNS[1]` of the rows (an upright) keeps its width where the press allows, so its stroke
+ * is not thinned; the rest of the width (bars, the room between strokes) is pressed the more.
+ */
+function pressedColumns(poly, [x0, y0, x1, y1], pressed, stem) {
+  const [bins, cover, least] = SWEEP_COLUMNS, rows = 2 * bins
+  let right = x0
+  const hits = new Float64Array(bins)
+  for (let r = 0; r < rows; r++) {
+    const y = y0 + (r + 0.5) * (y1 - y0) / rows
+    for (const [a, b] of spansAt(poly, y)) {
+      right = Math.max(right, b)
+      for (let k = 0; k < bins; k++) {
+        const x = x0 + (k + 0.5) * (x1 - x0) / bins
+        if (x >= a && x <= b) hits[k]++
+      }
+    }
+  }
+  const step = (x1 - x0) / bins, last = Math.min(bins, Math.ceil((right - x0) / step))
+  const kept = Array.from({ length: bins }, (_, k) => k < last && hits[k] >= cover * rows)
+  const target = pressed * (right - x0)
+  const keptWidth = kept.filter(Boolean).length * step, rest = last * step - keptWidth
+  // The uprights keep their width while the rest can still be pressed to `least` of its own; past
+  // that, every column is pressed alike.
+  let slopeKept = 1, slopeRest = rest > 0 ? (target - keptWidth) / rest : 1
+  if (slopeRest < least) { slopeRest = least; slopeKept = Math.max(least, (target - least * rest) / Math.max(keptWidth, 1e-9)) }
+  const at = new Float64Array(bins + 1)
+  for (let k = 0; k < bins; k++) at[k + 1] = at[k] + step * (k < last ? (kept[k] ? slopeKept : slopeRest) : 1)
+  const shift = at[last] - last * step
+  return x => {
+    if (x <= x0) return x
+    const t = (x - x0) / step, k = Math.min(Math.floor(t), bins - 1)
+    if (k >= last) return x + shift
+    return x0 + at[k] + (t - k) * (at[k + 1] - at[k])
+  }
+}
+/**
+ * A glyph a brush face draws as one outline, its foot joined to every stroke above it (走 in a Kai):
+ * pressed above the outline's waist as `joinedSweep` presses it, the foot drawn out below. Null
+ * where the outline has no such waist or already stands left of `edge`.
+ */
+function oneOutlineSweep(p, pts, [x0, y0, x1, y1], edge, C) {
+  const ring = rings([p.part.contours[0]], [pts])[0], poly = []
+  for (let i = 0; i + 1 < ring.length; i += 2) poly.push([ring[i], ring[i + 1]])
+  const waist = waistOf(poly, [x0, y0, x1, y1], -Infinity)
+  if (!waist) return null
+  const head = waist.head
+  if (!(head > edge)) return null
+  edge = Math.max(edge, x0 + C.SWEEP_PRESSED * (head - x0))
+  const pressed = (edge - x0) / (head - x0), end = x1 - C.SWEEP_END * (x1 - x0)
+  const dx = joinedSweep(pts, ring, [x0, y0, x1, y1], edge, pressed, end, C.STEM_SPAN)
+  if (!dx) return null
+  const [sx, sy] = scaleOf(p)
+  const cx = (p.source[0] + p.source[2]) / 2, cy = (p.source[1] + p.source[3]) / 2
+  const gx = (p.target[0] + p.target[2]) / 2, gy = (p.target[1] + p.target[3]) / 2
+  const c = p.part.contours[0]
+  const map = src => { const out = new Float64Array(src.length); for (let i = 0; i < src.length; i += 2) { out[i] = (src[i] - cx) * sx + gx + dx[i]; out[i + 1] = (src[i + 1] - cy) * sy + gy } return out }
+  const own = c.width ?? [0, 1].map(axis => C.STEM_CURVE[axis][0] + C.STEM_CURVE[axis][1] * p.native / 1000)
+  const baked = c.scaled ?? [1, 1]
+  const drawn = derived(p.part, [{ ops: c.ops, light: map(c.light), heavy: map(c.heavy), width: [own[0] * sx, own[1] * sy],
+    scaled: [baked[0] * sx, baked[1] * sy], foreign: c.foreign, kindred: c.kindred }])
+  return [placed(drawn, drawn.box, drawn.box.slice(), p.native, `swept ${p.origin}`, p.weight)]
+}
+/** `pressedColumns`: how many columns the width is read in, the share of the rows above the waist
+ *  an upright's column is inked on, and the least share of its width the rest is pressed to. */
+const SWEEP_COLUMNS = [96, 0.3, 0.2]
 /** The share of `SWEEP_RISE` a foot drawn as a stroke of its own must rise. */
 const SWEEP_RISE_ALONE = 0.85
 /**
@@ -6488,7 +6576,8 @@ export function sweptPart(p, edge, C, tail = null) {
   // than one that joins it to the stroke falling into it.
   let sweeps = rising(C.SWEEP_RISE), alone = false
   if (!sweeps.length) { sweeps = rising(SWEEP_RISE_ALONE * C.SWEEP_RISE); alone = true }
-  if (sweeps.length !== 1 || contours.length < 2) return null
+  if (sweeps.length !== 1) return null
+  if (contours.length < 2) return oneOutlineSweep(p, contours[0], [x0, y0, x1, y1], edge, C)
   const sweep = sweeps[0], pts = contours[sweep]
   // A glyph drawn as one outline with its counters (Klee One's 电) has no separate stroke to sweep:
   // the outline already runs round the lower left, and pressing its counters apart would lose the
