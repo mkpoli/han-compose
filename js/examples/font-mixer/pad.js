@@ -6,7 +6,7 @@ export function mixPad(container, styles, names, change) {
   const svg = document.createElementNS(ns, 'svg')
   svg.setAttribute('viewBox', '-150 -112 300 214')
   svg.setAttribute('role', 'img')
-  svg.setAttribute('aria-label', 'Five-face mix position')
+  svg.setAttribute('aria-label', `${styles.length}-face mix position`)
   function element(tag, attrs) {
     const el = document.createElementNS(ns, tag)
     for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v)
