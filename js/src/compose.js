@@ -658,41 +658,47 @@ const KOREAN_ENCLOSURE_HOSTS = ['國', '圖', '圍', '園', '圓', '團', '国',
 const KOREAN_ENCLOSURE_LATE = new Set(['回', '四'])
 const KOREAN_DO_PAIR = {
   sans: { native: true, padX: 0.12, padY: 0.12, stretch: 1.08, weight: [0.28, 0.28] },
-  serif: { native: true, padX: 0.135, padY: 0.12, stretch: 1.14, weight: [0.34, 0.32] },
-  fangsong: { native: false, padX: 0.08, padY: 0.09, stretch: 1.16, offset: [12, 16] },
-  regular: { native: false, padX: 0.08, padY: 0.085, stretch: 1.14, offset: [14, 17] },
-  'pen-writing': { native: false, padX: 0.095, padY: 0.10, stretch: 1.12, offset: [14, 17] },
+  serif: { native: true, padX: 0.06, padY: 0.07, stretch: 1.26, weight: [0.24, 0.12] },
+  fangsong: { native: false, padX: 0.065, padY: 0.045, stretch: 1.16, offset: [13, 7], slant: 0.105 },
+  regular: { native: false, padX: 0.075, padY: 0.05, stretch: 1.14, offset: [14, 6.5], slant: 0.125 },
+  'pen-writing': { native: false, padX: 0.085, padY: 0.075, stretch: 1.12, offset: [8, 9], slant: 0.04 },
 }
 
 const koreanDoCache = new Map()
-/** Gowun Batang 도 thickened outward along contour normals to match enclosing 囗 strokes. */
-function koreanDoBold(offset = [0, 0]) {
+/** Gowun Batang 도 adjusted in stroke weight and upward-right horizontal slant to match enclosing 囗 strokes. */
+function koreanDoPart(offset = [0, 0], slant = 0) {
   const [rx, ry] = offset
-  const key = `${rx},${ry}`
+  const key = `${rx},${ry},${slant}`
   if (koreanDoCache.has(key)) return koreanDoCache.get(key)
-  const base = partOf(gowunBatang['도-bold'])
-  const part = !rx && !ry ? base : derived(base, base.contours.map(contour => {
+  const base = partOf(gowunBatang['도'])
+  const cx = (base.box[0] + base.box[2]) / 2
+  const part = !rx && !ry && !slant ? base : derived(base, base.contours.map(contour => {
     const points = contour.light, n = points.length
     const winding = windingOf([points])
     const outline = points.slice()
-    for (let i = 0; i < n; i += 2) {
-      let before = (i + n - 2) % n, after = (i + 2) % n
-      while (before !== i && points[before] === points[i] && points[before + 1] === points[i + 1]) before = (before + n - 2) % n
-      while (after !== i && points[after] === points[i] && points[after + 1] === points[i + 1]) after = (after + 2) % n
-      const ax = points[i] - points[before], ay = points[i + 1] - points[before + 1]
-      const bx = points[after] - points[i], by = points[after + 1] - points[i + 1]
-      const a = Math.hypot(ax, ay) || 1, b = Math.hypot(bx, by) || 1
-      const n1x = ay / a, n1y = -ax / a, n2x = by / b, n2y = -bx / b
-      const nx = n1x + n2x, ny = n1y + n2y, len = Math.hypot(nx, ny)
-      let ux = n1x, uy = n1y, miter = 1
-      if (len >= 1e-6) {
-        ux = nx / len; uy = ny / len
-        const dot = ux * n1x + uy * n1y
-        miter = dot > 0.5 ? Math.min(1.5, 1 / dot) : 1
+    if (rx || ry) {
+      for (let i = 0; i < n; i += 2) {
+        let before = (i + n - 2) % n, after = (i + 2) % n
+        while (before !== i && points[before] === points[i] && points[before + 1] === points[i + 1]) before = (before + n - 2) % n
+        while (after !== i && points[after] === points[i] && points[after + 1] === points[i + 1]) after = (after + 2) % n
+        const ax = points[i] - points[before], ay = points[i + 1] - points[before + 1]
+        const bx = points[after] - points[i], by = points[after + 1] - points[i + 1]
+        const a = Math.hypot(ax, ay) || 1, b = Math.hypot(bx, by) || 1
+        const n1x = ay / a, n1y = -ax / a, n2x = by / b, n2y = -bx / b
+        const nx = n1x + n2x, ny = n1y + n2y, len = Math.hypot(nx, ny)
+        let ux = n1x, uy = n1y, miter = 1
+        if (len >= 1e-6) {
+          ux = nx / len; uy = ny / len
+          const dot = ux * n1x + uy * n1y
+          miter = dot > 0.5 ? Math.min(1.5, 1 / dot) : 1
+        }
+        const cap = Math.min(a * 0.45, b * 0.45)
+        outline[i] += winding * Math.min(rx * miter, cap) * ux
+        outline[i + 1] += winding * Math.min(ry * miter, cap) * uy
       }
-      const cap = Math.min(a * 0.45, b * 0.45)
-      outline[i] += winding * Math.min(rx * miter, cap) * ux
-      outline[i + 1] += winding * Math.min(ry * miter, cap) * uy
+    }
+    if (slant) {
+      for (let i = 0; i < n; i += 2) outline[i + 1] += slant * (outline[i] - cx)
     }
     return { ...contour, light: outline, heavy: outline }
   }))
@@ -2768,7 +2774,7 @@ export class Composer {
     const opening = enclosureCavity(frame) ?? this.room('⿴', [frame], region)
     if (!opening) return null
     const native = spec.native ? this.glyph('도') : null
-    const syllable = native ?? koreanDoBold(spec.offset)
+    const syllable = native ?? koreanDoPart(spec.offset, spec.slant)
     const [l, b, r, t] = opening, dx = (r - l) * spec.padX, dy = (t - b) * spec.padY
     const inside = fitted(syllable.box, [l + dx, b + dy, r - dx, t - dy], spec.stretch)
     const weight = native ? spec.weight.slice() : [0, 0]

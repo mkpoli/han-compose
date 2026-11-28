@@ -89,3 +89,32 @@ it('matches sketch boxes to composed parts for ⿴口도 on first use', async ()
   const drawn = await compose(src, '⿴口도', options)
   expect(boxes.map(leaf => leaf.box)).toEqual(drawn.parts.map(part => part.box))
 })
+
+it('gives Serif generous interior fill and slants FangSong and Regular 도 upward to the right', async () => {
+  const src = makeSource({ includeDo: true })
+  const serif = await compose(src, '⿴口도', { fontStyle: 'serif' })
+  const [serifFrame, serifInner] = serif.parts
+  expect(serifInner.box[2] / serifFrame.box[2]).toBeGreaterThan(0.66)
+
+  const avgEdgeSlope = d => {
+    const nums = d.match(/-?\d+(?:\.\d+)?/g).map(Number)
+    let sumW = 0, sumSlope = 0
+    for (let i = 0; i + 3 < nums.length; i += 2) {
+      let dx = nums[i + 2] - nums[i], dy = nums[i + 3] - nums[i + 1]
+      const len = Math.hypot(dx, dy)
+      if (len < 15 || Math.abs(dx) < Math.abs(dy) * 3) continue
+      if (dx < 0) { dx = -dx; dy = -dy }
+      // SVG y points down, so upward-right strokes have negative dy / dx.
+      sumW += len
+      sumSlope += (-dy / dx) * len
+    }
+    return sumSlope / sumW
+  }
+  const fangsong = await compose(src, '⿴口도', { fontStyle: 'fangsong' })
+  const regular = await compose(src, '⿴口도', { fontStyle: 'regular' })
+  const pen = await compose(src, '⿴口도', { fontStyle: 'pen-writing' })
+  expect(avgEdgeSlope(fangsong.parts[1].d)).toBeGreaterThan(0.07)
+  expect(avgEdgeSlope(regular.parts[1].d)).toBeGreaterThan(0.09)
+  expect(avgEdgeSlope(pen.parts[1].d)).toBeGreaterThan(0.01)
+  expect(avgEdgeSlope(regular.parts[1].d)).toBeGreaterThan(avgEdgeSlope(fangsong.parts[1].d))
+})
