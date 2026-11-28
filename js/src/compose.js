@@ -4580,16 +4580,23 @@ export class Composer {
           if (rest.length) outerBay = mapped(union(rest.map(c => pointsBox(c.light))), source.box, box)
         }
       }
-      if (op === '⿺' && i === 1 && outerBay && stretchOf(source.box, outerBay) <= C.STRETCH) {
-        const curCol = this.collide(groups[0], groups[1], frameOf, 64)
-        if (curCol > 0.005) {
-          const cand = [placed(source, source.box, outerBay, this.ink(drawn.h), `learned ${drawn.h}`)]
-          if (this.collide(groups[0], cand, frameOf, 64) > 0.005) {
-            this.fit(groups[0], cand, frameOf, stem, C, { room: outerBay, anchor: centre(outerBay) })
-          }
-          if (this.collide(groups[0], cand, frameOf, 256) < this.collide(groups[0], groups[1], frameOf, 256)) {
-            groups[1] = cand
-            box = cand[0].target
+      if (op === '⿺' && i === 1 && groups[0].every(p => /^(learned|host|teacher) /.test(p.origin))) {
+        const share = this.rooms[`${op}\t${keyOf(children[0])}`]
+        const bay = share ? mapped(share, [0, 0, 1, 1], union(groups[0].map(p => p.target))) : outerBay
+        if (bay && stretchOf(source.box, bay) <= C.STRETCH) {
+          const curCol = this.collide(groups[0], groups[1], frameOf, 64)
+          const floatsHigh = box[1] - bay[1] > 0.09 * Math.max(bay[3] - bay[1], 1)
+          if (curCol > 0.005 || floatsHigh) {
+            const cand = [placed(source, source.box, bay, this.ink(drawn.h), `learned ${drawn.h}`)]
+            if (this.collide(groups[0], cand, frameOf, 64) > 0.005) {
+              this.fit(groups[0], cand, frameOf, stem, C, { room: bay, anchor: centre(bay) })
+            }
+            const candCol256 = this.collide(groups[0], cand, frameOf, 256)
+            const curCol256 = this.collide(groups[0], groups[1], frameOf, 256)
+            if ((curCol > 0.005 && candCol256 < curCol256) || (floatsHigh && candCol256 <= 0.005)) {
+              groups[1] = cand
+              box = cand[0].target
+            }
           }
         }
       }

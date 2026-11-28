@@ -1276,8 +1276,31 @@ def enclosures(part: Part, op: str) -> list[tuple[Part, Part]]:
         return min(far[side] for side in ENCLOSE[op])
 
     ranked = sorted(units, key=depth, reverse=True)
-    return [(Part([c for u in ranked[k:] for c in u]), Part([c for u in ranked[:k] for c in u]))
+    cuts = [(Part([c for u in ranked[k:] for c in u]), Part([c for u in ranked[:k] for c in u]))
             for k in range(1, len(ranked))]
+    if op == "⿺":
+        # In lower-left enclosures with a tall left body and a low sweep (風, 鬼, 走), low inner
+        # strokes sit closer to Y0 than the outer's upper-left body, so `min(L, B)` mixes them.
+        # Keep bottom-sweeping units in outer and rank remaining units right-to-left by x-centre.
+        w, h = X1 - X0, Y1 - Y0
+        sweeps, others = [], []
+        for u in units:
+            (ux0, ux1), (uy0, _) = _span(u, 0), _span(u, 1)
+            if ux1 - ux0 > 0.45 * w and uy0 < Y0 + 0.30 * h and ux1 > X0 + 0.65 * w:
+                sweeps.append(u)
+            else:
+                others.append(u)
+        if sweeps and len(others) >= 2:
+            by_x = sorted(others, key=lambda u: (_span(u, 0)[0] + _span(u, 0)[1]) / 2, reverse=True)
+            seen = {frozenset(id(c) for c in inn.contours) for _, inn in cuts}
+            for k in range(1, len(by_x)):
+                inn_cs = [c for u in by_x[:k] for c in u]
+                key_set = frozenset(id(c) for c in inn_cs)
+                if key_set in seen:
+                    continue
+                seen.add(key_set)
+                cuts.append((Part([c for u in sweeps + by_x[k:] for c in u]), Part(inn_cs)))
+    return cuts
 
 
 def _names_stroke(node: Node) -> bool:
@@ -3872,17 +3895,21 @@ class Composer:
                 outer_hosted = True
                 if op == "⿺" and len(drawn.pieces) == 2 and k == 0:
                     outer_bay = mapped(drawn.pieces[1].box, source.box, box)
-            if (op == "⿺" and i == 1 and outer_bay is not None
-                    and self._stretch(source.box, outer_bay) <= STRETCH):
-                frame_box = region or self.face
-                cur_col = _collision(groups[0], groups[1], frame_box)
-                if cur_col > 0.005:
-                    cand = [Placed(source, source.box, outer_bay, native=self.ink(drawn.char), origin=f"learned {drawn.char}")]
-                    if _collision(groups[0], cand, frame_box) > 0.005:
-                        _fit_inside(groups[0], cand, frame_box, self.font.stem[0][0], room=outer_bay)
-                    if _collision(groups[0], cand, frame_box, size=256) < _collision(groups[0], groups[1], frame_box, size=256):
-                        groups[1] = cand
-                        box = cand[0].target
+            if op == "⿺" and i == 1 and outer_hosted:
+                bay = self._enclosed_room(op, children[0], groups[0]) or outer_bay
+                if bay is not None and self._stretch(source.box, bay) <= STRETCH:
+                    frame_box = region or self.face
+                    cur_col = _collision(groups[0], groups[1], frame_box)
+                    floats_high = box[1] - bay[1] > 0.09 * max(bay[3] - bay[1], 1.0)
+                    if cur_col > 0.005 or floats_high:
+                        cand = [Placed(source, source.box, bay, native=self.ink(drawn.char), origin=f"learned {drawn.char}")]
+                        if _collision(groups[0], cand, frame_box) > 0.005:
+                            _fit_inside(groups[0], cand, frame_box, self.font.stem[0][0], room=bay)
+                        cand_col256 = _collision(groups[0], cand, frame_box, size=256)
+                        cur_col256 = _collision(groups[0], groups[1], frame_box, size=256)
+                        if (cur_col > 0.005 and cand_col256 < cur_col256) or (floats_high and cand_col256 <= 0.005):
+                            groups[1] = cand
+                            box = cand[0].target
             if (op == "⿸" and isinstance(children[0], tuple) and i == 1
                     and _collision(groups[0], groups[1], region or self.face, size=256) > COLLIDE):
                 _fit_inside(groups[0], groups[1], region or self.face, self.font.stem[0][0],

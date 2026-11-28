@@ -163,3 +163,50 @@ def test_learned_lower_left_enclosure_uses_outer_host_bay_when_predicted_box_col
     assert placed is not None and len(placed) == 2
     assert placed[1].target == (540.0, 140.0, 960.0, 840.0)
     assert compose._collision([placed[0]], [placed[1]], c.face, size=256) == 0.0
+
+
+def test_enclosures_lower_left_separates_low_inner_strokes_from_outer_left_body() -> None:
+    # Outer sweep spans full width along bottom; outer left body sits at x=160..420, y=220..760;
+    # inner component sits on the right (x=520..920) with a low stroke at y=50..120 closer to Y0
+    # than the outer left body is to X0.
+    sweep = rect(20, 0, 960, 80)
+    outer_body = rect(160, 220, 420, 760)
+    inner_top = rect(520, 420, 920, 780)
+    inner_low = rect(540, 50, 900, 120)
+    combined = compose.Part([sweep, outer_body, inner_top, inner_low])
+
+    cuts = compose.enclosures(combined, "⿺")
+    expected_inner = {id(inner_top), id(inner_low)}
+    expected_outer = {id(sweep), id(outer_body)}
+    assert any(
+        {id(c) for c in inn.contours} == expected_inner and {id(c) for c in out.contours} == expected_outer
+        for out, inn in cuts
+    )
+
+
+def test_learned_lower_left_enclosure_uses_enclosed_room_when_predicted_box_floats_high(monkeypatch) -> None:
+    outer_piece = compose.Part([rect(0, 0, 460, 840), rect(0, 0, 960, 40)])
+    bay_piece = compose.Part([rect(510, 75, 960, 840)])
+    outer_host = compose.Host("飂", [outer_piece, bay_piece], (0, 0, 960, 840), 0.0, whole=True)
+
+    inner_piece = compose.Part([rect(320, 40, 950, 840)])
+    inner_host = compose.Host("䢦", [compose.Part([rect(0, 0, 280, 840)]), inner_piece], (0, 0, 960, 840), 0.0, whole=True)
+
+    font = SimpleNamespace(
+        own=lambda _: True,
+        has=lambda _: True,
+        glyph=lambda _: outer_piece,
+        stem=((40.0, 40.0), (40.0, 40.0)),
+    )
+    c = compose.Composer(font, {}, weighted=True)
+    c.__dict__["face"] = (0.0, 0.0, 1000.0, 880.0)
+    # Predicted inner box does not collide, but floats 120 units above the enclosed room floor (y0=195 vs 75).
+    monkeypatch.setattr(c, "_learned_boxes", lambda op, ks, reg: [(0.0, 0.0, 960.0, 840.0), (520.0, 195.0, 960.0, 840.0)])
+    monkeypatch.setattr(c, "_host", lambda op, i, *args, **kwargs: (outer_host, 0) if i == 0 else (inner_host, 1))
+    monkeypatch.setattr(c, "_enclosed_room", lambda *args: (510.0, 75.0, 960.0, 840.0))
+    monkeypatch.setattr(c, "_room", lambda *args: (510.0, 75.0, 960.0, 840.0))
+    monkeypatch.setattr(c, "ink", lambda _: 100.0)
+
+    placed = c._learned("⿺", ["風", "率"])
+    assert placed is not None and len(placed) == 2
+    assert placed[1].target == (510.0, 75.0, 960.0, 840.0)
