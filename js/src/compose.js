@@ -1,11 +1,15 @@
 // @ts-nocheck: a port of han-compose's Python, kept line for line; its types are the arrays it reads.
 import gowunBatang from './gowun-batang.json' with { type: 'json' }
+import { resolveYaoForm } from './yao-forms.js'
+import { alignedYaoGroups, collapseYaoHost, containsYaoVariant, matchedYaoForTarget, replaceYaoInPart } from './yao-surgical.js'
 import cuanForms from './cuan-forms.json' with { type: 'json' }
 import { fangsongDottedHe, fitDottedHe, isDottedHe, markDottedHe } from './dotted-bopomofo.js'
 import { columnClearance, settleColumns } from './column-spacing.js'
 import { finishGrassTang, isGrassTang, markGrassTang } from './grass-tang.js'
+import { containsU26201, u26201Choice } from './u26201-forms.js'
+import { u26201Part, yaoPart } from './u26201-part.js'
 import { ratePart, rateParts } from './rate-drawing.js'
-import { containsRateForm, exactRateForm, rateFormsFor } from './rate-forms.js'
+import { containsRateForm, rateRenderChoice, rateFormsFor } from './rate-forms.js'
 import { checkedHook, clearHookContacts, markHook } from './directional-enclosures.js'
 import { hookFloor } from './hook-floor.js'
 import { fitHookDonor, lowerHookSeat, openHookCounters } from './hook-seat.js'
@@ -1125,23 +1129,83 @@ export class Composer {
 
   arity = ch => this.arities.get(ch) ?? 0
   // Each reviewed spelling owns one glyph, even when its portable IDS has several operands.
-  rateLeaves(node) {
+  reviewedLeaves(node) {
     if (!Array.isArray(node)) return node
     const text = keyOf(node)
-    if (this.rateMetric(text)) return text
-    return mapOperands(node, child => this.rateLeaves(child))
+    if (this.reviewedMetric(text)) return text
+    return mapOperands(node, child => this.reviewedLeaves(child))
   }
-  rateMetric(text) {
-    const choice = exactRateForm(text)
-    if (!choice || this.excluded(choice.host)) return null
-    return ratePart(rateFormsFor(text)[0].text, this.fontStyle)
+  standaloneYao(text) {
+    const form = resolveYaoForm(text)
+    if (!form || this.excluded(text) || this.excluded('幺')) return null
+    return text === '幺󠄀' && this.data.rec(text)?.G ? null : form
+  }
+  surgicalYao(text) {
+    if (!containsYaoVariant(text) || this.yaoChoice(text) || rateRenderChoice(text)) return null
+    const collapsed = collapseYaoHost(text, k => this.bySequence(k))
+    if (!collapsed || collapsed.host === '幺' || this.excluded(collapsed.host)) return null
+    const glyph = this.drawnGlyph(collapsed.host)
+    if (!glyph || !alignedYaoGroups(glyph, collapsed.host, collapsed.paths.length)) return null
+    return { ...collapsed, glyph }
+  }
+  reviewedMetric(text) {
+    const form = this.standaloneYao(text)
+    if (form) return this.drawnGlyph('幺') ?? yaoPart('folded')
+    const pair = this.yaoChoice(text)
+    if (pair) return u26201Part({})
+    const choice = rateRenderChoice(text)
+    if (choice && !this.excluded(choice.host)) return ratePart(rateFormsFor(choice.host)[0].text, this.fontStyle)
+    const surgical = this.surgicalYao(text)
+    return surgical ? surgical.glyph : null
+  }
+  // An export may supply a native 𦈁 in its own face. An explicit component choice
+  // draws the selected design even when that export also has the base character.
+  yaoChoice(text) {
+    const pair = u26201Choice(text)
+    if (!pair || this.excluded('𦈁') || this.excluded(text)) return null
+    return text === '𦈁' && this.data.rec(text)?.G ? null : pair
+  }
+  hasYaoChoice(node) {
+    return this.yaoChoice(keyOf(node)) || (Array.isArray(node) && node.slice(1).some(child => this.hasYaoChoice(child)))
+  }
+  reviewedParts(text, region, atRoot) {
+    const pair = this.yaoChoice(text)
+    const form = this.standaloneYao(text)
+    if (pair || form) {
+      let part = form ? yaoPart(form.id) : u26201Part(pair)
+      if (form && !atRoot) {
+        const nativeYao = this.drawnGlyph('幺')
+        if (nativeYao) part = matchedYaoForTarget(form.id, nativeYao, region)
+      }
+      const target = atRoot ? mapped(part.box, componentConstants.face, region) : region
+      const origin = form ? 'Noto Serif CJK · 幺（重繪）' : '文津宋體 · 𦈁'
+      return [{ ...placed(part, part.box, target, partInk(part), origin), fixed: true }]
+    }
+    const rate = rateRenderChoice(text)
+    if (rate && !this.excluded(rate.host)) return rateParts(text, this.fontStyle, region, atRoot)
+    const surgical = this.surgicalYao(text)
+    if (surgical) {
+      const glyph = atRoot ? surgical.glyph : (this.drawnGlyph(surgical.host, true) ?? surgical.glyph)
+      const isPrimary = this.glyphRecord(surgical.host)?.v === 1
+      return replaceYaoInPart(glyph, surgical.host, surgical.paths, surgical.edits, region, atRoot, {
+        fontStyle: this.fontStyle,
+        isPrimary,
+        nativeInk: this.ink(surgical.host),
+      })
+    }
+    return null
   }
   parse = sequence => {
     const tree = parseTree(sequence, this.arity, true)
-    return containsRateForm(sequence) ? this.rateLeaves(tree) : tree
+    return containsRateForm(sequence) || containsU26201(sequence) || containsYaoVariant(sequence) ? this.reviewedLeaves(tree) : tree
+  }
+  yaoHostRecord(key) {
+    if (this.standaloneYao(key)) return this.data.rec('幺')
+    const surgical = this.surgicalYao(key)
+    return surgical ? this.data.rec(surgical.host) : null
   }
   // A key holding an empty slot has no record and no hosts: nothing is asked for it.
-  rec = key => key.includes(EMPTY) ? null : this.formRecord(key) ?? this.variantRecord(key) ?? this.fullRecord(key) ?? this.data.rec(key) ?? componentRecord(key, this.fontStyle)
+  rec = key => key.includes(EMPTY) ? null : this.formRecord(key) ?? this.variantRecord(key) ?? this.fullRecord(key) ?? this.yaoHostRecord(key) ?? this.data.rec(key) ?? componentRecord(key, this.fontStyle)
   /** The record of a component written in full (`&HC-u91d1-full;`): its character's outline and
    *  layout, without the sequence, the forms and the places that would draw it as a positional form. */
   fullRecord(key) {
@@ -1428,8 +1492,8 @@ export class Composer {
 
   /** Outline length: a glyph's, or for an excluded or glyphless character its sequence's operands'. */
   ink(node, seen = new Set()) {
-    const rate = this.rateMetric(keyOf(node))
-    if (rate) return partInk(rate)
+    const reviewed = this.reviewedMetric(keyOf(node))
+    if (reviewed) return partInk(reviewed)
     const form = this.formRecord(keyOf(node))
     if (form) return form.ink
     if (Array.isArray(node) && node[0] === '⿸' && this.yanStackedDays(node[1], node[2]))
@@ -1449,8 +1513,8 @@ export class Composer {
 
   /** Permitted outline count; zero when an operand is unknown. */
   outlines(node, seen = new Set()) {
-    const rate = this.rateMetric(keyOf(node))
-    if (rate) return rate.contours.length
+    const reviewed = this.reviewedMetric(keyOf(node))
+    if (reviewed) return reviewed.contours.length
     const form = this.formRecord(keyOf(node))
     if (form) return form.o
     if (typeof node === 'string') {
@@ -1471,7 +1535,7 @@ export class Composer {
   unknown(node) {
     if (!Array.isArray(node)) return false
     // A prepared form is readable even where no encoded character names it.
-    if (this.rateMetric(keyOf(node)) || this.formRecord(keyOf(node))) return false
+    if (this.reviewedMetric(keyOf(node)) || this.formRecord(keyOf(node))) return false
     const encoded = this.bySequence(keyOf(node))
     return !encoded || this.excluded(encoded) || !this.glyph(encoded)
   }
@@ -1487,10 +1551,10 @@ export class Composer {
    *  operands' along that axis, and takes the most of operands side by side across it; an enclosed
    *  or overlaid part adds to its enclosing one. Unknown analyses count as 永. */
   crossings(node, axis, seen = new Set()) {
-    const text = keyOf(node), rate = this.rateMetric(text)
-    if (rate) {
-      const key = rateFormsFor(text)[0].text + '|' + axis
-      if (!this.crossingCache.has(key)) this.crossingCache.set(key, strokeCrossings(rate, axis))
+    const text = keyOf(node), reviewed = this.reviewedMetric(text)
+    if (reviewed) {
+      const key = (resolveYaoForm(text) ? '&VR-5E7A-02;' : u26201Choice(text) ? '𦈁' : rateRenderChoice(text)?.host ?? collapseYaoHost(text, k => this.bySequence(k))?.host ?? text) + '|' + axis
+      if (!this.crossingCache.has(key)) this.crossingCache.set(key, strokeCrossings(reviewed, axis))
       return this.crossingCache.get(key)
     }
     if (Array.isArray(node)) {
@@ -1792,7 +1856,7 @@ export class Composer {
     if (this.pyramid(tree) || this.pyramidWithBase(tree)) return false
     const key = keyOf(tree)
     if (key.includes(INCOME_IDS)) return false
-    if (containsRateForm(key) || this.bySequence(key) || this.spelled.has(key)) return false
+    if (containsRateForm(key) || (containsU26201(key) && this.hasYaoChoice(tree)) || this.bySequence(key) || this.spelled.has(key)) return false
     if (isGroupedForm(key, this.fontStyle) || isComponentForm(key, this.fontStyle)) return false
     let leaves = 0, supported = true
     const walk = node => {
@@ -1819,7 +1883,8 @@ export class Composer {
   cellLayout(tree, region = this.face, { leafIndices = true } = {}) {
     let slots = 0
     const number = node => node === EMPTY ? `${EMPTY}${slots++}` : Array.isArray(node) ? mapOperands(node, number) : node
-    const numbered = number(containsRateForm(keyOf(tree)) ? this.rateLeaves(tree) : tree)
+    const key = keyOf(tree)
+    const numbered = number(containsRateForm(key) || containsU26201(key) || containsYaoVariant(key) ? this.reviewedLeaves(tree) : tree)
     const out = []
     let leaf = 0
     const f = region, width = f[2] - f[0], height = f[3] - f[1]
@@ -1874,10 +1939,10 @@ export class Composer {
       if (checkedHook(node)) markHook(this, node, out.slice(start))
     }
     const place = (node, box, depth) => {
-      const rate = this.rateMetric(keyOf(node)) && rateParts(keyOf(node), this.fontStyle, target(box), depth === 0)
-      if (rate) {
-        if (leafIndices) rate[0].leaf = leaf++
-        out.push(rate[0])
+      const reviewed = this.reviewedParts(keyOf(node), target(box), depth === 0)
+      if (reviewed) {
+        if (leafIndices) reviewed[0].leaf = leaf++
+        out.push(reviewed[0])
         return
       }
       const yuan = this.yuanParts(node, target(box))
@@ -2308,8 +2373,8 @@ export class Composer {
   /** The parts drawing `node` in `region`, with the correction its description carries, where the
    *  component is one the font cuts wrong (`COMPONENT_FIXES`). */
   node(node, region, atRoot = false, sideBySide = false) {
-    const rate = rateParts(keyOf(node), this.fontStyle, region, atRoot)
-    if (rate && !this.excluded(exactRateForm(keyOf(node)).host)) return rate
+    const reviewed = this.reviewedParts(keyOf(node), region, atRoot)
+    if (reviewed) return reviewed
     const dotted = isDottedHe(node)
     const pair = dotted ? fangsongDottedHe(this, region, atRoot) : null
     const parts = pair ?? this.constructed(node, region, atRoot) ?? componentFix(keyOf(node), this.drawNode(node, region, atRoot, sideBySide), this, region)
@@ -5648,7 +5713,8 @@ export class Composer {
    *  and the gap below the 一 of ⿱一𧘇. The gap the donor itself drew says which stacks the designer
    *  closed, and the pair is settled one way or the other, never squeezed apart and then drawn back.
    *  A median gap can look clear while one stroke reaches into the other (𠂊's hook into 巾's bar);
-   *  where the nearest ink overlaps, the pair is settled by that overlap instead. */
+   *  the closest strokes keep the style's least gap as well, and an export without one settles
+   *  overlapping ink by the overlap. */
   space(axis, groups, nested = false) {
     if (this.partial) return
     const C = this.C
@@ -5658,9 +5724,11 @@ export class Composer {
       const gaps = facing(a, b, axis)
       if (!gaps) continue
       this.spaced.push([axis, a, b])
-      const gap = gaps.min <= 0 ? gaps.min : gaps.median
-      if (gap >= C.FACING[axis]) continue
-      apart(a, b, axis, C.FACING[axis] - gap, C.SQUEEZE)
+      const least = C.FACING_LEAST?.[axis]
+      const short = least === undefined ? C.FACING[axis] - (gaps.min <= 0 ? gaps.min : gaps.median)
+        : Math.max(C.FACING[axis] - gaps.median, least - gaps.min)
+      if (short <= 0) continue
+      apart(a, b, axis, short, C.SQUEEZE)
     }
   }
 

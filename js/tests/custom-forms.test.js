@@ -16,8 +16,8 @@ const ENTITY = '&CDP-8958;'
 it('names the sequences that call for the cut forms', () => {
   for (const text of ['⿰木&CDP-8958;', '⿱#(丿𠃊)卩']) expect(hasCustomComponent(text)).toBe(true)
   // A numbered component has its own forms, a chain the grammar names is a character, and an entity
-  // spelled another way is no CHISE reference: none of them asks for the file.
-  for (const text of ['⿰木口', '木', '⿱丿乚', '⿰亻{53}', '⿰亻#(H)', '⿰亻&#x4E00;']) expect(hasCustomComponent(text)).toBe(false)
+  // spelled another way or answered by the bundled variant forms is no CHISE cut: none of them asks for the file.
+  for (const text of ['⿰木口', '木', '⿱丿乚', '⿰亻{53}', '⿰亻&X-00011;', '⿰亻&VR-5E7A-03;', '⿰亻&GW-u5e7a-g;', '⿰亻#(H)', '⿰亻&#x4E00;']) expect(hasCustomComponent(text)).toBe(false)
   expect(traitsOf('⿰木&CDP-8958;').custom).toBe(true)
   expect(traitsOf('⿰木口').custom).toBe(false)
 })
