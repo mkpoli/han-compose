@@ -132,3 +132,34 @@ def test_consensus_skips_standalone_glyph_fallback_for_combining_places(monkeypa
     monkeypatch.setattr(c3, "_host_node", lambda *args, **kwargs: SimpleNamespace(pieces=[glyph]))
     masks, fellows = c3._consensus("⿺0", "風")
     assert fellows is True and len(masks) == 4
+
+
+def test_learned_lower_left_enclosure_uses_outer_host_bay_when_predicted_box_collides(monkeypatch) -> None:
+    # Outer L-shaped sweep covering left wall (0..480) and bottom foot (0..960, y=0..100),
+    # with its designer-authored inner bay cleanly at (540, 140, 960, 840).
+    outer_piece = compose.Part([rect(0, 0, 480, 840), rect(0, 0, 960, 100)])
+    bay_piece = compose.Part([rect(540, 140, 960, 840)])
+    outer_host = compose.Host("颱", [outer_piece, bay_piece], (0, 0, 960, 840), 0.0, whole=True)
+
+    inner_piece = compose.Part([rect(360, 0, 960, 840)])
+    inner_host = compose.Host("䢦", [compose.Part([rect(0, 0, 300, 840)]), inner_piece], (0, 0, 960, 840), 0.0, whole=True)
+
+    font = SimpleNamespace(
+        own=lambda _: True,
+        has=lambda _: True,
+        glyph=lambda _: outer_piece,
+        stem=((40.0, 40.0), (40.0, 40.0)),
+    )
+    c = compose.Composer(font, {}, weighted=True)
+    c.__dict__["face"] = (0.0, 0.0, 1000.0, 880.0)
+    # Predicted inner box intrudes into outer_piece's left wall (x=440..480), creating a modest
+    # collision below COLLIDE=0.03 but above 0.005.
+    monkeypatch.setattr(c, "_learned_boxes", lambda op, ks, reg: [(0.0, 0.0, 960.0, 840.0), (440.0, 140.0, 960.0, 840.0)])
+    monkeypatch.setattr(c, "_host", lambda op, i, *args, **kwargs: (outer_host, 0) if i == 0 else (inner_host, 1))
+    monkeypatch.setattr(c, "_room", lambda *args: (540.0, 140.0, 960.0, 840.0))
+    monkeypatch.setattr(c, "ink", lambda _: 100.0)
+
+    placed = c._learned("⿺", ["風", "率"])
+    assert placed is not None and len(placed) == 2
+    assert placed[1].target == (540.0, 140.0, 960.0, 840.0)
+    assert compose._collision([placed[0]], [placed[1]], c.face, size=256) == 0.0

@@ -3758,6 +3758,7 @@ class Composer:
             return None
         groups = []
         outer_hosted = False
+        outer_bay = None
         inner_fitted = False
         for i, child in enumerate(children):
             box = boxes[i]
@@ -3869,6 +3870,19 @@ class Composer:
             groups.append([Placed(source, source.box, box, native=self.ink(drawn.char), origin=f"learned {drawn.char}")])
             if i == 0:
                 outer_hosted = True
+                if op == "⿺" and len(drawn.pieces) == 2 and k == 0:
+                    outer_bay = mapped(drawn.pieces[1].box, source.box, box)
+            if (op == "⿺" and i == 1 and outer_bay is not None
+                    and self._stretch(source.box, outer_bay) <= STRETCH):
+                frame_box = region or self.face
+                cur_col = _collision(groups[0], groups[1], frame_box)
+                if cur_col > 0.005:
+                    cand = [Placed(source, source.box, outer_bay, native=self.ink(drawn.char), origin=f"learned {drawn.char}")]
+                    if _collision(groups[0], cand, frame_box) > 0.005:
+                        _fit_inside(groups[0], cand, frame_box, self.font.stem[0][0], room=outer_bay)
+                    if _collision(groups[0], cand, frame_box, size=256) < _collision(groups[0], groups[1], frame_box, size=256):
+                        groups[1] = cand
+                        box = cand[0].target
             if (op == "⿸" and isinstance(children[0], tuple) and i == 1
                     and _collision(groups[0], groups[1], region or self.face, size=256) > COLLIDE):
                 _fit_inside(groups[0], groups[1], region or self.face, self.font.stem[0][0],

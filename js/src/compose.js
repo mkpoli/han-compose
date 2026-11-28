@@ -4388,6 +4388,7 @@ export class Composer {
     const groups = []
     // Whether the enclosing part is drawn as its kin's.
     let kinned = false
+    let outerBay = null
     for (let i = 0; i < children.length; i++) {
       const child = children[i]
       // A repeated glyph takes one cell per operand, whichever path draws it.
@@ -4571,6 +4572,27 @@ export class Composer {
       }
       if (op in this.AXIS && stretchOf(source.box, box) > C.STRETCH) return null
       groups.push([{ ...placed(source, source.box, box, this.ink(drawn.h), `learned ${drawn.h}`), ...(this.AXIS[op] === 1 ? { gap: drawn.g } : {}) }])
+      if (i === 0 && op === '⿺' && drawn.k) {
+        const hostGlyph = this.glyph(drawn.h)
+        if (hostGlyph && hostGlyph.contours.length > drawn.k.length) {
+          const keep = new Set(drawn.k)
+          const rest = hostGlyph.contours.filter((_, idx) => !keep.has(idx))
+          if (rest.length) outerBay = mapped(union(rest.map(c => pointsBox(c.light))), source.box, box)
+        }
+      }
+      if (op === '⿺' && i === 1 && outerBay && stretchOf(source.box, outerBay) <= C.STRETCH) {
+        const curCol = this.collide(groups[0], groups[1], frameOf, 64)
+        if (curCol > 0.005) {
+          const cand = [placed(source, source.box, outerBay, this.ink(drawn.h), `learned ${drawn.h}`)]
+          if (this.collide(groups[0], cand, frameOf, 64) > 0.005) {
+            this.fit(groups[0], cand, frameOf, stem, C, { room: outerBay, anchor: centre(outerBay) })
+          }
+          if (this.collide(groups[0], cand, frameOf, 256) < this.collide(groups[0], groups[1], frameOf, 256)) {
+            groups[1] = cand
+            box = cand[0].target
+          }
+        }
+      }
       if (op === '⿸' && Array.isArray(children[0]) && i === 1 && this.collide(groups[0], groups[1], frameOf, 256) > C.COLLIDE)
         this.fit(groups[0], groups[1], frameOf, stem, C, { size: 256, room: box })
       if (C.CLEARED.includes(op) && i === 1 && this.collide(groups[0], groups[1], frameOf, 64) > C.COLLIDE) {
