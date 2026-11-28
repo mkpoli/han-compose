@@ -809,6 +809,9 @@ export declare class Composer {
      *  under an enclosing part cut from a host (`_enclosed_room`); null where the export gives that
      *  part no room or the part is drawn another way. */
     keptRoom(op: any, outer: any, drawn: any, box: any): number[] | null;
+    /** Let a narrow descending bottom stem (such as 十 in 率/畢/奉/卓/軍) under a ⿺ sweep descend
+     *  to normal stem clearance above the sweep directly beneath it, leaving wide-bottom parts high. */
+    descendEnclosureStem(outer: any, inner: any, region: any, stem: any): void;
     /** A sequence drawn whole somewhere in the font, in any place but the left or the top (`_instance`). */
     instance(node: any, region: any): {
         part: any;
