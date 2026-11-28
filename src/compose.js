@@ -921,6 +921,16 @@ export const designedSources = (tree, style = 'sans') => {
   return [...out]
 }
 
+// The left side of 龍 comprises the contours of 立 and 月. Its remaining contours draw 𳑳.
+// The five digests identify the verified cuts in Sans, Serif, FangSong, Regular and Pen.
+const DRAGON_LEFT = {
+  'f0d92e1589da3f6a476744119ca0ef131b59b5d45b11fa57d508f5c799419b5b': [0, 1, 2, 3, 4, 5, 6, 7, 8],
+  '2fad145903368fef4ae356280e508df73f5e6b8aca6c19b6efb4bd102c7884fa': [0, 1, 5, 6, 7, 8, 15, 16, 17],
+  '71c4fd45303ecbd3f4e38ba82935062cdbf5a9a627463ccfe629bf0088630bdd': [1, 2, 3, 4],
+  '6f08214b8280953ed5c94fd3b311a46de764bfd026dfbfbd069d6e68afd2f26f': [1, 2, 3, 4],
+  '140d6ac99f178cbc4b1e1c425a65fb73c721b0c3bb788b36794242c75959829c': [1, 2, 3, 4, 5, 6],
+}
+
 // Left components the export carries no host cuts for, taken from a designed character's glyph.
 /** Extension J ideographs drawn from a character every face draws, without its bottom stroke: 𲎰
  *  is 五 above its lower 一. 𲐬 is 巫 above its, with a second 人 under each 人 beside the stem
@@ -1171,6 +1181,10 @@ export class Composer {
 
   glyphRecord(ch) {
     const record = this.rec(ch), glyph = record?.G
+    if ((ch === '𦚏' || ch === '𳑳') && glyph?.v !== 1 && !this.excluded(ch)) {
+      const cut = this.dragonCuts()?.[ch]
+      if (cut) return cut
+    }
     // Exports that selected Unicode letters omit U+3007 (Letter Number). Use Zhuque's own 〇
     // when the source has no native record, including sources with a bundled fallback.
     if (ch === '〇' && this.fontStyle === 'fangsong' && !glyph?.v) return fangsongZero
@@ -2550,6 +2564,33 @@ export class Composer {
     return parts.length ? parts : null
   }
 
+  dragonCuts() {
+    if (this.excluded('龍')) return null
+    if (this._dragonCuts !== undefined) return this._dragonCuts
+    const record = this.glyphRecord('龍')
+    const left = record && DRAGON_LEFT[hexOf(JSON.stringify(record.p))]
+    if (!left) return this._dragonCuts = null
+    const glyph = partOf(record)
+    const cut = indices => ({
+      b: derived(glyph, indices.map(i => glyph.contours[i])).box, w: record.w, v: record.v,
+      p: indices.map(i => record.p[i]),
+    })
+    const right = glyph.contours.map((_, i) => i).filter(i => !left.includes(i))
+    return this._dragonCuts = { box: glyph.box, '𦚏': cut(left), '𳑳': cut(right) }
+  }
+
+  dragonParts(node, region, atRoot) {
+    if (!Array.isArray(node) || node[0] !== '⿰' || node[1] !== '𦚏' || node[2] !== '𳑳' ||
+        this.excluded('𳑳') || this.excluded('𦚏')) return null
+    const cuts = this.dragonCuts()
+    if (!cuts) return null
+    return node.slice(1).map(ch => {
+      const part = partOf(cuts[ch])
+      return { ...placed(part, part.box, mapped(part.box, atRoot ? this.C.face : cuts.box, region),
+        partInk(part), `龍 ${ch}`), fixed: true }
+    })
+  }
+
   /** R+06D8, 出土文獻與古文字教程 p. 15. The two sides of 棘 flank a shorter 企. */
   thornRowParts(node, region) {
     if (!isThornRow(node) || ['棘', '企', '朿'].some(ch => this.excluded(ch))) return null
@@ -2655,6 +2696,8 @@ export class Composer {
   }
 
   drawNode(node, region, atRoot = false, sideBySide = false, regroup = true) {
+    const dragon = this.dragonParts(node, region, atRoot)
+    if (dragon) return dragon
     const sweep = brushSweepParts(this, node, region, !atRoot)
     if (sweep) return sweep
     const yuan = this.yuanParts(node, region)

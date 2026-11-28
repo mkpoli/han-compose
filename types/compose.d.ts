@@ -85,6 +85,7 @@ export declare class Composer {
     sweeps: any[];
     /** How much smaller than it was laid out the character is drawn, beside marks that take a margin. */
     carried: number;
+    _dragonCuts: any;
     handForms: boolean | undefined;
     stroke: any[] | undefined;
     /**
@@ -434,6 +435,16 @@ export declare class Composer {
     /** Three native cuts for the described wheat enclosure. 麺 supplies the frame and right-hand 面,
      *  榛 the narrow 𡗗. The sweep is 处’s in Zhuque and 麵’s in TW-Kai. */
     wheatFaceParts(node: any, region: any): any[] | null;
+    dragonCuts(): any;
+    dragonParts(node: any, region: any, atRoot: any): {
+        part: any;
+        source: any;
+        target: any;
+        weight: number[];
+        native: any;
+        origin: any;
+        fixed: boolean;
+    }[] | null;
     /** R+06D8, 出土文獻與古文字教程 p. 15. The two sides of 棘 flank a shorter 企. */
     thornRowParts(node: any, region: any): {
         part: any;
