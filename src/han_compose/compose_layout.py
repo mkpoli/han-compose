@@ -101,7 +101,19 @@ def features(composer: C.Composer, op: str, kids: list[str], table: Table, cache
              own: list[np.ndarray] | None = None) -> list[float]:
     out = [1.0 if op == known else 0.0 for known in OPS]
     for i, kid in enumerate(kids):
-        mean, spread, n = table.usual(C.slot(op, i), kid, None if own is None else own[i])
+        place = C.slot(op, i)
+        mean, spread, n = table.usual(place, kid, None if own is None else own[i])
+        if n == 0 and own is None:
+            # A bare radical (言, 金) or spelled-out character (⿰女馬) has no table entry in a
+            # place where characters write its positional form (訁, 釒) or its character (媽).
+            named = kid if len(kid) == 1 else composer.by_sequence.get(kid, kid)
+            for alt in (named, *composer.alternatives(named, place)):
+                if alt == kid:
+                    continue
+                alt_mean, alt_spread, alt_n = table.usual(place, alt)
+                if alt_n > 0:
+                    kid, mean, spread, n = alt, alt_mean, alt_spread, alt_n
+                    break
         out += [*(mean / 1000), *(spread / 100), math.log1p(n) / 5, math.log1p(outlines(composer, kid)) / 3,
                 *shape(composer, kid, cache)]
     return out

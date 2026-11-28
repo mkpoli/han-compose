@@ -4261,8 +4261,18 @@ export class Composer {
   /** Both operands' boxes in the em, as the learned layout sets them. A construct that is drawn has
    *  no character of its own, and is read as the character it is a shape of (`like`). */
   predict(op, children) {
-    const keys = children.map(child => (this.constructed(child, this.face) && CONSTRUCTS[keyOf(child)].like) || this.renderKey(child))
-    return forward(this.layout, features(this.layout, op, keys.map(k => this.rec(k === '⺿' || k === '⻀' ? '艹' : k)), [this.slot(op, 0), this.slot(op, 1)]))
+    const places = [this.slot(op, 0), this.slot(op, 1)]
+    const keys = children.map((child, i) => {
+      const place = places[i], raw = keyOf(child)
+      const like = this.constructed(child, this.face) && CONSTRUCTS[raw].like
+      const resolved = like || this.renderKey(child)
+      const normalized = resolved === '⺿' || resolved === '⻀' ? '艹' : resolved
+      // Match Python's lookup order: literal key first (unless a construct maps it via `like`),
+      // then its normalized/spelled character, then that character's positional forms in `place`.
+      const candidates = [...(like ? [] : [raw]), normalized, ...(this.rec(normalized)?.a?.[place] ?? []), ...(like ? [] : this.rec(raw)?.a?.[place] ?? [])]
+      return candidates.find(alt => this.rec(alt)?.u?.[place]) ?? normalized
+    })
+    return forward(this.layout, features(this.layout, op, keys.map(k => this.rec(k)), places))
   }
 
   /**
