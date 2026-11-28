@@ -35,6 +35,27 @@ The two identifiers in each of the first two rows name the same Adobe glyph. A s
 
 The grass radical catalogue retains the encoded radical forms, two compatibility ideographs, two standardized variants and six IVSes as distinct spellings. For example, `艹︀` and `艹` share the same contextual drawing, and reopening either one recovers the original text. Plain `艹` leaves the drawing unspecified. [Unicode, StandardizedVariants.txt, 16.0](https://www.unicode.org/Public/16.0.0/ucd/StandardizedVariants.txt)
 
+## A component in full
+
+A radical takes a positional form in one place: 金 on the left is drawn as 釒, 竹 on top as 𥫗. `fullFormFamilies` (`han-compose/full-forms`) has one family for each such component and place, `full/L/金` for 金 on the left, built from the 32 positional rows of `data/vocab/han-component-forms.tsv`. Its forms are the positional forms, each written as its own character, and the component in full, written as the entity `&HC-u91d1-full;` (the code point in lowercase hexadecimal).
+
+```js
+import { createVariationRegistry } from 'han-compose/variation-registry'
+import { fullFormFamilies } from 'han-compose/full-forms'
+
+const registry = createVariationRegistry(fullFormFamilies)
+registry.select('⿰金皮', [0], 'full/L/金', 'full')
+// ⿰&HC-u91d1-full;皮
+```
+
+| Spelling | Drawn on the left as |
+| --- | --- |
+| `⿰金皮` | the composer's choice, the positional form 釒 |
+| `⿰釒皮` | 釒 |
+| `⿰&HC-u91d1-full;皮` | 金 as it stands alone, fitted to the place |
+
+A family carries its `place` (`L`, `R`, `T` or `B`). The registry finds a family by spelling alone, so a host offers it only at an operand standing in that place. Both composers read the entity: the Python one as a component in `parse`, the browser one through the record of its character without that character's sequence and hosts. The full form is a local design of this project. No source registers it, and whether a given character was ever written so is not claimed.
+
 ## Describe another difference
 
 | Field | Meaning |

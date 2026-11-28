@@ -221,6 +221,18 @@ def _font_notice(path: Path, licence: str) -> dict:
             "licence": licence, "licence_url": LICENCE_URLS[licence], "file": path.name}
 
 
+def rooms(composer: C.Composer) -> dict[str, list[float]]:
+    """Operator TAB enclosing part → the room that part's own characters give what they enclose, as
+    shares of the enclosing part's box (`Composer._enclosed_share`): what a port moves an enclosed
+    part with no host into. Only the parts enough characters are written round."""
+    out = {}
+    for op, outer in sorted(composer._written_round):
+        share = composer._enclosed_share(op, outer)
+        if share is not None:
+            out[f"{op}\t{outer}"] = [round(v, 4) for v in share]
+    return out
+
+
 def constants(composer: C.Composer) -> dict:
     """Every module constant of `compose` the composer draws with, by name, the style's (`STEM_CURVE`,
     `HEAVY`, `GROW_Y`), and the font's stems and face: (width at 400, width at heavy) of 丨 across x
@@ -242,6 +254,7 @@ def constants(composer: C.Composer) -> dict:
         out[name] = value
     style = composer.font.style
     out["STEM_CURVE"] = [list(v) for v in style.stem_curve]
+    out["FACING_LEAST"] = list(style.facing_least)
     out["HEAVY"] = style.heavy
     if style.part_stems is not None:
         out["PART_STEMS"] = list(style.part_stems)
@@ -679,7 +692,8 @@ def own_letters(font: C.Font) -> set[str]:
     sequence (帰) is still written, on its own and as an operand."""
     import unicodedata
 
-    return {chr(point) for point in font.cmap if unicodedata.category(chr(point))[0] == "L"}
+    return {chr(point) for point in font.cmap
+            if point == 0x3007 or unicodedata.category(chr(point))[0] == "L"}
 
 
 def _leaf(key: str) -> bool:
@@ -1222,6 +1236,7 @@ def _export(composer: C.Composer, out: Path, joyo: list[str] | None = None, pari
         "constants": constants(composer),
         "constants_note": "tuple keys are joined with a comma: SHARES[('⿳', 3)] is SHARES['⿳,3']",
         "spelled": sorted(composer.spelled),
+        "rooms": rooms(composer),
         "not_exported": NOT_EXPORTED,
         "paths": PATHS,
         "record": RECORD,

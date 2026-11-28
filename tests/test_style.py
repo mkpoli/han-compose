@@ -508,3 +508,27 @@ def test_parts_of_one_character_are_held_within_the_fonts_spread_of_a_common_str
     assert 30.0 < thin < thick < 60.0
     # Parts already within the spread keep their weights.
     assert drawn((2.5, 2.5)) == pytest.approx([60.0, 30.0])
+
+
+def test_weighted_parts_keep_the_styles_least_gap() -> None:
+    from types import SimpleNamespace
+
+    def block(x0: float, x1: float, weight: float) -> compose.Placed:
+        light = np.array([[x0, 0], [x0, 800], [x1, 800], [x1, 0]], dtype=float)
+        heavy = light + np.array([[-20, -20], [-20, 20], [20, 20], [20, -20]], dtype=float)
+        ops = [("moveTo", 1, False)] + [("lineTo", 1, False)] * 3
+        part = compose.Part([compose.Contour(ops, light, heavy)])
+        return compose.Placed(part, part.box, part.box, weight=(weight, 0.0))
+
+    def spaced(weight: float) -> tuple[float, float, float]:
+        composer = compose.Composer(SimpleNamespace(style=SimpleNamespace(facing_least=(24.0, 24.0))), {})
+        left, right = block(100, 400, weight), block(420, 700, weight)
+        composer._spaced.append((0, [left], [right]))
+        composer._clear([left, right])
+        return left.target[2], right.target[0], float(compose._facing_gaps([left], [right], 0).min())
+
+    # Twenty units apart as laid out; at half weight each grows ten into the gap and they touch.
+    end, start, gap = spaced(0.5)
+    assert end < 400 and start > 420 and gap >= 24.0
+    # Unweighted parts stay where the layout spaced them.
+    assert spaced(0.0)[:2] == (400, 420)

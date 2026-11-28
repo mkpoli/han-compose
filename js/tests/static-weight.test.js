@@ -111,3 +111,25 @@ it('holds parts of one character within the font\'s spread of a common stroke wi
   expect(widths[1]).toBeGreaterThan(30)
   expect(widths[0]).toBeLessThan(60)
 })
+
+it('keeps the least gap between neighbouring parts once they are weighted', async () => {
+  const loaded = source()
+  await loaded.ready()
+  const edges = weight => {
+    const composer = new Composer(loaded.store(), { fontStyle: 'fangsong' })
+    composer.C.FACING_LEAST = [24, 24]
+    const left = part([100, 0, 400, 800], [100, 0, 400, 800], [60, 45])
+    const right = part([420, 0, 700, 800], [420, 0, 700, 800], [60, 45])
+    left.weight = right.weight = [weight, 0]
+    composer.spaced.push([0, [left], [right]])
+    composer.clear([left, right])
+    return [left.target[2], right.target[0]]
+  }
+  // Twenty units apart as laid out; at half weight each grows ten into the gap and they touch.
+  const [end, start] = edges(0.5)
+  expect(end).toBeLessThan(400)
+  expect(start).toBeGreaterThan(420)
+  expect(start - end - 20).toBeGreaterThanOrEqual(20)
+  // Unweighted parts stay where the layout spaced them.
+  expect(edges(0)).toEqual([400, 420])
+})
