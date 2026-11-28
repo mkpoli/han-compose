@@ -454,6 +454,15 @@ export declare class Composer {
     /** Three native cuts for the described wheat enclosure. 麺 supplies the frame and right-hand 面,
      *  榛 the narrow 𡗗. The sweep is 处’s in Zhuque and 麵’s in TW-Kai. */
     wheatFaceParts(node: any, region: any): any[] | null;
+    koreanPair(node: any, region: any, atRoot?: boolean): {
+        part: any;
+        source: any;
+        target: any;
+        weight: number[];
+        native: any;
+        origin: any;
+        fixed: boolean;
+    }[] | null;
     /** The two hands, 同, the cover and the lower body as drawn in the face's own 爨. */
     cuanParts(node: any, region: any, atRoot: any): any;
     dragonCuts(): any;

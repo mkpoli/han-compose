@@ -288,6 +288,8 @@ The prepared form in `src/mu-net-forms.json` takes 氵 from 河, the left 木 fr
 
 For ⿺木 followed by another operand, the same enclosing 木 holds the operand in the opening above its final stroke. 术 and its spelling ⿺木丶 retain their ordinary 木.
 
+For ⿴口도 and ⿴囗도, each face encloses 도 in its own 囗 frame from characters such as 國, 圖, and 園, pairing FangSong, Regular, and Pen with Gowun Batang. [Gowun Batang source](https://github.com/yangheeryu/Gowun-Batang) · [SIL Open Font License 1.1](../data/licences/OFL-GowunBatang.txt)
+
 For the IDS of 爨, the four groups in `src/cuan-forms.json` follow the parent glyph’s own outlines in Zhuque Fangsong 0.212, TW-Kai and Kureedo Full. They retain the left and right hands as one editable operand. [Font sources and licenses](../docs/licensing.md)
 
 The FangSong form of 貭 uses the joined upper body of 盾 and the feet of 貝 from Zhuque Fangsong 0.212, © 2023 JadeFoci, SIL OFL 1.1. [Font source and license](../docs/licensing.md)

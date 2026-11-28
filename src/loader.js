@@ -354,7 +354,7 @@ export async function sketch(source, sequence, { fontStyle = 'sans' } = {}) {
   await source.load([...modelOf(source, tree), ...(donors.length ? source.filesOf(donors) : [])])
   // These layouts read actual ink, including contextual glyphs discovered in later shards.
   const recorded = node => Array.isArray(node) && (rccDonors(keyOf(node), fontStyle).length > 0 || node.slice(1).some(recorded))
-  const measured = recorded(tree) || donors.includes(qiReference) || donors.includes(yuanReference) || description.includes('⿺') || /⿹勹[白百首]/u.test(description)
+  const measured = recorded(tree) || donors.includes(qiReference) || donors.includes(yuanReference) || description.includes('⿺') || /⿹勹[白百首]/u.test(description) || (donors.includes('囗') && description.includes('도'))
   for (let round = 0; round < ROUNDS; round++) {
     const store = source.store()
     let leaves

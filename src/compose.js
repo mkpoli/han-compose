@@ -1,4 +1,5 @@
 // @ts-nocheck: a port of han-compose's Python, kept line for line; its types are the arrays it reads.
+import gowunBatang from './gowun-batang.json' with { type: 'json' }
 import { resolveYaoForm } from './yao-forms.js'
 import { alignedYaoGroups, collapseYaoHost, containsYaoVariant, matchedYaoForTarget, replaceYaoInPart } from './yao-surgical.js'
 import cuanForms from './cuan-forms.json' with { type: 'json' }
@@ -652,6 +653,120 @@ function strengthenRiceStroke(contour, radius) {
   }
   return { ...contour, light: outline, heavy: outline }
 }
+
+const KOREAN_ENCLOSURE_HOSTS = ['國', '圖', '圍', '園', '圓', '團', '国', '圃', '固', '因', '囝', '囡', '囜', '困']
+const KOREAN_ENCLOSURE_LATE = new Set(['回', '四'])
+const KOREAN_DO_PAIR = {
+  sans: { native: true, padX: 0.12, padY: 0.12, stretch: 1.08, weight: [0.28, 0.28] },
+  serif: { native: true, padX: 0.06, padY: 0.07, stretch: 1.26, weight: [0.24, 0.12] },
+  fangsong: { native: false, padX: 0.065, padY: 0.045, stretch: 1.16, offset: [13, 7], slant: 0.033, matchFrameSlope: true },
+  regular: { native: false, padX: 0.075, padY: 0.05, stretch: 1.14, offset: [14, 6.5], slant: 0.030, matchFrameSlope: true },
+  'pen-writing': { native: false, padX: 0.085, padY: 0.075, stretch: 1.12, offset: [8, 9], slant: 0.04 },
+}
+
+/** Weighted median slope (dy / dx) of horizontal edges (|dx| >= 4 |dy|) in placed coordinates. */
+function horizontalBarSlope(contours, source = null, target = null) {
+  const sx = source && target ? (target[2] - target[0]) / Math.max(source[2] - source[0], 1e-6) : 1
+  const sy = source && target ? (target[3] - target[1]) / Math.max(source[3] - source[1], 1e-6) : 1
+  const edges = []
+  let totalW = 0
+  for (const contour of contours) {
+    const pts = contour.light ?? contour
+    const n = pts.length
+    for (let i = 0; i < n; i += 2) {
+      const dx = (pts[(i + 2) % n] - pts[i]) * sx
+      const dy = (pts[(i + 3) % n] - pts[i + 1]) * sy
+      if (Math.hypot(dx, dy) < 2 || Math.abs(dx) < Math.abs(dy) * 4) continue
+      const w = Math.abs(dx)
+      edges.push([dy / dx, w])
+      totalW += w
+    }
+  }
+  if (!totalW) return 0
+  edges.sort((a, b) => a[0] - b[0])
+  let acc = 0
+  for (const [slope, w] of edges) {
+    acc += w
+    if (acc >= totalW / 2) return slope
+  }
+  return edges[edges.length - 1][0]
+}
+
+const koreanDoCache = new Map()
+/** Gowun Batang 도 adjusted in stroke weight and upward-right horizontal slant to match enclosing 囗 strokes. */
+function koreanDoPart(offset = [0, 0], slant = 0) {
+  const [rx, ry] = offset
+  const key = `${rx},${ry},${slant}`
+  if (koreanDoCache.has(key)) return koreanDoCache.get(key)
+  const base = partOf(gowunBatang['도'])
+  const cx = (base.box[0] + base.box[2]) / 2
+  const part = !rx && !ry && !slant ? base : derived(base, base.contours.map(contour => {
+    const points = contour.light, n = points.length
+    const winding = windingOf([points])
+    const outline = points.slice()
+    if (rx || ry) {
+      for (let i = 0; i < n; i += 2) {
+        let before = (i + n - 2) % n, after = (i + 2) % n
+        while (before !== i && points[before] === points[i] && points[before + 1] === points[i + 1]) before = (before + n - 2) % n
+        while (after !== i && points[after] === points[i] && points[after + 1] === points[i + 1]) after = (after + 2) % n
+        const ax = points[i] - points[before], ay = points[i + 1] - points[before + 1]
+        const bx = points[after] - points[i], by = points[after + 1] - points[i + 1]
+        const a = Math.hypot(ax, ay) || 1, b = Math.hypot(bx, by) || 1
+        const n1x = ay / a, n1y = -ax / a, n2x = by / b, n2y = -bx / b
+        const nx = n1x + n2x, ny = n1y + n2y, len = Math.hypot(nx, ny)
+        let ux = n1x, uy = n1y, miter = 1
+        if (len >= 1e-6) {
+          ux = nx / len; uy = ny / len
+          const dot = ux * n1x + uy * n1y
+          miter = dot > 0.5 ? Math.min(1.5, 1 / dot) : 1
+        }
+        const cap = Math.min(a * 0.45, b * 0.45)
+        outline[i] += winding * Math.min(rx * miter, cap) * ux
+        outline[i + 1] += winding * Math.min(ry * miter, cap) * uy
+      }
+    }
+    if (slant) {
+      for (let i = 0; i < n; i += 2) outline[i + 1] += slant * (outline[i] - cx)
+    }
+    return { ...contour, light: outline, heavy: outline }
+  }))
+  koreanDoCache.set(key, part)
+  return part
+}
+
+/** Largest empty rectangle enclosed on all four sides inside a placed 囗 frame. */
+function enclosureCavity(frame, size = 128) {
+  const box = frame.target
+  const mask = fill(groupRings([frame], 8), size, box)
+  const pre = new Int32Array((size + 1) * (size + 1))
+  for (let r = 0; r < size; r++) for (let c = 0; c < size; c++)
+    pre[(r + 1) * (size + 1) + c + 1] = mask[r * size + c] + pre[r * (size + 1) + c + 1] + pre[(r + 1) * (size + 1) + c] - pre[r * (size + 1) + c]
+  const sum = (r0, r1, c0, c1) => r1 <= r0 || c1 <= c0 ? 0
+    : pre[r1 * (size + 1) + c1] - pre[r0 * (size + 1) + c1] - pre[r1 * (size + 1) + c0] + pre[r0 * (size + 1) + c0]
+  let best = null
+  const heights = new Int32Array(size)
+  for (let row = 0; row < size; row++) {
+    for (let c = 0; c < size; c++) heights[c] = mask[row * size + c] ? 0 : heights[c] + 1
+    const stack = []
+    for (let col = 0; col <= size; col++) {
+      const h = col < size ? heights[col] : 0
+      while (stack.length && heights[stack.at(-1)] >= h) {
+        const top = stack.pop()
+        const height = heights[top], left = stack.length ? stack.at(-1) + 1 : 0, width = col - left
+        if (!height || !width) continue
+        const r0 = row - height + 1, r1 = row + 1, c0 = left, c1 = col
+        if (sum(r0, r1, 0, c0) > 0 && sum(r0, r1, c1, size) > 0 && sum(0, r0, c0, c1) > 0 && sum(r1, size, c0, c1) > 0) {
+          if (!best || height * width > best[0]) best = [height * width, r0, r1, c0, c1]
+        }
+      }
+      stack.push(col)
+    }
+  }
+  if (!best) return null
+  const [, r0, r1, c0, c1] = best
+  const w = (box[2] - box[0]) / size, ht = (box[3] - box[1]) / size
+  return [box[0] + c0 * w, box[3] - r1 * ht, box[0] + c1 * w, box[3] - r0 * ht]
+}
 // In TW-Kai the last stroke of 爪 joins 巴 in 爬. 爮 keeps it separate from 包.
 const KAI_CLAW = ['爮', {
   '2cbb04cd3b0444f9ee4d4862eaa1c5f80347fe40d16c655710c88f99353ca0e2': [3, 4, 5],
@@ -914,6 +1029,9 @@ export const designedSources = (tree, style = 'sans') => {
     if (muKoForms[style] && isMuKo(node)) {
       out.add('む')
       if (style !== 'serif') out.add('子')
+    }
+    if (op === '⿴' && (children[0] === '口' || children[0] === '囗') && children[1] === '도' && KOREAN_DO_PAIR[style]) {
+      for (const ch of ['囗', '國', '圖', '園']) out.add(ch)
     }
     const frame = enclosureEntry(op, children[0], style)
     if (frame) out.add(frame[0])
@@ -1948,7 +2066,7 @@ export class Composer {
         (node[0] === '⿲' && node[1] === '㇇' && node[2] === '丨' && node[3] === '𰛅')) && !node.note
         ? componentParts(keyOf(node), cell, this.fontStyle, depth === 0, this.exclude) : null
       const recorded = keyOf(node) === booklet ? bookletParts(this, cell) : null
-      const parts = water ?? recorded ?? this.doubleTurnParts(node, cell) ?? brushSweepParts(this, node, cell, depth > 0) ?? this.thornRowParts(node, cell) ?? yiCrossParts(this, node, cell) ?? ghostParts(this, node, cell) ?? this.qiParts(node, cell)
+      const parts = water ?? recorded ?? this.koreanPair(node, cell, depth === 0) ?? this.doubleTurnParts(node, cell) ?? brushSweepParts(this, node, cell, depth > 0) ?? this.thornRowParts(node, cell) ?? yiCrossParts(this, node, cell) ?? ghostParts(this, node, cell) ?? this.qiParts(node, cell)
       if (parts) {
         for (const part of parts) {
           if (leafIndices) part.leaf = leaf++
@@ -2141,7 +2259,7 @@ export class Composer {
         return
       }
       const repeated = isGroupedForm(keyOf(node), this.fontStyle) ? componentParts(keyOf(node), region, this.fontStyle, atRoot, this.exclude) : null
-      const designed = repeated ?? rccParts(editable, keyOf(node), region) ?? birdOutlineParts(this, keyOf(node), region) ?? this.doubleTurnParts(node, region) ?? brushSweepParts(this, node, region, !atRoot) ?? this.thornRowParts(node, region) ?? yiCrossParts(this, node, region) ?? this.qiParts(node, region) ?? ghostParts(this, node, region) ?? this.cuanParts(node, region, atRoot) ?? this.muKoParts(node, region) ?? this.wheatFaceParts(node, region)
+      const designed = repeated ?? rccParts(editable, keyOf(node), region) ?? birdOutlineParts(this, keyOf(node), region) ?? this.koreanPair(node, region, atRoot) ?? this.doubleTurnParts(node, region) ?? brushSweepParts(this, node, region, !atRoot) ?? this.thornRowParts(node, region) ?? yiCrossParts(this, node, region) ?? this.qiParts(node, region) ?? ghostParts(this, node, region) ?? this.cuanParts(node, region, atRoot) ?? this.muKoParts(node, region) ?? this.wheatFaceParts(node, region)
       if (designed) {
         const boxes = designed[0]?.rccGroup && rccLeafBoxes(designed, leafTexts(node).length)
         for (const box of boxes || designed.map(part => part.target)) out.push({ index: out.length, box, empty: false })
@@ -2660,6 +2778,85 @@ export class Composer {
     return parts.length ? parts : null
   }
 
+  koreanPair(node, region, atRoot = false) {
+    if (!Array.isArray(node) || node[0] !== '⿴' || (node[1] !== '口' && node[1] !== '囗') || node[2] !== '도') return null
+    const spec = KOREAN_DO_PAIR[this.fontStyle]
+    if (!spec || this.excluded(node[1]) || this.excluded('도')) return null
+    let framePart = null, frameDonor = null, frameOrigin = null, fromHost = false
+    if (!this.excluded('囗')) {
+      const missingBefore = this.data.missing?.size ?? 0
+      const hosts = this.hostsOf('囗', '⿴0')
+      if ((this.data.missing?.size ?? 0) > missingBefore) return null
+      const preferred = new Map(KOREAN_ENCLOSURE_HOSTS.map((ch, i) => [ch, i]))
+      const candidates = hosts
+        .filter(h => !this.excluded(h.h))
+        .sort((a, b) => {
+          const pa = preferred.has(a.h) ? preferred.get(a.h) : KOREAN_ENCLOSURE_LATE.has(a.h) ? 1e6 : 1e3
+          const pb = preferred.has(b.h) ? preferred.get(b.h) : KOREAN_ENCLOSURE_LATE.has(b.h) ? 1e6 : 1e3
+          return pa - pb || a.r - b.r
+        })
+      for (const h of candidates) {
+        const before = this.data.missing?.size ?? 0
+        const rec = this.glyphRecord(h.h)
+        if (!rec) {
+          if ((this.data.missing?.size ?? 0) > before) return null
+          continue
+        }
+        const piece = this.pieceOf(h)
+        if (piece.contours.length) {
+          framePart = piece
+          frameDonor = h.h
+          frameOrigin = `host ${h.h}`
+          fromHost = true
+          break
+        }
+      }
+    }
+    if (!framePart) {
+      const fallback = !this.excluded('囗') && this.glyph('囗') ? '囗'
+        : node[1] === '口' && this.glyph('口') ? '口' : null
+      if (!fallback) return null
+      framePart = this.glyph(fallback)
+      frameDonor = fallback
+      frameOrigin = `glyph ${fallback}`
+    }
+    const frameTarget = fromHost && atRoot
+      ? mapped(framePart.box, this.C.face, region)
+      : fitted(framePart.box, region, this.C.STRETCH)
+    const frame = { ...placed(framePart, framePart.box, frameTarget, this.ink(frameDonor), frameOrigin), fixed: true }
+    const opening = enclosureCavity(frame) ?? this.room('⿴', [frame], region)
+    if (!opening) return null
+    const native = spec.native ? this.glyph('도') : null
+    const [l, b, r, t] = opening, dx = (r - l) * spec.padX, dy = (t - b) * spec.padY
+    const slot = [l + dx, b + dy, r - dx, t - dy]
+    let syllable = null, inside = null
+    if (native) {
+      syllable = native
+      inside = fitted(syllable.box, slot, spec.stretch)
+    } else {
+      let slant = spec.slant
+      if (spec.matchFrameSlope) {
+        // Measure the enclosing 囗 frame's horizontal bar slope and solve for the exact
+        // pre-fit shear needed so rendered 도 matches it after aspect scaling (sy / sx).
+        const frameSlope = horizontalBarSlope(frame.part.contours, frame.source, frame.target)
+        if (Math.abs(frameSlope) > 1e-4) {
+          const base = koreanDoPart(spec.offset, 0)
+          const baseSlope = horizontalBarSlope(base.contours)
+          const ratioOf = (part, box) => ((box[3] - box[1]) / Math.max(part.box[3] - part.box[1], 1e-6)) /
+            ((box[2] - box[0]) / Math.max(part.box[2] - part.box[0], 1e-6))
+          let guess = Math.max(-0.12, Math.min(0.12, frameSlope / ratioOf(base, fitted(base.box, slot, spec.stretch)) - baseSlope))
+          const probe = koreanDoPart(spec.offset, guess)
+          guess = Math.max(-0.12, Math.min(0.12, frameSlope / ratioOf(probe, fitted(probe.box, slot, spec.stretch)) - baseSlope))
+          slant = Math.round(guess * 1e5) / 1e5
+        }
+      }
+      syllable = koreanDoPart(spec.offset, slant)
+      inside = fitted(syllable.box, slot, spec.stretch)
+    }
+    const weight = native ? spec.weight.slice() : [0, 0]
+    return [frame, { ...placed(syllable, syllable.box, inside, partInk(syllable), native ? 'glyph 도' : 'Gowun Batang 도', weight), fixed: true }]
+  }
+
   /** The two hands, 同, the cover and the lower body as drawn in the face's own 爨. */
   cuanParts(node, region, atRoot) {
     if (!Array.isArray(node) || node[0] !== '⿱' || node[2] !== '𤍾' ||
@@ -2834,6 +3031,8 @@ export class Composer {
   }
 
   drawNode(node, region, atRoot = false, sideBySide = false, regroup = true) {
+    const korean = this.koreanPair(node, region, atRoot)
+    if (korean) return korean
     const cuan = this.cuanParts(node, region, atRoot)
     if (cuan) return cuan
     const dragon = this.dragonParts(node, region, atRoot)
