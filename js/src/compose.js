@@ -659,9 +659,37 @@ const KOREAN_ENCLOSURE_LATE = new Set(['回', '四'])
 const KOREAN_DO_PAIR = {
   sans: { native: true, padX: 0.12, padY: 0.12, stretch: 1.08, weight: [0.28, 0.28] },
   serif: { native: true, padX: 0.06, padY: 0.07, stretch: 1.26, weight: [0.24, 0.12] },
-  fangsong: { native: false, padX: 0.065, padY: 0.045, stretch: 1.16, offset: [13, 7], slant: 0.055 },
-  regular: { native: false, padX: 0.075, padY: 0.05, stretch: 1.14, offset: [14, 6.5], slant: 0.06 },
+  fangsong: { native: false, padX: 0.065, padY: 0.045, stretch: 1.16, offset: [13, 7], slant: 0.033, matchFrameSlope: true },
+  regular: { native: false, padX: 0.075, padY: 0.05, stretch: 1.14, offset: [14, 6.5], slant: 0.030, matchFrameSlope: true },
   'pen-writing': { native: false, padX: 0.085, padY: 0.075, stretch: 1.12, offset: [8, 9], slant: 0.04 },
+}
+
+/** Weighted median slope (dy / dx) of horizontal edges (|dx| >= 4 |dy|) in placed coordinates. */
+function horizontalBarSlope(contours, source = null, target = null) {
+  const sx = source && target ? (target[2] - target[0]) / Math.max(source[2] - source[0], 1e-6) : 1
+  const sy = source && target ? (target[3] - target[1]) / Math.max(source[3] - source[1], 1e-6) : 1
+  const edges = []
+  let totalW = 0
+  for (const contour of contours) {
+    const pts = contour.light ?? contour
+    const n = pts.length
+    for (let i = 0; i < n; i += 2) {
+      const dx = (pts[(i + 2) % n] - pts[i]) * sx
+      const dy = (pts[(i + 3) % n] - pts[i + 1]) * sy
+      if (Math.hypot(dx, dy) < 2 || Math.abs(dx) < Math.abs(dy) * 4) continue
+      const w = Math.abs(dx)
+      edges.push([dy / dx, w])
+      totalW += w
+    }
+  }
+  if (!totalW) return 0
+  edges.sort((a, b) => a[0] - b[0])
+  let acc = 0
+  for (const [slope, w] of edges) {
+    acc += w
+    if (acc >= totalW / 2) return slope
+  }
+  return edges[edges.length - 1][0]
 }
 
 const koreanDoCache = new Map()
@@ -2776,9 +2804,32 @@ export class Composer {
     const opening = enclosureCavity(frame) ?? this.room('⿴', [frame], region)
     if (!opening) return null
     const native = spec.native ? this.glyph('도') : null
-    const syllable = native ?? koreanDoPart(spec.offset, spec.slant)
     const [l, b, r, t] = opening, dx = (r - l) * spec.padX, dy = (t - b) * spec.padY
-    const inside = fitted(syllable.box, [l + dx, b + dy, r - dx, t - dy], spec.stretch)
+    const slot = [l + dx, b + dy, r - dx, t - dy]
+    let syllable = null, inside = null
+    if (native) {
+      syllable = native
+      inside = fitted(syllable.box, slot, spec.stretch)
+    } else {
+      let slant = spec.slant
+      if (spec.matchFrameSlope) {
+        // Measure the enclosing 囗 frame's horizontal bar slope and solve for the exact
+        // pre-fit shear needed so rendered 도 matches it after aspect scaling (sy / sx).
+        const frameSlope = horizontalBarSlope(frame.part.contours, frame.source, frame.target)
+        if (Math.abs(frameSlope) > 1e-4) {
+          const base = koreanDoPart(spec.offset, 0)
+          const baseSlope = horizontalBarSlope(base.contours)
+          const ratioOf = (part, box) => ((box[3] - box[1]) / Math.max(part.box[3] - part.box[1], 1e-6)) /
+            ((box[2] - box[0]) / Math.max(part.box[2] - part.box[0], 1e-6))
+          let guess = Math.max(-0.12, Math.min(0.12, frameSlope / ratioOf(base, fitted(base.box, slot, spec.stretch)) - baseSlope))
+          const probe = koreanDoPart(spec.offset, guess)
+          guess = Math.max(-0.12, Math.min(0.12, frameSlope / ratioOf(probe, fitted(probe.box, slot, spec.stretch)) - baseSlope))
+          slant = Math.round(guess * 1e5) / 1e5
+        }
+      }
+      syllable = koreanDoPart(spec.offset, slant)
+      inside = fitted(syllable.box, slot, spec.stretch)
+    }
     const weight = native ? spec.weight.slice() : [0, 0]
     return [frame, { ...placed(syllable, syllable.box, inside, partInk(syllable), native ? 'glyph 도' : 'Gowun Batang 도', weight), fixed: true }]
   }

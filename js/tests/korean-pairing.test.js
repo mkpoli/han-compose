@@ -113,8 +113,42 @@ it('gives Serif generous interior fill and slants FangSong and Regular 도 upwar
   const fangsong = await compose(src, '⿴口도', { fontStyle: 'fangsong' })
   const regular = await compose(src, '⿴口도', { fontStyle: 'regular' })
   const pen = await compose(src, '⿴口도', { fontStyle: 'pen-writing' })
-  expect(avgEdgeSlope(fangsong.parts[1].d)).toBeGreaterThan(0.07)
-  expect(avgEdgeSlope(regular.parts[1].d)).toBeGreaterThan(0.09)
+  expect(avgEdgeSlope(fangsong.parts[1].d)).toBeGreaterThan(0.05)
+  expect(avgEdgeSlope(regular.parts[1].d)).toBeGreaterThan(0.04)
   expect(avgEdgeSlope(pen.parts[1].d)).toBeGreaterThan(0.01)
-  expect(avgEdgeSlope(regular.parts[1].d)).toBeGreaterThan(avgEdgeSlope(fangsong.parts[1].d))
+
+  // With a slanted enclosing 囗 frame, FangSong and Regular solve the shear mathematically
+  // so rendered 도 matches the frame's horizontal bar slope within 0.01.
+  const int16 = values => Buffer.from(Int16Array.from(values).buffer).toString('base64')
+  const targetSlope = 0.065
+  const slantedBar = (l, b, r, t) => {
+    const cx = (l + r) / 2
+    return [
+      l, Math.round(b + targetSlope * (l - cx)),
+      r, Math.round(b + targetSlope * (r - cx)),
+      r, Math.round(t + targetSlope * (r - cx)),
+      l, Math.round(t + targetSlope * (l - cx)),
+    ]
+  }
+  const rectPts = ([l, b, r, t]) => [l, b, r, b, r, t, l, t]
+  const slantedContours = [
+    slantedBar(80, -80, 920, -10),
+    slantedBar(80, 730, 920, 800),
+    rectPts([80, -80, 150, 800]),
+    rectPts([850, -80, 920, 800]),
+  ].map(pts => ['MLLL', int16(pts.map(v => v * 4)), int16(Array(8).fill(0))])
+  const slantedWei = {
+    G: { b: [80, -108, 920, 828], p: slantedContours, v: 1 },
+    ink: 6000, nl: 4, o: 4, P: ['⿴0'],
+  }
+  const slantedInput = {
+    ...files,
+    ...shards('g', Object.entries({ ...records, 囗: slantedWei })),
+    ...shards('p', [['⿴0\t囗', []]]),
+  }
+  const slantedSrc = createSource(async name => slantedInput[name] === undefined ? null : Uint8Array.from(Buffer.from(slantedInput[name])).buffer)
+  for (const style of ['fangsong', 'regular']) {
+    const drawn = await compose(slantedSrc, '⿴口도', { fontStyle: style })
+    expect(Math.abs(avgEdgeSlope(drawn.parts[1].d) - targetSlope)).toBeLessThan(0.01)
+  }
 })
