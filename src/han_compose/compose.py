@@ -81,6 +81,10 @@ class Source:
     archive_sha256: str | None = None
     #: A copyright the font's outlines carry that its `name` table does not state.
     also: str = ""
+    #: Whether a fallback draws in the main font's design (`None` inherits `Style.kindred`).
+    kindred: bool | None = None
+    #: Fallback family name grouping split-plane files (e.g. WenJinMincho P0/P2/P3, Jigmo 1/2/3).
+    family: str = ""
 
 
 @dataclass(frozen=True)
@@ -92,12 +96,12 @@ class Style:
     `synthetic_y` grows the heavy master's horizontals synthetically, for a font whose horizontals
     keep their width at every weight. `kindred` fallbacks draw in the variable font's own design
     (Plangothic extends Source Han Sans): the layout learns from their characters too, and each
-    fallback glyph's stroke widths are measured on it. Fallbacks of another design (Jigmo) are left
-    out of the layout's examples, and a glyph of theirs takes the stroke widths its family's 丨 and
-    一 have against the variable font's, thinned with density as the variable font thins: a Mincho's
-    thin horizontals are lost among the short runs of ink between them (𡉵 measured 65 units across
-    y, its horizontals 20). A face whose typographic ascent sits below the composer's leaves its
-    glyphs low; `y_shift` lifts them after scaling."""
+    fallback glyph's stroke widths are measured on it. Fallbacks of another design (WenJin Mincho,
+    Jigmo) are left out of the layout's examples, and a glyph of theirs takes the stroke widths its
+    family's 丨 and 一 have against the variable font's, thinned with density as the variable font
+    thins: a Mincho's thin horizontals are lost among the short runs of ink between them (𡉵
+    measured 65 units across y, its horizontals 20). A face whose typographic ascent sits below the
+    composer's leaves its glyphs low; `y_shift` lifts them after scaling."""
 
     name: str
     font: Source
@@ -126,6 +130,10 @@ class Style:
     #: each part at the width `part_stems` gives it.
     part_spread: tuple[float, float] | None = None
 
+    def is_kindred(self, source: Source) -> bool:
+        """Whether `source` draws in this style's own design."""
+        return self.kindred if source.kindred is None else source.kindred
+
 
 OFL = "SIL OFL 1.1"
 #: The licence Taiwan's open data platform applies by default; its Exhibit asks for the provider,
@@ -135,15 +143,45 @@ MIT = "MIT"
 #: Plangothic P1 and P2 draw the CJK extensions in the Source Han Sans design Noto Sans CJK shares:
 #: the source of components Noto lacks (𦒱, 𡉵). Pinned as `scripts/build_vi_hani.py` pins them.
 PLANGOTHIC_URL = "https://github.com/Fitzgerald-Porthmouth-Koenigsegg/Plangothic-Project/releases/download/V2.9.5795"
+_PLANGOTHIC = (
+    Source("PlangothicP1-Regular.ttf", f"{PLANGOTHIC_URL}/PlangothicP1-Regular.ttf",
+           "550b5d0775b15405946b18f4843df439a51e69508d7e6778d94c1f7a53dc5ad6", OFL,
+           kindred=True, family="Plangothic"),
+    Source("PlangothicP2-Regular.ttf", f"{PLANGOTHIC_URL}/PlangothicP2-Regular.ttf",
+           "681933370adfe0fc7253f77735275a82fea09fe4f8adba907bdeb46c110daf8f", OFL,
+           kindred=True, family="Plangothic"),
+)
+#: WenJin Mincho v2.101 (SIL OFL 1.1, derived from Source Han Serif and modified KAGE outlines)
+#: covers Plane 0, Plane 2 and Plane 3 through Extension J on Noto Serif CJK's 1000-unit em.
+WENJIN_URL = "https://github.com/takushun-wu/WenJinMincho/raw/v2.101/ttf"
+_WENJIN_ALSO = (
+    "Copyright 2010-2025 Adobe (http://www.adobe.com/), with Reserved Font Name 'Source'. "
+    "All Rights Reserved. Source is a trademark of Adobe in the United States and/or other countries.\n"
+    "Copyright 2021-2025 Tamcy (https://github.com/chiron-fonts/chiron-sung-hk).\n"
+    "Copyright 2022-2025 Shanggu Fonts (https://github.com/GuiWonder/Shanggu).\n"
+    "© 2007–2024 Adobe, But Ko, CMEX, Creative Commons Corporation, GlyphWiki & Night Koo.\n"
+    "Copyright 2022 The Noto Project Authors (https://github.com/notofonts/). Noto is a trademark of Google Inc.\n"
+    "Copyright © 2015 Google Inc.\n"
+    "Saudi Riyal Font © Emran Alhaddad - Used under SIL Open Font License 1.1"
+)
+_WENJIN = tuple(
+    Source(name, f"{WENJIN_URL}/{name}", sha, OFL, also=_WENJIN_ALSO, kindred=False, family="WenJinMincho")
+    for name, sha in (
+        ("WenJinMinchoP0-Regular.ttf", "dcfba47ed994c4326bc9e36f2a1d9b6ebf9272a19841b7b50a5a489f259351b9"),
+        ("WenJinMinchoP2-Regular.ttf", "f15903a01ebf4c2cad9406721484284916458f1cf7ccdaa9845c941890cd7772"),
+        ("WenJinMinchoP3-Regular.ttf", "847078e7481fc6d986f64db9296f76008e44f13c4fce65fafa262bda3ec968ee"),
+    )
+)
 #: Jigmo (CC0 1.0, from GlyphWiki's KAGE outlines) draws every CJK unified ideograph through
 #: Extension J in one Mincho weight: Jigmo2 the SIP (B to F, I), Jigmo3 the TIP (G, H, J), Jigmo the
 #: BMP. Its site gives the archive's SHA-1, 2fb963ee7bba1d23ccfe81b228422f22da9dc574.
 JIGMO_URL = "https://kamichikoichi.github.io/jigmo/Jigmo-20250912.zip"
 JIGMO_SHA256 = "5744c7386d129475d87607ca66d043c8793c65448adeaedc921b6931890e5d0b"
-_JIGMO = tuple(Source(f"Jigmo-20250912-{name}", JIGMO_URL, sha, "CC0 1.0", member=name, archive_sha256=JIGMO_SHA256)
-              for name, sha in (("Jigmo2.ttf", "5da3582efe77e22073b86b3b86b556d7111148a76b957cfb53318a91da2efff0"),
-                                ("Jigmo3.ttf", "815b18c1c670103723fe743090559208fdea47dc587ecb057a5a4721ee8dfeff"),
-                                ("Jigmo.ttf", "c8f295b9bd8f9f117a76b3a454aaaa1bb5b4babc18e254978c6deb88464e40cf")))
+_JIGMO = tuple(Source(f"Jigmo-20250912-{name}", JIGMO_URL, sha, "CC0 1.0", member=name, archive_sha256=JIGMO_SHA256,
+                      kindred=False, family="Jigmo")
+               for name, sha in (("Jigmo2.ttf", "5da3582efe77e22073b86b3b86b556d7111148a76b957cfb53318a91da2efff0"),
+                                 ("Jigmo3.ttf", "815b18c1c670103723fe743090559208fdea47dc587ecb057a5a4721ee8dfeff"),
+                                 ("Jigmo.ttf", "c8f295b9bd8f9f117a76b3a454aaaa1bb5b4babc18e254978c6deb88464e40cf")))
 #: TW-Kai, the CNS 11643 Kai: the BMP face and the Extension B and G faces that draw what it lacks.
 #: The open data set offers either Taiwan's Open Government Data License 1.0 or the OFL 1.1; the
 #: export takes the OGL, and its Exhibit's release line joins the copyright the name table carries.
@@ -167,22 +205,20 @@ STYLES = {
         Source("NotoSansCJKjp-VF-2.004.ttf",
                "https://github.com/notofonts/noto-cjk/raw/Sans2.004/Sans/Variable/TTF/NotoSansCJKjp-VF.ttf",
                "240c9b83bf7b386edbae39995ae7e068ed4583f484d92e4a74c34158b5f27b1a", OFL),
-        (Source("PlangothicP1-Regular.ttf", f"{PLANGOTHIC_URL}/PlangothicP1-Regular.ttf",
-                "550b5d0775b15405946b18f4843df439a51e69508d7e6778d94c1f7a53dc5ad6", OFL),
-         Source("PlangothicP2-Regular.ttf", f"{PLANGOTHIC_URL}/PlangothicP2-Regular.ttf",
-                "681933370adfe0fc7253f77735275a82fea09fe4f8adba907bdeb46c110daf8f", OFL)),
+        (*_PLANGOTHIC, *_JIGMO),
         ((85.34, -1.324), (86.93, -1.914)),
         part_stems=(0.348, 0.448),
         part_spread=(1.13, 1.24),
     ),
     # Noto Serif CJK JP 2.003 (Source Han Serif's design), whose horizontals stay about 30 units at
-    # every weight from 200 to 900 while its verticals grow from 45 to 145.
+    # every weight from 200 to 900 while its verticals grow from 45 to 145. WenJin Mincho (Source
+    # Han Serif + KAGE) extends it across BMP and Planes 2–3, with Jigmo as a last-resort fallback.
     "serif": Style(
         "serif",
         Source("NotoSerifCJKjp-VF-2.003.ttf",
                "https://github.com/notofonts/noto-cjk/raw/Serif2.003/Serif/Variable/TTF/NotoSerifCJKjp-VF.ttf",
                "c2ff7cffb6ef75193d4406b030eab5aa6503c48004acec6b040327e2fe1e9e51", OFL),
-        _JIGMO,
+        (*_WENJIN, *_JIGMO),
         # Fitted on 1,500 of its ideographs: its verticals thin a little as a character fills up, its
         # horizontals not at all.
         ((67.77, -0.463), (22.31, 0.164)),
@@ -866,8 +902,9 @@ class Fallback:
     """A static font that draws what a style's main font lacks. Its glyphs are opened when one is
     first drawn: a drawing made of the main font's glyphs opens none."""
 
-    def __init__(self, path: Path, em: int):
+    def __init__(self, path: Path, em: int, kindred: bool = False, family: str = ""):
         self.path, self.opener = path, os.getpid()
+        self.kindred, self.family_name = kindred, family
         self.font = TTFont(path)
         self.cmap = self.font.getBestCmap()
         #: What brings its em to the composer's 1000-unit em (Jigmo draws on 1,024 units).
@@ -888,7 +925,17 @@ class Font:
     def __init__(self, path: Path, fallbacks: list[Path] = (), style: str = DEFAULT_STYLE):
         self.style = STYLES[style]
         self.font = TTFont(path)
-        self.fallbacks = [Fallback(f, EM) for f in fallbacks]
+        by_file = {source.file: source for source in self.style.fallbacks}
+        self.fallbacks = [
+            Fallback(
+                f,
+                EM,
+                kindred=self.style.is_kindred(source) if (source := by_file.get(f.name)) is not None else self.style.kindred,
+                family=source.family if source is not None else "",
+            )
+            for f in fallbacks
+        ]
+        self._families: dict[str, tuple[float, float]] = {}
         self.cmap = self.font.getBestCmap()
         #: What brings the main font's em to the composer's 1000-unit em (TW-Kai draws on 1,024).
         self.scale = EM / self.font["head"].unitsPerEm
@@ -915,20 +962,35 @@ class Font:
             across_y = (across_y[0], across_y[1] + 2 * STATIC_GROW)
         self.stem = (across_x, across_y)
 
+    def _family_ratio(self, fallback: Fallback) -> tuple[float, float] | None:
+        """`fallback`'s family stroke widths against this font's at 400, across x and across y: None
+        where the fallback is of this font's design. Measured when a glyph of that family is first
+        weighed."""
+        if fallback.kindred:
+            return None
+        key = fallback.family_name or fallback.path.name
+        if key not in self._families:
+            sample = next(
+                (f for f in self.fallbacks if not f.kindred
+                 and (not fallback.family_name or f.family_name == fallback.family_name)
+                 and ord("丨") in f.cmap and ord("一") in f.cmap),
+                None,
+            ) or next(f for f in self.fallbacks if not f.kindred and ord("丨") in f.cmap and ord("一") in f.cmap)
+            widths = []
+            for char, axis in (("丨", 0), ("一", 1)):
+                pen = DecomposingRecordingPen(sample.glyphs)
+                sample.glyphs[sample.cmap[ord(char)]].draw(pen)
+                flat = [Contour(ops, p * sample.scale, p * sample.scale) for ops, p in _contours(pen)]
+                widths.append(_across(_rings(flat, [c.light for c in flat], steps=8), axis) / self.stem[axis][0])
+            self._families[key] = (widths[0], widths[1])
+        return self._families[key]
+
     @cached_property
     def family(self) -> tuple[float, float] | None:
-        """The fallbacks' stroke widths against this font's at 400, across x and across y: None where
-        the fallbacks are of this font's design. Measured when a fallback glyph is first weighed."""
-        if self.style.kindred or not self.fallbacks:
-            return None
-        fallback = next(f for f in self.fallbacks if ord("丨") in f.cmap and ord("一") in f.cmap)
-        widths = []
-        for char, axis in (("丨", 0), ("一", 1)):
-            pen = DecomposingRecordingPen(fallback.glyphs)
-            fallback.glyphs[fallback.cmap[ord(char)]].draw(pen)
-            flat = [Contour(ops, p * fallback.scale, p * fallback.scale) for ops, p in _contours(pen)]
-            widths.append(_across(_rings(flat, [c.light for c in flat], steps=8), axis) / self.stem[axis][0])
-        return widths[0], widths[1]
+        """The first non-kindred fallback family's stroke widths against this font's at 400, across x
+        and across y: None where every fallback is of this font's design."""
+        first = next((f for f in self.fallbacks if not f.kindred), None)
+        return None if first is None else self._family_ratio(first)
 
     def open_fallbacks(self) -> None:
         """Open every fallback's glyphs now: before workers fork, so that they share them."""
@@ -976,6 +1038,16 @@ class Font:
         """Whether the variable font itself draws `char`: its strokes can be weighted."""
         return self._name(char) is not None
 
+    def kindred(self, char: str) -> bool:
+        """Whether the main font or a kindred fallback draws `char`."""
+        if self._name(char) is not None:
+            return True
+        if len(char) == 1:
+            for fallback in self.fallbacks:
+                if ord(char) in fallback.cmap:
+                    return fallback.kindred
+        return False
+
     def has(self, char: str) -> bool:
         char = full_form(char) or char
         return self._name(char) is not None or (len(char) == 1 and any(ord(char) in f.cmap for f in self.fallbacks))
@@ -994,8 +1066,8 @@ class Font:
                         scale = fallback.scale
                         pen = DecomposingRecordingPen(fallback.glyphs)
                         fallback.glyphs[fallback.cmap[ord(char)]].draw(pen)
-                        contours = [Contour(ops, p * scale + self.shift, LATER, LATER, kindred=self.style.kindred, foreign=not self.style.kindred) for ops, p in _contours(pen)]
-                        self._later(contours, lambda contours=contours: self._grown_heavy(contours))
+                        contours = [Contour(ops, p * scale + self.shift, LATER, LATER, kindred=fallback.kindred, foreign=not fallback.kindred) for ops, p in _contours(pen)]
+                        self._later(contours, lambda contours=contours, fallback=fallback: self._grown_heavy(contours, fallback))
                         part = Part(contours) if contours else None
                         break
             if name is not None:
@@ -1026,13 +1098,14 @@ class Font:
         mask = fill(_rings(contours, [c.light for c in contours], steps=2), 200, (0.0, ASCENT - EM, EM, ASCENT))
         return tuple(w if np.isfinite(w) else self.stem[axis][0] for axis, w in enumerate(stems(mask, EM / 200)))
 
-    def _grown_heavy(self, contours: list[Contour]) -> tuple[list[np.ndarray], tuple[float, float]]:
+    def _grown_heavy(self, contours: list[Contour], fallback: Fallback | None = None) -> tuple[list[np.ndarray], tuple[float, float]]:
         """A fallback glyph's heavy outline and stroke width. A static font has one weight: its heavy
         outline is the light one grown by as much as this font's stems of the same width grow at
         heavy, so its parts are thinned and thickened like the font's own."""
-        if self.family is not None:
+        ratio = self._family_ratio(fallback) if fallback is not None else self.family
+        if ratio is not None:
             density = sum(c.length for c in contours)
-            width = tuple(self.family[axis] * self.width(density, axis) for axis in (0, 1))
+            width = tuple(ratio[axis] * self.width(density, axis) for axis in (0, 1))
         else:
             width = self._measured(contours)
         grow = tuple(width[axis] * (self.stem[axis][1] / self.stem[axis][0] - 1) / 2 for axis in (0, 1))

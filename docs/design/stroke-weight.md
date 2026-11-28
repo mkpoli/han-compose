@@ -140,7 +140,7 @@ A frame and what it encloses differ about as much in the font's own characters (
 | Case | How its heavy master and width come about |
 |---|---|
 | A fallback in the variable font's design (`kindred`: Plangothic for Sans) | The stroke width is measured on each glyph (`Font._measured`). The heavy outline is the light one grown outward (`_grown`) by as much as the main font's stems of that width grow at heavy. |
-| A fallback of another design (Jigmo for Serif) | The width is the family's ratio to the main font, measured once on its 丨 and 一 (`Font.family`), times the main font's `width(density)`. A Mincho's thin horizontals are lost among the short runs between them, so measuring each glyph misreads them. The heavy outline is grown as above. |
+| A fallback of another design (WenJin Mincho or Jigmo for Serif, Jigmo for Sans) | The width is that fallback family's ratio to the main font, measured once on its 丨 and 一 (`Font._family_ratio`), times the main font's `width(density)`. A Mincho's thin horizontals are lost among the short runs between them, so measuring each glyph misreads them. The heavy outline is grown as above. |
 | A variable font whose horizontals do not grow (`synthetic_y`: Noto Serif CJK keeps them about 30 units from 200 to 900) | The heavy master's y coordinates are the light ones grown in the proportion the verticals grow in. |
 | A static font as the style's own (TW-Kai, Kureedo, Zhuque Fangsong, Nôm Na Tống) | The heavy outline is the light one grown by `STATIC_GROW` (20 units a side), outward whichever way the face winds its contours (`_ink_on_left`), and the width is measured. A part's weight is counted against its own measured stem. |
 

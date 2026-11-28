@@ -134,13 +134,13 @@ def test_a_fallbacks_glyphs_are_opened_when_one_is_first_drawn() -> None:
     font = compose.Font.of("serif")
     opened = lambda: ["glyphs" in vars(fallback) for fallback in font.fallbacks]
     assert len(font.fallbacks) > 1 and not any(opened()) and "family" not in vars(font)
-    # A character of the main font opens none; one a fallback draws opens that fallback alone.
+    # A character of the main font opens none; one a fallback draws opens only the first fallback that maps it.
     assert font.glyph("何") is not None and not any(opened())
-    char = "\U00031350"  # Extension H: Jigmo3
-    drawn = [ord(char) in fallback.cmap for fallback in font.fallbacks]
+    char = "\U00031350"  # Extension H: WenJinMinchoP3 ahead of Jigmo3
+    first = next(i for i, fallback in enumerate(font.fallbacks) if ord(char) in fallback.cmap)
     part = font.glyph(char)
-    assert opened() == drawn and sum(drawn) == 1 and "family" not in vars(font)
-    # Weighing it measures the fallbacks' strokes against the main font's.
+    assert opened() == [i == first for i in range(len(font.fallbacks))] and "family" not in vars(font)
+    # Weighing it measures that fallback family's strokes against the main font's.
     assert part.contours[0].width is not None and font.family is not None
     # Before workers fork every fallback is opened, so that they share the glyphs.
     font.open_fallbacks()
@@ -150,7 +150,7 @@ def test_a_fallbacks_glyphs_are_opened_when_one_is_first_drawn() -> None:
 def test_a_forked_process_opens_a_fallbacks_glyphs_from_a_file_of_its_own(monkeypatch: pytest.MonkeyPatch) -> None:
     if not _cached("sans"):
         pytest.skip("The sans fonts are not cached; `scripts/compose_ids.py draw` fetches them.")
-    here, there = (compose.Fallback(compose.fallback_files()[-1], 1000) for _ in range(2))
+    here, there = (compose.Fallback(compose.fallback_files()[1], 1000) for _ in range(2))
     assert here.glyphs.font is here.font
     monkeypatch.setattr(compose.os, "getpid", lambda: there.opener + 1)
     assert there.glyphs.font is not there.font
@@ -187,10 +187,13 @@ def test_a_contour_that_closes_on_its_first_point_closes_at_heavy_too(serif: com
             assert np.array_equal(c.heavy[0], c.heavy[-1])
 
 
-def test_a_fallback_ring_that_closes_on_its_first_point_closes_at_heavy_too(serif: compose.Font) -> None:
-    char = "\U0003136E"  # Extension H: Jigmo3, drawn on 1,024 units to the em
-    assert not serif.own(char)
-    rings = [c for c in serif.glyph(char).contours if np.array_equal(c.light[0], c.light[-1])]
+def test_a_fallback_ring_that_closes_on_its_first_point_closes_at_heavy_too() -> None:
+    if not _cached("serif"):
+        pytest.skip("The serif fonts are not cached; `scripts/compose_ids.py draw --style serif` fetches them.")
+    jigmo_serif = compose.Font(compose.font_file(style="serif"), [compose._fetched(s, None) for s in compose._JIGMO], "serif")
+    char = "\U0003136E"  # Extension H: Jigmo3, drawn on 1,024 units to the em with a closing duplicate vertex
+    assert not jigmo_serif.own(char)
+    rings = [c for c in jigmo_serif.glyph(char).contours if np.array_equal(c.light[0], c.light[-1])]
     assert rings
     for c in rings:
         assert np.array_equal(c.heavy[0], c.heavy[-1])
@@ -338,10 +341,42 @@ def test_a_composite_glyph_is_read_through_its_components() -> None:
 def test_fangsong_keeps_its_hosts_in_zhuque_and_takes_the_rest_from_jigmo() -> None:
     style = compose.STYLES["fangsong"]
     assert style.heavy == 400 and style.own_hosts and not style.kindred
-    assert style.fallbacks == compose.STYLES["serif"].fallbacks
+    assert style.fallbacks == compose._JIGMO
     assert compose_layout.layout_file("fangsong") == "compose-layout-v4-fangsong.npz"
     assert "fangsong" in web_export.OUTLINE_NOTES
     assert "Alegreya Project Authors" in style.font.also
+
+
+def test_sans_keeps_plangothic_kindred_and_jigmo_non_kindred() -> None:
+    style = compose.STYLES["sans"]
+    assert [s.family for s in style.fallbacks] == ["Plangothic", "Plangothic", "Jigmo", "Jigmo", "Jigmo"]
+    assert [style.is_kindred(s) for s in style.fallbacks] == [True, True, False, False, False]
+    if not _cached("sans"):
+        pytest.skip("The sans fonts are not cached.")
+    font = compose.Font.of("sans")
+    assert font.kindred("何") and font.kindred("𡉵") and font.kindred("𠉀") and font.kindred("𬺢")
+    assert font.glyph("𠉀").contours[0].kindred is True
+    assert font.glyph("𬺢").contours[0].kindred is True
+
+
+def test_serif_prefers_wenjin_mincho_ahead_of_jigmo(serif: compose.Font) -> None:
+    style = compose.STYLES["serif"]
+    assert [s.family for s in style.fallbacks] == ["WenJinMincho", "WenJinMincho", "WenJinMincho", "Jigmo", "Jigmo", "Jigmo"]
+    assert all(not style.is_kindred(s) for s in style.fallbacks)
+    for ch in ("𠉀", "𬺢", "\U000323B0"):
+        assert not serif.own(ch) and serif.has(ch) and not serif.kindred(ch)
+        part = serif.glyph(ch)
+        assert part is not None and part.contours and part.contours[0].width is not None
+    # WenJin Mincho shares Source Han Serif's stroke proportions (~1.0); Jigmo's horizontals are much thinner.
+    wj_ratio = serif._family_ratio(serif.fallbacks[1])
+    jigmo_ratio = serif._family_ratio(serif.fallbacks[3])
+    assert 0.95 < wj_ratio[0] < 1.05 and 0.95 < wj_ratio[1] < 1.05
+    assert jigmo_ratio[1] < 0.8
+    # Passing a subset or reordered fallback list resolves metadata by filename, not position.
+    subset = compose.Font(compose.font_file(style="serif"), [compose._fetched(s, None) for s in (compose._WENJIN[0], *compose._JIGMO)], "serif")
+    assert [fb.family_name for fb in subset.fallbacks] == ["WenJinMincho", "Jigmo", "Jigmo", "Jigmo"]
+    assert subset._family_ratio(subset.fallbacks[1])[1] < 0.8
+    assert 0.95 < subset._family_ratio(subset.fallbacks[0])[1] < 1.05
 
 
 def test_woodblock_reads_nom_na_tong_and_no_other_font() -> None:

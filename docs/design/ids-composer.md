@@ -61,8 +61,9 @@ editor can put its placeholder in the box the layout gave it.
 - Three operands with no teacher sharing one of them share the axis as the font's own ⿳ and ⿲
   characters do: by ink, a stacked middle part compressed.
 - Components Noto Sans CJK lacks are drawn from Plangothic (SIL OFL 1.1), the Source Han Sans
-  design extended to the CJK extensions; in the serif style, components Noto Serif CJK lacks from
-  Jigmo (CC0 1.0), a GlyphWiki Mincho.
+  design extended to the CJK extensions, with Jigmo (CC0 1.0) as a last-resort fallback; in the
+  serif style, components Noto Serif CJK lacks come from WenJin Mincho (SIL OFL 1.1, derived from
+  Source Han Serif and modified KAGE outlines), with Jigmo (CC0 1.0) behind it.
 - The serif style weights its horizontals with a synthetic heavy master: Noto Serif CJK's variable
   font keeps them about 30 units wide from 200 to 900.
 - The serif style has a layout of its own, learned from the 17,277 characters Noto Serif CJK draws
