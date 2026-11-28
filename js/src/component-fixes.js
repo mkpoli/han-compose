@@ -413,12 +413,14 @@ const danCliff = {
     const inCliff = box => mapped(box, [0, 0, 1, 1], frame)
     const pen = composer.fontStyle === 'pen-writing'
     // Seat 儿 directly under 厃's horizontal bar, followed by 工 and 口 of 𢀛.
-    // Leave weights unlocked so the composer's winding-aware balancer weights each piece evenly.
+    // In Pen, leave weights unlocked for winding-aware balance; in FangSong, embolden the
+    // reduced inner glyphs to match 扌 and 厃's native stroke thickness.
+    const fsWeight = w => pen ? {} : { weight: w, fixed: true }
     return [
       cliff,
-      { ...legs, target: inCliff(pen ? [0.35, 0.44, 0.95, 0.64] : [0.34, 0.45, 0.96, 0.66]) },
-      { ...gong, target: inCliff(pen ? [0.39, 0.23, 0.91, 0.40] : [0.38, 0.24, 0.92, 0.41]) },
-      { ...mouth, target: inCliff(pen ? [0.43, 0.01, 0.87, 0.20] : [0.43, 0.02, 0.87, 0.21]) },
+      { ...legs, target: inCliff(pen ? [0.35, 0.44, 0.95, 0.64] : [0.34, 0.45, 0.96, 0.66]), ...fsWeight([0.46, 0.46]) },
+      { ...gong, target: inCliff(pen ? [0.39, 0.23, 0.91, 0.40] : [0.38, 0.24, 0.92, 0.41]), ...fsWeight([0.44, 0.44]) },
+      { ...mouth, target: inCliff(pen ? [0.43, 0.01, 0.87, 0.20] : [0.43, 0.02, 0.87, 0.21]), ...fsWeight([0.30, 0.30]) },
     ]
   },
 }
@@ -478,16 +480,79 @@ export const COMPONENT_FIXES = {
   '⿳丷冖兀': {
     glyphs: {},
     apply(parts, composer, region) {
-      if (composer.fontStyle !== 'fangsong' || parts.length !== 3) return parts
+      // Compress the top horizontal bar of 兀 smoothly toward its center so it tucks cleanly
+      // inside 冖's walls, while leaving 儿's splayed legs wide below.
+      const narrowTopBar = (contour, box, factor, yStart = 0.62, yFull = 0.78) => {
+        const cx = (box[0] + box[2]) / 2, y0 = box[1], h = box[3] - box[1]
+        if (!(h > 0)) return contour
+        const warp = pts => {
+          const out = Float64Array.from(pts)
+          for (let i = 0; i < out.length; i += 2) {
+            const rel = (out[i + 1] - y0) / h
+            if (rel <= yStart) continue
+            const t = Math.min(1, (rel - yStart) / (yFull - yStart))
+            const s = 1 - (1 - factor) * t * t * (3 - 2 * t)
+            out[i] = cx + (out[i] - cx) * s
+          }
+          return out
+        }
+        return { ...contour, light: warp(contour.light), ...(contour.heavy ? { heavy: warp(contour.heavy) } : {}) }
+      }
+      const scaleContourX = (contour, cx, factor) => {
+        const warp = pts => {
+          const out = Float64Array.from(pts)
+          for (let i = 0; i < out.length; i += 2) out[i] = cx + (out[i] - cx) * factor
+          return out
+        }
+        return { ...contour, light: warp(contour.light), ...(contour.heavy ? { heavy: warp(contour.heavy) } : {}) }
+      }
+
+      const style = composer.fontStyle
+      if (parts.length === 2 && ['sans', 'serif', 'regular'].includes(style)) {
+        const [dots, lower] = parts
+        if (lower.part.contours.length !== 2) return parts
+        const boxes = lower.part.contours.map(c => pointsBox(c.light))
+        // The upper contour is 冖; the lower contour is 兀.
+        const coverIdx = boxes[0][1] > boxes[1][1] ? 0 : 1
+        const feetIdx = 1 - coverIdx
+        const coverBox = boxes[coverIdx], feetBox = boxes[feetIdx]
+        const coverCx = (coverBox[0] + coverBox[2]) / 2
+        const coverStretch = style === 'sans' ? 1.12 : style === 'regular' ? 1.10 : 1.04
+        const barFactor = style === 'sans' ? 0.66 : style === 'regular' ? 0.68 : 0.70
+        const contours = lower.part.contours.map((c, idx) =>
+          idx === coverIdx ? scaleContourX(c, coverCx, coverStretch)
+            : narrowTopBar(c, feetBox, barFactor, 0.66, 0.80))
+        const nextPart = derived(lower.part, contours)
+        return [dots, { ...lower, part: nextPart, source: nextPart.box }]
+      }
+
+      if (parts.length !== 3) return parts
       const [dots, cover, feet] = parts
-      const cell = box => mapped(box, [0, 0, 1, 1], region)
-      // Give 丷 taller vertical strokes, lower 冖 as a full roof, and keep a shorter 兀 tucked inside 冖.
-      const dotsBox = fitted(dots.source, cell([0.16, 0.58, 0.84, 0.99]), 1.35)
-      return [
-        { ...dots, target: dotsBox },
-        { ...cover, target: cell([0.04, 0.36, 0.96, 0.60]) },
-        { ...feet, target: cell([0.13, 0.02, 0.87, 0.42]) },
-      ]
+      const narrowFeet = (part, factor) => {
+        const contours = part.part.contours.map(c => narrowTopBar(c, part.source, factor, 0.62, 0.78))
+        const nextPart = derived(part.part, contours)
+        return { ...part, part: nextPart, source: nextPart.box }
+      }
+      if (style === 'pen-writing') {
+        const cell = box => mapped(box, [0, 0, 1, 1], region)
+        const tucked = narrowFeet(feet, 0.66)
+        return [
+          dots,
+          { ...cover, target: cell([0.02, 0.50, 0.98, 0.73]) },
+          { ...tucked, target: cell([0.06, 0.00, 0.94, 0.59]) },
+        ]
+      }
+      if (style === 'fangsong') {
+        const cell = box => mapped(box, [0, 0, 1, 1], region)
+        const dotsBox = fitted(dots.source, cell([0.20, 0.72, 0.80, 0.98]), 1.35)
+        const tucked = narrowFeet(feet, 0.66)
+        return [
+          { ...dots, target: dotsBox },
+          { ...cover, target: cell([0.03, 0.49, 0.97, 0.72]) },
+          { ...tucked, target: cell([0.06, 0.00, 0.94, 0.58]) },
+        ]
+      }
+      return parts
     },
   },
   '⿱加𠃍': {
@@ -542,6 +607,28 @@ export const COMPONENT_FIXES = {
   },
   '⿸厃⿱儿𢀛': danCliff,
   '⿸厃⿱儿⿱工口': danCliff,
+  '⿰𭃂尤': {
+    glyphs: { 那: '01053051d8d88a7b1897eaf9ce7cfa94a5ec113e2512adddfca040b9a94943cc' },
+    apply(parts, composer, region) {
+      if (composer.fontStyle !== 'fangsong' || ['那', '𭃂', '尤'].some(ch => composer.excluded(ch))) return parts
+      const donor = composer.glyph('那'), you = composer.glyph('尤')
+      if (!donor || !you) return parts
+      // Contour 0 draws the knife with both crossbars. Contour 1 is the right-hand 阝.
+      const knife = derived(donor, [donor.contours[0]])
+      const cell = box => mapped(box, [0, 0, 1, 1], region)
+      const right = parts.at(-1)
+      if (right?.origin === 'learned 就') {
+        return [
+          placed(knife, knife.box, cell([0.020, 0.032, 0.505, 0.948]), composer.ink('那'), '𭃂 from 那'),
+          { ...right, target: cell([0.370, 0.025, 0.980, 0.978]) },
+        ]
+      }
+      return [
+        placed(knife, knife.box, cell([0.015, 0.035, 0.500, 0.945]), composer.ink('那'), '𭃂 from 那'),
+        placed(you, you.box, cell([0.455, 0.025, 0.985, 0.978]), composer.ink('尤'), 'glyph 尤'),
+      ]
+    },
+  },
   '⿰虍刂': {
     glyphs: {},
     apply(parts, composer, region) {
