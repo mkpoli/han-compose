@@ -117,10 +117,49 @@ export function derived(from, contours, box) {
   return part
 }
 
+// A complete native stroke remains addressable after its contours are renumbered.
+export function cutContours(glyph, indices, box = undefined) {
+  const part = derived(glyph, indices.map(i => glyph.contours[i]), box)
+  const strokes = (glyph.strokes ?? [])
+    .filter(([, contours]) => contours.every(i => indices.includes(i)))
+    .map(([id, contours]) => [id, contours.map(i => indices.indexOf(i))])
+  if (strokes.length) part.strokes = strokes
+  return part
+}
+
+// Join sections of the original contour along the boundaries of adjacent components.
+// Each triple names a contour and two pen commands. Start at the endpoint of the
+// first command, then copy the curves through the last, in both weight masters.
+export function contourSections(contours, ...sections) {
+  const ops = [], light = [], heavy = []
+  for (const [index, start, end] of sections) {
+    const c = contours[index]
+    let offset = 0
+    for (let i = 0; i <= end; i++) {
+      const n = 2 * c.ops[i][1]
+      if (i === start) {
+        ops.push([ops.length ? 'L' : 'M', 1, false])
+        light.push(...c.light.slice(offset + n - 2, offset + n))
+        heavy.push(...c.heavy.slice(offset + n - 2, offset + n))
+      } else if (i > start) {
+        ops.push(c.ops[i])
+        light.push(...c.light.slice(offset, offset + n))
+        heavy.push(...c.heavy.slice(offset, offset + n))
+      }
+      offset += n
+    }
+  }
+  const { width, scaled, foreign, kindred } = contours[0]
+  return { ops, light: Float64Array.from(light), heavy: Float64Array.from(heavy), width, scaled, foreign, kindred }
+}
+
+
 /** A part record of the export (`b`, `p`, `w`) read as a part, decoded once. */
 export function partOf(record, quant = 4) {
   if (record._part) return record._part
   const width = record.w ?? null
+  // A fallback's glyph: of another design than the style's font (`f`), or of the same (`k`).
+  const from = record.f === 1 ? { foreign: true } : record.k === 1 ? { kindred: true } : null
   const contours = record.p.map(([ops, light, delta]) => {
     const cmds = commands(ops), lo = int16(light), d = int16(delta)
     const l = new Float64Array(lo.length), h = new Float64Array(lo.length)
@@ -130,7 +169,7 @@ export function partOf(record, quant = 4) {
     // One closing on an implied point starts on a control point instead, so it is left alone.
     const n = l.length
     if (n >= 4 && !cmds.at(-1)[2] && l[0] === l[n - 2] && l[1] === l[n - 1]) { h[0] = h[n - 2]; h[1] = h[n - 1] }
-    return { ops: cmds, light: l, heavy: h, width }
+    return { ops: cmds, light: l, heavy: h, width, ...from }
   })
   const part = wound(makePart(contours, record.b.slice()))
   if (record.fixed) part.fixed = true
@@ -361,9 +400,14 @@ export function targetFor(p, box) {
 
 /** A placed part's contours as drawn: flat [x, y, …] arrays in font units, y up. */
 export function drawnContours(p) {
-  const [sx, sy] = scaleOf(p)
-  const cx = (p.source[0] + p.source[2]) / 2, cy = (p.source[1] + p.source[3]) / 2
-  const gx = (p.target[0] + p.target[2]) / 2, gy = (p.target[1] + p.target[3]) / 2
+  // Deferred leaves carry tight editor boxes. Drawing with the original host transform
+  // keeps the very same rounded curve coordinates along their shared boundaries.
+  const host = p.hostPlacement
+  const hostBox = host && mapped(p.source, host.source, host.target)
+  const frame = hostBox?.every((edge, i) => edge === p.target[i]) ? host : p
+  const [sx, sy] = scaleOf(frame)
+  const cx = (frame.source[0] + frame.source[2]) / 2, cy = (frame.source[1] + frame.source[3]) / 2
+  const gx = (frame.target[0] + frame.target[2]) / 2, gy = (frame.target[1] + frame.target[3]) / 2
   const [wx, wy] = p.weight
   return p.part.contours.map(c => {
     const out = new Float64Array(c.light.length)
@@ -411,7 +455,7 @@ const turnsOver = p => (p.flips ?? []).reduce((odd, f) => odd !== (Boolean(f.x) 
 export const runsBack = p => Boolean(p.part.reverse) !== turnsOver(p)
 
 /** A contour's segments drawn the other way round: the same outline, wound as the glyph was drawn. */
-function backwards(segs) {
+export function backwards(segs) {
   const ends = segs.map(([kind, pts]) => (kind === 'C' ? pts[2] : kind === 'Q' ? pts[1] : pts[0]))
   const out = [['M', [ends[0]]], ['L', [ends.at(-1)]]]
   for (let i = segs.length - 1; i > 0; i--) {
@@ -421,6 +465,23 @@ function backwards(segs) {
     else out.push(['L', [ends[i - 1]]])
   }
   return out
+}
+
+/** Preserve the Bezier outlines of several placed pieces as one editable IDS operand.
+ * @param {any[]} pieces @param {string} origin */
+export function joinedDrawing(pieces, origin) {
+  const contours = []
+  for (const piece of pieces) {
+    const drawn = drawnContours(piece)
+    for (const [i, contour] of piece.part.contours.entries()) {
+      const path = segments(contour.ops, drawn[i])
+      const ordered = runsBack(piece) ? backwards(path) : path
+      const light = Float64Array.from(ordered.flatMap(([, points]) => points.flat()))
+      contours.push({ ops: ordered.map(([kind, points]) => [kind, points.length]), light, heavy: light, width: null })
+    }
+  }
+  const combined = makePart(contours)
+  return { ...placed(combined, combined.box, combined.box, partInk(combined), origin), fixed: true }
 }
 
 /** Placed parts as one SVG path in a 1000 × 1000 box, y down from the em's top (`compose.svg_path`);

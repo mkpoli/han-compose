@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 import { compose, createSource } from '../src/loader.js'
-import { character, files, records, shards } from './fixtures/small-export.js'
+import { character, constants, files, records, shards } from './fixtures/small-export.js'
 
 // 甲 stands for a character with a description: three bars over a box, spelled ⿱三口. The other
 // parts are the small export's boxes, and its layout is all zeros, so the composer's shares set
@@ -48,5 +48,18 @@ describe('a pair written as an operand of a row along its own axis', () => {
     const parts = await drawn('⿰甲木')
     // At half the width the description is drawn: the bars and the box, then 木.
     expect(parts.map(part => part.origin)).toEqual(['glyph 三', 'glyph 口', 'glyph 木'])
+  })
+})
+
+describe('a character in a band of a stack of three', () => {
+  it('is flattened no further than CELL_STRETCH', async () => {
+    const middle = (await drawn('⿳木永木')).find(part => part.origin === 'glyph 永')
+    expect(middle).toBeDefined()
+    if (!middle) return
+    // 永 is a square in the fixture, so its box's proportions are its stretch; weighting widens
+    // the drawn box a little past the fitted one. Filling the band it would be over four to one.
+    const stretch = middle.box[2] / middle.box[3]
+    expect(stretch).toBeGreaterThan(constants.STRETCH)
+    expect(stretch).toBeLessThan(constants.CELL_STRETCH * 1.15)
   })
 })
