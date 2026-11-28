@@ -51,6 +51,21 @@ it('takes an inset heavy master the other way, as Kureedo\'s contours need', asy
   expect(thin.weight[0]).toBeGreaterThanOrEqual(-0.375)
 })
 
+it('treats an unweighted pen-writing export as a static face even when weighted is omitted', async () => {
+  const input = {
+    ...files,
+    'manifest.json': JSON.stringify({
+      ...JSON.parse(files['manifest.json']),
+      heavy: 400,
+      constants: { ...constants, stem: [[54, 94], [51, 91]] },
+    }),
+  }
+  const loaded = createSource(async name => input[name] === undefined ? null : new Blob([input[name]]).arrayBuffer())
+  await loaded.ready()
+  expect(new Composer(loaded.store(), { fontStyle: 'pen-writing' }).staticFace).toBe(true)
+  expect(new Composer(loaded.store(), { fontStyle: 'sans' }).staticFace).toBe(false)
+})
+
 const lawFiles = stems => ({
   ...files,
   'manifest.json': JSON.stringify({

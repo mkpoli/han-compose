@@ -532,4 +532,39 @@ describe('a glyph drawn as one outline', () => {
     // The foot still ends where the glyph ends it.
     expect(x(1)).toBeCloseTo(900, 5)
   })
+
+  it('sweeps a single-outline arch with a rising hook, keeping the hook at the right edge', () => {
+    // A brush 几 drawn as one outline: left leg, top bar, straight right leg, horizontal foot and
+    // an upturned hook rising to ~45% of the height on the right.
+    const arch = [
+      100, 0, 160, 0, 160, 700, 540, 700, 540, 80, 860, 80, 860, 320,
+      920, 320, 920, 0, 480, 0, 480, 640, 100, 640,
+    ]
+    const archGlyph = partOf({ v: 1, b: [100, 0, 920, 700], p: [['M' + 'L'.repeat(arch.length / 2 - 1), int16(arch.map(v => v * 4)), int16(arch.map(() => 0))]] })
+    const placedArch = placed(archGlyph, archGlyph.box, archGlyph.box.slice(), 3200, 'glyph 几')
+    const swept = sweptPart(placedArch, 360, constants)
+    expect(swept).toHaveLength(1)
+    if (!swept) return
+    const [drawn] = swept[0].part.contours
+    const x = (/** @type {number} */ i) => drawn.light[2 * i]
+    // The right leg of the arch moves left of edge; the upturned hook stays at the right edge.
+    expect(x(3)).toBeLessThanOrEqual(370)
+    expect(x(7)).toBeCloseTo(920, 5)
+    expect(x(8)).toBeCloseTo(920, 5)
+  })
+
+  it('centers a separate upper part inside the pressed head instead of crushing it beside empty space', () => {
+    const joined = [100, 440, 900, 440, 900, 380, 520, 380, 600, 100, 900, 100, 900, 0, 500, 0, 440, 380, 100, 380]
+    const centeredUpper = [320, 500, 680, 500, 680, 800, 320, 800]
+    const contour = (/** @type {number[]} */ points) => ['M' + 'L'.repeat(points.length / 2 - 1), int16(points.map(v => v * 4)), int16(points.map(() => 0))]
+    const shi = partOf({ v: 1, b: [100, 0, 900, 800], p: [contour(centeredUpper), contour(joined)] })
+    const placedShi = placed(shi, shi.box, shi.box.slice(), 6400, 'glyph 是')
+    const swept = sweptPart(placedShi, 380, constants)
+    expect(swept).toHaveLength(2)
+    if (!swept) return
+    const [left, , right] = swept[0].target
+    // Centered over [100..380] and wider than the naive (360 * 280 / 580 ≈ 174) sliver.
+    expect((left + right) / 2).toBeCloseTo(240, 0)
+    expect(right - left).toBeGreaterThan(200)
+  })
 })

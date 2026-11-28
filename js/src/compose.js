@@ -916,7 +916,7 @@ export const designedSources = (tree, style = 'sans') => {
 /** The most a stroke running along a row or a stack may be thick, as a share of its length. */
 const ACROSS_THICK = 0.3
 /** The least share of the width a pair written into a lower-left enclosure takes. */
-const HELD_PAIR = 0.66
+const HELD_PAIR = 0.68
 /** How the part an enclosure already holds and a second part written into it stand together:
  *  stacked under an upper-left enclosure, side by side over a lower-left one. */
 const HELD_TOGETHER = { '⿸': '⿱', '⿺': '⿰' }
@@ -988,7 +988,7 @@ export class Composer {
     // grows a heavy master on every side (`STATIC_GROW`), which can lift a thin part to the weight
     // of the parts drawn at their own size.
     this.weighted = m.weighted ?? m.heavy !== 400
-    this.staticFace = m.weighted === false
+    this.staticFace = m.weighted === false || (!this.weighted && ownFormsOnly(fontStyle))
     this.stem0 = c.stem
     this.arities = new Map([...c.BINARY.map(op => [op, 2]), ...c.TERNARY.map(op => [op, 3]), ...c.UNARY.map(op => [op, 1])])
     this.crossingCache = new Map()
@@ -4317,7 +4317,8 @@ export class Composer {
           // An enclosing part cut from another character is pressed left of a pair written into it,
           // as its own glyph is, so the pair stands against it.
           if (op === '⿺' && this.heldFirst.has(child) && groups[0].length === 1) {
-            const swept = sweptPart(groups[0][0], box[0] - C.FACING[0], C, this.tailForm(keyOf(children[0])))
+            const clearance = Math.min(C.FACING[0], C.ROOM_MARGIN * stem)
+            const swept = sweptPart(groups[0][0], box[0] - clearance, C, this.tailForm(keyOf(children[0])))
             if (swept) groups[0] = swept
           }
           const opening = this.room(op, groups[0], frameOf)
@@ -4326,10 +4327,17 @@ export class Composer {
           // the roof.
           const tight = opening && area(opening) < area(box) && within(box, opening) >= C.ROOM_TRUST
           const grid = tight ? this.gridTree(child) : null
-          const inner = tight ? opening : box
+          // A pair under a lower-left enclosure keeps the first part's predicted left edge when it
+          // tucks further left than the rectangular opening (犀 beside 辶's bend in 遲); `fit`
+          // checks the actual ink against the enclosure.
+          const heldPair = op === '⿺' && this.heldFirst.has(child)
+          const inner = heldPair && opening
+            ? [Math.min(box[0], opening[0]), opening[1], Math.max(box[2], opening[2]), Math.max(box[3], opening[3])]
+            : tight ? opening : box
           // A part centred in a room alone would sit away from a short arm: open the room out over
           // the sides the enclosure closes.
-          const anchor = opening && (tight || area(opening) > area(box)) ? centre(this.held(opening, op, frameOf)) : centre(inner)
+          const anchor = heldPair ? centre(inner)
+            : opening && (tight || area(opening) > area(box)) ? centre(this.held(opening, op, frameOf)) : centre(inner)
           groups.push(grid ? this.cellLayout(grid, inner, { leafIndices: false }) : this.node(child, inner))
           this.fit(groups[0], groups[1], frameOf, stem, C, { room: inner, anchor })
         } else {
@@ -6501,7 +6509,8 @@ function pressedColumns(poly, [x0, y0, x1, y1], pressed, stem) {
   for (let r = 0; r < rows; r++) {
     const y = y0 + (r + 0.5) * (y1 - y0) / rows
     for (const [a, b] of spansAt(poly, y)) {
-      right = Math.max(right, b)
+      if (a >= x1) continue
+      right = Math.max(right, Math.min(b, x1))
       for (let k = 0; k < bins; k++) {
         const x = x0 + (k + 0.5) * (x1 - x0) / bins
         if (x >= a && x <= b) hits[k]++
@@ -6527,6 +6536,37 @@ function pressedColumns(poly, [x0, y0, x1, y1], pressed, stem) {
   }
 }
 /**
+ * A single-outline arch whose foot sweeps right and hooks up (几 in a brush face): no overhanging
+ * head above a narrower waist, just an upper body ending well left of the foot's right end.
+ */
+function archSweep(pts, poly, [x0, y0, x1, y1], edge, C) {
+  const w = x1 - x0, h = y1 - y0, footTop = y0 + SWEEP_JOINED[0] * h
+  let lowMin = Infinity, lowMax = -Infinity
+  for (let i = 0; i < pts.length; i += 2) if (pts[i + 1] <= footTop) { lowMin = Math.min(lowMin, pts[i]); lowMax = Math.max(lowMax, pts[i]) }
+  if (lowMax < lowMin || lowMax - lowMin < C.SWEEP_FOOT * w) return null
+  let head = -Infinity, reach = -Infinity
+  for (let k = 0; k < SWEEP_JOINED[2]; k++) {
+    const y = footTop + (k + 0.5) * (y1 - footTop) / SWEEP_JOINED[2]
+    const spans = spansAt(poly, y).filter(s => !(s[0] >= x0 + TURNED.hook[0] * w && y < y0 + TURNED.hook[1] * h))
+    const right = spans.at(-1)?.[1]
+    if (right === undefined) continue
+    head = Math.max(head, right)
+    if (reach === -Infinity) reach = right
+  }
+  if (!(head > edge) || head > x1 - C.SWEEP_REACH[0] * w || !(reach > x0)) return null
+  edge = Math.max(edge, x0 + C.SWEEP_PRESSED * (head - x0))
+  const pressed = (edge - x0) / (head - x0), end = x1 - C.SWEEP_END * w
+  if (!(end > reach)) return null
+  const map = pressedColumns(poly, [x0, footTop, Math.min(x1, head + 1), y1], pressed, C.STEM_SPAN)
+  const atFoot = map(reach) - reach, hookTop = y0 + TURNED.hook[1] * h
+  return pts.map((x, i) => {
+    if (i % 2) return 0
+    const y = pts[i + 1]
+    if (x <= reach || y >= hookTop) return map(x) - x
+    return x <= end ? reach + atFoot + (x - reach) * (end - reach - atFoot) / (end - reach) - x : 0
+  })
+}
+/**
  * A glyph a brush face draws as one outline, its foot joined to every stroke above it (走 in a Kai):
  * pressed above the outline's waist as `joinedSweep` presses it, the foot drawn out below. Null
  * where the outline has no such waist or already stands left of `edge`.
@@ -6535,12 +6575,16 @@ function oneOutlineSweep(p, pts, [x0, y0, x1, y1], edge, C) {
   const ring = rings([p.part.contours[0]], [pts])[0], poly = []
   for (let i = 0; i + 1 < ring.length; i += 2) poly.push([ring[i], ring[i + 1]])
   const waist = waistOf(poly, [x0, y0, x1, y1], -Infinity)
-  if (!waist) return null
-  const head = waist.head
-  if (!(head > edge)) return null
-  edge = Math.max(edge, x0 + C.SWEEP_PRESSED * (head - x0))
-  const pressed = (edge - x0) / (head - x0), end = x1 - C.SWEEP_END * (x1 - x0)
-  const dx = joinedSweep(pts, ring, [x0, y0, x1, y1], edge, pressed, end, C.STEM_SPAN)
+  let dx = null
+  if (waist) {
+    const head = waist.head
+    if (!(head > edge)) return null
+    edge = Math.max(edge, x0 + C.SWEEP_PRESSED * (head - x0))
+    const pressed = (edge - x0) / (head - x0), end = x1 - C.SWEEP_END * (x1 - x0)
+    dx = joinedSweep(pts, ring, [x0, y0, x1, y1], edge, pressed, end, C.STEM_SPAN)
+  } else {
+    dx = archSweep(pts, poly, [x0, y0, x1, y1], edge, C)
+  }
   if (!dx) return null
   const [sx, sy] = scaleOf(p)
   const cx = (p.source[0] + p.source[2]) / 2, cy = (p.source[1] + p.source[3]) / 2
@@ -6555,7 +6599,7 @@ function oneOutlineSweep(p, pts, [x0, y0, x1, y1], edge, C) {
 }
 /** `pressedColumns`: how many columns the width is read in, the share of the rows above the waist
  *  an upright's column is inked on, and the least share of its width the rest is pressed to. */
-const SWEEP_COLUMNS = [96, 0.3, 0.2]
+const SWEEP_COLUMNS = [96, 0.3, 0.45]
 /** The share of `SWEEP_RISE` a foot drawn as a stroke of its own must rise. */
 const SWEEP_RISE_ALONE = 0.85
 /**
@@ -6589,7 +6633,7 @@ export function sweptPart(p, edge, C, tail = null) {
   for (let i = 0; i < pts.length; i += 2) if (pts[i + 1] <= y0 + 0.2 * (y1 - y0)) { lowMin = Math.min(lowMin, pts[i]); lowMax = Math.max(lowMax, pts[i]) }
   if (lowMax < lowMin || lowMax - lowMin < C.SWEEP_FOOT * (x1 - x0)) return null
   const head = Math.max(...boxes.filter((_, k) => k !== sweep).map(b => b[2]))
-  if (head <= edge || edge <= x0 + (x1 - x0) / 4) return null
+  if (head <= edge || edge <= x0 + 0.2 * (x1 - x0)) return null
   edge = Math.max(edge, x0 + C.SWEEP_PRESSED * (head - x0))
   const pressed = (edge - x0) / (head - x0)
   const left = boxes[sweep][0], turn = left + C.STEM_SPAN, end = x1 - C.SWEEP_END * (x1 - x0)
@@ -6625,7 +6669,15 @@ export function sweptPart(p, edge, C, tail = null) {
   }
   const strokes = derived(p.part, p.part.contours.filter((_, k) => k !== sweep).map(c => at(c, q => q)))
   const box = strokes.box
-  const pressedBox = [x0 + (box[0] - x0) * pressed, box[1], x0 + (box[2] - x0) * pressed, box[3]]
+  // A separate upper part centered over a joined lower body (the 日 of a brush 是) keeps its
+  // width within the pressed head instead of shrinking into a sliver beside empty space.
+  let pressedBox = [x0 + (box[0] - x0) * pressed, box[1], x0 + (box[2] - x0) * pressed, box[3]]
+  if (box[1] >= y0 + 0.35 * (y1 - y0) && box[0] > x0 + 0.1 * (x1 - x0)) {
+    const inset = Math.min(box[0] - x0, 0.12 * (edge - x0))
+    const width = Math.min(box[2] - box[0], Math.max(0, edge - x0 - 2 * inset))
+    const mid = (x0 + edge) / 2
+    if (width > pressedBox[2] - pressedBox[0]) pressedBox = [mid - width / 2, box[1], mid + width / 2, box[3]]
+  }
   const drawn = derived(p.part, [at(p.part.contours[sweep], drawnOut)])
   return [placed(strokes, strokes.box, pressedBox, p.native, `swept ${p.origin}`, p.weight),
     placed(drawn, drawn.box, drawn.box.slice(), p.native, `swept ${p.origin}`, p.weight)]
