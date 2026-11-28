@@ -659,8 +659,8 @@ const KOREAN_ENCLOSURE_LATE = new Set(['回', '四'])
 const KOREAN_DO_PAIR = {
   sans: { native: true, padX: 0.12, padY: 0.12, stretch: 1.08, weight: [0.28, 0.28] },
   serif: { native: true, padX: 0.06, padY: 0.07, stretch: 1.26, weight: [0.24, 0.12] },
-  fangsong: { native: false, padX: 0.065, padY: 0.045, stretch: 1.16, offset: [13, 7], slant: 0.105 },
-  regular: { native: false, padX: 0.075, padY: 0.05, stretch: 1.14, offset: [14, 6.5], slant: 0.125 },
+  fangsong: { native: false, padX: 0.065, padY: 0.045, stretch: 1.16, offset: [13, 7], slant: 0.055 },
+  regular: { native: false, padX: 0.075, padY: 0.05, stretch: 1.14, offset: [14, 6.5], slant: 0.06 },
   'pen-writing': { native: false, padX: 0.085, padY: 0.075, stretch: 1.12, offset: [8, 9], slant: 0.04 },
 }
 
