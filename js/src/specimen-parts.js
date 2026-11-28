@@ -51,7 +51,7 @@ const JYU_HOOK_SPECS = {
   regular: {
     hookContours: [0],
     yuBox: [245, -75, 910, 815],
-    grass: '艹', grassBox: [55, 58, 635, 344], grassWeight: [0.28, 0.28], stemScale: 1,
+    grass: '卄', grassBox: [55, 52, 635, 346], grassWeight: [0.24, 0.24], stemScale: 0.44,
   },
   'pen-writing': {
     useStrokes: true,
