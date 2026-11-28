@@ -404,11 +404,122 @@ function penDoor(char) {
   }
 }
 
+// TW-Kai's standalone 虍 draws a compact radical 七 high under the hood, leaving the lower half empty.
+// Pair 虍's outer hood with a full-body 七 (its bar gently tucked inside the sweep) and 劇's 刂.
+const REGULAR_HU_KNIFE_GLYPHS = {
+  虍: '326bc25a5f31bc4f817fd3c199b8f65e944048975fcb8133403901f8a8241fc1',
+  七: 'e4208fc15e393a9ef4e781f05267f31c41ea5cd62c7392774f19e1f18b7d6cf1',
+  劇: 'd186c04b225953fc06125546977b0af5ee1deeab23c8844ff4ba89b0963a00a0',
+}
+
+function regularHuPart(hu, qi) {
+  const hood = hu.contours[0], inner = qi.contours[0]
+  const tuck = arr => {
+    const out = Float64Array.from(arr)
+    for (let i = 0; i < out.length; i += 2) {
+      const x = out[i], y = out[i + 1]
+      const t = Math.max(0, Math.min(1, (y - 230) / 80))
+      if (t > 0) {
+        if (x < 395) out[i] = 395 - (395 - x) * (1 - t * 0.32)
+        else if (x > 460) out[i] = 460 + (x - 460) * (1 - t * 0.21)
+      }
+    }
+    return out
+  }
+  const innerTucked = { ...inner, light: tuck(inner.light), heavy: tuck(inner.heavy ?? inner.light) }
+  const leftFrame = [0, 0.005, 0.678, 1.005], qiFrame = [0.212, 0.035, 0.651, 0.638]
+  const placeIn = (contour, src, dst, [wx, wy]) => {
+    const sx = (dst[2] - dst[0]) / Math.max(src[2] - src[0], 1)
+    const sy = (dst[3] - dst[1]) / Math.max(src[3] - src[1], 1)
+    const srcLight = contour.light, srcHeavy = contour.heavy ?? srcLight
+    const light = new Float64Array(srcLight.length), heavy = new Float64Array(srcLight.length)
+    for (let i = 0; i < srcLight.length; i += 2) {
+      const dx = srcHeavy[i] - srcLight[i], dy = srcHeavy[i + 1] - srcLight[i + 1]
+      light[i] = (dst[0] + (srcLight[i] + wx * dx - src[0]) * sx) * 1000
+      light[i + 1] = (dst[1] + (srcLight[i + 1] + wy * dy - src[1]) * sy) * 1000
+      heavy[i] = light[i] + dx * sx * 1000
+      heavy[i + 1] = light[i + 1] + dy * sy * 1000
+    }
+    return { ...contour, light, heavy }
+  }
+  const hoodBox = pointsBox(hood.light), qiBox = pointsBox(innerTucked.light)
+  const contours = [
+    placeIn(hood, hoodBox, leftFrame, [0.24, 0]),
+    placeIn(innerTucked, qiBox, qiFrame, [0.44, -0.04]),
+  ]
+  const box = leftFrame.map(v => v * 1000)
+  return derived(hu, contours, box)
+}
+
 /**
  * The corrections, by description. `glyphs` ties each to the outlines it was read against.
  * A correction that cannot find the parts it names leaves the drawing as it is.
  */
 export const COMPONENT_FIXES = {
+  '⿰虍刂': {
+    glyphs: {},
+    apply(parts, composer, region) {
+      if (composer.fontStyle !== 'regular' || ['劇', '虍', '七', '刂'].some(ch => composer.excluded(ch))) return parts
+      if (!matches({ glyphs: REGULAR_HU_KNIFE_GLYPHS }, composer)) return parts
+      const hu = composer.glyph('虍'), qi = composer.glyph('七'), donor = composer.glyph('劇')
+      if (!hu || !qi || !donor || hu.contours.length < 1 || qi.contours.length < 1 || donor.contours.length < 4) return parts
+      const fullHu = regularHuPart(hu, qi)
+      const knife = derived(donor, [donor.contours[2], donor.contours[3]])
+      const frame = box => mapped(box, [0, 0, 1, 1], region)
+      const atRoot = Boolean(region && composer.face && region.every((v, i) => Math.abs(v - composer.face[i]) < 1))
+      const left = placed(fullHu, fullHu.box, frame([0, 0.005, 0.678, 1.005]), composer.ink('虍'), '虍 with 七')
+      const right = placed(knife, knife.box, frame([0.702, -0.015, 0.99, 0.978]), composer.ink('劇'), '劇 刂')
+      if (atRoot) { left.fixed = true; right.fixed = true }
+      return [left, right]
+    },
+  },
+  '⿲𠂤日千': {
+    glyphs: {},
+    apply(parts, composer) {
+      if (parts.length !== 3) return parts
+      const frame = union(parts.map(part => part.target))
+      if (composer.fontStyle === 'fangsong' || composer.fontStyle === 'regular') {
+        // In 𧗧 the central 日 spans about three quarters of the full ink height.
+        const [left, sun, right] = parts
+        const inset = composer.fontStyle === 'regular' ? .12 : .135
+        const height = heightOf(frame)
+        // Shortening 日 changes stroke balancing. Extend the flanks to restore the original ink bounds.
+        const limits = composer.fontStyle === 'regular' ? [0, -.0066, 1, 1.0066] : [0, -.0084, 1, 1.0097]
+        const outer = mapped(limits, [0, 0, 1, 1], frame)
+        return [{ ...left, target: mapped(left.target, frame, outer) }, { ...sun, target: [sun.target[0], frame[1] + inset * height,
+          sun.target[2], frame[3] - inset * height] }, { ...right, target: mapped(right.target, frame, outer) }]
+      }
+      if (composer.fontStyle !== 'pen-writing') return parts
+      // 日 is the short middle column. Give 千 room for its crossbar beside it.
+      const boxes = [[0, .0233, .3438, .9767], [.3837, .1588, .6478, .8412], [.6797, -.0018, .9966, 1.0018]]
+      return parts.map((part, i) => ({ ...part, target: mapped(boxes[i], [0, 0, 1, 1], frame),
+        weight: i === 0 ? [0, -.10] : i === 1 ? [-.68, -.20] : [-.60, -.12], fixed: true }))
+    },
+  },
+  '⿰舟邊': {
+    glyphs: {},
+    apply(parts, composer, region) {
+      if (parts.length !== 2 || !['fangsong', 'regular', 'pen-writing'].includes(composer.fontStyle)) return parts
+      const [boat, border] = parts
+      if (composer.fontStyle !== 'regular') {
+        const frame = union(parts.map(part => part.target))
+        const move = Math.max(0, (border.target[0] - boat.target[2] - .018 * widthOf(frame)) / 2)
+        return parts.map((part, i) => ({ ...part, target: part.target.map((v, axis) => axis % 2 ? v : v + (i ? -move : move)) }))
+      }
+      // In Regular, learned 艭 + glyph 邊 sit in a vertically short box (~809 u)
+      // compared to standalone TW-Kai 邊 (908 u) and the other faces (891–923 u).
+      // Expand the root frame to a full two-column cell and give 邊 its full height
+      // and right-column width without compressing 辶.
+      const atRoot = region && composer.face && region.every((v, i) => Math.abs(v - composer.face[i]) < 1)
+      const frame = atRoot
+        ? mapped([-0.059, -0.014, 1.055, 1.026], [0, 0, 1, 1], region)
+        : union(parts.map(part => part.target))
+      return [
+        { ...boat, target: mapped([0, 0.02, 0.35, 0.985], [0, 0, 1, 1], frame) },
+        { ...border, target: mapped([0.355, 0, 1, 1], [0, 0, 1, 1], frame) },
+      ]
+    },
+  },
   '⿱龹幸': {
     glyphs: {},
     apply(parts, composer) {

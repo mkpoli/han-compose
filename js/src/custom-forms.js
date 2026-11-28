@@ -6,15 +6,18 @@ import { addCutForms } from './component-forms.js'
 import constants from './constants.json' with { type: 'json' }
 import { customAt, strokeChain } from './tree.js'
 import { pageLoader } from './unicode.js'
+import { resolveYaoForm } from './yao-forms.js'
 
 export const CUSTOM_FORMS = 'custom-forms.json.gz'
+const NUMBERED_ENTITY = /^&X-[0-9]{1,5};$/
+const VARIANT_ENTITY = /^&VR-/
 /** Whether a sequence names a component the file may hold: a CHISE entity (&CDP-8958;) or a zi.tools
  *  stroke chain (#(丿𠃊)) the grammar gives no character. @param {string} text */
 export function hasCustomComponent(text) {
   const chars = [...text]
   for (let at = 0; at < chars.length; at++) {
     const found = customAt(chars, at)
-    if (found && found.kind !== 'numbered' && !(found.kind === 'chain' && strokeChain(chars, at))) return true
+    if (found && found.kind !== 'numbered' && !NUMBERED_ENTITY.test(found.text) && !VARIANT_ENTITY.test(found.text) && !resolveYaoForm(found.text) && !(found.kind === 'chain' && strokeChain(chars, at))) return true
   }
   return false
 }
