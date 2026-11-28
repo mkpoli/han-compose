@@ -54,6 +54,7 @@ import { pyramidRows, pyramidOnBase } from './pyramid-rows.js'
 import { hangulClusterAt, jamoClass } from './hangul.js'
 import { hangulLetters } from './hangul-ids.js'
 import { toConjoiningJamo } from './hangul.js'
+import { specimenFor, specimenParts, containsSpecimen } from './specimen-parts.js'
 import { tileHost } from './fangsong-tile.js'
 import { brushSweepRoom, brushSweepParts } from './brush-sweep-rooms.js'
 import { componentFix, enclosedZeroTarget, INCOME_IDS, incomeBoxes, WEALTH_IDS, wealthBoxes } from './component-fixes.js'
@@ -899,6 +900,7 @@ export const designedSources = (tree, style = 'sans') => {
     if (!Array.isArray(node)) return
     if (Object.hasOwn(cuanForms, style) && keyOf(node) === '⿱⿱⿴𦥑同冖𤍾') out.add('爨')
     const [op, ...children] = node
+    for (const cell of specimenFor(node, style, keyOf) ?? []) for (const [ch] of cell) out.add(ch)
     if (brushSweepRoom(node, style)) {
       children.forEach(ch => out.add(ch))
       if (style === 'fangsong') out.add(node[1] === '瓦' ? tileHost(node[2]) : '尅')
@@ -1798,6 +1800,7 @@ export class Composer {
     // Cell scaffolds already have a complete layout; searching every repeated subtree adds no evidence.
     if (this.pyramid(tree) || this.pyramidWithBase(tree)) return false
     const key = keyOf(tree)
+    if (containsSpecimen(key, this.fontStyle)) return false
     if (key.includes(WEALTH_IDS)) return false
     if (key.includes(INCOME_IDS)) return false
     if (containsRateForm(key) || (containsU26201(key) && this.hasYaoChoice(tree)) || this.bySequence(key) || this.spelled.has(key)) return false
@@ -2151,7 +2154,7 @@ export class Composer {
         return
       }
       const repeated = isGroupedForm(keyOf(node), this.fontStyle) ? componentParts(keyOf(node), region, this.fontStyle, atRoot, this.exclude) : null
-      const designed = repeated ?? rccParts(editable, keyOf(node), region) ?? birdOutlineParts(this, keyOf(node), region) ?? this.doubleTurnParts(node, region) ?? brushSweepParts(this, node, region, !atRoot) ?? this.thornRowParts(node, region) ?? yiCrossParts(this, node, region) ?? this.qiParts(node, region) ?? ghostParts(this, node, region) ?? this.cuanParts(node, region, atRoot) ?? this.muKoParts(node, region) ?? this.wheatFaceParts(node, region)
+      const designed = repeated ?? rccParts(editable, keyOf(node), region) ?? birdOutlineParts(this, keyOf(node), region) ?? this.doubleTurnParts(node, region) ?? brushSweepParts(this, node, region, !atRoot) ?? this.thornRowParts(node, region) ?? yiCrossParts(this, node, region) ?? this.qiParts(node, region) ?? ghostParts(this, node, region) ?? specimenParts(this, node, region, keyOf) ?? this.cuanParts(node, region, atRoot) ?? this.muKoParts(node, region) ?? this.wheatFaceParts(node, region)
       if (designed) {
         const boxes = designed[0]?.rccGroup && rccLeafBoxes(designed, leafTexts(node).length)
         for (const box of boxes || designed.map(part => part.target)) out.push({ index: out.length, box, empty: false })
@@ -2873,6 +2876,8 @@ export class Composer {
     if (qi) return qi
     const ghost = ghostParts(this, node, region)
     if (ghost) return ghost
+    const specimen = specimenParts(this, node, region, keyOf)
+    if (specimen) return specimen
     const kana = this.muKoParts(node, region)
     if (kana) return kana
     // Use an encoded glyph first when the donor is specific to a rectangular counter.
