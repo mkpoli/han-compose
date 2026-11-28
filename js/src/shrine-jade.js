@@ -6,42 +6,42 @@ import { hexOf } from './sha256.js'
 // hanging plaque (Taisuke.Kasuya, CC BY-SA 4.0,
 // https://commons.wikimedia.org/wiki/File:Mika-jinja(Misato,Saitama)_Hengaku.jpg).
 // Assembles ⿱艹⿺夌玉 using each face's standard 艹, the upper ⿱土儿 of 夌
-// (or 土八 of 菱 in Zhuque Fangsong), the native enclosing 夂 from 麩 (or 处
-// in Zhuque Fangsong), and weight-balanced 玉.
+// (or 土八 of 菱 in Zhuque Fangsong), the native enclosing 夂 from 麵 (or 处
+// in Zhuque Fangsong), and weight-balanced 玉 proportioned after 𦼆 and 𭐨.
 // Related encoded forms 𦼆 (⿱艹⿺麦玉) and 𭐨 (⿺夌主) show the same enclosing structure.
 
 const faces = {
   sans: {
-    grass: [62, 637, 941, 840],
-    top: { host: '夌', contours: [0, 1, 2, 7, 8], digest: '2af35d6a2656cd6734dd76098369a88f1b5668a597c8fa22f452db9f39c4e424', box: [42, 344, 502, 610], weight: [0.75, 0.65] },
-    foot: { host: '麩', contours: [1, 2, 4, 5], digest: '8464a5a2fc2961cb055948720a383d8133f8d370d4fef13517b5eb9270f3c5af' },
-    jade: [530, 64, 954, 610],
+    grass: [62, 646, 941, 844],
+    top: { host: '夌', contours: [0, 1, 2, 7, 8], digest: '2af35d6a2656cd6734dd76098369a88f1b5668a597c8fa22f452db9f39c4e424', box: [42, 348, 444, 624], weight: [0.85, 0.65] },
+    foot: { host: '麵', contours: [1, 2, 4, 5], digest: '06770e5c308b82d94f8b5fe611129bcf0fba8afcb6a5129961adb963fd97afe8' },
+    jade: [474, 58, 956, 622],
   },
   serif: {
-    grass: [44, 638, 957, 837],
-    top: { host: '夌', contours: [0, 1, 2, 3, 8], digest: '7aaa7594c18c9954eebb712bd3978c012a5f27170b943747394b6011b8c282fc', box: [42, 346, 500, 616], weight: [0.68, 0.58] },
-    foot: { host: '麩', contours: [0, 2, 3, 4], digest: '72b60f366601a89859ea72d8db3f8e8eede58145a2d1d4c451ec1b167dd13ee6' },
-    jade: [528, 66, 954, 618],
+    grass: [44, 648, 957, 842],
+    top: { host: '夌', contours: [0, 1, 2, 3, 8], digest: '7aaa7594c18c9954eebb712bd3978c012a5f27170b943747394b6011b8c282fc', box: [44, 344, 448, 628], weight: [0.78, 0.60] },
+    foot: { host: '麵', contours: [9, 11, 12, 13], digest: 'ff0fbc45535f7b38f2439fa06cd31d639d8f0d6a4fbfc2a2df1fd737fc91f3e3' },
+    jade: [476, 54, 958, 626],
   },
   fangsong: {
-    grass: [91, 584, 904, 828],
-    top: { host: '菱', contours: [1, 2], digest: 'ffa4c57a60cd3e2b446539cfc7e5f6241f4a8555b76c93803b8600f8efbf9dd3', box: [52, 344, 522, 582] },
-    foot: { host: '处', contours: [0, 2], digest: '9f0a3965c175b4ecde5b44b6626b47f2f9241831bc1fbf350e15ba8ce2a3cdd9', box: [42, -92, 955, 368] },
-    jade: [536, 68, 944, 588],
+    grass: [91, 592, 904, 832],
+    top: { host: '菱', contours: [1, 2], digest: 'ffa4c57a60cd3e2b446539cfc7e5f6241f4a8555b76c93803b8600f8efbf9dd3', box: [50, 340, 458, 592] },
+    foot: { host: '处', contours: [0, 2], digest: '9f0a3965c175b4ecde5b44b6626b47f2f9241831bc1fbf350e15ba8ce2a3cdd9', box: [40, -92, 955, 368] },
+    jade: [484, 46, 948, 594],
     fixedWeight: true,
   },
   regular: {
-    grass: [183, 602, 807, 816],
-    top: { host: '夌', contours: [2], digest: '7f629b89013b0cd88c04391d2094c0a8d89fdb2ab49bc76a2c7692c3e8a8dda8', box: [82, 320, 496, 588] },
-    foot: { host: '麩', contours: [2, 3], digest: 'ca020e2bccaf46e5af2703ab49491ce821a4d70a2ec639eb8d023cc5a2bf8aa4' },
-    jade: [526, 96, 940, 592],
+    grass: [183, 608, 807, 818],
+    top: { host: '夌', contours: [2], digest: '7f629b89013b0cd88c04391d2094c0a8d89fdb2ab49bc76a2c7692c3e8a8dda8', box: [70, 326, 444, 596] },
+    foot: { host: '麵', contours: [0, 1], digest: 'ed53c4ad4f73b97a25d65ff588dec58dbb4d494673542185ed4861f8cc04f8ed' },
+    jade: [486, 96, 938, 598],
     fixedWeight: true,
   },
   'pen-writing': {
-    grass: [108, 594, 890, 824],
-    top: { host: '夌', contours: [0], digest: '1f6225db987f9a178fc4d8979c113c9bde1850d3360a70b5d84388e6abe98272', box: [70, 314, 504, 582] },
-    foot: { host: '麩', contours: [4, 5], digest: 'e40d346a612d9fc4b2f765d53aaef201eaa0f95edfa4e159b5534aec6132ca1f' },
-    jade: [528, 82, 944, 582],
+    grass: [108, 602, 890, 828],
+    top: { host: '夌', contours: [0], digest: '1f6225db987f9a178fc4d8979c113c9bde1850d3360a70b5d84388e6abe98272', box: [54, 308, 446, 592] },
+    foot: { host: '麵', contours: [8, 10], digest: 'e9730770b34d2f5a33019030e0ba856b9847620cc244e636aabb96c6a5b2890b' },
+    jade: [486, 66, 946, 590],
     fixedWeight: true,
   },
 }

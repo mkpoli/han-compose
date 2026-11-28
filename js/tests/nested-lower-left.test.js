@@ -18,7 +18,7 @@ import rulerFrames from './fixtures/ruler-frames.json' with { type: 'json' }
 import maoDonor from './fixtures/sans-fur-frame.json' with { type: 'json' }
 // 尪 from Noto Sans CJK JP, SIL OFL 1.1.
 import wangDonor from './fixtures/sans-limp-frame.json' with { type: 'json' }
-// 夌/菱, 麩/处, 玉, 艹 across Noto Sans/Serif CJK JP, Zhuque Fangsong, Kureedo (SIL OFL 1.1),
+// 夌/菱, 麵/处, 玉, 艹 across Noto Sans/Serif CJK JP, Zhuque Fangsong, Kureedo (SIL OFL 1.1),
 // and TW-Kai (CNS11643, Open Government Data License 1.0).
 import shrineDonors from './fixtures/shrine-jade-donors.json' with { type: 'json' }
 import parts from './fixtures/sans-lower-left.json' with { type: 'json' }
@@ -421,7 +421,7 @@ it('assembles the Misato shrine character from standard 艹, 夌/菱 top, and en
   const sequence = '⿱艹⿺夌玉'
   for (const [fontStyle, faceDonors] of Object.entries(shrineDonors)) {
     const topHost = fontStyle === 'fangsong' ? '菱' : '夌'
-    const footHost = fontStyle === 'fangsong' ? '处' : '麩'
+    const footHost = fontStyle === 'fangsong' ? '处' : '麵'
     const expectedCap = fontStyle === 'regular' ? 'TW-Kai: 艹' : 'glyph 艹'
     const expectedBody = `enclosing 夌 from ${topHost}+${footHost}`
     const baseDonors = fontStyle === 'fangsong' ? { ...faceDonors, 夌: records.木 } : faceDonors
