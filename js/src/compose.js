@@ -335,6 +335,10 @@ export const CLOSED_NESTED = 0.45
 /** How much of the gap between two stacked operands a donor's overlap has to cover before the pair
  *  is closed: an overlap the designer drew somewhere else (八 under 宀) is no seam to weld shut. */
 const CLOSED_SHARE = 0.15
+/** The widest top span a lower operand may have before `closed` treats it as bar-topped rather than
+ *  peaked: a flaring left leg (月 in woodblock) narrows the top bar's share of the box below
+ *  `COVER_SPAN`, while peaked feet (𧘇) stay narrower still. */
+const CLOSED_SPAN = 0.6
 /** The least share of a three-band stack's height an enclosed middle band takes: a 口 or 日
  *  compressed to a sliver reads as a gap between two bars. */
 const MIDDLE_BAND = 0.4
@@ -5899,7 +5903,7 @@ export class Composer {
   closed(below, above, share = 1) {
     if (below.length !== 1 || !(below[0].gap < 0)) return false
     const box = bounds(below), aboveBottom = bounds(above)[1]
-    if (box[3] <= box[1] || flatTopped(below, box)) return false
+    if (box[3] <= box[1] || topSpan(below, box) >= CLOSED_SPAN) return false
     // The overlap is measured in the donor's units, so it scales with the cut: the peak of ⿱一𧘇
     // reaches the 一's band but leaves a seam under the bar, which the 衣's own overlap closes.
     const reach = -below[0].gap * scaleOf(below[0])[1] * share
