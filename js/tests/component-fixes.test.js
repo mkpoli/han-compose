@@ -2,7 +2,7 @@
 // and tied to the outlines it was read against, so these tests exercise the correction itself on
 // the shapes it was written for, and the guard that leaves another export's drawing alone.
 import { describe, expect, it } from 'bun:test'
-import { COMPONENT_FIXES, INCOME_IDS, clippedAbove, componentFix, dotIn, incomeBoxes, respanned, withoutContours } from 'han-compose/component-fixes'
+import { COMPONENT_FIXES, INCOME_IDS, WEALTH_IDS, clippedAbove, componentFix, dotIn, incomeBoxes, respanned, wealthBoxes, withoutContours } from 'han-compose/component-fixes'
 import { Composer, designedSources } from 'han-compose/compose'
 import { compose } from 'han-compose/loader'
 import { drawnContours, fill, groupRings, makePart, mapped, partOf, placed, pointsBox, union } from 'han-compose/geometry'
@@ -11,6 +11,7 @@ import { sourceOver } from './support.js'
 import zhou from './fixtures/zhou-miao.json' with { type: 'json' }
 import gongRecord from './fixtures/fangsong-gong.json' with { type: 'json' }
 import kuruma from './fixtures/kuruma-to.json' with { type: 'json' }
+import regularBirdHost from './fixtures/regular-bird-host.json' with { type: 'json' }
 import huKnife from './fixtures/regular-hu-knife.json' with { type: 'json' }
 import { hexOf } from 'han-compose/sha256'
 
@@ -1041,6 +1042,124 @@ describe('Korean final 乙 placement', () => {
     expect(designedSources(['⿱', '覀', '乙'], 'fangsong')).toContain('票')
     expect(designedSources(['⿱', '覀', '乙'], 'regular')).toContain('乞')
     expect(designedSources(['⿱', '覀', '乙'], 'pen-writing')).toContain('㐎')
+  })
+})
+
+describe('招財進寶 ⿺辶⿱宀⿱⿰王尔⿲隹貝招', () => {
+  const frame = [0, 0, 1000, 1000]
+  const sample = origin => part(origin, frame, frame, [[100, 100, 900, 900]])
+  const seven = () => ['glyph 辶', 'glyph 宀', 'glyph 王', 'glyph 尔', 'glyph 隹', 'glyph 貝', 'glyph 招'].map(sample)
+
+  it('places all seven leaves at full height with 王尔 tucked under 宀 and balanced weights across all five faces', () => {
+    const face = [53, -110, 950, 800]
+    const faceH = face[3] - face[1]
+    for (const fontStyle of ['sans', 'serif', 'fangsong', 'regular', 'pen-writing']) {
+      const boxes = wealthBoxes(WEALTH_IDS, fontStyle, face, face)
+      expect(boxes).toHaveLength(7)
+      const out = COMPONENT_FIXES[WEALTH_IDS].apply(seven(), { fontStyle, face }, face)
+      expect(out.map(p => p.target)).toEqual(boxes)
+      expect(out.every(p => p.fixed && Array.isArray(p.weight) && p.weight.length === 2)).toBe(true)
+      const [walk, roof, king, er, bird, shell, beckon] = out.map(p => p.target)
+      expect(roof[3] - walk[1]).toBeGreaterThan(0.95 * faceH)
+      // 王 and 尔 sit horizontally inside 宀's eaves and tuck upward into its roof cavity.
+      expect(roof[0]).toBeLessThan(king[0])
+      expect(er[2]).toBeLessThan(roof[2])
+      expect(king[3]).toBeGreaterThan(roof[1])
+      expect(er[3]).toBeGreaterThan(roof[1])
+      expect(king[3]).toBeLessThan(roof[3])
+      expect(king[2]).toBeLessThan(er[0])
+      // 隹貝招 stands below 王尔 and taller than the upper pair.
+      expect(king[1]).toBeGreaterThan(bird[3])
+      expect(bird[3] - bird[1]).toBeGreaterThan(king[3] - king[1])
+      expect(bird[2]).toBeLessThan(shell[0])
+      expect(shell[2]).toBeLessThan(beckon[0])
+      expect(walk[0]).toBeLessThan(bird[0])
+      expect(walk[1]).toBeLessThan(bird[1])
+
+      const nested = wealthBoxes(WEALTH_IDS, fontStyle, [450, -110, 950, 560], face)
+      const unnested = wealthBoxes(WEALTH_IDS, fontStyle, [450, -110, 950, 560])
+      expect(nested[0][0]).toBeGreaterThan(unnested[0][0])
+      expect(nested[1][3]).toBeLessThan(unnested[1][3])
+    }
+    expect(wealthBoxes(WEALTH_IDS, 'woodblock', face, face)).toBeNull()
+  })
+
+  it('uses standalone 貝 in Sans unless 貝 is excluded', () => {
+    const face = [38, -81, 967, 840]
+    const bei = makePart(part('glyph 貝', frame, frame, [[120, 80, 880, 920]]).part.contours, frame)
+    const parts = seven()
+    parts[5] = part('host 贏', frame, frame, [[200, 100, 800, 600]])
+    const out = COMPONENT_FIXES[WEALTH_IDS].apply(parts, {
+      fontStyle: 'sans', face, excluded: () => false, glyph: ch => ch === '貝' ? bei : null, ink: () => 50,
+    }, face)
+    expect(out[5].origin).toBe('glyph 貝')
+
+    const kept = COMPONENT_FIXES[WEALTH_IDS].apply(parts, {
+      fontStyle: 'sans', face, excluded: ch => ch === '貝', glyph: ch => ch === '貝' ? bei : null, ink: () => 50,
+    }, face)
+    expect(kept[5].origin).toBe('host 贏')
+  })
+
+  it('flips weight sign for inward-winding contours so inner parts always embolden', () => {
+    const face = [64.5, -88, 949, 799]
+    const makeWound = (origin, heavyBox) => ({
+      origin,
+      source: frame,
+      target: frame,
+      native: 100,
+      weight: [0, 0],
+      part: {
+        box: frame,
+        contours: [{
+          ops: [['M', 1], ['L', 1], ['L', 1], ['L', 1]],
+          light: Float64Array.from([200, 200, 800, 200, 800, 800, 200, 800]),
+          heavy: Float64Array.from([heavyBox[0], heavyBox[1], heavyBox[2], heavyBox[1], heavyBox[2], heavyBox[3], heavyBox[0], heavyBox[3]]),
+        }],
+      },
+    })
+    // Inward heavy contour shrinks at +w (like Pen/WenKai); outward expands at +w (like host 鉨).
+    const parts = [
+      makeWound('learned 邃', [260, 260, 740, 740]),
+      makeWound('learned 寡', [260, 260, 740, 740]),
+      makeWound('host 珍', [260, 260, 740, 740]),
+      makeWound('host 鉨', [140, 140, 860, 860]),
+      makeWound('host 讎', [260, 260, 740, 740]),
+      makeWound('glyph 貝', [260, 260, 740, 740]),
+      makeWound('glyph 招', [260, 260, 740, 740]),
+    ]
+    const out = COMPONENT_FIXES[WEALTH_IDS].apply(parts, { fontStyle: 'pen-writing', face }, face)
+    // Inward-winding 辶 thins with positive weight; inward inner parts embolden with negative weight.
+    expect(out[0].weight[0]).toBeGreaterThan(0)
+    expect(out[2].weight[0]).toBeLessThan(0)
+    // Outward-winding host 鉨 emboldens with positive weight.
+    expect(out[3].weight[0]).toBeGreaterThan(0)
+  })
+
+  it('drops the stray 鳥 dot contour from Regular’s 䳡 cut of 隹 only when the 䳡 digest matches', () => {
+    const face = [89, -56, 915, 800]
+    const bird = part('host 䳡', [58, 45, 547, 776], face, [
+      [58, 45, 493, 777], [220, 163, 332, 274], [222, 299, 331, 391], [226, 418, 330, 515], [476, 52, 547, 210],
+    ])
+    const parts = ['glyph 辶', 'glyph 宀', 'glyph 王', 'glyph 尔', 'host 䳡', 'glyph 貝', 'glyph 招']
+      .map((origin, i) => i === 4 ? bird : sample(origin))
+    const cleaned = COMPONENT_FIXES[WEALTH_IDS].apply(parts, {
+      fontStyle: 'regular', face, glyphRecord: ch => ch === '䳡' ? regularBirdHost : null,
+    }, face)
+    expect(cleaned[4].part.contours).toHaveLength(4)
+    expect(cleaned[4].source[2]).toBe(493)
+    expect(cleaned[4].fixed).toBe(true)
+    expect(cleaned[4].weight).toEqual([0.64, 0.52])
+
+    const untouched = COMPONENT_FIXES[WEALTH_IDS].apply(parts, {
+      fontStyle: 'regular', face, glyphRecord: () => ({ p: [] }),
+    }, face)
+    expect(untouched[4].part.contours).toHaveLength(5)
+    expect(untouched[4].source[2]).toBe(547)
+
+    const otherStyle = COMPONENT_FIXES[WEALTH_IDS].apply(parts, {
+      fontStyle: 'fangsong', face, glyphRecord: ch => ch === '䳡' ? regularBirdHost : null,
+    }, face)
+    expect(otherStyle[4].part.contours).toHaveLength(5)
   })
 })
 
