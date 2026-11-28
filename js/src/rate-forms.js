@@ -1,6 +1,7 @@
 // @ts-check
 import catalogue from '../data/rate-forms/catalogue.json' with { type: 'json' }
 import { createVariationRegistry } from './variation-registry.js'
+import { u26201Forms } from './yao-forms.js'
 import { tokens } from './tokens.js'
 
 export const rateHosts = Object.freeze(Object.keys(catalogue.hosts))
@@ -48,5 +49,35 @@ const choices = new Map(rateVariationFamilies.map(family => [family.id, Object.f
 export const rateFormsFor = text => choices.get(rateRegistry.familiesFor(text)[0]?.id) ?? []
 /** The selected drawing, only for an explicitly qualified spelling. @param {string} text */
 export const exactRateForm = text => rateFormsFor(text).find(form => form.text === text)
+/** The same 率 can be written with its four surrounding strokes as BabelStone
+ * component 11, its entity spelling, or the explicit side operands. */
+const rendered = new Map()
+const qualifiedRoots = new Set(roots)
+for (const [host, template] of Object.entries(catalogue.hosts)) {
+  const forms = rateFormsFor(host)
+  forms.forEach((form, index) => rendered.set(form.text, {host, index, returning: false}))
+  for (const form of u26201Forms) for (const text of [form.text, ...form.aliases]) {
+    const spellings = [
+      '⿳亠⿴{11}' + text + '十',
+      '⿳亠⿴&X-00011;' + text + '十',
+      catalogue.shapes['cn-chevron'].replace('幺', text),
+      catalogue.shapes['cn-strokes'].replace('幺', text),
+    ]
+    spellings.forEach((spelling, i) => {
+      qualifiedRoots.add(spelling)
+      const side = i === 3 ? 1 : 0
+      rendered.set(template.replace('@', spelling), {
+        host, index: (form.id === 'detached' ? 2 : 0) + side, returning: form.id === 'returning',
+      })
+    })
+  }
+}
+
+/** @param {string} text @returns {{host:string,index:number,returning:boolean}|undefined} */
+export const rateRenderChoice = text => rendered.get(text)
 /** Whether an expression contains a qualified 率, including inside another operand. @param {string} text */
-export const containsRateForm = text => roots.some(root => text.includes(root))
+export const containsRateForm = text => {
+  if (!text.includes('率') && !text.includes('⿳亠⿴') && !text.includes('⿱亠⿱⿲')) return false
+  for (const root of qualifiedRoots) if (text.includes(root)) return true
+  return false
+}

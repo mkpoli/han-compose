@@ -18,9 +18,9 @@ it('tours the neighbouring faces, then the distant ones, then the interior', () 
     }
     return seen
   }
-  const [a, b, c, d, e] = FONT_STYLES
-  expect(stops(phases[0])).toEqual([a, b, c, d, e, a])
-  expect(stops(phases[1])).toEqual([a, c, e, b, d, a])
+  const [a, b, c, d, e, f] = FONT_STYLES
+  expect(stops(phases[0])).toEqual([a, b, c, d, e, f, a])
+  expect(stops(phases[1])).toEqual([a, c, e, b, f, d, a])
   expect(stops(phases[2])).toEqual([a])
   for (const mix of frames) expect(total(mix)).toBeCloseTo(1, 9)
   // The loop closes on the face it opens with, and no step leaps across the pad.
@@ -31,8 +31,8 @@ it('tours the neighbouring faces, then the distant ones, then the interior', () 
     expect(step).toBeLessThan(0.08)
   }
   const interior = frames.slice(phases[2].start, phases[2].end)
-  expect(interior.some((mix) => FONT_STYLES.every((style) => mix[style] > 0.1))).toBe(true)
-  expect(interior.length).toBe(5 * 3 * fps)
+  expect(interior.some((mix) => FONT_STYLES.every((style) => mix[style] > 0.08))).toBe(true)
+  expect(interior.length).toBe(FONT_STYLES.length * 3 * fps)
 })
 
 it('plays prepared frames in order from any frame and drops a cancelled run before it can paint', async () => {
