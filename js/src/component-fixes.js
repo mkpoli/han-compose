@@ -542,6 +542,28 @@ export const COMPONENT_FIXES = {
   },
   '⿸厃⿱儿𢀛': danCliff,
   '⿸厃⿱儿⿱工口': danCliff,
+  '⿰𭃂尤': {
+    glyphs: { 那: '01053051d8d88a7b1897eaf9ce7cfa94a5ec113e2512adddfca040b9a94943cc' },
+    apply(parts, composer, region) {
+      if (composer.fontStyle !== 'fangsong' || ['那', '𭃂', '尤'].some(ch => composer.excluded(ch))) return parts
+      const donor = composer.glyph('那'), you = composer.glyph('尤')
+      if (!donor || !you) return parts
+      // Contour 0 draws the knife with both crossbars. Contour 1 is the right-hand 阝.
+      const knife = derived(donor, [donor.contours[0]])
+      const cell = box => mapped(box, [0, 0, 1, 1], region)
+      const right = parts.at(-1)
+      if (right?.origin === 'learned 就') {
+        return [
+          placed(knife, knife.box, cell([0.020, 0.032, 0.505, 0.948]), composer.ink('那'), '𭃂 from 那'),
+          { ...right, target: cell([0.370, 0.025, 0.980, 0.978]) },
+        ]
+      }
+      return [
+        placed(knife, knife.box, cell([0.015, 0.035, 0.500, 0.945]), composer.ink('那'), '𭃂 from 那'),
+        placed(you, you.box, cell([0.455, 0.025, 0.985, 0.978]), composer.ink('尤'), 'glyph 尤'),
+      ]
+    },
+  },
   '⿰虍刂': {
     glyphs: {},
     apply(parts, composer, region) {
