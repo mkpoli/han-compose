@@ -290,6 +290,8 @@ For ⿺木 followed by another operand, the same enclosing 木 holds the operand
 
 The missing FangSong strokes in `src/fangsong-components.json` are cut from Zhuque Fangsong 0.212. The two dots of 丷 come from 半, ㇒ from 丿, 𠃌 from 司, 龺 from 朝, ⺀ from 冬, ⺈ from 欠, 歺 from 粲 and 厃 from 詹. The joined strokes 𠃍, ⺊ and ㇉ follow the lower right of 片, the top of 卓 and the lower turn of 弓. Copyright 2023 JadeFoci, SIL Open Font License 1.1. [Font licensing](https://github.com/mkpoli/han-compose/blob/main/docs/licensing.md)
 
+For the IDS of 爨, the four groups in `src/cuan-forms.json` follow the parent glyph’s own outlines in Zhuque Fangsong 0.212, TW-Kai and Kureedo Full. They retain the left and right hands as one editable operand. [Font sources and licenses](../docs/licensing.md)
+
 The FangSong form of 貭 uses the joined upper body of 盾 and the feet of 貝 from Zhuque Fangsong 0.212, © 2023 JadeFoci, SIL OFL 1.1. [Font source and license](../docs/licensing.md)
 
 Noto Serif Hentaigana supplies 𛂦 (hentaigana HA-9) for the FangSong and Regular pairings when the selected font lacks it. The two columns of ⿰𛂦方 follow the encoded form 𭤪. [Noto Serif Hentaigana](https://github.com/notofonts/hentaigana) · [SIL Open Font License 1.1](../data/licences/OFL-NotoSerifHentaigana.txt)
