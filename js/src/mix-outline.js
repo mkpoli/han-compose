@@ -15,15 +15,52 @@ export function inkPolygons(rings) {
   engine.AddPaths(paths, clipper.PolyType.ptSubject, true)
   const tree = new clipper.PolyTree()
   engine.Execute(clipper.ClipType.ctUnion, tree, clipper.PolyFillType.pftNonZero, clipper.PolyFillType.pftNonZero)
-  return clipper.JS.PolyTreeToExPolygons(tree).map((p) =>
-    [p.outer, ...p.holes].map((r) => {
+  const areaOf = (/** @type {number[][]} */ ring) => {
+    let twice = 0
+    for (let i = 0; i + 1 < ring.length; i++)
+      twice += ring[i][0] * ring[i + 1][1] - ring[i + 1][0] * ring[i][1]
+    return Math.abs(twice) / 2
+  }
+  return clipper.JS.PolyTreeToExPolygons(tree).map((p) => {
+    const rings = [p.outer, ...p.holes].map((r) => {
       const ring = r
         .slice()
         .reverse()
-        .map((p) => [p.X / 4096, p.Y / 4096])
+        .map((pt) => [pt.X / 4096, pt.Y / 4096])
       return [...ring, ring[0]]
     })
+    // Drop sub-pixel dust holes left where two strokes barely kiss, while keeping every outer island.
+    return [rings[0], ...rings.slice(1).filter((hole) => areaOf(hole) >= 0.5)]
+  })
+}
+
+/** Rings whose counters may overlap one another, redrawn so that ink is only where the
+ * frames cover more than the counters do. Frames turn one way and counters the other.
+ * @param {number[][][]} rings closed rings, the first a frame */
+export function settledRings(rings) {
+  const turn = (/** @type {number[][]} */ ring) =>
+    ring.reduce((sum, p, i) => {
+      const q = ring[(i + 1) % ring.length]
+      return sum + p[0] * q[1] - q[0] * p[1]
+    }, 0)
+  const forward = turn(rings[0]) > 0
+  const engine = new clipper.Clipper()
+  engine.AddPaths(
+    rings.map((ring) =>
+      ring.slice(0, -1).map(([x, y]) => ({ X: Math.round(x * 4096), Y: Math.round(y * 4096) }))
+    ),
+    clipper.PolyType.ptSubject,
+    true
   )
+  const fill = forward ? clipper.PolyFillType.pftPositive : clipper.PolyFillType.pftNegative
+  /** @type {{ X: number, Y: number }[][]} */
+  const out = []
+  engine.Execute(clipper.ClipType.ctUnion, out, fill, fill)
+  return out.map((path) => {
+    // Clipper turns its frames forward; keep the way the rings came.
+    const ring = (forward ? path : path.slice().reverse()).map((p) => [p.X / 4096, p.Y / 4096])
+    return [...ring, ring[0]]
+  })
 }
 
 /** Remove almost-collinear samples within a geometric tolerance; keep both halves

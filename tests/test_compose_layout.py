@@ -203,7 +203,8 @@ def teacher_composer(monkeypatch, op, bare_index, extent):
     if axis == 0:
         intervals = [(100 - hi, 100 - lo) for lo, hi in intervals]
     boxes = [(lo, 0, hi, 100) if axis == 0 else (0, lo, 100, hi) for lo, hi in intervals]
-    source = SimpleNamespace(box=(0, 0, 100, 100))
+    points = np.array([(0, 0), (100, 0), (100, 100), (0, 100)], dtype=float)
+    source = C.Part([C.Contour([("moveTo", 1, False)] + [("lineTo", 1, False)] * 3, points, points.copy())])
     c = C.Composer(SimpleNamespace(glyph=lambda _: source), {})
     c._faces[None] = ((0, 0, 100, 100), set())
     c.__dict__["spelled"] = set()
@@ -314,3 +315,14 @@ def test_hosted_enclosure_refit_to_bare_glyph_keeps_existing_inset(monkeypatch):
     result = c._learned("⿸", ["A", "B"])
     assert fits == [(room, room, (50, 50))]
     assert result[1].origin == "glyph B"
+
+
+def test_layout_features_fall_back_to_positional_and_spelled_forms(monkeypatch) -> None:
+    table = L.Table.of(ROWS)
+    c = C.Composer(SimpleNamespace(own=lambda _: False, has=lambda _: True, glyph=lambda _: None), {"可": "⿰口丁"})
+    monkeypatch.setattr(c, "alternatives", lambda node, place: [node, "亻"] if (node, place) == ("人", "L") else [node])
+    # Bare radical on the left takes its positional form's usual box; spelled-out operand takes its character's.
+    assert L.features(c, "⿰", ["人", "⿰口丁"], table, {}) == L.features(c, "⿰", ["亻", "可"], table, {})
+    # Training with an explicit own box does not substitute another key.
+    own = [np.array([0, 0, 300, 800]), np.array([350, 0, 950, 800])]
+    assert L.features(c, "⿰", ["人", "可"], table, {}, own=own) != L.features(c, "⿰", ["亻", "可"], table, {}, own=own)

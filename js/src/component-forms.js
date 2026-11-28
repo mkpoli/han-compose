@@ -1,25 +1,36 @@
 // @ts-nocheck
 // Shape-specific font-derived forms. Keep the caller's IDS; encoded counterparts can vary by region.
+import { containsRateForm } from './rate-forms.js'
 import generated from './component-forms.json' with { type: 'json' }
 import overrides from './component-forms-overrides.json' with { type: 'json' }
 import inwardGrass from './inward-grass-forms.json' with { type: 'json' }
 import splitGrass from './split-grass-forms.json' with { type: 'json' }
+import dotForms from './ucv-dot-forms.json' with { type: 'json' }
 import muNet from './mu-net-forms.json' with { type: 'json' }
+import yaoNumbered from './yao-numbered.json' with { type: 'json' }
+import waterStrokeRow from './water-stroke-row.json' with { type: 'json' }
 import numbered from '../data/numbered-forms.json' with { type: 'json' }
 import { joinedComponentForm } from './constructs.js'
+import waterEnclosure from './water-enclosure.json' with { type: 'json' }
 import constants from './constants.json' with { type: 'json' }
 import { WINDING, commands, derived, makePart, mapped, partInk, placed, svgPath, union, windingOf, wound } from './geometry.js'
+
+const mergeByStyle = (a = {}, b = {}) => Object.fromEntries(
+  [...new Set([...Object.keys(a), ...Object.keys(b)])].map(style => [style,
+    Array.isArray(a[style]) || Array.isArray(b[style])
+      ? [...(a[style] ?? []), ...(b[style] ?? [])]
+      : { ...a[style], ...b[style] }]))
 
 // Forms cut by hand from TW-Kai and the components every face draws from them, outside the
 // generated Noto and brush forms.
 const data = {
   ...generated,
-  forms: { ...generated.forms, ...overrides.forms },
-  native: { ...generated.native, ...overrides.native },
+  forms: mergeByStyle(generated.forms, overrides.forms),
+  native: mergeByStyle(generated.native, overrides.native),
   sources: { ...generated.sources, ...overrides.sources },
-  donors: { ...generated.donors, ...overrides.donors },
-  force: { ...generated.force, ...overrides.force },
-  replace: { ...generated.replace, ...overrides.replace },
+  donors: mergeByStyle(generated.donors, overrides.donors),
+  force: mergeByStyle(generated.force, overrides.force),
+  replace: mergeByStyle(generated.replace, overrides.replace),
 }
 const formOf = groups => {
   const parts = groups.map(group => makePart(group.map(([ops, points]) => ({ ops: commands(ops), light: points, heavy: points }))))
@@ -32,9 +43,30 @@ const formOf = groups => {
 // A `native` form gives a description its parts and nothing else: an encoded character that holds it
 // keeps its own glyph, and the layout reads what the export records of the description.
 const styles = Object.fromEntries(Object.entries(data.forms).map(([style, forms]) => [style,
-  new Map(Object.entries(forms).map(([text, groups]) => [text, { ...formOf(groups), native: data.native?.[style]?.includes(text) ?? false }]))]))
+  new Map(Object.entries(forms).map(([text, groups]) => {
+    const raw = data.donors?.[style]?.[text]
+    const donors = Array.isArray(raw) ? raw : typeof raw === 'string' ? [raw] : undefined
+    return [text, { ...formOf(groups), native: data.native?.[style]?.includes(text) ?? false, ...(donors ? { donors } : {}) }]
+  }))]))
 for (const [style, groups] of Object.entries(splitGrass)) styles[style].set('⺿', formOf(groups))
 for (const [style, groups] of Object.entries(inwardGrass)) styles[style].set('⻀', formOf(groups))
+// Adobe-Japan1 and Hanyo-Denshi register each of the two dot orientations.
+for (const [style, characters] of Object.entries(dotForms.dots)) {
+  for (const [char, pair] of Object.entries(characters)) {
+    pair.forEach((contours, i) => {
+      const form = { ...formOf([contours]), atomic: true }
+      for (const selector of [0xE0100 + i, 0xE0102 + i]) {
+        styles[style].set(char + String.fromCodePoint(selector), form)
+      }
+    })
+  }
+}
+// Whole-character fits for composed IDS. Leave operand-based layouts to the normal renderer.
+for (const [style, sequences] of Object.entries(dotForms.ids)) {
+  for (const [sequence, contours] of Object.entries(sequences)) {
+    styles[style].set(sequence, formOf([contours]))
+  }
+}
 // The manuscript's water, enclosing 木 and net. Both descriptions share the same outlines.
 for (const [style, groups] of Object.entries(muNet)) {
   const form = formOf(groups)
@@ -42,20 +74,45 @@ for (const [style, groups] of Object.entries(muNet)) {
   const [water, wood, net] = groups
   styles[style].set('⿺沐罒', formOf([[...water, ...wood], net]))
 }
+// 潮語十五音: the bends sit above the sweeping foot of 水. Zhuque supplies both bends from 巛.
+for (const [style, groups] of Object.entries(waterEnclosure)) styles[style].set('⿺水巜', { ...formOf(groups), donors: ['水', style === 'fangsong' ? '巛' : '巜'] })
 // Numbered components draw in the palette tile only. Keeping their forms out of `styles` leaves the
 // composer's glyph records reachable for separated and cell layouts; the sequence itself draws from
 // `numbered-sans-outlines.json.gz` in the surface source.
 const numberedStyles = Object.fromEntries(Object.entries(numbered.forms).map(([style, entries]) => [style,
   new Map(Object.entries(entries).map(([text, groups]) => [text, formOf(groups)]))]))
+// 潮語十五音: a short 丨 stands between the bend and hooked body cut from the same 水.
+for (const [style, groups] of Object.entries(waterStrokeRow)) styles[style].set('⿲㇇丨𰛅', { ...formOf(groups), donors: ['水', '丨'] })
 const numberedDrawing = (text, style) => numberedStyles[style]?.get(text) ?? null
+const numberedRefs = new Set()
+export const isNumberedReference = (text, style) => numberedRefs.has(text) && isComponentForm(text, style)
+// An expanded 幺 ancestor may expose a numbered sibling (notably {86} in 糹).
+// Keep the saved IDS spelling and draw the numbered component as one operand.
+for (const [text, {pua, contours}] of Object.entries(yaoNumbered.forms)) {
+  const fallback = formOf([contours])
+  const alias = '&X-' + text.slice(1, -1).padStart(5, '0') + ';'
+  numberedRefs.add(text)
+  numberedRefs.add(alias)
+  for (const [style, entries] of Object.entries(styles)) {
+    const own = numberedDrawing(pua, style)
+    if (!own && style !== 'serif' && style !== 'sans') continue
+    const form = own ? { ...own, origin: style + ': ' + text } :
+      { ...fallback, origin: yaoNumbered.source.font + ': ' + text }
+    entries.set(text, form)
+    entries.set(alias, form)
+  }
+}
 const positions = Object.fromEntries(Object.entries(data.positions ?? {}).map(([style, entries]) => [style,
   new Map(Object.entries(entries).map(([name, group]) => [name,
     wound(makePart(group.map(([ops, points]) => ({ ops: commands(ops), light: points, heavy: points }))))]))]))
 const editorialForms = new Map(Object.entries(data.editorial ?? {}).flatMap(([id, entry]) => entry.forms.map(text => [text, id])))
+/** Faces drawn with a brush or a pen, whose strokes the brush-specific seats and cuts are measured on. @param {string} style */
+export const brushFace = style => style === 'regular' || style === 'pen-writing' || style === 'fangsong'
 /** Faces whose bundled forms come only from their own font: Noto's must not stand in for them. @param {string} style */
-export const ownFormsOnly = style => style === 'regular' || style === 'pen-writing' || style === 'fangsong'
+export const ownFormsOnly = style => brushFace(style) || style === 'woodblock'
 const forms = style => styles[style] ?? (ownFormsOnly(style) ? null : styles.sans)
-export const containsComponentForm = (text, style = 'sans') => [...(forms(style)?.entries() ?? [])].some(([key, form]) => !form.native && text.includes(key))
+export const containsComponentForm = (text, style = 'sans') => containsRateForm(text) || [...(forms(style)?.entries() ?? [])].some(([key, form]) => !form.native && text.includes(key))
+export const isAtomicForm = (text, style) => forms(style)?.get(text)?.atomic === true
 export const isGroupedForm = (text, style = 'sans') => (forms(style)?.get(text)?.parts.length ?? 0) > 1
 export const isComponentForm = (text, style = 'sans') => forms(style)?.has(text) ?? false
 /** Whether `text` has a native form in `style`: one that keeps what the export knows of it. */
@@ -86,9 +143,9 @@ export function addCutForms(data) {
     }
   }
 }
-export function componentParts(text, region = constants.face, style = 'sans', atRoot = true) {
+export function componentParts(text, region = constants.face, style = 'sans', atRoot = true, exclude = undefined) {
   const form = forms(style)?.get(text)
-  if (!form) return null
+  if (!form || form.donors?.some(char => exclude?.has(char))) return null
   const { frame, ink } = form
   const parts = joinedComponentForm(text, style, form.parts)
   // Preserve the source font's em and placement for standalone forms. A crop
@@ -96,7 +153,7 @@ export function componentParts(text, region = constants.face, style = 'sans', at
   // complete native glyphs retain their designed proportions and side bearings.
   // Nested forms use the description's contextual row/column allocation.
   const target = atRoot ? mapped(frame, constants.face, region) : region
-  const font = style === 'regular' ? 'TW-Kai' : style === 'pen-writing' ? 'Kureedo' : style === 'fangsong' ? 'Zhuque Fangsong' : `Noto ${style === 'serif' ? 'Serif' : 'Sans'} CJK`
+  const font = style === 'regular' ? 'TW-Kai' : style === 'pen-writing' ? 'Kureedo' : style === 'fangsong' ? 'Zhuque Fangsong' : style === 'woodblock' ? 'Nôm Na Tống' : `Noto ${style === 'serif' ? 'Serif' : 'Sans'} CJK`
   const editorial = editorialForms.get(text)
   const origin = form.origin ?? (editorial ? `${editorial} editorial (${font}): ${text}`
     : text === '⿰冫⿱丿丶' || text === '⿰冫⿾冫' ? 'four-dot repetition' : `${font}: ${text}`)
