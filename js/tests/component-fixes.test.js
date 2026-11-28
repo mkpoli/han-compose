@@ -996,7 +996,8 @@ describe('Korean final 乙 placement', () => {
     const glyphs = {
       票: samplePart('glyph 票', piaoBoxes).part,
       覀: samplePart('glyph 覀', [[160, 200, 840, 640]]).part,
-      㐓: samplePart('glyph 㐓', [[154, -62, 915, 341], [131, 340, 921, 777]]).part,
+      乞: samplePart('glyph 乞', [[126, 432, 746, 791], [202, -28, 876, 466]]).part,
+      㐎: samplePart('glyph 㐎', [[40, 325, 980, 805], [245, -68, 937, 331]]).part,
       乙: makeEul(),
     }
 
@@ -1011,33 +1012,35 @@ describe('Korean final 乙 placement', () => {
     expect(fsBot.part.box[2]).toBeGreaterThan(glyphs['乙'].box[2])
     expect(COMPONENT_FIXES['⿱覀乙'].apply(input, { ...fsComp, excluded: ch => ch === '票' }, region)).toBe(input)
 
-    // Regular: glyph 覀 + widened 乙.
+    // Regular: glyph 覀 + 乞 bottom 乙 at zero weight with clean gap.
     const regComp = { fontStyle: 'regular', excluded: () => false, glyph: ch => glyphs[ch] ?? null, ink: () => 1000 }
     const [regTop, regBot] = COMPONENT_FIXES['⿱覀乙'].apply(input, regComp, region)
     expect(regTop.origin).toBe('glyph 覀')
-    expect(regBot.origin).toBe('glyph 乙')
+    expect(regBot.origin).toBe('乙 from 乞')
+    expect(regBot.part.contours).toHaveLength(1)
     expect(regTop.fixed && regBot.fixed).toBe(true)
-    expect(regTop.target[1] - regBot.target[3]).toBeGreaterThan(35)
-    expect(regBot.part.box[2]).toBeGreaterThan(glyphs['乙'].box[2])
+    expect(regTop.target[1] - regBot.target[3]).toBeGreaterThan(30)
+    expect(COMPONENT_FIXES['⿱覀乙'].apply(input, { ...regComp, excluded: ch => ch === '乞' }, region)).toBe(input)
 
-    // Pen: glyph 覀 + 㐓 bottom 乙 at zero static weight with clean gap.
+    // Pen: glyph 覀 + 㐎 bottom 乙 at zero static weight with clean gap.
     const penComp = { fontStyle: 'pen-writing', excluded: () => false, glyph: ch => glyphs[ch] ?? null, ink: () => 1000 }
     const [penTop, penBot] = COMPONENT_FIXES['⿱覀乙'].apply(input, penComp, region)
     expect(penTop.origin).toBe('glyph 覀')
-    expect(penBot.origin).toBe('乙 from 㐓')
+    expect(penBot.origin).toBe('乙 from 㐎')
     expect(penBot.part.contours).toHaveLength(1)
     expect(penTop.weight).toEqual([0, 0])
     expect(penBot.weight).toEqual([0, 0])
     expect(penTop.fixed && penBot.fixed).toBe(true)
     expect(penTop.target[1] - penBot.target[3]).toBeGreaterThan(35)
-    expect(COMPONENT_FIXES['⿱覀乙'].apply(input, { ...penComp, excluded: ch => ch === '㐓' }, region)).toBe(input)
+    expect(COMPONENT_FIXES['⿱覀乙'].apply(input, { ...penComp, excluded: ch => ch === '㐎' }, region)).toBe(input)
 
     // Hash guard leaves mismatched exports untouched, and loader preloads donor glyphs.
     for (const fontStyle of ['fangsong', 'regular', 'pen-writing', 'sans']) {
       expect(componentFix('⿱覀乙', input, { fontStyle, glyphRecord: () => null }, region)).toBe(input)
     }
     expect(designedSources(['⿱', '覀', '乙'], 'fangsong')).toContain('票')
-    expect(designedSources(['⿱', '覀', '乙'], 'pen-writing')).toContain('㐓')
+    expect(designedSources(['⿱', '覀', '乙'], 'regular')).toContain('乞')
+    expect(designedSources(['⿱', '覀', '乙'], 'pen-writing')).toContain('㐎')
   })
 })
 

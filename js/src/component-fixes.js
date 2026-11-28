@@ -412,11 +412,11 @@ const YA_EUL_HASHES = {
   },
   regular: {
     覀: '61f768411a5dbeabba5f8f956263ab4ab58990ede1755b357a1c6c7e7a64a306',
-    乙: REGULAR_EUL_HASH,
+    乞: '770aa8f222d1a00066f768727bf68b930a5a69a53894fcb0eef25ed1b636fe31',
   },
   'pen-writing': {
     覀: 'ce42765d46ea92d21f22aec3e815eae45a51635898e3c7ead85f10d24bc70a61',
-    㐓: 'dbef4e9acb37f4f130b36823d1f8e5b8133e40bd99b1cb498bc3f985a0843c8c',
+    㐎: 'c2a0d21154ecd4872850ce2a9cfc0e129d9f3d8b6dbc4ea0454f7f795ecd7c58',
   },
 }
 
@@ -444,22 +444,23 @@ const YA_EUL_FIX = {
       ]
     }
     if (composer.fontStyle === 'regular') {
-      const upper = composer.glyph('覀'), rawEul = composer.glyph('乙')
-      if (!upper || !rawEul) return parts
-      const final = widenEulTop(rawEul, 105)
+      if (composer.excluded('乞')) return parts
+      const upper = composer.glyph('覀'), donor = composer.glyph('乞')
+      if (!upper || !donor || donor.contours.length < 2) return parts
+      const final = derived(donor, [donor.contours[1]])
       return [
-        put(upper, '覀', [0.09, 0.48, 0.91, 0.99], [0, 0], 'glyph 覀'),
-        put(final, '乙', [0.04, 0.0, 0.96, 0.43], [-0.12, 0], 'glyph 乙'),
+        put(upper, '覀', [0.097, 0.4957, 0.9077, 0.9997], [0, 0], 'glyph 覀'),
+        put(final, '乙', [0.1421, 0.0411, 0.8717, 0.4562], [0, 0], '乙 from 乞'),
       ]
     }
     if (composer.fontStyle === 'pen-writing') {
-      if (composer.excluded('㐓')) return parts
-      const upper = composer.glyph('覀'), host = composer.glyph('㐓')
-      if (!upper || !host || !host.contours.length) return parts
-      const final = derived(host, [host.contours[0]])
+      if (composer.excluded('㐎')) return parts
+      const upper = composer.glyph('覀'), host = composer.glyph('㐎')
+      if (!upper || !host || host.contours.length < 2) return parts
+      const final = derived(host, [host.contours[1]])
       return [
         put(upper, '覀', [0.08, 0.47, 0.92, 0.98], [0, 0], 'glyph 覀'),
-        put(final, '乙', [0.06, 0.0, 0.96, 0.42], [0, 0], '乙 from 㐓'),
+        put(final, '乙', [0.06, 0.0, 0.96, 0.42], [0, 0], '乙 from 㐎'),
       ]
     }
     return parts

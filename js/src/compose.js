@@ -870,7 +870,8 @@ export const designedSources = (tree, style = 'sans') => {
     if (key === '⿱艹堀' && style === 'pen-writing') { out.add('䕋'); out.add('䓛') }
     if (key === '⿱覀乙') {
       if (style === 'fangsong') out.add('票')
-      if (style === 'pen-writing') out.add('㐓')
+      if (style === 'regular') out.add('乞')
+      if (style === 'pen-writing') out.add('㐎')
     }
     for (const char of rccDonors(key, style)) out.add(char)
     if (key.includes('#(')) {
