@@ -317,9 +317,89 @@ export function dotIn(composer, band) {
 }
 
 export const WEALTH_IDS = '⿺辶⿱宀⿱⿰王尔⿲隹貝招'
-// 128-unit, top-down CDL coordinates from Unicode L2/12-032, p. 2 (UTC-00949), in IDS order.
-const wealthCdlBounds = [[0,22,128,128], [14,0,124,24], [30,27,63,48], [69,22,109,50],
-  [21,52,53,114], [55,63,87,119], [90,57,125,117]]
+// Normalized face coordinates and stroke weight adjustments for FangSong, Regular, and Pen,
+// in reading order of the seven leaves of ⿺辶⿱宀⿱⿰王尔⿲隹貝招: 辶, 宀, 王, 尔, 隹, 貝, 招.
+// Positive embolden values add ink; negative values thin strokes (sign is flipped automatically
+// per part for exports whose contours wind inward, such as Pen/WenKai).
+const wealthLayout = {
+  fangsong: {
+    frame: [-0.01, -0.01, 1.02, 0.99],
+    boxes: [
+      [0.00, 0.00, 1.00, 0.95],
+      [0.295, 0.785, 0.995, 0.99],
+      [0.31, 0.515, 0.625, 0.755],
+      [0.655, 0.51, 0.98, 0.76],
+      [0.325, 0.195, 0.535, 0.48],
+      [0.555, 0.185, 0.755, 0.48],
+      [0.775, 0.185, 0.995, 0.48],
+    ],
+    embolden: [
+      [-0.20, -0.26],
+      [0.05, 0.10],
+      [0.50, 0.50],
+      [0.95, 0.88],
+      [0.65, 0.50],
+      [0.95, 0.80],
+      [1.00, 0.85],
+    ],
+  },
+  regular: {
+    frame: [-0.04, -0.03, 1.04, 1.02],
+    boxes: [
+      [0.00, 0.00, 1.00, 0.95],
+      [0.29, 0.785, 0.995, 0.99],
+      [0.305, 0.515, 0.625, 0.755],
+      [0.655, 0.51, 0.98, 0.76],
+      [0.33, 0.215, 0.535, 0.485],
+      [0.555, 0.205, 0.755, 0.485],
+      [0.775, 0.205, 0.995, 0.485],
+    ],
+    embolden: [
+      [-0.22, -0.32],
+      [-0.06, 0.00],
+      [0.34, 0.38],
+      [0.95, 0.88],
+      [0.68, 0.55],
+      [0.84, 0.74],
+      [0.98, 0.88],
+    ],
+  },
+  'pen-writing': {
+    frame: [-0.02, -0.01, 1.02, 1.00],
+    boxes: [
+      [0.00, 0.00, 1.00, 0.95],
+      [0.30, 0.785, 0.995, 0.99],
+      [0.305, 0.515, 0.625, 0.755],
+      [0.655, 0.51, 0.98, 0.76],
+      [0.31, 0.19, 0.525, 0.48],
+      [0.545, 0.18, 0.755, 0.48],
+      [0.775, 0.18, 0.995, 0.48],
+    ],
+    embolden: [
+      [-0.18, -0.22],
+      [0.02, 0.05],
+      [0.52, 0.52],
+      [0.82, 0.78],
+      [0.55, 0.45],
+      [0.82, 0.72],
+      [0.92, 0.82],
+    ],
+  },
+}
+
+/** Whether a positive weight widens (+1) or thins (-1) `part`'s contours. */
+function growthDirection(part) {
+  if (!part.part?.contours?.some(c => Array.isArray(c.ops?.[0]))) return 1
+  const ink = w => {
+    const candidate = { ...part, weight: [w, w] }
+    const box = drawnBox(candidate)
+    const mask = fill(groupRings([candidate], 12), 48, box)
+    let count = 0
+    for (let k = 0; k < mask.length; k++) if (mask[k]) count++
+    return count
+  }
+  return ink(0.5) >= ink(0) ? 1 : -1
+}
 
 /**
  * The seven leaf boxes of `⿺辶⿱宀⿱⿰王尔⿲隹貝招` for FangSong, Regular, and Pen, with
@@ -331,29 +411,19 @@ const wealthCdlBounds = [[0,22,128,128], [14,0,124,24], [30,27,63,48], [69,22,10
  * @returns {number[][] | null}
  */
 export function wealthBoxes(key, style, region, face = null) {
-  if (key !== WEALTH_IDS || !['fangsong', 'regular', 'pen-writing'].includes(style)) return null
-  // The exported walking radicals have a wider upstroke and a higher baseline than the CDL specimen.
-  // Carry the six inner components together into the remaining opening.
-  // The outer walking radical keeps the footprint of the composed inscription.
+  const spec = key === WEALTH_IDS ? wealthLayout[style] : null
+  if (!spec) return null
+  const atRoot = !face || region.every((v, i) => Math.abs(v - face[i]) < 1)
   let frame = region
-  if (face) {
+  if (!atRoot && face) {
     const fw = face[2] - face[0], fh = face[3] - face[1]
     const rw = region[2] - region[0], rh = region[3] - region[1]
     const leftInset = region[0] > face[0] + 0.02 * fw ? 0.05 * rw : 0
     const topInset = region[3] < face[3] - 0.02 * fh ? 0.05 * rh : 0
     if (leftInset || topInset) frame = [region[0] + leftInset, region[1], region[2], region[3] - topInset]
   }
-  const inkFrame = mapped({
-    'fangsong': [0.0039, -0.0009, 1.0218, 0.8962],
-    'regular': [-0.0098, 0.0429, 1.0055, 0.884],
-    'pen-writing': [-0.0207, 0.0331, 1.017, 0.945],
-  }[style], [0, 0, 1, 1], frame)
-  return wealthCdlBounds.map(([l, t, r, b], i) => {
-    const inset = i === 4 ? (style === 'pen-writing' ? 5.0 : style === 'regular' ? 4.0 : 3.5) : 0
-    const box = i ? [inset + 0.90*l + 11.3, 128 - 0.89*b - 0.5, 0.90*r + 11.3, 128 - 0.89*t - 0.5]
-      : [l, 128 - b, r, 128 - t]
-    return mapped(box, [0, 0, 128, 128], inkFrame)
-  })
+  const inkFrame = atRoot ? mapped(spec.frame, [0, 0, 1, 1], frame) : frame
+  return spec.boxes.map(box => mapped(box, [0, 0, 1, 1], inkFrame))
 }
 
 // The second inscription in UHK 港生活's photograph of four red fai chun (日進斗金, 2015-02-12,
@@ -452,10 +522,14 @@ export const COMPONENT_FIXES = {
   [WEALTH_IDS]: {
     glyphs: {},
     apply(parts, composer, region) {
-      // 128-unit, top-down CDL coordinates in Unicode L2/12-032, p. 2, in the written IDS order.
       const boxes = wealthBoxes(WEALTH_IDS, composer.fontStyle, region, composer.face)
-      if (!boxes || parts.length !== boxes.length) return parts
-      return parts.map((part, i) => ({ ...part, target: boxes[i] }))
+      const spec = wealthLayout[composer.fontStyle]
+      if (!boxes || !spec || parts.length !== boxes.length) return parts
+      return parts.map((part, i) => {
+        const dir = growthDirection(part)
+        const [ex, ey] = spec.embolden[i]
+        return { ...part, target: boxes[i], weight: [dir * ex, dir * ey], fixed: true }
+      })
     },
   },
   '⿲𠂤日千': {

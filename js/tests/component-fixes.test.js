@@ -953,14 +953,17 @@ describe('招財進寶 ⿺辶⿱宀⿱⿰王尔⿲隹貝招', () => {
   const sample = origin => part(origin, frame, frame, [[100, 100, 900, 900]])
   const seven = () => ['glyph 辶', 'glyph 宀', 'glyph 王', 'glyph 尔', 'glyph 隹', 'glyph 貝', 'glyph 招'].map(sample)
 
-  it('places all seven leaves in CDL order for FangSong, Regular, and Pen, with nested edge clearance', () => {
+  it('places all seven leaves at full height with balanced weights and nested clearance for FangSong, Regular, and Pen', () => {
     const face = [53, -110, 950, 800]
+    const faceH = face[3] - face[1]
     for (const fontStyle of ['fangsong', 'regular', 'pen-writing']) {
       const boxes = wealthBoxes(WEALTH_IDS, fontStyle, face, face)
       expect(boxes).toHaveLength(7)
       const out = COMPONENT_FIXES[WEALTH_IDS].apply(seven(), { fontStyle, face }, face)
       expect(out.map(p => p.target)).toEqual(boxes)
+      expect(out.every(p => p.fixed && Array.isArray(p.weight) && p.weight.length === 2)).toBe(true)
       const [walk, roof, king, er, bird, shell, beckon] = out.map(p => p.target)
+      expect(roof[3] - walk[1]).toBeGreaterThan(0.95 * faceH)
       expect(roof[1]).toBeGreaterThan(king[3])
       expect(king[2]).toBeLessThan(er[0])
       expect(bird[2]).toBeLessThan(shell[0])
@@ -975,5 +978,40 @@ describe('招財進寶 ⿺辶⿱宀⿱⿰王尔⿲隹貝招', () => {
     }
     expect(wealthBoxes(WEALTH_IDS, 'sans', face, face)).toBeNull()
     expect(wealthBoxes(WEALTH_IDS, 'serif', face, face)).toBeNull()
+  })
+
+  it('flips weight sign for inward-winding contours so inner parts always embolden', () => {
+    const face = [64.5, -88, 949, 799]
+    const makeWound = (origin, heavyBox) => ({
+      origin,
+      source: frame,
+      target: frame,
+      native: 100,
+      weight: [0, 0],
+      part: {
+        box: frame,
+        contours: [{
+          ops: [['M', 1], ['L', 1], ['L', 1], ['L', 1]],
+          light: Float64Array.from([200, 200, 800, 200, 800, 800, 200, 800]),
+          heavy: Float64Array.from([heavyBox[0], heavyBox[1], heavyBox[2], heavyBox[1], heavyBox[2], heavyBox[3], heavyBox[0], heavyBox[3]]),
+        }],
+      },
+    })
+    // Inward heavy contour shrinks at +w (like Pen/WenKai); outward expands at +w (like host 鉨).
+    const parts = [
+      makeWound('learned 邃', [260, 260, 740, 740]),
+      makeWound('learned 寡', [260, 260, 740, 740]),
+      makeWound('host 珍', [260, 260, 740, 740]),
+      makeWound('host 鉨', [140, 140, 860, 860]),
+      makeWound('host 讎', [260, 260, 740, 740]),
+      makeWound('glyph 貝', [260, 260, 740, 740]),
+      makeWound('glyph 招', [260, 260, 740, 740]),
+    ]
+    const out = COMPONENT_FIXES[WEALTH_IDS].apply(parts, { fontStyle: 'pen-writing', face }, face)
+    // Inward-winding 辶 thins with positive weight; inward inner parts embolden with negative weight.
+    expect(out[0].weight[0]).toBeGreaterThan(0)
+    expect(out[2].weight[0]).toBeLessThan(0)
+    // Outward-winding host 鉨 emboldens with positive weight.
+    expect(out[3].weight[0]).toBeGreaterThan(0)
   })
 })
