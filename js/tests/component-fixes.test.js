@@ -804,6 +804,28 @@ describe('C219 ⿲木十木', () => {
   })
 })
 
+describe('爨 in a sparse Pen export', () => {
+  const node = ['⿱', ['⿱', ['⿴', '𦥑', '同'], '冖'], '𤍾']
+  const region = [0, 0, 1000, 1000]
+  const manifest = { composer: { font_sha256: { 'KureedoFull-Regular.ttf': '737f04de3b2b222664b5386628b0a15b009c7dd69086a1050dac0e507117c5d6' } } }
+  const composer = { fontStyle: 'pen-writing', data: { manifest }, C: { face: region }, excluded: () => false, glyphRecord: () => null }
+  it('draws the four stored groups at the root and inside another glyph', () => {
+    for (const root of [true, false]) {
+      const parts = Composer.prototype.cuanParts.call(composer, node, region, root)
+      expect(parts.map(p => p.origin)).toEqual(['爨 𦥑', '爨 同', '爨 冖', '爨 𤍾'])
+      expect(parts.every(p => p.target.every(Number.isFinite))).toBe(true)
+    }
+  })
+  it('requires matching outlines or the verified sparse Pen source', () => {
+    for (const change of [
+      { excluded: ch => ch === '爨' }, { glyphRecord: () => ({ p: [] }) }, { data: {} },
+      { fontStyle: 'regular' }, { data: { manifest: { composer: { font_sha256: { 'KureedoFull-Regular.ttf': 'other' } } } } },
+    ]) {
+      expect(Composer.prototype.cuanParts.call({ ...composer, ...change }, node, region, true)).toBeNull()
+    }
+  })
+})
+
 it('opens both gaps around 从 while preserving the bars of ⿱一丛', () => {
   const frame = [0, 0, 1000, 1000]
   const top = part('glyph 一', frame, frame, [[40, 920, 960, 980]])
