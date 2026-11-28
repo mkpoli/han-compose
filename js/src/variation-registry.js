@@ -6,7 +6,7 @@ import { descriptionEnd } from './tree.js'
  * when specified, refer to strokes numbered from one in the cited witness.
  * @typedef {{path: number[], strokes?: number[]}} Locus */
 /** @typedef {{id: string, property: string, unit?: string, witness?: string, examples?: Record<string,string>, locus: Locus[], values: string[]}} VariationAxis */
-/** @typedef {{id: string, text: string, traits?: Record<string,string>}} VariationForm */
+/** @typedef {{id: string, text: string, aliases?: string[], traits?: Record<string,string>}} VariationForm */
 /** @typedef {{id: string, subjects: string[], reference?: string, evidenceOnly?: boolean, axes?: VariationAxis[], forms: VariationForm[]}} VariationFamily */
 
 /** One filled component or IDS in the composer's grammar, as written.
@@ -64,13 +64,17 @@ export function createVariationRegistry(families) {
     const spellings = new Set(family.subjects)
     for (const form of family.forms) {
       if (!form.id || ids.has(form.id) || !isSpelling(form.text)) throw new Error(`Invalid form: ${family.id}/${form.id}`)
-      if (exact.has(form.text) && !family.evidenceOnly) throw new Error(`Ambiguous spelling in ${family.id}: ${form.text}`)
-      exact.add(form.text)
+      if (form.aliases !== undefined && !Array.isArray(form.aliases)) throw new TypeError(`Invalid aliases for ${family.id}/${form.id}`)
+      for (const text of [form.text, ...(form.aliases ?? [])]) {
+        if (typeof text !== 'string' || !isSpelling(text)) throw new Error(`Invalid spelling in ${family.id}: ${text}`)
+        if (exact.has(text) && !family.evidenceOnly) throw new Error(`Ambiguous spelling in ${family.id}: ${text}`)
+        exact.add(text)
+        spellings.add(text)
+      }
       ids.add(form.id)
       for (const [axis, value] of Object.entries(form.traits ?? {})) {
         if (!axes.get(axis)?.has(value)) throw new Error(`Unknown trait: ${family.id}/${axis}/${value}`)
       }
-      spellings.add(form.text)
     }
     for (const axis of family.axes ?? []) {
       for (const [value, formId] of Object.entries(axis.examples ?? {})) {
@@ -104,7 +108,7 @@ export function createVariationRegistry(families) {
       const span = occurrence(sequence, path)
       if (!span) return []
       const text = sequence.slice(span.start, span.end)
-      return familiesFor(text).map(family => ({ family, forms: family.forms.filter(form => form.text === text) }))
+      return familiesFor(text).map(family => ({ family, forms: family.forms.filter(form => form.text === text || form.aliases?.includes(text)) }))
     },
     /** Write a form at one occurrence. Siblings retain their source spelling, even when parsing
      * would normalize their stroke chain or slot marker.

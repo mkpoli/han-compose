@@ -102,7 +102,18 @@ export function createVariationProduct(registry, expression, dimensions) {
     if (base.choices.some(choice => prefix(d.path, choice.path))) throw new RangeError('A variable operand contains a fixed choice')
     const subject = variationSubject(base, d.path)
     const options = resolveOptions(registry, subject, d)
-    return { path: d.path, subject, options, radix: BigInt(options.length) }
+    const families = new Map(registry.familiesFor(subject).map(family => [family.id, family]))
+    /** @type {Map<string,number[]>} */
+    const spellings = new Map()
+    options.forEach((option, i) => {
+      const form = option.family === undefined ? undefined : families.get(option.family)?.forms.find(form => form.id === option.form)
+      for (const text of [option.text, ...(form?.aliases ?? [])]) {
+        const indices = spellings.get(text)
+        if (indices) indices.push(i)
+        else spellings.set(text, [i])
+      }
+    })
+    return { path: d.path, subject, options, spellings, radix: BigInt(options.length) }
   })
   const count = axes.reduce((n, axis) => n * axis.radix, 1n)
   /** @param {number[]} digits */
@@ -188,12 +199,21 @@ export function createVariationProduct(registry, expression, dimensions) {
       const span = spans.get(axis.path.join('.'))
       if (!span) return []
       const spelling = text.slice(span.start, span.end)
-      return axis.options.flatMap((o, i) => o.text === spelling ? [i] : [])
+      return axis.spellings.get(spelling) ?? []
     })
     if (matches.some(digits => !digits.length)) return unknown
     const digits = matches.map(d => d[0])
     const expr = materialize(digits)
-    if (realizeVariation(expr, registry) !== text) return unknown
+    // Aliases rewrite only the matched operand. Every fixed sibling must match the saved expression.
+    const pieces = []
+    let start = 0
+    for (const [i, axis] of axes.entries()) {
+      const span = spans.get(axis.path.join('.'))
+      pieces.push(text.slice(start, span.start), axis.options[digits[i]].text)
+      start = span.end
+    }
+    pieces.push(text.slice(start))
+    if (realizeVariation(expr, registry) !== pieces.join('')) return unknown
     const possible = matches.reduce((n, list) => n * BigInt(list.length), 1n)
     if (possible === 1n) return { status: /** @type {const} */ ('exact'), index: indexOf(digits), expression: expr }
     const candidates = axes.map((axis, i) => ({ path: [...axis.path], options: matches[i].map(d => ({ ...axis.options[d] })) }))

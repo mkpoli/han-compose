@@ -1,23 +1,32 @@
 <!doctype html>
 <html lang="zh-Hant">
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>U+26201 · 幺形組合</title>
+<title>幺形組合</title>
 <link rel="stylesheet" href="gallery.css">
 <main>
-  <header><div class="heading"><span class="code">U+26201</span><h1>幺形組合</h1></div><button id="theme" type="button">切換明暗</button></header>
+  <header><div class="heading"><span id="character-code" class="code">U+26201</span><h1>幺形組合</h1></div><button id="theme" type="button">切換明暗</button></header>
+  <form id="host-form">
+    <label for="host">漢字或IDS</label>
+    <input id="host" name="host" list="suggestions" value="𦈁" required autocomplete="off" spellcheck="false">
+    <datalist id="suggestions"></datalist><button>顯示</button>
+    <button type="button" id="previous" aria-label="上一字">←</button><button type="button" id="next" aria-label="下一字">→</button>
+  </form>
   <div class="layout">
-    <section class="catalogue"><div class="section-head"><h2 id="matrix-title">兩處幺的組合</h2><span class="count">6 × 6</span></div>
-      <div class="scroll" tabindex="0" role="region" aria-labelledby="matrix-title"><table id="matrix"><caption class="sr">列為糸中的幺，欄為率中的幺。每格並列兩個部件字形。</caption></table></div>
+    <section class="catalogue"><div class="section-head"><h2 id="matrix-title">兩處幺的組合</h2><span class="count" id="dimensions"></span></div>
+      <div class="scroll" tabindex="0" role="region" aria-labelledby="matrix-title"><table id="matrix"><caption class="sr">列為糸中的幺，欄為率中的幺。每格顯示一種𦈁的組合字形。</caption></table></div>
+      <div id="occurrences" hidden></div>
     </section>
     <aside>
-      <section class="original"><div id="original"></div><div><h2>原字</h2><a id="font-source">文津宋體</a></div></section>
-      <section class="selection"><div class="section-head"><h2>所選部件</h2><output id="position"></output></div>
+      <section class="original"><div class="comparison"><div><h2 id="original-heading">原字</h2><div id="original"></div><a id="font-source">文津宋體</a></div><div><h2>所選字形</h2><div id="selected-glyph"></div><small id="style-label">宋體</small>
+          <label class="weight-label">預覽字重<select id="weight"><option value="0.85">細（85%）</option><option value="1" selected>標準（100%）</option><option value="1.15">粗（115%）</option></select></label></div></div></section>
+      <section class="selection"><div class="section-head"><h2 id="selection-heading">所選部件</h2><output id="position"></output></div>
         <div class="pair"><div><h3>糸中的幺</h3><div id="left"></div><p class="path" id="left-path"></p></div>
         <div><h3>率中的幺</h3><div id="right"></div><p class="path" id="right-path"></p></div></div>
         <div class="field-head"><label for="ids">組合IDS</label><button id="copy" type="button">複製</button></div>
         <textarea rows="3" id="ids" readonly spellcheck="false"></textarea><span role="status" class="sr" id="status"></span>
         <details class="notation"><summary>運算符與碼位</summary><ul class="notation-list" id="notation"></ul></details>
       </section>
+      <details><summary>字形對照</summary><div id="mappings"></div></details>
       <details><summary>來源與授權</summary><ul id="sources"></ul></details>
     </aside>
   </div>

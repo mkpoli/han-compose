@@ -8,7 +8,7 @@ import { tokens } from './tokens.js'
  * {path: Path, subject: string, text: string, source: string, family?: never, form?: never}} Choice */
 /** @typedef {{version: 1, base: string, expansions: Expansion[], choices: Choice[]}} VariationExpression */
 /** @typedef {{familiesFor: (text: string) => readonly {id:string, evidenceOnly?: boolean,
- * forms: readonly {id:string, text:string}[]}[]}} Registry */
+ * forms: readonly {id:string, text:string, aliases?:readonly string[]}[]}[]}} Registry */
 /** @typedef {{children: Map<number, Branch>, choice?: Choice, expansion?: Expansion, query?: boolean}} Branch */
 
 /** @param {unknown} text */

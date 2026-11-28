@@ -97,7 +97,7 @@ test('dependent occurrences and joining marks cannot produce spurious ranks', ()
 test('every combination of both nested 幺 in U+26201 has a distinct, detectable spelling', () => {
   const catalogue = createVariationRegistry([family])
   const p = createVariationProduct(catalogue, specimen, sites)
-  expect(p.count).toBe(36n)
+  expect(p.count).toBe(9n)
   const spellings = new Set()
   for (let i = 0n; i < p.count; i++) {
     const selected = p.at(i)
@@ -109,10 +109,10 @@ test('every combination of both nested 幺 in U+26201 has a distinct, detectable
     expect(p.rank(hit.expression)).toBe(i)
     spellings.add(text)
   }
-  expect(spellings.size).toBe(36)
+  expect(spellings.size).toBe(9)
   expect(p.detect(specimen.base).status).toBe('unknown')
   const copy = variationProductFromJSON(catalogue, JSON.parse(JSON.stringify(p)))
-  expect(copy.at(15n)).toEqual(p.at(15n))
+  expect(copy.at(5n)).toEqual(p.at(5n))
 })
 
 test('overlapping catalogues preserve source identity and apply restrictions only to the named family', () => {

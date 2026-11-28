@@ -6,6 +6,7 @@ import overrides from './component-forms-overrides.json' with { type: 'json' }
 import inwardGrass from './inward-grass-forms.json' with { type: 'json' }
 import splitGrass from './split-grass-forms.json' with { type: 'json' }
 import muNet from './mu-net-forms.json' with { type: 'json' }
+import yaoNumbered from './yao-numbered.json' with { type: 'json' }
 import numbered from '../data/numbered-forms.json' with { type: 'json' }
 import { joinedComponentForm } from './constructs.js'
 import constants from './constants.json' with { type: 'json' }
@@ -43,12 +44,29 @@ for (const [style, groups] of Object.entries(muNet)) {
   const [water, wood, net] = groups
   styles[style].set('⿺沐罒', formOf([[...water, ...wood], net]))
 }
-// Numbered components draw in the palette tile only. Keeping their forms out of `styles` leaves the
-// composer's glyph records reachable for separated and cell layouts; the sequence itself draws from
-// `numbered-sans-outlines.json.gz` in the surface source.
+// Keep private-use palette glyphs separate from textual numbered references; encoded
+// PUA operands can still use the active export’s records and layout.
 const numberedStyles = Object.fromEntries(Object.entries(numbered.forms).map(([style, entries]) => [style,
   new Map(Object.entries(entries).map(([text, groups]) => [text, formOf(groups)]))]))
 const numberedDrawing = (text, style) => numberedStyles[style]?.get(text) ?? null
+const numberedRefs = new Set()
+export const isNumberedReference = (text, style) => numberedRefs.has(text) && isComponentForm(text, style)
+// An expanded 幺 ancestor may expose a numbered sibling (notably {86} in 糹).
+// Keep the saved IDS spelling and draw the numbered component as one operand.
+for (const [text, {pua, contours}] of Object.entries(yaoNumbered.forms)) {
+  const fallback = formOf([contours])
+  const alias = '&X-' + text.slice(1, -1).padStart(5, '0') + ';'
+  numberedRefs.add(text)
+  numberedRefs.add(alias)
+  for (const [style, entries] of Object.entries(styles)) {
+    const own = numberedDrawing(pua, style)
+    if (!own && style !== 'serif' && style !== 'sans') continue
+    const form = own ? { ...own, origin: style + ': ' + text } :
+      { ...fallback, origin: yaoNumbered.source.font + ': ' + text }
+    entries.set(text, form)
+    entries.set(alias, form)
+  }
+}
 const positions = Object.fromEntries(Object.entries(data.positions ?? {}).map(([style, entries]) => [style,
   new Map(Object.entries(entries).map(([name, group]) => [name,
     wound(makePart(group.map(([ops, points]) => ({ ops: commands(ops), light: points, heavy: points }))))]))]))

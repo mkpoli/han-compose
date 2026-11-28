@@ -9,7 +9,7 @@ import { expression, family as yao, sites } from '../examples/variation-expressi
 const unrelated = { id: 'unused', subjects: ['木'], forms: [{ id: '木', text: '木' }] }
 const portable = value => JSON.parse(JSON.stringify(value))
 
-test('a 36-member space reopens with the exact original drawings after the current catalogue changes', () => {
+test('a nine-member space reopens with the exact original drawings after the current catalogue changes', () => {
   const registry = createVariationRegistry([yao, unrelated])
   const document = {version: 1, expression, dimensions: sites}
   const saved = portable(archiveVariation(registry, document))
@@ -28,8 +28,8 @@ test('a 36-member space reopens with the exact original drawings after the curre
   expect(recovered.outline.d).toBe(yao.forms[0].outline.d)
   const original = createVariationProduct(registry, expression, sites)
   const restored = variationProductFromJSON(reopened.registry, reopened.document)
-  expect(restored.count).toBe(36n)
-  for (let i = 0n; i < 36n; i++) {
+  expect(restored.count).toBe(9n)
+  for (let i = 0n; i < 9n; i++) {
     const text = realizeVariation(original.at(i), registry)
     expect(restored.detect(text).index).toBe(i)
   }
@@ -92,6 +92,6 @@ test('a branched space shares its archived families across its named branches', 
   expect(saved.families.map(f => f.id)).toEqual([yao.id])
   const reopened = openVariationArchive(saved)
   const rebuilt = variationBranchesFromJSON(reopened.registry, reopened.document)
-  expect(rebuilt.count).toBe(42n)
-  expect(rebuilt.at(41n)).toEqual(space.at(41n))
+  expect(rebuilt.count).toBe(12n)
+  expect(rebuilt.at(11n)).toEqual(space.at(11n))
 })
