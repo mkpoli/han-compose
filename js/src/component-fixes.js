@@ -404,6 +404,72 @@ function penDoor(char) {
   }
 }
 
+const danCliff = {
+  glyphs: {},
+  apply(parts, composer) {
+    if (!['fangsong', 'pen-writing'].includes(composer.fontStyle) || parts.length !== 4) return parts
+    const [cliff, legs, gong, mouth] = parts
+    const frame = cliff.target
+    const inCliff = box => mapped(box, [0, 0, 1, 1], frame)
+    const pen = composer.fontStyle === 'pen-writing'
+    // Seat 儿 directly under 厃's horizontal bar, followed by 工 and 口 of 𢀛.
+    // Leave weights unlocked so the composer's winding-aware balancer weights each piece evenly.
+    return [
+      cliff,
+      { ...legs, target: inCliff(pen ? [0.35, 0.44, 0.95, 0.64] : [0.34, 0.45, 0.96, 0.66]) },
+      { ...gong, target: inCliff(pen ? [0.39, 0.23, 0.91, 0.40] : [0.38, 0.24, 0.92, 0.41]) },
+      { ...mouth, target: inCliff(pen ? [0.43, 0.01, 0.87, 0.20] : [0.43, 0.02, 0.87, 0.21]) },
+    ]
+  },
+}
+
+// TW-Kai's standalone 虍 draws a compact radical 七 high under the hood, leaving the lower half empty.
+// Pair 虍's outer hood with a full-body 七 (its bar gently tucked inside the sweep) and 劇's 刂.
+const REGULAR_HU_KNIFE_GLYPHS = {
+  虍: '326bc25a5f31bc4f817fd3c199b8f65e944048975fcb8133403901f8a8241fc1',
+  七: 'e4208fc15e393a9ef4e781f05267f31c41ea5cd62c7392774f19e1f18b7d6cf1',
+  劇: 'd186c04b225953fc06125546977b0af5ee1deeab23c8844ff4ba89b0963a00a0',
+}
+
+function regularHuPart(hu, qi) {
+  const hood = hu.contours[0], inner = qi.contours[0]
+  const tuck = arr => {
+    const out = Float64Array.from(arr)
+    for (let i = 0; i < out.length; i += 2) {
+      const x = out[i], y = out[i + 1]
+      const t = Math.max(0, Math.min(1, (y - 230) / 80))
+      if (t > 0) {
+        if (x < 395) out[i] = 395 - (395 - x) * (1 - t * 0.32)
+        else if (x > 460) out[i] = 460 + (x - 460) * (1 - t * 0.21)
+      }
+    }
+    return out
+  }
+  const innerTucked = { ...inner, light: tuck(inner.light), heavy: tuck(inner.heavy ?? inner.light) }
+  const leftFrame = [0, 0.005, 0.678, 1.005], qiFrame = [0.212, 0.035, 0.651, 0.638]
+  const placeIn = (contour, src, dst, [wx, wy]) => {
+    const sx = (dst[2] - dst[0]) / Math.max(src[2] - src[0], 1)
+    const sy = (dst[3] - dst[1]) / Math.max(src[3] - src[1], 1)
+    const srcLight = contour.light, srcHeavy = contour.heavy ?? srcLight
+    const light = new Float64Array(srcLight.length), heavy = new Float64Array(srcLight.length)
+    for (let i = 0; i < srcLight.length; i += 2) {
+      const dx = srcHeavy[i] - srcLight[i], dy = srcHeavy[i + 1] - srcLight[i + 1]
+      light[i] = (dst[0] + (srcLight[i] + wx * dx - src[0]) * sx) * 1000
+      light[i + 1] = (dst[1] + (srcLight[i + 1] + wy * dy - src[1]) * sy) * 1000
+      heavy[i] = light[i] + dx * sx * 1000
+      heavy[i + 1] = light[i + 1] + dy * sy * 1000
+    }
+    return { ...contour, light, heavy }
+  }
+  const hoodBox = pointsBox(hood.light), qiBox = pointsBox(innerTucked.light)
+  const contours = [
+    placeIn(hood, hoodBox, leftFrame, [0.24, 0]),
+    placeIn(innerTucked, qiBox, qiFrame, [0.44, -0.04]),
+  ]
+  const box = leftFrame.map(v => v * 1000)
+  return derived(hu, contours, box)
+}
+
 /**
  * The corrections, by description. `glyphs` ties each to the outlines it was read against.
  * A correction that cannot find the parts it names leaves the drawing as it is.
@@ -411,12 +477,17 @@ function penDoor(char) {
 export const COMPONENT_FIXES = {
   '⿳丷冖兀': {
     glyphs: {},
-    apply(parts, composer) {
+    apply(parts, composer, region) {
       if (composer.fontStyle !== 'fangsong' || parts.length !== 3) return parts
       const [dots, cover, feet] = parts
-      // Keep the 571:264 proportion of the two top strokes in 半.
-      const box = fitted(dots.source, dots.target, 1)
-      return [{ ...dots, target: box }, cover, feet]
+      const cell = box => mapped(box, [0, 0, 1, 1], region)
+      // Give 丷 taller vertical strokes, lower 冖 as a full roof, and keep a shorter 兀 tucked inside 冖.
+      const dotsBox = fitted(dots.source, cell([0.16, 0.58, 0.84, 0.99]), 1.35)
+      return [
+        { ...dots, target: dotsBox },
+        { ...cover, target: cell([0.04, 0.36, 0.96, 0.60]) },
+        { ...feet, target: cell([0.13, 0.02, 0.87, 0.42]) },
+      ]
     },
   },
   '⿱加𠃍': {
@@ -428,26 +499,87 @@ export const COMPONENT_FIXES = {
       return [upper, { ...hook, target: mapped([.23, .01, .75, .44], [0, 0, 1, 1], region) }]
     },
   },
-  '⿴𰀪⺀': {
+  '⿻足⿰矢隹': {
     glyphs: {},
     apply(parts, composer, region) {
-      if (composer.fontStyle !== 'fangsong' || parts.length !== 3 || parts[2].part.contours.length !== 2) return parts
-      const [slash, sweep, dots] = parts
+      if (parts.length < 2 || parts.length > 3) return parts
+      const foot = parts[0]
+      if (!foot || !/足/.test(foot.origin ?? '')) return parts
+      let left = parts[1], right = parts[2]
+      if (parts.length === 2) {
+        if (composer.excluded('矢') || composer.excluded('隹')) return parts
+        const arrow = composer.glyph('矢'), bird = composer.glyph('隹')
+        if (!arrow || !bird) return parts
+        left = placed(arrow, arrow.box, arrow.box, composer.ink('矢'), 'glyph 矢')
+        right = placed(bird, bird.box, bird.box, composer.ink('隹'), 'glyph 隹')
+      }
       const cell = box => mapped(box, [0, 0, 1, 1], region)
-      const dotParts = dots.part.contours.map(c => derived(dots.part, [c])).sort((a, b) => a.box[0] - b.box[0])
-      // In 𫜵 the upper stroke descends shallowly; the second dot sits above the first.
-      const strokes = dotParts.map((dot, i) => {
-        const to = cell(i ? [.39, .48, .62, .68] : [.13, .35, .37, .57])
-        const coords = points => points.map((v, k) => {
-          const axis = k % 2
-          return to[axis] + (v - dot.box[axis]) * (to[axis + 2] - to[axis]) / (dot.box[axis + 2] - dot.box[axis])
-        })
-        const c = dot.contours[0]
-        return { ...c, light: coords(c.light), heavy: coords(c.heavy) }
-      })
-      const pair = makePart(strokes)
-      return [{ ...slash, target: cell([.10, .70, .76, 1]) }, sweep,
-        placed(pair, pair.box, pair.box, dots.native, dots.origin)]
+      const narrow = composer.fontStyle === 'sans' || composer.fontStyle === 'serif'
+      // Keep 足 intact and connected: its 口 sits between 矢 and 隹 while 龰 extends beneath both.
+      const footBox = narrow ? [0.255, 0, 0.745, 0.99] : [0.22, 0, 0.78, 0.99]
+      const leftBox = narrow ? [0.00, 0.42, 0.285, 0.98] : [0.00, 0.42, 0.295, 1.00]
+      const rightBox = narrow ? [0.715, 0.42, 1.00, 0.98] : [0.705, 0.42, 1.00, 1.00]
+      return [
+        { ...foot, target: cell(footBox) },
+        { ...left, target: cell(leftBox) },
+        { ...right, target: cell(rightBox) },
+      ]
+    },
+  },
+  '⿱五⿻足⿰矢隹': {
+    glyphs: {},
+    apply(parts, _composer, region) {
+      if (parts.length !== 4) return parts
+      const [five, ...below] = parts
+      const cell = box => mapped(box, [0, 0, 1, 1], region)
+      const lower = union(below.map(p => p.target))
+      const lowerBand = cell([0, 0, 1, 0.74])
+      return [
+        { ...five, target: cell([0.25, 0.77, 0.75, 1.00]) },
+        ...below.map(p => ({ ...p, target: mapped(p.target, lower, lowerBand) })),
+      ]
+    },
+  },
+  '⿸厃⿱儿𢀛': danCliff,
+  '⿸厃⿱儿⿱工口': danCliff,
+  '⿰虍刂': {
+    glyphs: {},
+    apply(parts, composer, region) {
+      if (composer.fontStyle !== 'regular' || ['劇', '虍', '七', '刂'].some(ch => composer.excluded(ch))) return parts
+      if (!matches({ glyphs: REGULAR_HU_KNIFE_GLYPHS }, composer)) return parts
+      const hu = composer.glyph('虍'), qi = composer.glyph('七'), donor = composer.glyph('劇')
+      if (!hu || !qi || !donor || hu.contours.length < 1 || qi.contours.length < 1 || donor.contours.length < 4) return parts
+      const fullHu = regularHuPart(hu, qi)
+      const knife = derived(donor, [donor.contours[2], donor.contours[3]])
+      const frame = box => mapped(box, [0, 0, 1, 1], region)
+      const atRoot = Boolean(region && composer.face && region.every((v, i) => Math.abs(v - composer.face[i]) < 1))
+      const left = placed(fullHu, fullHu.box, frame([0, 0.005, 0.678, 1.005]), composer.ink('虍'), '虍 with 七')
+      const right = placed(knife, knife.box, frame([0.702, -0.015, 0.99, 0.978]), composer.ink('劇'), '劇 刂')
+      if (atRoot) { left.fixed = true; right.fixed = true }
+      return [left, right]
+    },
+  },
+  '⿲𠂤日千': {
+    glyphs: {},
+    apply(parts, composer) {
+      if (parts.length !== 3) return parts
+      const frame = union(parts.map(part => part.target))
+      if (composer.fontStyle === 'fangsong' || composer.fontStyle === 'regular') {
+        // In 𧗧 the central 日 spans about three quarters of the full ink height.
+        const [left, sun, right] = parts
+        const inset = composer.fontStyle === 'regular' ? .12 : .135
+        const height = heightOf(frame)
+        // Shortening 日 changes stroke balancing. Extend the flanks to restore the original ink bounds.
+        const limits = composer.fontStyle === 'regular' ? [0, -.0066, 1, 1.0066] : [0, -.0084, 1, 1.0097]
+        const outer = mapped(limits, [0, 0, 1, 1], frame)
+        return [{ ...left, target: mapped(left.target, frame, outer) }, { ...sun, target: [sun.target[0], frame[1] + inset * height,
+          sun.target[2], frame[3] - inset * height] }, { ...right, target: mapped(right.target, frame, outer) }]
+      }
+      if (composer.fontStyle !== 'pen-writing') return parts
+      // 日 is the short middle column. Give 千 room for its crossbar beside it.
+      const boxes = [[0, .0233, .3438, .9767], [.3837, .1588, .6478, .8412], [.6797, -.0018, .9966, 1.0018]]
+      return parts.map((part, i) => ({ ...part, target: mapped(boxes[i], [0, 0, 1, 1], frame),
+        weight: i === 0 ? [0, -.10] : i === 1 ? [-.68, -.20] : [-.60, -.12], fixed: true }))
     },
   },
   '⿰舟邊': {
