@@ -57,7 +57,7 @@ import { toConjoiningJamo } from './hangul.js'
 import { specimenFor, specimenParts, containsSpecimen } from './specimen-parts.js'
 import { tileHost } from './fangsong-tile.js'
 import { brushSweepRoom, brushSweepParts } from './brush-sweep-rooms.js'
-import { componentFix, enclosedZeroTarget, INCOME_IDS, incomeBoxes } from './component-fixes.js'
+import { componentFix, enclosedZeroTarget, INCOME_IDS, incomeBoxes, WEALTH_IDS, wealthBoxes } from './component-fixes.js'
 import { isOutbound, markFace, markParts } from './marks.js'
 import { SI_CHAIN, siChainForm, siBendDonor } from './si-chain.js'
 import { youChainDonors, youChainParts } from './you-chain.js'
@@ -1787,6 +1787,7 @@ export class Composer {
     if (this.pyramid(tree) || this.pyramidWithBase(tree)) return false
     const key = keyOf(tree)
     if (containsSpecimen(key, this.fontStyle)) return false
+    if (key.includes(WEALTH_IDS)) return false
     if (key.includes(INCOME_IDS)) return false
     if (containsRateForm(key) || (containsU26201(key) && this.hasYaoChoice(tree)) || this.bySequence(key) || this.spelled.has(key)) return false
     if (isGroupedForm(key, this.fontStyle) || isComponentForm(key, this.fontStyle)) return false
@@ -2102,8 +2103,9 @@ export class Composer {
     if (partitioned) return partitioned
     const out = []
     const walk = (node, region, atRoot) => {
-      if (Array.isArray(node) && node[0] === '⿱') {
-        const boxes = incomeBoxes(keyOf(node), this.fontStyle, region, this.face)
+      if (Array.isArray(node) && (node[0] === '⿺' || node[0] === '⿱')) {
+        const boxes = wealthBoxes(keyOf(node), this.fontStyle, region, this.face)
+          ?? incomeBoxes(keyOf(node), this.fontStyle, region, this.face)
         if (boxes) {
           for (const box of boxes) out.push({ index: out.length, box, empty: false })
           return
