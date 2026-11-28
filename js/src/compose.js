@@ -4257,8 +4257,18 @@ export class Composer {
   /** Both operands' boxes in the em, as the learned layout sets them. A construct that is drawn has
    *  no character of its own, and is read as the character it is a shape of (`like`). */
   predict(op, children) {
-    const keys = children.map(child => (this.constructed(child, this.face) && CONSTRUCTS[keyOf(child)].like) || this.renderKey(child))
-    return forward(this.layout, features(this.layout, op, keys.map(k => this.rec(k === '⺿' || k === '⻀' ? '艹' : k)), [this.slot(op, 0), this.slot(op, 1)]))
+    const places = [this.slot(op, 0), this.slot(op, 1)]
+    const keys = children.map((child, i) => {
+      const key = (this.constructed(child, this.face) && CONSTRUCTS[keyOf(child)].like) || this.renderKey(child)
+      const normalized = key === '⺿' || key === '⻀' ? '艹' : key
+      if (this.rec(normalized)?.u?.[places[i]]) return normalized
+      // A bare radical (金, 言) has no usual box in a place where characters write its positional
+      // form (釒, 訁); fall back to the form with table entries in that place, or to the input
+      // character when `renderKey` mapped it away from a place it is written in (`言` on the right).
+      const candidates = [...this.alternatives(child, places[i]), ...(typeof child === 'string' ? [child] : [])]
+      return candidates.find(alt => this.rec(alt)?.u?.[places[i]]) ?? normalized
+    })
+    return forward(this.layout, features(this.layout, op, keys.map(k => this.rec(k)), places))
   }
 
   /**
