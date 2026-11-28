@@ -4505,6 +4505,9 @@ export class Composer {
           const anchor = !kept && opening && (tight || area(opening) > area(box)) ? centre(this.held(opening, op, frameOf)) : centre(inner)
           groups.push(grid ? this.cellLayout(grid, inner, { leafIndices: false }) : this.node(child, inner))
           this.fit(groups[0], groups[1], frameOf, stem, C, { room: inner, anchor })
+          if (op === '⿺' && groups[0].every(p => /^(learned|host|teacher) /.test(p.origin))) {
+            this.descendEnclosureStem(groups[0], groups[1], frameOf, stem)
+          }
         } else {
           const cell = even ? even[i] : box, group = this.node(child, cell)
           groups.push(narrow ? this.fillCell(child, group, cell, this.beside.has(children)) : group)
@@ -4599,6 +4602,8 @@ export class Composer {
             }
           }
         }
+        this.descendEnclosureStem(groups[0], groups[1], frameOf, stem)
+        box = groups[1][0].target
       }
       if (op === '⿸' && Array.isArray(children[0]) && i === 1 && this.collide(groups[0], groups[1], frameOf, 256) > C.COLLIDE)
         this.fit(groups[0], groups[1], frameOf, stem, C, { size: 256, room: box })
@@ -5050,6 +5055,77 @@ export class Composer {
     const share = this.rooms[`${op}\t${keyOf(outer)}`]
     if (!share || !drawn?.length || !drawn.every(p => /^(learned|host|teacher) /.test(p.origin))) return null
     return movedInto(box, mapped(share, [0, 0, 1, 1], union(drawn.map(p => p.target))))
+  }
+
+  /** Let a narrow descending bottom stem (such as 十 in 率/畢/奉/卓/軍) under a ⿺ sweep descend
+   *  to normal stem clearance above the sweep directly beneath it, leaving wide-bottom parts high. */
+  descendEnclosureStem(outer, inner, region, stem) {
+    if (this.partial || inner.length !== 1) return
+    const size = 128
+    const [X0, Y0, X1, Y1] = region
+    const w = X1 - X0, h = Y1 - Y0
+    if (w <= 0 || h <= 0) return
+    const a = fill(groupRings(outer), size, region)
+    const b = fill(groupRings(inner), size, region)
+    let rMin = size, rMax = -1, cMin = size, cMax = -1
+    for (let r = 0; r < size; r++) {
+      const off = r * size
+      for (let col = 0; col < size; col++) {
+        if (!b[off + col]) continue
+        if (r < rMin) rMin = r
+        if (r > rMax) rMax = r
+        if (col < cMin) cMin = col
+        if (col > cMax) cMax = col
+      }
+    }
+    if (rMax < 0) return
+    const cutRow = Math.floor(rMax - 0.12 * (rMax - rMin))
+    let lowMin = size, lowMax = -1
+    for (let r = cutRow; r <= rMax; r++) {
+      const off = r * size
+      for (let col = cMin; col <= cMax; col++) {
+        if (!b[off + col]) continue
+        if (col < lowMin) lowMin = col
+        if (col > lowMax) lowMax = col
+      }
+    }
+    if (lowMax < 0) return
+    const lowW = (lowMax - lowMin + 1) / Math.max(cMax - cMin + 1, 1)
+    if (lowW >= 0.25) return
+    const tipRow = Math.floor(rMax - 0.03 * (rMax - rMin))
+    const tipCols = []
+    for (let r = tipRow; r <= rMax; r++) {
+      const off = r * size
+      for (let col = lowMin; col <= lowMax; col++) if (b[off + col]) tipCols.push(col)
+    }
+    if (!tipCols.length) return
+    tipCols.sort((x, y) => x - y)
+    const medCol = tipCols[Math.floor(tipCols.length / 2)]
+    const stemX = X0 + (medCol + 0.5) / size * w
+    const inY0 = Y1 - (rMax + 0.5) / size * h
+    const colLo = Math.max(0, Math.floor((stemX - 15 - X0) / w * size))
+    const colHi = Math.min(size - 1, Math.floor((stemX + 15 - X0) / w * size))
+    let sweepRow = -1
+    for (let r = rMax; r < size && sweepRow < 0; r++) {
+      const off = r * size
+      for (let col = colLo; col <= colHi; col++) {
+        if (a[off + col]) { sweepRow = r; break }
+      }
+    }
+    if (sweepRow < 0) return
+    const sweepY = Y1 - (sweepRow + 0.5) / size * h
+    const drop = (inY0 - sweepY) - Math.max(32, 0.52 * stem)
+    if (drop <= 10) return
+    const p = inner[0]
+    for (const frac of [1.0, 0.85, 0.7, 0.55, 0.4]) {
+      const t = [p.target[0], p.target[1] - drop * frac, p.target[2], p.target[3]]
+      if (stretchOf(p.source, t) > this.C.STRETCH) continue
+      const cand = { ...p, target: t }
+      if (this.collide(outer, [cand], region, 256) <= 0.005) {
+        inner[0] = cand
+        return
+      }
+    }
   }
 
   /** A sequence drawn whole somewhere in the font, in any place but the left or the top (`_instance`). */

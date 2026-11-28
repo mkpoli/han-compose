@@ -2541,8 +2541,7 @@ class Composer:
             upper_parts = [Placed(part, part.box, target, native=self.ink(source), origin=f"kin {source}")]
         else:
             upper_parts = self._node(own[1], (room[0], room[1], left, room[3]))
-        return placed + self._settled(upper_parts, Placed(top, top.box, room), placed)
-
+        return placed
     def _settled(self, upper: list[Placed], kin_top: Placed, lower: list[Placed]) -> list[Placed]:
         """An upper part drawn into a kin's upper room, its foot lowered as far as it stands short of
         the lower part where the kin's own upper part stands: 𡗗's 人 ends above 夊 where 來's
@@ -3287,7 +3286,6 @@ class Composer:
         if self._columns and SUBTRACT not in sequence:
             _settle_columns(self._columns, placed, COLUMN_CLEARANCE[self.font.style.name])
         return placed
-
     def _reranked(self, tree: Node, placed: list[Placed]) -> list[tuple[float, list[Placed], list[float]]]:
         """A two-part ⿰ or ⿱ character drawn by the learned layout from two hosts, and drawn again
         with its second part from each of the next `RERANK` hosts: each drawing with its expected
@@ -3820,6 +3818,8 @@ class Composer:
                         # The opening reaches wherever no stroke lies; the part stays in its room.
                         limit = box
                     feasible = _fit_inside(groups[0], groups[1], region or self.face, self.font.stem[0][0], room=limit)
+                    if op == "⿺" and outer_hosted:
+                        self._descend_enclosure_stem(groups[0], groups[1], region or self.face)
                     inner_fitted = (feasible and region is None and outer_hosted and self.reuse and self.standalone is not None
                                     and isinstance(child, str) and child not in self.exclude and len(groups[1]) == 1
                                     and groups[1][0].part is self.font.glyph(child))
@@ -3910,6 +3910,8 @@ class Composer:
                         if (cur_col > 0.005 and cand_col256 < cur_col256) or (floats_high and cand_col256 <= 0.005):
                             groups[1] = cand
                             box = cand[0].target
+                self._descend_enclosure_stem(groups[0], groups[1], region or self.face)
+                box = groups[1][0].target
             if (op == "⿸" and isinstance(children[0], tuple) and i == 1
                     and _collision(groups[0], groups[1], region or self.face, size=256) > COLLIDE):
                 _fit_inside(groups[0], groups[1], region or self.face, self.font.stem[0][0],
@@ -3930,6 +3932,56 @@ class Composer:
                 and _collision(groups[0], groups[1], self.face, size=256) <= COLLIDE):
             return _FittedEnclosure(placed)
         return placed
+
+    def _descend_enclosure_stem(self, outer: list[Placed], inner: list[Placed], region: Box) -> None:
+        """Let a narrow descending bottom stem (e.g. 十 in 率/畢/奉/卓/軍) under a ⿺ sweep descend
+        to normal stem clearance above the sweep directly beneath it, without moving wide-bottom
+        inner parts that must stay higher to clear the rising left curve."""
+        if len(inner) != 1:
+            return
+        size = 128
+        X0, Y0, X1, Y1 = region
+        w, h = X1 - X0, Y1 - Y0
+        if w <= 0 or h <= 0:
+            return
+        a = fill([r for p in outer for r in _rings(p.part.contours, p.contours())], size, region)
+        b = fill([r for p in inner for r in _rings(p.part.contours, p.contours())], size, region)
+        b_rows, b_cols = np.nonzero(b)
+        if not len(b_rows):
+            return
+        b_rmin, b_rmax = int(b_rows.min()), int(b_rows.max())
+        b_cmin, b_cmax = int(b_cols.min()), int(b_cols.max())
+        cut_row = int(b_rmax - 0.12 * (b_rmax - b_rmin))
+        low_cols = b_cols[b_rows >= cut_row]
+        if not len(low_cols):
+            return
+        low_w = (int(low_cols.max()) - int(low_cols.min()) + 1) / max(b_cmax - b_cmin + 1, 1)
+        if low_w >= 0.25:
+            return
+        tip_row = int(b_rmax - 0.03 * (b_rmax - b_rmin))
+        tip_cols = b_cols[b_rows >= tip_row]
+        stem_x = X0 + (float(np.median(tip_cols)) + 0.5) / size * w
+        in_y0 = Y1 - (b_rmax + 0.5) / size * h
+        col_lo = max(0, int((stem_x - 15.0 - X0) / w * size))
+        col_hi = min(size - 1, int((stem_x + 15.0 - X0) / w * size))
+        br, _ = np.nonzero(a[b_rmax:, col_lo:col_hi + 1])
+        if not len(br):
+            return
+        sweep_y = Y1 - (b_rmax + int(br.min()) + 0.5) / size * h
+        v_gap = in_y0 - sweep_y
+        want_gap = max(32.0, 0.52 * self.font.stem[0][0])
+        drop = v_gap - want_gap
+        if drop <= 10.0:
+            return
+        p = inner[0]
+        for frac in (1.0, 0.85, 0.7, 0.55, 0.4):
+            t = (p.target[0], p.target[1] - drop * frac, p.target[2], p.target[3])
+            if self._stretch(p.source, t) > STRETCH:
+                continue
+            cand = replace(p, target=t)
+            if _collision(outer, [cand], region, size=256) <= 0.005:
+                inner[0] = cand
+                return
 
     def _transplant(self, op: str, children: list[Node]) -> list[Placed] | None:
         """A whole character's operands each taken unscaled, where a designer put them in the em, from

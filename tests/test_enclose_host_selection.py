@@ -210,3 +210,27 @@ def test_learned_lower_left_enclosure_uses_enclosed_room_when_predicted_box_floa
     placed = c._learned("⿺", ["風", "率"])
     assert placed is not None and len(placed) == 2
     assert placed[1].target == (510.0, 75.0, 960.0, 840.0)
+
+
+def test_descend_enclosure_stem_lowers_narrow_stem_but_keeps_wide_bottom() -> None:
+    # Outer sweep floor sits at y=-20..0; inner sits high at y=100..800 (v_gap=100u).
+    outer_piece = compose.Part([rect(0, -20, 440, 820), rect(0, -20, 960, 0)])
+    # Narrow centered stem at bottom (width 40 out of 400 -> low_w=0.10 < 0.25), like 十 in 率.
+    stem_inner = compose.Part([rect(520, 300, 920, 800), rect(700, 100, 740, 800)])
+    # Wide flat bottom (width 400 out of 400 -> low_w=1.0 >= 0.25), like 口/日/包.
+    wide_inner = compose.Part([rect(520, 100, 920, 800)])
+
+    font = SimpleNamespace(own=lambda _: True, has=lambda _: True, glyph=lambda _: outer_piece, stem=((80.0, 80.0), (80.0, 80.0)))
+    c = compose.Composer(font, {}, weighted=True)
+    region = (0.0, -40.0, 1000.0, 860.0)
+    outer_p = [compose.Placed(outer_piece, outer_piece.box, outer_piece.box)]
+
+    stem_p = [compose.Placed(stem_inner, stem_inner.box, stem_inner.box)]
+    c._descend_enclosure_stem(outer_p, stem_p, region)
+    # Target gap is 0.52 * 80 = 41.6u above y=0, so y0 descends from 100 to ~42.
+    assert 30.0 <= stem_p[0].target[1] <= 55.0
+    assert stem_p[0].target[3] == 800.0
+
+    wide_p = [compose.Placed(wide_inner, wide_inner.box, wide_inner.box)]
+    c._descend_enclosure_stem(outer_p, wide_p, region)
+    assert wide_p[0].target == wide_inner.box
