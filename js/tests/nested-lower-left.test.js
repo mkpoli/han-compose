@@ -18,7 +18,7 @@ import rulerFrames from './fixtures/ruler-frames.json' with { type: 'json' }
 import maoDonor from './fixtures/sans-fur-frame.json' with { type: 'json' }
 // 尪 from Noto Sans CJK JP, SIL OFL 1.1.
 import wangDonor from './fixtures/sans-limp-frame.json' with { type: 'json' }
-// 菱, 凌, 麩/处, 玉 across Noto Sans/Serif CJK JP, Zhuque Fangsong, Kureedo (SIL OFL 1.1),
+// 菱, 麩/处, 玉, 艹 across Noto Sans/Serif CJK JP, Zhuque Fangsong, Kureedo (SIL OFL 1.1),
 // and TW-Kai (CNS11643, Open Government Data License 1.0).
 import shrineDonors from './fixtures/shrine-jade-donors.json' with { type: 'json' }
 import parts from './fixtures/sans-lower-left.json' with { type: 'json' }
@@ -417,16 +417,17 @@ it('keeps 𡯙 as a whole and uses the 尪 enclosure when its operands are separ
   expect(excluded.parts.some(p => p.origin === 'host 尪')).toBe(false)
 })
 
-it('assembles the Misato shrine character from native 菱, 凌, and enclosing 夂 donors across all five faces', async () => {
+it('assembles the Misato shrine character from standard 艹, 菱 土八, and enclosing 夂 donors across all five faces', async () => {
   const sequence = '⿱艹⿺夌玉'
   for (const [fontStyle, faceDonors] of Object.entries(shrineDonors)) {
     const footHost = fontStyle === 'fangsong' ? '处' : '麩'
-    const src = source({ ...faceDonors, 夌: records.木, 艹: records.口 })
+    const expectedCap = fontStyle === 'regular' ? 'TW-Kai: 艹' : 'glyph 艹'
+    const expectedBody = `enclosing 夌 from 菱+${footHost}`
+    const src = source({ ...faceDonors, 夌: records.木 })
     for (const layout of ['composed', 'cells']) {
       const { parts } = await compose(src, sequence, { layout, separate: true, fontStyle })
-      expect(parts.map(p => p.origin), `${fontStyle}/${layout}`).toEqual([
-        'grass from 菱', `enclosing 夌 from 凌+${footHost}`, 'glyph 玉',
-      ])
+      expect(parts.map(p => p.origin), `${fontStyle}/${layout}`).toEqual([expectedCap, expectedBody, 'glyph 玉'])
+      if (layout === 'cells') expect(parts.map(p => p.leaf), `${fontStyle}/cells leaves`).toEqual([0, 1, 2])
       const [, body, jade] = parts
       expect(jade.box[2], `${fontStyle}/${layout}`).toBeGreaterThan(body.box[2] * 0.40)
       expect(right(jade), `${fontStyle}/${layout}`).toBeLessThanOrEqual(right(body))
@@ -435,19 +436,21 @@ it('assembles the Misato shrine character from native 菱, 凌, and enclosing �
       expect(masks[0].some((ink, i) => ink && masks[2][i]), `${fontStyle}/${layout} cap-jade`).toBe(false)
       expect(masks[1].some((ink, i) => ink && masks[2][i]), `${fontStyle}/${layout} body-jade`).toBe(false)
     }
+    const rawParts = new Composer(src.store(), { fontStyle, separate: true }).compose(sequence)
+    expect(Boolean(rawParts[2].fixed), `${fontStyle} jade fixed`).toBe(fontStyle === 'pen-writing')
     const nested = await compose(src, `⿰口${sequence}`, { layout: 'cells', separate: true, fontStyle })
     const leftEdge = Math.min(...nested.parts.slice(1).map(p => p.box[0]))
     expect(leftEdge, `${fontStyle} nested`).toBeGreaterThan(nested.parts[0].box[0])
-    for (const excluded of ['菱', '凌', footHost, '艹', '夌', '玉']) {
+    for (const excluded of ['菱', footHost, '艹', '夌', '玉']) {
       const fallback = await compose(src, sequence, { exclude: [excluded], fontStyle })
-      expect(fallback.origins, `${fontStyle} exclude ${excluded}`).not.toContain(`enclosing 夌 from 凌+${footHost}`)
+      expect(fallback.origins, `${fontStyle} exclude ${excluded}`).not.toContain(expectedBody)
     }
     const foreignJade = { ...faceDonors.玉, G: { ...faceDonors.玉.G, f: 1 } }
-    const foreignRes = await compose(source({ ...faceDonors, 玉: foreignJade, 夌: records.木, 艹: records.口 }), sequence, { fontStyle })
-    expect(foreignRes.origins, `${fontStyle} foreign jade`).not.toContain(`enclosing 夌 from 凌+${footHost}`)
+    const foreignRes = await compose(source({ ...faceDonors, 玉: foreignJade, 夌: records.木 }), sequence, { fontStyle })
+    expect(foreignRes.origins, `${fontStyle} foreign jade`).not.toContain(expectedBody)
     const alteredFoot = { ...faceDonors[footHost], G: { ...faceDonors[footHost].G, p: [...faceDonors[footHost].G.p].reverse() } }
-    const altered = await compose(source({ ...faceDonors, [footHost]: alteredFoot, 夌: records.木, 艹: records.口 }), sequence, { fontStyle })
-    expect(altered.origins, `${fontStyle} altered foot`).not.toContain(`enclosing 夌 from 凌+${footHost}`)
+    const altered = await compose(source({ ...faceDonors, [footHost]: alteredFoot, 夌: records.木 }), sequence, { fontStyle })
+    expect(altered.origins, `${fontStyle} altered foot`).not.toContain(expectedBody)
   }
 })
 
