@@ -945,6 +945,8 @@ const FOOTLESS = { '𲎰': { host: '五' }, '𲐬': { host: '巫', doubled: true
 /** The sequences of the CJK Extension J ideographs whose parts a face can cut from its own
  *  characters (`scripts/build_extension_j_ids.py`). */
 const EXTENSION_J = /** @type {Record<string, string>} */ (extensionJ.sequences)
+/** Fallback decompositions for rare Ext-B components absent from brush exports whose parts are native. */
+const FALLBACK_IDS = { '𢀛': '⿱工口' }
 const DESIGNED_CUTS = {
   氵: ['𭰲', {
     '345749510c894ac303898cacbbd71bc35880cb6179990632d00b1ffe463f2d71': [0, 1, 2],
@@ -1342,7 +1344,7 @@ export class Composer {
   }
   /** A character's sequence: the export's, else the bundled one of an Extension J ideograph, which
    *  the exports' source table does not reach. */
-  sequenceOf(ch) { return this.rec(ch)?.s ?? (Object.hasOwn(EXTENSION_J, ch) ? EXTENSION_J[ch] : null) }
+  sequenceOf(ch) { return this.rec(ch)?.s ?? (Object.hasOwn(EXTENSION_J, ch) ? EXTENSION_J[ch] : Object.hasOwn(FALLBACK_IDS, ch) ? FALLBACK_IDS[ch] : null) }
   atomic(ch) { return this.rec(ch)?.at === 1 }
 
   /** Outline length: a glyph's, or for an excluded or glyphless character its sequence's operands'. */
@@ -1579,9 +1581,11 @@ export class Composer {
    *  sequence, so its parts are laid out as the same sequence written by hand is. */
   writtenOut(node, seen = new Set()) {
     if (Array.isArray(node)) return mapOperands(node, operand => this.writtenOut(operand, seen))
-    if (typeof node !== 'string' || !Object.hasOwn(EXTENSION_J, node) || seen.has(node)) return node
+    const seq = typeof node === 'string' && !seen.has(node)
+      ? (Object.hasOwn(EXTENSION_J, node) ? EXTENSION_J[node] : Object.hasOwn(FALLBACK_IDS, node) ? FALLBACK_IDS[node] : null) : null
+    if (!seq) return node
     if (this.rec(node)?.s || this.glyphRecord(node)) return node
-    return this.writtenOut(this.parse(EXTENSION_J[node]), new Set([...seen, node]))
+    return this.writtenOut(this.parse(seq), new Set([...seen, node]))
   }
 
   /** What one drawing gathers as it goes, emptied before it starts. */
@@ -4428,7 +4432,8 @@ export class Composer {
       }
       if (op === '⿺' && i === 1 && groups[0].length === 1 && groups[0][0].origin.startsWith('glyph')) {
         const tail = this.tailForm(keyOf(children[0]))
-        const swept = sweptPart(groups[0][0], box[0] - C.FACING[0], C, tail)
+        const bareStroke = typeof children[0] === 'string' && /[\u31C0-\u31EF]/.test(children[0])
+        const swept = bareStroke ? null : sweptPart(groups[0][0], box[0] - C.FACING[0], C, tail)
         if (swept) {
           groups[0] = swept
           const opening = this.room(op, groups[0], frameOf)
@@ -4605,6 +4610,9 @@ export class Composer {
   sweptUnder(children, outer, region) {
     if (!this.layout?.ops.includes('⿺') || !this.hosted || this.partial) return null
     if (outer.length !== 1 || !outer[0].origin.startsWith('glyph')) return null
+    // A single CJK stroke (such as ㇉ in Noto Serif CJK) may carry several overlapping contours;
+    // sweeping splits them apart as if it were a multi-stroke enclosure.
+    if (typeof children[0] === 'string' && /[\u31C0-\u31EF]/.test(children[0])) return null
     const boxes = this.predict('⿺', children), frame = union(boxes)
     // Boxes the layout leaves empty place nothing, as `learned` reads them.
     if (!(frame[2] > frame[0] && frame[3] > frame[1] && boxes.every(b => b[2] > b[0] && b[3] > b[1]))) return null
