@@ -43,10 +43,10 @@ const layouts = {
     '⿰入鳥': {
       encoded: '鳰',
       donors: {
-        入: { char: '入', digest: '3ffad9ebabdc91bdfc8ab954fb7db5970b1c312a876ba8b4ed2c3f1bc3a4dd7c', indices: [0], box: [-35.1, 106.4, 416.1, 693.0] },
+        入: { char: '入', digest: '3ffad9ebabdc91bdfc8ab954fb7db5970b1c312a876ba8b4ed2c3f1bc3a4dd7c', indices: [0], box: [-15.0, 110.0, 408.0, 695.0] },
         鳥: { char: '鴿', digest: '76b14836e79e268e8943e0abd4a96f80ab83bf0627890fdb5c9a22fa378b85fa', indices: [0, 3, 5, 6, 7], box: [401.6, -140.4, 991.4, 923.7] },
       },
-      cells: [['入', [-35.1, 106.4, 416.1, 693.0]], ['鳥', [401.6, -140.4, 991.4, 923.7]]],
+      cells: [['入', [-15.0, 110.0, 408.0, 695.0], [1.05, 0.50]], ['鳥', [401.6, -140.4, 991.4, 923.7]]],
     },
     '⿰柬鳥': {
       encoded: '鶫',
