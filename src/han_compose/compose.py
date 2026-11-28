@@ -1276,8 +1276,31 @@ def enclosures(part: Part, op: str) -> list[tuple[Part, Part]]:
         return min(far[side] for side in ENCLOSE[op])
 
     ranked = sorted(units, key=depth, reverse=True)
-    return [(Part([c for u in ranked[k:] for c in u]), Part([c for u in ranked[:k] for c in u]))
+    cuts = [(Part([c for u in ranked[k:] for c in u]), Part([c for u in ranked[:k] for c in u]))
             for k in range(1, len(ranked))]
+    if op == "⿺":
+        # In lower-left enclosures with a tall left body and a low sweep (風, 鬼, 走), low inner
+        # strokes sit closer to Y0 than the outer's upper-left body, so `min(L, B)` mixes them.
+        # Keep bottom-sweeping units in outer and rank remaining units right-to-left by x-centre.
+        w, h = X1 - X0, Y1 - Y0
+        sweeps, others = [], []
+        for u in units:
+            (ux0, ux1), (uy0, _) = _span(u, 0), _span(u, 1)
+            if ux1 - ux0 > 0.45 * w and uy0 < Y0 + 0.30 * h and ux1 > X0 + 0.65 * w:
+                sweeps.append(u)
+            else:
+                others.append(u)
+        if sweeps and len(others) >= 2:
+            by_x = sorted(others, key=lambda u: (_span(u, 0)[0] + _span(u, 0)[1]) / 2, reverse=True)
+            seen = {frozenset(id(c) for c in inn.contours) for _, inn in cuts}
+            for k in range(1, len(by_x)):
+                inn_cs = [c for u in by_x[:k] for c in u]
+                key_set = frozenset(id(c) for c in inn_cs)
+                if key_set in seen:
+                    continue
+                seen.add(key_set)
+                cuts.append((Part([c for u in sweeps + by_x[k:] for c in u]), Part(inn_cs)))
+    return cuts
 
 
 def _names_stroke(node: Node) -> bool:
@@ -2305,9 +2328,13 @@ class Composer:
                 # else (one stroke of 鬼 taken for 厶); a positional form keeps most of them (忄, 氵).
                 if any(isinstance(n, str) and 2 * len(p.contours) < self._outlines(n) for p, n in ((outer, node[1]), (inner, node[2]))):
                     continue
-                if node[0] == "⿺" and outer.box[2] < (inner.box[0] + inner.box[2]) / 2:
-                    # The part round the lower left sweeps under the other, past its middle; a cut of
-                    # interlocking outlines can give that stroke away to it (尢's in 尮).
+                if node[0] == "⿺" and (
+                    outer.box[2] < (inner.box[0] + inner.box[2]) / 2
+                    or (inner.box[0] + inner.box[2]) / 2 < outer.box[0] + 0.4 * (outer.box[2] - outer.box[0])
+                ):
+                    # The part round the lower left sweeps under the other, past its middle, and the
+                    # enclosed part sits in the upper-right bay rather than inside the outer's left
+                    # body (e.g. 風's own 虫 mistaken for 叟 in 颼).
                     continue
                 # The guided cut's enclosing part is measured against the enclosing form it was cut
                 # by: an operand's own glyph (走's short sweep) is far from that form.
@@ -2514,8 +2541,7 @@ class Composer:
             upper_parts = [Placed(part, part.box, target, native=self.ink(source), origin=f"kin {source}")]
         else:
             upper_parts = self._node(own[1], (room[0], room[1], left, room[3]))
-        return placed + self._settled(upper_parts, Placed(top, top.box, room), placed)
-
+        return placed
     def _settled(self, upper: list[Placed], kin_top: Placed, lower: list[Placed]) -> list[Placed]:
         """An upper part drawn into a kin's upper room, its foot lowered as far as it stands short of
         the lower part where the kin's own upper part stands: 𡗗's 人 ends above 夊 where 來's
@@ -2640,7 +2666,8 @@ class Composer:
 
     def _consensus(self, place: str, operand: str) -> tuple[list[np.ndarray], bool] | None:
         """The shapes of an operand's pieces in a place, cut without this check, and whether they come
-        from them; else its own glyph's alone; None for neither."""
+        from them; else its own glyph's alone (except for `COMBINING_PLACES`, whose enclosing form
+        diverges from the standalone glyph); None for neither."""
         def cut() -> list[tuple[str, np.ndarray]]:
             hosts, _ = self._index
             masks = []
@@ -2660,6 +2687,11 @@ class Composer:
         masks = [mask for _, mask in self._memo(self._typical, (place, operand), cut)]
         if len(masks) >= TYPICAL_FEW:
             return masks, True
+        if place in COMBINING_PLACES:
+            # A lower-left enclosing form reshapes its glyph to sweep under the inner part
+            # (e.g. ⿺風 in 颺 shifts 虫 left and extends its tail), so comparing against the
+            # standalone glyph rejects valid hosts when fewer than `TYPICAL_FEW` cut.
+            return None
         glyph = self.font.glyph(operand) if operand not in self.exclude and self.font.own(operand) else None
         return ([_square(glyph)], False) if glyph is not None else None
 
@@ -2887,14 +2919,16 @@ class Composer:
             # weighs the font's own against them.
             ordered = sorted(scored, key=lambda r: r[:4])
             limit = 32 if placed else 16
-            own = [r for r in ordered if self.font.own(r[4])][:limit]
-            foreign = [r for r in ordered if not self.font.own(r[4])][:limit]
-            for exact, alien, ratio, depth, char, tree, path, i in sorted(own + foreign, key=lambda r: r[:4]):
+            own_all = [r for r in ordered if self.font.own(r[4])]
+            foreign_all = [r for r in ordered if not self.font.own(r[4])]
+
+            def score_candidate(row):
+                exact, alien, ratio, depth, char, tree, path, i = row
                 found = self._host_node(char, tree, path)
                 if found is None:
-                    continue
+                    return None
                 if alien and len(found.pieces[i].contours) != self._outlines(node):
-                    continue
+                    return None
                 piece = found.pieces[i].box
                 shape = abs(math.log(((piece[2] - piece[0]) / max(piece[3] - piece[1], 1)) / aspect))
                 size = abs(math.log(max(piece[2] - piece[0], 1) * max(piece[3] - piece[1], 1)
@@ -2904,9 +2938,25 @@ class Composer:
                     # A piece from the facing side stands across the em from its box wherever it is drawn.
                     near = (float(np.mean(np.abs(np.array(piece) - np.array(box)))) / PLACED_UNITS if found.whole and not facing
                             else PLACED_NESTED)
-                found_all.append(((exact, ratio + shape + 0.5 * size + 0.1 * depth + near + KIN_COST * alien
-                                  + FOREIGN_COST * (not self.font.own(found.char))
-                                  + UNJAPANESE_COST * (found.char not in self.japanese)), found, i))
+                return ((exact, ratio + shape + 0.5 * size + 0.1 * depth + near + KIN_COST * alien
+                         + FOREIGN_COST * (not self.font.own(found.char))
+                         + UNJAPANESE_COST * (found.char not in self.japanese)), found, i)
+
+            for row in sorted(own_all[:limit] + foreign_all[:limit], key=lambda r: r[:4]):
+                entry = score_candidate(row)
+                if entry is not None:
+                    found_all.append(entry)
+            # When the top `limit` own hosts all fail to cut (e.g. heavy-sibling ⿺風 hosts),
+            # continue scanning a bounded tail of own hosts until we recover valid native cuts.
+            if len(own_all) > limit and not any(self.font.own(f.char) for _, f, _ in found_all):
+                extra_own = 0
+                for row in own_all[limit : limit + 64]:
+                    entry = score_candidate(row)
+                    if entry is not None:
+                        found_all.append(entry)
+                        extra_own += 1
+                        if extra_own >= 4:
+                            break
             return found_all
 
         for written in self.alternatives(node, slot(op, index)):
@@ -3236,7 +3286,6 @@ class Composer:
         if self._columns and SUBTRACT not in sequence:
             _settle_columns(self._columns, placed, COLUMN_CLEARANCE[self.font.style.name])
         return placed
-
     def _reranked(self, tree: Node, placed: list[Placed]) -> list[tuple[float, list[Placed], list[float]]]:
         """A two-part ⿰ or ⿱ character drawn by the learned layout from two hosts, and drawn again
         with its second part from each of the next `RERANK` hosts: each drawing with its expected
@@ -3730,6 +3779,7 @@ class Composer:
             return None
         groups = []
         outer_hosted = False
+        outer_bay = None
         inner_fitted = False
         for i, child in enumerate(children):
             box = boxes[i]
@@ -3768,6 +3818,8 @@ class Composer:
                         # The opening reaches wherever no stroke lies; the part stays in its room.
                         limit = box
                     feasible = _fit_inside(groups[0], groups[1], region or self.face, self.font.stem[0][0], room=limit)
+                    if op == "⿺" and outer_hosted:
+                        self._descend_enclosure_stem(groups[0], groups[1], region or self.face)
                     inner_fitted = (feasible and region is None and outer_hosted and self.reuse and self.standalone is not None
                                     and isinstance(child, str) and child not in self.exclude and len(groups[1]) == 1
                                     and groups[1][0].part is self.font.glyph(child))
@@ -3841,6 +3893,25 @@ class Composer:
             groups.append([Placed(source, source.box, box, native=self.ink(drawn.char), origin=f"learned {drawn.char}")])
             if i == 0:
                 outer_hosted = True
+                if op == "⿺" and len(drawn.pieces) == 2 and k == 0:
+                    outer_bay = mapped(drawn.pieces[1].box, source.box, box)
+            if op == "⿺" and i == 1 and outer_hosted:
+                bay = self._enclosed_room(op, children[0], groups[0]) or outer_bay
+                if bay is not None and self._stretch(source.box, bay) <= STRETCH:
+                    frame_box = region or self.face
+                    cur_col = _collision(groups[0], groups[1], frame_box)
+                    floats_high = box[1] - bay[1] > 0.09 * max(bay[3] - bay[1], 1.0)
+                    if cur_col > 0.005 or floats_high:
+                        cand = [Placed(source, source.box, bay, native=self.ink(drawn.char), origin=f"learned {drawn.char}")]
+                        if _collision(groups[0], cand, frame_box) > 0.005:
+                            _fit_inside(groups[0], cand, frame_box, self.font.stem[0][0], room=bay)
+                        cand_col256 = _collision(groups[0], cand, frame_box, size=256)
+                        cur_col256 = _collision(groups[0], groups[1], frame_box, size=256)
+                        if (cur_col > 0.005 and cand_col256 < cur_col256) or (floats_high and cand_col256 <= 0.005):
+                            groups[1] = cand
+                            box = cand[0].target
+                self._descend_enclosure_stem(groups[0], groups[1], region or self.face)
+                box = groups[1][0].target
             if (op == "⿸" and isinstance(children[0], tuple) and i == 1
                     and _collision(groups[0], groups[1], region or self.face, size=256) > COLLIDE):
                 _fit_inside(groups[0], groups[1], region or self.face, self.font.stem[0][0],
@@ -3861,6 +3932,56 @@ class Composer:
                 and _collision(groups[0], groups[1], self.face, size=256) <= COLLIDE):
             return _FittedEnclosure(placed)
         return placed
+
+    def _descend_enclosure_stem(self, outer: list[Placed], inner: list[Placed], region: Box) -> None:
+        """Let a narrow descending bottom stem (e.g. 十 in 率/畢/奉/卓/軍) under a ⿺ sweep descend
+        to normal stem clearance above the sweep directly beneath it, without moving wide-bottom
+        inner parts that must stay higher to clear the rising left curve."""
+        if len(inner) != 1:
+            return
+        size = 128
+        X0, Y0, X1, Y1 = region
+        w, h = X1 - X0, Y1 - Y0
+        if w <= 0 or h <= 0:
+            return
+        a = fill([r for p in outer for r in _rings(p.part.contours, p.contours())], size, region)
+        b = fill([r for p in inner for r in _rings(p.part.contours, p.contours())], size, region)
+        b_rows, b_cols = np.nonzero(b)
+        if not len(b_rows):
+            return
+        b_rmin, b_rmax = int(b_rows.min()), int(b_rows.max())
+        b_cmin, b_cmax = int(b_cols.min()), int(b_cols.max())
+        cut_row = int(b_rmax - 0.12 * (b_rmax - b_rmin))
+        low_cols = b_cols[b_rows >= cut_row]
+        if not len(low_cols):
+            return
+        low_w = (int(low_cols.max()) - int(low_cols.min()) + 1) / max(b_cmax - b_cmin + 1, 1)
+        if low_w >= 0.25:
+            return
+        tip_row = int(b_rmax - 0.03 * (b_rmax - b_rmin))
+        tip_cols = b_cols[b_rows >= tip_row]
+        stem_x = X0 + (float(np.median(tip_cols)) + 0.5) / size * w
+        in_y0 = Y1 - (b_rmax + 0.5) / size * h
+        col_lo = max(0, int((stem_x - 15.0 - X0) / w * size))
+        col_hi = min(size - 1, int((stem_x + 15.0 - X0) / w * size))
+        br, _ = np.nonzero(a[b_rmax:, col_lo:col_hi + 1])
+        if not len(br):
+            return
+        sweep_y = Y1 - (b_rmax + int(br.min()) + 0.5) / size * h
+        v_gap = in_y0 - sweep_y
+        want_gap = max(32.0, 0.52 * self.font.stem[0][0])
+        drop = v_gap - want_gap
+        if drop <= 10.0:
+            return
+        p = inner[0]
+        for frac in (1.0, 0.85, 0.7, 0.55, 0.4):
+            t = (p.target[0], p.target[1] - drop * frac, p.target[2], p.target[3])
+            if self._stretch(p.source, t) > STRETCH:
+                continue
+            cand = replace(p, target=t)
+            if _collision(outer, [cand], region, size=256) <= 0.005:
+                inner[0] = cand
+                return
 
     def _transplant(self, op: str, children: list[Node]) -> list[Placed] | None:
         """A whole character's operands each taken unscaled, where a designer put them in the em, from

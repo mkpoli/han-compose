@@ -4232,20 +4232,34 @@ export class Composer {
       const cmp4 = (a, b) => (a[0] - b[0]) || (a[1] - b[1]) || (a[2] - b[2]) || (a[3] - b[3])
       const ordered = scored.slice().sort(cmp4)
       const limit = isPlaced ? 32 : 16
-      const mine = ordered.filter(r => r[4].v === 1).slice(0, limit), foreign = ordered.filter(r => r[4].v !== 1).slice(0, limit)
+      const mineAll = ordered.filter(r => r[4].v === 1), foreignAll = ordered.filter(r => r[4].v !== 1)
       const found = []
-      for (const [notExact, alien, ratio, depth, h] of [...mine, ...foreign].sort(cmp4)) {
+      const scoreCandidate = ([notExact, alien, ratio, depth, h]) => {
         // An entry the composer could not cut takes its place among those weighed, and is passed over.
         const cut = this.cutOf(h)
-        if (!cut) continue
-        if (alien && cut.count !== this.outlines(node)) continue
+        if (!cut) return null
+        if (alien && cut.count !== this.outlines(node)) return null
         const b = cut.box
         const shape = Math.abs(Math.log(((b[2] - b[0]) / Math.max(b[3] - b[1], 1)) / aspect))
         const size = Math.abs(Math.log(Math.max(b[2] - b[0], 1) * Math.max(b[3] - b[1], 1) / Math.max((box[2] - box[0]) * (box[3] - box[1]), 1)))
         let near = 0
         if (isPlaced) near = h.wh && !facing ? [0, 1, 2, 3].reduce((s, k) => s + Math.abs(b[k] - box[k]), 0) / 4 / C.PLACED_UNITS : C.PLACED_NESTED
-        found.push([notExact, ratio + shape + 0.5 * size + 0.1 * depth + near + C.KIN_COST * alien
-          + C.FOREIGN_COST * (h.v !== 1) + C.UNJAPANESE_COST * (h.j !== 1), h])
+        return [notExact, ratio + shape + 0.5 * size + 0.1 * depth + near + C.KIN_COST * alien
+          + C.FOREIGN_COST * (h.v !== 1) + C.UNJAPANESE_COST * (h.j !== 1), h]
+      }
+      for (const row of [...mineAll.slice(0, limit), ...foreignAll.slice(0, limit)].sort(cmp4)) {
+        const entry = scoreCandidate(row)
+        if (entry) found.push(entry)
+      }
+      if (mineAll.length > limit && !found.some(r => r[2].v === 1)) {
+        let extraOwn = 0
+        for (const row of mineAll.slice(limit, limit + 64)) {
+          const entry = scoreCandidate(row)
+          if (entry) {
+            found.push(entry)
+            if (++extraOwn >= 4) break
+          }
+        }
       }
       return found
     }
@@ -4435,6 +4449,7 @@ export class Composer {
     const groups = []
     // Whether the enclosing part is drawn as its kin's.
     let kinned = false
+    let outerBay = null
     for (let i = 0; i < children.length; i++) {
       const child = children[i]
       // A repeated glyph takes one cell per operand, whichever path draws it.
@@ -4551,6 +4566,9 @@ export class Composer {
           const anchor = !kept && opening && (tight || area(opening) > area(box)) ? centre(this.held(opening, op, frameOf)) : centre(inner)
           groups.push(grid ? this.cellLayout(grid, inner, { leafIndices: false }) : this.node(child, inner))
           this.fit(groups[0], groups[1], frameOf, stem, C, { room: inner, anchor })
+          if (op === '⿺' && groups[0].every(p => /^(learned|host|teacher) /.test(p.origin))) {
+            this.descendEnclosureStem(groups[0], groups[1], frameOf, stem)
+          }
         } else {
           const cell = even ? even[i] : box, group = this.node(child, cell)
           groups.push(narrow ? this.fillCell(child, group, cell, this.beside.has(children)) : group)
@@ -4618,6 +4636,36 @@ export class Composer {
       }
       if (op in this.AXIS && stretchOf(source.box, box) > C.STRETCH) return null
       groups.push([{ ...placed(source, source.box, box, this.ink(drawn.h), `learned ${drawn.h}`), ...(this.AXIS[op] === 1 ? { gap: drawn.g } : {}) }])
+      if (i === 0 && op === '⿺' && drawn.k) {
+        const hostGlyph = this.glyph(drawn.h)
+        if (hostGlyph && hostGlyph.contours.length > drawn.k.length) {
+          const keep = new Set(drawn.k)
+          const rest = hostGlyph.contours.filter((_, idx) => !keep.has(idx))
+          if (rest.length) outerBay = mapped(union(rest.map(c => pointsBox(c.light))), source.box, box)
+        }
+      }
+      if (op === '⿺' && i === 1 && groups[0].every(p => /^(learned|host|teacher) /.test(p.origin))) {
+        const share = this.rooms[`${op}\t${keyOf(children[0])}`]
+        const bay = share ? mapped(share, [0, 0, 1, 1], union(groups[0].map(p => p.target))) : outerBay
+        if (bay && stretchOf(source.box, bay) <= C.STRETCH) {
+          const curCol = this.collide(groups[0], groups[1], frameOf, 64)
+          const floatsHigh = box[1] - bay[1] > 0.09 * Math.max(bay[3] - bay[1], 1)
+          if (curCol > 0.005 || floatsHigh) {
+            const cand = [placed(source, source.box, bay, this.ink(drawn.h), `learned ${drawn.h}`)]
+            if (this.collide(groups[0], cand, frameOf, 64) > 0.005) {
+              this.fit(groups[0], cand, frameOf, stem, C, { room: bay, anchor: centre(bay) })
+            }
+            const candCol256 = this.collide(groups[0], cand, frameOf, 256)
+            const curCol256 = this.collide(groups[0], groups[1], frameOf, 256)
+            if ((curCol > 0.005 && candCol256 < curCol256) || (floatsHigh && candCol256 <= 0.005)) {
+              groups[1] = cand
+              box = cand[0].target
+            }
+          }
+        }
+        this.descendEnclosureStem(groups[0], groups[1], frameOf, stem)
+        box = groups[1][0].target
+      }
       if (op === '⿸' && Array.isArray(children[0]) && i === 1 && this.collide(groups[0], groups[1], frameOf, 256) > C.COLLIDE)
         this.fit(groups[0], groups[1], frameOf, stem, C, { size: 256, room: box })
       if (C.CLEARED.includes(op) && i === 1 && this.collide(groups[0], groups[1], frameOf, 64) > C.COLLIDE) {
@@ -5079,6 +5127,77 @@ export class Composer {
     const share = this.rooms[`${op}\t${keyOf(outer)}`]
     if (!share || !drawn?.length || !drawn.every(p => /^(learned|host|teacher) /.test(p.origin))) return null
     return movedInto(box, mapped(share, [0, 0, 1, 1], union(drawn.map(p => p.target))))
+  }
+
+  /** Let a narrow descending bottom stem (such as 十 in 率/畢/奉/卓/軍) under a ⿺ sweep descend
+   *  to normal stem clearance above the sweep directly beneath it, leaving wide-bottom parts high. */
+  descendEnclosureStem(outer, inner, region, stem) {
+    if (this.partial || inner.length !== 1) return
+    const size = 128
+    const [X0, Y0, X1, Y1] = region
+    const w = X1 - X0, h = Y1 - Y0
+    if (w <= 0 || h <= 0) return
+    const a = fill(groupRings(outer), size, region)
+    const b = fill(groupRings(inner), size, region)
+    let rMin = size, rMax = -1, cMin = size, cMax = -1
+    for (let r = 0; r < size; r++) {
+      const off = r * size
+      for (let col = 0; col < size; col++) {
+        if (!b[off + col]) continue
+        if (r < rMin) rMin = r
+        if (r > rMax) rMax = r
+        if (col < cMin) cMin = col
+        if (col > cMax) cMax = col
+      }
+    }
+    if (rMax < 0) return
+    const cutRow = Math.floor(rMax - 0.12 * (rMax - rMin))
+    let lowMin = size, lowMax = -1
+    for (let r = cutRow; r <= rMax; r++) {
+      const off = r * size
+      for (let col = cMin; col <= cMax; col++) {
+        if (!b[off + col]) continue
+        if (col < lowMin) lowMin = col
+        if (col > lowMax) lowMax = col
+      }
+    }
+    if (lowMax < 0) return
+    const lowW = (lowMax - lowMin + 1) / Math.max(cMax - cMin + 1, 1)
+    if (lowW >= 0.25) return
+    const tipRow = Math.floor(rMax - 0.03 * (rMax - rMin))
+    const tipCols = []
+    for (let r = tipRow; r <= rMax; r++) {
+      const off = r * size
+      for (let col = lowMin; col <= lowMax; col++) if (b[off + col]) tipCols.push(col)
+    }
+    if (!tipCols.length) return
+    tipCols.sort((x, y) => x - y)
+    const medCol = tipCols[Math.floor(tipCols.length / 2)]
+    const stemX = X0 + (medCol + 0.5) / size * w
+    const inY0 = Y1 - (rMax + 0.5) / size * h
+    const colLo = Math.max(0, Math.floor((stemX - 15 - X0) / w * size))
+    const colHi = Math.min(size - 1, Math.floor((stemX + 15 - X0) / w * size))
+    let sweepRow = -1
+    for (let r = rMax; r < size && sweepRow < 0; r++) {
+      const off = r * size
+      for (let col = colLo; col <= colHi; col++) {
+        if (a[off + col]) { sweepRow = r; break }
+      }
+    }
+    if (sweepRow < 0) return
+    const sweepY = Y1 - (sweepRow + 0.5) / size * h
+    const drop = (inY0 - sweepY) - Math.max(32, 0.52 * stem)
+    if (drop <= 10) return
+    const p = inner[0]
+    for (const frac of [1.0, 0.85, 0.7, 0.55, 0.4]) {
+      const t = [p.target[0], p.target[1] - drop * frac, p.target[2], p.target[3]]
+      if (stretchOf(p.source, t) > this.C.STRETCH) continue
+      const cand = { ...p, target: t }
+      if (this.collide(outer, [cand], region, 256) <= 0.005) {
+        inner[0] = cand
+        return
+      }
+    }
   }
 
   /** A sequence drawn whole somewhere in the font, in any place but the left or the top (`_instance`). */
