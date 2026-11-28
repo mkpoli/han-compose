@@ -947,3 +947,46 @@ describe('日進斗金 ⿱⿰日斗⿺辶⿰隹金', () => {
     expect(incomeBoxes('⿰⿱日斗⿱進金', 'regular', region)).toBeNull()
   })
 })
+
+describe('FangSong ⿰𭃂尤', () => {
+  const region = [53, -110, 949.5, 800]
+  const boxGlyph = (box, extra = []) => {
+    const contour = ([x0, y0, x1, y1]) => ({
+      ops: [['M', 1], ['L', 1], ['L', 1], ['L', 1]],
+      light: Float64Array.from([x0, y0, x1, y0, x1, y1, x0, y1]),
+      heavy: Float64Array.from([x0, y0, x1, y0, x1, y1, x0, y1]),
+    })
+    return { contours: [box, ...extra].map(contour), box }
+  }
+  const donor = boxGlyph([58, -59, 556, 729], [[559, -124, 918, 732]])
+  const you = boxGlyph([45, -83, 928, 798])
+  const makeComposer = (fontStyle = 'fangsong', excluded = new Set()) => ({
+    fontStyle,
+    excluded: ch => excluded.has(ch),
+    glyph: ch => (ch === '那' ? donor : ch === '尤' ? you : null),
+    ink: () => 500,
+  })
+
+  it('pairs the knife contour from 那 tightly beside learned 就 and falls back cleanly to glyph 尤', () => {
+    const learnedYou = part('learned 就', [349, -83, 914, 780], [385, -83, 960, 780], [[349, -83, 914, 780]])
+    const out = COMPONENT_FIXES['⿰𭃂尤'].apply([part('glyph 刀', [0, 0, 400, 700], [50, 0, 440, 700], [[0, 0, 400, 700]]), learnedYou], makeComposer(), region)
+    expect(out).toHaveLength(2)
+    expect(out[0].origin).toBe('𭃂 from 那')
+    expect(out[0].part.contours).toHaveLength(1)
+    expect(out[1].origin).toBe('learned 就')
+    // Right-hand learned 就 tucks its sweeping leg leftward into 𭃂's lower pocket.
+    expect(out[1].target[0]).toBeLessThan(out[0].target[2])
+    expect(out[1].target[2]).toBeLessThan(region[2])
+
+    const fallback = COMPONENT_FIXES['⿰𭃂尤'].apply([part('glyph 刀', [0, 0, 400, 700], [50, 0, 440, 700], [[0, 0, 400, 700]]),
+      part('glyph 尤', you.box, [500, -83, 950, 780], [you.box])], makeComposer(), region)
+    expect(fallback).toHaveLength(2)
+    expect(fallback[1].origin).toBe('glyph 尤')
+    expect(fallback[1].target[0]).toBeLessThan(fallback[0].target[2])
+
+    // Other faces and excluded donors are left untouched.
+    const untouched = [learnedYou]
+    expect(COMPONENT_FIXES['⿰𭃂尤'].apply(untouched, makeComposer('sans'), region)).toBe(untouched)
+    expect(COMPONENT_FIXES['⿰𭃂尤'].apply(untouched, makeComposer('fangsong', new Set(['那'])), region)).toBe(untouched)
+  })
+})

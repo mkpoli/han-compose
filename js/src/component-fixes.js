@@ -418,8 +418,17 @@ export const COMPONENT_FIXES = {
       // Contour 0 draws the knife with both crossbars. Contour 1 is the right-hand 阝.
       const knife = derived(donor, [donor.contours[0]])
       const cell = box => mapped(box, [0, 0, 1, 1], region)
-      return [placed(knife, knife.box, cell([-0.0054, 0.0399, 0.4957, 0.9421]), composer.ink('那'), '𭃂 from 那'),
-        placed(you, you.box, cell([0.506, 0.0296, 1.0019, 0.978]), composer.ink('尤'), 'glyph 尤')]
+      const right = parts.at(-1)
+      if (right?.origin === 'learned 就') {
+        return [
+          placed(knife, knife.box, cell([0.020, 0.032, 0.505, 0.948]), composer.ink('那'), '𭃂 from 那'),
+          { ...right, target: cell([0.370, 0.025, 0.980, 0.978]) },
+        ]
+      }
+      return [
+        placed(knife, knife.box, cell([0.015, 0.035, 0.500, 0.945]), composer.ink('那'), '𭃂 from 那'),
+        placed(you, you.box, cell([0.455, 0.025, 0.985, 0.978]), composer.ink('尤'), 'glyph 尤'),
+      ]
     },
   },
   '⿲𠂤日千': {
