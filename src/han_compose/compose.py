@@ -2307,11 +2307,11 @@ class Composer:
                     continue
                 if node[0] == "⿺" and (
                     outer.box[2] < (inner.box[0] + inner.box[2]) / 2
-                    or (inner.box[0] + inner.box[2]) <= (outer.box[0] + outer.box[2])
+                    or (inner.box[0] + inner.box[2]) / 2 < outer.box[0] + 0.4 * (outer.box[2] - outer.box[0])
                 ):
                     # The part round the lower left sweeps under the other, past its middle, and the
-                    # enclosed part sits in the upper-right bay rather than on the left (e.g. 風's
-                    # own 虫 mistaken for 叟 in 颼).
+                    # enclosed part sits in the upper-right bay rather than inside the outer's left
+                    # body (e.g. 風's own 虫 mistaken for 叟 in 颼).
                     continue
                 # The guided cut's enclosing part is measured against the enclosing form it was cut
                 # by: an operand's own glyph (走's short sweep) is far from that form.
@@ -2644,7 +2644,8 @@ class Composer:
 
     def _consensus(self, place: str, operand: str) -> tuple[list[np.ndarray], bool] | None:
         """The shapes of an operand's pieces in a place, cut without this check, and whether they come
-        from them; else its own glyph's alone; None for neither."""
+        from them; else its own glyph's alone (except for `COMBINING_PLACES`, whose enclosing form
+        diverges from the standalone glyph); None for neither."""
         def cut() -> list[tuple[str, np.ndarray]]:
             hosts, _ = self._index
             masks = []
@@ -2664,7 +2665,7 @@ class Composer:
         masks = [mask for _, mask in self._memo(self._typical, (place, operand), cut)]
         if len(masks) >= TYPICAL_FEW:
             return masks, True
-        if place == "⿺0":
+        if place in COMBINING_PLACES:
             # A lower-left enclosing form reshapes its glyph to sweep under the inner part
             # (e.g. ⿺風 in 颺 shifts 虫 left and extends its tail), so comparing against the
             # standalone glyph rejects valid hosts when fewer than `TYPICAL_FEW` cut.
@@ -2924,10 +2925,10 @@ class Composer:
                 if entry is not None:
                     found_all.append(entry)
             # When the top `limit` own hosts all fail to cut (e.g. heavy-sibling ⿺風 hosts),
-            # continue scanning remaining own hosts until we recover valid native cuts.
+            # continue scanning a bounded tail of own hosts until we recover valid native cuts.
             if len(own_all) > limit and not any(self.font.own(f.char) for _, f, _ in found_all):
                 extra_own = 0
-                for row in own_all[limit:]:
+                for row in own_all[limit : limit + 64]:
                     entry = score_candidate(row)
                     if entry is not None:
                         found_all.append(entry)

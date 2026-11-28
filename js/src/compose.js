@@ -4181,20 +4181,34 @@ export class Composer {
       const cmp4 = (a, b) => (a[0] - b[0]) || (a[1] - b[1]) || (a[2] - b[2]) || (a[3] - b[3])
       const ordered = scored.slice().sort(cmp4)
       const limit = isPlaced ? 32 : 16
-      const mine = ordered.filter(r => r[4].v === 1).slice(0, limit), foreign = ordered.filter(r => r[4].v !== 1).slice(0, limit)
+      const mineAll = ordered.filter(r => r[4].v === 1), foreignAll = ordered.filter(r => r[4].v !== 1)
       const found = []
-      for (const [notExact, alien, ratio, depth, h] of [...mine, ...foreign].sort(cmp4)) {
+      const scoreCandidate = ([notExact, alien, ratio, depth, h]) => {
         // An entry the composer could not cut takes its place among those weighed, and is passed over.
         const cut = this.cutOf(h)
-        if (!cut) continue
-        if (alien && cut.count !== this.outlines(node)) continue
+        if (!cut) return null
+        if (alien && cut.count !== this.outlines(node)) return null
         const b = cut.box
         const shape = Math.abs(Math.log(((b[2] - b[0]) / Math.max(b[3] - b[1], 1)) / aspect))
         const size = Math.abs(Math.log(Math.max(b[2] - b[0], 1) * Math.max(b[3] - b[1], 1) / Math.max((box[2] - box[0]) * (box[3] - box[1]), 1)))
         let near = 0
         if (isPlaced) near = h.wh && !facing ? [0, 1, 2, 3].reduce((s, k) => s + Math.abs(b[k] - box[k]), 0) / 4 / C.PLACED_UNITS : C.PLACED_NESTED
-        found.push([notExact, ratio + shape + 0.5 * size + 0.1 * depth + near + C.KIN_COST * alien
-          + C.FOREIGN_COST * (h.v !== 1) + C.UNJAPANESE_COST * (h.j !== 1), h])
+        return [notExact, ratio + shape + 0.5 * size + 0.1 * depth + near + C.KIN_COST * alien
+          + C.FOREIGN_COST * (h.v !== 1) + C.UNJAPANESE_COST * (h.j !== 1), h]
+      }
+      for (const row of [...mineAll.slice(0, limit), ...foreignAll.slice(0, limit)].sort(cmp4)) {
+        const entry = scoreCandidate(row)
+        if (entry) found.push(entry)
+      }
+      if (mineAll.length > limit && !found.some(r => r[2].v === 1)) {
+        let extraOwn = 0
+        for (const row of mineAll.slice(limit, limit + 64)) {
+          const entry = scoreCandidate(row)
+          if (entry) {
+            found.push(entry)
+            if (++extraOwn >= 4) break
+          }
+        }
       }
       return found
     }
