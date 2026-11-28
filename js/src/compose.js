@@ -50,6 +50,7 @@ import { hangulLetters } from './hangul-ids.js'
 import { toConjoiningJamo } from './hangul.js'
 import { tileHost } from './fangsong-tile.js'
 import { brushSweepRoom, brushSweepParts } from './brush-sweep-rooms.js'
+import { isShrineJade, shrineJadeSources, shrineJadeParts } from './shrine-jade.js'
 import { componentFix, enclosedZeroTarget, INCOME_IDS, incomeBoxes } from './component-fixes.js'
 import { isOutbound, markFace, markParts } from './marks.js'
 import { SI_CHAIN, siChainForm, siBendDonor } from './si-chain.js'
@@ -79,17 +80,6 @@ import wheatFaceCuts from '../data/wheat-face-cuts.json' with { type: 'json' }
 import alternateNe from './genzui-alternate-ne.json' with { type: 'json' }
 import pyramidCatalog from './pyramid-glyphs.json' with { type: 'json' }
 import { createRenderNormalizer } from './normalization.js'
-
-const isShrineJade = node => node[0] === '⿱' && node[1] === '艹' && node[2]?.[0] === '⿺' && node[2][1] === '夌' && node[2][2] === '玉' && !node.note && !node[2].note
-// Pinned 菱 outlines per face; in fangsong, regular (TW-Kai), and pen-writing
-// (Kureedo), 夂 merges its final sweep into one contour.
-const shrineLingCuts = {
-  sans: { digest: '43439cecaec205e6cff69f7b1a448b5e8e14a10cbcb159a8c73331ed10253e99', grass: [0, 3, 4], sweep: 7 },
-  serif: { digest: '5f2a0f14140808d1139b74cca6efe70b6a24f3372efe72f97a31b40419228ff0', grass: [8], sweep: 2 },
-  fangsong: { digest: 'ffa4c57a60cd3e2b446539cfc7e5f6241f4a8555b76c93803b8600f8efbf9dd3', grass: [3], sweep: 4 },
-  regular: { digest: '943627947ecafb8f5fad026ef1040565ee8e943d08072f11e6465e2bde0ea173', grass: [0], sweep: 2 },
-  'pen-writing': { digest: 'b209240f1a7606d8d99c5704c5dcf0731813587cf51aa5de843eb248a8f6c9e2', grass: [3, 4], sweep: 1 },
-}
 
 // Positions in each source font’s em. Match the outline of む before using its opening.
 const muKoForms = {
@@ -898,10 +888,7 @@ export const designedSources = (tree, style = 'sans') => {
     }
     if (!Array.isArray(node)) return
     const [op, ...children] = node
-    if (isShrineJade(node)) {
-      out.add('菱')
-      out.add('玉')
-    }
+    if (isShrineJade(node)) shrineJadeSources(style).forEach(ch => out.add(ch))
     if (brushSweepRoom(node, style)) {
       children.forEach(ch => out.add(ch))
       if (style === 'fangsong') out.add(node[1] === '瓦' ? tileHost(node[2]) : '尅')
@@ -1854,7 +1841,7 @@ export class Composer {
         (node[0] === '⿲' && node[1] === '㇇' && node[2] === '丨' && node[3] === '𰛅')) && !node.note
         ? componentParts(keyOf(node), cell, this.fontStyle, depth === 0, this.exclude) : null
       const recorded = keyOf(node) === booklet ? bookletParts(this, cell) : null
-      const parts = water ?? recorded ?? this.shrineJadeParts(node, cell) ?? this.doubleTurnParts(node, cell) ?? brushSweepParts(this, node, cell, depth > 0) ?? this.thornRowParts(node, cell) ?? yiCrossParts(this, node, cell) ?? ghostParts(this, node, cell) ?? this.qiParts(node, cell)
+      const parts = water ?? recorded ?? shrineJadeParts(this, node, cell) ?? this.doubleTurnParts(node, cell) ?? brushSweepParts(this, node, cell, depth > 0) ?? this.thornRowParts(node, cell) ?? yiCrossParts(this, node, cell) ?? ghostParts(this, node, cell) ?? this.qiParts(node, cell)
       if (parts) {
         for (const part of parts) {
           if (leafIndices) part.leaf = leaf++
@@ -2046,7 +2033,7 @@ export class Composer {
         return
       }
       const repeated = isGroupedForm(keyOf(node), this.fontStyle) ? componentParts(keyOf(node), region, this.fontStyle, atRoot, this.exclude) : null
-      const designed = repeated ?? rccParts(editable, keyOf(node), region) ?? birdOutlineParts(this, keyOf(node), region) ?? this.shrineJadeParts(node, region) ?? this.doubleTurnParts(node, region) ?? brushSweepParts(this, node, region, !atRoot) ?? this.thornRowParts(node, region) ?? yiCrossParts(this, node, region) ?? this.qiParts(node, region) ?? ghostParts(this, node, region) ?? this.muKoParts(node, region) ?? this.wheatFaceParts(node, region)
+      const designed = repeated ?? rccParts(editable, keyOf(node), region) ?? birdOutlineParts(this, keyOf(node), region) ?? shrineJadeParts(this, node, region) ?? this.doubleTurnParts(node, region) ?? brushSweepParts(this, node, region, !atRoot) ?? this.thornRowParts(node, region) ?? yiCrossParts(this, node, region) ?? this.qiParts(node, region) ?? ghostParts(this, node, region) ?? this.muKoParts(node, region) ?? this.wheatFaceParts(node, region)
       if (designed) {
         const boxes = designed[0]?.rccGroup && rccLeafBoxes(designed, leafTexts(node).length)
         for (const box of boxes || designed.map(part => part.target)) out.push({ index: out.length, box, empty: false })
@@ -2565,45 +2552,6 @@ export class Composer {
     return parts.length ? parts : null
   }
 
-  /** R+07AB, Mika-jinja (Misato, Saitama) hanging plaque (photo by Taisuke.Kasuya, CC BY-SA 4.0).
-   *  Sets 玉 beside narrowed 夌 from 菱, keeping the native downward 捺 sweep beneath both. */
-  shrineJadeParts(node, region) {
-    if (!isShrineJade(node) || ['艹', '夌', '玉', '菱'].some(c => this.excluded(c))) return null
-    const cut = shrineLingCuts[this.fontStyle]
-    const record = this.glyphRecord('菱'), jade = this.glyph('玉')
-    if (!cut || !record || !jade || hexOf(JSON.stringify(record.p)) !== cut.digest) return null
-    const donor = partOf(record), [l, b, r, t] = donor.box, w = r - l, h = t - b
-    const bodyWidth = this.fontStyle === 'sans' || this.fontStyle === 'serif' ? 0.57 : 0.61
-    const cap = derived(donor, cut.grass.map(i => donor.contours[i]))
-    const body = derived(donor, donor.contours.flatMap((c, i) => {
-      if (cut.grass.includes(i)) return []
-      const narrow = points => points.map((v, k) => {
-        if (k % 2) return v
-        const x = (v - l) / w, y = (points[k + 1] - b) / h
-        // Extend the final sweep horizontally beneath 玉 while preserving its native vertical trajectory.
-        const tip = i === cut.sweep ? Math.max(0, (x - 0.46) / 0.54) * Math.max(0, Math.min(1, (0.34 - y) / 0.20)) : 0
-        return l + w * (bodyWidth * x + (1 - bodyWidth) * tip)
-      })
-      // Weight balancing uses the stem of the narrowed body, before the
-      // terminal flares out under 玉.
-      const width = c.width && [bodyWidth * c.width[0], c.width[1]]
-      return [{ ...c, width, light: narrow(c.light), heavy: narrow(c.heavy) }]
-    }))
-    const face = fitted(donor.box, region, this.C.STRETCH)
-    const capBox = mapped(cap.box, donor.box, face)
-    const capWidth = capBox[2] - capBox[0]
-    capBox[0] += capWidth * 0.13
-    capBox[2] -= capWidth * 0.055
-    if (this.fontStyle === 'regular' || this.fontStyle === 'serif') capBox[1] += 0.036 * (face[3] - face[1])
-    // 玉 reaches toward the middle of 夌 as in 𭐨 (⿺夌主). Sans has a wider right branch on 夌.
-    const jadeBox = this.fontStyle === 'sans' ? [0.55, 0.165, 0.985, 0.725] : [0.535, 0.17, 0.99, this.fontStyle === 'fangsong' ? 0.715 : 0.73]
-    return [
-      placed(cap, cap.box, capBox, this.ink('菱'), 'grass from 菱'),
-      placed(body, body.box, mapped(body.box, donor.box, face), this.ink('菱'), 'enclosing 夌 from 菱'),
-      placed(jade, tightBox(jade), mapped(jadeBox, [0, 0, 1, 1], face), this.ink('玉'), 'glyph 玉'),
-    ]
-  }
-
   /** R+06D8, 出土文獻與古文字教程 p. 15. The two sides of 棘 flank a shorter 企. */
   thornRowParts(node, region) {
     if (!isThornRow(node) || ['棘', '企', '朿'].some(ch => this.excluded(ch))) return null
@@ -2709,7 +2657,7 @@ export class Composer {
   }
 
   drawNode(node, region, atRoot = false, sideBySide = false, regroup = true) {
-    const shrine = this.shrineJadeParts(node, region)
+    const shrine = shrineJadeParts(this, node, region)
     if (shrine) return shrine
     const sweep = brushSweepParts(this, node, region, !atRoot)
     if (sweep) return sweep
