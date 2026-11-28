@@ -12,7 +12,7 @@ const smooth = (t) => t * t * (3 - 2 * t)
 // A closed seven-lobed curve inside the pad, entered from and left to the first face.
 function wander(styles, t) {
   const turn = 2 * Math.PI
-  const reach = radius * Math.cos(Math.PI / 5)
+  const reach = radius * Math.cos(Math.PI / styles.length)
   const free = smooth(Math.min(1, Math.min(t, 1 - t) / 0.12))
   const a = turn * 3 * t - Math.PI / 2,
     b = -turn * 4 * t - Math.PI / 2
@@ -44,15 +44,20 @@ export function tour(styles, seconds) {
     build()
     phases.push({ name, start, end: frames.length })
   }
+  const n = styles.length
   pause()
   phase('neighbours', () => {
-    for (let i = 0; i < 5; i++) leg(i, (i + 1) % 5)
+    for (let i = 0; i < n; i++) leg(i, (i + 1) % n)
   })
   phase('distant', () => {
-    for (let i = 0; i < 5; i++) leg((i * 2) % 5, (i * 2 + 2) % 5)
+    // Visit every face across non-adjacent chords and close on the first face.
+    const order = n % 2
+      ? Array.from({ length: n }, (_, i) => (i * 2) % n)
+      : [...Array.from({ length: n / 2 }, (_, i) => i * 2), 1, ...Array.from({ length: n / 2 - 1 }, (_, i) => n - 1 - i * 2)]
+    for (let i = 0; i < n; i++) leg(order[i], order[(i + 1) % n])
   })
   phase('free', () => {
-    const steps = Math.round(5 * seconds * fps)
+    const steps = Math.round(n * seconds * fps)
     for (let i = 1; i < steps; i++) frames.push(wander(styles, i / steps))
     frames.push({ [styles[0]]: 1 })
   })
