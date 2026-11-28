@@ -3,8 +3,9 @@ import { mapped } from './geometry.js'
 
 // Brush-face operand bounds, in a 1000-unit em with an 880-unit ascent.
 // 亽 has a short, centered dot below its open roof (TW-Kai U+4EBD).
-/** @typedef {{char: string, digest: string, indices: number[], box: number[]}} DonorCut */
-/** @type {Record<string, Record<string, { encoded: string, donors?: Record<string, DonorCut>, cells: [string, number[], [number, number]?][] }>>} */
+/** @typedef {{char: string, digest: string, indices: number[], box?: number[]}} DonorPiece */
+/** @typedef {{char: string, digest: string, indices: number[], box: number[]} | {parts: DonorPiece[], box?: number[]}} DonorCut */
+/** @type {Record<string, Record<string, { encoded: string, donors?: Record<string, DonorCut>, cells: [string, number[], [number, number]?, string?][] }>>} */
 const layouts = {
   "pen-writing": {
     '⿳宀𭕄木': {
@@ -30,15 +31,50 @@ const layouts = {
       cells: [['宀', [66, 597, 941, 853]], ['𭕄', [206, 418, 798, 581]], ['木', [62, -81, 943, 380]]],
     },
     '⿰设正': { encoded: '', cells: [['设', [90, -7, 574, 751]], ['正', [511, 55, 909, 696], [0.5, 0.14]]] },
+    '⿰示示': { encoded: '', cells: [['示', [-0.0, -120.1, 482.3, 879.9]], ['示', [519.0, -120.1, 1000.2, 879.9]]] },
   },
   serif: {
     '⿰设正': { encoded: '', cells: [['设', [5, -102, 523, 868], [0.65, -0.05]], ['正', [553, -72, 989, 831], [0.81, 0]]] },
+    '⿱亠公': { encoded: '', cells: [['亠', [46.6, 604.6, 943.3, 884.0]], ['公', [6.9, -125.6, 997.1, 555.0]]] },
   },
   sans: {
     '⿰设正': { encoded: '', cells: [['设', [9, -87, 518, 856], [0.71, -0.09]], ['正', [551, -68, 984, 816], [0.88, -0.12]]] },
   },
   fangsong: {
-    '⿲水水水': { encoded: '㴇', cells: [['水', [-0.0, -104.0, 326.6, 870.8]], ['水', [342.8, -94.5, 657.6, 873.5]], ['水', [667.3, -120.3, 1005.8, 880.3]]] },
+    '⿲水水水': {
+      encoded: '㴇',
+      donors: {
+        '水:L': {
+          parts: [
+            { char: '水', digest: '7e2cec0cc9ccd5a99e9a737ac01dd7d53c0bb4e7bc3f1c788993d9be90a3d123', indices: [1], box: [70, 20, 456, 515] },
+            { char: '氺', digest: '379a300f1ea750985f9e1db833bcfb2e5f398a441523dfc6ff84cde3422f2008', indices: [0], box: [313, -109, 559, 812] },
+            { char: '氺', digest: '379a300f1ea750985f9e1db833bcfb2e5f398a441523dfc6ff84cde3422f2008', indices: [4], box: [492, 355, 760, 625] },
+            { char: '氺', digest: '379a300f1ea750985f9e1db833bcfb2e5f398a441523dfc6ff84cde3422f2008', indices: [3], box: [498, 125, 775, 365] },
+          ],
+        },
+      },
+      cells: [
+        ['水', [22, -96, 314, 816], [0.75, 0], '水:L'],
+        ['水', [332, -96, 624, 816], [0.75, 0], '水:L'],
+        ['水', [634, -104, 982, 822], [0.75, 0]],
+      ],
+    },
+    '⿰弓哥': {
+      encoded: '彁',
+      donors: {
+        弓: { char: '彊', digest: 'b5f3cd82a959ead7171c84e3f950d396ae75085e9c8d03613218d6de97250519', indices: [0], box: [30.8, -100.5, 374.6, 788.2] },
+        哥: { char: '哥', digest: 'ef641e8bd416832fa2ff1fdc650590061f7e4f5a915b99dcb17683215bfbc9bf', indices: [0, 1, 2, 3, 4], box: [367.9, -120.8, 1008.9, 837.3] },
+      },
+      cells: [['弓', [30.8, -100.5, 374.6, 788.2]], ['哥', [367.9, -120.8, 1008.9, 837.3]]],
+    },
+    '⿱海土': {
+      encoded: '塰',
+      donors: {
+        海: { char: '海', digest: 'ab39a72c94070597eb376f28dc2174ea7a6f187dce93c0f5265352a2a197f9f8', indices: [0, 1, 2, 3, 4, 5, 6, 7, 8], box: [13.7, 282.1, 997.8, 893.5] },
+        土: { char: '埜', digest: '44248dce9316f269e1ad29c558c75a364454e90478eeba55b5ba26ab9baaf91a', indices: [0], box: [36.4, -89.4, 988.7, 268.1] },
+      },
+      cells: [['海', [13.7, 282.1, 997.8, 893.5]], ['土', [36.4, -89.4, 988.7, 268.1]]],
+    },
     '⿱沙邑': { encoded: '䣉', cells: [['沙', [155, 400, 855, 834]], ['邑', [251, -56, 902, 368]]] },
     '⿳宀𭕄木': {
       encoded: '𫳍',
@@ -62,6 +98,7 @@ const layouts = {
     },
     '⿰设正': { encoded: '', cells: [['设', [82, -7, 566, 751]], ['正', [519, 55, 917, 696], [0.30, 0.10]]] },
     '⿱𠆢丶': { encoded: '亽', cells: [['人', [62, 265, 964, 793]], ['丶', [397, 135, 551, 298]]] },
+    '⿰示示': { encoded: '', cells: [['示', [-21.3, -109.0, 473.9, 851.6]], ['示', [511.6, -109.0, 1005.8, 851.6]]] },
   },
 }
 
@@ -71,7 +108,7 @@ export function referenceLayout(node, style) {
   return layouts[style][node.join('')] ?? null
 }
 
-/** @param {[string, number[], [number, number]?][]} cells @param {number[]} region */
+/** @param {[string, number[], [number, number]?, string?][]} cells @param {number[]} region */
 export function referenceBoxes(cells, region) {
   return cells.map(([, box]) => mapped(box, [0, -120, 1000, 880], region))
 }

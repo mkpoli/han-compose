@@ -5,6 +5,7 @@ import { addCutForms, componentDrawing, isComponentForm } from '../src/component
 import { hasCustomComponent } from '../src/custom-forms.js'
 import { compose, createSource } from '../src/loader.js'
 import { sourceFor, traitsOf } from '../src/source.js'
+import componentDonors from './fixtures/chain-component-donors.json' with { type: 'json' }
 import sansChains from './fixtures/sans-chain-turns.json' with { type: 'json' }
 import { files, records, shards } from './fixtures/small-export.js'
 
@@ -96,4 +97,17 @@ it('prefers the selected face’s 之 over a cached Plangothic cut on the public
   const native = await compose(sourceFor(key, { ...options, exported }), key)
   expect(native.origins).toEqual(['chain #(㇇乀), cut from 之'])
   expect(native.d).not.toBe(fallback.d)
+})
+
+it('prefers the native flat turn of 乐 inside a printed row or enclosure', async () => {
+  const turn = '#(丿𠃊)', origin = 'chain #(丿𠃊), cut from 乐'
+  const fixture = { ...files, ...shards('g', Object.entries({ ...records, 乐: { G: componentDonors.sans.乐 } })) }
+  const exported = createSource(async name => fixture[name] === undefined ? null : new Uint8Array(Buffer.from(fixture[name])).buffer)
+  for (const ids of ['⿰' + turn + '木', '⿸' + turn + '木']) {
+    const source = sourceFor(ids, { fontStyle: 'sans', read: async () => data, exported })
+    const drawn = await compose(source, ids)
+    expect(drawn.origins).toContain(origin)
+    const fallback = await compose(source, ids, { exclude: ['乐'] })
+    expect(fallback.origins).toContain('Noto Sans CJK JP: #(丿𠃊), cut from 卬')
+  }
 })
