@@ -11,6 +11,15 @@ const specimens = {
       [['瓜', [118, -72, 889, 361]]],
     ],
   },
+  // 園
+  '⿴囗⿱エン': {
+    styles: ['regular'],
+    cells: [
+      [['囗', [0, -120, 1000, 880]]],
+      [['エ', [200, 425, 800, 695]]],
+      [['ン', [210, 65, 790, 365]]],
+    ],
+  },
 }
 const roots = new Set(Object.keys(specimens).map(key => [...key][0]))
 export const containsSpecimen = (key, style) => Object.entries(specimens).some(([seq, plan]) => plan.styles.includes(style) && key.includes(seq))
