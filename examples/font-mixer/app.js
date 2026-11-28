@@ -7,11 +7,13 @@ const get = (id) => document.getElementById(id)
 const names = {
   sans: 'Sans',
   serif: 'Serif',
+  woodblock: 'Woodblock',
   fangsong: 'Fangsong',
   regular: 'Regular Kai',
   'pen-writing': 'Wen Kai'
 }
-const shares = Object.fromEntries(FONT_STYLES.map((style) => [style, 20]))
+const initialShare = 100 / FONT_STYLES.length
+const shares = Object.fromEntries(FONT_STYLES.map((style) => [style, initialShare]))
 const controls = new Map()
 for (const style of FONT_STYLES) {
   const label = document.createElement('label'),
@@ -24,7 +26,7 @@ for (const style of FONT_STYLES) {
     min: '0',
     max: '100',
     step: '0.1',
-    value: '20'
+    value: String(initialShare)
   })
   label.htmlFor = style
   label.textContent = names[style]
