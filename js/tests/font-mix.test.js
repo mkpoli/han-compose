@@ -34,16 +34,16 @@ it('reproduces each pole exactly without consulting other exports', async () => 
   }
 })
 
-it('moves five distinct outlines and adjusts ink while retaining the counter', () => {
+it('moves distinct outlines and adjusts ink while retaining the counter', () => {
   const drawings = FONT_STYLES.map((style, i) => {
-    const l = 80 + 24 * i,
-      r = 920 - 24 * i
-    return { d: `M${l} 100L${r} 100L${r} 900L${l} 900ZM300 300L300 700L700 700L700 300Z`, kanjivg: i === 4 }
+    const l = 80 + 20 * i,
+      r = 920 - 20 * i
+    return { d: `M${l} 100L${r} 100L${r} 900L${l} 900ZM300 300L300 700L700 700L700 300Z`, kanjivg: i === FONT_STYLES.length - 1 }
   })
   const masks = [0.65, 1, 1.5].map((weight) => {
     const mix = mixDrawings(
       drawings,
-      drawings.map(() => 0.2),
+      drawings.map(() => 1 / drawings.length),
       weight
     )
     expect(mix.kanjivg).toBe(true)
@@ -53,8 +53,9 @@ it('moves five distinct outlines and adjusts ink while retaining the counter', (
   })
   expect(masks[0]).toBeLessThan(masks[1])
   expect(masks[1]).toBeLessThan(masks[2])
-  for (let i = 0; i < 5; i++) {
-    const shares = drawings.map((_, j) => (i === j ? 0.6 : 0.1))
+  for (let i = 0; i < drawings.length; i++) {
+    const rest = 0.4 / (drawings.length - 1)
+    const shares = drawings.map((_, j) => (i === j ? 0.6 : rest))
     expect(mixDrawings(drawings, shares, 1).d).not.toBe(drawings[i].d)
   }
 })
@@ -99,20 +100,23 @@ it('keeps ready-to-edit operands across different donor cuts', () => {
   expect(mixed.parts.map((p) => p.leaf)).toEqual([0, 1])
 })
 
-it('moves the median ink position toward each of the five poles', () => {
+it('moves the median ink position toward each pole', () => {
+  const step = Math.floor(720 / FONT_STYLES.length)
   const draws = FONT_STYLES.map((_, i) => ({
-    d: `M${50 + i * 140} 100L${210 + i * 140} 100L${210 + i * 140} 900L${50 + i * 140} 900Z`
+    d: `M${50 + i * step} 100L${210 + i * step} 100L${210 + i * step} 900L${50 + i * step} 900Z`
   }))
   const centre = (d) => {
     const mask = pathMask(d, 100)
     return mask.reduce((sum, p, i) => sum + p * (i % 100), 0) / count(mask)
   }
-  const neutral = centre(mixDrawings(draws, [0.2, 0.2, 0.2, 0.2, 0.2], 1).d)
+  const equal = draws.map(() => 1 / draws.length)
+  const neutral = centre(mixDrawings(draws, equal, 1).d)
+  const rest = 0.5 / draws.length
   draws.forEach((pole, i) => {
     const biased = centre(
       mixDrawings(
         draws,
-        draws.map((_, j) => (i === j ? 0.6 : 0.1)),
+        draws.map((_, j) => (i === j ? 0.5 + rest : rest)),
         1
       ).d
     )
