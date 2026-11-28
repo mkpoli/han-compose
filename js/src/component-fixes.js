@@ -4,8 +4,9 @@
 // description it corrects, the SHA-256 outlines of the glyphs it was read against, and the parts it
 // changes; an export drawing other outlines keeps the font's cut. The parts are plain placed pieces,
 // so the corrections work wherever the description is drawn, at any depth.
-import { derived, fitted, makePart, mapped, partOf, placed, pointsBox, union } from './geometry.js'
+import { contourSections, cutContours, derived, drawnBox, fill, fitted, groupRings, makePart, mapped, partOf, placed, pointsBox, targetFor, union } from './geometry.js'
 import { hexOf } from './sha256.js'
+import { penGrassKu } from './grass-ku.js'
 
 // Interpolation factors for the hosted 口 outlines when fitted beside 乎.
 const mouthWeights = {
@@ -36,10 +37,25 @@ const boxOf = part => {
   return [Math.min(...boxes.map(b => b[0])), Math.min(...boxes.map(b => b[1])),
     Math.max(...boxes.map(b => b[2])), Math.max(...boxes.map(b => b[3]))]
 }
+/** Fit a replacement to the visible edges of the final placed outline, before parent flips. */
+function fitInk(revised, original) {
+  if (original.fixed || original.cut) return {}
+  const ink = p => union(groupRings([{ ...p, flips: undefined }], 24).map(pointsBox))
+  return { ...revised, target: mapped(revised.target, ink(revised), ink(original)) }
+}
+
 const widthOf = box => box[2] - box[0]
 const heightOf = box => box[3] - box[1]
 const centreX = box => (box[0] + box[2]) / 2
 const centreY = box => (box[1] + box[3]) / 2
+
+/** Close the gap after 忄 without stretching its dots or the neighbouring glyph. */
+function heartColumnSpacing(parts, composer) {
+  if (parts.length !== 2 || !['fangsong', 'regular', 'pen-writing'].includes(composer.fontStyle)) return parts
+  const [heart, body] = parts, frame = union([heart.target, body.target])
+  const move = Math.max(0, (body.target[0] - heart.target[2] - .022 * widthOf(frame)) / 2)
+  return parts.map((part, i) => ({ ...part, target: part.target.map((v, axis) => axis % 2 ? v : v + (i ? -move : move)) }))
+}
 
 /** The part drawn from `origin`, where a description drew it so. */
 const partFrom = (parts, origin) => parts.find(part => part.origin === origin)
@@ -52,20 +68,50 @@ function barsOf(part) {
     .sort((a, b) => a.box[1] - b.box[1])
 }
 
-/** The lowest ink on the vertical line through `xTarget`: under a roof's legs, its bar's underside. */
-function inkBottomAt(part, xTarget) {
-  const [sx, sy] = scaleOf(part), x = part.source[0] + (xTarget - part.target[0]) / sx
-  let low = Infinity
-  for (const contour of part.part.contours) {
-    const light = contour.light, n = light.length / 2
-    for (let i = 0; i < n; i++) {
-      const j = (i + 1) % n, x1 = light[i * 2], y1 = light[i * 2 + 1], x2 = light[j * 2], y2 = light[j * 2 + 1]
-      if (x1 === x2 || (x1 - x) * (x2 - x) > 0) continue
-      const y = y1 + (y2 - y1) * (x - x1) / (x2 - x1)
-      if (y < low) low = y
+/** The median and minimum vertical gap between an upper and a lower group's rings inside `box`. */
+function verticalGap(upper, lower, box, size = 200) {
+  const a = fill(upper, size, box), b = fill(lower, size, box), gaps = []
+  for (let col = 0; col < size; col++) {
+    let lastA = -1, firstB = -1
+    for (let row = 0; row < size; row++) {
+      const i = row * size + col
+      if (a[i]) lastA = row
+      if (b[i] && firstB < 0) firstB = row
     }
+    if (lastA >= 0 && firstB >= 0) gaps.push(firstB - lastA)
   }
-  return low === Infinity ? boxOf(part)[1] : part.target[1] + (low - part.source[1]) * sy
+  if (!gaps.length) return null
+  gaps.sort((x, y) => x - y)
+  const n = gaps.length, mid = n >> 1, scale = (box[3] - box[1]) / size
+  const median = n % 2 ? gaps[mid] : (gaps[mid - 1] + gaps[mid]) / 2
+  return { median: median * scale, min: gaps[0] * scale }
+}
+
+/** Fit 工 into a shallow row by shortening its stem between the two brush strokes. */
+function shortenGong(placedGong, gong, mouthWidth) {
+  const { target } = placedGong
+  const box = gong.box, fullHeight = heightOf(box)
+  const sx = widthOf(target) / widthOf(box)
+  const sy = Math.min(sx, mouthWidth / gong.contours[0].width[1])
+  const height = Math.min(fullHeight, heightOf(target) / sy)
+  if (!(height > 0 && height < fullHeight)) return { ...placedGong, part: gong, source: box, target }
+  // Each crossbar, including its brush tip, occupies the outer 18% of the native outline.
+  const end = Math.min(fullHeight * 0.18, height * 0.45)
+  // The lower bar rises about 1 in 20. Scale its thickness about that incline.
+  const shear = 0.05 * (sx / sy - 1)
+  const cx = centreX(box)
+  const contours = gong.contours.map(contour => {
+    const light = contour.light.slice(), heavy = contour.heavy.slice()
+    for (let i = 1; i < light.length; i += 2) {
+      const alongStem = (light[i] - box[1] - end) / (fullHeight - 2 * end)
+      const shift = (fullHeight - height) * Math.max(0, Math.min(1, alongStem))
+      light[i] += shear * (light[i - 1] - cx) - shift
+      heavy[i] += shear * (heavy[i - 1] - cx) - shift
+    }
+    return { ...contour, light, heavy }
+  })
+  const source = [box[0], box[1], box[2], box[1] + height]
+  return { ...placedGong, part: { ...gong, contours, box: source }, source, target }
 }
 
 /** The lowest edge of a part's wide ink: its lowest bar, under any thin stroke that runs past it. */
@@ -270,14 +316,522 @@ export function dotIn(composer, band) {
   return placed(glyph, glyph.box, target, composer.ink('丶'), 'dot 丶')
 }
 
+// The second inscription in UHK 港生活's photograph of four red fai chun (日進斗金, 2015-02-12,
+// https://hk.ulifestyle.com.hk/topic/detail/200474/). Bounds are in reading order of the five
+// leaves of ⿱⿰日斗⿺辶⿰隹金: 日, 斗, 辶, 隹, 金.
+export const INCOME_IDS = '⿱⿰日斗⿺辶⿰隹金'
+const incomeFaceBounds = {
+  sans: [
+    [0.31, 0.62, 0.58, 0.96],
+    [0.62, 0.59, 0.94, 0.99],
+    [0.01, 0.01, 0.99, 0.57],
+    [0.31, 0.14, 0.59, 0.55],
+    [0.63, 0.14, 0.96, 0.55],
+  ],
+  serif: [
+    [0.30, 0.62, 0.57, 0.96],
+    [0.62, 0.59, 0.94, 0.99],
+    [0.01, 0.01, 0.99, 0.57],
+    [0.31, 0.15, 0.59, 0.55],
+    [0.63, 0.15, 0.96, 0.55],
+  ],
+  fangsong: [
+    [0.32, 0.62, 0.58, 0.95],
+    [0.61, 0.58, 0.94, 0.99],
+    [0.01, 0.01, 0.99, 0.55],
+    [0.345, 0.175, 0.605, 0.545],
+    [0.63, 0.16, 0.96, 0.545],
+  ],
+  regular: [
+    [0.28, 0.63, 0.55, 0.94],
+    [0.58, 0.60, 0.91, 0.99],
+    [0.01, 0.01, 0.99, 0.58],
+    [0.28, 0.20, 0.57, 0.56],
+    [0.60, 0.19, 0.96, 0.56],
+  ],
+  'pen-writing': [
+    [0.30, 0.62, 0.57, 0.95],
+    [0.61, 0.59, 0.93, 0.99],
+    [0.01, 0.01, 0.99, 0.57],
+    [0.31, 0.15, 0.59, 0.55],
+    [0.62, 0.15, 0.95, 0.55],
+  ],
+}
+const inIncome = (box, region) => mapped(box, [0, 0, 1, 1], region)
+
+/**
+ * The five leaf boxes of `⿱⿰日斗⿺辶⿰隹金` mapped into `region` for `style`, with clearance on
+ * any edge that sits strictly inside `face` (when nested beside or below another component).
+ * @param {string} key
+ * @param {string} style
+ * @param {number[]} region
+ * @param {number[] | null} [face]
+ * @returns {number[][] | null}
+ */
+export function incomeBoxes(key, style, region, face = null) {
+  if (key !== INCOME_IDS) return null
+  const table = incomeFaceBounds[style] ?? incomeFaceBounds['pen-writing']
+  let frame = region
+  if (face) {
+    const fw = face[2] - face[0], fh = face[3] - face[1]
+    const rw = region[2] - region[0], rh = region[3] - region[1]
+    const leftInset = region[0] > face[0] + 0.02 * fw ? 0.04 * rw : 0
+    const topInset = region[3] < face[3] - 0.02 * fh ? 0.05 * rh : 0
+    if (leftInset || topInset) frame = [region[0] + leftInset, region[1], region[2], region[3] - topInset]
+  }
+  return table.map(box => inIncome(box, frame))
+}
+
+export function enclosedZeroTarget(zero, opening) {
+  return targetFor(zero, mapped([0.16, 0.14, 0.84, 0.86], [0, 0, 1, 1], opening))
+}
+
+// The standalone 门 in the Pen export has a central vertical in place of the dot.
+// 闭 supplies a dotted three-sided door around the entire height of its inner glyph.
+function penDoor(char) {
+  return {
+    glyphs: { 闭: '6ece69c3cf7b4e294ee0d127ef5624c40142b755ae9d54cbdf681bb3ab5bb776' },
+    apply(parts, composer, region) {
+      if (composer.fontStyle !== 'pen-writing' || ['门', '闭', char].some(ch => composer.excluded(ch))) return parts
+      const host = composer.glyph('闭'), inner = composer.glyph(char)
+      if (!host || !inner) return parts
+      const frame = derived(host, [0, 2, 3].map(i => host.contours[i]))
+      const outer = mapped(frame.box, composer.C.face, region)
+      const room = mapped(char === '斗' ? [229, 36, 773, 597] : [272, 53, 724, 568], composer.C.face, region)
+      return [{ ...placed(frame, frame.box, outer, composer.ink('闭'), '闭 门'), fixed: true },
+        { ...placed(inner, inner.box, fitted(inner.box, room, 1.10), composer.ink(char), `glyph ${char}`), fixed: true }]
+    },
+  }
+}
+
 /**
  * The corrections, by description. `glyphs` ties each to the outlines it was read against.
  * A correction that cannot find the parts it names leaves the drawing as it is.
  */
 export const COMPONENT_FIXES = {
+  '⿰舟邊': {
+    glyphs: {},
+    apply(parts, composer, region) {
+      if (parts.length !== 2 || !['fangsong', 'regular', 'pen-writing'].includes(composer.fontStyle)) return parts
+      const [boat, border] = parts
+      if (composer.fontStyle !== 'regular') {
+        const frame = union(parts.map(part => part.target))
+        const move = Math.max(0, (border.target[0] - boat.target[2] - .018 * widthOf(frame)) / 2)
+        return parts.map((part, i) => ({ ...part, target: part.target.map((v, axis) => axis % 2 ? v : v + (i ? -move : move)) }))
+      }
+      // In Regular, learned 艭 + glyph 邊 sit in a vertically short box (~809 u)
+      // compared to standalone TW-Kai 邊 (908 u) and the other faces (891–923 u).
+      // Expand the root frame to a full two-column cell and give 邊 its full height
+      // and right-column width without compressing 辶.
+      const atRoot = region && composer.face && region.every((v, i) => Math.abs(v - composer.face[i]) < 1)
+      const frame = atRoot
+        ? mapped([-0.059, -0.014, 1.055, 1.026], [0, 0, 1, 1], region)
+        : union(parts.map(part => part.target))
+      return [
+        { ...boat, target: mapped([0, 0.02, 0.35, 0.985], [0, 0, 1, 1], frame) },
+        { ...border, target: mapped([0.355, 0, 1, 1], [0, 0, 1, 1], frame) },
+      ]
+    },
+  },
+  '⿱龹幸': {
+    glyphs: {},
+    apply(parts, composer) {
+      if (parts.length !== 2 || composer.excluded('幸')) return parts
+      const xing = composer.glyph('幸')
+      if (!xing) return parts
+      const [top, bottom] = parts, frame = union([top.target, bottom.target])
+      const upperBox = composer.fontStyle === 'pen-writing'
+        ? mapped([.06, .50, .94, 1], [0, 0, 1, 1], frame)
+        : composer.fontStyle === 'serif'
+          ? mapped([.04, .50, .96, 1], [0, 0, 1, 1], frame)
+          : top.target
+      const upper = { ...top, target: upperBox }
+      const fw = frame[2] - frame[0], fh = frame[3] - frame[1], cx = (frame[0] + frame[2]) / 2
+      const minW = composer.fontStyle === 'pen-writing' ? 0.84 : 0.78
+      const bw = Math.min(fw * 0.90, Math.max(bottom.target[2] - bottom.target[0], fw * minW))
+      const size = 200, mid = size >> 1
+      const mt = fill(groupRings([{ ...upper, flips: [] }], 16), size, frame)
+      // Raise the unstretched 幸 from the baseline until it meets 龹's left and right legs
+      // without driving its central stem across 龹's lower bar.
+      const probe = frac => {
+        const box = [cx - bw / 2, frame[1], cx + bw / 2, frame[1] + frac * fh]
+        const cand = placed(xing, xing.box, box, composer.ink('幸'), 'glyph 幸')
+        const mb = fill(groupRings([cand], 16), size, frame)
+        let left = 0, right = 0, center = 0
+        for (let r = 0; r < size; r++) {
+          for (let c = 0; c < size; c++) {
+            if (!mt[r * size + c] || !mb[r * size + c]) continue
+            if (Math.abs(c - mid) <= 8) center++
+            else if (c < mid) left++
+            else right++
+          }
+        }
+        return { cand, left, right, center }
+      }
+      let best = null
+      for (let step = 520; step <= 780; step += 5) {
+        const res = probe(step / 1000)
+        if (res.center > 0) {
+          if (!best) best = probe((step - 5) / 1000).cand
+          break
+        }
+        if (res.left > 0 && res.right > 0) {
+          best = res.cand
+          break
+        }
+      }
+      return [upper, best ?? probe(0.64).cand]
+    },
+  },
+  [INCOME_IDS]: {
+    glyphs: {},
+    apply(parts, composer, region) {
+      const boxes = incomeBoxes(INCOME_IDS, composer.fontStyle, region, composer.face)
+      if (!boxes) return parts
+      if (parts.length === 5 && parts[0].origin !== 'glyph 𪰍') {
+        return parts.map((part, i) => ({ ...part, target: boxes[i] }))
+      }
+      // Exports that carry encoded 𪰍 collapse ⿰日斗 into one glyph in non-separated mode;
+      // draw 日 and 斗 separately so normal and separated modes match at any nesting depth.
+      if (parts.length === 4 && parts[0].origin === 'glyph 𪰍') {
+        const top = union([boxes[0], boxes[1]])
+        if (typeof composer.drawNode === 'function') {
+          const split = Object.create(composer)
+          split.separate = true
+          const pair = split.drawNode(['⿰', '日', '斗'], top, false)
+          if (pair.length === 2) {
+            return [
+              { ...pair[0], target: boxes[0] },
+              { ...pair[1], target: boxes[1] },
+              ...parts.slice(1).map((part, i) => ({ ...part, target: boxes[i + 2] })),
+            ]
+          }
+        }
+        return [{ ...parts[0], target: top }, ...parts.slice(1).map((part, i) => ({ ...part, target: boxes[i + 2] }))]
+      }
+      return parts
+    },
+  },
+  '⿱投石': {
+    glyphs: {},
+    apply(parts, composer) {
+      const [hand, stone] = parts
+      if (parts.length !== 2) return parts
+      if (composer.fontStyle === 'pen-writing' && hand.origin === 'glyph 投') {
+        // The complete 投 shrinks into a shallow row; bring its strokes up to the weight of 石.
+        return [{ ...hand, weight: [-.65, -.65], fixed: true }, stone]
+      }
+      if (composer.fontStyle !== 'regular') return parts
+      const frame = union([hand.target, stone.target])
+      return [{ ...hand, target: mapped([0.0161, 0.521, 0.9991, 1.002], [0, 0, 1, 1], frame) },
+        // Center the ink of 石 below 投 as in 硩 and 磐. Its 口 pulls the ink right of the box center.
+        { ...stone, target: mapped([0.0, -0.0, 0.8121, 0.481], [0, 0, 1, 1], frame) }]
+    },
+  },
+  '⿰貝並': {
+    glyphs: { 賦: 'adc3e80a626f45b4c611c368dea0e198bdd174b707ae9a4ea65fcf2e900f19bd' },
+    apply(parts, composer) {
+      if (composer.fontStyle !== 'fangsong' || parts.length !== 2) return parts
+      const [shell, aligned] = parts, source = composer.glyph('賦')
+      if (shell.part.contours.length !== 3 ||
+          !shell.part.contours.every((contour, i) => contour === source.contours[i + 1])) return parts
+      // The host cut owns the three separate contours of 貝. Its right foot runs
+      // into the baseline of 武, between commands 25 and 31 of their shared contour.
+      const foot = contourSections(source.contours, [0, 25, 31])
+      const part = { ...shell.part, contours: [...shell.part.contours, foot] }
+      if (part.strokes && source.strokes?.some(([id, cs]) => id === 6 && cs.length === 1 && cs[0] === 0))
+        part.strokes = [...part.strokes, [6, [3]]]
+      return [{ ...shell, part }, aligned]
+    },
+  },
+  '⿰水行': {
+    glyphs: {},
+    apply(parts, composer) {
+      if (parts.length !== 2) return parts
+      const [water, walk] = parts
+      // These hosts spell the left side with 氵. R+02BE writes the full 水.
+      if (!['learned 沼', 'learned 洽', 'transplant 汭', 'host 汳'].includes(water.origin)) return parts
+      if (composer.excluded('水')) return parts
+      let origin = 'glyph 水'
+      let glyph = composer.glyph('水')
+      if (!glyph) return parts
+      // 沀 supplies a full 水 already drawn for a narrow left column.
+      const donors = {
+        regular: ['6dafb97f1950523ebb5d09952864e54470734e98ae59b68aa0907c91e7fe7814', [0, 2]],
+        'pen-writing': ['14aa4b584364ccfb7a67fb5b595cc00009783a6e2911547cc3e4d3fff1cbd4cb', [1, 2]],
+      }
+      const donor = donors[composer.fontStyle]
+      const record = donor && !composer.excluded('沀') && composer.glyphRecord('沀')
+      if (record && hexOf(JSON.stringify(record.p)) === donor[0]) {
+        const host = partOf(record)
+        glyph = derived(host, donor[1].map(i => host.contours[i]))
+        origin = '水 from 沀'
+      }
+      if (!composer.partial) {
+        if (composer.weighted) composer.balance(parts)
+        else if (composer.staticFace) composer.staticBalance(parts)
+      }
+      const inkOf = part => union(groupRings([part], 24).map(pointsBox))
+      const left = inkOf(water), right = inkOf(walk), frame = union([left, right])
+      // The full 水 needs a two-sided column, as in 沀. Keep each part's vertical extent.
+      const width = widthOf(frame)
+      const leftRoom = [frame[0], left[1], frame[0] + .43 * width, left[3]]
+      const rightRoom = [frame[0] + .46 * width, right[1], frame[2], right[3]]
+      const full = placed(glyph, glyph.box, leftRoom, composer.ink(origin === 'glyph 水' ? '水' : '沀'), origin)
+      const neighbour = { ...walk, target: mapped(walk.target, right, rightRoom), fixed: true }
+      if (!composer.partial && composer.staticFace) composer.staticBalance([full, neighbour])
+      return [{ ...full, target: mapped(full.target, inkOf(full), leftRoom), fixed: true }, neighbour]
+    },
+  },
+  '⿸厂𤿁': {
+    glyphs: { '𤿁': ['265b41d9c34f6df9803deb35bcb60c79e090b55b7dac28605f1fa979e15c0435',
+      '04a5aa68d4ac68d4e9f9a3ba91d78abe33e8adc0c8febc265361b35ce190b628'] },
+    apply(parts, composer) {
+      const [shell, inner] = parts, sans = composer.fontStyle === 'sans'
+      if ((!sans && composer.fontStyle !== 'regular') || parts.length !== 2 || inner.origin !== 'glyph 𤿁' ||
+          shell.origin !== (sans ? 'learned 厲' : 'learned 原')) return parts
+      if (!composer.partial) {
+        if (composer.weighted) composer.balance(parts)
+        else if (composer.staticFace) composer.staticBalance(parts)
+      }
+      const [left, bottom, right, top] = union(groupRings([inner], 24).map(pointsBox))
+      const width = sans ? .976 : .94
+      // The six Sans counters close when its horizontal strokes take the full heavy master.
+      const fitted = sans ? { ...inner, weight: [inner.weight[0], Math.min(inner.weight[1], .2)] } : inner
+      const ink = union(groupRings([fitted], 24).map(pointsBox))
+      // The upper 白 grazes the roof, and the lower-left 白 crosses the slope.
+      // Keep the right edge and baseline of the encoded interior in place.
+      const room = [right - width * (right - left), bottom, right, bottom + .97 * (top - bottom)]
+      return [{ ...shell, fixed: true }, { ...fitted, fixed: true, target: mapped(inner.target, ink, room) }]
+    },
+  },
+  '⿵门斗': penDoor('斗'),
+  '⿵门T': penDoor('T'),
+  '⿰𛂦方': {
+    glyphs: {},
+    apply(parts, composer, region) {
+      if (!['fangsong', 'regular'].includes(composer.fontStyle) || parts.length !== 2 ||
+          composer.excluded('𛂦') || composer.excluded('方')) return parts
+      // Encoded 𭤪 gives the kana and 方 adjacent, full-height columns.
+      const kana = composer.glyph('𛂦'), side = composer.glyph('方')
+      if (!kana || !side) return parts
+      const cell = box => mapped(box, [0, 0, 1000, 1000], region)
+      return [placed(kana, kana.box, cell([28, 38, 475, 960]), composer.ink('𛂦'), 'glyph 𛂦'),
+        placed(side, side.box, cell([512, 24, 968, 960]), composer.ink('方'), 'glyph 方')]
+    },
+  },
+  '⿱艹堀': {
+    glyphs: {
+      堀: 'f43243bd31c0029a0b42e359bec3243f319aa4d4d8c8500f62e67fb1f5a69542',
+      '䕋': '41fe0e171f99af334c530521fd232c29532c4f566d3435eb8f064f148ce2f740',
+      '䓛': '24db65003a6ef60f8a9efcece91167f5bb035ea042a02da399a8babbf48e11e8',
+    },
+    apply: penGrassKu,
+  },
+  '⿰身花': {
+    glyphs: {},
+    apply(parts, composer) {
+      const [body, flower, grass] = parts
+      if (composer.fontStyle !== 'regular' || parts.length !== 3 ||
+          body.origin !== 'learned 躭' || flower.origin !== 'glyph 花 kept' || grass.origin !== 'TW-Kai: 艹') return parts
+      const columns = [{ ...body }, { ...flower }]
+      const stems = columns.map(p => p.part.contours[0]?.width)
+      const growth = composer.stem0.map(([light, heavy]) => heavy - light)
+      if (stems.some(stem => !stem || stem.some(w => w <= 0)) || growth.some(step => step <= 0)) return parts
+      if (!composer.partial) {
+        const group = [...columns, { ...grass }], stroke = composer.stroke
+        try {
+          if (composer.weighted) composer.balance(group)
+          else if (composer.staticFace) composer.staticBalance(group)
+        } finally {
+          composer.stroke = stroke
+        }
+      }
+      const scales = columns.map(scaleOf)
+      if (scales.some(scale => scale.some(s => s <= 0))) return parts
+      // The geometric mean gives the two scaled stems reciprocal adjustment factors.
+      const aim = [0, 1].map(axis => Math.sqrt(
+        stems[0][axis] * scales[0][axis] * stems[1][axis] * scales[1][axis]))
+      const ink = p => union(groupRings([p], 24).map(pointsBox))
+      return [...columns.map((p, i) => {
+        const weight = aim.map((width, axis) => {
+          const adjustment = (width / scales[i][axis] - stems[i][axis]) / growth[axis]
+          return Math.max(-0.6, Math.min(1, adjustment))
+        })
+        const revised = { ...p, weight, fixed: true }
+        // Both pieces retain their previous visible bounds, including the brush tips.
+        revised.target = mapped(p.target, ink(revised), ink(p))
+        return revised
+      }), grass]
+    },
+  },
+  '⿰魚遂': {
+    glyphs: {},
+    apply(parts, composer) {
+      if (composer.fontStyle !== 'fangsong' || parts.length !== 2) return parts
+      const [fish, follow] = parts
+      if (fish.origin !== 'learned 鯝' || follow.origin !== 'learned 𬭼') return parts
+      const left = boxOf(fish), right = boxOf(follow)
+      // In 鰱, the back of 魚 and the turns of 辶 interlock along the centre.
+      const gap = right[0] - left[2]
+      if (gap <= 0 || widthOf(left) <= 0 || widthOf(right) <= 0) return parts
+      // The fish's outermost point and the tip of 辶 fall on different rows.
+      // Share the empty strip in proportion to the ink widths, fixing both outer edges.
+      const scale = 1 + gap / (widthOf(left) + widthOf(right))
+      const widen = (part, edge) => ({ ...part, target: part.target.map((v, i) =>
+        i % 2 ? v : edge + (v - edge) * scale) })
+      return [widen(fish, left[0]), widen(follow, right[2])]
+    },
+  },
+  '⿰忄実': {
+    glyphs: {},
+    apply: heartColumnSpacing,
+  },
+  '⿰忄實': {
+    glyphs: {},
+    apply: heartColumnSpacing,
+  },
+  '⿱一丛': {
+    glyphs: { '丛': ['6101a4a331e919f7901aefbd3fb9feaec8802bb6daef6a46bea98fab1d35f811', 'dfc25b96a72d8ac1aa6559b6223e05b939b4899098b70cf468fb889a233a6b1f'] },
+    apply(parts, composer) {
+      const [bar, lower] = parts
+      if (!['sans', 'serif'].includes(composer.fontStyle) || parts.length !== 2 || lower.origin !== 'glyph 丛') return parts
+      // Inset the two people between the bars. The broad bottom contour is 丛’s own 一.
+      const [l, b, r, t] = lower.source
+      const bottomInset = composer.fontStyle === 'serif' ? 0.09 : 0.06
+      const inset = shifted(lower, (_x, y, box) => widthOf(box) > 0.8 * (r - l)
+        ? 0 : bottomInset * (t - b) - 0.14 * (y - b))
+      const source = union(inset.part.contours.map(c => pointsBox(c.light)))
+      inset.part.box = source
+      return [bar, { ...inset, source, target: mapped(source, lower.source, lower.target) }]
+    },
+  },
+  '⿰未⿱成公': {
+    glyphs: { '未': '86de49086c3f6a0d4443132473553216c9228682c8a129c9f76ae916b99cb427' },
+    apply(parts, composer) {
+      if (composer.fontStyle !== 'pen-writing' || composer.excluded('未') || parts.length !== 3 || parts[0].origin !== 'host 㲠') return parts
+      // 㲠 supplies a squat upper-left 未. Its broad bars grow heavy when stretched to a full column.
+      const [wei, cheng, gong] = parts
+      const glyph = composer.glyph('未')
+      // Keep the host cut in the group's weight calculation so 成 and 公 retain their original ink.
+      const finishOutline = part => {
+        const [left, bottom, right, top] = part.target
+        const inset = 0.06 * (top - bottom)
+        return placed(glyph, glyph.box, [left, bottom + inset, right, top - inset], composer.ink('未'), 'glyph 未', [-0.7, -0.25])
+      }
+      return [{ ...wei, finishOutline }, cheng, gong]
+    },
+  },
+  '⿰舟苗': {
+    glyphs: {},
+    apply(parts, composer) {
+      const boat = parts[0]
+      if (composer.fontStyle !== 'regular' || !composer.staticFace || composer.partial || composer.excluded('舳') ||
+          boat?.origin !== 'learned 艃' || boat.fixed) return parts
+      // In 舳 the narrow boat sits beside the enclosed 由, as it does beside 苗’s 田.
+      const record = composer.glyphRecord('舳')
+      if (record?.v !== 1 || !record.ls?.舟?.length ||
+          hexOf(JSON.stringify(record.p)) !== '69594bf137680197f31cc87bd11c7899a30d9f11cc7c259d727bd14a2c5c47a8') return parts
+      const cut = cutContours(partOf(record), record.ls.舟)
+      const finishOutline = p => fitInk(placed(cut, cut.box, p.target, p.native, '舟 from 舳'), p)
+      return [{ ...boat, finishOutline }, ...parts.slice(1)]
+    },
+  },
   // 𠷃 (BabelStone: ⿰口⿳穴𠆢又) has a broad, shallow 又. Its component's
   // proportions also occur in 𥔉. Keep both inner parts within 穴's outer span.
 
+  '⿰車ト': {
+    glyphs: { ト: 'ab453d8c58c4b817de9f562aaec9f1a600d347b59257584f93ff451e3d087c93' },
+    apply(parts, composer) {
+      if (composer.fontStyle !== 'regular' || !composer.staticFace || composer.partial || parts.length !== 2) return parts
+      const [car, kana] = parts
+      if (car.fixed || kana.fixed || car.origin !== 'learned 䡎' || kana.origin !== 'glyph ト' || composer.excluded('軋')) return parts
+      const record = composer.glyphRecord('軋')
+      if (record?.v !== 1 || hexOf(JSON.stringify(record.p)) !== '2bc1ae0f90e8ec4da0e920154e1b30487cd0a3f157fe252070b673a885244c1d') return parts
+      // 軋 places 車 beside a single stroke. Its last contour is the right-hand hook.
+      const column = cutContours(partOf(record), [0, 1, 2, 3, 4])
+      const buRecord = !composer.excluded('卜') && composer.glyphRecord('卜')
+      const right = buRecord?.v === 1 ? partOf(buRecord) : null
+      return [
+        { ...car, finishOutline: p => fitInk(placed(column, column.box, p.target, p.native, '車 from 軋'), p) },
+        // At this width the native 卜 needs a small lift to retain the approved upright and arm weights.
+        { ...kana, finishOutline: p => fitInk(right
+          ? placed(right, right.box, p.target, p.native, 'glyph 卜', [0.17, 0.08])
+          : { ...p, weight: [-0.8, -0.6] }, p) },
+      ]
+    },
+  },
+  '⿰生意': {
+    glyphs: {},
+    apply(parts, composer) {
+      if (parts.length !== 2 || !['regular', 'pen-writing'].includes(composer.fontStyle)) return parts
+      let [sheng, yi] = parts
+      if (composer.fontStyle === 'pen-writing') {
+        const frame = union([sheng.target, yi.target])
+        const move = Math.max(0, (yi.target[0] - sheng.target[2] - .008 * widthOf(frame)) / 2)
+        return [sheng, yi].map((part, i) => ({ ...part, target: part.target.map((v, axis) => axis % 2 ? v : v + (i ? -move : move)) }))
+      }
+      if (!composer.excluded('甥') &&
+          matches({ glyphs: { '甥': '8db2f5156d8bd3fbc122c207d283f5cd1372a975944f82539c440174e6852fce' } }, composer)) {
+        const donor = composer.glyph('甥'), left = derived(donor, [donor.contours[0]])
+        sheng = placed(left, left.box, sheng.target, composer.ink('甥'), 'host 甥')
+      }
+      // The raised foot of left-hand 生 tucks beside 意. Keep both columns near the same baseline.
+      const frame = union(parts.map(part => part.target))
+      return [{ ...sheng, target: mapped([0, .035, .43, .965], [0, 0, 1, 1], frame) },
+        { ...yi, target: mapped([.438, 0, 1, 1], [0, 0, 1, 1], frame) }]
+    },
+  },
+  '⿳吅工吅': {
+    glyphs: { '工': '681e3af08c44f984ad14700a49907b9839eb996d42adde52e2e86b6ea4a35277' },
+    apply(parts, composer) {
+      if (composer.fontStyle !== 'fangsong') return parts
+      const middle = parts.findIndex(p => p.origin === 'glyph 工')
+      const below = parts.length - middle - 1
+      if (middle < 1 || middle > 2 || below < 1 || below > 2) return parts
+      if (parts.every(p => p.fixed)) return parts
+      const gong = composer.glyph('工')
+      if (!(gong.contours[0]?.width?.[1] > 0) || parts.some(p => !p.part?.contours?.length)) return parts
+      const frame = union(parts.map(p => p.target))
+      // Each 吅 can be one host cut or two separately drawn mouths.
+      const rows = [parts.slice(0, middle), [parts[middle]], parts.slice(middle + 1)]
+      const bands = [[0.10, 0.67, 0.90, 1], [0, 0.37, 1, 0.64], [0.10, 0, 0.90, 0.33]]
+      const fitted = rows.flatMap((row, index) => {
+        const band = mapped(bands[index], [0, 0, 1, 1], frame)
+        const bounds = union(row.map(p => p.target))
+        return row.map(p => ({ ...p, target: mapped(p.target, bounds, band) }))
+      })
+      // Use the heaviest mouth horizontal as the weight of the two long bars.
+      const mouths = fitted.filter((_, i) => i !== middle)
+      const widths = mouths.map(p => (p.part.contours[0]?.width?.[1] ?? gong.contours[0].width[1]) * scaleOf(p)[1])
+      fitted[middle] = shortenGong(fitted[middle], gong, Math.max(...widths))
+      const original = parts.map(p => ({ ...p }))
+      // Measure both layouts at their final weights without changing a sibling enclosure's stroke.
+      const stroke = composer.stroke
+      try {
+        for (const group of [original, fitted]) {
+          if (!composer.partial && composer.weighted) composer.balance(group)
+          else if (!composer.partial && composer.staticFace) composer.staticBalance(group)
+        }
+      } finally {
+        composer.stroke = stroke
+      }
+      const rowRings = [fitted.slice(0, middle), [fitted[middle]], fitted.slice(middle + 1)].map(g => groupRings(g, 24))
+      const after = union(rowRings.flat().map(pointsBox))
+      const topGap = verticalGap(rowRings[0], rowRings[1], after)
+      const bottomGap = verticalGap(rowRings[1], rowRings[2], after)
+      if (topGap && bottomGap && topGap.min > 0 && bottomGap.min > 0) {
+        const gongBox = union(rowRings[1].map(pointsBox))
+        const lo = Math.max(after[1] - gongBox[1], -bottomGap.min / 2)
+        const hi = Math.min(after[3] - gongBox[3], topGap.min / 2)
+        const shift = Math.max(lo, Math.min(hi, (topGap.median - bottomGap.median) / 2))
+        const t = fitted[middle].target
+        fitted[middle] = { ...fitted[middle], target: [t[0], t[1] + shift, t[2], t[3] + shift] }
+      }
+      const before = union(groupRings(original, 24).map(pointsBox))
+      return fitted.map(p => ({ ...p, fixed: true, target: mapped(p.target, after, before) }))
+    },
+  },
   // As in 堇's lower body, 口 crosses the stem above both of 土's horizontal bars.
   '⿻口土': {
     glyphs: { '口': '412b5a81c5efb7a5f824853645e81e3aea284eb92b129004596757cdba72cc17',
@@ -664,6 +1218,17 @@ export const COMPONENT_FIXES = {
       const upper = { ...revised(top, contours), target: [top.target[0], lower.target[3] - 0.03 * height,
         top.target[2], top.target[3]] }
       return parts.map(part => part === mouth ? lower : part === top ? upper : part)
+    },
+  },
+  // 布依方塊古文字 shows a slightly upright oval with room on all four sides.
+  '⿴囗〇': {
+    glyphs: {},
+    apply(parts, composer) {
+      if (parts.length !== 2) return parts
+      const [frame, zero] = parts
+      const opening = composer.roomFromInk('⿴', [frame], drawnBox(frame))
+      if (!opening) return parts
+      return [frame, { ...zero, target: enclosedZeroTarget(zero, opening) }]
     },
   },
   // ⿵冂丨: the 丨 is laid in the frame's lower middle with its top short of the bar. In 㒳 and
