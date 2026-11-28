@@ -413,12 +413,12 @@ const danCliff = {
     const inCliff = box => mapped(box, [0, 0, 1, 1], frame)
     const pen = composer.fontStyle === 'pen-writing'
     // Seat 儿 directly under 厃's horizontal bar, followed by 工 and 口 of 𢀛.
-    // In WenKai (pen-writing), negative weight emboldens compressed inner strokes.
+    // Leave weights unlocked so the composer's winding-aware balancer weights each piece evenly.
     return [
       cliff,
-      { ...legs, target: inCliff(pen ? [0.35, 0.44, 0.95, 0.64] : [0.34, 0.45, 0.96, 0.66]), ...(pen ? { weight: [-0.30, -0.30], fixed: true } : {}) },
-      { ...gong, target: inCliff(pen ? [0.39, 0.23, 0.91, 0.40] : [0.38, 0.24, 0.92, 0.41]), ...(pen ? { weight: [-0.45, -0.45], fixed: true } : {}) },
-      { ...mouth, target: inCliff(pen ? [0.43, 0.01, 0.87, 0.20] : [0.43, 0.02, 0.87, 0.21]), ...(pen ? { weight: [-0.45, -0.45], fixed: true } : {}) },
+      { ...legs, target: inCliff(pen ? [0.35, 0.44, 0.95, 0.64] : [0.34, 0.45, 0.96, 0.66]) },
+      { ...gong, target: inCliff(pen ? [0.39, 0.23, 0.91, 0.40] : [0.38, 0.24, 0.92, 0.41]) },
+      { ...mouth, target: inCliff(pen ? [0.43, 0.01, 0.87, 0.20] : [0.43, 0.02, 0.87, 0.21]) },
     ]
   },
 }
@@ -430,12 +430,17 @@ const danCliff = {
 export const COMPONENT_FIXES = {
   '⿳丷冖兀': {
     glyphs: {},
-    apply(parts, composer) {
+    apply(parts, composer, region) {
       if (composer.fontStyle !== 'fangsong' || parts.length !== 3) return parts
       const [dots, cover, feet] = parts
-      // Keep the 571:264 proportion of the two top strokes in 半.
-      const box = fitted(dots.source, dots.target, 1)
-      return [{ ...dots, target: box }, cover, feet]
+      const cell = box => mapped(box, [0, 0, 1, 1], region)
+      // Keep the 571:264 proportion of 半's top strokes, widen 冖 into a full roof, and tuck 兀 inside 冖.
+      const dotsBox = fitted(dots.source, cell([0.19, 0.72, 0.81, 0.95]), 1)
+      return [
+        { ...dots, target: dotsBox },
+        { ...cover, target: cell([0.04, 0.49, 0.96, 0.73]) },
+        { ...feet, target: cell([0.11, 0.02, 0.89, 0.56]) },
+      ]
     },
   },
   '⿱加𠃍': {
