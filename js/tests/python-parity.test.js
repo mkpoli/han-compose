@@ -1,5 +1,6 @@
 import { expect, test } from 'bun:test'
 import { Composer } from '../src/compose.js'
+import { commands, makePart, placed } from '../src/geometry.js'
 import { character, constants } from './fixtures/small-export.js'
 
 const box = [[100, 0, 900, 800]]
@@ -60,4 +61,17 @@ test('layout prediction falls back to a positional form with table entries in th
   const [left, right] = c.predict('⿰', ['金', '言'])
   expect(left[0]).toBeCloseTo(40, 3)
   expect(right[0]).toBeCloseTo(460, 3)
+})
+
+test('closed leaves a bar-topped body with a flaring leg alone and closes a peaked foot', () => {
+  const poly = pts => ({ ops: commands('M' + 'L'.repeat(pts.length / 2 - 1)), light: Float64Array.from(pts), heavy: Float64Array.from(pts) })
+  const above = [placed(makePart([poly([100, 500, 900, 500, 900, 800, 100, 800])]), [100, 500, 900, 800], [100, 500, 900, 800], 0, 'above')]
+  // A body whose top bar spans 65% of its box (as 月's flaring left leg narrows its top share).
+  const body = [{ ...placed(makePart([poly([100, 0, 380, 480, 900, 480, 900, 0])]), [100, 0, 900, 480], [100, 0, 900, 480], 0, 'body'), gap: -120 }]
+  expect(composer.closed(body, above, 0.45)).toBe(false)
+  expect(body[0].target[3]).toBe(480)
+  // A peaked foot whose top spans 20% of its box still closes up to meet the bar above it.
+  const peak = [{ ...placed(makePart([poly([100, 0, 420, 480, 580, 480, 900, 0])]), [100, 0, 900, 480], [100, 0, 900, 480], 0, 'peak'), gap: -120 }]
+  expect(composer.closed(peak, above, 0.45)).toBe(true)
+  expect(peak[0].target[3]).toBeGreaterThan(500)
 })
