@@ -7,6 +7,7 @@ import inwardGrass from './inward-grass-forms.json' with { type: 'json' }
 import splitGrass from './split-grass-forms.json' with { type: 'json' }
 import dotForms from './ucv-dot-forms.json' with { type: 'json' }
 import muNet from './mu-net-forms.json' with { type: 'json' }
+import yaoNumbered from './yao-numbered.json' with { type: 'json' }
 import waterStrokeRow from './water-stroke-row.json' with { type: 'json' }
 import numbered from '../data/numbered-forms.json' with { type: 'json' }
 import { joinedComponentForm } from './constructs.js'
@@ -14,16 +15,22 @@ import waterEnclosure from './water-enclosure.json' with { type: 'json' }
 import constants from './constants.json' with { type: 'json' }
 import { WINDING, commands, derived, makePart, mapped, partInk, placed, svgPath, union, windingOf, wound } from './geometry.js'
 
+const mergeByStyle = (a = {}, b = {}) => Object.fromEntries(
+  [...new Set([...Object.keys(a), ...Object.keys(b)])].map(style => [style,
+    Array.isArray(a[style]) || Array.isArray(b[style])
+      ? [...(a[style] ?? []), ...(b[style] ?? [])]
+      : { ...a[style], ...b[style] }]))
+
 // Forms cut by hand from TW-Kai and the components every face draws from them, outside the
 // generated Noto and brush forms.
 const data = {
   ...generated,
-  forms: { ...generated.forms, ...overrides.forms },
-  native: { ...generated.native, ...overrides.native },
+  forms: mergeByStyle(generated.forms, overrides.forms),
+  native: mergeByStyle(generated.native, overrides.native),
   sources: { ...generated.sources, ...overrides.sources },
-  donors: { ...generated.donors, ...overrides.donors },
-  force: { ...generated.force, ...overrides.force },
-  replace: { ...generated.replace, ...overrides.replace },
+  donors: mergeByStyle(generated.donors, overrides.donors),
+  force: mergeByStyle(generated.force, overrides.force),
+  replace: mergeByStyle(generated.replace, overrides.replace),
 }
 const formOf = groups => {
   const parts = groups.map(group => makePart(group.map(([ops, points]) => ({ ops: commands(ops), light: points, heavy: points }))))
@@ -36,7 +43,11 @@ const formOf = groups => {
 // A `native` form gives a description its parts and nothing else: an encoded character that holds it
 // keeps its own glyph, and the layout reads what the export records of the description.
 const styles = Object.fromEntries(Object.entries(data.forms).map(([style, forms]) => [style,
-  new Map(Object.entries(forms).map(([text, groups]) => [text, { ...formOf(groups), native: data.native?.[style]?.includes(text) ?? false }]))]))
+  new Map(Object.entries(forms).map(([text, groups]) => {
+    const raw = data.donors?.[style]?.[text]
+    const donors = Array.isArray(raw) ? raw : typeof raw === 'string' ? [raw] : undefined
+    return [text, { ...formOf(groups), native: data.native?.[style]?.includes(text) ?? false, ...(donors ? { donors } : {}) }]
+  }))]))
 for (const [style, groups] of Object.entries(splitGrass)) styles[style].set('⺿', formOf(groups))
 for (const [style, groups] of Object.entries(inwardGrass)) styles[style].set('⻀', formOf(groups))
 // Adobe-Japan1 and Hanyo-Denshi register each of the two dot orientations.
@@ -73,6 +84,24 @@ const numberedStyles = Object.fromEntries(Object.entries(numbered.forms).map(([s
 // 潮語十五音: a short 丨 stands between the bend and hooked body cut from the same 水.
 for (const [style, groups] of Object.entries(waterStrokeRow)) styles[style].set('⿲㇇丨𰛅', { ...formOf(groups), donors: ['水', '丨'] })
 const numberedDrawing = (text, style) => numberedStyles[style]?.get(text) ?? null
+const numberedRefs = new Set()
+export const isNumberedReference = (text, style) => numberedRefs.has(text) && isComponentForm(text, style)
+// An expanded 幺 ancestor may expose a numbered sibling (notably {86} in 糹).
+// Keep the saved IDS spelling and draw the numbered component as one operand.
+for (const [text, {pua, contours}] of Object.entries(yaoNumbered.forms)) {
+  const fallback = formOf([contours])
+  const alias = '&X-' + text.slice(1, -1).padStart(5, '0') + ';'
+  numberedRefs.add(text)
+  numberedRefs.add(alias)
+  for (const [style, entries] of Object.entries(styles)) {
+    const own = numberedDrawing(pua, style)
+    if (!own && style !== 'serif' && style !== 'sans') continue
+    const form = own ? { ...own, origin: style + ': ' + text } :
+      { ...fallback, origin: yaoNumbered.source.font + ': ' + text }
+    entries.set(text, form)
+    entries.set(alias, form)
+  }
+}
 const positions = Object.fromEntries(Object.entries(data.positions ?? {}).map(([style, entries]) => [style,
   new Map(Object.entries(entries).map(([name, group]) => [name,
     wound(makePart(group.map(([ops, points]) => ({ ops: commands(ops), light: points, heavy: points }))))]))]))
