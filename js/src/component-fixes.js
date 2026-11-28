@@ -413,14 +413,61 @@ const danCliff = {
     const inCliff = box => mapped(box, [0, 0, 1, 1], frame)
     const pen = composer.fontStyle === 'pen-writing'
     // Seat 儿 directly under 厃's horizontal bar, followed by 工 and 口 of 𢀛.
-    // In WenKai (pen-writing), negative weight emboldens compressed inner strokes.
+    // Leave weights unlocked so the composer's winding-aware balancer weights each piece evenly.
     return [
       cliff,
-      { ...legs, target: inCliff(pen ? [0.35, 0.44, 0.95, 0.64] : [0.34, 0.45, 0.96, 0.66]), ...(pen ? { weight: [-0.30, -0.30], fixed: true } : {}) },
-      { ...gong, target: inCliff(pen ? [0.39, 0.23, 0.91, 0.40] : [0.38, 0.24, 0.92, 0.41]), ...(pen ? { weight: [-0.45, -0.45], fixed: true } : {}) },
-      { ...mouth, target: inCliff(pen ? [0.43, 0.01, 0.87, 0.20] : [0.43, 0.02, 0.87, 0.21]), ...(pen ? { weight: [-0.45, -0.45], fixed: true } : {}) },
+      { ...legs, target: inCliff(pen ? [0.35, 0.44, 0.95, 0.64] : [0.34, 0.45, 0.96, 0.66]) },
+      { ...gong, target: inCliff(pen ? [0.39, 0.23, 0.91, 0.40] : [0.38, 0.24, 0.92, 0.41]) },
+      { ...mouth, target: inCliff(pen ? [0.43, 0.01, 0.87, 0.20] : [0.43, 0.02, 0.87, 0.21]) },
     ]
   },
+}
+
+// TW-Kai's standalone 虍 draws a compact radical 七 high under the hood, leaving the lower half empty.
+// Pair 虍's outer hood with a full-body 七 (its bar gently tucked inside the sweep) and 劇's 刂.
+const REGULAR_HU_KNIFE_GLYPHS = {
+  虍: '326bc25a5f31bc4f817fd3c199b8f65e944048975fcb8133403901f8a8241fc1',
+  七: 'e4208fc15e393a9ef4e781f05267f31c41ea5cd62c7392774f19e1f18b7d6cf1',
+  劇: 'd186c04b225953fc06125546977b0af5ee1deeab23c8844ff4ba89b0963a00a0',
+}
+
+function regularHuPart(hu, qi) {
+  const hood = hu.contours[0], inner = qi.contours[0]
+  const tuck = arr => {
+    const out = Float64Array.from(arr)
+    for (let i = 0; i < out.length; i += 2) {
+      const x = out[i], y = out[i + 1]
+      const t = Math.max(0, Math.min(1, (y - 230) / 80))
+      if (t > 0) {
+        if (x < 395) out[i] = 395 - (395 - x) * (1 - t * 0.32)
+        else if (x > 460) out[i] = 460 + (x - 460) * (1 - t * 0.21)
+      }
+    }
+    return out
+  }
+  const innerTucked = { ...inner, light: tuck(inner.light), heavy: tuck(inner.heavy ?? inner.light) }
+  const leftFrame = [0, 0.005, 0.678, 1.005], qiFrame = [0.212, 0.035, 0.651, 0.638]
+  const placeIn = (contour, src, dst, [wx, wy]) => {
+    const sx = (dst[2] - dst[0]) / Math.max(src[2] - src[0], 1)
+    const sy = (dst[3] - dst[1]) / Math.max(src[3] - src[1], 1)
+    const srcLight = contour.light, srcHeavy = contour.heavy ?? srcLight
+    const light = new Float64Array(srcLight.length), heavy = new Float64Array(srcLight.length)
+    for (let i = 0; i < srcLight.length; i += 2) {
+      const dx = srcHeavy[i] - srcLight[i], dy = srcHeavy[i + 1] - srcLight[i + 1]
+      light[i] = (dst[0] + (srcLight[i] + wx * dx - src[0]) * sx) * 1000
+      light[i + 1] = (dst[1] + (srcLight[i + 1] + wy * dy - src[1]) * sy) * 1000
+      heavy[i] = light[i] + dx * sx * 1000
+      heavy[i + 1] = light[i + 1] + dy * sy * 1000
+    }
+    return { ...contour, light, heavy }
+  }
+  const hoodBox = pointsBox(hood.light), qiBox = pointsBox(innerTucked.light)
+  const contours = [
+    placeIn(hood, hoodBox, leftFrame, [0.24, 0]),
+    placeIn(innerTucked, qiBox, qiFrame, [0.44, -0.04]),
+  ]
+  const box = leftFrame.map(v => v * 1000)
+  return derived(hu, contours, box)
 }
 
 /**
@@ -430,12 +477,17 @@ const danCliff = {
 export const COMPONENT_FIXES = {
   '⿳丷冖兀': {
     glyphs: {},
-    apply(parts, composer) {
+    apply(parts, composer, region) {
       if (composer.fontStyle !== 'fangsong' || parts.length !== 3) return parts
       const [dots, cover, feet] = parts
-      // Keep the 571:264 proportion of the two top strokes in 半.
-      const box = fitted(dots.source, dots.target, 1)
-      return [{ ...dots, target: box }, cover, feet]
+      const cell = box => mapped(box, [0, 0, 1, 1], region)
+      // Give 丷 taller vertical strokes, lower 冖 as a full roof, and keep a shorter 兀 tucked inside 冖.
+      const dotsBox = fitted(dots.source, cell([0.16, 0.58, 0.84, 0.99]), 1.35)
+      return [
+        { ...dots, target: dotsBox },
+        { ...cover, target: cell([0.04, 0.36, 0.96, 0.60]) },
+        { ...feet, target: cell([0.13, 0.02, 0.87, 0.42]) },
+      ]
     },
   },
   '⿱加𠃍': {
@@ -490,6 +542,23 @@ export const COMPONENT_FIXES = {
   },
   '⿸厃⿱儿𢀛': danCliff,
   '⿸厃⿱儿⿱工口': danCliff,
+  '⿰虍刂': {
+    glyphs: {},
+    apply(parts, composer, region) {
+      if (composer.fontStyle !== 'regular' || ['劇', '虍', '七', '刂'].some(ch => composer.excluded(ch))) return parts
+      if (!matches({ glyphs: REGULAR_HU_KNIFE_GLYPHS }, composer)) return parts
+      const hu = composer.glyph('虍'), qi = composer.glyph('七'), donor = composer.glyph('劇')
+      if (!hu || !qi || !donor || hu.contours.length < 1 || qi.contours.length < 1 || donor.contours.length < 4) return parts
+      const fullHu = regularHuPart(hu, qi)
+      const knife = derived(donor, [donor.contours[2], donor.contours[3]])
+      const frame = box => mapped(box, [0, 0, 1, 1], region)
+      const atRoot = Boolean(region && composer.face && region.every((v, i) => Math.abs(v - composer.face[i]) < 1))
+      const left = placed(fullHu, fullHu.box, frame([0, 0.005, 0.678, 1.005]), composer.ink('虍'), '虍 with 七')
+      const right = placed(knife, knife.box, frame([0.702, -0.015, 0.99, 0.978]), composer.ink('劇'), '劇 刂')
+      if (atRoot) { left.fixed = true; right.fixed = true }
+      return [left, right]
+    },
+  },
   '⿲𠂤日千': {
     glyphs: {},
     apply(parts, composer) {
