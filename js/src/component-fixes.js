@@ -404,6 +404,25 @@ function penDoor(char) {
   }
 }
 
+const danCliff = {
+  glyphs: {},
+  apply(parts, composer) {
+    if (!['fangsong', 'pen-writing'].includes(composer.fontStyle) || parts.length !== 4) return parts
+    const [cliff, legs, gong, mouth] = parts
+    const frame = cliff.target
+    const inCliff = box => mapped(box, [0, 0, 1, 1], frame)
+    const pen = composer.fontStyle === 'pen-writing'
+    // Seat 儿 directly under 厃's horizontal bar, followed by 工 and 口 of 𢀛.
+    // In WenKai (pen-writing), negative weight emboldens compressed inner strokes.
+    return [
+      cliff,
+      { ...legs, target: inCliff(pen ? [0.35, 0.44, 0.95, 0.64] : [0.34, 0.45, 0.96, 0.66]), ...(pen ? { weight: [-0.30, -0.30], fixed: true } : {}) },
+      { ...gong, target: inCliff(pen ? [0.39, 0.23, 0.91, 0.40] : [0.38, 0.24, 0.92, 0.41]), ...(pen ? { weight: [-0.45, -0.45], fixed: true } : {}) },
+      { ...mouth, target: inCliff(pen ? [0.43, 0.01, 0.87, 0.20] : [0.43, 0.02, 0.87, 0.21]), ...(pen ? { weight: [-0.45, -0.45], fixed: true } : {}) },
+    ]
+  },
+}
+
 /**
  * The corrections, by description. `glyphs` ties each to the outlines it was read against.
  * A correction that cannot find the parts it names leaves the drawing as it is.
@@ -428,26 +447,70 @@ export const COMPONENT_FIXES = {
       return [upper, { ...hook, target: mapped([.23, .01, .75, .44], [0, 0, 1, 1], region) }]
     },
   },
-  '⿴𰀪⺀': {
+  '⿻足⿰矢隹': {
     glyphs: {},
     apply(parts, composer, region) {
-      if (composer.fontStyle !== 'fangsong' || parts.length !== 3 || parts[2].part.contours.length !== 2) return parts
-      const [slash, sweep, dots] = parts
+      if (parts.length < 2 || parts.length > 3) return parts
+      const foot = parts[0]
+      if (!foot || !/足/.test(foot.origin ?? '')) return parts
+      let left = parts[1], right = parts[2]
+      if (parts.length === 2) {
+        if (composer.excluded('矢') || composer.excluded('隹')) return parts
+        const arrow = composer.glyph('矢'), bird = composer.glyph('隹')
+        if (!arrow || !bird) return parts
+        left = placed(arrow, arrow.box, arrow.box, composer.ink('矢'), 'glyph 矢')
+        right = placed(bird, bird.box, bird.box, composer.ink('隹'), 'glyph 隹')
+      }
       const cell = box => mapped(box, [0, 0, 1, 1], region)
-      const dotParts = dots.part.contours.map(c => derived(dots.part, [c])).sort((a, b) => a.box[0] - b.box[0])
-      // In 𫜵 the upper stroke descends shallowly; the second dot sits above the first.
-      const strokes = dotParts.map((dot, i) => {
-        const to = cell(i ? [.39, .48, .62, .68] : [.13, .35, .37, .57])
-        const coords = points => points.map((v, k) => {
-          const axis = k % 2
-          return to[axis] + (v - dot.box[axis]) * (to[axis + 2] - to[axis]) / (dot.box[axis + 2] - dot.box[axis])
-        })
-        const c = dot.contours[0]
-        return { ...c, light: coords(c.light), heavy: coords(c.heavy) }
-      })
-      const pair = makePart(strokes)
-      return [{ ...slash, target: cell([.10, .70, .76, 1]) }, sweep,
-        placed(pair, pair.box, pair.box, dots.native, dots.origin)]
+      const narrow = composer.fontStyle === 'sans' || composer.fontStyle === 'serif'
+      // Keep 足 intact and connected: its 口 sits between 矢 and 隹 while 龰 extends beneath both.
+      const footBox = narrow ? [0.255, 0, 0.745, 0.99] : [0.22, 0, 0.78, 0.99]
+      const leftBox = narrow ? [0.00, 0.42, 0.285, 0.98] : [0.00, 0.42, 0.295, 1.00]
+      const rightBox = narrow ? [0.715, 0.42, 1.00, 0.98] : [0.705, 0.42, 1.00, 1.00]
+      return [
+        { ...foot, target: cell(footBox) },
+        { ...left, target: cell(leftBox) },
+        { ...right, target: cell(rightBox) },
+      ]
+    },
+  },
+  '⿱五⿻足⿰矢隹': {
+    glyphs: {},
+    apply(parts, _composer, region) {
+      if (parts.length !== 4) return parts
+      const [five, ...below] = parts
+      const cell = box => mapped(box, [0, 0, 1, 1], region)
+      const lower = union(below.map(p => p.target))
+      const lowerBand = cell([0, 0, 1, 0.74])
+      return [
+        { ...five, target: cell([0.25, 0.77, 0.75, 1.00]) },
+        ...below.map(p => ({ ...p, target: mapped(p.target, lower, lowerBand) })),
+      ]
+    },
+  },
+  '⿸厃⿱儿𢀛': danCliff,
+  '⿸厃⿱儿⿱工口': danCliff,
+  '⿲𠂤日千': {
+    glyphs: {},
+    apply(parts, composer) {
+      if (parts.length !== 3) return parts
+      const frame = union(parts.map(part => part.target))
+      if (composer.fontStyle === 'fangsong' || composer.fontStyle === 'regular') {
+        // In 𧗧 the central 日 spans about three quarters of the full ink height.
+        const [left, sun, right] = parts
+        const inset = composer.fontStyle === 'regular' ? .12 : .135
+        const height = heightOf(frame)
+        // Shortening 日 changes stroke balancing. Extend the flanks to restore the original ink bounds.
+        const limits = composer.fontStyle === 'regular' ? [0, -.0066, 1, 1.0066] : [0, -.0084, 1, 1.0097]
+        const outer = mapped(limits, [0, 0, 1, 1], frame)
+        return [{ ...left, target: mapped(left.target, frame, outer) }, { ...sun, target: [sun.target[0], frame[1] + inset * height,
+          sun.target[2], frame[3] - inset * height] }, { ...right, target: mapped(right.target, frame, outer) }]
+      }
+      if (composer.fontStyle !== 'pen-writing') return parts
+      // 日 is the short middle column. Give 千 room for its crossbar beside it.
+      const boxes = [[0, .0233, .3438, .9767], [.3837, .1588, .6478, .8412], [.6797, -.0018, .9966, 1.0018]]
+      return parts.map((part, i) => ({ ...part, target: mapped(boxes[i], [0, 0, 1, 1], frame),
+        weight: i === 0 ? [0, -.10] : i === 1 ? [-.68, -.20] : [-.60, -.12], fixed: true }))
     },
   },
   '⿰舟邊': {

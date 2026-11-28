@@ -1,5 +1,6 @@
 // @ts-nocheck: a port of han-compose's Python, kept line for line; its types are the arrays it reads.
 import fangsongComponents from './fangsong-components.json' with { type: 'json' }
+import cuanForms from './cuan-forms.json' with { type: 'json' }
 import { fangsongDottedHe, fitDottedHe, isDottedHe, markDottedHe } from './dotted-bopomofo.js'
 import { columnClearance, settleColumns } from './column-spacing.js'
 import { finishGrassTang, isGrassTang, markGrassTang } from './grass-tang.js'
@@ -888,6 +889,7 @@ export const designedSources = (tree, style = 'sans') => {
       }
     }
     if (!Array.isArray(node)) return
+    if (Object.hasOwn(cuanForms, style) && keyOf(node) === '⿱⿱⿴𦥑同冖𤍾') out.add('爨')
     const [op, ...children] = node
     for (const cell of specimenFor(node, style, keyOf) ?? []) for (const [ch] of cell) out.add(ch)
     if (brushSweepRoom(node, style)) {
@@ -924,6 +926,16 @@ export const designedSources = (tree, style = 'sans') => {
   return [...out]
 }
 
+// The left side of 龍 comprises the contours of 立 and 月. Its remaining contours draw 𳑳.
+// The five digests identify the verified cuts in Sans, Serif, FangSong, Regular and Pen.
+const DRAGON_LEFT = {
+  'f0d92e1589da3f6a476744119ca0ef131b59b5d45b11fa57d508f5c799419b5b': [0, 1, 2, 3, 4, 5, 6, 7, 8],
+  '2fad145903368fef4ae356280e508df73f5e6b8aca6c19b6efb4bd102c7884fa': [0, 1, 5, 6, 7, 8, 15, 16, 17],
+  '71c4fd45303ecbd3f4e38ba82935062cdbf5a9a627463ccfe629bf0088630bdd': [1, 2, 3, 4],
+  '6f08214b8280953ed5c94fd3b311a46de764bfd026dfbfbd069d6e68afd2f26f': [1, 2, 3, 4],
+  '140d6ac99f178cbc4b1e1c425a65fb73c721b0c3bb788b36794242c75959829c': [1, 2, 3, 4, 5, 6],
+}
+
 // Left components the export carries no host cuts for, taken from a designed character's glyph.
 /** Extension J ideographs drawn from a character every face draws, without its bottom stroke: 𲎰
  *  is 五 above its lower 一. 𲐬 is 巫 above its, with a second 人 under each 人 beside the stem
@@ -937,6 +949,8 @@ const FOOTLESS = { '𲎰': { host: '五' }, '𲐬': { host: '巫', doubled: true
 /** The sequences of the CJK Extension J ideographs whose parts a face can cut from its own
  *  characters (`scripts/build_extension_j_ids.py`). */
 const EXTENSION_J = /** @type {Record<string, string>} */ (extensionJ.sequences)
+/** Fallback decompositions for rare Ext-B components absent from brush exports whose parts are native. */
+const FALLBACK_IDS = { '𢀛': '⿱工口' }
 const DESIGNED_CUTS = {
   氵: ['𭰲', {
     '345749510c894ac303898cacbbd71bc35880cb6179990632d00b1ffe463f2d71': [0, 1, 2],
@@ -1174,6 +1188,10 @@ export class Composer {
 
   glyphRecord(ch) {
     const record = this.rec(ch), glyph = record?.G
+    if ((ch === '𦚏' || ch === '𳑳') && glyph?.v !== 1 && !this.excluded(ch)) {
+      const cut = this.dragonCuts()?.[ch]
+      if (cut) return cut
+    }
     // Exports that selected Unicode letters omit U+3007 (Letter Number). Use Zhuque's own 〇
     // when the source has no native record, including sources with a bundled fallback.
     if (ch === '〇' && this.fontStyle === 'fangsong' && !glyph?.v) return fangsongZero
@@ -1330,7 +1348,7 @@ export class Composer {
   }
   /** A character's sequence: the export's, else the bundled one of an Extension J ideograph, which
    *  the exports' source table does not reach. */
-  sequenceOf(ch) { return this.rec(ch)?.s ?? (Object.hasOwn(EXTENSION_J, ch) ? EXTENSION_J[ch] : null) }
+  sequenceOf(ch) { return this.rec(ch)?.s ?? (Object.hasOwn(EXTENSION_J, ch) ? EXTENSION_J[ch] : Object.hasOwn(FALLBACK_IDS, ch) ? FALLBACK_IDS[ch] : null) }
   atomic(ch) { return this.rec(ch)?.at === 1 }
 
   /** Outline length: a glyph's, or for an excluded or glyphless character its sequence's operands'. */
@@ -1567,9 +1585,11 @@ export class Composer {
    *  sequence, so its parts are laid out as the same sequence written by hand is. */
   writtenOut(node, seen = new Set()) {
     if (Array.isArray(node)) return mapOperands(node, operand => this.writtenOut(operand, seen))
-    if (typeof node !== 'string' || !Object.hasOwn(EXTENSION_J, node) || seen.has(node)) return node
+    const seq = typeof node === 'string' && !seen.has(node)
+      ? (Object.hasOwn(EXTENSION_J, node) ? EXTENSION_J[node] : Object.hasOwn(FALLBACK_IDS, node) ? FALLBACK_IDS[node] : null) : null
+    if (!seq) return node
     if (this.rec(node)?.s || this.glyphRecord(node)) return node
-    return this.writtenOut(this.parse(EXTENSION_J[node]), new Set([...seen, node]))
+    return this.writtenOut(this.parse(seq), new Set([...seen, node]))
   }
 
   /** What one drawing gathers as it goes, emptied before it starts. */
@@ -2039,7 +2059,7 @@ export class Composer {
         return
       }
       const repeated = isGroupedForm(keyOf(node), this.fontStyle) ? componentParts(keyOf(node), region, this.fontStyle, atRoot, this.exclude) : null
-      const designed = repeated ?? rccParts(editable, keyOf(node), region) ?? birdOutlineParts(this, keyOf(node), region) ?? this.doubleTurnParts(node, region) ?? brushSweepParts(this, node, region, !atRoot) ?? this.thornRowParts(node, region) ?? yiCrossParts(this, node, region) ?? this.qiParts(node, region) ?? ghostParts(this, node, region) ?? specimenParts(this, node, region, keyOf) ?? this.muKoParts(node, region) ?? this.wheatFaceParts(node, region)
+      const designed = repeated ?? rccParts(editable, keyOf(node), region) ?? birdOutlineParts(this, keyOf(node), region) ?? this.doubleTurnParts(node, region) ?? brushSweepParts(this, node, region, !atRoot) ?? this.thornRowParts(node, region) ?? yiCrossParts(this, node, region) ?? this.qiParts(node, region) ?? ghostParts(this, node, region) ?? specimenParts(this, node, region, keyOf) ?? this.cuanParts(node, region, atRoot) ?? this.muKoParts(node, region) ?? this.wheatFaceParts(node, region)
       if (designed) {
         const boxes = designed[0]?.rccGroup && rccLeafBoxes(designed, leafTexts(node).length)
         for (const box of boxes || designed.map(part => part.target)) out.push({ index: out.length, box, empty: false })
@@ -2558,6 +2578,55 @@ export class Composer {
     return parts.length ? parts : null
   }
 
+  /** The two hands, 同, the cover and the lower body as drawn in the face's own 爨. */
+  cuanParts(node, region, atRoot) {
+    if (!Array.isArray(node) || node[0] !== '⿱' || node[2] !== '𤍾' ||
+        keyOf(node[1]) !== '⿱⿴𦥑同冖' || !Object.hasOwn(cuanForms, this.fontStyle) ||
+        ['爨', '𦥑', '同', '冖', '𤍾'].some(ch => this.excluded(ch))) return null
+    const form = cuanForms[this.fontStyle], record = this.glyphRecord('爨')
+    if (record) {
+      if (hexOf(JSON.stringify(record.p)) !== form.digest) return null
+    } else {
+      // The sparse Pen export omits 爨 but identifies the font that supplied these cuts.
+      const fonts = this.data.manifest?.composer?.font_sha256
+      if (this.fontStyle !== 'pen-writing' || fonts?.['KureedoFull-Regular.ttf'] !==
+          '737f04de3b2b222664b5386628b0a15b009c7dd69086a1050dac0e507117c5d6') return null
+    }
+    const frame = atRoot ? this.C.face : record?.b ?? union(form.groups.map(group => group.b))
+    return form.groups.map((g, i) => {
+      const part = partOf(g)
+      return { ...placed(part, part.box, mapped(part.box, frame, region), partInk(part),
+        '爨 ' + ['𦥑', '同', '冖', '𤍾'][i]), fixed: true }
+    })
+  }
+
+  dragonCuts() {
+    if (this.excluded('龍')) return null
+    if (this._dragonCuts !== undefined) return this._dragonCuts
+    const record = this.glyphRecord('龍')
+    const left = record && DRAGON_LEFT[hexOf(JSON.stringify(record.p))]
+    if (!left) return this._dragonCuts = null
+    const glyph = partOf(record)
+    const cut = indices => ({
+      b: derived(glyph, indices.map(i => glyph.contours[i])).box, w: record.w, v: record.v,
+      p: indices.map(i => record.p[i]),
+    })
+    const right = glyph.contours.map((_, i) => i).filter(i => !left.includes(i))
+    return this._dragonCuts = { box: glyph.box, '𦚏': cut(left), '𳑳': cut(right) }
+  }
+
+  dragonParts(node, region, atRoot) {
+    if (!Array.isArray(node) || node[0] !== '⿰' || node[1] !== '𦚏' || node[2] !== '𳑳' ||
+        this.excluded('𳑳') || this.excluded('𦚏')) return null
+    const cuts = this.dragonCuts()
+    if (!cuts) return null
+    return node.slice(1).map(ch => {
+      const part = partOf(cuts[ch])
+      return { ...placed(part, part.box, mapped(part.box, atRoot ? this.C.face : cuts.box, region),
+        partInk(part), `龍 ${ch}`), fixed: true }
+    })
+  }
+
   /** R+06D8, 出土文獻與古文字教程 p. 15. The two sides of 棘 flank a shorter 企. */
   thornRowParts(node, region) {
     if (!isThornRow(node) || ['棘', '企', '朿'].some(ch => this.excluded(ch))) return null
@@ -2663,6 +2732,10 @@ export class Composer {
   }
 
   drawNode(node, region, atRoot = false, sideBySide = false, regroup = true) {
+    const cuan = this.cuanParts(node, region, atRoot)
+    if (cuan) return cuan
+    const dragon = this.dragonParts(node, region, atRoot)
+    if (dragon) return dragon
     const sweep = brushSweepParts(this, node, region, !atRoot)
     if (sweep) return sweep
     const yuan = this.yuanParts(node, region)
@@ -4390,7 +4463,8 @@ export class Composer {
       }
       if (op === '⿺' && i === 1 && groups[0].length === 1 && groups[0][0].origin.startsWith('glyph')) {
         const tail = this.tailForm(keyOf(children[0]))
-        const swept = sweptPart(groups[0][0], box[0] - C.FACING[0], C, tail)
+        const bareStroke = typeof children[0] === 'string' && /[\u31C0-\u31EF]/.test(children[0])
+        const swept = bareStroke ? null : sweptPart(groups[0][0], box[0] - C.FACING[0], C, tail)
         if (swept) {
           groups[0] = swept
           const opening = this.room(op, groups[0], frameOf)
@@ -4567,6 +4641,9 @@ export class Composer {
   sweptUnder(children, outer, region) {
     if (!this.layout?.ops.includes('⿺') || !this.hosted || this.partial) return null
     if (outer.length !== 1 || !outer[0].origin.startsWith('glyph')) return null
+    // A single CJK stroke (such as ㇉ in Noto Serif CJK) may carry several overlapping contours;
+    // sweeping splits them apart as if it were a multi-stroke enclosure.
+    if (typeof children[0] === 'string' && /[\u31C0-\u31EF]/.test(children[0])) return null
     const boxes = this.predict('⿺', children), frame = union(boxes)
     // Boxes the layout leaves empty place nothing, as `learned` reads them.
     if (!(frame[2] > frame[0] && frame[3] > frame[1] && boxes.every(b => b[2] > b[0] && b[3] > b[1]))) return null

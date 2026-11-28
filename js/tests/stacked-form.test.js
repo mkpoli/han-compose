@@ -28,7 +28,7 @@ for (const fontStyle of ['sans', 'serif']) {
   })
 }
 
-for (const fontStyle of ['sans', 'serif']) {
+for (const fontStyle of ['sans', 'serif', 'fangsong', 'regular', 'pen-writing']) {
   it(`${fontStyle} draws 黄金萬兩 whole from its editorial form`, async () => {
     const src = await source()
     for (const separate of [false, true]) {
