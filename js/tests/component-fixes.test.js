@@ -952,6 +952,40 @@ describe('日進斗金 ⿱⿰日斗⿺辶⿰隹金', () => {
   })
 })
 
+describe('⿱⿰虎⿿虎貝', () => {
+  const em = [0, 0, 1000, 1000]
+  it('separates both FangSong tigers from each other and from 貝 with a centered flip pivot', () => {
+    const left = part('glyph 虎', em, [66, 348, 479, 811], [em])
+    const turned = { ...part('glyph 虎', em, [527, 333, 950, 813], [em]), flips: [{ x: true, y: true, about: [713, 573] }] }
+    const shell = part('learned 贄', em, [138, -124, 795, 385], [em])
+    const [l, r, s] = componentFix('⿱⿰虎⿿虎貝', [left, turned, shell], { fontStyle: 'fangsong' })
+    expect(r.target[0]).toBeGreaterThan(l.target[2])
+    expect(l.target[1]).toBeGreaterThan(s.target[3])
+    expect(r.target[1]).toBeGreaterThan(s.target[3])
+    expect(r.flips[0].about[0]).toBeCloseTo((r.target[0] + r.target[2]) / 2, 6)
+    expect(r.flips[0].about[1]).toBeCloseTo((r.target[1] + r.target[3]) / 2, 6)
+    expect((s.target[0] + s.target[2]) / 2).toBeCloseTo((66 + 950) / 2, 6)
+  })
+
+  it('reduces Pen 貝 while emboldening it with negative weight to match the paired tigers', () => {
+    const left = part('host 虤', em, [93, 385, 489, 815], [em])
+    const turned = { ...part('glyph 虎', em, [522, 385, 919, 815], [em]), flips: [{ x: true, y: true, about: [720, 600] }] }
+    const shell = part('learned 贅', em, [138, -87, 836, 423], [em])
+    const [l, r, s] = componentFix('⿱⿰虎⿿虎貝', [left, turned, shell], {
+      fontStyle: 'pen-writing', staticFace: true, staticBalance: () => {},
+    })
+    expect(r.part).toBe(left.part)
+    expect(l.fixed).toBe(true)
+    expect(r.fixed).toBe(true)
+    expect(s.target[3]).toBeLessThan(shell.target[3])
+    expect(s.weight[0]).toBeLessThan(0)
+    expect(s.weight[1]).toBeLessThan(0)
+    expect(s.fixed).toBe(true)
+    // Unmatched faces stay unchanged.
+    expect(componentFix('⿱⿰虎⿿虎貝', [left, turned, shell], { fontStyle: 'serif' })).toEqual([left, turned, shell])
+  })
+})
+
 describe('FangSong ⿰𭃂尤', () => {
   const region = [53, -110, 949.5, 800]
   const boxGlyph = (box, extra = []) => {

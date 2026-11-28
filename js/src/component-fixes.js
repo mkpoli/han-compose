@@ -456,6 +456,43 @@ function regularHuPart(hu, qi) {
  * A correction that cannot find the parts it names leaves the drawing as it is.
  */
 export const COMPONENT_FIXES = {
+  '⿱⿰虎⿿虎貝': {
+    glyphs: {},
+    apply(parts, composer) {
+      if (parts.length !== 3) return parts
+      const [left, turned, shell] = parts
+      if (composer.fontStyle === 'fangsong' && turned.flips?.length) {
+        // Keep the two tigers clear of each other and above 貝, centering the
+        // flipped tiger’s pivot on its box so it stays aligned with the left one.
+        const frame = union(parts.map(part => part.target))
+        const leftBox = mapped([0, 0.515, 0.48, 1], [0, 0, 1, 1], frame)
+        const rightBox = mapped([0.52, 0.515, 1, 1], [0, 0, 1, 1], frame)
+        const shellBox = mapped([0.12, 0, 0.88, 0.495], [0, 0, 1, 1], frame)
+        const pivot = [centreX(rightBox), centreY(rightBox)]
+        const right = {
+          ...turned,
+          target: rightBox,
+          flips: turned.flips.map(flip => ({ ...flip, about: pivot })),
+        }
+        return [{ ...left, target: leftBox }, right, { ...shell, target: shellBox }]
+      }
+      if (composer.fontStyle !== 'pen-writing' || !['host 虤', 'learned 虤'].includes(left.origin) ||
+          turned.origin !== 'glyph 虎' || !turned.flips?.length) return parts
+      // Both tigers occupy the same band. Rotate the same left-hand cut to preserve its stroke weight.
+      const tigers = [{ ...left }, { ...turned, part: left.part, source: left.source,
+        native: left.native, origin: left.origin, weight: left.weight }]
+      if (!composer.partial && composer.staticFace) {
+        // Match the two cuts at their existing weight before reducing the lower component.
+        composer.staticBalance([...tigers, { ...shell }])
+        for (const tiger of tigers) tiger.fixed = true
+      }
+      // In Pen (WenKai), negative weight emboldens strokes to match the tigers above
+      // once 貝 is reduced into the lower band.
+      return [...tigers, { ...shell,
+        target: mapped([.06, 0, .94, .86], [0, 0, 1, 1], shell.target),
+        weight: [-.30, -.30], fixed: true }]
+    },
+  },
   '⿰𭃂尤': {
     glyphs: { 那: '01053051d8d88a7b1897eaf9ce7cfa94a5ec113e2512adddfca040b9a94943cc' },
     apply(parts, composer, region) {
