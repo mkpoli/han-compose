@@ -489,3 +489,25 @@ describe('a foot joined to the strokes above it in one outline', () => {
     expect(at(900, 100)).toBeCloseTo(900, 5)
   })
 })
+
+describe('a foot drawn as a stroke of its own', () => {
+  // A Mincho 是 low down: a part above, an upright of its own outline, and a foot that rises less
+  // than SWEEP_RISE from under the upright out to the right.
+  const int16 = (/** @type {number[]} */ values) => Buffer.from(Int16Array.from(values).buffer).toString('base64')
+  const contour = (/** @type {number[]} */ points) => ['M' + 'L'.repeat(points.length / 2 - 1), int16(points.map(v => v * 4)), int16(points.map(() => 0))]
+  const foot = [260, 0, 900, 0, 900, 60, 500, 60, 330, 220, 280, 220]
+  const glyph = partOf({ v: 1, b: [100, 0, 900, 800], p: [contour([100, 400, 700, 400, 700, 800, 100, 800]), contour([300, 100, 360, 100, 360, 400, 300, 400]), contour(foot)] })
+  const whole = placed(glyph, glyph.box, glyph.box.slice(), 6400, 'glyph 是')
+
+  it('is swept, its start pressed as the upright above it is', () => {
+    const swept = sweptPart(whole, 450, constants)
+    expect(swept).toHaveLength(2)
+    if (!swept) return
+    const pressed = (450 - 100) / (700 - 100)
+    const [drawn] = swept[1].part.contours
+    // The foot's start stays under the upright: both are pressed toward the glyph's left edge.
+    expect(drawn.light[0]).toBeCloseTo(100 + (260 - 100) * pressed, 5)
+    expect(drawn.light[10]).toBeCloseTo(100 + (280 - 100) * pressed, 5)
+    expect(drawn.light[2]).toBeCloseTo(900, 5)
+  })
+})
