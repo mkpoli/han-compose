@@ -15,18 +15,18 @@ const spellings = new Map([[sequence, [sequence, right, lower, crossed]],
 // Each group belongs to one editable IDS operand. In brush faces 兎 joins the walls,
 // falling stroke and hook. The triples follow the Bézier commands between their junctions.
 // The two inner edges of the native windows supply the sides of the crossing stroke.
-/** @type {Record<string,{ roofDonor: string, dotDonor: string, hashes: string[], gold: number[], cover: number[], dots: number[], tips: number[], join: number[], lower: (number | number[][])[][], frame: number[] }>} */
+/** @type {Record<string,{ roofDonor: string, dotDonor?: string, hashes: string[], gold: number[], cover: number[], dots: number[], tips?: number[], dotScale?: number[], dotWeight?: number[], leftRaise?: number, rightDrop?: number, dotInset?: number, rightTip?: number, baseRoom?: number[], baseWeight?: number[], roof?: number[], capWeight?: number[], join: number[], lower: (number | number[][])[][], frame: number[] }>} */
 const faces = {
   'sans': {
-    roofDonor: '䤟', dotDonor: '冞',
+    roofDonor: '䤟',
     hashes: [
       'ee9d9221366da16388f010d4d4b97c56d336e408d1dbfa40fb7fb6abb29444f2',
       '2a88b5b1b43dbce6d2a3731ddd228c1591c13e73a6911d1409ed4f076587c6f8',
-      '533bb939788ddf6bac5e77a4ec87a188e4cb273417525dc2c87cfe2e29fd870e',
       'a27e274012b4ebfa64512fbd66766ac8db59c637af78596306e30d0ff87c8ce3',
     ],
-    gold: [5,6,7,8,9,10,12,13], cover: [0], dots: [6, 5],
-    tips: [302, 677],
+    gold: [5,6,7,8,9,10,12,13], cover: [0], dots: [0, 1],
+    dotScale: [.52, .73], dotWeight: [.82, .36], leftRaise: 16, rightDrop: 16, dotInset: 32, rightTip: 772,
+    baseRoom: [515, 0, 975, 736], baseWeight: [.10, 0], roof: [492, 994, 969], capWeight: [-.08, -.08],
     join: [490, 590, 1],
     lower: [
       [0],
@@ -36,15 +36,15 @@ const faces = {
     frame: [27.6, -87.1, 969.5, 840.6],
   },
   'serif': {
-    roofDonor: '䤟', dotDonor: '冞',
+    roofDonor: '䤟',
     hashes: [
       'f1ef715fa6e67af55bbd4880e4b29c022e89c165c801edccb61bbcf71b91917c',
       '7250e545385bac4a242de90029adb7fe71379f59076d1e4d151d224b9d59bb28',
-      '1038f2ac1b32760a881efef3d1831cfa9ee17c628668211bb40710371ac94e54',
       '7429d1c52a5eb6f45d38f2ebdf7fe36e5dc9c300d8727d1f35879318b59c14b5',
     ],
-    gold: [6,7,8,9,10,11,12,13], cover: [8, 9, 10], dots: [5, 4],
-    tips: [317, 635],
+    gold: [6,7,8,9,10,11,12,13], cover: [8, 9, 10], dots: [2, 3],
+    dotScale: [.56, .70], dotWeight: [.52, .38], leftRaise: 20, rightDrop: 14, dotInset: 32, rightTip: 740,
+    baseRoom: [516, 0, 972, 748], baseWeight: [.10, 0], roof: [488, 996, 962],
     join: [488, 600, 8],
     lower: [
       [6],
@@ -110,7 +110,11 @@ const faces = {
 }
 
 /** @param {string} key @param {string} style */
-export const goldDonors = (key, style) => spellings.has(key) && faces[style] ? [...commonDonors, faces[style].dotDonor, faces[style].roofDonor] : []
+export function goldDonors(key, style) {
+  const face = faces[style]
+  if (!spellings.has(key) || !face) return []
+  return face.dotDonor ? [...commonDonors, face.dotDonor, face.roofDonor] : [...commonDonors, face.roofDonor]
+}
 
 /** @param {import('./compose.js').Composer} composer @param {string} key @param {number[]} region */
 export function goldParts(composer, key, region) {
@@ -121,43 +125,65 @@ export function goldParts(composer, key, region) {
   if ([...spelling, ...leaves, ...donors].some(ch => composer.excluded(ch))) return null
   const records = donors.map(ch => composer.glyphRecord(ch))
   if (records.some((r, i) => r?.v !== 1 || hexOf(JSON.stringify(r.p)) !== face.hashes[i])) return null
-  const [sharp, rabbit, nativeDots, nativeRoof] = records.map(r => partOf(r))
-  const metal = cutContours(sharp, face.gold), cap = cutContours(nativeRoof, face.cover)
-  const dots = cutContours(nativeDots, face.dots)
-  const base = face.lower.map(group => derived(rabbit, group.map(c =>
-    typeof c === 'number' ? rabbit.contours[c] : contourSections(rabbit.contours, ...c))))
+  const partsIn = records.map(r => partOf(r))
+  const sharp = partsIn[0], rabbit = partsIn[1]
+  const nativeDots = face.dotDonor ? partsIn[2] : null
+  const nativeRoof = partsIn[face.dotDonor ? 3 : 2]
+  const metal = cutContours(sharp, face.gold)
+  const capWeight = face.capWeight, baseWeight = face.baseWeight
+  const cap = capWeight
+    ? derived(nativeRoof, face.cover.map(i => weighted(nativeRoof.contours[i], capWeight[0], capWeight[1])))
+    : cutContours(nativeRoof, face.cover)
+  const base = face.lower.map(group => derived(rabbit, group.map(c => {
+    const raw = typeof c === 'number' ? rabbit.contours[c] : contourSections(rabbit.contours, ...c)
+    return baseWeight ? weighted(raw, baseWeight[0], baseWeight[1]) : raw
+  })))
   // Coordinates of the crossing junction in native 兎, followed by the left
-  // inset that leaves room beside the shorter dab.
+  // inset of the roof relative to the box below.
   const [x, y, leftInset] = face.join
   // In the print the second dot continues into the falling stroke. End the native
   // 兎 stroke at the top bar before joining the right-hand dab to it.
   if (composer.fontStyle === 'sans' || composer.fontStyle === 'serif')
     base[0] = bend(base[0], (a, b) => [a, Math.min(b, y)])
-  const box = union(base.map(g => g.box)), baseRoom = [465, 0, 1000, 687]
+  const box = union(base.map(g => g.box)), baseRoom = face.baseRoom ?? [465, 0, 1000, 687]
   const [jx, jy] = mapped([x, y, x, y], box, baseRoom)
   const rooms = base.map(g => mapped(g.box, box, baseRoom))
   rooms[2][3] += 9 // Extend the start of the hook into the bottom rail.
-  // 冞 supplies the top dots of 米, and FangSong 壶 supplies the side dots of
-  // 业. In the print the inner tips converge in the space
-  // occupied by the donor's upright strokes. The right dab reaches the box.
-  const [leftTip, rightTip] = face.tips
-  const [leftDot, rightDot] = face.dots.map(i => cutContours(nativeDots, [i]))
-  const left = rooms[1][0] + leftInset, height = 990 - jy
-  const split = (leftDot.box[2] + rightDot.box[0]) / 2
-  const leftDabTip = jx - (composer.fontStyle === 'sans' ? 78 : 63)
-  const leftDabScale = Math.min(.62, (leftDabTip - left - 65) / (leftTip - leftDot.box[0]))
-  const dabs = bend(dots, (a, b) => {
-    const onRight = a > split
-    const g = onRight ? rightDot : leftDot
-    const fraction = (b - g.box[1]) / (g.box[3] - g.box[1])
-    const x = onRight ? jx + (a - rightTip) * .66 : leftDabTip + (a - leftTip) * leftDabScale
-    const y = onRight ? jy - 9 + height * .68 * fraction : jy + height * (.13 + .37 * fraction)
-    return [x, y]
-  })
+  const left = rooms[1][0] + leftInset
+  let dabs
+  if (nativeDots && face.tips) {
+    // 冞 supplies the top dots of 米, and FangSong 壶 supplies the side dots of
+    // 业. The inner tips converge above 口 and the right dab meets the diagonal.
+    const dots = cutContours(nativeDots, face.dots)
+    const [leftTip, rightTip] = face.tips
+    const [leftDot, rightDot] = face.dots.map(i => cutContours(nativeDots, [i]))
+    const height = 990 - jy, split = (leftDot.box[2] + rightDot.box[0]) / 2
+    const leftDabTip = jx - 63
+    const leftDabScale = Math.min(.62, (leftDabTip - left - 65) / (leftTip - leftDot.box[0]))
+    dabs = bend(dots, (a, b) => {
+      const onRight = a > split
+      const g = onRight ? rightDot : leftDot
+      const fraction = (b - g.box[1]) / (g.box[3] - g.box[1])
+      const dx = onRight ? jx + (a - rightTip) * .66 : leftDabTip + (a - leftTip) * leftDabScale
+      const dy = onRight ? jy - 9 + height * .68 * fraction : jy + height * (.13 + .37 * fraction)
+      return [dx, dy]
+    })
+  } else {
+    // In Sans and Serif, 鋭 supplies compact inward dabs above 口; blend toward
+    // the heavy master before scaling so the shrunk strokes keep native weight.
+    const dotInset = face.dotInset ?? 32, rightTip = face.rightTip ?? 770
+    dabs = derived(sharp, face.dots.map((index, i) => {
+      const dot = derived(sharp, [weighted(sharp.contours[index], face.dotWeight?.[i] ?? 0)])
+      const scale = face.dotScale?.[i] ?? (i ? .73 : .54)
+      const ax = i ? jx : jx - dotInset, ay = i ? jy - (face.rightDrop ?? 16) : jy + (face.leftRaise ?? 18)
+      const tip = i ? rightTip : dot.box[2]
+      return bend(dot, (a, b) => [ax + (a - tip) * scale, ay + (b - dot.box[1]) * scale]).contours[0]
+    }))
+  }
   // 䤟 (釒 + 冗) and FangSong 暝 (日 + 冥) contain a roof drawn for the right
   // column. Scale its ridge and both terminals together above the editable dabs.
   const [capLeft, capBottom, capRight, capTop] = cap.box
-  const roofLeft = left - 13, roofRight = 966, roofTop = 977
+  const [roofLeft, roofRight, roofTop] = face.roof ?? [left - 13, 966, 977]
   const roofHeight = (capTop - capBottom) * (roofRight - roofLeft) / (capRight - capLeft)
   const roofRoom = [roofLeft, roofTop - roofHeight, roofRight, roofTop]
   const allRooms = [mapped(metal.box, sharp.box, [0, 0, 1000, 1000]), roofRoom, dabs.box, ...rooms]
@@ -180,4 +206,15 @@ function bend(glyph, move) {
     return out
   }
   return derived(glyph, glyph.contours.map((/** @type {any} */ c) => ({ ...c, light: remap(c.light), heavy: remap(c.heavy) })))
+}
+
+/** @param {any} contour @param {number} wx @param {number} [wy] */
+function weighted(contour, wx, wy = wx) {
+  if (!wx && !wy) return contour
+  const out = new Float64Array(contour.light.length)
+  for (let i = 0; i < out.length; i += 2) {
+    out[i] = contour.light[i] + (contour.heavy[i] - contour.light[i]) * wx
+    out[i + 1] = contour.light[i + 1] + (contour.heavy[i + 1] - contour.light[i + 1]) * wy
+  }
+  return { ...contour, light: out, heavy: out }
 }
