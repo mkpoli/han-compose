@@ -1,16 +1,15 @@
 import { expect, it } from 'bun:test'
 import { compose, createSource, sketch } from '../src/loader.js'
-import { contourSections, cutContours, partOf, pathMask, pathRings, pointsBox, rings } from '../src/geometry.js'
+import { cutContours, partOf, pathMask, pathRings, pointsBox, rings, union } from '../src/geometry.js'
 import { files, shards } from './fixtures/small-export.js'
 // Noto Sans CJK JP 2.004 and Zhuque Fangsong, SIL Open Font License 1.1.
 import records from './fixtures/rcc-gold.json' with { type: 'json' }
 
 const ids = '⿰金⿳冖丷⿸⿻[1:]丿口乚'
-const dotContours = {
-  sans: [0, 1], serif: [2, 3], regular: [4, 3],
-  fangsong: [4, [0, 18, 31]], 'pen-writing': [2, [1, 16, 21]],
+const sharpDots = {
+  sans: { indices: [0, 1], weights: [.82, .36] },
+  serif: { indices: [2, 3], weights: [.52, .38] },
 }
-const dotWeights = { sans: [.78, .32], serif: [.46, .32] }
 const aspect = ([left, bottom, right, top]) => (top - bottom) / (right - left)
 const touches = (a, b) => a.some((ink, i) => ink && b[i])
 
@@ -29,24 +28,33 @@ for (const [fontStyle, glyphs] of Object.entries(records)) {
       expect(touches(dabs[0], dabs[1])).toBe(false)
       expect(touches(dabs[0], mouth)).toBe(false)
       expect(touches(dabs[1], slash)).toBe(true)
-      const sharp = partOf(glyphs['鋭'].G), drawn = pathRings(parts[2].d, 24).map(pointsBox)
-      for (const [i, k] of dotContours[fontStyle].entries()) {
-        const contour = Array.isArray(k) ? contourSections(sharp.contours, k) : sharp.contours[k]
-        const w = dotWeights[fontStyle]?.[i] ?? 0
-        const pts = w ? contour.light.map((v, j) => v + (contour.heavy[j] - v) * w) : contour.light
-        const native = pointsBox(rings([contour], [pts], 24)[0])
-        expect(Math.abs(aspect(drawn[i]) / aspect(native) - 1)).toBeLessThan(.05)
-      }
-      expect(drawn[1][1]).toBeLessThan(drawn[0][1]) // Right dab rises higher than left dab (SVG y down).
+      expect(touches(dots, gold)).toBe(false)
       expect(parts[2].box[0]).toBeGreaterThan(parts[1].box[0])
       expect(parts[2].box[0] + parts[2].box[2]).toBeLessThan(parts[1].box[0] + parts[1].box[2])
-      expect(touches(dots, gold)).toBe(false)
       if (fontStyle === 'sans' || fontStyle === 'serif') {
+        const sharp = partOf(glyphs['鋭'].G), drawn = pathRings(parts[2].d, 24).map(pointsBox)
+        const crownBox = union(pathRings(parts[1].d, 24).map(pointsBox))
+        const { indices, weights } = sharpDots[fontStyle]
+        for (const [i, k] of indices.entries()) {
+          const contour = sharp.contours[k], w = weights[i]
+          const pts = contour.light.map((v, j) => v + (contour.heavy[j] - v) * w)
+          const native = pointsBox(rings([contour], [pts], 24)[0])
+          expect(Math.abs(aspect(drawn[i]) / aspect(native) - 1)).toBeLessThan(.05)
+          // Each dot sits predominantly inside 冖’s vertical span (font y up).
+          const inside = Math.max(0, Math.min(drawn[i][3], crownBox[3]) - Math.max(drawn[i][1], crownBox[1]))
+          expect(inside / (drawn[i][3] - drawn[i][1])).toBeGreaterThan(.6)
+        }
+        expect(drawn[1][3]).toBeGreaterThan(drawn[0][3]) // Right dab rises higher than left dab (font y up).
         expect(drawn[1][0] - drawn[0][2]).toBeGreaterThan(10)
         // Roof overhangs 口 clearly on both sides so the 兌-like body sits inside 冖.
         expect(parts[4].box[0] - parts[1].box[0]).toBeGreaterThan(50)
         expect(parts[1].box[0] + parts[1].box[2] - (parts[4].box[0] + parts[4].box[2])).toBeGreaterThan(45)
         expect(touches(gold, crown)).toBe(false)
+      } else {
+        const crest = parts[1].box[1], shoulder = parts[3].box[1]
+        const dabTop = dabs.map(mask => Math.floor(mask.findIndex(Boolean) / 384) * 1000 / 384)
+        expect(dabTop[1]).toBeLessThan(crest + (shoulder - crest) * .42)
+        expect(dabTop[1]).toBeLessThan(dabTop[0])
       }
       const donor = fontStyle === 'fangsong' ? '暝' : '䤟'
       const indices = fontStyle === 'serif' ? [8, 9, 10] : fontStyle === 'fangsong' ? [7] : [0]
@@ -80,6 +88,9 @@ for (const [fontStyle, glyphs] of Object.entries(records)) {
       for (const excluded of [ids, '鋭', '兎', '䤟', '⿳冖丷⿸⿻[1:]丿口乚', '⿸⿻[1:]丿口乚', '⿻[1:]丿口']) {
         expect((await compose(source, ids, { fontStyle, exclude: [excluded] })).origins).not.toContain('R+07DF 金')
       }
+    }
+    if (fontStyle === 'fangsong') {
+      expect((await compose(source, ids, { fontStyle, exclude: ['壶'] })).origins).not.toContain('R+07DF 金')
     }
     expect(cold).toHaveLength(6)
     expect(await sketch(source, ids, { fontStyle })).toEqual(cold)
