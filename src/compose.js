@@ -4914,6 +4914,17 @@ export class Composer {
         groups.push(stack)
       }
     })
+    // When every operand of a linear node is cut from the character the node itself spells (雲 for
+    // ⿱雨云, 龖 for ⿰龍龍), keep that character's own piece layout in `region` instead of raw ink shares.
+    const sameHost = !compactYan && groups.length >= 2 && groups.every(g => g.length === 1 && g[0].origin.startsWith('host ') && g[0].origin === groups[0][0].origin)
+      ? groups[0][0].origin.slice(5) : null
+    if (sameHost && this.bySequence(keyOf([op, ...children])) === sameHost) {
+      const sources = groups.map(g => g[0].source), frame = union(sources)
+      const distinct = new Set(sources.map(b => b.join(','))).size === sources.length
+      if (distinct && frame[2] > frame[0] && frame[3] > frame[1]) {
+        for (const [part] of groups) part.target = mapped(part.source, frame, region)
+      }
+    }
     if (compactYan && !this.partial) {
       // Restore just enough room when a whole-glyph outline protrudes toward 朱.
       const size = 512, mask = grown(fill(groupRings(groups[0]), size, region), size, 1)
