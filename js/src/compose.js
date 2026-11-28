@@ -868,6 +868,7 @@ export const designedSources = (tree, style = 'sans') => {
     const key = keyOf(node)
     if (key === '⿰舟苗' && style === 'regular') out.add('舳')
     if (key === '⿰車ト' && style === 'regular') { out.add('軋'); out.add('卜') }
+    if (key === '⿳丷冖兀') { out.add('一'); out.add('儿'); out.add('兀') }
     if (key === '⿰水行' && (style === 'regular' || style === 'pen-writing')) out.add('沀')
     if (key === '⿱艹堀' && style === 'pen-writing') { out.add('䕋'); out.add('䓛') }
     for (const char of rccDonors(key, style)) out.add(char)
