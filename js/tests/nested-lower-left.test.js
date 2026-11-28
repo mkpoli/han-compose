@@ -438,10 +438,13 @@ it('assembles the Misato shrine character from native 菱, 凌, and enclosing �
     const nested = await compose(src, `⿰口${sequence}`, { layout: 'cells', separate: true, fontStyle })
     const leftEdge = Math.min(...nested.parts.slice(1).map(p => p.box[0]))
     expect(leftEdge, `${fontStyle} nested`).toBeGreaterThan(nested.parts[0].box[0])
-    for (const excluded of ['菱', '凌', footHost, '艹', '玉']) {
+    for (const excluded of ['菱', '凌', footHost, '艹', '夌', '玉']) {
       const fallback = await compose(src, sequence, { exclude: [excluded], fontStyle })
       expect(fallback.origins, `${fontStyle} exclude ${excluded}`).not.toContain(`enclosing 夌 from 凌+${footHost}`)
     }
+    const foreignJade = { ...faceDonors.玉, G: { ...faceDonors.玉.G, f: 1 } }
+    const foreignRes = await compose(source({ ...faceDonors, 玉: foreignJade, 夌: records.木, 艹: records.口 }), sequence, { fontStyle })
+    expect(foreignRes.origins, `${fontStyle} foreign jade`).not.toContain(`enclosing 夌 from 凌+${footHost}`)
     const alteredFoot = { ...faceDonors[footHost], G: { ...faceDonors[footHost].G, p: [...faceDonors[footHost].G.p].reverse() } }
     const altered = await compose(source({ ...faceDonors, [footHost]: alteredFoot, 夌: records.木, 艹: records.口 }), sequence, { fontStyle })
     expect(altered.origins, `${fontStyle} altered foot`).not.toContain(`enclosing 夌 from 凌+${footHost}`)
