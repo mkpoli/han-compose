@@ -931,6 +931,14 @@ export const designedSources = (tree, style = 'sans') => {
   return [...out]
 }
 
+// Some published brush-face exports omit the records of these ideographs altogether.
+// Use their descriptions from data/vocab/han-ids.tsv when the export carries neither
+// an outline nor a description, including when one occurs inside another missing glyph.
+const MISSING_DESCRIPTIONS = new Map([
+  ['𠮚', '⿴口丶'], ['𡥦', '⿲子子子'], ['𢀛', '⿱工口'],
+  ['𤍾', '⿱林𤆍'], ['𤆍', '⿱大火'], ['𭰏', '⿰氵杂'],
+])
+
 // The left side of 龍 comprises the contours of 立 and 月. Its remaining contours draw 𳑳.
 // The five digests identify the verified cuts in Sans, Serif, FangSong, Regular and Pen.
 const DRAGON_LEFT = {
@@ -1408,6 +1416,11 @@ export class Composer {
   /** A character's sequence: the export's, else the bundled one of an Extension J ideograph, which
    *  the exports' source table does not reach. */
   sequenceOf(ch) { return this.rec(ch)?.s ?? (Object.hasOwn(EXTENSION_J, ch) ? EXTENSION_J[ch] : null) }
+
+  missingDescription(ch) {
+    const sequence = MISSING_DESCRIPTIONS.get(ch)
+    return sequence && !this.excluded(ch) && ![...sequence].some(key => this.excluded(key)) ? sequence : null
+  }
   atomic(ch) { return this.rec(ch)?.at === 1 }
 
   /** Outline length: a glyph's, or for an excluded or glyphless character its sequence's operands'. */
@@ -1912,7 +1925,17 @@ export class Composer {
           }
         }
         const glyph = this.glyph(node) ?? this.borrowedGlyph(node)
-        if (!glyph) throw new LookupError(`No glyph draws ${node}.`)
+        if (!glyph) {
+          const sequence = this.missingDescription(node)
+          if (!sequence) throw new LookupError(`No glyph draws ${node}.`)
+          const parts = this.cellLayout(this.parse(sequence), inset(target(box)), { leafIndices: false })
+          if (leafIndices) {
+            for (const part of parts) part.leaf = leaf
+            leaf++
+          }
+          out.push(...parts)
+          return
+        }
         // A cell allows a little more stretch than a composed part, so the glyph fills it; a
         // narrow cell still keeps the glyph's proportions instead of turning it into a sliver.
         const cell = inset(target(box)), inkBox = tightBox(glyph)
@@ -2751,7 +2774,27 @@ export class Composer {
     const triple = row[0] === '⿲' && child === '子'
     if (!(pair || triple) || !row.slice(1).every(part => part === child) ||
         this.excluded(child) || !this.glyph(child)) return null
-    const parts = this.cellLayout(['⿱', row, row], region, { leafIndices: false })
+    let parts = null
+    if (triple) {
+      // Use Pen's narrow side-host cuts for ⿲子子子 when available so the six 子 match
+      // native 𡦪 weight and proportions instead of squeezing six standalone glyphs.
+      const rowBands = [[0.02, 0.53, 0.98, 0.99], [0.02, 0.00, 0.98, 0.50]]
+      const colBoxes = [[0.00, 0, 0.31, 1], [0.345, 0, 0.655, 1], [0.69, 0, 1.00, 1]]
+      const colWeights = [[-0.22, -0.20], [-0.22, -0.20], [-0.35, -0.22]]
+      const firstRegion = mapped(rowBands[0], [0, 0, 1, 1], region)
+      const probe = componentFix(keyOf(row), this.drawNode(row, firstRegion, false), this, firstRegion)
+      if (probe.length === 3 && probe.some(part => part.origin !== 'glyph 子')) {
+        parts = rowBands.flatMap((band, r) => {
+          const rowRegion = mapped(band, [0, 0, 1, 1], region)
+          const drawn = r === 0 ? probe : componentFix(keyOf(row), this.drawNode(row, rowRegion, false), this, rowRegion)
+          return drawn.map((part, i) => ({
+            ...part, target: mapped(colBoxes[i], [0, 0, 1, 1], rowRegion),
+            weight: colWeights[i], fixed: true,
+          }))
+        })
+      }
+    }
+    if (!parts) parts = this.cellLayout(['⿱', row, row], region, { leafIndices: false })
     if (atRoot && this.separate) {
       const width = row.length - 1, firstLeaves = upper === '𡥦' ? 1 : width
       parts.forEach((part, i) => {
@@ -2894,8 +2937,10 @@ export class Composer {
     if (encoded && !this.expanding.has(encoded) && (typeof node === 'string' || !this.excluded(encoded))) {
       const glyph = this.drawnGlyph(encoded, !atRoot)
       let tree = typeof node !== 'string' ? node : null
-      if (!tree && this.sequenceOf(encoded) && !this.excluded(encoded)) {
-        try { tree = this.parse(this.sequenceOf(encoded)) } catch (error) {
+      const sequence = !tree && !this.excluded(encoded)
+        ? this.sequenceOf(encoded) ?? (!glyph && this.missingDescription(encoded)) : null
+      if (sequence) {
+        try { tree = this.parse(sequence) } catch (error) {
           if (!glyph && !this.borrowedGlyph(encoded)) throw new LookupError(`${encoded} has no glyph, and its sequence is malformed.`)
         }
         if (typeof tree === 'string') tree = null
