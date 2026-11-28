@@ -481,12 +481,12 @@ export const COMPONENT_FIXES = {
       if (composer.fontStyle !== 'fangsong' || parts.length !== 3) return parts
       const [dots, cover, feet] = parts
       const cell = box => mapped(box, [0, 0, 1, 1], region)
-      // Keep the 571:264 proportion of 半's top strokes, widen 冖 into a full roof, and tuck 兀 inside 冖.
-      const dotsBox = fitted(dots.source, cell([0.19, 0.72, 0.81, 0.95]), 1)
+      // Give 丷 taller vertical strokes, lower 冖 as a full roof, and keep a shorter 兀 tucked inside 冖.
+      const dotsBox = fitted(dots.source, cell([0.16, 0.58, 0.84, 0.99]), 1.35)
       return [
         { ...dots, target: dotsBox },
-        { ...cover, target: cell([0.04, 0.49, 0.96, 0.73]) },
-        { ...feet, target: cell([0.11, 0.02, 0.89, 0.56]) },
+        { ...cover, target: cell([0.04, 0.36, 0.96, 0.60]) },
+        { ...feet, target: cell([0.13, 0.02, 0.87, 0.42]) },
       ]
     },
   },
